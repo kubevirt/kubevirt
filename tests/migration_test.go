@@ -276,14 +276,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 		return vmi
 	}
-	runMigrationAndExpectCompletion := func(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
-		By("Starting a Migration")
-		var migrationCreated *v1.VirtualMachineInstanceMigration
-		Eventually(func() error {
-			migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
-			return err
-		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-		migration = migrationCreated
+	expectMigrationSuccess := func(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
 		By("Waiting until the Migration Completes")
 
 		uid := ""
@@ -303,6 +296,16 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
 		return uid
+	}
+	runMigrationAndExpectCompletion := func(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+		By("Starting a Migration")
+		var migrationCreated *v1.VirtualMachineInstanceMigration
+		Eventually(func() error {
+			migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+			return err
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+		migration = migrationCreated
+		return expectMigrationSuccess(migration, timeout)
 	}
 	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstanceMigration {
 		By("Starting a Migration")
@@ -878,6 +881,55 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
+			It("should reject additional migrations on the same VMI if the first one is not finished", func() {
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
+
+				// Only stressing the VMI for 60 seconds to ensure the first migration eventually succeeds
+				By("Stressing the VMI")
+				runStressTest(expecter)
+				expecter.Close()
+
+				By("Starting a first migration")
+				migration1 := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration1, err = virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(migration1)
+				Expect(err).To(BeNil())
+
+				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakyness
+				By("Starting 10 more migrations expecting all to fail to create")
+				var wg sync.WaitGroup
+				for n := 0; n < 10; n++ {
+					wg.Add(1)
+					go func(n int) {
+						defer GinkgoRecover()
+						defer wg.Done()
+						migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+						_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+						Expect(err).To(HaveOccurred(), fmt.Sprintf("Extra migration %d should have failed to create", n))
+						Expect(err.Error()).To(ContainSubstring(`admission webhook "migration-create-validator.kubevirt.io" denied the request: in-flight migration detected.`))
+					}(n)
+				}
+				wg.Wait()
+
+				expectMigrationSuccess(migration1, migrationWaitTime)
 
 				// delete VMI
 				By("Deleting the VMI")
