@@ -342,6 +342,18 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			close(done)
 		}, 5)
 
+		It("should fail to connect to the serial console if the VMI is Failed", func(done Done) {
+
+			request.PathParameters()["name"] = "testvmi"
+			request.PathParameters()["namespace"] = "default"
+
+			expectVMI(false, false)
+
+			app.ConsoleRequestHandler(request, response)
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			close(done)
+		}, 5)
+
 		It("should fail to connect to the serial console if the VMI is paused", func(done Done) {
 
 			request.PathParameters()["name"] = "testvmi"

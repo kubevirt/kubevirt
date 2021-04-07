@@ -199,6 +199,9 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 			log.Log.Object(vmi).Reason(err).Error("Can't establish a serial console connection.")
 			return errors.NewBadRequest(err.Error())
 		}
+		if vmi.Status.Phase == v1.Failed {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is in failed status"))
+		}
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
 		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is paused"))
