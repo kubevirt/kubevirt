@@ -469,22 +469,15 @@ func updateVMIEvictionBlocker(nodeName string, vmis []*k6tv1.VirtualMachineInsta
 	}
 }
 
-func (metrics *vmiMetrics) updateVMIEvictionBlockerXX() {
-	metrics.pushCommonMetric(
-		"kubevirt_vmi_non_evictable",
-		"Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
-		prometheus.GaugeValue,
-		checkNonEvictableVMAndSetMetric(metrics.vmi),
-	)
-}
-
 func checkNonEvictableVMAndSetMetric(vmi *k6tv1.VirtualMachineInstance) float64 {
 	setVal := 0.0
 	if vmi.IsEvictable() {
 		vmiIsMigratableCond := controller.NewVirtualMachineInstanceConditionManager().
 			GetCondition(vmi, k6tv1.VirtualMachineInstanceIsMigratable)
 
-		if vmiIsMigratableCond != nil && vmiIsMigratableCond.Status == k8sv1.ConditionFalse {
+		//As this metric is used for user alert we refer to be conservative - so if the VirtualMachineInstanceIsMigratable
+		//condition is still not set we treat the VM as if it's "not migratable"
+		if vmiIsMigratableCond == nil || vmiIsMigratableCond.Status == k8sv1.ConditionFalse {
 			setVal = 1.0
 		}
 
