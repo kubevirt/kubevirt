@@ -1505,7 +1505,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
-			It("[test_id:1678]should report defined CPU model", func() {
+			It("[QUARANTINE][test_id:1678]should report defined CPU model", func() {
 				supportedCPUs := tests.GetSupportedCPUModels(*nodes)
 				Expect(len(supportedCPUs)).ToNot(Equal(0))
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
