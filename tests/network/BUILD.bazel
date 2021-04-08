@@ -10,6 +10,7 @@ go_library(
         "primary_pod_network.go",
         "probes.go",
         "services.go",
+        "vmi_lifecycle.go",
         "vmi_multus.go",
         "vmi_networking.go",
         "vmi_slirp_interface.go",
