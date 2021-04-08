@@ -902,21 +902,21 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
-			cidrA := "fc00::1/64"
-			cidrB := "fc00::2/64"
-			ipA, err := cidrToIP(cidrA)
+			vmi1CIDR := "fc00::1/64"
+			vmi2CIDR := "fc00::2/64"
+			vmi1IP, err := cidrToIP(vmi1CIDR)
 			Expect(err).ToNot(HaveOccurred())
-			ipB, err := cidrToIP(cidrB)
+			vmi2IP, err := cidrToIP(vmi2CIDR)
 			Expect(err).ToNot(HaveOccurred())
 
 			//create two vms on the same sriov network
-			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
+			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, vmi1CIDR, vmi2CIDR)
 
 			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi1, ipA)
+				return libnet.PingFromVMConsole(vmi1, vmi2IP)
 			}, 15*time.Second, time.Second).Should(Succeed())
 			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi2, ipB)
+				return libnet.PingFromVMConsole(vmi2, vmi1IP)
 			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
