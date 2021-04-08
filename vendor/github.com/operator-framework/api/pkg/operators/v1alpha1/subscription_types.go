@@ -29,13 +29,13 @@ const (
 
 // SubscriptionSpec defines an Application that can be installed
 type SubscriptionSpec struct {
-	CatalogSource          string             `json:"source"`
-	CatalogSourceNamespace string             `json:"sourceNamespace"`
-	Package                string             `json:"name"`
-	Channel                string             `json:"channel,omitempty"`
-	StartingCSV            string             `json:"startingCSV,omitempty"`
-	InstallPlanApproval    Approval           `json:"installPlanApproval,omitempty"`
-	Config                 SubscriptionConfig `json:"config,omitempty"`
+	CatalogSource          string              `json:"source"`
+	CatalogSourceNamespace string              `json:"sourceNamespace"`
+	Package                string              `json:"name"`
+	Channel                string              `json:"channel,omitempty"`
+	StartingCSV            string              `json:"startingCSV,omitempty"`
+	InstallPlanApproval    Approval            `json:"installPlanApproval,omitempty"`
+	Config                 *SubscriptionConfig `json:"config,omitempty"`
 }
 
 // SubscriptionConfig contains configuration specified for a subscription.
@@ -60,7 +60,7 @@ type SubscriptionConfig struct {
 	// Immutable.
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// EnvFrom is a list of sources to populate environment variables in the container.
 	// The keys defined within a source must be a C_IDENTIFIER. All invalid keys

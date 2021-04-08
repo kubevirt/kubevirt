@@ -21,6 +21,8 @@ metadata:
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
+  cleanup:
+    enabled: false
   customresourcedefinitions:
     owned:
     - description: Represents the deployment of HyperConverged Cluster Operator

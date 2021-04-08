@@ -24,7 +24,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"github.com/ghodss/yaml"
 	"github.com/imdario/mergo"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"

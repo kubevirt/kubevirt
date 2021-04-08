@@ -118,7 +118,7 @@ func (f *ClientBuilder) Build() client.Client {
 		f.scheme = scheme.Scheme
 	}
 
-	tracker := testing.NewObjectTracker(f.scheme, scheme.Codecs.UniversalDecoder())
+	tracker := versionedTracker{ObjectTracker: testing.NewObjectTracker(f.scheme, scheme.Codecs.UniversalDecoder()), scheme: f.scheme}
 	for _, obj := range f.initObject {
 		if err := tracker.Add(obj); err != nil {
 			panic(fmt.Errorf("failed to add object %v to fake client: %w", obj, err))
@@ -135,9 +135,42 @@ func (f *ClientBuilder) Build() client.Client {
 		}
 	}
 	return &fakeClient{
-		tracker: versionedTracker{ObjectTracker: tracker, scheme: f.scheme},
+		tracker: tracker,
 		scheme:  f.scheme,
 	}
+}
+
+const trackerAddResourceVersion = "999"
+
+func (t versionedTracker) Add(obj runtime.Object) error {
+	var objects []runtime.Object
+	if meta.IsListType(obj) {
+		var err error
+		objects, err = meta.ExtractList(obj)
+		if err != nil {
+			return err
+		}
+	} else {
+		objects = []runtime.Object{obj}
+	}
+	for _, obj := range objects {
+		accessor, err := meta.Accessor(obj)
+		if err != nil {
+			return fmt.Errorf("failed to get accessor for object: %w", err)
+		}
+		if accessor.GetResourceVersion() == "" {
+			// We use a "magic" value of 999 here because this field
+			// is parsed as uint and and 0 is already used in Update.
+			// As we can't go lower, go very high instead so this can
+			// be recognized
+			accessor.SetResourceVersion(trackerAddResourceVersion)
+		}
+		if err := t.ObjectTracker.Add(obj); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (t versionedTracker) Create(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
