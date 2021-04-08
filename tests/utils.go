@@ -3136,7 +3136,7 @@ func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, contain
 	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, pod, containerName, command)
 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
 	}
 
 	if len(stderr) > 0 {
