@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,8 +28,135 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfigurations(caBundle []by
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admissionregistrationv1beta1.ValidatingWebhookConfiguration, caBundle []byte) error {
+func convertV1ValidatingWebhookToV1beta1(from *admissionregistrationv1.ValidatingWebhookConfiguration) (*admissionregistrationv1beta1.ValidatingWebhookConfiguration, error) {
+	var b []byte
+	b, err := from.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	webhookv1beta1 := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{}
+	if err = webhookv1beta1.Unmarshal(b); err != nil {
+		return nil, err
+	}
+	return webhookv1beta1, nil
+}
 
+func convertV1beta1ValidatingWebhookToV1(from *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+	var b []byte
+	b, err := from.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	webhookv1 := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+	if err = webhookv1.Unmarshal(b); err != nil {
+		return nil, err
+	}
+	return webhookv1, nil
+}
+
+func convertV1MutatingWebhookToV1beta1(from *admissionregistrationv1.MutatingWebhookConfiguration) (*admissionregistrationv1beta1.MutatingWebhookConfiguration, error) {
+	var b []byte
+	b, err := from.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	webhookv1beta1 := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
+	if err = webhookv1beta1.Unmarshal(b); err != nil {
+		return nil, err
+	}
+	return webhookv1beta1, nil
+}
+
+func convertV1beta1MutatingWebhookToV1(from *admissionregistrationv1beta1.MutatingWebhookConfiguration) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
+	var b []byte
+	b, err := from.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	webhookv1 := &admissionregistrationv1.MutatingWebhookConfiguration{}
+	if err = webhookv1.Unmarshal(b); err != nil {
+		return nil, err
+	}
+	return webhookv1, nil
+}
+
+func (r *Reconciler) patchValidatingWebhookConfiguration(webhook *admissionregistrationv1.ValidatingWebhookConfiguration, ops []string) (patchedWebhook *admissionregistrationv1.ValidatingWebhookConfiguration, err error) {
+	switch webhook.APIVersion {
+	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
+		patchedWebhook, err = r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
+		var out *admissionregistrationv1beta1.ValidatingWebhookConfiguration
+		out, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+		if err != nil {
+			return
+		}
+		patchedWebhook, err = convertV1beta1ValidatingWebhookToV1(out)
+	default:
+		err = fmt.Errorf("ValidatingWebhookConfiguration APIVersion %s not supported", webhook.APIVersion)
+	}
+	return
+}
+
+func (r *Reconciler) createValidatingWebhookConfiguration(webhook *admissionregistrationv1.ValidatingWebhookConfiguration) (createdWebhook *admissionregistrationv1.ValidatingWebhookConfiguration, err error) {
+	switch webhook.APIVersion {
+	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
+		createdWebhook, err = r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
+	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
+		var webhookv1beta1 *admissionregistrationv1beta1.ValidatingWebhookConfiguration
+		webhookv1beta1, err = convertV1ValidatingWebhookToV1beta1(webhook)
+		if err != nil {
+			return nil, err
+		}
+		webhookv1beta1, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), webhookv1beta1, metav1.CreateOptions{})
+		if err != nil {
+			return nil, err
+		}
+		createdWebhook, err = convertV1beta1ValidatingWebhookToV1(webhookv1beta1)
+	default:
+		err = fmt.Errorf("ValidatingWebhookConfiguration APIVersion %s not supported", webhook.APIVersion)
+	}
+	return
+}
+
+func (r *Reconciler) patchMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration, ops []string) (patchedWebhook *admissionregistrationv1.MutatingWebhookConfiguration, err error) {
+	switch webhook.APIVersion {
+	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
+		patchedWebhook, err = r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
+		var out *admissionregistrationv1beta1.MutatingWebhookConfiguration
+		out, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+		if err != nil {
+			return
+		}
+		patchedWebhook, err = convertV1beta1MutatingWebhookToV1(out)
+	default:
+		err = fmt.Errorf("MutatingWebhookConfiguration APIVersion %s not supported", webhook.APIVersion)
+	}
+	return
+}
+
+func (r *Reconciler) createMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration) (createdWebhook *admissionregistrationv1.MutatingWebhookConfiguration, err error) {
+	switch webhook.APIVersion {
+	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
+		createdWebhook, err = r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
+	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
+		var webhookv1beta1 *admissionregistrationv1beta1.MutatingWebhookConfiguration
+		webhookv1beta1, err = convertV1MutatingWebhookToV1beta1(webhook)
+		if err != nil {
+			return nil, err
+		}
+		webhookv1beta1, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), webhookv1beta1, metav1.CreateOptions{})
+		if err != nil {
+			return nil, err
+		}
+		createdWebhook, err = convertV1beta1MutatingWebhookToV1(webhookv1beta1)
+	default:
+		err = fmt.Errorf("MutatingWebhookConfiguration APIVersion %s not supported", webhook.APIVersion)
+	}
+	return
+}
+
+func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admissionregistrationv1.ValidatingWebhookConfiguration, caBundle []byte) error {
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	webhook = webhook.DeepCopy()
@@ -38,13 +166,13 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 	}
 	injectOperatorMetadata(r.kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
 
-	var cachedWebhook *admissionregistrationv1beta1.ValidatingWebhookConfiguration
+	var cachedWebhook *admissionregistrationv1.ValidatingWebhookConfiguration
 	var err error
 	obj, exists, _ := r.stores.ValidationWebhookCache.Get(webhook)
 	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 
 	if !exists {
-		cachedWebhook, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
+		cachedWebhook, err = r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			exists = false
 		} else if err != nil {
@@ -53,7 +181,7 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 			exists = true
 		}
 	} else {
-		cachedWebhook = obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
+		cachedWebhook = obj.(*admissionregistrationv1.ValidatingWebhookConfiguration)
 	}
 
 	certsMatch := true
@@ -68,13 +196,13 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 
 	if !exists {
 		r.expectations.ValidationWebhook.RaiseExpectations(r.kvKey, 1, 0)
-		webhook, err := r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
+		webhook, err := r.createValidatingWebhookConfiguration(webhook)
 		if err != nil {
 			r.expectations.ValidationWebhook.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create validatingwebhook %+v: %v", webhook, err)
 		}
 		SetValidatingWebhookConfigurationGeneration(&r.kv.Status.Generations, webhook)
-
+		log.Log.V(2).Infof("validatingwebhookconfiguration %v created", webhook.GetName())
 		return nil
 	}
 
@@ -110,7 +238,7 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 
 	ops = append(ops, fmt.Sprintf(replaceWebhooksValueTemplate, string(webhooks)))
 
-	webhook, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	webhook, err = r.patchValidatingWebhookConfiguration(webhook, ops)
 	if err != nil {
 		return fmt.Errorf("unable to update validatingwebhookconfiguration %+v: %v", webhook, err)
 	}
@@ -132,7 +260,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfigurations(caBundle []byte
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissionregistrationv1beta1.MutatingWebhookConfiguration, caBundle []byte) error {
+func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration, caBundle []byte) error {
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	webhook = webhook.DeepCopy()
@@ -143,12 +271,12 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 
 	injectOperatorMetadata(r.kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
 
-	var cachedWebhook *admissionregistrationv1beta1.MutatingWebhookConfiguration
+	var cachedWebhook *admissionregistrationv1.MutatingWebhookConfiguration
 	var err error
 	obj, exists, _ := r.stores.MutatingWebhookCache.Get(webhook)
 	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 	if !exists {
-		cachedWebhook, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
+		cachedWebhook, err = r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			exists = false
 		} else if err != nil {
@@ -157,7 +285,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 			exists = true
 		}
 	} else {
-		cachedWebhook = obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration)
+		cachedWebhook = obj.(*admissionregistrationv1.MutatingWebhookConfiguration)
 	}
 
 	certsMatch := true
@@ -172,14 +300,14 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 
 	if !exists {
 		r.expectations.MutatingWebhook.RaiseExpectations(r.kvKey, 1, 0)
-		webhook, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
+		webhook, err := r.createMutatingWebhookConfiguration(webhook)
 		if err != nil {
 			r.expectations.MutatingWebhook.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create mutatingwebhook %+v: %v", webhook, err)
 		}
 
 		SetMutatingWebhookConfigurationGeneration(&r.kv.Status.Generations, webhook)
-		log.Log.V(2).Infof("mutatingwebhoookconfiguration %v created", webhook.Name)
+		log.Log.V(2).Infof("mutatingwebhookconfiguration %v created", webhook.Name)
 		return nil
 	}
 
@@ -214,7 +342,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 
 	ops = append(ops, fmt.Sprintf(replaceWebhooksValueTemplate, string(webhooks)))
 
-	webhook, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	webhook, err = r.patchMutatingWebhookConfiguration(webhook, ops)
 	if err != nil {
 		return fmt.Errorf("unable to update mutatingwebhookconfiguration %+v: %v", webhook, err)
 	}

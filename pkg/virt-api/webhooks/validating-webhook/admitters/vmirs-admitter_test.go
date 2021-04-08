@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,12 +39,12 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	vmirsAdmitter := &VMIRSAdmitter{ClusterConfig: config}
 
-	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {
+	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: gvr,
 				Object: runtime.RawExtension{
 					Raw: []byte(data),
@@ -65,8 +65,8 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 	table.DescribeTable("reject invalid VirtualMachineInstance spec", func(vmirs *v1.VirtualMachineInstanceReplicaSet, causes []string) {
 		vmirsBytes, _ := json.Marshal(&vmirs)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmirsBytes,
@@ -127,8 +127,8 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 		}
 		vmirsBytes, _ := json.Marshal(&vmirs)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmirsBytes,

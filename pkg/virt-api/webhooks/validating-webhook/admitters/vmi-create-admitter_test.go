@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -103,8 +103,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		vmiBytes, _ := json.Marshal(&vmi)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmiBytes,
@@ -122,8 +122,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 		vmiBytes, _ := json.Marshal(&vmi)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmiBytes,
@@ -185,8 +185,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &v1beta1.AdmissionReview{
-				Request: &v1beta1.AdmissionRequest{
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
 					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmiBytes,
@@ -218,8 +218,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &v1beta1.AdmissionReview{
-				Request: &v1beta1.AdmissionRequest{
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
 					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmiBytes,
@@ -249,8 +249,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &v1beta1.AdmissionReview{
-				Request: &v1beta1.AdmissionRequest{
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
 					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmiBytes,
@@ -277,8 +277,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &v1beta1.AdmissionReview{
-				Request: &v1beta1.AdmissionRequest{
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
 					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmiBytes,
@@ -304,8 +304,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		vmiBytes, _ := json.Marshal(&vmi)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmiBytes,
@@ -317,8 +317,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	It("should allow unknown fields in the status to allow updates", func() {
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: []byte(`{"very": "unknown", "spec": { "extremely": "unknown" }, "status": {"unknown": "allowed"}}`),
@@ -330,12 +330,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`))
 	})
 
-	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {
+	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: gvr,
 				Object: runtime.RawExtension{
 					Raw: []byte(data),
@@ -361,9 +361,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				vmi := v1.NewMinimalVMI("testvmi")
 				vmi.Labels = vmiLabels
 				vmiBytes, _ := json.Marshal(&vmi)
-				ar := &v1beta1.AdmissionReview{
-					Request: &v1beta1.AdmissionRequest{
-						Operation: v1beta1.Create,
+				ar := &admissionv1.AdmissionReview{
+					Request: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Create,
 						UserInfo:  authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + userAccount},
 						Resource:  webhooks.VirtualMachineInstanceGroupVersionResource,
 						Object: runtime.RawExtension{

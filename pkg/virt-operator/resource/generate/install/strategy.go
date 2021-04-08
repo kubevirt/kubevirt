@@ -33,10 +33,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	secv1 "github.com/openshift/api/security/v1"
-	"k8s.io/api/admissionregistration/v1beta1"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -83,8 +82,8 @@ type Strategy struct {
 	services                        []*corev1.Service
 	deployments                     []*appsv1.Deployment
 	daemonSets                      []*appsv1.DaemonSet
-	validatingWebhookConfigurations []*v1beta1.ValidatingWebhookConfiguration
-	mutatingWebhookConfigurations   []*v1beta1.MutatingWebhookConfiguration
+	validatingWebhookConfigurations []*admissionregistrationv1.ValidatingWebhookConfiguration
+	mutatingWebhookConfigurations   []*admissionregistrationv1.MutatingWebhookConfiguration
 	apiServices                     []*apiregv1.APIService
 	certificateSecrets              []*corev1.Secret
 	sccs                            []*secv1.SecurityContextConstraints
@@ -152,11 +151,11 @@ func (ins *Strategy) DaemonSets() []*appsv1.DaemonSet {
 	return ins.daemonSets
 }
 
-func (ins *Strategy) ValidatingWebhookConfigurations() []*admissionregistrationv1beta1.ValidatingWebhookConfiguration {
+func (ins *Strategy) ValidatingWebhookConfigurations() []*admissionregistrationv1.ValidatingWebhookConfiguration {
 	return ins.validatingWebhookConfigurations
 }
 
-func (ins *Strategy) MutatingWebhookConfigurations() []*admissionregistrationv1beta1.MutatingWebhookConfiguration {
+func (ins *Strategy) MutatingWebhookConfigurations() []*admissionregistrationv1.MutatingWebhookConfiguration {
 	return ins.mutatingWebhookConfigurations
 }
 
@@ -562,16 +561,18 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 
 		switch obj.Kind {
 		case "ValidatingWebhookConfiguration":
-			webhook := &v1beta1.ValidatingWebhookConfiguration{}
+			webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 			if err := yaml.Unmarshal([]byte(entry), &webhook); err != nil {
 				return nil, err
 			}
+			webhook.TypeMeta = obj
 			strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, webhook)
 		case "MutatingWebhookConfiguration":
-			webhook := &v1beta1.MutatingWebhookConfiguration{}
+			webhook := &admissionregistrationv1.MutatingWebhookConfiguration{}
 			if err := yaml.Unmarshal([]byte(entry), &webhook); err != nil {
 				return nil, err
 			}
+			webhook.TypeMeta = obj
 			strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, webhook)
 		case "APIService":
 			apiService := &apiregv1.APIService{}

@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	expect "github.com/google/goexpect"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -171,9 +171,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		})
 	}
 
-	deleteWebhook := func(wh *admissionregistrationv1beta1.ValidatingWebhookConfiguration) {
+	deleteWebhook := func(wh *admissionregistrationv1.ValidatingWebhookConfiguration) {
 		waitDeleted(func() error {
-			return virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
+			return virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
 		})
 	}
 
@@ -206,7 +206,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		Context("and good snapshot exists", func() {
 			var err error
 			var snapshot *snapshotv1.VirtualMachineSnapshot
-			var webhook *admissionregistrationv1beta1.ValidatingWebhookConfiguration
+			var webhook *admissionregistrationv1.ValidatingWebhookConfiguration
 
 			BeforeEach(func() {
 				snapshot = createSnapshot(vm)
@@ -269,29 +269,32 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:5258]should reject restore if another in progress", func() {
-				fp := admissionregistrationv1beta1.Fail
+				fp := admissionregistrationv1.Fail
+				sideEffectNone := admissionregistrationv1.SideEffectClassNone
 				whPath := "/foobar"
 				whName := "dummy-webhook-deny-vm-update.kubevirt.io"
-				wh := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+				wh := &admissionregistrationv1.ValidatingWebhookConfiguration{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "temp-webhook-deny-vm-update",
 					},
-					Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
+					Webhooks: []admissionregistrationv1.ValidatingWebhook{
 						{
-							Name:          whName,
-							FailurePolicy: &fp,
-							Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-								Operations: []admissionregistrationv1beta1.OperationType{
-									admissionregistrationv1beta1.Update,
+							Name:                    whName,
+							AdmissionReviewVersions: []string{"v1", "v1beta1"},
+							FailurePolicy:           &fp,
+							SideEffects:             &sideEffectNone,
+							Rules: []admissionregistrationv1.RuleWithOperations{{
+								Operations: []admissionregistrationv1.OperationType{
+									admissionregistrationv1.Update,
 								},
-								Rule: admissionregistrationv1beta1.Rule{
+								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{v1.GroupName},
 									APIVersions: v1.ApiSupportedWebhookVersions,
 									Resources:   []string{"virtualmachines"},
 								},
 							}},
-							ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-								Service: &admissionregistrationv1beta1.ServiceReference{
+							ClientConfig: admissionregistrationv1.WebhookClientConfig{
+								Service: &admissionregistrationv1.ServiceReference{
 									Namespace: tests.NamespaceTestDefault,
 									Name:      "nonexistant",
 									Path:      &whPath,
@@ -300,7 +303,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 						},
 					},
 				}
-				wh, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
+				wh, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				webhook = wh
 

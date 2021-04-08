@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1
 
 import (
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -24,11 +24,6 @@ import (
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:prerelease-lifecycle-gen:introduced=1.9
-// +k8s:prerelease-lifecycle-gen:deprecated=1.19
-// This API is never server served.  It is used for outbound requests from apiservers.  This will ensure it never gets served accidentally
-// and having the generator against this group will protect future APIs which may be served.
-// +k8s:prerelease-lifecycle-gen:replacement=admission.k8s.io,v1,AdmissionReview
 
 // AdmissionReview describes an admission review request/response.
 type AdmissionReview struct {
@@ -120,7 +115,7 @@ type AdmissionRequest struct {
 // AdmissionResponse describes an admission response.
 type AdmissionResponse struct {
 	// UID is an identifier for the individual request/response.
-	// This should be copied over from the corresponding AdmissionRequest.
+	// This must be copied over from the corresponding AdmissionRequest.
 	UID types.UID `json:"uid" protobuf:"bytes,1,opt,name=uid"`
 
 	// Allowed indicates whether or not the admission request was permitted.

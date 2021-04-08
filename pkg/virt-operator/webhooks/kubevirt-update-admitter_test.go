@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -79,8 +79,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		kv.Spec.Workloads = &cc
 		kvUpdateBytes, _ := json.Marshal(&kv)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.KubeVirtGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: kvUpdateBytes,
@@ -88,7 +88,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: kvBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 
@@ -109,8 +109,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		}
 		kvUpdateBytes, _ := json.Marshal(&kv)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.KubeVirtGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: kvUpdateBytes,
@@ -118,7 +118,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: kvBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 
@@ -171,8 +171,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		}
 		kvUpdateBytes, _ := json.Marshal(&kv)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.KubeVirtGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: kvUpdateBytes,
@@ -180,7 +180,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: kvBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 

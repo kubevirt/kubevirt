@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,8 +105,8 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 		})
 
 		It("should reject invalid request resource", func() {
-			ar := &v1beta1.AdmissionReview{
-				Request: &v1beta1.AdmissionRequest{
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
 					Resource: webhooks.VirtualMachineGroupVersionResource,
 				},
 			}
@@ -487,12 +487,12 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 	})
 })
 
-func createRestoreAdmissionReview(restore *snapshotv1.VirtualMachineRestore) *v1beta1.AdmissionReview {
+func createRestoreAdmissionReview(restore *snapshotv1.VirtualMachineRestore) *admissionv1.AdmissionReview {
 	bytes, _ := json.Marshal(restore)
 
-	ar := &v1beta1.AdmissionReview{
-		Request: &v1beta1.AdmissionRequest{
-			Operation: v1beta1.Create,
+	ar := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Operation: admissionv1.Create,
 			Namespace: "default",
 			Resource: metav1.GroupVersionResource{
 				Group:    "snapshot.kubevirt.io",
@@ -507,13 +507,13 @@ func createRestoreAdmissionReview(restore *snapshotv1.VirtualMachineRestore) *v1
 	return ar
 }
 
-func createRestoreUpdateAdmissionReview(old, current *snapshotv1.VirtualMachineRestore) *v1beta1.AdmissionReview {
+func createRestoreUpdateAdmissionReview(old, current *snapshotv1.VirtualMachineRestore) *admissionv1.AdmissionReview {
 	oldBytes, _ := json.Marshal(old)
 	currentBytes, _ := json.Marshal(current)
 
-	ar := &v1beta1.AdmissionReview{
-		Request: &v1beta1.AdmissionRequest{
-			Operation: v1beta1.Update,
+	ar := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Operation: admissionv1.Update,
 			Namespace: "default",
 			Resource: metav1.GroupVersionResource{
 				Group:    "snapshot.kubevirt.io",

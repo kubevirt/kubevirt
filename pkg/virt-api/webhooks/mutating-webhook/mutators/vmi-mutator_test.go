@@ -28,7 +28,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	v12 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -65,9 +65,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmiBytes, err := json.Marshal(vmi)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the VMI")
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
-				Operation: v1beta1.Create,
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Create,
 				Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
 				Object: runtime.RawExtension{
 					Raw: vmiBytes,
@@ -98,12 +98,12 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		newVMIBytes, err := json.Marshal(newVMI)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the VMI")
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				UserInfo: v12.UserInfo{
 					Username: user,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 				Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
 				Object: runtime.RawExtension{
 					Raw: newVMIBytes,

@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -38,7 +38,7 @@ type VMIUpdateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
 
-func (admitter *VMIUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 
 	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
@@ -71,13 +71,13 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 		return reviewResponse
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
 }
 
 // admitHotplug compares the old and new volumes and disks, and ensures that they match and are valid.
-func admitHotplug(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) *v1beta1.AdmissionResponse {
+func admitHotplug(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) *admissionv1.AdmissionResponse {
 	if len(newVolumes) != len(newDisks) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
@@ -112,7 +112,7 @@ func admitHotplug(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Di
 	return nil
 }
 
-func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk) *v1beta1.AdmissionResponse {
+func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk) *admissionv1.AdmissionResponse {
 	for k, v := range newHotplugVolumeMap {
 		if _, ok := oldHotplugVolumeMap[k]; ok {
 			// New and old have same volume, ensure they are the same
@@ -174,7 +174,7 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 	return nil
 }
 
-func verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk) *v1beta1.AdmissionResponse {
+func verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk) *admissionv1.AdmissionResponse {
 	if len(newPermanentVolumeMap) != len(oldPermanentVolumeMap) {
 		// Removed one of the permanent volumes, reject admission.
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
@@ -261,7 +261,7 @@ func getPermanentVolumes(volumes []v1.Volume, volumeStatuses []v1.VolumeStatus) 
 func admitVMILabelsUpdate(
 	newVMI *v1.VirtualMachineInstance,
 	oldVMI *v1.VirtualMachineInstance,
-	ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 
 	if webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
 		return nil

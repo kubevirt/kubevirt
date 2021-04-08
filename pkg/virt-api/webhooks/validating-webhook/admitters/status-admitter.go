@@ -1,7 +1,7 @@
 package admitters
 
 import (
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 
 	webhooks2 "kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 
@@ -12,7 +12,7 @@ type StatusAdmitter struct {
 	VmsAdmitter *VMsAdmitter
 }
 
-func (s *StatusAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (s *StatusAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if resp := webhooks.ValidateStatus(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
@@ -21,7 +21,7 @@ func (s *StatusAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRe
 		return s.VmsAdmitter.AdmitStatus(ar)
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
 }

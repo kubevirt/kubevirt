@@ -22,7 +22,7 @@ package admitters
 import (
 	"reflect"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -60,7 +60,7 @@ func ensureSelectorLabelSafe(newMigration *v1.VirtualMachineInstanceMigration, o
 	return []metav1.StatusCause{}
 }
 
-func (admitter *MigrationUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *MigrationUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	// Get new migration from admission response
 	newMigration, oldMigration, err := getAdmissionReviewMigration(ar)
 	if err != nil {
@@ -87,7 +87,7 @@ func (admitter *MigrationUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
 }

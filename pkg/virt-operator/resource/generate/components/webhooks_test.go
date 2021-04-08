@@ -3,7 +3,7 @@ package components
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admissionregistration/v1beta1"
+	v1 "k8s.io/api/admissionregistration/v1"
 )
 
 var _ = Describe("Webhooks", func() {
@@ -36,7 +36,7 @@ var _ = Describe("Webhooks", func() {
 	It("should make all virt-api mutating webhook required", func() {
 		configuration := NewVirtAPIMutatingWebhookConfiguration("testnamespace")
 		for _, webhook := range configuration.Webhooks {
-			Expect(*webhook.FailurePolicy).To(Equal(v1beta1.Fail))
+			Expect(*webhook.FailurePolicy).To(Equal(v1.Fail))
 		}
 	})
 
@@ -44,9 +44,9 @@ var _ = Describe("Webhooks", func() {
 		configuration := NewVirtAPIValidatingWebhookConfiguration("testnamespace")
 		for _, webhook := range configuration.Webhooks {
 			if webhook.Name == "virt-launcher-eviction-interceptor.kubevirt.io" {
-				Expect(*webhook.FailurePolicy).To(Equal(v1beta1.Ignore))
+				Expect(*webhook.FailurePolicy).To(Equal(v1.Ignore))
 			} else {
-				Expect(*webhook.FailurePolicy).To(Equal(v1beta1.Fail))
+				Expect(*webhook.FailurePolicy).To(Equal(v1.Fail))
 			}
 		}
 	})
