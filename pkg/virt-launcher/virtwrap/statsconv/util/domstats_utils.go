@@ -170,23 +170,13 @@ var Testdataexpected = `{
      "SwapOut": 0,
      "SwapOutSet": false,
      "Unused": 0, 
-     "UnusedSet": false,
-     "MajorFault": 0,
-     "MajorFaultSet": false,
-     "MinorFault": 0,
-     "MinorFaultSet": false,
-     "Usable": 0,
-     "UsableSet": false,
-     "Total": 0,
-     "TotalSet": false
+     "UnusedSet": false
    }, 
    "Name": "testName", 
    "Net": [
      {
        "Name": "vnet0", 
        "NameSet": true, 
-       "Alias": "",
-       "AliasSet": false,
        "RxBytes": 29735062, 
        "RxBytesSet": true, 
        "RxDrop": 0, 

@@ -32,7 +32,7 @@ type DomainIdentifier interface {
 	GetUUIDString() (string, error)
 }
 
-func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, inDomInfo *libvirt.DomainInfo, devAliasMap map[string]string, out *stats.DomainStats) error {
+func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, out *stats.DomainStats) error {
 	name, err := ident.GetName()
 	if err != nil {
 		return err
@@ -46,9 +46,9 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	out.UUID = uuid
 
 	out.Cpu = Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in.Cpu)
-	out.Memory = Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem, inDomInfo)
+	out.Memory = Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem)
 	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu)
-	out.Net = Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in.Net, devAliasMap)
+	out.Net = Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in.Net)
 	out.Block = Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in.Block)
 
 	return nil
@@ -69,14 +69,8 @@ func Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in *libvirt.DomainSt
 	}
 }
 
-func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.DomainMemoryStat, inDomInfo *libvirt.DomainInfo) *stats.DomainStatsMemory {
+func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.DomainMemoryStat) *stats.DomainStatsMemory {
 	ret := &stats.DomainStatsMemory{}
-
-	if inDomInfo != nil {
-		ret.TotalSet = true
-		ret.Total = inDomInfo.Memory
-	}
-
 	for _, stat := range inMem {
 		tag := libvirt.DomainMemoryStatTags(stat.Tag)
 		switch tag {
@@ -98,15 +92,6 @@ func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.Domai
 		case libvirt.DOMAIN_MEMORY_STAT_SWAP_OUT:
 			ret.SwapOutSet = true
 			ret.SwapOut = stat.Val
-		case libvirt.DOMAIN_MEMORY_STAT_MAJOR_FAULT:
-			ret.MajorFaultSet = true
-			ret.MajorFault = stat.Val
-		case libvirt.DOMAIN_MEMORY_STAT_MINOR_FAULT:
-			ret.MinorFaultSet = true
-			ret.MinorFault = stat.Val
-		case libvirt.DOMAIN_MEMORY_STAT_USABLE:
-			ret.UsableSet = true
-			ret.Usable = stat.Val
 		}
 	}
 	return ret
@@ -127,10 +112,10 @@ func Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in []libvirt.Domai
 	return ret
 }
 
-func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainStatsNet, devAliasMap map[string]string) []stats.DomainStatsNet {
+func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainStatsNet) []stats.DomainStatsNet {
 	ret := make([]stats.DomainStatsNet, 0, len(in))
 	for _, inItem := range in {
-		netStat := stats.DomainStatsNet{
+		ret = append(ret, stats.DomainStatsNet{
 			NameSet:    inItem.NameSet,
 			Name:       inItem.Name,
 			RxBytesSet: inItem.RxBytesSet,
@@ -149,13 +134,7 @@ func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainS
 			TxErrs:     inItem.TxErrs,
 			TxDropSet:  inItem.TxDropSet,
 			TxDrop:     inItem.TxDrop,
-		}
-
-		if inItem.NameSet {
-			netStat.Alias, netStat.AliasSet = devAliasMap[inItem.Name]
-		}
-
-		ret = append(ret, netStat)
+		})
 	}
 	return ret
 }

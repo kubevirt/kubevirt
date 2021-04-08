@@ -84,8 +84,6 @@ type DomainStatsVcpu struct {
 type DomainStatsNet struct {
 	NameSet    bool
 	Name       string
-	AliasSet   bool
-	Alias      string
 	RxBytesSet bool
 	RxBytes    uint64
 	RxPktsSet  bool
@@ -152,12 +150,4 @@ type DomainStatsMemory struct {
 	SwapIn           uint64
 	SwapOutSet       bool
 	SwapOut          uint64
-	MajorFaultSet    bool
-	MajorFault       uint64
-	MinorFaultSet    bool
-	MinorFault       uint64
-	UsableSet        bool
-	Usable           uint64
-	TotalSet         bool
-	Total            uint64
 }

@@ -106,67 +106,19 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 		)
 	}
 
-	if mem.SwapInSet {
-		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_swap_in_traffic_bytes_total",
-			"Swap in memory traffic in bytes",
-			prometheus.GaugeValue,
-			float64(mem.SwapIn)*1024,
+	if mem.SwapInSet || mem.SwapOutSet {
+		desc := metrics.newPrometheusDesc(
+			"kubevirt_vmi_memory_swap_traffic_bytes_total",
+			"swap memory traffic.",
+			[]string{"type"},
 		)
-	}
 
-	if mem.SwapOutSet {
-		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_swap_out_traffic_bytes_total",
-			"Swap out memory traffic in bytes",
-			prometheus.GaugeValue,
-			float64(mem.SwapOut)*1024,
-		)
-	}
-
-	if mem.MajorFaultSet {
-		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_pgmajfault",
-			"The number of page faults when disk IO was required.",
-			prometheus.CounterValue,
-			float64(mem.MajorFault),
-		)
-	}
-
-	if mem.MinorFaultSet {
-		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_pgminfault",
-			"The number of other page faults, when disk IO was not required.",
-			prometheus.CounterValue,
-			float64(mem.MinorFault),
-		)
-	}
-
-	if mem.ActualBalloonSet {
-		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_actual_balloon_bytes",
-			"current balloon bytes.",
-			prometheus.GaugeValue,
-			float64(mem.ActualBalloon)*1024,
-		)
-	}
-
-	if mem.UsableSet {
-		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_usable_bytes",
-			"The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.",
-			prometheus.GaugeValue,
-			float64(mem.Usable)*1024,
-		)
-	}
-
-	if mem.TotalSet {
-		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_used_total_bytes",
-			"The amount of memory in bytes used by the domain.",
-			prometheus.GaugeValue,
-			float64(mem.Total)*1024,
-		)
+		if mem.SwapInSet {
+			metrics.pushPrometheusMetric(desc, prometheus.GaugeValue, float64(mem.SwapIn)*1024, []string{"in"})
+		}
+		if mem.SwapOutSet {
+			metrics.pushPrometheusMetric(desc, prometheus.GaugeValue, float64(mem.SwapOut)*1024, []string{"out"})
+		}
 	}
 }
 
@@ -278,14 +230,6 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 			continue
 		}
 
-		ifaceLabel := net.Name
-		if net.AliasSet {
-			ifaceLabel = net.Alias
-		}
-
-		netLabels := []string{"interface"}
-		netLabelValues := []string{ifaceLabel}
-
 		if net.RxBytesSet || net.TxBytesSet {
 			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_network_traffic_bytes_total",
@@ -295,93 +239,40 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 
 			if net.RxBytesSet {
 				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.RxBytes), []string{net.Name, "rx"})
-				metrics.pushCustomMetric(
-					"kubevirt_vmi_network_receive_bytes_total",
-					"Network traffic receive in bytes",
-					prometheus.CounterValue,
-					float64(net.RxBytes),
-					netLabels,
-					netLabelValues,
-				)
 			}
-
 			if net.TxBytesSet {
 				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.TxBytes), []string{net.Name, "tx"})
-				metrics.pushCustomMetric(
-					"kubevirt_vmi_network_transmit_bytes_total",
-					"Network traffic transmit in bytes",
-					prometheus.CounterValue,
-					float64(net.TxBytes),
-					netLabels,
-					netLabelValues,
-				)
 			}
 		}
 
-		if net.RxPktsSet {
-			metrics.pushCustomMetric(
-				"kubevirt_vmi_network_receive_packets_total",
-				"Network traffic receive packets",
-				prometheus.CounterValue,
-				float64(net.RxPkts),
-				netLabels,
-				netLabelValues,
+		if net.RxPktsSet || net.TxPktsSet {
+			desc := metrics.newPrometheusDesc(
+				"kubevirt_vmi_network_traffic_packets_total",
+				"network traffic packets.",
+				[]string{"interface", "type"},
 			)
+
+			if net.RxPktsSet {
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.RxPkts), []string{net.Name, "rx"})
+			}
+			if net.TxPktsSet {
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.TxPkts), []string{net.Name, "tx"})
+			}
 		}
 
-		if net.TxPktsSet {
-			metrics.pushCustomMetric(
-				"kubevirt_vmi_network_transmit_packets_total",
-				"Network traffic transmit packets",
-				prometheus.CounterValue,
-				float64(net.TxPkts),
-				netLabels,
-				netLabelValues,
+		if net.RxErrsSet || net.TxErrsSet {
+			desc := metrics.newPrometheusDesc(
+				"kubevirt_vmi_network_errors_total",
+				"network errors.",
+				[]string{"interface", "type"},
 			)
-		}
 
-		if net.RxErrsSet {
-			metrics.pushCustomMetric(
-				"kubevirt_vmi_network_receive_errors_total",
-				"Network receive error packets",
-				prometheus.CounterValue,
-				float64(net.RxErrs),
-				netLabels,
-				netLabelValues,
-			)
-		}
-
-		if net.TxErrsSet {
-			metrics.pushCustomMetric(
-				"kubevirt_vmi_network_transmit_errors_total",
-				"Network transmit error packets",
-				prometheus.CounterValue,
-				float64(net.TxErrs),
-				netLabels,
-				netLabelValues,
-			)
-		}
-
-		if net.RxDropSet {
-			metrics.pushCustomMetric(
-				"kubevirt_vmi_network_receive_packets_dropped_total",
-				"The number of rx packets dropped on vNIC interfaces.",
-				prometheus.CounterValue,
-				float64(net.RxDrop),
-				netLabels,
-				netLabelValues,
-			)
-		}
-
-		if net.TxDropSet {
-			metrics.pushCustomMetric(
-				"kubevirt_vmi_network_transmit_packets_dropped_total",
-				"The number of tx packets dropped on vNIC interfaces.",
-				prometheus.CounterValue,
-				float64(net.TxDrop),
-				netLabels,
-				netLabelValues,
-			)
+			if net.RxErrsSet {
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.RxErrs), []string{net.Name, "rx"})
+			}
+			if net.TxErrsSet {
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.TxErrs), []string{net.Name, "tx"})
+			}
 		}
 	}
 }

@@ -938,10 +938,10 @@ var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 				if in && out {
 					break
 				}
-				if strings.Contains(k, `swap_in`) {
+				if strings.Contains(k, `type="in"`) {
 					in = true
 				}
-				if strings.Contains(k, `swap_out`) {
+				if strings.Contains(k, `type="out"`) {
 					out = true
 				}
 			}
