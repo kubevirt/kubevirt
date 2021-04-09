@@ -2,11 +2,8 @@ package util
 
 import (
 	"context"
-	"strings"
-
 	"github.com/go-logr/logr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	secv1 "github.com/openshift/api/security/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,20 +66,6 @@ func (c ClusterInfoImp) IsOpenshift() bool {
 
 func (c ClusterInfoImp) IsRunningLocally() bool {
 	return c.runningLocally
-}
-
-func (c ClusterInfoImp) findApi(apis []*metav1.APIResourceList, resourceName string) bool {
-	for _, api := range apis {
-		if api.GroupVersion == secv1.GroupVersion.String() {
-			for _, resource := range api.APIResources {
-				if strings.ToLower(resource.Name) == resourceName {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
 }
 
 func init() {

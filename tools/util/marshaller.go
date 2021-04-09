@@ -130,7 +130,7 @@ func cleanupDataSourceFromTemplates(r *unstructured.Unstructured) {
 				unstructured.RemoveNestedField(template, "spec", "pvc", "dataSource")
 			}
 		}
-		unstructured.SetNestedSlice(r.Object, templates, "spec", "dataVolumeTemplates")
+		_ = unstructured.SetNestedSlice(r.Object, templates, "spec", "dataVolumeTemplates")
 	}
 }
 
@@ -147,7 +147,7 @@ func cleanupDataSourceFromPVC(r *unstructured.Unstructured) {
 				}
 			}
 		}
-		unstructured.SetNestedSlice(r.Object, objects, "objects")
+		_ = unstructured.SetNestedSlice(r.Object, objects, "objects")
 	}
 }
 
@@ -160,7 +160,7 @@ func cleanupNonSpecFieldsFromDeployments(r *unstructured.Unstructured) {
 			unstructured.RemoveNestedField(deployment, "spec", "template", "metadata", "creationTimestamp")
 			unstructured.RemoveNestedField(deployment, "status")
 		}
-		unstructured.SetNestedSlice(r.Object, deployments, "spec", "install", "spec", "deployments")
+		_ = unstructured.SetNestedSlice(r.Object, deployments, "spec", "install", "spec", "deployments")
 	}
 }
 
@@ -169,6 +169,6 @@ func cleanupLabels(r *unstructured.Unstructured) {
 	labels, exists, _ := unstructured.NestedMap(r.Object, "metadata", "labels")
 	if exists {
 		delete(labels, v1.ManagedByLabel)
-		unstructured.SetNestedMap(r.Object, labels, "metadata", "labels")
+		_ = unstructured.SetNestedMap(r.Object, labels, "metadata", "labels")
 	}
 }

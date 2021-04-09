@@ -205,7 +205,9 @@ func (h *cdiHooks) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+	if err = objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -236,7 +238,10 @@ func (h *cdiHooks) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) erro
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+	err = objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -348,8 +353,8 @@ func (h *storageConfigHooks) updateCr(req *common.HcoRequest, Client client.Clie
 
 func NewKubeVirtStorageConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
 	localSC := "local-sc"
-	if *(&cr.Spec.LocalStorageClassName) != "" {
-		localSC = *(&cr.Spec.LocalStorageClassName)
+	if cr.Spec.LocalStorageClassName != "" {
+		localSC = cr.Spec.LocalStorageClassName
 	}
 
 	ocsRBD := "ocs-storagecluster-ceph-rbd"

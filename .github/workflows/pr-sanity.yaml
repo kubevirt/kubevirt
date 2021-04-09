@@ -34,6 +34,9 @@ jobs:
       - name: Do sanity checks
         run: make sanity
 
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v2.5.2
+
       - name: Verify we can actually build the operator
         run: make build
 

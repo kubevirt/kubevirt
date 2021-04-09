@@ -136,7 +136,7 @@ var _ = Describe("webhooks handler", func() {
 			}
 		})
 
-		cli := fake.NewFakeClientWithScheme(s)
+		cli := fake.NewClientBuilder().WithScheme(s).Build()
 		wh := &WebhookHandler{}
 		wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -873,18 +873,6 @@ func newHyperConvergedConfig() *sdkapi.NodePlacement {
 func getFakeClient(hco *v1beta1.HyperConverged) *commonTestUtils.HcoTestClient {
 	kv, err := operands.NewKubeVirt(hco)
 	Expect(err).ToNot(HaveOccurred())
-
-	cdi, err := operands.NewCDI(hco)
-	Expect(err).ToNot(HaveOccurred())
-
-	cna, err := operands.NewNetworkAddons(hco)
-	Expect(err).ToNot(HaveOccurred())
-
-	return commonTestUtils.InitClient([]runtime.Object{hco, kv, cdi, cna, operands.NewSSP(hco), operands.NewVMImportForCR(hco)})
-}
-
-func getFakeClientWithKv(hco *v1beta1.HyperConverged, kv *kubevirtv1.KubeVirt) *commonTestUtils.HcoTestClient {
-	hco.Name = util.HyperConvergedName
 
 	cdi, err := operands.NewCDI(hco)
 	Expect(err).ToNot(HaveOccurred())

@@ -475,7 +475,7 @@ func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []conditionsv1.
 }
 
 func getMandatoryKvFeatureGates(isOpenshiftCluster bool) []string {
-	mandatoryFeatureGates := append(hardCodeKvFgs)
+	mandatoryFeatureGates := hardCodeKvFgs
 	if isOpenshiftCluster {
 		mandatoryFeatureGates = append(mandatoryFeatureGates, sspConditionKvFgs...)
 	}

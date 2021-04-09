@@ -285,7 +285,7 @@ func getLabels(name, hcoKvIoVersion string) map[string]string {
 		"name":                    name,
 		hcoutil.AppLabelVersion:   hcoKvIoVersion,
 		hcoutil.AppLabelPartOf:    hcoutil.HyperConvergedCluster,
-		hcoutil.AppLabelComponent: hcoutil.AppComponentDeployment,
+		hcoutil.AppLabelComponent: string(hcoutil.AppComponentDeployment),
 	}
 }
 
@@ -778,7 +778,7 @@ func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
 		panic(err)
 	}
 	reg := &markers.Registry{}
-	crdmarkers.Register(reg)
+	panicOnError(crdmarkers.Register(reg))
 
 	parser := &crdgen.Parser{
 		Collector: &markers.Collector{Registry: reg},
@@ -1328,4 +1328,10 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 
 func int32Ptr(i int32) *int32 {
 	return &i
+}
+
+func panicOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
 }

@@ -149,7 +149,11 @@ func (h *genericOperand) addCrToTheRelatedObjectList(req *common.HcoRequest, fou
 		return err
 	}
 
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+	err = objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

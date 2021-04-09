@@ -740,7 +740,6 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 
 				By("should not find backup in this case")
-				res = &corev1.ConfigMap{}
 				err = cl.Get(context.TODO(),
 					types.NamespacedName{Name: backupKvCmName, Namespace: namespace},
 					foundResource)
@@ -1162,7 +1161,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					kvCMRef, err := reference.GetReference(commonTestUtils.GetScheme(), kvCM)
 					Expect(err).ToNot(HaveOccurred())
-					v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)
+					Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)).ToNot(HaveOccurred())
 
 					resources := append(expected.toArray(), kvCM)
 
@@ -1200,7 +1199,7 @@ progressTimeout: 150`,
 					}
 					kvCMRef, err := reference.GetReference(commonTestUtils.GetScheme(), kvCM)
 					Expect(err).ToNot(HaveOccurred())
-					v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)
+					Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)).ToNot(HaveOccurred())
 
 					resources := append(expected.toArray(), kvCM)
 
@@ -1283,7 +1282,7 @@ progressTimeout: 300`,
 					}
 					kvCMRef, err := reference.GetReference(commonTestUtils.GetScheme(), kvCM)
 					Expect(err).ToNot(HaveOccurred())
-					v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)
+					Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)).ToNot(HaveOccurred())
 					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
@@ -1364,7 +1363,7 @@ progressTimeout: 150`,
 					}
 					kvCMRef, err := reference.GetReference(commonTestUtils.GetScheme(), kvCM)
 					Expect(err).ToNot(HaveOccurred())
-					v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)
+					Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)).ToNot(HaveOccurred())
 					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
@@ -1979,7 +1978,7 @@ progressTimeout: 150`,
 				expected := getBasicDeployment()
 				expected.hco.Status.Conditions = nil
 				cl := expected.initClient()
-				rs := schema.GroupResource{hcoutil.APIVersionGroup, "hyperconvergeds.hco.kubevirt.io"}
+				rs := schema.GroupResource{Group: hcoutil.APIVersionGroup, Resource: "hyperconvergeds.hco.kubevirt.io"}
 				cl.Status().(*commonTestUtils.HcoTestStatusWriter).InitiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
 				r := initReconciler(cl)
 

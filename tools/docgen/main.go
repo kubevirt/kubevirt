@@ -100,7 +100,7 @@ func printAPIDocs(paths []string) {
 
 			fmt.Println("| Field | Description | Scheme | Default | Required |")
 			fmt.Println("| ----- | ----------- | ------ | -------- |-------- |")
-			fields := t[1:(len(t))]
+			fields := t[1:]
 			for _, f := range fields {
 				fmt.Println("|", f.Name, "|", f.Doc, "|", f.Type, "|", f.Default, "|", f.Mandatory, "|")
 			}
@@ -243,18 +243,16 @@ func isInlined(field *ast.Field) bool {
 }
 
 func isInternalType(typ ast.Expr) bool {
-	switch typ.(type) {
+	switch v := typ.(type) {
 	case *ast.SelectorExpr:
-		e := typ.(*ast.SelectorExpr)
-		pkg := e.X.(*ast.Ident)
-		return strings.HasPrefix(pkg.Name, "monitoring")
+		pkg := v.X.(*ast.Ident)
+		return strings.HasPrefix(pkg.Name, "hco.kubevirt.io")
 	case *ast.StarExpr:
-		return isInternalType(typ.(*ast.StarExpr).X)
+		return isInternalType(v.X)
 	case *ast.ArrayType:
-		return isInternalType(typ.(*ast.ArrayType).Elt)
+		return isInternalType(v.Elt)
 	case *ast.MapType:
-		mapType := typ.(*ast.MapType)
-		return isInternalType(mapType.Key) && isInternalType(mapType.Value)
+		return isInternalType(v.Key) && isInternalType(v.Value)
 	default:
 		return true
 	}
@@ -299,21 +297,19 @@ func fieldDefault(field *ast.Field) string {
 }
 
 func fieldType(typ ast.Expr) string {
-	switch typ.(type) {
+	switch v := typ.(type) {
 	case *ast.Ident:
-		return toLink(typ.(*ast.Ident).Name)
+		return toLink(v.Name)
 	case *ast.StarExpr:
-		return "*" + toLink(fieldType(typ.(*ast.StarExpr).X))
+		return "*" + toLink(fieldType(v.X))
 	case *ast.SelectorExpr:
-		e := typ.(*ast.SelectorExpr)
-		pkg := e.X.(*ast.Ident)
-		t := e.Sel
+		pkg := v.X.(*ast.Ident)
+		t := v.Sel
 		return toLink(pkg.Name + "." + t.Name)
 	case *ast.ArrayType:
-		return "[]" + toLink(fieldType(typ.(*ast.ArrayType).Elt))
+		return "[]" + toLink(fieldType(v.Elt))
 	case *ast.MapType:
-		mapType := typ.(*ast.MapType)
-		return "map[" + toLink(fieldType(mapType.Key)) + "]" + toLink(fieldType(mapType.Value))
+		return "map[" + toLink(fieldType(v.Key)) + "]" + toLink(fieldType(v.Value))
 	default:
 		return ""
 	}

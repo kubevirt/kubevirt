@@ -320,7 +320,8 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 }
 
 func (r *ReconcileHyperConverged) EnsureOperandAndComplete(req *common.HcoRequest, init bool) (reconcile.Result, error) {
-	r.cliDownloadHandler.Ensure(req)
+	// TODO(Erkan): This will be updated by a dedicated PR
+	_ = r.cliDownloadHandler.Ensure(req)
 
 	err := r.operandHandler.Ensure(req)
 	if err != nil {

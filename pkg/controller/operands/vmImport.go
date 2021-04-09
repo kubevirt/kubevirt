@@ -122,21 +122,7 @@ func (h imsConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 	return NewIMSConfigForCR(hc, hc.Namespace)
 }
 func (h imsConfigHooks) getEmptyCr() client.Object { return &corev1.ConfigMap{} }
-func (h imsConfigHooks) validate() error {
-	if os.Getenv("CONVERSION_CONTAINER") == "" {
-		return errors.New("ims-conversion-container not specified")
-	}
 
-	if os.Getenv("VMWARE_CONTAINER") == "" {
-		return errors.New("ims-vmware-container not specified")
-	}
-
-	if os.Getenv("VIRTIOWIN_CONTAINER") == "" {
-		return errors.New("kv-virtiowin-image-name not specified")
-	}
-
-	return nil
-}
 func (h imsConfigHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
 func (h imsConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta

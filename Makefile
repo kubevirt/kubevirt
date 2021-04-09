@@ -27,6 +27,9 @@ sanity: generate-doc
 	./hack/build-manifests.sh
 	git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh
 
+lint:
+	golangci-lint run
+
 build: build-operator build-csv-merger build-webhook
 
 build-operator: $(SOURCES) ## Build binary from source

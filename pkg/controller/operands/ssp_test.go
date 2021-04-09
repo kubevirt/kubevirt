@@ -369,10 +369,10 @@ var _ = Describe("SSP Operands", func() {
 				// Initialize RelatedObjects with a bunch of objects
 				// including old SSP ones.
 				for _, objRef := range oldSSPRelatedObjects() {
-					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+					Expect(v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
 				}
 				for _, objRef := range otherRelatedObjects() {
-					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+					Expect(v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
 				}
 
 				cl := commonTestUtils.InitClient(nil)
@@ -398,10 +398,10 @@ var _ = Describe("SSP Operands", func() {
 				// Initialize RelatedObjects with a bunch of objects
 				// including old SSP ones.
 				for _, objRef := range oldSSPRelatedObjects() {
-					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+					Expect(v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
 				}
 				for _, objRef := range otherRelatedObjects() {
-					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+					Expect(v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
 				}
 
 				cl := commonTestUtils.InitClient(nil)
@@ -417,7 +417,7 @@ var _ = Describe("SSP Operands", func() {
 				// Now simulate "status update failure",
 				// i.e. related objects aren't removed.
 				for _, objRef := range oldSSPRelatedObjects() {
-					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+					Expect(v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
 				}
 
 				// Simulate another reconciliation cycle

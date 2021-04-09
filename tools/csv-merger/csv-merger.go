@@ -337,7 +337,7 @@ func getHcoCsv() {
 
 	applyOverrides(&csvExtended)
 
-	util.MarshallObject(csvExtended, os.Stdout)
+	panicOnError(util.MarshallObject(csvExtended, os.Stdout))
 }
 
 func getHiddenCrds(csvExtended ClusterServiceVersionExtended) (string, error) {
