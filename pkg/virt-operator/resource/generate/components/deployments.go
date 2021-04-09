@@ -23,6 +23,8 @@ import (
 	"runtime"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -291,6 +293,14 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		InitialDelaySeconds: 15,
 		PeriodSeconds:       10,
 	}
+
+	container.Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("5m"),
+			corev1.ResourceMemory: resource.MustParse("150Mi"),
+		},
+	}
+
 	return deployment, nil
 }
 
@@ -360,6 +370,14 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	}
 
 	attachCertificateSecret(pod, VirtControllerCertSecretName, "/etc/virt-controller/certificates")
+
+	container.Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("10m"),
+			corev1.ResourceMemory: resource.MustParse("150Mi"),
+		},
+	}
+
 	return deployment, nil
 }
 
@@ -574,6 +592,13 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		})
 	}
 
+	container.Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("10m"),
+			corev1.ResourceMemory: resource.MustParse("230Mi"),
+		},
+	}
+
 	return daemonset, nil
 
 }
@@ -677,6 +702,12 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 											FieldPath: "metadata.annotations['olm.targetNamespaces']", // filled by OLM
 										},
 									},
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("150Mi"),
 								},
 							},
 						},
