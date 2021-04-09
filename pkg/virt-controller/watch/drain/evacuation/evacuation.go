@@ -466,30 +466,6 @@ func (c *EvacuationController) listVMIsOnNode(nodeName string) ([]*virtv1.Virtua
 	return vmis, nil
 }
 
-func (c *EvacuationController) numRunningPods(vmi *virtv1.VirtualMachineInstance) int {
-
-	objs, err := c.vmiPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
-	if err != nil {
-		return 0
-	}
-
-	running := 0
-	for _, obj := range objs {
-		pod := obj.(*k8sv1.Pod)
-
-		if pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
-			// not interested in terminated pods
-			continue
-		} else if !controller.IsControlledBy(pod, vmi) {
-			// not interested pods not associated with the vmi
-			continue
-		}
-		running++
-	}
-
-	return running
-}
-
 func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.VirtualMachineInstance, migrations []*virtv1.VirtualMachineInstanceMigration) (migrateable []*virtv1.VirtualMachineInstance, nonMigrateable []*virtv1.VirtualMachineInstance) {
 	lookup := map[string]bool{}
 	for _, migration := range migrations {
@@ -518,7 +494,7 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 			continue
 		}
 
-		if c.numRunningPods(vmi) > 1 {
+		if controller.VMIActivePodsCount(vmi, c.vmiPodInformer) > 1 {
 			// waiting on target/source pods from a previous migration to terminate
 			//
 			// We only want to create a migration when num pods == 1 or else we run the

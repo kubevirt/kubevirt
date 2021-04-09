@@ -501,6 +501,11 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			if c.podExpectations.AllPendingCreations() > 0 {
 				c.Queue.AddAfter(key, 1*time.Second)
 				return nil
+			} else if controller.VMIActivePodsCount(vmi, c.podInformer) > 1 {
+				log.Log.Object(migration).Infof("Waiting to schedule target pod for migration because there are already multiple pods running for vmi %s/%s", vmi.Namespace, vmi.Name)
+				c.Queue.AddAfter(key, 1*time.Second)
+				return nil
+
 			}
 
 			// Don't start new migrations if we wait for migration object updates because of new target pods
