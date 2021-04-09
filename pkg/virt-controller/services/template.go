@@ -1255,7 +1255,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	return &pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, _ *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string

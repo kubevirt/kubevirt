@@ -90,7 +90,7 @@ func (c *EvacuationController) deleteNode(obj interface{}) {
 	c.enqueueNode(obj)
 }
 
-func (c *EvacuationController) updateNode(old, curr interface{}) {
+func (c *EvacuationController) updateNode(_, curr interface{}) {
 	c.enqueueNode(curr)
 }
 
@@ -112,7 +112,7 @@ func (c *EvacuationController) deleteVirtualMachineInstance(obj interface{}) {
 	c.enqueueVMI(obj)
 }
 
-func (c *EvacuationController) updateVirtualMachineInstance(old, curr interface{}) {
+func (c *EvacuationController) updateVirtualMachineInstance(_, curr interface{}) {
 	c.enqueueVMI(curr)
 }
 
@@ -192,7 +192,7 @@ func (c *EvacuationController) deleteMigration(obj interface{}) {
 	c.enqueueMigration(obj)
 }
 
-func (c *EvacuationController) updateMigration(old, curr interface{}) {
+func (c *EvacuationController) updateMigration(_, curr interface{}) {
 	c.enqueueMigration(curr)
 }
 

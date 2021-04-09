@@ -75,7 +75,7 @@ func (c *NodeController) deleteNode(obj interface{}) {
 	c.enqueueNode(obj)
 }
 
-func (c *NodeController) updateNode(old, curr interface{}) {
+func (c *NodeController) updateNode(_, curr interface{}) {
 	c.enqueueNode(curr)
 }
 
@@ -96,7 +96,7 @@ func (c *NodeController) addVirtualMachine(obj interface{}) {
 	}
 }
 
-func (c *NodeController) updateVirtualMachine(old, curr interface{}) {
+func (c *NodeController) updateVirtualMachine(_, curr interface{}) {
 	currVMI := curr.(*virtv1.VirtualMachineInstance)
 	if currVMI.Status.NodeName != "" {
 		c.Queue.Add(currVMI.Status.NodeName)

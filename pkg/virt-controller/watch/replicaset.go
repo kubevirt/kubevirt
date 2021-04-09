@@ -597,7 +597,7 @@ func (c *VMIReplicaSet) deleteReplicaSet(obj interface{}) {
 	c.enqueueReplicaSet(obj)
 }
 
-func (c *VMIReplicaSet) updateReplicaSet(old, curr interface{}) {
+func (c *VMIReplicaSet) updateReplicaSet(_, curr interface{}) {
 	c.enqueueReplicaSet(curr)
 }
 

@@ -1000,7 +1000,7 @@ func (c *VMIController) deleteVirtualMachine(obj interface{}) {
 	c.enqueueVirtualMachine(obj)
 }
 
-func (c *VMIController) updateVirtualMachine(old, curr interface{}) {
+func (c *VMIController) updateVirtualMachine(_, curr interface{}) {
 	c.enqueueVirtualMachine(curr)
 }
 

@@ -1078,21 +1078,21 @@ type mockIsolationDetector struct {
 	err        error
 }
 
-func (i *mockIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
+func (i *mockIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
 	return isolation.NewIsolationResult(i.pid, i.slice, i.controller), i.err
 }
 
-func (i *mockIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (isolation.IsolationResult, error) {
+func (i *mockIsolationDetector) DetectForSocket(_ *v1.VirtualMachineInstance, _ string) (isolation.IsolationResult, error) {
 	if i.pid == 1 {
 		return isolation.NewIsolationResult(i.pid, tempDir, []string{}), nil
 	}
 	return nil, fmt.Errorf("isolation error")
 }
 
-func (i *mockIsolationDetector) Whitelist(controller []string) isolation.PodIsolationDetector {
+func (i *mockIsolationDetector) Whitelist(_ []string) isolation.PodIsolationDetector {
 	return i
 }
 
-func (i *mockIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
+func (i *mockIsolationDetector) AdjustResources(_ *v1.VirtualMachineInstance) error {
 	return nil
 }

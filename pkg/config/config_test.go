@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func mockCreateISOImage(output string, volID string, files []string) error {
+func mockCreateISOImage(output string, _ string, _ []string) error {
 	_, err := os.Create(output)
 	if err != nil {
 		panic(err)

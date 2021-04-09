@@ -548,7 +548,7 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	return domains, nil
 }
 
-func (d *DomainWatcher) List(options k8sv1.ListOptions) (runtime.Object, error) {
+func (d *DomainWatcher) List(_ k8sv1.ListOptions) (runtime.Object, error) {
 
 	log.Log.V(3).Info("Synchronizing domains")
 	err := d.startBackground()
@@ -571,7 +571,7 @@ func (d *DomainWatcher) List(options k8sv1.ListOptions) (runtime.Object, error) 
 	return &list, nil
 }
 
-func (d *DomainWatcher) Watch(options k8sv1.ListOptions) (watch.Interface, error) {
+func (d *DomainWatcher) Watch(_ k8sv1.ListOptions) (watch.Interface, error) {
 	return d, nil
 }
 

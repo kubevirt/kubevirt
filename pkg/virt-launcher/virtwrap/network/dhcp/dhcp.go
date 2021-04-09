@@ -184,7 +184,7 @@ type DHCPHandler struct {
 	options       dhcp.Options
 }
 
-func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, options dhcp.Options) (d dhcp.Packet) {
+func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, _ dhcp.Options) (d dhcp.Packet) {
 	log.Log.V(4).Info("Serving a new request")
 	if h.filterByMAC {
 		if mac := p.CHAddr(); !bytes.Equal(mac, h.clientMAC) {

@@ -450,7 +450,7 @@ func (b *BridgeBindMechanism) getFakeBridgeIP() (string, error) {
 	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", b.iface.Name)
 }
 
-func (b *BridgeBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (b *BridgeBindMechanism) startDHCP(_ *v1.VirtualMachineInstance) error {
 	if !b.vif.IPAMDisabled {
 		addr, err := b.getFakeBridgeIP()
 		if err != nil {
@@ -796,7 +796,7 @@ func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (b *MasqueradeBindMechanism) startDHCP(_ *v1.VirtualMachineInstance) error {
 	return Handler.StartDHCP(b.vif, b.vif.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
 }
 
@@ -1179,11 +1179,11 @@ func (s *SlirpBindMechanism) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (s *SlirpBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
+func (s *SlirpBindMechanism) preparePodNetworkInterfaces(_ uint32, _ int) error {
 	return nil
 }
 
-func (s *SlirpBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (s *SlirpBindMechanism) startDHCP(_ *v1.VirtualMachineInstance) error {
 	return nil
 }
 
@@ -1215,19 +1215,19 @@ func (s *SlirpBindMechanism) decorateConfig() error {
 	return nil
 }
 
-func (s *SlirpBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
+func (s *SlirpBindMechanism) loadCachedInterface(_, _ string) (bool, error) {
 	return true, nil
 }
 
-func (s *SlirpBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
+func (s *SlirpBindMechanism) loadCachedVIF(_, _ string) (bool, error) {
 	return true, nil
 }
 
-func (b *SlirpBindMechanism) setCachedVIF(pid, name string) error {
+func (b *SlirpBindMechanism) setCachedVIF(_, _ string) error {
 	return nil
 }
 
-func (s *SlirpBindMechanism) setCachedInterface(pid, name string) error {
+func (s *SlirpBindMechanism) setCachedInterface(_, _ string) error {
 	return nil
 }
 
@@ -1268,7 +1268,7 @@ func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
+func (b *MacvtapBindMechanism) preparePodNetworkInterfaces(_ uint32, _ int) error {
 	return nil
 }
 
@@ -1304,15 +1304,15 @@ func (b *MacvtapBindMechanism) setCachedInterface(pid, name string) error {
 	return err
 }
 
-func (b *MacvtapBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
+func (b *MacvtapBindMechanism) loadCachedVIF(_, _ string) (bool, error) {
 	return true, nil
 }
 
-func (b *MacvtapBindMechanism) setCachedVIF(pid, name string) error {
+func (b *MacvtapBindMechanism) setCachedVIF(_, _ string) error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (b *MacvtapBindMechanism) startDHCP(_ *v1.VirtualMachineInstance) error {
 	// macvtap will connect to the host's subnet
 	return nil
 }

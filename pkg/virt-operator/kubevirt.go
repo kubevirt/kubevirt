@@ -516,7 +516,7 @@ func (c *KubeVirtController) deleteKubeVirt(obj interface{}) {
 	c.enqueueKubeVirt(obj)
 }
 
-func (c *KubeVirtController) updateKubeVirt(old, curr interface{}) {
+func (c *KubeVirtController) updateKubeVirt(_, curr interface{}) {
 	c.enqueueKubeVirt(curr)
 }
 

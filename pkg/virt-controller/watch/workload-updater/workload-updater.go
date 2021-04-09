@@ -184,7 +184,7 @@ func (c *WorkloadUpdateController) addMigration(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *WorkloadUpdateController) deleteMigration(obj interface{}) {
+func (c *WorkloadUpdateController) deleteMigration(_ interface{}) {
 	key, err := c.getKubeVirtKey()
 	if key == "" || err != nil {
 		return
@@ -193,7 +193,7 @@ func (c *WorkloadUpdateController) deleteMigration(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *WorkloadUpdateController) updateMigration(old, curr interface{}) {
+func (c *WorkloadUpdateController) updateMigration(_, _ interface{}) {
 	key, err := c.getKubeVirtKey()
 	if key == "" || err != nil {
 		return
@@ -210,7 +210,7 @@ func (c *WorkloadUpdateController) deleteKubeVirt(obj interface{}) {
 	c.enqueueKubeVirt(obj)
 }
 
-func (c *WorkloadUpdateController) updateKubeVirt(old, curr interface{}) {
+func (c *WorkloadUpdateController) updateKubeVirt(_, curr interface{}) {
 	c.enqueueKubeVirt(curr)
 }
 
