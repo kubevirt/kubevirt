@@ -3719,66 +3719,45 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-bash-completion-0__6.6.0-13.fc32.x86_64",
-    sha256 = "0ce8da7305bc3106abe5a3f183abbffe744e72639fd06a3e5236866531f5b872",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-bash-completion-6.6.0-13.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/0ce8da7305bc3106abe5a3f183abbffe744e72639fd06a3e5236866531f5b872",
-    ],
+    name = "libvirt-bash-completion-0__6.6.0-13.1.fc32.x86_64",
+    sha256 = "d8e5accd3e8123d286617455fa7eb5aeaf9212a2f56afbd95034daa44428341c",
+    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/fedora-32-x86_64/02081437-libvirt/libvirt-bash-completion-6.6.0-13.1.fc32.x86_64.rpm"],
 )
 
 rpm(
-    name = "libvirt-client-0__6.6.0-13.fc32.x86_64",
-    sha256 = "afa500bbffb08635b40b50a75962bee754ab1ebc88f5f500eb98a74462e1e073",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-client-6.6.0-13.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/afa500bbffb08635b40b50a75962bee754ab1ebc88f5f500eb98a74462e1e073",
-    ],
+    name = "libvirt-client-0__6.6.0-13.1.fc32.x86_64",
+    sha256 = "4b795e4eca9d0c8decc0a1468406ee75a720b8f68d272cc1042008f944fcc9ec",
+    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/fedora-32-x86_64/02081437-libvirt/libvirt-client-6.6.0-13.1.fc32.x86_64.rpm"],
 )
 
 rpm(
-    name = "libvirt-daemon-0__6.6.0-13.fc32.x86_64",
-    sha256 = "274b926ae5b90f738c4a173a31ec9b2b2e121a41a2818b9108200cf104fc4d99",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-daemon-6.6.0-13.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/274b926ae5b90f738c4a173a31ec9b2b2e121a41a2818b9108200cf104fc4d99",
-    ],
+    name = "libvirt-daemon-0__6.6.0-13.1.fc32.x86_64",
+    sha256 = "cd910eea81b31a953c81bee3ffb739a93328f9ef79077c118ffb45fd8a80feb0",
+    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/fedora-32-x86_64/02081437-libvirt/libvirt-daemon-6.6.0-13.1.fc32.x86_64.rpm"],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-qemu-0__6.6.0-13.fc32.x86_64",
-    sha256 = "df08b0255cf659360cdc48fe94bb40f2bdcbf5e612fce7a5cd6deeac3cd9a814",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-daemon-driver-qemu-6.6.0-13.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/df08b0255cf659360cdc48fe94bb40f2bdcbf5e612fce7a5cd6deeac3cd9a814",
-    ],
+    name = "libvirt-daemon-driver-qemu-0__6.6.0-13.1.fc32.x86_64",
+    sha256 = "630f4a28f561e835a84680f4e601ac0aa6372d4946c999ed324a1647466f75f0",
+    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/fedora-32-x86_64/02081437-libvirt/libvirt-daemon-driver-qemu-6.6.0-13.1.fc32.x86_64.rpm"],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-storage-core-0__6.6.0-13.fc32.x86_64",
-    sha256 = "a47eee27df1cf3bff97e9593fd058024f8924721782e6d3baa1fa1dc914b35fe",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-daemon-driver-storage-core-6.6.0-13.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a47eee27df1cf3bff97e9593fd058024f8924721782e6d3baa1fa1dc914b35fe",
-    ],
+    name = "libvirt-daemon-driver-storage-core-0__6.6.0-13.1.fc32.x86_64",
+    sha256 = "af8959a9e3b48c6bf3dfe45e056304aa221bc339c28870302442d1a4d4caa4b5",
+    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/fedora-32-x86_64/02081437-libvirt/libvirt-daemon-driver-storage-core-6.6.0-13.1.fc32.x86_64.rpm"],
 )
 
 rpm(
-    name = "libvirt-devel-0__6.6.0-13.fc32.x86_64",
-    sha256 = "b76e99071145bac819bac28be726c89ccc6e81556a4553147154cefd068a0932",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-devel-6.6.0-13.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/b76e99071145bac819bac28be726c89ccc6e81556a4553147154cefd068a0932",
-    ],
+    name = "libvirt-devel-0__6.6.0-13.1.fc32.x86_64",
+    sha256 = "5b1c5ffb1071ca8a5994b4d9e3fb742756d8b4777ca8e579ea2739fe9e53a922",
+    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/fedora-32-x86_64/02081437-libvirt/libvirt-devel-6.6.0-13.1.fc32.x86_64.rpm"],
 )
 
 rpm(
-    name = "libvirt-libs-0__6.6.0-13.fc32.x86_64",
-    sha256 = "e1c80ac577ff9bf07ed5f4b45bcc195d67ed717f15056807e331c9b31a40c14b",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-libs-6.6.0-13.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/e1c80ac577ff9bf07ed5f4b45bcc195d67ed717f15056807e331c9b31a40c14b",
-    ],
+    name = "libvirt-libs-0__6.6.0-13.1.fc32.x86_64",
+    sha256 = "9bdfcb6e94794bc1fa90b15a9a004013c4669f0b06b3ab926b05cb3e5d7bfed6",
+    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/fedora-32-x86_64/02081437-libvirt/libvirt-libs-6.6.0-13.1.fc32.x86_64.rpm"],
 )
 
 rpm(
