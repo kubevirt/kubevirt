@@ -16,7 +16,7 @@
 # Copyright 2020 Red Hat, Inc.
 #
 
-readonly PROM_IMAGE="docker.io/prom/prometheus:v2.15.2"
+readonly PROM_IMAGE="quay.io/prometheus/prometheus:v2.15.2"
 
 function cleanup() {
     local cleanup_files=("${@:?}")
