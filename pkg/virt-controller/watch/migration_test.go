@@ -232,6 +232,22 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
+		It("should not create target pod if multiple pods exist in a non finalized state for VMI", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			pod1 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod1.Labels[v1.MigrationJobLabel] = "some other job"
+			pod2 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			pod2.Labels[v1.MigrationJobLabel] = "some other job"
+			podInformer.GetStore().Add(pod1)
+			podInformer.GetStore().Add(pod2)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			controller.Execute()
+		})
 
 		It("should create another target pods if only 4 migrations are in progress", func() {
 			// It should create a pod for this one
