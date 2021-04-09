@@ -2867,6 +2867,8 @@ var _ = Describe("Converter", func() {
 		var vmi *v1.VirtualMachineInstance
 		var c *ConverterContext
 
+		type ConverterFunc = func(name string, disk *api.Disk, c *ConverterContext) error
+
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -2880,6 +2882,15 @@ var _ = Describe("Converter", func() {
 			c = &ConverterContext{
 				VirtualMachine: vmi,
 				UseEmulation:   true,
+				IsBlockPVC: map[string]bool{
+					"test-block-pvc": true,
+				},
+				IsBlockDV: map[string]bool{
+					"test-block-dv": true,
+				},
+				VolumesDiscardIgnore: []string{
+					"test-discard-ignore",
+				},
 			}
 		})
 
@@ -2902,8 +2913,38 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(2))
 		})
-	})
 
+		table.DescribeTable("should convert",
+			func(converterFunc ConverterFunc, volumeName string, isBlockMode bool, ignoreDiscard bool) {
+				expectedDisk := &api.Disk{}
+				expectedDisk.Driver = &api.DiskDriver{}
+				expectedDisk.Driver.Type = "raw"
+				expectedDisk.Driver.ErrorPolicy = "stop"
+				if isBlockMode {
+					expectedDisk.Type = "block"
+					expectedDisk.Source.Dev = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", volumeName)
+				} else {
+					expectedDisk.Type = "file"
+					expectedDisk.Source.File = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s/disk.img", volumeName)
+				}
+				if !ignoreDiscard {
+					expectedDisk.Driver.Discard = "unmap"
+				}
+
+				disk := &api.Disk{
+					Driver: &api.DiskDriver{},
+				}
+				Expect(converterFunc(volumeName, disk, c)).To(Succeed())
+				Expect(disk).To(Equal(expectedDisk))
+			},
+			table.Entry("filesystem PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-fs-pvc", false, false),
+			table.Entry("block mode PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-block-pvc", true, false),
+			table.Entry("'discard ignore' PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-discard-ignore", false, true),
+			table.Entry("filesystem DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-fs-dv", false, false),
+			table.Entry("block mode DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
+			table.Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
+		)
+	})
 })
 
 var _ = Describe("disk device naming", func() {
