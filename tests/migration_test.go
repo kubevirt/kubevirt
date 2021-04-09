@@ -436,6 +436,27 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
+			It("should migrate vmi with cdroms on various bus types", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddEphemeralCdrom(vmi, "cdrom-0", "sata", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddEphemeralCdrom(vmi, "cdrom-1", "scsi", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+
+				// execute a migration, wait for finalized state
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			})
+
 			It("[test_id:4113]should be successfully migrate with cloud-init disk with devices on the root bus", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi.Annotations = map[string]string{
