@@ -249,3 +249,27 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 
 	return vmiSpec
 }
+
+func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.SharedIndexInformer) int {
+
+	objs, err := vmiPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	if err != nil {
+		return 0
+	}
+
+	running := 0
+	for _, obj := range objs {
+		pod := obj.(*k8sv1.Pod)
+
+		if pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
+			// not interested in terminated pods
+			continue
+		} else if !IsControlledBy(pod, vmi) {
+			// not interested pods not associated with the vmi
+			continue
+		}
+		running++
+	}
+
+	return running
+}
