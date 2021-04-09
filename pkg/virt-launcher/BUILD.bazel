@@ -2,13 +2,19 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["monitor.go"],
+    srcs = [
+        "fork.go",
+        "monitor.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/network/infraconfigurators:go_default_library",
         "//pkg/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
     ],
 )
 

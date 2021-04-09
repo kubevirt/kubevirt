@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	libvirt "libvirt.org/libvirt-go"
@@ -223,7 +224,13 @@ func (l LibvirtWraper) StartLibvirt(stopChan chan struct{}) {
 	go func() {
 		for {
 			exitChan := make(chan struct{})
-			cmd := exec.Command("/usr/sbin/libvirtd")
+			args := []string{"-f", "/var/run/libvirt/libvirtd.conf"}
+			cmd := exec.Command("/usr/sbin/libvirtd", args...)
+			if l.user != 0 {
+				cmd.SysProcAttr = &syscall.SysProcAttr{
+					AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE},
+				}
+			}
 
 			// connect libvirt's stderr to our own stdout in order to see the logs in the container logs
 			reader, err := cmd.StderrPipe()

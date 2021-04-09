@@ -14,7 +14,6 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
         "//pkg/ignition:go_default_library",
-        "//pkg/network/infraconfigurators:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher:go_default_library",
@@ -42,6 +41,14 @@ go_binary(
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
     x_defs = version_x_defs(),
+)
+
+genrule(
+    name = "setcaps",
+    srcs = ["//cmd/non-root"],
+    outs = ["virt-launcher.tar.gz"],
+    cmd = "path=$$(readlink -f $(location //cmd/non-root:non-root)) && cp $$path virt-launcher-cap && setcap 'cap_net_bind_service+p'  virt-launcher-cap && tar --xattrs -czvf virt-launcher.tar.gz virt-launcher-cap && mv virt-launcher.tar.gz $@",
+    visibility = ["//visibility:public"],
 )
 
 load(
@@ -152,5 +159,6 @@ container_image(
         "//cmd/container-disk-v2alpha:container-disk",
         "//cmd/virt-probe",
     ],
+    tars = [":setcaps"],
     visibility = ["//visibility:public"],
 )
