@@ -638,6 +638,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name)
 				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
+				By("verifying that the vmi is still paused before migration")
+				isPausedb, err := tests.LibvirtDomainIsPaused(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
+				Expect(isPausedb).To(BeTrue(), "The VMI should be paused before migration, but it is not.")
+
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
@@ -648,8 +653,17 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("verifying that the vmi is still paused after migration")
 				isPaused, err := tests.LibvirtDomainIsPaused(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
-                Expect(isPaused).To(BeTrue(), "The VMI should be paused after migration, but it is not.")
+				Expect(isPaused).To(BeTrue(), "The VMI should be paused after migration, but it is not.")
 
+				By("verify that VMI can be unpaused after migration")
+				command := tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
+				Expect(command()).To(Succeed(), "should successfully unpause tthe vmi")
+				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+
+				By("verifying that the vmi is running")
+				isPaused, err = tests.LibvirtDomainIsPaused(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
+				Expect(isPaused).To(BeFalse(), "The VMI should be running, but it is not.")
 			})
 		})
 		Context("with auto converge enabled", func() {

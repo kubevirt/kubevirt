@@ -344,7 +344,6 @@ func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverg
 	if allowPostyCopy {
 		migrateFlags |= libvirt.MIGRATE_POSTCOPY
 	}
-
 	if migratePaused {
 		migrateFlags |= libvirt.MIGRATE_PAUSED
 	}
@@ -528,7 +527,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		go liveMigrationMonitor(vmi, l, options, migrationErrorChan)
 
 		isBlockMigration := vmi.Status.MigrationMethod == v1.BlockMigration
-	    migratePaused, err := isDomainPaused(dom)
+		migratePaused, err := isDomainPaused(dom)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed: can't retrive state")
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
@@ -552,12 +551,12 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 }
 
 func isDomainPaused(dom cli.VirDomain) (bool, error) {
-    status, reason, err := dom.GetState()
-    if err != nil {
-        return false, err
-    }
-    return util.ConvState(status) == api.Paused &&
-            util.ConvReason(status, reason) == api.ReasonPausedUser, nil
+	status, reason, err := dom.GetState()
+	if err != nil {
+		return false, err
+	}
+	return util.ConvState(status) == api.Paused &&
+		util.ConvReason(status, reason) == api.ReasonPausedUser, nil
 }
 
 func setupMigration(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance, dom cli.VirDomain, options *cmdclient.MigrationOptions, loopbackAddress string) (*libvirt.DomainMigrateParameters, error) {
@@ -1158,7 +1157,12 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 			return err
 		}
 	}
-
+	// since the source vmi is paused, add the vmi uuid to the pausedVMIs as
+	// after the migration this vmi should remain paused.
+	if vmiHasCondition(vmi, v1.VirtualMachineInstancePaused) {
+		log.Log.Object(vmi).V(3).Info("adding vmi uuid to pausedVMIs list on the target")
+		l.paused.add(vmi.UID)
+	}
 	return nil
 }
 
@@ -2189,4 +2193,18 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 		}
 	}
 	return nil
+}
+
+// check whether VMI has a certain condition
+func vmiHasCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) bool {
+	if vmi == nil {
+		return false
+	}
+
+	for _, c := range vmi.Status.Conditions {
+		if c.Type == cond {
+			return true
+		}
+	}
+	return false
 }

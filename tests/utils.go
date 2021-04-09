@@ -3246,7 +3246,6 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 	return strings.Contains(stdout, "paused"), nil
 }
 
-
 func LibvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
 	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, NamespaceTestDefault)
 	if err != nil {
