@@ -2467,10 +2467,34 @@ func getDomainStatsCPUFieldInfo(params *DomainStatsCPU) map[string]typedParamsFi
 }
 
 type DomainStatsBalloon struct {
-	CurrentSet bool
-	Current    uint64
-	MaximumSet bool
-	Maximum    uint64
+	CurrentSet        bool
+	Current           uint64
+	MaximumSet        bool
+	Maximum           uint64
+	SwapInSet         bool
+	SwapIn            uint64
+	SwapOutSet        bool
+	SwapOut           uint64
+	MajorFaultSet     bool
+	MajorFault        uint64
+	MinorFaultSet     bool
+	MinorFault        uint64
+	UnusedSet         bool
+	Unused            uint64
+	AvailableSet      bool
+	Available         uint64
+	RssSet            bool
+	Rss               uint64
+	UsableSet         bool
+	Usable            uint64
+	LastUpdateSet     bool
+	LastUpdate        uint64
+	DiskCachesSet     bool
+	DiskCaches        uint64
+	HugetlbPgAllocSet bool
+	HugetlbPgAlloc    uint64
+	HugetlbPgFailSet  bool
+	HugetlbPgFail     uint64
 }
 
 func getDomainStatsBalloonFieldInfo(params *DomainStatsBalloon) map[string]typedParamsFieldInfo {
@@ -2482,6 +2506,55 @@ func getDomainStatsBalloonFieldInfo(params *DomainStatsBalloon) map[string]typed
 		"balloon.maximum": typedParamsFieldInfo{
 			set: &params.MaximumSet,
 			ul:  &params.Maximum,
+		},
+		"balloon.swap_in": typedParamsFieldInfo{
+			set: &params.SwapInSet,
+			ul:  &params.SwapIn,
+		},
+		"balloon.swap_out": typedParamsFieldInfo{
+			set: &params.SwapOutSet,
+			ul:  &params.SwapOut,
+		},
+		"balloon.major_fault": typedParamsFieldInfo{
+			set: &params.MajorFaultSet,
+			ul:  &params.MajorFault,
+		},
+		"balloon.minor_fault": typedParamsFieldInfo{
+			set: &params.MinorFaultSet,
+			ul:  &params.MinorFault,
+		},
+		"balloon.unused": typedParamsFieldInfo{
+			set: &params.UnusedSet,
+			ul:  &params.Unused,
+		},
+		"balloon.available": typedParamsFieldInfo{
+			set: &params.AvailableSet,
+			ul:  &params.Available,
+		},
+		"balloon.rss": typedParamsFieldInfo{
+			set: &params.RssSet,
+			ul:  &params.Rss,
+		},
+		"balloon.usable": typedParamsFieldInfo{
+			set: &params.UsableSet,
+			ul:  &params.Usable,
+		},
+		// note: last-update not last_update, verified in libvirt source
+		"balloon.last-update": typedParamsFieldInfo{
+			set: &params.LastUpdateSet,
+			ul:  &params.LastUpdate,
+		},
+		"balloon.disk_caches": typedParamsFieldInfo{
+			set: &params.DiskCachesSet,
+			ul:  &params.DiskCaches,
+		},
+		"balloon.hugetlb_pgalloc": typedParamsFieldInfo{
+			set: &params.HugetlbPgAllocSet,
+			ul:  &params.HugetlbPgAlloc,
+		},
+		"balloon.hugetlb_pgfail": typedParamsFieldInfo{
+			set: &params.HugetlbPgFailSet,
+			ul:  &params.HugetlbPgFail,
 		},
 	}
 }
