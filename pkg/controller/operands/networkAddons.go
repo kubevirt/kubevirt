@@ -155,8 +155,7 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 			Workloads: cnaoWorkloads,
 		}
 	}
-
-	// TODO: support passing certificate rotation configuration to CNAO spec
+	cnaoSpec.SelfSignConfiguration = hcoCertConfig2CnaoSelfSignedConfig(&hc.Spec.CertConfig)
 
 	cna := NewNetworkAddonsWithNameOnly(hc, opts...)
 	cna.Spec = cnaoSpec
@@ -216,4 +215,13 @@ func hcoAnnotation2CnaoSpec(hcoAnnotations map[string]string) *networkaddonsshar
 		return &networkaddonsshared.Ovs{}
 	}
 	return nil
+}
+
+func hcoCertConfig2CnaoSelfSignedConfig(hcoCertConfig *hcov1beta1.HyperConvergedCertConfig) *networkaddonsshared.SelfSignConfiguration {
+	return &networkaddonsshared.SelfSignConfiguration{
+		CARotateInterval:    hcoCertConfig.CA.Duration.Duration.String(),
+		CAOverlapInterval:   hcoCertConfig.CA.RenewBefore.Duration.String(),
+		CertRotateInterval:  hcoCertConfig.Server.Duration.Duration.String(),
+		CertOverlapInterval: hcoCertConfig.Server.RenewBefore.Duration.String(),
+	}
 }
