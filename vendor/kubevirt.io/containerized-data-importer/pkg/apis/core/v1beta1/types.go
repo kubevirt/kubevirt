@@ -256,6 +256,10 @@ const (
 // DataVolumeCloneSourceSubresource is the subresource checked for permission to clone
 const DataVolumeCloneSourceSubresource = "source"
 
+// this has to be here otherwise informer-gen doesn't recognize it
+// see https://github.com/kubernetes/code-generator/issues/59
+// +genclient:nonNamespaced
+
 //StorageProfile provides a CDI specific recommendation for storage parameters
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
