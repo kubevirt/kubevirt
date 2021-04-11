@@ -3541,6 +3541,11 @@ func (in *VirtualMachineInstanceSpec) DeepCopyInto(out *VirtualMachineInstanceSp
 		*out = new(EvictionStrategy)
 		**out = **in
 	}
+	if in.StartStrategy != nil {
+		in, out := &in.StartStrategy, &out.StartStrategy
+		*out = new(StartStrategy)
+		**out = **in
+	}
 	if in.TerminationGracePeriodSeconds != nil {
 		in, out := &in.TerminationGracePeriodSeconds, &out.TerminationGracePeriodSeconds
 		*out = new(int64)

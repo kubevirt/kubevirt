@@ -2951,6 +2951,9 @@ var CRDsValidation map[string]string = map[string]string{
                 schedulerName:
                   description: If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.
                   type: string
+                startStrategy:
+                  description: StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
+                  type: string
                 subdomain:
                   description: If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.
                   type: string
@@ -4802,6 +4805,9 @@ var CRDsValidation map[string]string = map[string]string{
           type: object
         schedulerName:
           description: If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.
+          type: string
+        startStrategy:
+          description: StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
           type: string
         subdomain:
           description: If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.
@@ -7429,6 +7435,9 @@ var CRDsValidation map[string]string = map[string]string{
                 schedulerName:
                   description: If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.
                   type: string
+                startStrategy:
+                  description: StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
+                  type: string
                 subdomain:
                   description: If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.
                   type: string
@@ -9574,6 +9583,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type: object
                             schedulerName:
                               description: If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.
+                              type: string
+                            startStrategy:
+                              description: StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
                               type: string
                             subdomain:
                               description: If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.

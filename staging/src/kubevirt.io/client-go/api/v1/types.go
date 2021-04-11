@@ -80,6 +80,13 @@ type VirtualMachineInstanceList struct {
 // +k8s:openapi-gen=true
 type EvictionStrategy string
 
+// +k8s:openapi-gen=true
+type StartStrategy string
+
+const (
+	StartStrategyPaused StartStrategy = "Paused"
+)
+
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
 //
 // +k8s:openapi-gen=true
@@ -112,7 +119,10 @@ type VirtualMachineInstanceSpec struct {
 	//
 	// +optional
 	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
-
+	// StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
+	//
+	// +optional
+	StartStrategy *StartStrategy `json:"startStrategy,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -304,6 +314,11 @@ func (v *VirtualMachineInstance) WantsToHaveQOSGuaranteed() bool {
 	resources := v.Spec.Domain.Resources
 	return !resources.Requests.Memory().IsZero() && resources.Requests.Memory().Cmp(*resources.Limits.Memory()) == 0 &&
 		!resources.Requests.Cpu().IsZero() && resources.Requests.Cpu().Cmp(*resources.Limits.Cpu()) == 0
+}
+
+// ShouldStartPaused returns true if VMI should be started in paused state
+func (v *VirtualMachineInstance) ShouldStartPaused() bool {
+	return v.Spec.StartStrategy != nil && *v.Spec.StartStrategy == StartStrategyPaused
 }
 
 //

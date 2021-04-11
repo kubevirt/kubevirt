@@ -19243,6 +19243,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 							Format:      "",
 						},
 					},
+					"startStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"terminationGracePeriodSeconds": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",

@@ -781,12 +781,22 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		if err != nil {
 			return nil, err
 		}
-		err = dom.Create()
-		if err != nil {
-			logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
-			return nil, err
+		if vmi.ShouldStartPaused() {
+			err = dom.CreateWithFlags(libvirt.DOMAIN_START_PAUSED)
+			if err != nil {
+				logger.Reason(err).Error("Starting the VirtualMachineInstance in paused state failed.")
+				return nil, err
+			}
+			l.paused.add(vmi.UID)
+			logger.Info("Domain started in paused state.")
+		} else {
+			err = dom.Create()
+			if err != nil {
+				logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
+				return nil, err
+			}
+			logger.Info("Domain started.")
 		}
-		logger.Info("Domain started.")
 	} else if cli.IsPaused(domState) && !l.paused.contains(vmi.UID) {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
