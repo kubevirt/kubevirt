@@ -41,7 +41,6 @@ import (
 
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -51,19 +50,6 @@ const (
 	almExamplesAnnotation = "alm-examples"
 	validOutputModes      = CSVMode + "|" + CRDMode
 )
-
-type ClusterServiceVersionSpecExtended struct {
-	csvv1alpha1.ClusterServiceVersionSpec
-	RelatedImages []relatedImage `json:"relatedImages,omitempty"`
-}
-
-type ClusterServiceVersionExtended struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
-
-	Spec   ClusterServiceVersionSpecExtended       `json:"spec"`
-	Status csvv1alpha1.ClusterServiceVersionStatus `json:"status"`
-}
 
 type EnvVarFlags []corev1.EnvVar
 
@@ -298,52 +284,48 @@ func getHcoCsv() {
 		csvBase.ObjectMeta.Annotations["olm.skipRange"] = fmt.Sprintf(">=%v-1 <%v", strings.Split(version.String(), "-")[0], version.String())
 	}
 
-	csvExtended := ClusterServiceVersionExtended{
-		TypeMeta:   csvBase.TypeMeta,
-		ObjectMeta: csvBase.ObjectMeta,
-		Spec:       ClusterServiceVersionSpecExtended{ClusterServiceVersionSpec: csvBase.Spec},
-		Status:     csvBase.Status}
-
 	params := getDeploymentParams()
 	// This is the base deployment + rbac for the HCO CSV
 	installStrategyBase := components.GetInstallStrategyBase(params)
 
 	overwriteDeploymentSpecLabels(installStrategyBase.DeploymentSpecs, hcoutil.AppComponentDeployment)
 
-	relatedImageSet := getRelatedImages()
+	relatedImages := getRelatedImages()
 
-	processCsvs(componentsWithCsvs, installStrategyBase, &csvExtended, relatedImageSet)
+	processCsvs(componentsWithCsvs, installStrategyBase, csvBase, &relatedImages)
 
-	csvExtended.Spec.RelatedImages = relatedImageSet.dump()
+	csvBase.Spec.RelatedImages = relatedImages
 
-	hiddenCRDsJ, err := getHiddenCrds(csvExtended)
+	hiddenCRDsJ, err := getHiddenCrds(*csvBase)
 	panicOnError(err)
 
-	csvExtended.Annotations["operators.operatorframework.io/internal-objects"] = hiddenCRDsJ
+	csvBase.Annotations["operators.operatorframework.io/internal-objects"] = hiddenCRDsJ
 
 	// Update csv strategy.
-	csvExtended.Spec.InstallStrategy.StrategyName = "deployment"
-	csvExtended.Spec.InstallStrategy.StrategySpec = *installStrategyBase
+	csvBase.Spec.InstallStrategy.StrategyName = "deployment"
+	csvBase.Spec.InstallStrategy.StrategySpec = *installStrategyBase
 
 	if *metadataDescription != "" {
-		csvExtended.Annotations["description"] = *metadataDescription
+		csvBase.Annotations["description"] = *metadataDescription
 	}
 	if *specDescription != "" {
-		csvExtended.Spec.Description = *specDescription
+		csvBase.Spec.Description = *specDescription
 	}
 	if *specDisplayName != "" {
-		csvExtended.Spec.DisplayName = *specDisplayName
+		csvBase.Spec.DisplayName = *specDisplayName
 	}
 
-	applyOverrides(&csvExtended)
+	applyOverrides(csvBase)
 
-	panicOnError(util.MarshallObject(csvExtended, os.Stdout))
+	csvBase.Spec.RelatedImages = sortRelatedImages(csvBase.Spec.RelatedImages)
+
+	panicOnError(util.MarshallObject(csvBase, os.Stdout))
 }
 
-func getHiddenCrds(csvExtended ClusterServiceVersionExtended) (string, error) {
+func getHiddenCrds(csvBase csvv1alpha1.ClusterServiceVersion) (string, error) {
 	hiddenCrds := make([]string, 0)
 	visibleCrds := strings.Split(*visibleCRDList, ",")
-	for _, owned := range csvExtended.Spec.CustomResourceDefinitions.Owned {
+	for _, owned := range csvBase.Spec.CustomResourceDefinitions.Owned {
 		if !stringInSlice(owned.Name, visibleCrds) {
 			hiddenCrds = append(
 				hiddenCrds,
@@ -359,20 +341,20 @@ func getHiddenCrds(csvExtended ClusterServiceVersionExtended) (string, error) {
 	return string(hiddenCrdsJ), nil
 }
 
-func processCsvs(componentsWithCsvs []util.CsvWithComponent, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvExtended *ClusterServiceVersionExtended, relatedImageSet RelatedImageSet) {
+func processCsvs(componentsWithCsvs []util.CsvWithComponent, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvBase *csvv1alpha1.ClusterServiceVersion, ris *[]csvv1alpha1.RelatedImage) {
 	for i, c := range componentsWithCsvs {
-		processOneCsv(c, i, installStrategyBase, csvExtended, relatedImageSet)
+		processOneCsv(c, i, installStrategyBase, csvBase, ris)
 	}
 }
 
-func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvExtended *ClusterServiceVersionExtended, relatedImageSet RelatedImageSet) {
+func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvBase *csvv1alpha1.ClusterServiceVersion, ris *[]csvv1alpha1.RelatedImage) {
 	if c.Csv == "" {
 		csvNames := []string{"CNA", "KubeVirt", "SSP", "CDI", "NMO", "HPP", "VM Import"}
 		log.Panicf("ERROR: the %s CSV was empty", csvNames[i])
 	}
 	csvBytes := []byte(c.Csv)
 
-	csvStruct := &ClusterServiceVersionExtended{}
+	csvStruct := &csvv1alpha1.ClusterServiceVersion{}
 
 	panicOnError(yaml.Unmarshal(csvBytes, csvStruct))
 
@@ -391,15 +373,15 @@ func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alp
 	installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
 	installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
 
-	csvExtended.Spec.WebhookDefinitions = append(csvExtended.Spec.WebhookDefinitions, csvStruct.Spec.WebhookDefinitions...)
+	csvBase.Spec.WebhookDefinitions = append(csvBase.Spec.WebhookDefinitions, csvStruct.Spec.WebhookDefinitions...)
 
 	for _, owned := range csvStruct.Spec.CustomResourceDefinitions.Owned {
-		csvExtended.Spec.CustomResourceDefinitions.Owned = append(
-			csvExtended.Spec.CustomResourceDefinitions.Owned,
+		csvBase.Spec.CustomResourceDefinitions.Owned = append(
+			csvBase.Spec.CustomResourceDefinitions.Owned,
 			newCRDDescription(owned),
 		)
 	}
-	csvBaseAlmString := csvExtended.Annotations[almExamplesAnnotation]
+	csvBaseAlmString := csvBase.Annotations[almExamplesAnnotation]
 	csvStructAlmString := csvStruct.Annotations[almExamplesAnnotation]
 	var baseAlmcrs []interface{}
 	var structAlmcrs []interface{}
@@ -414,11 +396,11 @@ func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alp
 	baseAlmcrs = append(baseAlmcrs, structAlmcrs...)
 	almB, err := json.Marshal(baseAlmcrs)
 	panicOnError(err)
-	csvExtended.Annotations[almExamplesAnnotation] = string(almB)
+	csvBase.Annotations[almExamplesAnnotation] = string(almB)
 
 	if !*ignoreComponentsRelatedImages {
 		for _, image := range csvStruct.Spec.RelatedImages {
-			relatedImageSet.add(image.Ref)
+			*ris = appendRelatedImageIfMissing(*ris, image)
 		}
 	}
 }
@@ -433,15 +415,15 @@ func newCRDDescription(owned csvv1alpha1.CRDDescription) csvv1alpha1.CRDDescript
 	}
 }
 
-func applyOverrides(csvExtended *ClusterServiceVersionExtended) {
+func applyOverrides(csvBase *csvv1alpha1.ClusterServiceVersion) {
 	if *csvOverrides != "" {
 		csvOBytes := []byte(*csvOverrides)
 
-		csvO := &ClusterServiceVersionExtended{}
+		csvO := &csvv1alpha1.ClusterServiceVersion{}
 
 		panicOnError(yaml.Unmarshal(csvOBytes, csvO))
 
-		panicOnError(mergo.Merge(csvExtended, csvO, mergo.WithOverride))
+		panicOnError(mergo.Merge(csvBase, csvO, mergo.WithOverride))
 	}
 }
 
@@ -485,15 +467,15 @@ func getReplacesVersion() string {
 	return ""
 }
 
-func getRelatedImages() RelatedImageSet {
-	relatedImageSet := newRelatedImageSet()
+func getRelatedImages() []csvv1alpha1.RelatedImage {
+	var ris []csvv1alpha1.RelatedImage
 
 	for _, image := range strings.Split(*relatedImagesList, ",") {
 		if image != "" {
-			relatedImageSet.add(image)
+			ris = addRelatedImage(ris, image)
 		}
 	}
-	return relatedImageSet
+	return ris
 }
 
 func getCsvBaseParams(replaces string, version semver.Version) *components.CSVBaseParams {
@@ -554,61 +536,20 @@ func overwriteWithStandardLabels(labels map[string]string, version string, compo
 	labels[hcoutil.AppLabelComponent] = string(component)
 }
 
-// TODO: get rid of this once RelatedImageSet officially
-// appears in github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
-type relatedImage struct {
-	Name string `json:"name"`
-	Ref  string `json:"image"`
-}
-
-// RelatedImageSet is a set that makes sure that each image appears only once.
-type RelatedImageSet map[string]string
-
-// constructor
-func newRelatedImageSet() RelatedImageSet {
-	return make(map[string]string)
-}
-
-// add image to the set. Ignore if the image already exists in the set
-func (ri *RelatedImageSet) add(image string) {
-	name := ""
+// add image to the slice. Ignore if the image already exists in the slice
+func addRelatedImage(images []csvv1alpha1.RelatedImage, image string) []csvv1alpha1.RelatedImage {
+	var ri csvv1alpha1.RelatedImage
 	if strings.Contains(image, "|") {
 		imageS := strings.Split(image, "|")
-		image = imageS[0]
-		name = imageS[1]
+		ri.Image = imageS[0]
+		ri.Name = imageS[1]
 	} else {
 		names := strings.Split(strings.Split(image, "@")[0], "/")
-		name = names[len(names)-1]
+		ri.Name = names[len(names)-1]
+		ri.Image = image
 	}
 
-	(*ri)[name] = image
-}
-
-// return the related image set as a sorted slice
-func (ri RelatedImageSet) dump() []relatedImage {
-	images := make([]relatedImage, 0, len(ri))
-
-	for name, image := range ri {
-		images = append(images, relatedImage{Name: name, Ref: image})
-	}
-
-	sort.Sort(relatedImageSortable(images))
-	return images
-}
-
-// implement sort.Interface for relatedImage slice. Sort by RelatedImage.Name
-type relatedImageSortable []relatedImage
-
-func (ris relatedImageSortable) Len() int {
-	return len(ris)
-}
-
-func (ris relatedImageSortable) Less(i, j int) bool {
-	return ris[i].Name < ris[j].Name
-}
-
-func (ris relatedImageSortable) Swap(i, j int) {
-	ris[i], ris[j] = ris[j], ris[i]
+	return appendRelatedImageIfMissing(images, ri)
 }
 
 func panicOnError(err error) {
@@ -624,4 +565,20 @@ func appendOnce(slice []string, item string) []string {
 	}
 
 	return append(slice, item)
+}
+
+func appendRelatedImageIfMissing(slice []csvv1alpha1.RelatedImage, ri csvv1alpha1.RelatedImage) []csvv1alpha1.RelatedImage {
+	for _, ele := range slice {
+		if ele.Name == ri.Name {
+			return slice
+		}
+	}
+	return append(slice, ri)
+}
+
+func sortRelatedImages(slice []csvv1alpha1.RelatedImage) []csvv1alpha1.RelatedImage {
+	sort.Slice(slice, func(i, j int) bool {
+		return slice[i].Name < slice[j].Name
+	})
+	return slice
 }
