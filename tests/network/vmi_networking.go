@@ -719,8 +719,8 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(libnet.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
 
 				By("Checking ping (IPv4) to google")
-				Expect(libnet.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
-				Expect(libnet.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(serverVMI, "8.8.8.8", "-c 5", "-w 15")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(clientVMI, "google.com", "-c 5", "-w 15")).To(Succeed())
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
 			},
