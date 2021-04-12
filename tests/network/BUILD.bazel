@@ -7,6 +7,7 @@ go_library(
         "expose.go",
         "framework.go",
         "networkpolicy.go",
+        "port_forward.go",
         "primary_pod_network.go",
         "probes.go",
         "services.go",
