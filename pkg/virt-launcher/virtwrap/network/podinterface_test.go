@@ -286,6 +286,23 @@ var _ = Describe("Pod Network", func() {
 				"DNAT",
 				"--to-destination",
 				GetMasqueradeVmIp(proto)).Return(nil)
+			mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
+				"KUBEVIRT_POSTINBOUND",
+				"--source",
+				getLoopbackAdrress(proto),
+				"-j",
+				"SNAT",
+				"--to-source",
+				GetMasqueradeGwIp(proto)).Return(nil)
+			mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
+				"OUTPUT",
+				"--destination",
+				getLoopbackAdrress(proto),
+				"-j",
+				"DNAT",
+				"--to-destination",
+				GetMasqueradeVmIp(proto)).Return(nil)
+
 			//Global net rules using nftable
 			mockNetwork.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND").Return(nil)
 			mockNetwork.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND").Return(nil)
@@ -296,7 +313,8 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(portsUsedByLiveMigration(), ", ")), GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto), "counter", "return").Return(nil)
 			}
 			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND", "counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil)
-
+			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND", GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto), "counter", "snat", "to", GetMasqueradeGwIp(proto)).Return(nil)
+			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "output", GetNFTIPString(proto), "daddr", getLoopbackAdrress(proto), "counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil)
 		}
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu, libvirtUser).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)

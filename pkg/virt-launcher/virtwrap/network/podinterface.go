@@ -1011,8 +1011,29 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 			"-j",
 			"DNAT",
 			"--to-destination", b.geVmIfaceIpByProtocol(protocol))
+		if err != nil {
+			return err
+		}
 
-		return err
+		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_POSTINBOUND",
+			"--source", getLoopbackAdrress(protocol),
+			"-j",
+			"SNAT",
+			"--to-source", b.getGatewayByProtocol(protocol))
+		if err != nil {
+			return err
+		}
+
+		err = b.handler.IptablesAppendRule(protocol, "nat", "OUTPUT",
+			"--destination", getLoopbackAdrress(protocol),
+			"-j",
+			"DNAT",
+			"--to-destination", b.geVmIfaceIpByProtocol(protocol))
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	for _, port := range b.iface.Ports {
@@ -1112,8 +1133,25 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 	if len(b.iface.Ports) == 0 {
 		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
 			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
+		if err != nil {
+			return err
+		}
 
-		return err
+		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
+			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+			"counter", "snat", "to", b.getGatewayByProtocol(proto))
+		if err != nil {
+			return err
+		}
+
+		err = b.handler.NftablesAppendRule(proto, "nat", "output",
+			b.handler.GetNFTIPString(proto), "daddr", getLoopbackAdrress(proto),
+			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	for _, port := range b.iface.Ports {
