@@ -17,11 +17,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/net"
+	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -55,6 +57,24 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	const testPort = 1500
 
+	type ipFamily string
+	const (
+		ipv4            ipFamily = "ipv4"
+		ipv6            ipFamily = "ipv6"
+		dualIPv4Primary ipFamily = "ipv4,ipv6"
+		dualIPv6Primary ipFamily = "ipv6,ipv4"
+	)
+
+	isDualStack := func(ipFamily ipFamily) bool {
+		return ipFamily == dualIPv4Primary || ipFamily == dualIPv6Primary
+	}
+
+	doesSupportIpv6 := func(ipFamily ipFamily) bool {
+		return ipFamily != ipv4
+	}
+
+	const xfailError = "Secondary ip on dual stack service is not working. Tracking issue - https://github.com/kubevirt/kubevirt/issues/5477"
+
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
@@ -62,24 +82,62 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
 		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), generateBatchJobSpec(host, port, tests.NewHelloWorldJob), metav1.CreateOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobUDP := func(host, port, namespace string) *batchv1.Job {
 		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), generateBatchJobSpec(host, port, tests.NewHelloWorldJobUDP), metav1.CreateOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobHttp := func(host, port, namespace string) *batchv1.Job {
 		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), generateBatchJobSpec(host, port, tests.NewHelloWorldJobHTTP), metav1.CreateOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	randomizeName := func(currentName string) string {
 		return currentName + rand.String(5)
+	}
+
+	validateClusterIp := func(clusterIp string, ipFamily ipFamily) error {
+		var correctPrimaryFamily bool
+		switch ipFamily {
+		case ipv4, dualIPv4Primary:
+			correctPrimaryFamily = netutils.IsIPv4String(clusterIp)
+		case ipv6, dualIPv6Primary:
+			correctPrimaryFamily = netutils.IsIPv6String(clusterIp)
+		}
+		if !correctPrimaryFamily {
+			return fmt.Errorf("the ClusterIP %s belongs to the wrong ip family", clusterIp)
+		}
+		return nil
+	}
+
+	skipIfNotSupportedCluster := func(ipFamily ipFamily) {
+		if doesSupportIpv6(ipFamily) {
+			libnet.SkipWhenNotDualStackCluster(virtClient)
+			if isDualStack(ipFamily) {
+				tests.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
+			}
+		}
+	}
+
+	appendIpFamilyToExposeArgs := func(ipFamily ipFamily, vmiExposeArgs []string) []string {
+		if doesSupportIpv6(ipFamily) {
+			vmiExposeArgs = append(vmiExposeArgs, "--ip-family", string(ipFamily))
+		}
+		return vmiExposeArgs
+	}
+
+	createAndWaitForJobToSucceed := func(helloWorldJobCreator func(host, port, namespace string) *batchv1.Job, namespace, ip, port, viaMessage string, timeout time.Duration) error {
+		By(fmt.Sprintf("Starting a job which tries to reach the VMI via the %s", viaMessage))
+		job := helloWorldJobCreator(ip, port, namespace)
+
+		By("Waiting for the job to report a successful connection attempt")
+		return tests.WaitForJobToSucceed(job, timeout*time.Second)
 	}
 
 	Context("Expose service on a VM", func() {
@@ -108,11 +166,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
-				}
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
@@ -121,16 +177,20 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				serviceIP := svc.Spec.ClusterIP
+				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJob(serviceIP, servicePort, tcpVM.Namespace)
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+				By("Iterating over the ClusterIPs")
+				serviceIPs := svc.Spec.ClusterIPs
+				for ipOrderNum, ip := range serviceIPs {
+					assert.XFail(xfailError, func() {
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, ip, servicePort, fmt.Sprintf("%dst ClusterIP", ipOrderNum+1), 420)).To(Succeed())
+					}, ipOrderNum > 0)
+				}
 			},
-				table.Entry("[test_id:1531] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:1531] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 		})
 
@@ -151,11 +211,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			table.DescribeTable("Should expose a ClusterIP service and connect to the vm on port 80", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
-				}
+			table.DescribeTable("Should expose a ClusterIP service and connect to the vm on port 80", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
@@ -175,9 +233,20 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				endpoint := endpoints.Subsets[0]
 				Expect(len(endpoint.Ports)).To(Equal(1))
 				Expect(endpoint.Ports[0].Port).To(Equal(int32(80)))
+
+				isDualStack := isDualStack(ipFamily)
+				numOfIps := 1
+				if isDualStack {
+					numOfIps = 2
+				}
+				assert.XFail(xfailError, func() {
+					Expect(len(endpoints.Subsets[0].Addresses)).To(Equal(numOfIps))
+				}, isDualStack)
 			},
-				table.Entry("[test_id:1532] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:1532] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 		})
 
@@ -197,11 +266,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			table.DescribeTable("Should expose a ClusterIP service and connect to all ports defined on the vmi", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
-				}
+			table.DescribeTable("Should expose a ClusterIP service and connect to all ports defined on the vmi", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
@@ -225,8 +292,10 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-3", Port: 82, Protocol: "UDP"}))
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-4", Port: 1500, Protocol: "UDP"}))
 			},
-				table.Entry("[test_id:1533] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:1533] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 		})
 
@@ -247,11 +316,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
-				}
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
@@ -270,27 +337,34 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				for _, node := range nodes.Items {
 					Expect(node.Status.Addresses).ToNot(BeEmpty())
 					nodeIP := node.Status.Addresses[0].Address
+					var ipv6NodeIP string
 
-					if ipFamily == k8sv1.IPv6Protocol {
-						ipv6NodeIP, err := resolveNodeIPAddrByFamily(
+					if ipFamily != ipv6 {
+						By("Connecting to IPv4 node IP")
+						assert.XFail(xfailError, func() {
+							Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily), 420)).To(Succeed())
+						}, ipFamily == dualIPv6Primary)
+					}
+					if doesSupportIpv6(ipFamily) {
+						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
 							virtClient,
 							libvmi.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
 							node,
-							ipFamily)
+							k8sv1.IPv6Protocol)
 						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
 						Expect(ipv6NodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
-						nodeIP = ipv6NodeIP
+
+						By("Connecting to IPv6 node IP")
+						assert.XFail(xfailError, func() {
+							Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily), 420)).To(Succeed())
+						}, ipFamily == dualIPv4Primary)
 					}
-
-					By("Starting a job which tries to reach the VMI via NodePort")
-					job := runHelloWorldJob(nodeIP, strconv.Itoa(int(nodePort)), tcpVM.Namespace)
-
-					By("Waiting for the job to report a successful connection attempt")
-					Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 				}
 			},
-				table.Entry("[test_id:1534] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:1534] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 		})
 	})
@@ -321,11 +395,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a ClusterIP service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
-				}
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a ClusterIP service on a VMI and connect to it", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
@@ -334,16 +406,22 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJobUDP(serviceIP, servicePort, udpVM.Namespace)
+				By("Validating the ClusterIP")
+				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
+				serviceIPs := svc.Spec.ClusterIPs
 
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+				By("Iterating over the ClusterIPs")
+				for ipOrderNum, ip := range serviceIPs {
+					assert.XFail(xfailError, func() {
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ip, servicePort, fmt.Sprintf("%dst ClusterIP", ipOrderNum+1), 420)).To(Succeed())
+					}, ipOrderNum > 0)
+				}
 			},
-				table.Entry("[test_id:1535] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:1535] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 		})
 
@@ -365,11 +443,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
-				}
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
@@ -378,15 +454,17 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				serviceIP := svc.Spec.ClusterIP
+				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
 				nodePort := svc.Spec.Ports[0].NodePort
 				Expect(nodePort).To(BeNumerically(">", 0))
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJobUDP(serviceIP, servicePort, udpVM.Namespace)
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
+				By("Iterating over the ClusterIPs")
+				serviceIPs := svc.Spec.ClusterIPs
+				for ipOrderNum, ip := range serviceIPs {
+					assert.XFail(xfailError, func() {
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 120)).To(Succeed())
+					}, ipOrderNum > 0)
+				}
 
 				By("Getting the node IP from all nodes")
 				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
@@ -396,26 +474,35 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					Expect(node.Status.Addresses).ToNot(BeEmpty())
 					nodeIP := node.Status.Addresses[0].Address
 
-					if ipFamily == k8sv1.IPv6Protocol {
-						ipv6NodeIP, err := resolveNodeIPAddrByFamily(
+					var ipv6NodeIP string
+					if doesSupportIpv6(ipFamily) {
+						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
 							virtClient,
 							libvmi.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
 							node,
-							ipFamily)
+							k8sv1.IPv6Protocol)
 						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
 						Expect(ipv6NodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
-						nodeIP = ipv6NodeIP
 					}
 
-					By("Starting a job which tries to reach the VMI via NodePort")
-					job := runHelloWorldJobUDP(nodeIP, strconv.Itoa(int(nodePort)), udpVM.Namespace)
-
-					By("Waiting for the job to report a successful connection attempt")
-					Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+					if ipFamily != ipv6 {
+						By("Connecting to IPv4 node IP")
+						assert.XFail(xfailError, func() {
+							Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv4 address", 420)).To(Succeed())
+						}, ipFamily == dualIPv6Primary)
+					}
+					if doesSupportIpv6(ipFamily) {
+						By("Connecting to IPv6 node IP")
+						assert.XFail(xfailError, func() {
+							Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv6 address", 420)).To(Succeed())
+						}, ipFamily == dualIPv4Primary)
+					}
 				}
 			},
-				table.Entry("[test_id:1536] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:1536] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 		})
 	})
@@ -472,11 +559,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			table.DescribeTable("[label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-					vmirsExposeArgs = append(vmirsExposeArgs, "--ip-family", "ipv6")
-				}
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmirsExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmirsExposeArgs)
 
 				By("Expose a service on the VMRS using virtctl")
 				virtctl := tests.NewRepeatableVirtctlCommand(vmirsExposeArgs...)
@@ -486,16 +571,20 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(vmrs.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				serviceIP := svc.Spec.ClusterIP
+				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJob(serviceIP, servicePort, vmrs.Namespace)
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+				By("Iterating over the ClusterIPs")
+				serviceIPs := svc.Spec.ClusterIPs
+				for ipOrderNum, ip := range serviceIPs {
+					assert.XFail(xfailError, func() {
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmrs.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 420)).To(Succeed())
+					}, ipOrderNum > 0)
+				}
 			},
-				table.Entry("[test_id:1537] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:1537] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 		})
 	})
@@ -570,11 +659,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 			})
 
-			table.DescribeTable("[label:masquerade_binding_connectivity]Connect to ClusterIP service that was set when VM was offline.", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-					vmExposeArgs = append(vmExposeArgs, "--ip-family", "ipv6")
-				}
+			table.DescribeTable("[label:masquerade_binding_connectivity]Connect to ClusterIP service that was set when VM was offline.", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmExposeArgs)
 
 				By("Exposing a service to the VM using virtctl")
 				virtctl := tests.NewRepeatableVirtctlCommand(vmExposeArgs...)
@@ -588,34 +675,28 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				serviceIP := svc.Spec.ClusterIP
+				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
-
-				By("Starting a job which tries to reach the VMI again via the same ClusterIP, this time over HTTP.")
-				job = runHelloWorldJobHttp(serviceIP, servicePort, vm.Namespace)
-
-				By("Waiting for the HTTP job to report a successful connection attempt.")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
+				By("Iterating over the ClusterIPs")
+				serviceIPs := svc.Spec.ClusterIPs
+				for ipOrderNum, ip := range serviceIPs {
+					assert.XFail(xfailError, func() {
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vm.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 420)).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJobHttp, vm.Namespace, ip, servicePort, fmt.Sprintf("same %dst ClusterIP, this time over HTTP", ipOrderNum+1), 120)).To(Succeed())
+					}, ipOrderNum > 0)
+				}
 			},
-				table.Entry("[test_id:1538] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:1538] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 
-			table.DescribeTable("[label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-				}
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmExposeArgs)
 
 				vmObj := vm
-
-				if ipFamily == k8sv1.IPv6Protocol {
-					vmExposeArgs = append(vmExposeArgs, "--ip-family", "ipv6")
-				}
 
 				By("Exposing a service to the VM using virtctl")
 				virtctl := tests.NewRepeatableVirtctlCommand(vmExposeArgs...)
@@ -627,13 +708,15 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Getting back the service's allocated cluster IP.")
 				svc, err := virtClient.CoreV1().Services(vmObj.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				serviceIP := svc.Spec.ClusterIP
+				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
 
-				By("Starting a job which tries to reach the VMI via ClusterIP.")
-				job := runHelloWorldJob(serviceIP, servicePort, vmObj.Namespace)
-
-				By("Waiting for the job to report a successful connection attempt.")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
+				By("Iterating over the ClusterIPs")
+				serviceIPs := svc.Spec.ClusterIPs
+				for ipOrderNum, ip := range serviceIPs {
+					assert.XFail(xfailError, func() {
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmObj.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 120)).To(Succeed())
+					}, ipOrderNum > 0)
+				}
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
 				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
@@ -661,20 +744,38 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				tests.GenerateHelloWorldServer(vmi, testPort, "tcp")
 
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
-				By("Starting a job which tries to reach the VMI via ClusterIP.")
-				job = runHelloWorldJob(serviceIP, servicePort, vmObj.Namespace)
-
-				By("Waiting for the job to report a successful connection attempt.")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
+				for ipOrderNum, ip := range serviceIPs {
+					assert.XFail(xfailError, func() {
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmObj.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 120)).To(Succeed())
+					}, ipOrderNum > 0)
+				}
 			},
-				table.Entry("[test_id:345] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:345] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 
-			table.DescribeTable("[label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
-					vmExposeArgs = append(vmExposeArgs, "--ip-family", "ipv6")
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func(svcIpFamily ipFamily) {
+				skipIfNotSupportedCluster(svcIpFamily)
+				vmExposeArgs = appendIpFamilyToExposeArgs(svcIpFamily, vmExposeArgs)
+
+				getPrimaryAndSecondaryAddr := func(ipv4Addr, ipv6Addr string) (string, string) {
+					var primaryAddr string
+					var secondaryAddr string
+					switch svcIpFamily {
+					case ipv4:
+						primaryAddr = ipv4Addr
+					case ipv6:
+						primaryAddr = ipv6Addr
+					case dualIPv4Primary:
+						primaryAddr = ipv4Addr
+						secondaryAddr = ipv6Addr
+					case dualIPv6Primary:
+						primaryAddr = ipv6Addr
+						secondaryAddr = ipv4Addr
+					}
+					return primaryAddr, secondaryAddr
 				}
 
 				By("Exposing a service to the VM using virtctl")
@@ -688,19 +789,25 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
+				Expect(validateClusterIp(svc.Spec.ClusterIP, svcIpFamily)).To(Succeed())
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
+				By("Iterating over the ClusterIPs")
+				serviceIPs := svc.Spec.ClusterIPs
+				for ipOrderNum, ip := range serviceIPs {
+					assert.XFail(xfailError, func() {
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vm.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 120)).To(Succeed())
+					}, ipOrderNum > 0)
+				}
 
 				By("Comparing the service's endpoints IP address to the VM pod IP address.")
 				// Get the IP address of the VM pod.
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				vmPodIpAddress := libnet.GetPodIpByFamily(vmPod, ipFamily)
+				vmPodIpv4Address := libnet.GetPodIpByFamily(vmPod, k8sv1.IPv4Protocol)
+				vmPodIpv6Address := libnet.GetPodIpByFamily(vmPod, k8sv1.IPv6Protocol)
+
+				primaryVmPodAddr, secondaryVmPodAddr := getPrimaryAndSecondaryAddr(vmPodIpv4Address, vmPodIpv6Address)
 
 				// Get the IP address of the service's endpoint.
 				endpointsName := serviceName
@@ -711,10 +818,24 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				// pointing to a single pod (the VMI's virt-launcher pod).
 				// This subset should hold a single IP address only - the VM's pod address.
 				Expect(len(svcEndpoints.Subsets)).To(Equal(1))
-				Expect(len(svcEndpoints.Subsets[0].Addresses)).To(Equal(1))
-				endptSubsetIpAddress := svcEndpoints.Subsets[0].Addresses[0].IP
 
-				Eventually(endptSubsetIpAddress).Should(BeEquivalentTo(vmPodIpAddress))
+				numOfIps := 1
+				if secondaryVmPodAddr != "" {
+					numOfIps = 2
+				}
+				assert.XFail(xfailError, func() {
+					Expect(len(svcEndpoints.Subsets[0].Addresses)).To(Equal(numOfIps))
+				}, secondaryVmPodAddr != "")
+
+				endptSubsetIpAddress := svcEndpoints.Subsets[0].Addresses[0].IP
+				Eventually(endptSubsetIpAddress).Should(BeEquivalentTo(primaryVmPodAddr))
+
+				if secondaryVmPodAddr != "" {
+					assert.XFail(xfailError, func() {
+						endptSubsetIpAddress := svcEndpoints.Subsets[0].Addresses[1].IP
+						Eventually(endptSubsetIpAddress).Should(BeEquivalentTo(secondaryVmPodAddr))
+					})
+				}
 
 				By("Deleting the VM.")
 				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
@@ -726,13 +847,15 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(svcEndpoints.Subsets).To(BeNil())
 
 				By("Starting a job which tries to reach the VMI via the ClusterIP service.")
-				job = runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
+				job := runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
 
 				By("Waiting for the job to report a failed connection attempt.")
 				Expect(tests.WaitForJobToFail(job, 240*time.Second)).To(Succeed())
 			},
-				table.Entry("[test_id:343] over default IPv4 IP family", k8sv1.IPv4Protocol),
-				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+				table.Entry("[test_id:343] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 		})
 	})
