@@ -1122,6 +1122,41 @@ const (
 	StopRequest  StateChangeRequestAction = "Stop"
 )
 
+// VirtualMachinePrintableStatus is a human readable, high-level representation of the status of the virtual machine.
+//
+// +k8s:openapi-gen=true
+type VirtualMachinePrintableStatus string
+
+// A list of statuses defined for virtual machines
+const (
+	// VirtualMachineStatusStopped indicates that a VirtualMachineInstance does not exist and is not expected to.
+	VirtualMachineStatusStopped VirtualMachinePrintableStatus = "Stopped"
+	// VirtualMachineStatusProvisioning indicates that a VirtualMachineInstance exists,
+	// but associated cluster resources (e.g., DataVolumes) are still being prepared.
+	VirtualMachineStatusProvisioning VirtualMachinePrintableStatus = "Provisioning"
+	// VirtualMachineStatusStarting indicates that a VirtualMachineInstance exists,
+	//associated cluster resources have been acquired, and the guest virtual machine is being prepared for running.
+	VirtualMachineStatusStarting VirtualMachinePrintableStatus = "Starting"
+	// VirtualMachineStatusRunning indicates that a VirtualMachineInstance exists,
+	// and the guest virtual machine is in running state.
+	VirtualMachineStatusRunning VirtualMachinePrintableStatus = "Running"
+	// VirtualMachineStatusPaused indicates that a VirtualMachineInstance exists,
+	// and the guest virtual machine is in paused state.
+	VirtualMachineStatusPaused VirtualMachinePrintableStatus = "Paused"
+	// VirtualMachineStatusStopping indicates that a VirtualMachineInstance exists,
+	// with a non-null deletionTimestamp.
+	VirtualMachineStatusStopping VirtualMachinePrintableStatus = "Stopping"
+	// VirtualMachineStatusTerminating indicates that the VirtualMachine has a non-null deletionTimestamp
+	// and its associated resources (VirtualMachineInstance, volumes, …) are in the process of tear down.
+	VirtualMachineStatusTerminating VirtualMachinePrintableStatus = "Terminating"
+	// VirtualMachineStatusMigrating indicates that a VirtualMachineInstance exists,
+	// and is in the process of being migrated to another host.
+	VirtualMachineStatusMigrating VirtualMachinePrintableStatus = "Migrating"
+	// VirtualMachineStatusUnknown indicates that for some reason the state of the VirtualMachine could not be obtained,
+	// typically due to an error in communicating with the host of the VirtualMachineInstance.
+	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
+)
+
 // VirtualMachineStatus represents the status returned by the
 // controller to describe how the VirtualMachine is doing
 //
@@ -1133,6 +1168,8 @@ type VirtualMachineStatus struct {
 	Created bool `json:"created,omitempty"`
 	// Ready indicates if the virtual machine is running and ready
 	Ready bool `json:"ready,omitempty"`
+	// PrintableStatus is a human readable, high-level representation of the status of the virtual machine
+	PrintableStatus VirtualMachinePrintableStatus `json:"printableStatus,omitempty"`
 	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
 	Conditions []VirtualMachineCondition `json:"conditions,omitempty" optional:"true"`
 	// StateChangeRequests indicates a list of actions that should be taken on a VMI
