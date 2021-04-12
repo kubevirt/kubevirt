@@ -83,6 +83,54 @@ var _ = Describe("Qemu agent poller", func() {
 			agentStore.Store(GET_OSINFO, fakeInfo)
 			Expect(agentStore.AgentUpdated).ToNot(Receive())
 		})
+
+		It("should report nil slice when no interfaces exists", func() {
+			var agentStore = NewAsyncAgentStore()
+			interfacesStatus := agentStore.GetInterfaceStatus()
+
+			Expect(interfacesStatus).To(BeNil())
+		})
+
+		It("should report interfaces info when interfaces exists", func() {
+			var agentStore = NewAsyncAgentStore()
+
+			fakeInterfaces := []api.InterfaceStatus{
+				{
+					Name: "eth1",
+					Mac:  "00:00:00:00:00:01",
+				},
+			}
+			agentStore.Store(GET_INTERFACES, fakeInterfaces)
+			interfacesStatus := agentStore.GetInterfaceStatus()
+
+			Expect(interfacesStatus).To(Equal(fakeInterfaces))
+		})
+
+		It("should report nil when no osInfo exists", func() {
+			var agentStore = NewAsyncAgentStore()
+			osInfo := agentStore.GetGuestOSInfo()
+
+			Expect(osInfo).To(BeNil())
+		})
+
+		It("should report osInfo when osInfo exists", func() {
+			var agentStore = NewAsyncAgentStore()
+			fakeInfo := api.GuestOSInfo{
+				Name:          "TestGuestOSName",
+				KernelRelease: "1.1.0-Generic",
+				Version:       "1.0.0",
+				PrettyName:    "TestGuestOSName 1.0.0",
+				VersionId:     "1.0.0",
+				KernelVersion: "1.1.0",
+				Machine:       "x86_64",
+				Id:            "testguestos",
+			}
+
+			agentStore.Store(GET_OSINFO, fakeInfo)
+			osInfo := agentStore.GetGuestOSInfo()
+
+			Expect(*osInfo).To(Equal(fakeInfo))
+		})
 	})
 
 	Context("PollerWorker", func() {
