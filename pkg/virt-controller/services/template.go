@@ -62,11 +62,12 @@ const virtiofsDebugLogs = "virtiofsdDebugLogs"
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
 const (
-	CAP_NET_ADMIN    = "NET_ADMIN"
-	CAP_NET_RAW      = "NET_RAW"
-	CAP_SYS_ADMIN    = "SYS_ADMIN"
-	CAP_SYS_NICE     = "SYS_NICE"
-	CAP_SYS_RESOURCE = "SYS_RESOURCE"
+	CAP_NET_ADMIN        = "NET_ADMIN"
+	CAP_NET_RAW          = "NET_RAW"
+	CAP_SYS_ADMIN        = "SYS_ADMIN"
+	CAP_SYS_NICE         = "SYS_NICE"
+	CAP_SYS_RESOURCE     = "SYS_RESOURCE"
+	CAP_NET_BIND_SERVICE = "CAP_NET_BIND_SERVICE"
 )
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
@@ -1390,6 +1391,10 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	capabilities = append(capabilities, CAP_SYS_NICE)
+
+	// Explicitly add CAP_NET_BIND_SERVICE to allow us to run virt-launcher DHCP
+	// as non-root
+	capabilities = append(capabilities, CAP_NET_BIND_SERVICE)
 
 	// add CAP_SYS_ADMIN capability to allow virtiofs
 	if util.IsVMIVirtiofsEnabled(vmi) {
