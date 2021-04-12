@@ -3307,6 +3307,9 @@ var CRDsValidation map[string]string = map[string]string{
         created:
           description: Created indicates if the virtual machine is created in the cluster
           type: boolean
+        printableStatus:
+          description: PrintableStatus is a human readable, high-level representation of the status of the virtual machine
+          type: string
         ready:
           description: Ready indicates if the virtual machine is running and ready
           type: boolean
@@ -9940,6 +9943,9 @@ var CRDsValidation map[string]string = map[string]string{
                     created:
                       description: Created indicates if the virtual machine is created in the cluster
                       type: boolean
+                    printableStatus:
+                      description: PrintableStatus is a human readable, high-level representation of the status of the virtual machine
+                      type: string
                     ready:
                       description: Ready indicates if the virtual machine is running and ready
                       type: boolean
