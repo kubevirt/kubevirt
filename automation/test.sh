@@ -48,6 +48,10 @@ elif [[ $TARGET =~ cnao ]]; then
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
+  export KUBEVIRT_DEPLOY_ISTIO=true
+  if [[ $TARGET =~ k8s-1\.1.* ]]; then
+    export KUBEVIRT_DEPLOY_ISTIO=false
+  fi
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
 elif [[ $TARGET =~ sig-compute ]]; then

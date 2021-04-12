@@ -208,6 +208,10 @@ const (
 	SecretLabel = "kubevirt.io/secret"
 )
 
+const (
+	IstioInjectNamespaceLabel = "istio-injection"
+)
+
 var (
 	// BlockDiskForTest contains name of the block PV and PVC
 	BlockDiskForTest string
@@ -1626,6 +1630,10 @@ func cleanNamespaces() {
 			continue
 		}
 
+		// Clean namespace labels
+		err = libnet.RemoveAllLabelsFromNamespace(virtCli, namespace)
+		PanicOnError(err)
+
 		//Remove all Jobs
 		PanicOnError(virtCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Do(context.Background()).Error())
 		//Remove all HPA
@@ -1720,6 +1728,12 @@ func cleanNamespaces() {
 		for _, netDef := range nets.Items {
 			PanicOnError(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(context.Background(), netDef.GetName(), metav1.DeleteOptions{}))
 		}
+
+		// Remove all Istio Sidecars
+		PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "sidecars"}, namespace))
+
+		// Remove all Istio PeerAuthentications
+		PanicOnError(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace))
 	}
 }
 
@@ -1743,6 +1757,29 @@ func removeNamespaces() {
 			return virtCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		}, 240*time.Second, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfully delete namespace '%s'", namespace))
 	}
+}
+
+func removeAllGroupVersionResourceFromNamespace(groupVersionResource schema.GroupVersionResource, namespace string) error {
+	virtCli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return err
+	}
+
+	gvr, err := virtCli.DynamicClient().Resource(groupVersionResource).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	for _, r := range gvr.Items {
+		err = virtCli.DynamicClient().Resource(groupVersionResource).Namespace(namespace).Delete(context.Background(), r.GetName(), metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func detectInstallNamespace() {

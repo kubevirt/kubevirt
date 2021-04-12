@@ -48,6 +48,26 @@ func RandName(name string) string {
 	return name + "-" + rand.String(5)
 }
 
+// WithLabel sets a label with specified value
+func WithLabel(key, value string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		if vmi.Labels == nil {
+			vmi.Labels = map[string]string{}
+		}
+		vmi.Labels[key] = value
+	}
+}
+
+// WithAnnotation adds an annotation with specified value
+func WithAnnotation(key, value string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		if vmi.Annotations == nil {
+			vmi.Annotations = map[string]string{}
+		}
+		vmi.Annotations[key] = value
+	}
+}
+
 // WithTerminationGracePeriod specifies the termination grace period in seconds.
 func WithTerminationGracePeriod(seconds int64) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
