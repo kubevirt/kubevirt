@@ -148,6 +148,9 @@ build-push-all: container-build-operator container-push-operator container-build
 upgrade-test:
 	./hack/upgrade-test.sh
 
+upgrade-test-index-image:
+	./hack/upgrade-test-index-image.sh
+
 kubevirt-nightly-test:
 	./hack/kubevirt-nightly-test.sh
 

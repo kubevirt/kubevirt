@@ -427,6 +427,7 @@ rm -rf "${INDEX_IMAGE_DIR:?}"
 mkdir -p "${INDEX_IMAGE_DIR:?}/${PACKAGE_NAME}"
 cp -r "${CSV_DIR%/*}" "${INDEX_IMAGE_DIR:?}/${PACKAGE_NAME}/"
 cp "${OLM_DIR}/bundle.Dockerfile" "${INDEX_IMAGE_DIR:?}/"
+cp "${OLM_DIR}/Dockerfile.bundle.ci-index-image-upgrade" "${INDEX_IMAGE_DIR:?}/"
 
 INDEX_IMAGE_CSV="${INDEX_IMAGE_DIR}/${PACKAGE_NAME}/${CSV_VERSION}/manifests/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
 sed -r -i "s|createdAt: \".*\$|createdAt: \"2020-10-23 08:58:25\"|; s|quay.io/kubevirt/hyperconverged-cluster-operator.*$|+IMAGE_TO_REPLACE+|; s|quay.io/kubevirt/hyperconverged-cluster-webhook.*$|+WEBHOOK_IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}

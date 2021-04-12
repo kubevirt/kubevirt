@@ -1,0 +1,26 @@
+FROM quay.io/fedora/fedora:33-x86_64 AS builder
+ARG INITIAL_VERSION=1.4.0
+ARG TARGET_VERSION=100.0.0
+ARG PACKAGE_NAME=community-kubevirt-hyperconverged
+
+COPY ${PACKAGE_NAME}/${INITIAL_VERSION}/manifests/ /manifests/
+COPY ${PACKAGE_NAME}/${INITIAL_VERSION}/metadata /metadata/
+RUN mv /manifests/kubevirt-hyperconverged-operator.v${INITIAL_VERSION}.clusterserviceversion.yaml \
+    /manifests/kubevirt-hyperconverged-operator.v${TARGET_VERSION}.clusterserviceversion.yaml && \
+    sed -i 's/${INITIAL_VERSION}/${TARGET_VERSION}/g' /manifests/kubevirt-hyperconverged-operator.v${TARGET_VERSION}.clusterserviceversion.yaml && \
+    sed -i 's/${INITIAL_VERSION}/${TARGET_VERSION}/g' /metadata/annotations.yaml
+
+FROM scratch
+
+ARG VERSION=100.0.0
+ARG PACKAGE_NAME=community-kubevirt-hyperconverged
+
+LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
+LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
+LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
+LABEL operators.operatorframework.io.bundle.package.v1=community-kubevirt-hyperconverged
+LABEL operators.operatorframework.io.bundle.channels.v1=${VERSION}
+LABEL operators.operatorframework.io.bundle.channel.default.v1=${VERSION}
+
+COPY --from=builder /manifests/ /manifests/
+COPY --from=builder /metadata /metadata/
