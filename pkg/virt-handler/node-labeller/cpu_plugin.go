@@ -135,7 +135,6 @@ func (n *NodeLabeller) loadCPUInfo() error {
 	}
 
 	n.cpuInfo.models = models
-
 	return nil
 }
 
