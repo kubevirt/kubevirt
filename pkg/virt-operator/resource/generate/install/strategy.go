@@ -44,6 +44,7 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -368,7 +369,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		strategy.crds = append(strategy.crds, crd)
 	}
 
-	rbaclist := make([]interface{}, 0)
+	rbaclist := make([]runtime.Object, 0)
 	rbaclist = append(rbaclist, rbac.GetAllCluster()...)
 	rbaclist = append(rbaclist, rbac.GetAllApiServer(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace())...)

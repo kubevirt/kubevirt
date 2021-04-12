@@ -739,7 +739,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		registry := fmt.Sprintf("rand-%s", rand.String(10))
 		config := getConfig(registry, version)
 
-		all := make([]interface{}, 0)
+		all := make([]runtime.Object, 0)
 		all = append(all, &k8sv1.ServiceAccount{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "v1",
@@ -859,7 +859,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	addAll := func(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
 		c, _ := apply.NewCustomizer(kv.Spec.CustomizeComponents)
 
-		all := make([]interface{}, 0)
+		all := make([]runtime.Object, 0)
 
 		// rbac
 		all = append(all, rbac.GetAllCluster()...)
@@ -961,11 +961,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 
 		for _, obj := range all {
-			if resource, ok := obj.(runtime.Object); ok {
-				addResource(resource, config, kv)
-			} else {
-				Fail("could not cast to runtime.Object")
-			}
+			addResource(obj, config, kv)
 		}
 	}
 

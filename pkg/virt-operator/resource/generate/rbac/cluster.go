@@ -21,12 +21,13 @@ package rbac
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
-func GetAllCluster() []interface{} {
-	return []interface{}{
+func GetAllCluster() []runtime.Object {
+	return []runtime.Object{
 		newDefaultClusterRole(),
 		newDefaultClusterRoleBinding(),
 		newAdminClusterRole(),
