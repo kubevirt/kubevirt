@@ -92,15 +92,14 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconc
 	}
 
 	return &ReconcileHyperConverged{
-		client:             mgr.GetClient(),
-		scheme:             mgr.GetScheme(),
-		recorder:           mgr.GetEventRecorderFor(hcoutil.HyperConvergedName),
-		cliDownloadHandler: &operands.CLIDownloadHandler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},
-		operandHandler:     operands.NewOperandHandler(mgr.GetClient(), mgr.GetScheme(), ci.IsOpenshift(), hcoutil.GetEventEmitter()),
-		upgradeMode:        false,
-		ownVersion:         ownVersion,
-		eventEmitter:       hcoutil.GetEventEmitter(),
-		firstLoop:          true,
+		client:         mgr.GetClient(),
+		scheme:         mgr.GetScheme(),
+		recorder:       mgr.GetEventRecorderFor(hcoutil.HyperConvergedName),
+		operandHandler: operands.NewOperandHandler(mgr.GetClient(), mgr.GetScheme(), ci.IsOpenshift(), hcoutil.GetEventEmitter()),
+		upgradeMode:    false,
+		ownVersion:     ownVersion,
+		eventEmitter:   hcoutil.GetEventEmitter(),
+		firstLoop:      true,
 	}
 }
 
@@ -171,15 +170,14 @@ var _ reconcile.Reconciler = &ReconcileHyperConverged{}
 type ReconcileHyperConverged struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client             client.Client
-	scheme             *runtime.Scheme
-	recorder           record.EventRecorder
-	cliDownloadHandler *operands.CLIDownloadHandler
-	operandHandler     *operands.OperandHandler
-	upgradeMode        bool
-	ownVersion         string
-	eventEmitter       hcoutil.EventEmitter
-	firstLoop          bool
+	client         client.Client
+	scheme         *runtime.Scheme
+	recorder       record.EventRecorder
+	operandHandler *operands.OperandHandler
+	upgradeMode    bool
+	ownVersion     string
+	eventEmitter   hcoutil.EventEmitter
+	firstLoop      bool
 }
 
 // Reconcile reads that state of the cluster for a HyperConverged object and makes changes based on the state read
@@ -320,11 +318,7 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 }
 
 func (r *ReconcileHyperConverged) EnsureOperandAndComplete(req *common.HcoRequest, init bool) (reconcile.Result, error) {
-	// TODO(Erkan): This will be updated by a dedicated PR
-	_ = r.cliDownloadHandler.Ensure(req)
-
-	err := r.operandHandler.Ensure(req)
-	if err != nil {
+	if err := r.operandHandler.Ensure(req); err != nil {
 		r.updateConditions(req)
 		hcoutil.SetReady(false)
 		return reconcile.Result{Requeue: init}, nil
@@ -335,7 +329,7 @@ func (r *ReconcileHyperConverged) EnsureOperandAndComplete(req *common.HcoReques
 	// Requeue if we just created everything
 	if init {
 		hcoutil.SetReady(false)
-		return reconcile.Result{Requeue: true}, err
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	r.completeReconciliation(req)

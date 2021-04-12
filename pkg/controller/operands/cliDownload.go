@@ -1,57 +1,72 @@
 package operands
 
 import (
+	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
 	"os"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	consolev1 "github.com/openshift/api/console/v1"
-	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/reference"
 )
 
-type CLIDownloadHandler genericOperand
+type cliDownloadHandler genericOperand
 
-func (h CLIDownloadHandler) Ensure(req *common.HcoRequest) error {
-	ccd := NewConsoleCLIDownload(req.Instance)
-
-	found := NewConsoleCLIDownload(req.Instance)
-	err := hcoutil.EnsureCreated(req.Ctx, h.Client, found, req.Logger)
-	if err != nil {
-		if meta.IsNoMatchError(err) {
-			req.Logger.Info("ConsoleCLIDownload was not found, skipping")
-		}
-		return err
+func newCLIDownloadHandler(Client client.Client, Scheme *runtime.Scheme) *cliDownloadHandler {
+	return &cliDownloadHandler{
+		Client:                 Client,
+		Scheme:                 Scheme,
+		crType:                 "ConsoleCLIDownload",
+		removeExistingOwner:    false,
+		setControllerReference: false,
+		hooks:                  &cliDownloadHooks{},
 	}
+}
 
-	// Make sure we hold the right link spec
-	if reflect.DeepEqual(found.Spec, ccd.Spec) {
-		objectRef, err := reference.GetReference(h.Scheme, found)
-		if err != nil {
-			req.Logger.Error(err, "failed getting object reference for ConsoleCLIDownload")
-			return err
-		}
-		err = objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
-		if err != nil {
-			req.Logger.Error(err, "failed setting object reference for ConsoleCLIDownload")
-			return err
-		}
+type cliDownloadHooks struct{}
 
-		if reflect.DeepEqual(found.Labels, ccd.Labels) {
-			return nil
-		}
+func (h cliDownloadHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	return NewConsoleCLIDownload(hc), nil
+}
+
+func (h cliDownloadHooks) getEmptyCr() client.Object {
+	return &consolev1.ConsoleCLIDownload{}
+}
+
+func (h cliDownloadHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
+
+func (h cliDownloadHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*consolev1.ConsoleCLIDownload).ObjectMeta
+}
+
+func (h *cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+	ccd, ok1 := required.(*consolev1.ConsoleCLIDownload)
+	found, ok2 := exists.(*consolev1.ConsoleCLIDownload)
+	if !ok1 || !ok2 {
+		return false, false, errors.New("can't convert to ConsoleCLIDownload")
 	}
-
-	ccd.Spec.DeepCopyInto(&found.Spec)
-	util.DeepCopyLabels(&ccd.ObjectMeta, &found.ObjectMeta)
-
-	return h.Client.Update(req.Ctx, found)
+	if !reflect.DeepEqual(found.Spec, ccd.Spec) ||
+		!reflect.DeepEqual(found.Labels, ccd.Labels) {
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing ConsoleCLIDownload's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated ConsoleCLIDownload's Spec to its opinionated values")
+		}
+		util.DeepCopyLabels(&ccd.ObjectMeta, &found.ObjectMeta)
+		ccd.Spec.DeepCopyInto(&found.Spec)
+		err := Client.Update(req.Ctx, found)
+		if err != nil {
+			return false, false, err
+		}
+		return true, !req.HCOTriggered, nil
+	}
+	return false, false, nil
 }
 
 func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLIDownload {

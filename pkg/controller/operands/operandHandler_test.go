@@ -228,7 +228,7 @@ var _ = Describe("Test operandHandler", func() {
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Killing",
-					Msg:       "Removed  virtctl-clidownloads-kubevirt-hyperconverged",
+					Msg:       "Removed ConsoleCLIDownload virtctl-clidownloads-kubevirt-hyperconverged",
 				},
 				{
 					EventType: corev1.EventTypeNormal,

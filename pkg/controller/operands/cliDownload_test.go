@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
@@ -17,7 +15,6 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,16 +33,13 @@ var _ = Describe("CLI Download", func() {
 		It("should create if not present", func() {
 			expectedResource := NewConsoleCLIDownload(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
-			err := handler.Ensure(req)
-			Expect(err).To(BeNil())
+			handler := (*genericOperand)(newCLIDownloadHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.Err).To(BeNil())
 
+			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &consolev1.ConsoleCLIDownload{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
+			Expect(cl.Get(context.TODO(), key, foundResource)).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
@@ -55,9 +49,9 @@ var _ = Describe("CLI Download", func() {
 			expectedResource := NewConsoleCLIDownload(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/consoleclidownloads/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
-			err := handler.Ensure(req)
-			Expect(err).To(BeNil())
+			handler := (*genericOperand)(newCLIDownloadHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -87,9 +81,10 @@ var _ = Describe("CLI Download", func() {
 		DescribeTable("should update if something changed", func(modifiedResource *consolev1.ConsoleCLIDownload) {
 			os.Setenv(hcoutil.KubevirtVersionEnvV, "100")
 			cl := commonTestUtils.InitClient([]runtime.Object{modifiedResource})
-			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
-			err := handler.Ensure(req)
-			Expect(err).To(BeNil())
+			handler := (*genericOperand)(newCLIDownloadHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.Err).To(BeNil())
+
 			expectedResource := NewConsoleCLIDownload(hco)
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &consolev1.ConsoleCLIDownload{}
@@ -137,21 +132,6 @@ var _ = Describe("CLI Download", func() {
 			),
 		)
 
-		It("should return error if ConsoleCLIDownload was not found", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
-
-			cl.InitiateCreateErrors(func(obj client.Object) error {
-				if _, ok := obj.(*consolev1.ConsoleCLIDownload); ok {
-					return &meta.NoResourceMatchError{}
-				}
-				return nil
-			})
-			err := handler.Ensure(req)
-			Expect(err).To(HaveOccurred())
-			Expect(meta.IsNoMatchError(err)).To(BeTrue())
-		})
-
 		It("should return error when update fails", func() {
 			expectedResource := NewConsoleCLIDownload(hco)
 			expectedResource.Spec.Links[0].Text = "wrong text"
@@ -163,10 +143,10 @@ var _ = Describe("CLI Download", func() {
 				}
 				return nil
 			})
-			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
-			err := handler.Ensure(req)
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(fakeErr))
+			handler := (*genericOperand)(newCLIDownloadHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.Err).To(HaveOccurred())
+			Expect(res.Err).To(Equal(fakeErr))
 		})
 	})
 })
