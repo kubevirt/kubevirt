@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package driver
 
 import (
 	"fmt"

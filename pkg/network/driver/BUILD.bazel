@@ -1,0 +1,41 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "common.go",
+        "generated_mock_common.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/network/driver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/util/sysctl:go_default_library",
+        "//pkg/virt-handler/selinux:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter:go_default_library",
+        "//pkg/virt-launcher/virtwrap/network/dhcp:go_default_library",
+        "//pkg/virt-launcher/virtwrap/network/dhcpv6:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/coreos/go-iptables/iptables:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/github.com/subgraph/libmacouflage:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/k8s.io/utils/net:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "common_test.go",
+        "driver_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/coreos/go-iptables/iptables:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+    ],
+)

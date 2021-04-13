@@ -19,7 +19,7 @@
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
-package network
+package driver
 
 import (
 	"fmt"
@@ -47,7 +47,7 @@ import (
 const (
 	randomMacGenerationAttempts = 10
 	allowForwarding             = 1
-	libvirtUserAndGroupId       = "0"
+	LibvirtUserAndGroupId       = "0"
 )
 
 type VIF struct {
@@ -472,7 +472,7 @@ var DHCPServer = dhcp.SingleClientDHCPServer
 var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
 
 // filter out irrelevant routes
-func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
+func FilterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
 	for _, route := range routes {
 		// don't create empty static routes
 		if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
