@@ -494,7 +494,7 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 }
 
 func SynchronizedAfterTestSuiteCleanup() {
-	RestoreKubeVirtResource()
+	RestoreKubeVirtResource(originalKV)
 
 	if Config.ManageStorageClasses {
 		deleteStorageClass(Config.StorageClassHostPath)
@@ -688,7 +688,7 @@ func SynchronizedBeforeTestSetup() []byte {
 	}
 
 	EnsureKVMPresent()
-	AdjustKubeVirtResource()
+	adjustedKV = AdjustKubeVirtResource()
 
 	return nil
 }
@@ -731,8 +731,9 @@ func BeforeTestSuitSetup(_ []byte) {
 }
 
 var originalKV *v1.KubeVirt
+var adjustedKV *v1.KubeVirt
 
-func AdjustKubeVirtResource() {
+func AdjustKubeVirtResource() *v1.KubeVirt {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -742,7 +743,7 @@ func AdjustKubeVirtResource() {
 	KubeVirtDefaultConfig = originalKV.Spec.Configuration
 
 	if !flags.ApplyDefaulte2eConfiguration {
-		return
+		return originalKV
 	}
 
 	// Rotate very often during the tests to ensure that things are working
@@ -789,17 +790,28 @@ func AdjustKubeVirtResource() {
 			PanicOnError(err)
 		}
 	}
+
+	return adjustedKV
 }
 
-func RestoreKubeVirtResource() {
-	if originalKV != nil {
+func RestoreKubeVirtResource(kv *v1.KubeVirt) {
+	if kv != nil {
 		virtClient, err := kubecli.GetKubevirtClient()
 		PanicOnError(err)
-		data, err := json.Marshal(originalKV.Spec)
+
+		currentKv := GetCurrentKv(virtClient)
+		Expect(err).ToNot(HaveOccurred())
+
+		if reflect.DeepEqual(kv.Spec, currentKv.Spec) {
+			return
+		}
+		data, err := json.Marshal(kv.Spec)
 		Expect(err).ToNot(HaveOccurred())
 		patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData))
+		restoredKv, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
 		PanicOnError(err)
+		waitForConfigToBePropagated(restoredKv.ResourceVersion)
+
 	}
 }
 
@@ -4489,8 +4501,8 @@ func resetToDefaultConfig() {
 		// we can just skip the restore step.
 		return
 	}
-
 	UpdateKubeVirtConfigValueAndWait(KubeVirtDefaultConfig)
+	RestoreKubeVirtResource(adjustedKV)
 	UpdateCDIConfigMap(CDIInsecureRegistryConfig)
 }
 
