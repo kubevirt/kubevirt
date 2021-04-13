@@ -105,6 +105,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			Expect(snapshot.Status.SourceUID).ToNot(BeNil())
 			Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
 
+			Expect(snapshot.Status.Indications).To(BeEmpty())
+
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 			content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
