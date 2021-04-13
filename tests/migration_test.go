@@ -1744,7 +1744,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
 			})
 
-			It("[QUARANTINE][owner:@sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
+			It("[owner:@sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
 					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
