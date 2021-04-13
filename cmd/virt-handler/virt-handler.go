@@ -72,6 +72,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
+	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -352,12 +353,17 @@ func (app *virtHandlerApp) Run() {
 
 	go vmController.Run(10, stop)
 
-	nodeLabellerController, err := nodelabeller.NewNodeLabeller(&devicemanager.DeviceController{}, app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
-	if err != nil {
-		panic(err)
-	}
+	deviceController := &devicemanager.DeviceController{}
+	if deviceController.NodeHasDevice(nodelabellerutil.KVMPath) {
+		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
+		if err != nil {
+			panic(err)
+		}
 
-	go nodeLabellerController.Run(10, stop)
+		go nodeLabellerController.Run(10, stop)
+	} else {
+		logger.V(1).Level(log.INFO).Log("node-labeller is disabled, cannot work without KVM device.")
+	}
 
 	doneCh := make(chan string)
 	defer close(doneCh)

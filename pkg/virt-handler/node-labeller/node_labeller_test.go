@@ -20,8 +20,6 @@
 package nodelabeller
 
 import (
-	"strings"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -37,7 +35,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
@@ -61,8 +58,12 @@ var _ = Describe("Node-labeller ", func() {
 		ctrl = gomock.NewController(GinkgoT())
 
 		kubeClient = fake.NewSimpleClientset()
-
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+
+		kubeClient.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			return true, newNode("testNode"), nil
+		})
+
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		kv := &kubevirtv1.KubeVirt{
@@ -82,7 +83,7 @@ var _ = Describe("Node-labeller ", func() {
 
 		prepareFileDomCapabilities()
 
-		nlController, _ = NewNodeLabeller(&device_manager.DeviceController{}, config, virtClient, "testNode", k8sv1.NamespaceDefault)
+		nlController, _ = NewNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault)
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
 
@@ -91,15 +92,10 @@ var _ = Describe("Node-labeller ", func() {
 
 	It("should run node-labelling", func() {
 		addNode(newNode("testNode"))
-		kubeClient.Fake.PrependReactor("*", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, _ := action.(testing.PatchAction)
-			Expect(update.GetName()).To(Equal("testNode"), "names should equal")
-			containCorrectLabel := strings.Contains(string(update.GetPatch()), "Penryn")
-			Expect(containCorrectLabel).To(Equal(true), "labels should contain cpu model")
-			return true, nil, nil
-		})
 
-		nlController.execute()
+		res := nlController.execute()
+		Expect(res).To(Equal(true), "labeller should end with true result")
+		Expect(nlController.queue.Len()).To(Equal(0), "labeller should process all nodes from queue")
 	})
 
 	AfterEach(func() {

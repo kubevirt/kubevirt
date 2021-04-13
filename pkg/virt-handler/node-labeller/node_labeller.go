@@ -36,17 +36,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
-)
-
-const (
-	kvmPath = "/dev/kvm"
 )
 
 //NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
-	kvmController     *device_manager.DeviceController
 	clientset         kubecli.KubevirtClient
 	host              string
 	namespace         string
@@ -59,9 +53,8 @@ type NodeLabeller struct {
 	cpuInfo           cpuInfo
 }
 
-func NewNodeLabeller(kvmController *device_manager.DeviceController, clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
 	n := &NodeLabeller{
-		kvmController: kvmController,
 		clientset:     clientset,
 		host:          host,
 		namespace:     namespace,
@@ -69,32 +62,18 @@ func NewNodeLabeller(kvmController *device_manager.DeviceController, clusterConf
 		clusterConfig: clusterConfig,
 		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
-	err := n.loadCPUInfo()
+
+	err := n.loadAll()
 	if err != nil {
-		n.logger.Errorf("node-labeller could not load cpu info: " + err.Error())
-		return nil, err
+		return n, err
 	}
-
-	err = n.loadHostSupportedFeatures()
-	if err != nil {
-		n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
-		return nil, err
-	}
-
-	err = n.loadHostCapabilities()
-	if err != nil {
-		n.logger.Errorf("node-labeller could not load host capabilities: " + err.Error())
-		return nil, err
-	}
-
-	n.loadHypervFeatures()
-
 	return n, nil
 }
 
 //Run runs node-labeller
 func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 	defer n.queue.ShutDown()
+
 	n.logger.Infof("node-labeller is running")
 
 	n.clusterConfig.SetConfigModifiedCallback(func() {
@@ -122,11 +101,6 @@ func (n *NodeLabeller) execute() bool {
 	}
 	defer n.queue.Done(key)
 
-	if !n.kvmController.NodeHasDevice(kvmPath) {
-		n.logger.Errorf("node-labeller cannot work without KVM device.")
-		return true
-	}
-
 	err := n.run()
 
 	if err != nil {
@@ -136,6 +110,30 @@ func (n *NodeLabeller) execute() bool {
 		n.queue.Forget(key)
 	}
 	return true
+}
+
+func (n *NodeLabeller) loadAll() error {
+	err := n.loadCPUInfo()
+	if err != nil {
+		n.logger.Errorf("node-labeller could not load cpu info: " + err.Error())
+		return err
+	}
+
+	err = n.loadHostSupportedFeatures()
+	if err != nil {
+		n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
+		return err
+	}
+
+	err = n.loadHostCapabilities()
+	if err != nil {
+		n.logger.Errorf("node-labeller could not load host capabilities: " + err.Error())
+		return err
+	}
+
+	n.loadHypervFeatures()
+
+	return nil
 }
 
 func (n *NodeLabeller) run() error {

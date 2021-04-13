@@ -27,6 +27,7 @@ const (
 	DeprecatedHyperPrefix                        = "/kvm-info-cap-hyperv-"
 	DefaultMinCPUModel                           = "Penryn"
 	RequirePolicy                                = "require"
+	KVMPath                                      = "/dev/kvm"
 )
 
 var DefaultObsoleteCPUModels = map[string]bool{
@@ -41,4 +42,8 @@ var DefaultObsoleteCPUModels = map[string]bool{
 	"Conroe":     true,
 	"athlon":     true,
 	"phenom":     true,
+	"qemu64":     true,
+	"qemu32":     true,
+	"kvm64":      true,
+	"kvm32":      true,
 }
