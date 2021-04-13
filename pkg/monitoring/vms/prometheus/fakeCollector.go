@@ -27,12 +27,10 @@ func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
 
 	in := &libstatst[0]
 	inMem := []libvirt.DomainMemoryStat{}
-	inDomInfo := &libvirt.DomainInfo{}
 	out := stats.DomainStats{}
 	ident := statsconv.DomainIdentifier(&fakeIdentifier{})
-	devAliasMap := make(map[string]string)
 
-	if err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inDomInfo, devAliasMap, &out); err != nil {
+	if err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &out); err != nil {
 		panic(err)
 	}
 
@@ -41,10 +39,6 @@ func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
 	out.Memory.AvailableSet = true
 	out.Memory.RSSSet = true
 	out.Memory.SwapInSet = true
-	out.Memory.SwapOutSet = true
-	out.Memory.UsableSet = true
-	out.Memory.MinorFaultSet = true
-	out.Memory.MajorFaultSet = true
 	out.CPUMapSet = true
 
 	vmi := k6tv1.VirtualMachineInstance{
