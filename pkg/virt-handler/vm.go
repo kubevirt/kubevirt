@@ -45,8 +45,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/util"
-	netcache "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
 
