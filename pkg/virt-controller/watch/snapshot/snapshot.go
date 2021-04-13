@@ -589,6 +589,19 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 
 		if content != nil && content.Status != nil {
 			// content exists and is initialized
+			if !vmSnapshotReady(vmSnapshotCpy) && vmSnapshotContentReady(content) {
+				onlineSnapshot, err := ctrl.checkOnlineSnapshotting(vmSnapshotCpy)
+				if err != nil {
+					return err
+				}
+
+				if onlineSnapshot {
+					log.Log.V(3).Infof("Updating snapshot indications that the vm was online")
+					vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
+					log.Log.V(3).Infof("Updating snapshot indications that it was taken without guest agent participation")
+					vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+				}
+			}
 			vmSnapshotCpy.Status.VirtualMachineSnapshotContentName = &content.Name
 			vmSnapshotCpy.Status.CreationTime = content.Status.CreationTime
 			vmSnapshotCpy.Status.ReadyToUse = content.Status.ReadyToUse
@@ -799,6 +812,44 @@ func (ctrl *VMSnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachi
 	return obj.(*snapshotv1.VirtualMachineSnapshotContent).DeepCopy(), nil
 }
 
+func checkVMRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
+	rs, err := vm.RunStrategy()
+	if err != nil {
+		return false, err
+	}
+
+	return rs != kubevirtv1.RunStrategyHalted, nil
+}
+
+func (ctrl *VMSnapshotController) checkVMIRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
+	key, err := controller.KeyFunc(vm)
+	if err != nil {
+		return false, err
+	}
+
+	_, exists, err := ctrl.VMIInformer.GetStore().GetByKey(key)
+	return exists, err
+}
+
+func (ctrl *VMSnapshotController) checkOnlineSnapshotting(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (bool, error) {
+	vm, err := ctrl.getVM(vmSnapshot)
+	if err != nil {
+		return false, err
+	}
+
+	vmRunning, err := checkVMRunning(vm)
+	if err != nil {
+		return false, err
+	}
+
+	exists, err := ctrl.checkVMIRunning(vm)
+	if err != nil {
+		return false, err
+	}
+
+	return (vmRunning || exists), nil
+}
+
 func (s *vmSnapshotSource) UID() types.UID {
 	return s.vm.UID
 }
@@ -814,22 +865,17 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return true, nil
 	}
 
-	rs, err := s.vm.RunStrategy()
+	vmRunning, err := checkVMRunning(s.vm)
 	if err != nil {
 		return false, err
 	}
 
-	if rs != kubevirtv1.RunStrategyHalted {
-		log.Log.V(3).Infof("Snapshottting a running VM is not supported yet")
+	if vmRunning {
+		log.Log.V(3).Infof("Snapshotting a running VM is not supported yet")
 		return false, nil
 	}
 
-	key, err := controller.KeyFunc(s.vm)
-	if err != nil {
-		return false, err
-	}
-
-	_, exists, err := s.controller.VMIInformer.GetStore().GetByKey(key)
+	exists, err := s.controller.checkVMIRunning(s.vm)
 	if err != nil {
 		return false, err
 	}
