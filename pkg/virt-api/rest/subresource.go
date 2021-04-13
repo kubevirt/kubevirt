@@ -1201,26 +1201,37 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 			return
 		}
 	} else {
-		vm, statErr := app.fetchVirtualMachine(name, namespace)
-		if statErr != nil {
-			writeError(statErr, response)
-			return
-		}
-
-		patch, err := generateVMVolumeRequestPatch(vm, &volumeRequest)
-		if err != nil {
-			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
-			return
-		}
-
-		err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch))
-		if err != nil {
-			writeError(errors.NewInternalError(fmt.Errorf("unable to patch vm status during volume remove: %v", err)), response)
+		if err := app.removeVolumeRequestHandlerPatchStatus(name, namespace, &volumeRequest, 0, nil); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) removeVolumeRequestHandlerPatchStatus(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest, generation int64, orgError *errors.StatusError) *errors.StatusError {
+	vm, statErr := app.fetchVirtualMachine(name, namespace)
+	if statErr != nil {
+		return statErr
+	}
+
+	if vm.GetObjectMeta().GetGeneration() == generation && vm.GetObjectMeta().GetGeneration() > 0 {
+		//Same generation, return original error
+		return orgError
+	}
+
+	patch, err := generateVMVolumeRequestPatch(vm, volumeRequest)
+	if err != nil {
+		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
+	}
+
+	err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch))
+	if err != nil {
+		// try again
+		return app.removeVolumeRequestHandlerPatchStatus(name, namespace, volumeRequest, vm.GetObjectMeta().GetGeneration(), errors.NewInternalError(fmt.Errorf("unable to patch vm status during volume remove: %v", err)))
+	}
+	return nil
 }
 
 // VMAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
