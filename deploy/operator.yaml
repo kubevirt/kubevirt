@@ -33,7 +33,7 @@ spec:
           value: OPERATOR
         - name: KVM_EMULATION
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:ca0ad2865a5d70abc8d1f5670c4191502eda2e8b68849e0b9f78f72e41cf7cc5
+          value: quay.io/kubevirt/hyperconverged-cluster-operator:1.4.0-unstable
         - name: OPERATOR_NAME
           value: hyperconverged-cluster-operator
         - name: OPERATOR_NAMESPACE
@@ -71,7 +71,7 @@ spec:
           value: v0.7.2
         - name: VM_IMPORT_VERSION
           value: v0.3.3
-        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:ca0ad2865a5d70abc8d1f5670c4191502eda2e8b68849e0b9f78f72e41cf7cc5
+        image: quay.io/kubevirt/hyperconverged-cluster-operator:1.4.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 1
@@ -126,7 +126,7 @@ spec:
         - name: APP
           value: WEBHOOK
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:af4a7e5219898364fd04ec5f9c6fa225637c69770327ee42d510680e27ccaf1e
+          value: quay.io/kubevirt/hyperconverged-cluster-webhook:1.4.0-unstable
         - name: OPERATOR_NAME
           value: hyperconverged-cluster-webhook
         - name: OPERATOR_NAMESPACE
@@ -136,7 +136,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:af4a7e5219898364fd04ec5f9c6fa225637c69770327ee42d510680e27ccaf1e
+        image: quay.io/kubevirt/hyperconverged-cluster-webhook:1.4.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 1

@@ -41,15 +41,15 @@ OPERATOR_IMAGE=${TEMP_OPERATOR_IMAGE} WEBHOOK_IMAGE=${TEMP_WEBHOOK_IMAGE} make c
 # Update image digests
 sed -i "s#docker.io/kubevirt/virt-#${kv_image/-*/-}#" deploy/images.csv
 sed -i "s#^KUBEVIRT_VERSION=.*#KUBEVIRT_VERSION=\"${kv_tag}\"#" hack/config
-sed -i "s#quay.io/kubevirt/hyperconverged-cluster-operator#${CSV_OPERATOR_IMAGE}#" deploy/images.csv
-sed -i "s#quay.io/kubevirt/hyperconverged-cluster-webhook#${CSV_WEBHOOK_IMAGE}#" deploy/images.csv
-sed -i "s#CSV_VERSION#IMAGE_TAG#" deploy/images.csv
 (cd ./tools/digester && go build .)
 export HCO_VERSION="${IMAGE_TAG}"
 ./automation/digester/update_images.sh
 
+HCO_OPERATOR_IMAGE_DIGEST=$(tools/digester/digester --image ${CSV_OPERATOR_IMAGE})
+HCO_WEBHOOK_IMAGE_DIGEST=$(tools/digester/digester --image ${CSV_WEBHOOK_IMAGE})
+
 # Build the CSV
-./hack/build-manifests.sh
+HCO_OPERATOR_IMAGE=${HCO_OPERATOR_IMAGE_DIGEST} HCO_WEBHOOK_IMAGE=${HCO_WEBHOOK_IMAGE_DIGEST} ./hack/build-manifests.sh
 
 REGISTRY_NAMESPACE=${DOCKER_PREFIX} CONTAINER_TAG=${IMAGE_TAG} make bundleRegistry
 hco_bucket="kubevirt-prow/devel/nightly/release/kubevirt/hyperconverged-cluster-operator"

@@ -47,6 +47,10 @@ PROJECT_ROOT="$(readlink -e $(dirname "${BASH_SOURCE[0]}")/../)"
 source "${PROJECT_ROOT}"/hack/config
 source "${PROJECT_ROOT}"/deploy/images.env
 
+HCO_OPERATOR_IMAGE=${HCO_OPERATOR_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:${CSV_VERSION}-unstable}
+HCO_WEBHOOK_IMAGE=${HCO_WEBHOOK_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-webhook:${CSV_VERSION}-unstable}
+DIGEST_LIST="${DIGEST_LIST},${HCO_OPERATOR_IMAGE}|hyperconverged-cluster-operator,${HCO_WEBHOOK_IMAGE}|hyperconverged-cluster-webhook"
+
 DEPLOY_DIR="${PROJECT_ROOT}/deploy"
 CRD_DIR="${DEPLOY_DIR}/crds"
 OLM_DIR="${DEPLOY_DIR}/olm-catalog"
@@ -297,26 +301,6 @@ csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${cdiCsv}" "${nmoCsv}" "${hppCsv}" "
 for csv in "${csvs[@]}"; do
   grep -E "^ *image: [a-zA-Z0-9/\.:@\-]+$" ${csv}
 done
-
-if [[ -n ${OPERATOR_IMAGE} ]]; then
-  TEMP_IMAGE_NAME=$(get_image_digest "${OPERATOR_IMAGE}")
-  DIGEST_LIST="${DIGEST_LIST/${HCO_OPERATOR_IMAGE}/${TEMP_IMAGE_NAME}}"
-  HCO_OPERATOR_IMAGE=${TEMP_IMAGE_NAME}
-fi
-
-if [[ -n ${WEBHOOK_IMAGE} ]]; then
-  TEMP_IMAGE_NAME=$(get_image_digest "${WEBHOOK_IMAGE}")
-  if [[ -n ${HCO_WEBHOOK_IMAGE} ]]; then
-    DIGEST_LIST="${DIGEST_LIST/${HCO_WEBHOOK_IMAGE}/${TEMP_IMAGE_NAME}}"
-  else
-    DIGEST_LIST="${DIGEST_LIST},${TEMP_IMAGE_NAME}"
-  fi
-  HCO_WEBHOOK_IMAGE=${TEMP_IMAGE_NAME}
-fi
-
-if [[ -z ${HCO_WEBHOOK_IMAGE} ]]; then
-  HCO_WEBHOOK_IMAGE="${HCO_OPERATOR_IMAGE}"
-fi
 
 # Build and write deploy dir
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go build)
