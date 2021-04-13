@@ -51,4 +51,4 @@ jobs:
           path-to-profile: coverprofiles/cover.coverprofile
 
       - name: Verify the current manifests pass validation
-        run: make container-build-operator-courier
+        run: make container-build-validate-bundles

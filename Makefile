@@ -86,6 +86,9 @@ container-build-webhook:
 container-build-operator-courier:
 	docker build -f tools/operator-courier/Dockerfile -t hco-courier .
 
+container-build-validate-bundles:
+	docker build -f tools/operator-sdk-validate/Dockerfile -t operator-sdk-validate-hco .
+
 container-build-functest:
 	docker build -f build/Dockerfile.functest -t $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
