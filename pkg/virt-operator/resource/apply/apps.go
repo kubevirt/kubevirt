@@ -36,7 +36,7 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
 		}
 
-		resourcemerge.SetDeploymentGeneration(&kv.Status.Generations, deployment)
+		SetGeneration(&kv.Status.Generations, deployment)
 
 		return nil
 	}
@@ -44,7 +44,7 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 	cachedDeployment := obj.(*appsv1.Deployment)
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDeployment.DeepCopy()
-	expectedGeneration := resourcemerge.ExpectedDeploymentGeneration(deployment, kv.Status.Generations)
+	expectedGeneration := GetExpectedGeneration(deployment, kv.Status.Generations)
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
 
@@ -71,7 +71,7 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 		return fmt.Errorf("unable to update deployment %+v: %v", deployment, err)
 	}
 
-	resourcemerge.SetDeploymentGeneration(&kv.Status.Generations, deployment)
+	SetGeneration(&kv.Status.Generations, deployment)
 	log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
 
 	return nil
@@ -100,7 +100,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 			return fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
 		}
 
-		resourcemerge.SetDaemonSetGeneration(&kv.Status.Generations, daemonSet)
+		SetGeneration(&kv.Status.Generations, daemonSet)
 
 		return nil
 	}
@@ -108,7 +108,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 	cachedDaemonSet = obj.(*appsv1.DaemonSet)
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDaemonSet.DeepCopy()
-	expectedGeneration := resourcemerge.ExpectedDaemonSetGeneration(daemonSet, kv.Status.Generations)
+	expectedGeneration := GetExpectedGeneration(daemonSet, kv.Status.Generations)
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
 	// there was no change to metadata, the generation was right
@@ -134,39 +134,45 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 		return fmt.Errorf("unable to update daemonset %+v: %v", daemonSet, err)
 	}
 
-	resourcemerge.SetDaemonSetGeneration(&kv.Status.Generations, daemonSet)
+	SetGeneration(&kv.Status.Generations, daemonSet)
 	log.Log.V(2).Infof("daemonSet %v updated", daemonSet.GetName())
 
 	return nil
 }
 
 func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) error {
+	kv := r.kv
 	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
 
-	imageTag, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-	injectOperatorMetadata(r.kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
+	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
+	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
 
 	pdbClient := r.clientset.PolicyV1beta1().PodDisruptionBudgets(deployment.Namespace)
 
 	var cachedPodDisruptionBudget *policyv1beta1.PodDisruptionBudget
 	obj, exists, _ := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
-	if exists {
-		cachedPodDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
-	}
 
 	if !exists {
 		r.expectations.PodDisruptionBudget.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := pdbClient.Create(context.Background(), podDisruptionBudget, metav1.CreateOptions{})
+		podDisruptionBudget, err := pdbClient.Create(context.Background(), podDisruptionBudget, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.PodDisruptionBudget.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 		}
 		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
+		SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 
 		return nil
 	}
 
-	if objectMatchesVersion(&cachedPodDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
+	cachedPodDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
+	modified := resourcemerge.BoolPtr(false)
+	existingCopy := cachedPodDisruptionBudget.DeepCopy()
+	expectedGeneration := GetExpectedGeneration(podDisruptionBudget, kv.Status.Generations)
+
+	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, podDisruptionBudget.ObjectMeta)
+	// there was no change to metadata, the generation was right
+	if !*modified && existingCopy.ObjectMeta.Generation == expectedGeneration {
 		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
 		return nil
 	}
@@ -182,10 +188,12 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 		return err
 	}
 
-	_, err = pdbClient.Patch(context.Background(), podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	podDisruptionBudget, err = pdbClient.Patch(context.Background(), podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 	}
+
+	SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 	log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
 
 	return nil
