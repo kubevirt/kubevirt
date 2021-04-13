@@ -511,7 +511,9 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		return false, nil
 	}
 
-	err = res.DoNetNS(func() error { return network.SetupPodNetworkPhase1(vmi, pid, d.networkCacheStoreFactory) })
+	err = res.DoNetNS(func() error {
+		return network.NewVMNetworkConfigurator(vmi, d.networkCacheStoreFactory).SetupPodNetworkPhase1(pid)
+	})
 	if err != nil {
 		_, critical := err.(*network.CriticalNetworkError)
 		if critical {

@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "common.go",
         "generated_mock_common.go",
-        "generated_mock_network.go",
         "network.go",
         "podinterface.go",
     ],

@@ -84,8 +84,20 @@ var _ = Describe("Pod Network", func() {
 	var mtu int
 	var cacheFactory cache.InterfaceCacheFactory
 	var libvirtUser string
-	var podnic podNICImpl
-
+	var newPodNIC = func(vmi *v1.VirtualMachineInstance) podNIC {
+		return podNIC{
+			cacheFactory: cacheFactory,
+			handler:      mockNetwork,
+			vmi:          vmi,
+		}
+	}
+	var createDefaultPodNIC = func(vmi *v1.VirtualMachineInstance) podNIC {
+		podnic := newPodNIC(vmi)
+		podnic.iface = &vmi.Spec.Domain.Devices.Interfaces[0]
+		podnic.network = &vmi.Spec.Networks[0]
+		podnic.podInterfaceName = primaryPodInterfaceName
+		return podnic
+	}
 	BeforeEach(func() {
 		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
 		tmpDir, _ := ioutil.TempDir("", "networktest")
@@ -93,7 +105,6 @@ var _ = Describe("Pod Network", func() {
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = NewMockNetworkHandler(ctrl)
-		podnic = podNICImpl{cacheFactory: cacheFactory, handler: mockNetwork}
 		testMac := "12:34:56:78:9A:BC"
 		updateTestMac := "AF:B3:1F:78:2A:CA"
 		mtu = 1410
@@ -277,13 +288,17 @@ var _ = Describe("Pod Network", func() {
 		}
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu, libvirtUser).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
-		err := podnic.PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], primaryPodInterfaceName, pid)
+		podnic := createDefaultPodNIC(vm)
+		podnic.launcherPID = &pid
+		err := podnic.PlugPhase1()
 		Expect(err).To(BeNil())
 
 		// Calling SetupPhase1 a second time should result in
 		// no mockNetwork function calls, as confirmed by mock object
 		// limited number of calls expected for each mocked entry point.
-		err = podnic.PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], primaryPodInterfaceName, pid)
+		podnic = createDefaultPodNIC(vm)
+		podnic.launcherPID = &pid
+		err = podnic.PlugPhase1()
 		Expect(err).To(BeNil())
 	}
 
@@ -336,7 +351,9 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().DisableTXOffloadChecksum(bridgeTest.Name).Return(nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
-			err := podnic.PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], primaryPodInterfaceName, pid)
+			podnic := createDefaultPodNIC(vm)
+			podnic.launcherPID = &pid
+			err := podnic.PlugPhase1()
 			Expect(err).To(HaveOccurred(), "SetupPhase1 should return an error")
 
 			_, ok := err.(*CriticalNetworkError)
@@ -355,7 +372,9 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().GetMacDetails(primaryPodInterfaceName).Return(fakeMac, nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
-			err := podnic.PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], primaryPodInterfaceName, pid)
+			podnic := createDefaultPodNIC(vm)
+			podnic.launcherPID = &pid
+			err := podnic.PlugPhase1()
 			Expect(err).To(HaveOccurred())
 		})
 		Context("func filterPodNetworkRoutes()", func() {
@@ -384,7 +403,8 @@ var _ = Describe("Pod Network", func() {
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("failed to open file"))
-				Expect(podnic.PlugPhase2(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], domain, primaryPodInterfaceName)).To(Succeed())
+				podnic := createDefaultPodNIC(vm)
+				Expect(podnic.PlugPhase2(domain)).To(Succeed())
 			}
 			Expect(testDhcpPanic).To(Panic())
 		})
@@ -393,7 +413,9 @@ var _ = Describe("Pod Network", func() {
 				It("should populate MAC address", func() {
 					vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-					driver, err := podnic.getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], primaryPodInterfaceName, &pid)
+					podnic := createDefaultPodNIC(vmi)
+					podnic.launcherPID = &pid
+					driver, err := podnic.getPhase1Binding()
 					Expect(err).ToNot(HaveOccurred())
 					bridge, ok := driver.(*BridgeBindMechanism)
 					Expect(ok).To(BeTrue())
@@ -415,11 +437,15 @@ var _ = Describe("Pod Network", func() {
 					},
 				}
 				vmi := newVMI("testnamespace", "testVmName")
-				podnic := podNICImpl{}
-				err := podnic.PlugPhase1(vmi, iface, net, "fakeiface", pid)
+				podnic := newPodNIC(vmi)
+				podnic.iface = iface
+				podnic.network = net
+				podnic.podInterfaceName = "fakeiface"
+				podnic.launcherPID = &pid
+				err := podnic.PlugPhase1()
 				Expect(err).ToNot(HaveOccurred())
 
-				err = podnic.PlugPhase2(vmi, iface, net, domain, "fakeiface")
+				err = podnic.PlugPhase2(domain)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -537,8 +563,8 @@ var _ = Describe("Pod Network", func() {
 				vmi := newVMISlirpInterface("testnamespace", "testVmName")
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-				driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName, nil)
+				podnic := createDefaultPodNIC(vmi)
+				driver, err := podnic.getPhase2Binding(domain)
 				Expect(err).ToNot(HaveOccurred())
 				TestRunPlug(driver)
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
@@ -552,8 +578,8 @@ var _ = Describe("Pod Network", func() {
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-
-				driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName, nil)
+				podnic := createDefaultPodNIC(vmi)
+				driver, err := podnic.getPhase2Binding(domain)
 				Expect(err).ToNot(HaveOccurred())
 				TestRunPlug(driver)
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
@@ -577,8 +603,9 @@ var _ = Describe("Pod Network", func() {
 					},
 					Alias: api.NewUserDefinedAlias("default"),
 				})
-
-				driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName, &pid)
+				podnic := createDefaultPodNIC(vmi)
+				podnic.launcherPID = &pid
+				driver, err := podnic.getPhase2Binding(domain)
 				Expect(err).ToNot(HaveOccurred())
 				TestRunPlug(driver)
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
@@ -600,8 +627,10 @@ var _ = Describe("Pod Network", func() {
 				vmi := newVMIMacvtapInterface("testnamespace", "default", ifaceName)
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-				driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, ifaceName, &pid)
+				podnic := createDefaultPodNIC(vmi)
+				podnic.launcherPID = &pid
+				podnic.podInterfaceName = ifaceName
+				driver, err := podnic.getPhase2Binding(domain)
 				mockNetwork.EXPECT().LinkByName(ifaceName).Return(macvtapInterface, nil)
 				Expect(err).ToNot(HaveOccurred(), "should have identified the correct binding mechanism")
 				TestRunPlug(driver)
@@ -620,7 +649,9 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName, &pid)
+			podnic := createDefaultPodNIC(vmi)
+			podnic.launcherPID = &pid
+			driver, err := podnic.getPhase2Binding(domain)
 			Expect(err).ToNot(HaveOccurred())
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -636,7 +667,9 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName, &pid)
+			podnic := createDefaultPodNIC(vmi)
+			podnic.launcherPID = &pid
+			driver, err := podnic.getPhase2Binding(domain)
 			Expect(err).ToNot(HaveOccurred())
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -656,7 +689,9 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName, &pid)
+			podnic := createDefaultPodNIC(vmi)
+			podnic.launcherPID = &pid
+			driver, err := podnic.getPhase2Binding(domain)
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -670,7 +705,9 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName, &pid)
+			podnic := createDefaultPodNIC(vmi)
+			podnic.launcherPID = &pid
+			driver, err := podnic.getPhase2Binding(domain)
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -685,7 +722,9 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName, &pid)
+			podnic := createDefaultPodNIC(vmi)
+			podnic.launcherPID = &pid
+			driver, err := podnic.getPhase2Binding(domain)
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -702,8 +741,8 @@ var _ = Describe("Pod Network", func() {
 			domain := NewDomainWithSlirpInterface()
 			vmi := newVMISlirpInterface("testnamespace", "testVmName")
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-			driver, err := podnic.getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName, nil)
+			podnic := createDefaultPodNIC(vmi)
+			driver, err := podnic.getPhase2Binding(domain)
 			Expect(err).ToNot(HaveOccurred())
 			slirp, ok := driver.(*SlirpBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -717,7 +756,9 @@ var _ = Describe("Pod Network", func() {
 		It("should fail when nothing to load", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := podnic.getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], primaryPodInterfaceName, &pid)
+			podnic := createDefaultPodNIC(vmi)
+			podnic.launcherPID = &pid
+			driver, err := podnic.getPhase1Binding()
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -727,7 +768,9 @@ var _ = Describe("Pod Network", func() {
 		It("should succeed when cache file present", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := podnic.getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], primaryPodInterfaceName, &pid)
+			podnic := createDefaultPodNIC(vmi)
+			podnic.launcherPID = &pid
+			driver, err := podnic.getPhase1Binding()
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -742,7 +785,9 @@ var _ = Describe("Pod Network", func() {
 		It("should succeed", func() {
 			vmi := newVMISlirpInterface("testnamespace", "testVmName")
 
-			driver, err := podnic.getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], primaryPodInterfaceName, nil)
+			podnic := createDefaultPodNIC(vmi)
+
+			driver, err := podnic.getPhase1Binding()
 			Expect(err).ToNot(HaveOccurred())
 			slirp, ok := driver.(*SlirpBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -762,7 +807,9 @@ var _ = Describe("Pod Network", func() {
 		It("should fail when nothing to load", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := podnic.getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], primaryPodInterfaceName, &pid)
+			podnic := createDefaultPodNIC(vmi)
+			podnic.launcherPID = &pid
+			driver, err := podnic.getPhase1Binding()
 			Expect(err).ToNot(HaveOccurred())
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -772,7 +819,9 @@ var _ = Describe("Pod Network", func() {
 		It("should succeed when cache file present", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := podnic.getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], primaryPodInterfaceName, &pid)
+			podnic := createDefaultPodNIC(vmi)
+			podnic.launcherPID = &pid
+			driver, err := podnic.getPhase1Binding()
 			Expect(err).ToNot(HaveOccurred())
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
@@ -796,8 +845,10 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
 		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
-
-		err := podnic.setPodInterfaceCache(iface, primaryPodInterfaceName, vmi)
+		podnic := newPodNIC(vmi)
+		podnic.iface = iface
+		podnic.podInterfaceName = primaryPodInterfaceName
+		err := podnic.setPodInterfaceCache()
 		Expect(err).ToNot(HaveOccurred())
 
 		podData, err := cacheFactory.CacheForVMI(vmi).Read(iface.Name)
