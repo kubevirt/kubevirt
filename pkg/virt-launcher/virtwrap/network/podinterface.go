@@ -364,16 +364,13 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		if err != nil {
 			return nil, err
 		}
-		virtIface := &api.Interface{}
-		if mac != nil {
-			virtIface.MAC = &api.MAC{MAC: mac.String()}
-		}
+
 		return &MacvtapBindMechanism{
 			vmi:              vmi,
 			iface:            iface,
-			virtIface:        virtIface,
 			domain:           domain,
 			podInterfaceName: podInterfaceName,
+			mac:              mac,
 			storeFactory:     storeFactory,
 		}, nil
 	}
@@ -1238,6 +1235,7 @@ type MacvtapBindMechanism struct {
 	domain           *api.Domain
 	podInterfaceName string
 	podNicLink       netlink.Link
+	mac              *net.HardwareAddr
 	storeFactory     cache.InterfaceCacheFactory
 }
 
@@ -1248,24 +1246,24 @@ func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
 		return err
 	}
 	b.podNicLink = link
-
-	if b.virtIface.MAC == nil {
-		// Get interface MAC address
-		mac, err := Handler.GetMacDetails(b.podInterfaceName)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get MAC for %s", b.podInterfaceName)
-			return err
-		}
-		b.virtIface.MAC = &api.MAC{MAC: mac.String()}
-	}
-
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
-	b.virtIface.Target = &api.InterfaceTarget{
-		Device:  b.podInterfaceName,
-		Managed: "no",
+	b.virtIface = &api.Interface{
+		MAC: &api.MAC{MAC: b.podIfaceMAC()},
+		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
+		Target: &api.InterfaceTarget{
+			Device:  b.podInterfaceName,
+			Managed: "no",
+		},
 	}
 
 	return nil
+}
+
+func (b *MacvtapBindMechanism) podIfaceMAC() string {
+	if b.mac != nil {
+		return b.mac.String()
+	} else {
+		return b.podNicLink.Attrs().HardwareAddr.String()
+	}
 }
 
 func (b *MacvtapBindMechanism) preparePodNetworkInterfaces(_ uint32, _ int) error {
