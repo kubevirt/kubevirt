@@ -47,6 +47,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+// TODO: The memory module is different in different cpu arch, apply multi-arch testing for memory contraint
 var _ = Describe("Template", func() {
 	var qemuGid int64 = 107
 
@@ -78,8 +79,8 @@ var _ = Describe("Template", func() {
 			virtClient,
 			config,
 			qemuGid,
+			runtime.GOARCH,
 		)
-
 		// Set up mock clients
 		networkClient := fakenetworkclient.NewSimpleClientset()
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
@@ -196,6 +197,12 @@ var _ = Describe("Template", func() {
 
 			It("should work", func() {
 				trueVar := true
+				ovmfPath := ""
+				if svc.IsARM64() {
+					ovmfPath = "/usr/share/AAVMF"
+				} else {
+					ovmfPath = "/usr/share/OVMF"
+				}
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 					"test":                              "shouldBeInPod",
@@ -252,7 +259,7 @@ var _ = Describe("Template", func() {
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
 					"--less-pvc-space-toleration", "10",
-					"--ovmf-path", "/usr/share/OVMF"}))
+					"--ovmf-path", ovmfPath}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
@@ -862,6 +869,12 @@ var _ = Describe("Template", func() {
 		})
 		Context("with node selectors", func() {
 			It("should add node selectors to template", func() {
+				ovmfPath := ""
+				if svc.IsARM64() {
+					ovmfPath = "/usr/share/AAVMF"
+				} else {
+					ovmfPath = "/usr/share/OVMF"
+				}
 
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
@@ -901,7 +914,7 @@ var _ = Describe("Template", func() {
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
 					"--less-pvc-space-toleration", "10",
-					"--ovmf-path", "/usr/share/OVMF"}))
+					"--ovmf-path", ovmfPath}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
@@ -1943,7 +1956,7 @@ var _ = Describe("Template", func() {
 
 			It("should not run privileged", func() {
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if runtime.GOARCH == "ppc64le" {
+				if svc.IsPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
@@ -1991,9 +2004,10 @@ var _ = Describe("Template", func() {
 				}
 
 				pod, err := svc.RenderLaunchManifest(vmi)
+				arch := svc.GetCpuArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*getMemoryOverhead(vmi))
+				expectedMemory.Add(*getMemoryOverhead(vmi, arch))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
@@ -2017,9 +2031,10 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				pod1, err := svc.RenderLaunchManifest(vmi1)
+				arch := svc.GetCpuArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*getMemoryOverhead(vmi1))
+				expectedMemory.Add(*getMemoryOverhead(vmi1, arch))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 				Expect(pod1.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
@@ -2397,7 +2412,7 @@ var _ = Describe("Template", func() {
 		Context("with GPU device interface", func() {
 			It("should not run privileged", func() {
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if runtime.GOARCH == "ppc64le" {
+				if svc.IsPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				vmi := v1.VirtualMachineInstance{
@@ -2472,7 +2487,7 @@ var _ = Describe("Template", func() {
 		Context("with HostDevice device interface", func() {
 			It("should not run privileged", func() {
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if runtime.GOARCH == "ppc64le" {
+				if svc.IsPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				vmi := v1.VirtualMachineInstance{

@@ -22,7 +22,6 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
-	rt "runtime"
 	"strconv"
 	"strings"
 
@@ -450,8 +449,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with VirtualMachineInstance spec", func() {
 		It("should accept valid machine type", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			if rt.GOARCH == "ppc64le" {
+			if webhooks.IsPPC64() {
 				vmi.Spec.Domain.Machine.Type = "pseries"
+			} else if webhooks.IsARM64() {
+				vmi.Spec.Domain.Machine.Type = "virt"
 			} else {
 				vmi.Spec.Domain.Machine.Type = "q35"
 			}
@@ -3082,6 +3083,66 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+		})
+	})
+
+	Context("with verification for Arm64", func() {
+		It("should reject BIOS bootloader", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					BIOS: &v1.BIOS{},
+				},
+			}
+
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+
+		It("should reject UEFI default bootloader", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{},
+				},
+			}
+
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+
+		It("should reject UEFI secure bootloader", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			_true := true
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: &_true,
+					},
+				},
+			}
+
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+
+		It("should reject enabling AutoattachGraphicsDevice", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			_true := true
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &_true
+
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+
+		It("should reject setting cpu model to host-model", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Model: "host-model"}
+
+			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(1))
 		})
 	})

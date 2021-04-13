@@ -1,4 +1,4 @@
-// +build amd64
+// +build arm64
 
 /*
  * This file is part of the KubeVirt project
@@ -19,16 +19,9 @@
  *
  */
 
-package nodelabeller_test
+package nodelabeller
 
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-)
-
-func TestNodeLabeller(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "NodeLabeller Suite")
+func getCapLabels() []string {
+	exposedCaps := []string{}
+	return exposedCaps
 }

@@ -29,6 +29,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -353,16 +354,20 @@ func (app *virtHandlerApp) Run() {
 
 	go vmController.Run(10, stop)
 
-	deviceController := &devicemanager.DeviceController{}
-	if deviceController.NodeHasDevice(nodelabellerutil.KVMPath) {
-		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
-		if err != nil {
-			panic(err)
-		}
+	// Currently nodeLabeller only support x86_64
+	arch := virtconfig.NewDefaultArch(runtime.GOARCH)
+	if !arch.IsARM64() && !arch.IsPPC64() {
+		deviceController := &devicemanager.DeviceController{}
+		if deviceController.NodeHasDevice(nodelabellerutil.KVMPath) {
+			nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
+			if err != nil {
+				panic(err)
+			}
 
-		go nodeLabellerController.Run(10, stop)
-	} else {
-		logger.V(1).Level(log.INFO).Log("node-labeller is disabled, cannot work without KVM device.")
+			go nodeLabellerController.Run(10, stop)
+		} else {
+			logger.V(1).Level(log.INFO).Log("node-labeller is disabled, cannot work without KVM device.")
+		}
 	}
 
 	doneCh := make(chan string)
