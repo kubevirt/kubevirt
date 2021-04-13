@@ -7844,6 +7844,12 @@ var CRDsValidation map[string]string = map[string]string{
               format: date-time
               type: string
           type: object
+        indications:
+          items:
+            description: Indication is a way to indicate the state of the vm when taking the snapshot
+            type: string
+          type: array
+          x-kubernetes-list-type: set
         readyToUse:
           type: boolean
         sourceUID:
