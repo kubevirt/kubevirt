@@ -5,8 +5,6 @@ package network
 
 import (
 	gomock "github.com/golang/mock/gomock"
-
-	v1 "kubevirt.io/client-go/api/v1"
 )
 
 // Mock of BindMechanism interface
@@ -102,12 +100,12 @@ func (_mr *_MockBindMechanismRecorder) decorateConfig() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "decorateConfig")
 }
 
-func (_m *MockBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "startDHCP", vmi)
+func (_m *MockBindMechanism) startDHCP() error {
+	ret := _m.ctrl.Call(_m, "startDHCP")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) startDHCP(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "startDHCP", arg0)
+func (_mr *_MockBindMechanismRecorder) startDHCP() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "startDHCP")
 }

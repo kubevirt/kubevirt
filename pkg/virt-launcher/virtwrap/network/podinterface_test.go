@@ -625,8 +625,7 @@ var _ = Describe("Pod Network", func() {
 			masq.vif.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
 			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
 
-			err = masq.startDHCP(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(masq.startDHCP()).To(Succeed())
 		})
 		It("should fail when DHCP server failed", func() {
 			domain := NewDomainWithBridgeInterface()
@@ -644,8 +643,7 @@ var _ = Describe("Pod Network", func() {
 			err = fmt.Errorf("failed to start DHCP server")
 			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(err)
 
-			err = masq.startDHCP(vmi)
-			Expect(err).To(HaveOccurred())
+			Expect(masq.startDHCP()).To(HaveOccurred())
 		})
 	})
 	Context("Bridge startDHCP", func() {
@@ -661,8 +659,7 @@ var _ = Describe("Pod Network", func() {
 
 			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil, true).Return(nil)
 
-			err = bridge.startDHCP(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(bridge.startDHCP()).To(Succeed())
 		})
 		It("should fail when DHCP server failed", func() {
 			domain := NewDomainWithBridgeInterface()
@@ -677,8 +674,7 @@ var _ = Describe("Pod Network", func() {
 			err = fmt.Errorf("failed to start DHCP server")
 			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
 
-			err = bridge.startDHCP(vmi)
-			Expect(err).To(HaveOccurred())
+			Expect(bridge.startDHCP()).To(HaveOccurred())
 		})
 		It("should succeed when DHCP server started and isLayer2 = true", func() {
 			domain := NewDomainWithBridgeInterface()
@@ -694,8 +690,7 @@ var _ = Describe("Pod Network", func() {
 			err = fmt.Errorf("failed to start DHCP server")
 			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
 
-			err = bridge.startDHCP(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(bridge.startDHCP()).To(Succeed())
 		})
 	})
 	Context("Slirp startDHCP", func() {
@@ -709,8 +704,7 @@ var _ = Describe("Pod Network", func() {
 			slirp, ok := driver.(*SlirpBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			err = slirp.startDHCP(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(slirp.startDHCP()).To(Succeed())
 		})
 		// slirp never fails to start DHCP because it doesn't need it at all
 	})

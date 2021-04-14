@@ -65,7 +65,7 @@ type BindMechanism interface {
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
 	decorateConfig() error
-	startDHCP(vmi *v1.VirtualMachineInstance) error
+	startDHCP() error
 }
 
 type podNICImpl struct {
@@ -236,7 +236,7 @@ func ensureDHCP(vmi *v1.VirtualMachineInstance, bindMechanism BindMechanism, pod
 	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
-		if err := bindMechanism.startDHCP(vmi); err != nil {
+		if err := bindMechanism.startDHCP(); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}
 		newFile, err := os.Create(dhcpStartedFile)
@@ -450,7 +450,7 @@ func (b *BridgeBindMechanism) getFakeBridgeIP() (string, error) {
 	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", b.iface.Name)
 }
 
-func (b *BridgeBindMechanism) startDHCP(_ *v1.VirtualMachineInstance) error {
+func (b *BridgeBindMechanism) startDHCP() error {
 	if !b.vif.IPAMDisabled {
 		addr, err := b.getFakeBridgeIP()
 		if err != nil {
@@ -796,7 +796,7 @@ func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) startDHCP(_ *v1.VirtualMachineInstance) error {
+func (b *MasqueradeBindMechanism) startDHCP() error {
 	return Handler.StartDHCP(b.vif, b.vif.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
 }
 
@@ -1183,7 +1183,7 @@ func (s *SlirpBindMechanism) preparePodNetworkInterfaces(_ uint32, _ int) error 
 	return nil
 }
 
-func (s *SlirpBindMechanism) startDHCP(_ *v1.VirtualMachineInstance) error {
+func (s *SlirpBindMechanism) startDHCP() error {
 	return nil
 }
 
@@ -1312,7 +1312,7 @@ func (b *MacvtapBindMechanism) setCachedVIF(_, _ string) error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) startDHCP(_ *v1.VirtualMachineInstance) error {
+func (b *MacvtapBindMechanism) startDHCP() error {
 	// macvtap will connect to the host's subnet
 	return nil
 }
