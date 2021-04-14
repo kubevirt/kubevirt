@@ -22,14 +22,15 @@ package rbac
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
 const MONITOR_SERVICEACCOUNT_NAME = "kubevirt-monitoring"
 
-func GetAllServiceMonitor(namespace string, monitorNamespace string, monitorServiceAccount string) []interface{} {
-	return []interface{}{
+func GetAllServiceMonitor(namespace string, monitorNamespace string, monitorServiceAccount string) []runtime.Object {
+	return []runtime.Object{
 		newServiceMonitorRole(namespace),
 		newServiceMonitorRoleBinding(namespace, monitorNamespace, monitorServiceAccount),
 	}
