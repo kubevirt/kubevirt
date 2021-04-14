@@ -1100,7 +1100,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		nodeSelector[k] = v
 
 	}
-	if t.clusterConfig.CPUNodeDiscoveryEnabled() {
+	if !t.clusterConfig.IgnoreCPUFeaturesDuringSchedulingGateEnabled() {
 		if cpuModelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
 			if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 				nodeSelector[cpuModelLabel] = "true"
@@ -1109,11 +1109,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		for _, cpuFeatureLable := range CPUFeatureLabelsFromCPUFeatures(vmi) {
 			nodeSelector[cpuFeatureLable] = "true"
 		}
-	}
 
-	if t.clusterConfig.HypervStrictCheckEnabled() {
-		hvNodeSelectors := getHypervNodeSelectors(vmi)
-		for k, v := range hvNodeSelectors {
+		for k, v := range getHypervNodeSelectors(vmi) {
 			nodeSelector[k] = v
 		}
 	}
@@ -1257,7 +1254,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
 	}
 
-	if t.clusterConfig.CPUNodeDiscoveryEnabled() {
+	if !t.clusterConfig.IgnoreCPUFeaturesDuringSchedulingGateEnabled() {
 		SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
 	}
 

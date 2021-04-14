@@ -930,8 +930,6 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should add node selector for node discovery feature to template", func() {
-				enableFeatureGate(virtconfig.CPUNodeDiscoveryGate)
-
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -997,9 +995,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("node-role.kubernetes.io/compute", "true"))
 			})
 
-			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
-				enableFeatureGate(virtconfig.HypervStrictCheckGate)
-
+			It("should not add node selector for hyperv nodes if VMI does not request cpu features", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -1024,7 +1020,9 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
 			})
 
-			It("should not add node selector for hyperv nodes if VMI requests hyperv features, but feature gate is disabled", func() {
+			It("should not add node selector for hyperv nodes if VMI requests cpu features, but feature gate is disabled", func() {
+				enableFeatureGate(virtconfig.IgnoreCPUFeaturesDuringSchedulingGate)
+
 				enabled := true
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1058,8 +1056,6 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should add node selector for hyperv nodes if VMI requests hyperv features which depend on host kernel", func() {
-				enableFeatureGate(virtconfig.HypervStrictCheckGate)
-
 				enabled := true
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1102,8 +1098,6 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features which do not depend on host kernel", func() {
-				enableFeatureGate(virtconfig.HypervStrictCheckGate)
-
 				var retries uint32 = 4095
 				enabled := true
 				vmi := v1.VirtualMachineInstance{
