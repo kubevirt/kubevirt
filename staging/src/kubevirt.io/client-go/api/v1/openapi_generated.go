@@ -22013,6 +22013,13 @@ func schema_kubevirtio_client_go_api_v1_PodNetwork(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"vmIPv6NetworkCIDR": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

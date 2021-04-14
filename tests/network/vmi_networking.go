@@ -627,7 +627,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 			return vmi
 		}
 
-		fedoraMasqueradeVMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
+		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
 
 			networkData, err := libnet.NewNetworkData(
 				libnet.WithEthernet("eth0",
@@ -639,25 +639,32 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				return nil, err
 			}
 
+			net := v1.DefaultPodNetwork()
+			net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
 			vmi := libvmi.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(net),
 				libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 			)
 
 			return vmi, nil
 		}
 
-		configureIpv6 := func(vmi *v1.VirtualMachineInstance) error {
+		configureIpv6 := func(vmi *v1.VirtualMachineInstance, networkCIDR string) error {
+			if networkCIDR == "" {
+				networkCIDR = api.DefaultVMIpv6CIDR
+			}
+
 			err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
 			if err != nil {
 				return err
 			}
-			err = console.RunCommand(vmi, "ip -6 route add fd10:0:2::/120 dev eth0", 5*time.Second)
+			err = console.RunCommand(vmi, "ip -6 route add "+networkCIDR+" dev eth0", 5*time.Second)
 			if err != nil {
 				return err
 			}
-			err = console.RunCommand(vmi, "ip -6 route add default via fd10:0:2::1", 5*time.Second)
+			gateway := gatewayIPFromCIDR(networkCIDR)
+			err = console.RunCommand(vmi, "ip -6 route add default via "+gateway, 5*time.Second)
 			if err != nil {
 				return err
 			}
@@ -729,20 +736,20 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, "10.10.10.0/24"),
 			)
 
-			table.DescribeTable("IPv6", func(ports []v1.Port) {
+			table.DescribeTable("IPv6", func(ports []v1.Port, networkCIDR string) {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 				var serverVMI *v1.VirtualMachineInstance
 				var clientVMI *v1.VirtualMachineInstance
 
-				clientVMI, err = fedoraMasqueradeVMI([]v1.Port{})
+				clientVMI, err = fedoraMasqueradeVMI([]v1.Port{}, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 
-				Expect(configureIpv6(clientVMI)).To(Succeed(), "failed to configure ipv6 on client vmi")
+				Expect(configureIpv6(clientVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6 on client vmi")
 
-				serverVMI, err = fedoraMasqueradeVMI(ports)
+				serverVMI, err = fedoraMasqueradeVMI(ports, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
@@ -750,7 +757,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
-				Expect(configureIpv6(serverVMI)).To(Succeed(), "failed to configure ipv6  on server vmi")
+				Expect(configureIpv6(serverVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6  on server vmi")
 
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
@@ -769,8 +776,9 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
-				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}),
-				table.Entry("without a specific port number [IPv6]", []v1.Port{}),
+				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, ""),
+				table.Entry("without a specific port number [IPv6]", []v1.Port{}, ""),
+				table.Entry("with custom CIDR [IPv6]", []v1.Port{}, "fd10:10:10::/120"),
 			)
 		})
 
@@ -842,7 +850,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 					vmi = masqueradeVMI([]v1.Port{}, "")
 					loginMethod = console.LoginToCirros
 				} else {
-					vmi, err = fedoraMasqueradeVMI([]v1.Port{})
+					vmi, err = fedoraMasqueradeVMI([]v1.Port{}, "")
 					Expect(err).ToNot(HaveOccurred(), "Error creating fedora masquerade vmi")
 					loginMethod = console.LoginToFedora
 				}
@@ -855,7 +863,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(err).ToNot(HaveOccurred())
 
 				if ipFamily == k8sv1.IPv6Protocol {
-					err = configureIpv6(vmi)
+					err = configureIpv6(vmi, api.DefaultVMIpv6CIDR)
 					Expect(err).ToNot(HaveOccurred(), "failed to configure ipv6 on vmi")
 				}
 
@@ -890,7 +898,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				}, 10)).To(Succeed(), "failed to restart the vmi")
 				tests.WaitUntilVMIReady(vmi, loginMethod)
 				if ipFamily == k8sv1.IPv6Protocol {
-					Expect(configureIpv6(vmi)).To(Succeed(), "failed to configure ipv6 on vmi after restart")
+					Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).To(Succeed(), "failed to configure ipv6 on vmi after restart")
 				}
 				Expect(ping(podIP)).To(Succeed())
 			},

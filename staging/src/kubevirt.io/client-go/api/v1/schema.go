@@ -1348,6 +1348,10 @@ type PodNetwork struct {
 	// CIDR for vm network.
 	// Default 10.0.2.0/24 if not specified.
 	VMNetworkCIDR string `json:"vmNetworkCIDR,omitempty"`
+
+	// IPv6 CIDR for the vm network.
+	// Defaults to fd10:0:2::/120 if not specified.
+	VMIPv6NetworkCIDR string `json:"vmIPv6NetworkCIDR,omitempty"`
 }
 
 // Rng represents the random device passed from host
