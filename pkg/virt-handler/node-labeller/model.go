@@ -42,8 +42,9 @@ type CPU struct {
 
 //Mode represents slice of cpu models
 type Mode struct {
-	Vendor Vendor  `xml:"vendor"`
-	Model  []Model `xml:"model"`
+	Vendor  Vendor        `xml:"vendor"`
+	Feature []HostFeature `xml:"feature"`
+	Model   []Model       `xml:"model"`
 }
 
 type SupportedHostFeature struct {

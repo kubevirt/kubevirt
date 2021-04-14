@@ -77,6 +77,10 @@ func (n *NodeLabeller) loadHostCapabilities() error {
 
 	usableModels := make([]string, 0)
 	for _, mode := range hostDomCapabilities.CPU.Mode {
+		if mode.Vendor.Name != "" {
+			n.cpuModelVendor = mode.Vendor.Name
+		}
+
 		for _, model := range mode.Model {
 			if model.Usable == isUnusable || model.Usable == "" {
 				continue

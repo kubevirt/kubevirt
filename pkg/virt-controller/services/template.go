@@ -77,6 +77,7 @@ const LibvirtStartupDelay = 10
 const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
 const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
 const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
+const IntelVendorName = "Intel"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
@@ -206,6 +207,11 @@ func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) map[string]string {
 			nodeSelectors[NFD_KVM_INFO_PREFIX+hv.Label] = "true"
 		}
 	}
+
+	if vmi.Spec.Domain.Features.Hyperv.EVMCS != nil {
+		nodeSelectors[v1.CPUModelVendorLabel+IntelVendorName] = "true"
+	}
+
 	return nodeSelectors
 }
 
@@ -1110,7 +1116,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			nodeSelector[cpuFeatureLable] = "true"
 		}
 	}
-
 	if t.clusterConfig.HypervStrictCheckEnabled() {
 		hvNodeSelectors := getHypervNodeSelectors(vmi)
 		for k, v := range hvNodeSelectors {

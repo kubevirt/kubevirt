@@ -641,6 +641,8 @@ const (
 	CPUModelLabel = "cpu-model.node.kubevirt.io/"
 	// This label represents supported HyperV features on the node
 	HypervLabel = "hyperv.node.kubevirt.io/"
+	// This label represents vendor of cpu model on the node
+	CPUModelVendorLabel = "cpu-vendor.node.kubevirt.io/"
 
 	VirtualMachineLabel        = AppLabel + "/vm"
 	MemfdMemoryBackend  string = "kubevirt.io/memfd"

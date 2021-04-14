@@ -28,6 +28,7 @@ const (
 	DefaultMinCPUModel                           = "Penryn"
 	RequirePolicy                                = "require"
 	KVMPath                                      = "/dev/kvm"
+	VmxFeature                                   = "vmx"
 )
 
 var DefaultObsoleteCPUModels = map[string]bool{

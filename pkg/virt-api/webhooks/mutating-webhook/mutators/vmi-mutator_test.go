@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
@@ -715,9 +716,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				SyNICTimer: &v1.SyNICTimer{
 					Enabled: &_true,
 				},
+				EVMCS: &v1.FeatureState{
+					Enabled: &_true,
+				},
 			},
 		}
 		webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
+
 		// we MUST report the error in mutation, but production code is
 		// supposed to ignore it to fulfill the design semantics, see
 		// the discussion in https://github.com/kubevirt/kubevirt/pull/2408
@@ -730,6 +735,12 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Enabled: &_true,
 			},
 			SyNICTimer: &v1.SyNICTimer{
+				Enabled: &_true,
+			},
+			EVMCS: &v1.FeatureState{
+				Enabled: &_true,
+			},
+			VAPIC: &v1.FeatureState{
 				Enabled: &_true,
 			},
 		}
@@ -777,4 +788,139 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(*(vmiSpec.Domain.Devices.AutoattachGraphicsDevice)).To(BeFalse())
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal("host-passthrough"))
 	})
+
+	var (
+		vmxFeature = v1.CPUFeature{
+			Name:   nodelabellerutil.VmxFeature,
+			Policy: nodelabellerutil.RequirePolicy,
+		}
+		cpuFeatures = []v1.CPUFeature{
+			vmxFeature,
+		}
+	)
+
+	table.DescribeTable("modify the VMI cpu feature ", func(vmi *v1.VirtualMachineInstance, hyperv *v1.FeatureHyperv, resultCPUTopology *v1.CPU) {
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: hyperv,
+		}
+		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
+		Expect(err).To(BeNil(), "it should not fail")
+		if resultCPUTopology == nil {
+			Expect(vmi.Spec.Domain.CPU).To(BeNil(), "cpu topology should not be updated")
+		} else {
+			Expect(vmi.Spec.Domain.CPU).To(Equal(resultCPUTopology), "cpu topologies should equal")
+		}
+
+	},
+		table.Entry("if hyperV doesn't contain EVMCS", v1.NewMinimalVMI("testvmi"),
+			&v1.FeatureHyperv{
+				Relaxed: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			}, nil),
+
+		table.Entry("if hyperV does contain EVMCS", v1.NewMinimalVMI("testvmi"),
+			&v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{},
+			}, &v1.CPU{
+				Features: cpuFeatures,
+			}),
+
+		table.Entry("if hyperV does contain EVMCS and cpu sockets ", &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					CPU: &v1.CPU{
+						Sockets: 2,
+					},
+				},
+			},
+		},
+			&v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{},
+			}, &v1.CPU{
+				Sockets:  2,
+				Features: cpuFeatures,
+			}),
+
+		table.Entry("if hyperV does contain EVMCS and 0 cpu features ", &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					CPU: &v1.CPU{
+						Features: []v1.CPUFeature{},
+					},
+				},
+			},
+		},
+			&v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{},
+			}, &v1.CPU{
+				Features: cpuFeatures,
+			}),
+
+		table.Entry("if hyperV does contain EVMCS and 1 different cpu feature ", &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					CPU: &v1.CPU{
+						Features: []v1.CPUFeature{
+							{
+								Name:   "monitor",
+								Policy: nodelabellerutil.RequirePolicy,
+							},
+						},
+					},
+				},
+			},
+		},
+			&v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{},
+			}, &v1.CPU{
+				Features: []v1.CPUFeature{
+					{
+						Name:   "monitor",
+						Policy: nodelabellerutil.RequirePolicy,
+					},
+					vmxFeature,
+				},
+			}),
+
+		table.Entry("if hyperV does contain EVMCS and disabled vmx cpu feature ", &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					CPU: &v1.CPU{
+						Features: []v1.CPUFeature{
+							{
+								Name:   nodelabellerutil.VmxFeature,
+								Policy: "disabled",
+							},
+						},
+					},
+				},
+			},
+		},
+			&v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{},
+			}, &v1.CPU{
+				Features: cpuFeatures,
+			}),
+		table.Entry("if hyperV does contain EVMCS and enabled vmx cpu feature ", &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					CPU: &v1.CPU{
+						Features: []v1.CPUFeature{
+							{
+								Name:   nodelabellerutil.VmxFeature,
+								Policy: nodelabellerutil.RequirePolicy,
+							},
+						},
+					},
+				},
+			},
+		},
+			&v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{},
+			}, &v1.CPU{
+				Features: cpuFeatures,
+			}),
+	)
+
 })

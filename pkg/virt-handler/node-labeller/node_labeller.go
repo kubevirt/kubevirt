@@ -51,6 +51,7 @@ type NodeLabeller struct {
 	queue             workqueue.RateLimitingInterface
 	supportedFeatures []string
 	cpuInfo           cpuInfo
+	cpuModelVendor    string
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
@@ -231,6 +232,9 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 	for _, key := range n.hypervFeatures.items {
 		newLabels[kubevirtv1.HypervLabel+key] = "true"
 	}
+
+	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
+
 	return newLabels
 }
 

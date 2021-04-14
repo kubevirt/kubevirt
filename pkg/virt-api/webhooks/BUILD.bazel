@@ -13,6 +13,7 @@ go_library(
         "//pkg/controller:go_default_library",
         "//pkg/util/openapi:go_default_library",
         "//pkg/virt-api/rest:go_default_library",
+        "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-operator/resource/generate/rbac:go_default_library",
         "//staging/src/github.com/golang/glog:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
