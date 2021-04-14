@@ -1341,8 +1341,9 @@ var _ = Describe("Manager", func() {
 			isUnsafeMigration := migrationType == "unsafe"
 			allowAutoConverge := migrationType == "autoConverge"
 			migrationMode := migrationType == "postCopy"
+			isVmiPaused := migrationType == "paused"
 
-			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode)
+			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode, isVmiPaused)
 			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 			if isBlockMigration {
@@ -1356,6 +1357,9 @@ var _ = Describe("Manager", func() {
 			if migrationType == "postCopy" {
 				expectedMigrateFlags |= libvirt.MIGRATE_POSTCOPY
 			}
+			if migrationType == "paused" {
+				expectedMigrateFlags |= libvirt.MIGRATE_PAUSED
+			}
 			Expect(flags).To(Equal(expectedMigrateFlags))
 		},
 		table.Entry("with block migration", "block"),
@@ -1363,6 +1367,7 @@ var _ = Describe("Manager", func() {
 		table.Entry("unsafe migration", "unsafe"),
 		table.Entry("migration auto converge", "autoConverge"),
 		table.Entry("migration using postcopy", "postCopy"),
+		table.Entry("migration of paused vmi", "paused"),
 	)
 
 	table.DescribeTable("on successful list all domains",
