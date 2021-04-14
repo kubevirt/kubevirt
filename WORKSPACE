@@ -6435,25 +6435,24 @@ rpm(
 )
 
 rpm(
-    name = "nspr-0__4.29.0-1.fc32.aarch64",
-    sha256 = "38db85141048accf9a2f8a7ca178de12277cdd75f313b8c76d6da2691e50b58a",
+    name = "nspr-0__4.30.0-1.fc32.aarch64",
+    sha256 = "3ed4006aa44bf116b769d0ed9208846770dbf330f7a623ae7196e70a63742e82",
     urls = [
-        "https://fedora.mirror.angkasa.id/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.29.0-1.fc32.aarch64.rpm",
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.29.0-1.fc32.aarch64.rpm",
-        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.29.0-1.fc32.aarch64.rpm",
-        "https://mirror.sjtu.edu.cn/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.29.0-1.fc32.aarch64.rpm",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.30.0-1.fc32.aarch64.rpm",
+        "https://ftp.fau.de/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.30.0-1.fc32.aarch64.rpm",
+        "https://ftp.upjs.sk/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.30.0-1.fc32.aarch64.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.30.0-1.fc32.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "nspr-0__4.29.0-1.fc32.x86_64",
-    sha256 = "f6cd80d0da16a6437ca6346c7715946eab657b37aaf10022afe97b5e86c0bfba",
+    name = "nspr-0__4.30.0-1.fc32.x86_64",
+    sha256 = "09af61a142b2186e8eed1db28100713dbceb11bf7379e3347f1a1f8718e86bb1",
     urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.29.0-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.29.0-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.29.0-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.29.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/f6cd80d0da16a6437ca6346c7715946eab657b37aaf10022afe97b5e86c0bfba",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.30.0-1.fc32.x86_64.rpm",
+        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.30.0-1.fc32.x86_64.rpm",
+        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.30.0-1.fc32.x86_64.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.30.0-1.fc32.x86_64.rpm",
     ],
 )
 
@@ -9611,37 +9610,35 @@ rpm(
 )
 
 rpm(
-    name = "vim-minimal-2__8.2.2607-1.fc32.aarch64",
-    sha256 = "b7bc5f7af59645122bab4cac5269e38fea6095609203b06d4d32682485498a9f",
+    name = "vim-minimal-2__8.2.2735-1.fc32.aarch64",
+    sha256 = "459dcdcf09ceef42abe0d57c08bfb91c16f5753be2f38d01557e94b3b2efd332",
     urls = [
-        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/aarch64/Packages/v/vim-minimal-8.2.2607-1.fc32.aarch64.rpm",
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/v/vim-minimal-8.2.2607-1.fc32.aarch64.rpm",
-        "https://mirror.dst.ca/fedora/updates/32/Everything/aarch64/Packages/v/vim-minimal-8.2.2607-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/v/vim-minimal-8.2.2607-1.fc32.aarch64.rpm",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/v/vim-minimal-8.2.2735-1.fc32.aarch64.rpm",
+        "https://ftp.fau.de/fedora/linux/updates/32/Everything/aarch64/Packages/v/vim-minimal-8.2.2735-1.fc32.aarch64.rpm",
+        "https://ftp.upjs.sk/pub/fedora/linux/updates/32/Everything/aarch64/Packages/v/vim-minimal-8.2.2735-1.fc32.aarch64.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/aarch64/Packages/v/vim-minimal-8.2.2735-1.fc32.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "vim-minimal-2__8.2.2607-1.fc32.ppc64le",
-    sha256 = "91de0870a9af13d216e9b5b132f5f89eb8bdc9df19e70ed6810c75b34d01f0b9",
+    name = "vim-minimal-2__8.2.2735-1.fc32.ppc64le",
+    sha256 = "6f592f19baf41ed405941d1da9239c2efbf46bf29aece87e708153cc84ed7e81",
     urls = [
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2607-1.fc32.ppc64le.rpm",
-        "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2607-1.fc32.ppc64le.rpm",
-        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2607-1.fc32.ppc64le.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2607-1.fc32.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/91de0870a9af13d216e9b5b132f5f89eb8bdc9df19e70ed6810c75b34d01f0b9",
+        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2735-1.fc32.ppc64le.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2735-1.fc32.ppc64le.rpm",
+        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2735-1.fc32.ppc64le.rpm",
+        "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2735-1.fc32.ppc64le.rpm",
     ],
 )
 
 rpm(
-    name = "vim-minimal-2__8.2.2607-1.fc32.x86_64",
-    sha256 = "21c17d20ef346e799e22b9917e6832b81bb7d16bc2d853ab83e3d8192ae79bd3",
+    name = "vim-minimal-2__8.2.2735-1.fc32.x86_64",
+    sha256 = "2cc20a499926e012eeb43bf4210d10a8c04920020594fc8d5c77159c30bd2dfd",
     urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2607-1.fc32.x86_64.rpm",
-        "https://ftp.acc.umu.se/mirror/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2607-1.fc32.x86_64.rpm",
-        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2607-1.fc32.x86_64.rpm",
-        "https://ftp.icm.edu.pl/pub/Linux/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2607-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/21c17d20ef346e799e22b9917e6832b81bb7d16bc2d853ab83e3d8192ae79bd3",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2735-1.fc32.x86_64.rpm",
+        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2735-1.fc32.x86_64.rpm",
+        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2735-1.fc32.x86_64.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2735-1.fc32.x86_64.rpm",
     ],
 )
 
