@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	v1 "k8s.io/api/core/v1"
@@ -32,7 +33,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 	client, err := kubecli.GetKubevirtClient()
 	testscore.PanicOnError(err)
 
-	workloadsNodes, err := client.CoreV1().Nodes().List(k8smetav1.ListOptions{
+	workloadsNodes, err := client.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
 		LabelSelector: "node.kubernetes.io/hco-test-node-type==workloads",
 	})
 	testscore.PanicOnError(err)
@@ -42,7 +43,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		fmt.Fprintf(GinkgoWriter, "Found Workloads Node. Node name: %s; node labels:\n", workloadsNode.Name)
 		w := json.NewEncoder(GinkgoWriter)
 		w.SetIndent("", "  ")
-		w.Encode(workloadsNode.Labels)
+		_ = w.Encode(workloadsNode.Labels)
 	}
 
 	BeforeEach(func() {
@@ -138,7 +139,7 @@ func updatePodAssignments(pods *v1.PodList, podMap map[string]bool, nodeType str
 }
 
 func listPodsInNode(client kubecli.KubevirtClient, nodeName string) *v1.PodList {
-	pods, err := client.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(k8smetav1.ListOptions{
+	pods, err := client.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.TODO(), k8smetav1.ListOptions{
 		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
 	})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -147,7 +148,7 @@ func listPodsInNode(client kubecli.KubevirtClient, nodeName string) *v1.PodList 
 }
 
 func listInfraNodes(client kubecli.KubevirtClient) *v1.NodeList {
-	infraNodes, err := client.CoreV1().Nodes().List(k8smetav1.ListOptions{
+	infraNodes, err := client.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
 		LabelSelector: "node.kubernetes.io/hco-test-node-type==infra",
 	})
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
@@ -167,7 +168,7 @@ func getNetworkAddonsConfigs(client kubecli.KubevirtClient) *networkaddonsv1.Net
 		Name("cluster").
 		AbsPath("/apis", networkaddonsv1.SchemeGroupVersion.Group, networkaddonsv1.SchemeGroupVersion.Version).
 		Timeout(10 * time.Second).
-		Do().Into(&cnaoCR)
+		Do(context.TODO()).Into(&cnaoCR)
 
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 

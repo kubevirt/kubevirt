@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"flag"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	. "github.com/onsi/ginkgo"
@@ -39,7 +40,7 @@ var _ = Describe("[rfe_id:5882][crit:high][vendor:cnv-qe@redhat.com][level:syste
 func skipIfQuickStartCrdDoesNotExist(cli kubecli.KubevirtClient) {
 	By("Checking ConsoleQuickStarts CRD exists or not")
 
-	_, err := cli.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get("consolequickstarts.console.openshift.io", metav1.GetOptions{})
+	_, err := cli.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), "consolequickstarts.console.openshift.io", metav1.GetOptions{})
 	if err != nil && apierrors.IsNotFound(err) {
 		Skip("ConsoleQuickStarts CRD does not exist")
 	}
@@ -64,7 +65,7 @@ func checkExpectedQuickStarts(client kubecli.KubevirtClient) {
 			Name(qs.Name).
 			AbsPath("/apis", consolev1.GroupVersion.Group, consolev1.GroupVersion.Version).
 			Timeout(10 * time.Second).
-			Do().Into(&cqs)
+			Do(context.TODO()).Into(&cqs)
 
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ExpectWithOffset(1, cqs.Spec.DisplayName).Should(Equal(qs.DisplayName))

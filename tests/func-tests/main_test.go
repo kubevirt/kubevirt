@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	ginkgo_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 	"testing"
 
@@ -41,7 +42,8 @@ var _ = BeforeSuite(func() {
 			Name: testscore.NamespaceTestDefault,
 		},
 	}
-	_, err = virtCli.CoreV1().Namespaces().Create(ns)
+	opt := metav1.CreateOptions{}
+	_, err = virtCli.CoreV1().Namespaces().Create(context.TODO(), ns, opt)
 	if !errors.IsAlreadyExists(err) {
 		testscore.PanicOnError(err)
 	}
@@ -52,5 +54,6 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	testscore.PanicOnError(virtCli.CoreV1().Namespaces().Delete(testscore.NamespaceTestDefault, &metav1.DeleteOptions{}))
+	opt := metav1.DeleteOptions{}
+	testscore.PanicOnError(virtCli.CoreV1().Namespaces().Delete(context.TODO(), testscore.NamespaceTestDefault, opt))
 })

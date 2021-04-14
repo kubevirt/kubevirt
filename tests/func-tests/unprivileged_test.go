@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,10 +29,10 @@ var _ = Describe("[rfe_id:393][crit:medium][vendor:cnv-qe@redhat.com][level:syst
 	It("[test_id:5676]should be able to read kubevirt-storage-class-defaults ConfigMap", func() {
 
 		// Sanity check: can't read an arbitrary configmap (nonexistent)
-		_, err = unprivClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("non-existent-configmap", metav1.GetOptions{})
+		_, err = unprivClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.TODO(), "non-existent-configmap", metav1.GetOptions{})
 		Expect(apierrors.IsForbidden(err)).To(BeTrue())
 
-		configmap, err := unprivClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-storage-class-defaults", metav1.GetOptions{})
+		configmap, err := unprivClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.TODO(), "kubevirt-storage-class-defaults", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(configmap.Data["local-sc.volumeMode"]).To(Equal("Filesystem"))

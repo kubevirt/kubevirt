@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"flag"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -26,7 +27,7 @@ func BeforeEach() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	tests.PanicOnError(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachines").Do().Error())
-	tests.PanicOnError(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error())
-	tests.PanicOnError(virtClient.CoreV1().RESTClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("persistentvolumeclaims").Do().Error())
+	tests.PanicOnError(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachines").Do(context.TODO()).Error())
+	tests.PanicOnError(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.TODO()).Error())
+	tests.PanicOnError(virtClient.CoreV1().RESTClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("persistentvolumeclaims").Do(context.TODO()).Error())
 }

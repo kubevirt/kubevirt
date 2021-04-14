@@ -56,10 +56,7 @@ func verifyVMIRunning(client kubecli.KubevirtClient, vmiName string) *kubevirtv1
 		var err error
 		vmi, err = client.VirtualMachineInstance(testscore.NamespaceTestDefault).Get(vmiName, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		if vmi.Status.Phase == kubevirtv1.Running {
-			return true
-		}
-		return false
+		return vmi.Status.Phase == kubevirtv1.Running
 	}, timeout, pollingInterval).Should(BeTrue(), "failed to get the vmi Running")
 
 	return vmi
