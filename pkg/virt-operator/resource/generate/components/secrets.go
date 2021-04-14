@@ -272,24 +272,22 @@ func NextRotationDeadline(cert *tls.Certificate, ca *tls.Certificate, renewBefor
 		}
 	}
 
-	notAfter := cert.Leaf.NotAfter
-	caDeadline := notAfter
+	certNotAfter := cert.Leaf.NotAfter
 	deadline := cert.Leaf.NotAfter.Add(-renewBefore.Duration)
 
 	if ca != nil {
-		caDeadline = ca.Leaf.NotAfter
-		if caRenewBefore != nil {
-			// Set cert rotation for the middle of the period of time when CA's overlap
-			caDeadline = notAfter.Add(-time.Duration(float64(caRenewBefore.Duration) * 0.5))
+		caNotAfter := ca.Leaf.NotAfter
+		if caNotAfter.Before(certNotAfter) {
+			log.DefaultLogger().Infof("The certificate with common name '%s' expires after the supplied CA does. Scheduling rotation based on CA's lifetime.", cert.Leaf.Subject.CommonName)
+			deadline = caNotAfter
+			if caRenewBefore != nil {
+				// Set cert rotation for the middle of the period of time when CA's overlap
+				deadline = caNotAfter.Add(-time.Duration(float64(caRenewBefore.Duration) * 0.5))
+			}
 		}
 	}
 
-	if caDeadline.Before(deadline) {
-		log.DefaultLogger().Infof("The certificate with common name '%s' expires after the supplied CA does. Scheduling rotation based on CA's lifetime.", cert.Leaf.Subject.CommonName)
-		deadline = caDeadline
-	}
-
-	log.DefaultLogger().V(4).Infof("Certificate with common name '%s' expiration is %v, rotation deadline is %v", cert.Leaf.Subject.CommonName, notAfter, deadline)
+	log.DefaultLogger().V(4).Infof("Certificate with common name '%s' expiration is %v, rotation deadline is %v", cert.Leaf.Subject.CommonName, certNotAfter, deadline)
 	return deadline
 }
 
