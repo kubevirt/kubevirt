@@ -42,6 +42,7 @@ var strTargetPort string
 var strServiceType string
 var portName string
 var strIPFamily string
+var strIPFamilyPolicy string
 
 // NewExposeCommand generates a new "expose" command
 func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -76,6 +77,7 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 	cmd.Flags().StringVar(&strServiceType, "type", "ClusterIP", "Type for this service: ClusterIP, NodePort, or LoadBalancer.")
 	cmd.Flags().StringVar(&portName, "port-name", "", "Name of the port. Optional.")
 	cmd.Flags().StringVar(&strIPFamily, "ip-family", "IPv4", "IP family over which the service will be exposed. Valid values are 'IPv4', 'IPv6', 'IPv4,IPv6' or 'IPv6,IPv4'")
+	cmd.Flags().StringVar(&strIPFamilyPolicy, "ip-family-policy", "", "IP family policy defines whether the service can use IPv4, IPv6, or both. Valid values are 'SingleStack', 'PreferDualStack' or 'RequireDualStack'")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -133,6 +135,11 @@ func (o *Command) RunE(args []string) error {
 	}
 
 	ipFamilies, err := convertIPFamily(strIPFamily)
+	if err != nil {
+		return err
+	}
+
+	ipFamilyPolicy, err := convertIPFamilyPolicy(strIPFamilyPolicy)
 	if err != nil {
 		return err
 	}
@@ -223,6 +230,10 @@ func (o *Command) RunE(args []string) error {
 		service.Spec.ExternalIPs = []string{externalIP}
 	}
 
+	if ipFamilyPolicy != "" {
+		service.Spec.IPFamilyPolicy = &ipFamilyPolicy
+	}
+
 	major, minor, err := serverVersion(virtClient)
 	if err != nil {
 		return err
@@ -238,6 +249,10 @@ func (o *Command) RunE(args []string) error {
 	} else {
 		if len(ipFamilies) > 1 {
 			return fmt.Errorf("k8s < 1.20 doesn't support multiple ip families")
+		}
+
+		if ipFamilyPolicy != "" {
+			return fmt.Errorf("k8s < 1.20 doesn't support 'ipFamilyPolicy'")
 		}
 		// convert the Service to unstructured.Unstructured
 		unstructuredService, err := runtime.DefaultUnstructuredConverter.ToUnstructured(service)
@@ -273,6 +288,21 @@ func convertIPFamily(strIPFamily string) ([]v1.IPFamily, error) {
 		return []v1.IPFamily{v1.IPv6Protocol, v1.IPv4Protocol}, nil
 	default:
 		return nil, fmt.Errorf("unknown IPFamily/s: %s", strIPFamily)
+	}
+}
+
+func convertIPFamilyPolicy(strIPFamilyPolicy string) (v1.IPFamilyPolicyType, error) {
+	switch strings.ToLower(strIPFamilyPolicy) {
+	case "":
+		return "", nil
+	case "singlestack":
+		return v1.IPFamilyPolicySingleStack, nil
+	case "preferdualstack":
+		return v1.IPFamilyPolicyPreferDualStack, nil
+	case "requiredualstack":
+		return v1.IPFamilyPolicyRequireDualStack, nil
+	default:
+		return "", fmt.Errorf("unknown IPFamilyPolicy/s: %s", strIPFamilyPolicy)
 	}
 }
 
