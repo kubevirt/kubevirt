@@ -65,6 +65,9 @@ type SSPStatus struct {
 
 	// Paused is true when the operator notices paused annotation.
 	Paused bool `json:"paused,omitempty"`
+
+	// ObservedGeneration is the latest generation observed by the operator.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true

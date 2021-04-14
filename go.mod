@@ -46,10 +46,10 @@ require (
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
 	kubevirt.io/client-go v0.39.0
 	kubevirt.io/containerized-data-importer v1.33.0
-	kubevirt.io/controller-lifecycle-operator-sdk v0.1.2
+	kubevirt.io/controller-lifecycle-operator-sdk v0.1.3-0.20210112105647-bbf16167410b
 	kubevirt.io/kubevirt v0.39.0
-	kubevirt.io/qe-tools v0.1.6
-	kubevirt.io/ssp-operator v0.1.3
+	kubevirt.io/qe-tools v0.1.7
+	kubevirt.io/ssp-operator v0.2.0-rc.1
 	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/controller-tools v0.5.0
 )

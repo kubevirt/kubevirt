@@ -800,7 +800,7 @@ kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1
 kubevirt.io/containerized-data-importer/pkg/apis/upload
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1
-# kubevirt.io/controller-lifecycle-operator-sdk v0.1.2
+# kubevirt.io/controller-lifecycle-operator-sdk v0.1.3-0.20210112105647-bbf16167410b
 ## explicit
 kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/kubevirt v0.39.0
@@ -851,11 +851,11 @@ kubevirt.io/kubevirt/tests/framework/cleanup
 kubevirt.io/kubevirt/tests/libnet
 kubevirt.io/kubevirt/tests/libvmi
 kubevirt.io/kubevirt/tools/vms-generator/utils
-# kubevirt.io/qe-tools v0.1.6
+# kubevirt.io/qe-tools v0.1.7
 ## explicit
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# kubevirt.io/ssp-operator v0.1.3
+# kubevirt.io/ssp-operator v0.2.0-rc.1
 ## explicit
 kubevirt.io/ssp-operator/api/v1beta1
 # sigs.k8s.io/controller-runtime v0.8.3

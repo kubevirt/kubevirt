@@ -103,7 +103,7 @@ func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigT
 	}
 
 	valuesString := ""
-	suiteParams := strings.Split(reporter.TestSuiteParams, " ")
+	suiteParams := splitAny(reporter.TestSuiteParams, " ,")
 	for _, s := range suiteParams {
 		keyValue := strings.Split(s, "=")
 		if len(keyValue) > 1 {
@@ -120,7 +120,7 @@ func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigT
 	reporter.Suite.Properties.Property = addProperty(
 		reporter.Suite.Properties.Property, "polarion-custom-plannedin", reporter.PlannedIn)
 	reporter.Suite.Properties.Property = addProperty(
-		reporter.Suite.Properties.Property, "polarion-testrun-id", reporter.PlannedIn + valuesString)
+		reporter.Suite.Properties.Property, "polarion-testrun-id", reporter.PlannedIn+valuesString)
 	reporter.Suite.Properties.Property = addProperty(
 		reporter.Suite.Properties.Property, "polarion-custom-isautomated", "True")
 	reporter.Suite.Properties.Property = addProperty(
@@ -133,7 +133,7 @@ func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigT
 		reporter.Suite.Properties.Property = addProperty(
 			reporter.Suite.Properties.Property, "polarion-testrun-title", reporter.TestRunTitle)
 	}
-		
+
 	reporter.TestSuiteName = summary.SuiteDescription
 }
 
@@ -256,6 +256,13 @@ func addProperty(properties []PolarionProperty, key string, value string) []Pola
 		properties, PolarionProperty{
 			Name:  key,
 			Value: value,
-	})
+		})
 	return properties
+}
+
+func splitAny(s string, seps string) []string {
+	splitter := func(r rune) bool {
+		return strings.ContainsRune(seps, r)
+	}
+	return strings.FieldsFunc(s, splitter)
 }

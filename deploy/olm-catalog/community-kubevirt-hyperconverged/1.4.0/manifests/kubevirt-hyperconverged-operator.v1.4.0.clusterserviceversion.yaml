@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.4.0-unstable
-    createdAt: "2021-04-11 10:54:17"
+    createdAt: "2021-04-14 08:52:55"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -1099,6 +1099,18 @@ spec:
           verbs:
           - create
         - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - ""
           resources:
           - configmaps
@@ -1819,7 +1831,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.51.0
                 - name: SSP_VERSION
-                  value: v0.1.3
+                  value: v0.2.0-rc.1
                 - name: NMO_VERSION
                   value: v0.7.0
                 - name: HPPO_VERSION
@@ -2096,6 +2108,8 @@ spec:
               containers:
               - args:
                 - --enable-leader-election
+                - --ready-probe-addr
+                - :9440
                 command:
                 - /manager
                 env:
@@ -2105,13 +2119,18 @@ spec:
                 - name: NODE_LABELLER_IMAGE
                 - name: CPU_PLUGIN_IMAGE
                 - name: OPERATOR_VERSION
-                  value: v0.1.3
-                image: quay.io/kubevirt/ssp-operator@sha256:efe94ed877c7c6f7dc9486ac3929d217d21f3601f7d139bf7bf177e1607b58c8
+                  value: v0.2.0-rc.1
+                image: quay.io/kubevirt/ssp-operator@sha256:ae5244fc5851b54877851ca6481e549bee750997ae7d3c94e1344230e6831600
                 name: manager
                 ports:
                 - containerPort: 9443
                   name: webhook-server
                   protocol: TCP
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 9440
+                  initialDelaySeconds: 5
                 resources: {}
               serviceAccountName: ssp-operator
               terminationGracePeriodSeconds: 10
@@ -2541,6 +2560,8 @@ spec:
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:a90902cf3e5154424148bf3ba3c1bf90316cc77a54042cf6584fe8aedbe6daec
     name: cni-default-plugins
+  - image: quay.io/kubevirt/cpu-nfd-plugin@sha256:20225a3d7569295fa7607e069bdc75b3235bc2218dbe52c4302ec4e2e55df8b9
+    name: cpu-nfd-plugin
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:93085fb9d68e5e58b5886f4efc779307d345257165da958e4df8ee0c8994a765
     name: hostpath-provisioner
   - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:74d53f8cd3906587a83dec04e747285c81c09b78515eb0bc5cf5c26ddcec9437
@@ -2557,15 +2578,19 @@ spec:
     name: kubevirt-v2v-conversion
   - image: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
     name: kubevirt-vmware
+  - image: quay.io/kubevirt/kvm-info-nfd-plugin@sha256:c74083d42f9503007712dea435289e5f10a846433df2d3af4358463adb3fc9ff
+    name: kvm-info-nfd-plugin
   - image: quay.io/kubevirt/macvtap-cni@sha256:f20d5e56f8b8c1ab7e5a64e536b66f65aa688b2d1dc0b37e3c26c2af2b481266
     name: macvtap-cni
+  - image: quay.io/kubevirt/node-labeller@sha256:45391da5e8ecdd393830650061f8d68248a3b2961d60f42a04e4e0c58a7d3a3b
+    name: node-labeller
   - image: quay.io/kubevirt/node-maintenance-operator@sha256:71bb8de714dc0de0616050d66405ccb58841930fc1562a61399e1b964a0b678a
     name: node-maintenance-operator
   - image: quay.io/kubevirt/ovs-cni-marker@sha256:dca0d0432eacb1e97ea49c755df1c232159fe4267e7f872222ef0ef77e3d8915
     name: ovs-cni-marker
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:9ea002a51fd6cd706064a13e4eb79618e286f31be291ea4485de92675f26daa1
     name: ovs-cni-plugin
-  - image: quay.io/kubevirt/ssp-operator@sha256:efe94ed877c7c6f7dc9486ac3929d217d21f3601f7d139bf7bf177e1607b58c8
+  - image: quay.io/kubevirt/ssp-operator@sha256:ae5244fc5851b54877851ca6481e549bee750997ae7d3c94e1344230e6831600
     name: ssp-operator
   - image: quay.io/kubevirt/virt-api@sha256:b289a4191548fe05aad46f4596a770aefdd9ea99e495d8738aafe2f4e8bb66eb
     name: virt-api
@@ -2639,11 +2664,12 @@ spec:
     type: MutatingAdmissionWebhook
     webhookPath: /mutate-ns-hco-kubevirt-io
   - admissionReviewVersions:
+    - v1
     - v1beta1
     containerPort: 9443
     deploymentName: ssp-operator
     failurePolicy: Fail
-    generateName: vssp.kb.io
+    generateName: validation.ssp.kubevirt.io
     rules:
     - apiGroups:
       - ssp.kubevirt.io
@@ -2655,6 +2681,7 @@ spec:
       resources:
       - ssps
     sideEffects: None
+    targetPort: 9443
     type: ValidatingAdmissionWebhook
     webhookPath: /validate-ssp-kubevirt-io-v1beta1-ssp
   - admissionReviewVersions:

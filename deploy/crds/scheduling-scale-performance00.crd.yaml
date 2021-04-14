@@ -832,6 +832,10 @@ spec:
                   - type
                   type: object
                 type: array
+              observedGeneration:
+                description: ObservedGeneration is the latest generation observed by the operator.
+                format: int64
+                type: integer
               observedVersion:
                 description: The observed version of the resource
                 type: string

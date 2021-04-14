@@ -20,8 +20,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
+	"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -39,7 +44,7 @@ func (r *SSP) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-ssp-kubevirt-io-v1beta1-ssp,mutating=false,failurePolicy=fail,groups=ssp.kubevirt.io,resources=ssps,versions=v1beta1,name=vssp.kb.io,webhookVersions=v1beta1,sideEffects=None
+// +kubebuilder:webhook:verbs=create;update,path=/validate-ssp-kubevirt-io-v1beta1-ssp,mutating=false,failurePolicy=fail,groups=ssp.kubevirt.io,resources=ssps,versions=v1beta1,name=validation.ssp.kubevirt.io,webhookVersions=v1,sideEffects=None
 
 var _ webhook.Validator = &SSP{}
 
@@ -65,6 +70,10 @@ func (r *SSP) ValidateCreate() error {
 		return fmt.Errorf("creation failed, the configured namespace for common templates does not exist: %v", namespaceName)
 	}
 
+	if err = validatePlacement(r); err != nil {
+		return errors.Wrap(err, "placement api validation error")
+	}
+
 	return nil
 }
 
@@ -79,6 +88,10 @@ func (r *SSP) ValidateUpdate(old runtime.Object) error {
 			r.Spec.CommonTemplates.Namespace)
 	}
 
+	if err := validatePlacement(r); err != nil {
+		return errors.Wrap(err, "placement api validation error")
+	}
+
 	return nil
 }
 
@@ -90,4 +103,60 @@ func (r *SSP) ValidateDelete() error {
 // Forces the value of clt, to be used in unit tests
 func setClientForWebhook(c client.Client) {
 	clt = c
+}
+
+func validatePlacement(ssp *SSP) error {
+	return validateOperandPlacement(ssp.Spec.TemplateValidator.Placement)
+}
+
+func validateOperandPlacement(placement *api.NodePlacement) error {
+	if placement == nil {
+		return nil
+	}
+
+	const (
+		dplName          = "ssp-webhook-placement-verification-deployment"
+		namespace        = "default"
+		webhookTestLabel = "webhook.ssp.kubevirt.io/placement-verification-pod"
+		podName          = "ssp-webhook-placement-verification-pod"
+		naImage          = "ssp.kubevirt.io/not-available"
+	)
+
+	// Does a dry-run on a deployment creation to verify that placement fields are correct
+	deployment := &apps.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dplName,
+			Namespace: namespace,
+		},
+		Spec: apps.DeploymentSpec{
+			Replicas: pointer.Int32Ptr(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					webhookTestLabel: "",
+				},
+			},
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: podName,
+					Labels: map[string]string{
+						webhookTestLabel: "",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:  podName,
+							Image: naImage,
+						},
+					},
+					// Inject placement fields here
+					NodeSelector: placement.NodeSelector,
+					Affinity:     placement.Affinity,
+					Tolerations:  placement.Tolerations,
+				},
+			},
+		},
+	}
+
+	return clt.Create(context.TODO(), deployment, &client.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 }
