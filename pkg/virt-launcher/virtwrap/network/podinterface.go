@@ -413,12 +413,7 @@ func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
 
 	if len(b.vif.MAC) == 0 {
 		// Get interface MAC address
-		mac, err := Handler.GetMacDetails(b.podInterfaceName)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get MAC for %s", b.podInterfaceName)
-			return err
-		}
-		b.vif.MAC = mac
+		b.vif.MAC = b.podNicLink.Attrs().HardwareAddr
 	}
 
 	if b.podNicLink.Attrs().MTU < 0 || b.podNicLink.Attrs().MTU > 65535 {

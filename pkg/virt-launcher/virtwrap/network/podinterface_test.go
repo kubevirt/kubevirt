@@ -195,7 +195,6 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
 		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
-		mockNetwork.EXPECT().GetMacDetails(primaryPodInterfaceName).Return(fakeMac, nil)
 		mockNetwork.EXPECT().AddrDel(primaryPodInterface, &fakeAddr).Return(nil)
 		mockNetwork.EXPECT().LinkSetDown(primaryPodInterface).Return(nil)
 		mockNetwork.EXPECT().SetRandomMac(newPodInterfaceName).Return(updateFakeMac, nil)
