@@ -132,12 +132,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		return vmiExposeArgs
 	}
 
-	createAndWaitForJobToSucceed := func(helloWorldJobCreator func(host, port, namespace string) *batchv1.Job, namespace, ip, port, viaMessage string, timeout time.Duration) error {
+	createAndWaitForJobToSucceed := func(helloWorldJobCreator func(host, port, namespace string) *batchv1.Job, namespace, ip, port, viaMessage string) error {
 		By(fmt.Sprintf("Starting a job which tries to reach the VMI via the %s", viaMessage))
 		job := helloWorldJobCreator(ip, port, namespace)
 
 		By("Waiting for the job to report a successful connection attempt")
-		return tests.WaitForJobToSucceed(job, timeout*time.Second)
+		return tests.WaitForJobToSucceed(job, time.Duration(120)*time.Second)
 	}
 
 	Context("Expose service on a VM", func() {
@@ -183,7 +183,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				serviceIPs := svc.Spec.ClusterIPs
 				for ipOrderNum, ip := range serviceIPs {
 					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, ip, servicePort, fmt.Sprintf("%dst ClusterIP", ipOrderNum+1), 420)).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, ip, servicePort, fmt.Sprintf("%dst ClusterIP", ipOrderNum+1))).To(Succeed())
 					}, ipOrderNum > 0)
 				}
 			},
@@ -342,7 +342,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					if ipFamily != ipv6 {
 						By("Connecting to IPv4 node IP")
 						assert.XFail(xfailError, func() {
-							Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily), 420)).To(Succeed())
+							Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
 						}, ipFamily == dualIPv6Primary)
 					}
 					if doesSupportIpv6(ipFamily) {
@@ -356,7 +356,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 						By("Connecting to IPv6 node IP")
 						assert.XFail(xfailError, func() {
-							Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily), 420)).To(Succeed())
+							Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
 						}, ipFamily == dualIPv4Primary)
 					}
 				}
@@ -414,7 +414,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Iterating over the ClusterIPs")
 				for ipOrderNum, ip := range serviceIPs {
 					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ip, servicePort, fmt.Sprintf("%dst ClusterIP", ipOrderNum+1), 420)).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ip, servicePort, fmt.Sprintf("%dst ClusterIP", ipOrderNum+1))).To(Succeed())
 					}, ipOrderNum > 0)
 				}
 			},
@@ -462,7 +462,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				serviceIPs := svc.Spec.ClusterIPs
 				for ipOrderNum, ip := range serviceIPs {
 					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 120)).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
 					}, ipOrderNum > 0)
 				}
 
@@ -488,13 +488,13 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					if ipFamily != ipv6 {
 						By("Connecting to IPv4 node IP")
 						assert.XFail(xfailError, func() {
-							Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv4 address", 420)).To(Succeed())
+							Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv4 address")).To(Succeed())
 						}, ipFamily == dualIPv6Primary)
 					}
 					if doesSupportIpv6(ipFamily) {
 						By("Connecting to IPv6 node IP")
 						assert.XFail(xfailError, func() {
-							Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv6 address", 420)).To(Succeed())
+							Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv6 address")).To(Succeed())
 						}, ipFamily == dualIPv4Primary)
 					}
 				}
@@ -577,7 +577,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				serviceIPs := svc.Spec.ClusterIPs
 				for ipOrderNum, ip := range serviceIPs {
 					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmrs.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 420)).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmrs.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
 					}, ipOrderNum > 0)
 				}
 			},
@@ -681,8 +681,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				serviceIPs := svc.Spec.ClusterIPs
 				for ipOrderNum, ip := range serviceIPs {
 					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vm.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 420)).To(Succeed())
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJobHttp, vm.Namespace, ip, servicePort, fmt.Sprintf("same %dst ClusterIP, this time over HTTP", ipOrderNum+1), 120)).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vm.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJobHttp, vm.Namespace, ip, servicePort, fmt.Sprintf("same %dst ClusterIP, this time over HTTP", ipOrderNum+1))).To(Succeed())
 					}, ipOrderNum > 0)
 				}
 			},
@@ -714,7 +714,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				serviceIPs := svc.Spec.ClusterIPs
 				for ipOrderNum, ip := range serviceIPs {
 					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmObj.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 120)).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmObj.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
 					}, ipOrderNum > 0)
 				}
 
@@ -746,7 +746,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
 				for ipOrderNum, ip := range serviceIPs {
 					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmObj.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 120)).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmObj.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
 					}, ipOrderNum > 0)
 				}
 			},
@@ -795,7 +795,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				serviceIPs := svc.Spec.ClusterIPs
 				for ipOrderNum, ip := range serviceIPs {
 					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vm.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1), 120)).To(Succeed())
+						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vm.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
 					}, ipOrderNum > 0)
 				}
 
