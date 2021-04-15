@@ -559,6 +559,8 @@ const (
 	MigrationJobNameAnnotation                    string = "kubevirt.io/migrationJobName"
 	ControllerAPILatestVersionObservedAnnotation  string = "kubevirt.io/latest-observed-api-version"
 	ControllerAPIStorageVersionObservedAnnotation string = "kubevirt.io/storage-observed-api-version"
+	// Used by functional tests to force a VMI to fail the migration internally within launcher
+	FuncTestForceLauncherMigrationFailureAnnotation string = "kubevirt.io/func-test-force-launcher-migration-failure"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	// Internal use only.
