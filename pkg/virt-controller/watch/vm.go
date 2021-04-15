@@ -261,11 +261,15 @@ func (c *VMController) execute(key string) error {
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if c.needsSync(key) && vm.ObjectMeta.DeletionTimestamp == nil {
+		runStrategy, err := vm.RunStrategy()
+		if err != nil {
+			return err
+		}
 
 		dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
 		if err != nil {
 			createErr = err
-		} else if dataVolumesReady == true {
+		} else if dataVolumesReady || runStrategy == virtv1.RunStrategyHalted {
 			createErr = c.startStop(vm, vmi)
 		} else {
 			log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
@@ -754,6 +758,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	return nil
 }
 
+// here is stop
 func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		// nothing to do
