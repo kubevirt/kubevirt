@@ -32,6 +32,8 @@ var _ = Describe("Disruptionbudget", func() {
 	var vmiInformer cache.SharedIndexInformer
 	var pdbInformer cache.SharedIndexInformer
 	var pdbSource *framework.FakeControllerSource
+	var podInformer cache.SharedIndexInformer
+	var vmimInformer cache.SharedIndexInformer
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
 	var kubeClient *fake.Clientset
@@ -43,10 +45,14 @@ var _ = Describe("Disruptionbudget", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go pdbInformer.Run(stop)
+		go podInformer.Run(stop)
+		go vmimInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			pdbInformer.HasSynced,
+			podInformer.HasSynced,
+			vmimInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
@@ -73,7 +79,7 @@ var _ = Describe("Disruptionbudget", func() {
 			update, ok := action.(testing.CreateAction)
 			pdb := update.GetObject().(*v1beta1.PodDisruptionBudget)
 			Expect(ok).To(BeTrue())
-			Expect(pdb.Spec.MinAvailable.String()).To(Equal("2"))
+			Expect(pdb.Spec.MinAvailable.String()).To(Equal("1"))
 			Expect(update.GetObject().(*v1beta1.PodDisruptionBudget).Spec.Selector.MatchLabels[v1.CreatedByLabel]).To(Equal(string(uid)))
 			return true, update.GetObject(), nil
 		})
@@ -87,9 +93,11 @@ var _ = Describe("Disruptionbudget", func() {
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		pdbInformer, pdbSource = testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
+		vmimInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		podInformer, _ = testutils.NewFakeInformerFor(&v12.Pod{})
 		recorder = record.NewFakeRecorder(100)
 
-		controller = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, recorder, virtClient)
+		controller = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		pdbFeeder = testutils.NewPodDisruptionBudgetFeeder(mockQueue, pdbSource)
