@@ -476,9 +476,23 @@ func domXMLWithoutKubevirtMetadata(dom cli.VirDomain, vmi *v1.VirtualMachineInst
 	return string(buf.Bytes()), nil
 }
 
+func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Annotations == nil {
+		return false
+	}
+
+	_, shouldFail := vmi.Annotations[v1.FuncTestForceLauncherMigrationFailureAnnotation]
+	return shouldFail
+}
+
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
+		if shouldImmediatelyFailMigration(vmi) {
+			log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
+			l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
+			return
+		}
 
 		// Start local migration proxy.
 		//
