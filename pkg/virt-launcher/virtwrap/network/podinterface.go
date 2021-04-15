@@ -57,12 +57,14 @@ const (
 	EnvoyPrometheusTelemetryPort       = 15090
 )
 
-type BindMechanism interface {
+type PodNetworkInfraConfigurator interface {
 	discoverPodNetworkInterface(podIfaceName string) error
 	preparePodNetworkInterface() error
 	generateDomainIfaceSpec() api.Interface
 	generateDHCPConfig() *cache.DHCPConfig
+}
 
+type BindMechanism interface {
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
 	decorateConfig(domainIface api.Interface) error
@@ -219,24 +221,29 @@ func (l *podNIC) PlugPhase1() error {
 
 	doesExist := cachedDomainIface != nil
 	// ignore the bindMechanism.cachedDomainInterface for slirp and set the Pod interface cache
-	if !doesExist || l.iface.Slirp != nil {
-		err := l.setPodInterfaceCache()
-		if err != nil {
+	if !doesExist {
+		if err := l.setPodInterfaceCache(); err != nil {
 			return err
 		}
 	}
+
+	isSlirpIface := l.iface.Slirp != nil
+	if isSlirpIface {
+		return nil
+	}
+
 	if !doesExist {
-		bindMechanism, err := l.getPhase1Binding()
+		podNetworkingConfigurator, err := l.newPodNetworkConfigurator()
 		if err != nil {
 			return err
 		}
 
-		if err := bindMechanism.discoverPodNetworkInterface(l.podInterfaceName); err != nil {
+		if err := podNetworkingConfigurator.discoverPodNetworkInterface(l.podInterfaceName); err != nil {
 			return err
 		}
 
 		if l.dhcpConfigurator != nil {
-			dhcpConfig := bindMechanism.generateDHCPConfig()
+			dhcpConfig := podNetworkingConfigurator.generateDHCPConfig()
 			log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
 			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
 				log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
@@ -244,11 +251,11 @@ func (l *podNIC) PlugPhase1() error {
 			}
 		}
 
-		domainIface := bindMechanism.generateDomainIfaceSpec()
+		domainIface := podNetworkingConfigurator.generateDomainIfaceSpec()
 		// preparePodNetworkInterface must be called *after* the generate
 		// methods since it mutates the pod interface from which those
 		// generator methods get their info from.
-		if err := bindMechanism.preparePodNetworkInterface(); err != nil {
+		if err := podNetworkingConfigurator.preparePodNetworkInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
 			return errors.CreateCriticalNetworkError(err)
 		}
@@ -274,12 +281,16 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return nil
 	}
 
-	domainIface, err := l.cachedDomainInterface()
-	if err != nil {
-		log.Log.Reason(err).Critical("failed to load cached interface configuration")
-	}
-	if domainIface == nil {
-		log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
+	libvirtIfaceSpec := api.Interface{}
+	if l.iface.Slirp == nil {
+		domainIface, err := l.cachedDomainInterface()
+		if err != nil {
+			log.Log.Reason(err).Critical("failed to load cached interface configuration")
+		}
+		if domainIface == nil {
+			log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
+		}
+		libvirtIfaceSpec = *domainIface
 	}
 
 	bindMechanism, err := l.getPhase2Binding(domain)
@@ -287,7 +298,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return err
 	}
 
-	if err := bindMechanism.decorateConfig(*domainIface); err != nil {
+	if err := bindMechanism.decorateConfig(libvirtIfaceSpec); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
@@ -306,51 +317,36 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	return nil
 }
 
-func (l *podNIC) getPhase1Binding() (BindMechanism, error) {
-	return l.getPhase2Binding(nil)
-}
-
 func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 	if l.iface.Bridge != nil {
-		return newBridgeBindMechanism(l.vmi, l.iface, l.podInterfaceName, domain, l.cacheFactory, l.launcherPID, l.handler)
+		return newBridgeBindMechanism(l.vmi, l.iface, l.podInterfaceName, domain, l.cacheFactory, l.launcherPID, l.handler), nil
 	}
 	if l.iface.Masquerade != nil {
-		return newMasqueradeBindMechanism(l.vmi, l.iface, l.network, domain, l.podInterfaceName, l.cacheFactory, l.launcherPID, l.handler)
+		return newMasqueradeBindMechanism(l.vmi, l.iface, l.network, domain, l.podInterfaceName, l.cacheFactory, l.launcherPID, l.handler), nil
 	}
 	if l.iface.Slirp != nil {
 		return &SlirpBindMechanism{iface: l.iface, domain: domain}, nil
 	}
 	if l.iface.Macvtap != nil {
-		return newMacvtapBindMechanism(l.vmi, l.iface, domain, l.cacheFactory, l.launcherPID, l.handler)
+		return newMacvtapBindMechanism(l.vmi, l.iface, domain, l.cacheFactory, l.launcherPID, l.handler), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func newMacvtapBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface, domain *api.Domain, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) (*MacvtapBindMechanism, error) {
-	mac, err := retrieveMacAddressFromVMISpecIface(iface)
-	if err != nil {
-		return nil, err
-	}
-
+func newMacvtapBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface, domain *api.Domain, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) *MacvtapBindMechanism {
 	return &MacvtapBindMechanism{
 		vmi:          vmi,
 		iface:        iface,
 		domain:       domain,
-		mac:          mac,
 		cacheFactory: cacheFactory,
 		launcherPID:  launcherPID,
 		handler:      handler,
-	}, nil
+	}
 }
 
-func newMasqueradeBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) (*MasqueradeBindMechanism, error) {
-	mac, err := retrieveMacAddressFromVMISpecIface(iface)
-	if err != nil {
-		return nil, err
-	}
+func newMasqueradeBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) *MasqueradeBindMechanism {
 	return &MasqueradeBindMechanism{iface: iface,
 		vmi:                 vmi,
-		mac:                 mac,
 		domain:              domain,
 		vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
 		vmIPv6NetworkCIDR:   network.Pod.VMIPv6NetworkCIDR,
@@ -359,14 +355,10 @@ func newMasqueradeBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		launcherPID:         launcherPID,
 		queueCount:          calculateNetworkQueues(vmi),
 		handler:             handler,
-	}, nil
+	}
 }
 
-func newBridgeBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, domain *api.Domain, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) (*BridgeBindMechanism, error) {
-	mac, err := retrieveMacAddressFromVMISpecIface(iface)
-	if err != nil {
-		return nil, err
-	}
+func newBridgeBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, domain *api.Domain, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) *BridgeBindMechanism {
 	return &BridgeBindMechanism{iface: iface,
 		vmi:                 vmi,
 		domain:              domain,
@@ -374,9 +366,56 @@ func newBridgeBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface,
 		cacheFactory:        cacheFactory,
 		launcherPID:         launcherPID,
 		queueCount:          calculateNetworkQueues(vmi),
-		mac:                 mac,
 		handler:             handler,
-	}, nil
+	}
+}
+
+func (l *podNIC) newPodNetworkConfigurator() (PodNetworkInfraConfigurator, error) {
+	mac, err := retrieveMacAddressFromVMISpecIface(l.iface)
+	if err != nil {
+		return nil, err
+	}
+	if l.iface.Bridge != nil {
+		return &BridgePodNetworkConfigurator{
+			vmi:                 l.vmi,
+			iface:               l.iface,
+			bridgeInterfaceName: generateInPodBridgeInterfaceName(l.podInterfaceName),
+			storeFactory:        l.cacheFactory,
+			launcherPID:         *l.launcherPID,
+			queueCount:          calculateNetworkQueues(l.vmi),
+			mac:                 mac,
+			handler:             l.handler,
+		}, nil
+	}
+	if l.iface.Masquerade != nil {
+		return &MasqueradePodNetworkConfigurator{
+			vmi:                 l.vmi,
+			iface:               l.iface,
+			vmNetworkCIDR:       l.network.Pod.VMNetworkCIDR,
+			vmIPv6NetworkCIDR:   l.network.Pod.VMIPv6NetworkCIDR,
+			bridgeInterfaceName: generateInPodBridgeInterfaceName(l.podInterfaceName),
+			cacheFactory:        l.cacheFactory,
+			launcherPID:         *l.launcherPID,
+			queueCount:          calculateNetworkQueues(l.vmi),
+			mac:                 mac,
+			handler:             l.handler,
+		}, nil
+	}
+	if l.iface.Slirp != nil {
+		return nil, nil
+	}
+	if l.iface.Macvtap != nil {
+		return &MacvtapPodNetworkConfigurator{
+			vmi:              l.vmi,
+			iface:            l.iface,
+			podInterfaceName: l.podInterfaceName,
+			mac:              mac,
+			storeFactory:     l.cacheFactory,
+			launcherPID:      *l.launcherPID,
+			handler:          l.handler,
+		}, nil
+	}
+	return nil, fmt.Errorf("Not implemented")
 }
 
 func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.HardwareAddr, error) {
@@ -388,6 +427,25 @@ func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.Hardwa
 		return &macAddress, nil
 	}
 	return nil, nil
+}
+
+type BridgePodNetworkConfigurator struct {
+	arpIgnore           bool
+	bridgeInterfaceName string
+	iface               *v1.Interface
+	ipamEnabled         bool
+	handler             netdriver.NetworkHandler
+	launcherPID         int
+	mac                 *net.HardwareAddr
+	podIfaceIP          netlink.Addr
+	podInterfaceName    string
+	podNicLink          netlink.Link
+	queueCount          uint32
+	routes              []netlink.Route
+	storeFactory        cache.InterfaceCacheFactory
+	tapDeviceName       string
+	virtIface           *api.Interface
+	vmi                 *v1.VirtualMachineInstance
 }
 
 type BridgeBindMechanism struct {
@@ -408,7 +466,7 @@ type BridgeBindMechanism struct {
 	routes              []netlink.Route
 }
 
-func (b *BridgeBindMechanism) discoverPodNetworkInterface(podIfaceName string) error {
+func (b *BridgePodNetworkConfigurator) discoverPodNetworkInterface(podIfaceName string) error {
 	link, err := b.handler.LinkByName(podIfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podIfaceName)
@@ -443,7 +501,7 @@ func (b *BridgeBindMechanism) discoverPodNetworkInterface(podIfaceName string) e
 	return nil
 }
 
-func (b *BridgeBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
+func (b *BridgePodNetworkConfigurator) generateDHCPConfig() *cache.DHCPConfig {
 	if !b.ipamEnabled {
 		return &cache.DHCPConfig{Name: b.podNicLink.Attrs().Name, IPAMDisabled: true}
 	}
@@ -473,17 +531,17 @@ func (b *BridgeBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
 	return dhcpConfig
 }
 
-func (b *BridgeBindMechanism) getFakeBridgeIP() (string, error) {
+func (b *BridgePodNetworkConfigurator) getFakeBridgeIP() (string, error) {
 	ifaces := b.vmi.Spec.Domain.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Name == b.iface.Name {
 			return fmt.Sprintf(bridgeFakeIP, i), nil
 		}
 	}
-	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", b.iface.Name)
+	return "", fmt.Errorf("failed to generate bridge fake address for interface %s", b.iface.Name)
 }
 
-func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
+func (b *BridgePodNetworkConfigurator) preparePodNetworkInterface() error {
 	// Set interface link to down to change its MAC address
 	if err := b.handler.LinkSetDown(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podNicLink.Attrs().Name)
@@ -513,7 +571,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
 		return err
 	}
 
-	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.queueCount, b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
 		return err
@@ -539,7 +597,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) generateDomainIfaceSpec() api.Interface {
+func (b *BridgePodNetworkConfigurator) generateDomainIfaceSpec() api.Interface {
 	return api.Interface{
 		MAC: &api.MAC{MAC: b.mac.String()},
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
@@ -588,7 +646,7 @@ func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
 }
 
-func (b *BridgeBindMechanism) learnInterfaceRoutes() error {
+func (b *BridgePodNetworkConfigurator) learnInterfaceRoutes() error {
 	routes, err := b.handler.RouteList(b.podNicLink, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get routes for %s", b.podNicLink.Attrs().Name)
@@ -601,7 +659,7 @@ func (b *BridgeBindMechanism) learnInterfaceRoutes() error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) decorateDHCPConfigRoutes(dhcpConfig *cache.DHCPConfig) {
+func (b *BridgePodNetworkConfigurator) decorateDHCPConfigRoutes(dhcpConfig *cache.DHCPConfig) {
 	log.Log.V(4).Infof("the default route is: %s", b.routes[0].String())
 	dhcpConfig.Gateway = b.routes[0].Gw
 	if len(b.routes) > 1 {
@@ -610,7 +668,7 @@ func (b *BridgeBindMechanism) decorateDHCPConfigRoutes(dhcpConfig *cache.DHCPCon
 	}
 }
 
-func (b *BridgeBindMechanism) createBridge() error {
+func (b *BridgePodNetworkConfigurator) createBridge() error {
 	// Create a bridge
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
@@ -659,7 +717,7 @@ func (b *BridgeBindMechanism) createBridge() error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
+func (b *BridgePodNetworkConfigurator) switchPodInterfaceWithDummy() error {
 	originalPodInterfaceName := b.podNicLink.Attrs().Name
 	newPodInterfaceName := fmt.Sprintf("%s-nic", originalPodInterfaceName)
 	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
@@ -702,6 +760,25 @@ func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
 	return nil
 }
 
+type MasqueradePodNetworkConfigurator struct {
+	vmi                 *v1.VirtualMachineInstance
+	iface               *v1.Interface
+	podNicLink          netlink.Link
+	domain              *api.Domain
+	bridgeInterfaceName string
+	vmNetworkCIDR       string
+	vmIPv6NetworkCIDR   string
+	gatewayAddr         *netlink.Addr
+	gatewayIpv6Addr     *netlink.Addr
+	cacheFactory        cache.InterfaceCacheFactory
+	launcherPID         int
+	queueCount          uint32
+	handler             netdriver.NetworkHandler
+	podIfaceIPv4Addr    netlink.Addr
+	podIfaceIPv6Addr    netlink.Addr
+	mac                 *net.HardwareAddr
+}
+
 type MasqueradeBindMechanism struct {
 	vmi                 *v1.VirtualMachineInstance
 	iface               *v1.Interface
@@ -721,7 +798,7 @@ type MasqueradeBindMechanism struct {
 	mac                 *net.HardwareAddr
 }
 
-func (b *MasqueradeBindMechanism) discoverPodNetworkInterface(podIfaceName string) error {
+func (b *MasqueradePodNetworkConfigurator) discoverPodNetworkInterface(podIfaceName string) error {
 	link, err := b.handler.LinkByName(podIfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podIfaceName)
@@ -751,7 +828,7 @@ func (b *MasqueradeBindMechanism) discoverPodNetworkInterface(podIfaceName strin
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) configureIPv4Addresses() error {
+func (b *MasqueradePodNetworkConfigurator) configureIPv4Addresses() error {
 	b.setDefaultCidr(iptables.ProtocolIPv4)
 	vmIPv4Addr, gatewayIPv4, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv4)
 	if err != nil {
@@ -762,7 +839,7 @@ func (b *MasqueradeBindMechanism) configureIPv4Addresses() error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) configureIPv6Addresses() error {
+func (b *MasqueradePodNetworkConfigurator) configureIPv6Addresses() error {
 	b.setDefaultCidr(iptables.ProtocolIPv6)
 	vmIPv6Addr, gatewayIPv6, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv6)
 	if err != nil {
@@ -773,7 +850,7 @@ func (b *MasqueradeBindMechanism) configureIPv6Addresses() error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
+func (b *MasqueradePodNetworkConfigurator) generateDHCPConfig() *cache.DHCPConfig {
 	dhcpConfig := &cache.DHCPConfig{
 		Name: b.podNicLink.Attrs().Name,
 		IP:   b.podIfaceIPv4Addr,
@@ -796,7 +873,7 @@ func (b *MasqueradeBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
 	return dhcpConfig
 }
 
-func (b *MasqueradeBindMechanism) setDefaultCidr(protocol iptables.Protocol) {
+func (b *MasqueradePodNetworkConfigurator) setDefaultCidr(protocol iptables.Protocol) {
 	if protocol == iptables.ProtocolIPv4 {
 		if b.vmNetworkCIDR == "" {
 			b.vmNetworkCIDR = api.DefaultVMCIDR
@@ -808,7 +885,7 @@ func (b *MasqueradeBindMechanism) setDefaultCidr(protocol iptables.Protocol) {
 	}
 }
 
-func (b *MasqueradeBindMechanism) generateGatewayAndVmIPAddrs(protocol iptables.Protocol) (*netlink.Addr, *netlink.Addr, error) {
+func (b *MasqueradePodNetworkConfigurator) generateGatewayAndVmIPAddrs(protocol iptables.Protocol) (*netlink.Addr, *netlink.Addr, error) {
 	cidrToConfigure := b.vmNetworkCIDR
 	if protocol == iptables.ProtocolIPv6 {
 		cidrToConfigure = b.vmIPv6NetworkCIDR
@@ -831,13 +908,13 @@ func (b *MasqueradeBindMechanism) generateGatewayAndVmIPAddrs(protocol iptables.
 	return gatewayAddr, vmAddr, nil
 }
 
-func (b *MasqueradeBindMechanism) preparePodNetworkInterface() error {
+func (b *MasqueradePodNetworkConfigurator) preparePodNetworkInterface() error {
 	if err := b.createBridge(); err != nil {
 		return err
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podNicLink.Attrs().Name)
-	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -865,7 +942,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterface() error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) generateDomainIfaceSpec() api.Interface {
+func (b *MasqueradePodNetworkConfigurator) generateDomainIfaceSpec() api.Interface {
 	domainIface := api.Interface{
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
 		Target: &api.InterfaceTarget{
@@ -892,7 +969,7 @@ func (b *MasqueradeBindMechanism) decorateConfig(domainIface api.Interface) erro
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) createBridge() error {
+func (b *MasqueradePodNetworkConfigurator) createBridge() error {
 	mac, err := net.ParseMAC(network.StaticMasqueradeBridgeMAC)
 	if err != nil {
 		return err
@@ -942,7 +1019,7 @@ func (b *MasqueradeBindMechanism) createBridge() error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) createNatRules(protocol iptables.Protocol) error {
+func (b *MasqueradePodNetworkConfigurator) createNatRules(protocol iptables.Protocol) error {
 	err := b.handler.ConfigureIpForwarding(protocol)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure ip forwarding")
@@ -957,7 +1034,7 @@ func (b *MasqueradeBindMechanism) createNatRules(protocol iptables.Protocol) err
 	return fmt.Errorf("Couldn't configure ip nat rules")
 }
 
-func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.Protocol) error {
+func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingIptables(protocol iptables.Protocol) error {
 	err := b.handler.IptablesNewChain(protocol, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
@@ -1065,7 +1142,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) skipForwardingForPortsUsingIptables(protocol iptables.Protocol, ports []string) error {
+func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingIptables(protocol iptables.Protocol, ports []string) error {
 	chainWhereDnatIsPerformed := "OUTPUT"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
@@ -1081,7 +1158,7 @@ func (b *MasqueradeBindMechanism) skipForwardingForPortsUsingIptables(protocol i
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Protocol) error {
+func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto iptables.Protocol) error {
 	err := b.handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
@@ -1190,7 +1267,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) skipForwardingForPortsUsingNftables(proto iptables.Protocol, ports []string) error {
+func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingNftables(proto iptables.Protocol, ports []string) error {
 	chainWhereDnatIsPerformed := "output"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
@@ -1205,7 +1282,7 @@ func (b *MasqueradeBindMechanism) skipForwardingForPortsUsingNftables(proto ipta
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) getGatewayByProtocol(proto iptables.Protocol) string {
+func (b *MasqueradePodNetworkConfigurator) getGatewayByProtocol(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv4 {
 		return b.gatewayAddr.IP.String()
 	} else {
@@ -1213,7 +1290,7 @@ func (b *MasqueradeBindMechanism) getGatewayByProtocol(proto iptables.Protocol) 
 	}
 }
 
-func (b *MasqueradeBindMechanism) geVmIfaceIpByProtocol(proto iptables.Protocol) string {
+func (b *MasqueradePodNetworkConfigurator) geVmIfaceIpByProtocol(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv4 {
 		return b.podIfaceIPv4Addr.IP.String()
 	} else {
@@ -1221,7 +1298,7 @@ func (b *MasqueradeBindMechanism) geVmIfaceIpByProtocol(proto iptables.Protocol)
 	}
 }
 
-func (b *MasqueradeBindMechanism) getSrcAddressesToSnat(proto iptables.Protocol) string {
+func (b *MasqueradePodNetworkConfigurator) getSrcAddressesToSnat(proto iptables.Protocol) string {
 	addresses := []string{getLoopbackAdrress(proto)}
 	if hasIstioSidecarInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
 		addresses = append(addresses, getEnvoyLoopbackAddress())
@@ -1229,7 +1306,7 @@ func (b *MasqueradeBindMechanism) getSrcAddressesToSnat(proto iptables.Protocol)
 	return fmt.Sprintf("{ %s }", strings.Join(addresses, ", "))
 }
 
-func (b *MasqueradeBindMechanism) getDstAddressesToDnat(proto iptables.Protocol) (string, error) {
+func (b *MasqueradePodNetworkConfigurator) getDstAddressesToDnat(proto iptables.Protocol) (string, error) {
 	addresses := []string{getLoopbackAdrress(proto)}
 	if hasIstioSidecarInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
 		ipv4, _, err := b.handler.ReadIPAddressesFromLink(b.podNicLink.Attrs().Name)
@@ -1329,6 +1406,18 @@ func (b *SlirpBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
 	return nil
 }
 
+type MacvtapPodNetworkConfigurator struct {
+	vmi              *v1.VirtualMachineInstance
+	iface            *v1.Interface
+	virtIface        *api.Interface
+	podInterfaceName string
+	podNicLink       netlink.Link
+	mac              *net.HardwareAddr
+	storeFactory     cache.InterfaceCacheFactory
+	launcherPID      int
+	handler          netdriver.NetworkHandler
+}
+
 type MacvtapBindMechanism struct {
 	vmi          *v1.VirtualMachineInstance
 	iface        *v1.Interface
@@ -1340,8 +1429,8 @@ type MacvtapBindMechanism struct {
 	handler      netdriver.NetworkHandler
 }
 
-func (b *MacvtapBindMechanism) discoverPodNetworkInterface(podIfaceName string) error {
-	link, err := b.handler.LinkByName(podIfaceName)
+func (b *MacvtapPodNetworkConfigurator) discoverPodNetworkInterface(podIfaceName string) error {
+	link, err := b.handler.LinkByName(b.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podIfaceName)
 		return err
@@ -1351,7 +1440,7 @@ func (b *MacvtapBindMechanism) discoverPodNetworkInterface(podIfaceName string) 
 	return nil
 }
 
-func (b *MacvtapBindMechanism) podIfaceMAC() string {
+func (b *MacvtapPodNetworkConfigurator) podIfaceMAC() string {
 	if b.mac != nil {
 		return b.mac.String()
 	} else {
@@ -1359,11 +1448,11 @@ func (b *MacvtapBindMechanism) podIfaceMAC() string {
 	}
 }
 
-func (b *MacvtapBindMechanism) preparePodNetworkInterface() error {
+func (b *MacvtapPodNetworkConfigurator) preparePodNetworkInterface() error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) generateDomainIfaceSpec() api.Interface {
+func (b *MacvtapPodNetworkConfigurator) generateDomainIfaceSpec() api.Interface {
 	return api.Interface{
 		MAC: &api.MAC{MAC: b.podIfaceMAC()},
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
@@ -1387,7 +1476,7 @@ func (b *MacvtapBindMechanism) decorateConfig(domainIface api.Interface) error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
+func (b *MacvtapPodNetworkConfigurator) generateDHCPConfig() *cache.DHCPConfig {
 	return nil
 }
 
