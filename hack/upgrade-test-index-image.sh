@@ -74,6 +74,7 @@ trap "cleanup" INT TERM EXIT
 source hack/compare_scc.sh
 dump_sccs_before
 
+CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE})
 HCO_API_VERSION=$( ${CMD} get -n ${HCO_NAMESPACE} "${CSV}" -o jsonpath="{ .spec.customresourcedefinitions.owned[?(@.kind=='HyperConverged')].version }")
 sed -e "s|hco.kubevirt.io/v1beta1|hco.kubevirt.io/${HCO_API_VERSION}|g" deploy/hco.cr.yaml | ${CMD} apply -n kubevirt-hyperconverged -f -
 
