@@ -28,9 +28,12 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -49,7 +52,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-const failedToProcessDeleteNotificationErrMsg = "Failed to process delete notification"
+const (
+	failedToProcessDeleteNotificationErrMsg   = "Failed to process delete notification"
+	successfulCreatePodDisruptionBudgetReason = "SuccessfulCreate"
+)
 
 type MigrationController struct {
 	templateService    services.TemplateService
@@ -479,6 +485,35 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	return nil
 }
 
+func (c *MigrationController) createPDB(key string, vmi *virtv1.VirtualMachineInstance, vmim *virtv1.VirtualMachineInstanceMigration) error {
+	minAvailable := intstr.FromInt(2)
+	createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.GetNamespace()).Create(context.Background(), &v1beta1.PodDisruptionBudget{
+		ObjectMeta: v1.ObjectMeta{
+			OwnerReferences: []v1.OwnerReference{
+				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
+			},
+			Name: fmt.Sprintf("kubevirt-migration-pdb-%s", vmim.Name),
+			Labels: map[string]string{
+				virtv1.MigrationNameLabel: string(vmim.Name),
+			},
+		},
+		Spec: v1beta1.PodDisruptionBudgetSpec{
+			MinAvailable: &minAvailable,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{
+					virtv1.CreatedByLabel: string(vmi.UID),
+				},
+			},
+		},
+	}, v1.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+	log.Log.Object(vmi).Infof("creating pdb for VMI %s/%s to protect migration %s", vmi.Namespace, vmi.Name, vmim.Name)
+	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, successfulCreatePodDisruptionBudgetReason, "Created PodDisruptionBudget %s", createdPDB.Name)
+	return nil
+}
+
 func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
 
 	// Mark Migration Done on VMI if virt handler never started it.
@@ -607,6 +642,9 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	// migration was accepted into the system, now see if we
 	// should create the target pod
 	if vmi.IsRunning() {
+		if err := c.createPDB(key, vmi, migration); err != nil {
+			return err
+		}
 		return c.createTargetPod(migration, vmi)
 	}
 	return nil

@@ -586,6 +586,8 @@ const (
 	CreatedByLabel string = "kubevirt.io/created-by"
 	// This label is used to indicate that this pod is the target of a migration job.
 	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
+	// This label indicates the migration name that a PDB is protecting.
+	MigrationNameLabel string = "kubevirt.io/migrationName"
 	// This label describes which cluster node runs the virtual machine
 	// instance. Needed because with CRDs we can't use field selectors. Used on
 	// VirtualMachineInstance.

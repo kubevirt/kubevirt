@@ -482,6 +482,8 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 	vca.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(
 		vca.vmiInformer,
 		vca.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer(),
+		vca.allPodInformer,
+		vca.migrationInformer,
 		recorder,
 		vca.clientSet,
 	)
