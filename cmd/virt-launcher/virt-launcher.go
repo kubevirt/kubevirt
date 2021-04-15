@@ -221,24 +221,30 @@ func initializeDirs(virtShareDir string,
 func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
 
 	ticker := time.NewTicker(timeout).C
-	select {
-	case <-ticker:
-		panic(fmt.Errorf("timed out waiting for domain to be defined"))
-	case e := <-events:
-		if e.Object != nil && e.Type == watch.Added {
-			domain := e.Object.(*api.Domain)
-			log.Log.Infof("Detected domain with UUID %s", domain.Spec.UUID)
-			return domain
-		} else if e.Type == watch.Modified {
-			domain, ok := e.Object.(*api.Domain)
-			if ok && domain.ObjectMeta.DeletionTimestamp != nil {
-				return nil
+	checkEarlyExit := time.NewTicker(time.Second * 2).C
+	for {
+		select {
+		case <-ticker:
+			panic(fmt.Errorf("timed out waiting for domain to be defined"))
+		case e := <-events:
+			if e.Object != nil && e.Type == watch.Added {
+				domain := e.Object.(*api.Domain)
+				log.Log.Infof("Detected domain with UUID %s", domain.Spec.UUID)
+				return domain
+			} else if e.Type == watch.Modified {
+				domain, ok := e.Object.(*api.Domain)
+				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
+					return nil
+				}
+			}
+		case <-stop:
+			return nil
+		case <-checkEarlyExit:
+			if cmdserver.ReceivedEarlyExitSignal() {
+				panic(fmt.Errorf("received early exit signal"))
 			}
 		}
-	case <-stop:
-		return nil
 	}
-	return nil
 }
 
 func waitForFinalNotify(deleteNotificationSent chan watch.Event,
