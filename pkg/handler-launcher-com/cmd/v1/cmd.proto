@@ -13,6 +13,7 @@ service Cmd {
   rpc MigrateVirtualMachine(MigrationRequest) returns (Response) {}
   rpc SyncMigrationTarget(VMIRequest) returns (Response) {}
   rpc CancelVirtualMachineMigration(VMIRequest) returns (Response) {}
+  rpc SignalTargetPodCleanup(VMIRequest) returns (Response) {}
   rpc FinalizeVirtualMachineMigration(VMIRequest) returns (Response) {}
   rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
   rpc GetDomainStats(EmptyRequest) returns (DomainStatsResponse) {}
