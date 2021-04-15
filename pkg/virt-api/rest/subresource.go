@@ -1093,46 +1093,13 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 
 	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
 	if ephemeral {
-		vmi, statErr := app.fetchVirtualMachineInstance(name, namespace)
-		if statErr != nil {
-			writeError(statErr, response)
+		if err := app.vmiVolumePatch(name, namespace, &volumeRequest); err != nil {
+			writeError(err, response)
 			return
 		}
-
-		if !vmi.IsRunning() {
-			writeError(errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf("VMI is not running")), response)
-			return
-		}
-
-		patch, err := generateVMIVolumeRequestPatch(vmi, &volumeRequest)
-		if err != nil {
-			writeError(errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err), response)
-			return
-		}
-
-		log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
-		_, err = app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch))
-		if err != nil {
-			writeError(errors.NewInternalError(fmt.Errorf("unable to patch vmi during volume add: %v", err)), response)
-			return
-		}
-
 	} else {
-		vm, statErr := app.fetchVirtualMachine(name, namespace)
-		if statErr != nil {
-			writeError(statErr, response)
-			return
-		}
-
-		patch, err := generateVMVolumeRequestPatch(vm, &volumeRequest)
-		if err != nil {
-			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
-			return
-		}
-
-		err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch))
-		if err != nil {
-			writeError(errors.NewInternalError(fmt.Errorf("unable to patch vm status during volume add: %v", err)), response)
+		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -1177,31 +1144,12 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 
 	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
 	if ephemeral {
-		vmi, statErr := app.fetchVirtualMachineInstance(name, namespace)
-		if statErr != nil {
-			writeError(statErr, response)
-			return
-		}
-
-		if !vmi.IsRunning() {
-			writeError(errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf("VMI is not running")), response)
-			return
-		}
-
-		patch, err := generateVMIVolumeRequestPatch(vmi, &volumeRequest)
-		if err != nil {
-			writeError(errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err), response)
-			return
-		}
-
-		log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
-		_, err = app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch))
-		if err != nil {
-			writeError(errors.NewInternalError(fmt.Errorf("unable to patch vmi during volume remove: %v", err)), response)
+		if err := app.vmiVolumePatch(name, namespace, &volumeRequest); err != nil {
+			writeError(err, response)
 			return
 		}
 	} else {
-		if err := app.removeVolumeRequestHandlerPatchStatus(name, namespace, &volumeRequest, 0, nil); err != nil {
+		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
 			writeError(err, response)
 			return
 		}
@@ -1210,15 +1158,38 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 	response.WriteHeader(http.StatusAccepted)
 }
 
-func (app *SubresourceAPIApp) removeVolumeRequestHandlerPatchStatus(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest, generation int64, orgError *errors.StatusError) *errors.StatusError {
-	vm, statErr := app.fetchVirtualMachine(name, namespace)
+func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
+	vmi, statErr := app.fetchVirtualMachineInstance(name, namespace)
 	if statErr != nil {
 		return statErr
 	}
 
-	if vm.GetObjectMeta().GetGeneration() == generation && vm.GetObjectMeta().GetGeneration() > 0 {
-		//Same generation, return original error
-		return orgError
+	if !vmi.IsRunning() {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf("VMI is not running"))
+	}
+
+	patch, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
+	if err != nil {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err)
+	}
+
+	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch)); err != nil {
+		log.Log.Object(vmi).V(1).Errorf("unable to patch vmi: %v", err)
+		if errors.IsInvalid(err) {
+			if statErr, ok := err.(*errors.StatusError); ok {
+				return statErr
+			}
+		}
+		return errors.NewInternalError(fmt.Errorf("unable to patch vmi: %v", err))
+	}
+	return nil
+}
+
+func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
+	vm, statErr := app.fetchVirtualMachine(name, namespace)
+	if statErr != nil {
+		return statErr
 	}
 
 	patch, err := generateVMVolumeRequestPatch(vm, volumeRequest)
@@ -1226,10 +1197,15 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandlerPatchStatus(name, namesp
 		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
 	}
 
-	err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch))
-	if err != nil {
-		// try again
-		return app.removeVolumeRequestHandlerPatchStatus(name, namespace, volumeRequest, vm.GetObjectMeta().GetGeneration(), errors.NewInternalError(fmt.Errorf("unable to patch vm status during volume remove: %v", err)))
+	log.Log.Object(vm).V(4).Infof("Patching VM: %s", patch)
+	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch)); err != nil {
+		log.Log.Object(vm).V(1).Errorf("unable to patch vm status: %v", err)
+		if errors.IsInvalid(err) {
+			if statErr, ok := err.(*errors.StatusError); ok {
+				return statErr
+			}
+		}
+		return errors.NewInternalError(fmt.Errorf("unable to patch vm status: %v", err))
 	}
 	return nil
 }

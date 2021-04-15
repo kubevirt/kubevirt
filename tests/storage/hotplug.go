@@ -142,28 +142,33 @@ var _ = SIGDescribe("Hotplug", func() {
 	addVolumeVirtctl := func(name, namespace, volumeName, claimName, bus string) {
 		By("Invoking virtlctl addvolume")
 		addvolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_ADDVOLUME, name, fmt.Sprintf(virtCtlVolumeName, claimName), virtCtlNamespace, namespace)
-		err = addvolumeCommand()
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			return addvolumeCommand()
+		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeVolumeVMI := func(name, namespace, volumeName string) {
-		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
-			Name: volumeName,
-		})
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			return virtClient.VirtualMachineInstance(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
+				Name: volumeName,
+			})
+		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeVolumeVM := func(name, namespace, volumeName string) {
-		err = virtClient.VirtualMachine(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
-			Name: volumeName,
-		})
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			return virtClient.VirtualMachine(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
+				Name: volumeName,
+			})
+		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeVolumeVirtctl := func(name, namespace, volumeName string) {
 		By("Invoking virtlctl removevolume")
 		removeVolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_REMOVEVOLUME, name, fmt.Sprintf(virtCtlVolumeName, volumeName), virtCtlNamespace, namespace)
-		err = removeVolumeCommand()
+		Eventually(func() error {
+			return removeVolumeCommand()
+		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	verifyVolumeAndDiskVMAdded := func(vm *kubevirtv1.VirtualMachine, volumeNames ...string) {
@@ -260,12 +265,12 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			for _, volume := range updatedVM.Spec.Template.Spec.Volumes {
 				if _, ok := nameMap[volume.Name]; ok {
-					return fmt.Errorf("waiting on volume %s to be removed", volume.Name)
+					return fmt.Errorf("waiting on volume to be removed")
 				}
 			}
 			for _, disk := range updatedVM.Spec.Template.Spec.Domain.Devices.Disks {
 				if _, ok := nameMap[disk.Name]; ok {
-					return fmt.Errorf("waiting on disk %s to be removed", disk.Name)
+					return fmt.Errorf("waiting on disk to be removed")
 				}
 			}
 			return nil
@@ -378,39 +383,17 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		table.DescribeTable("Should add/remove volumes on an offline VM", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string)) {
+		table.DescribeTable("Should add volumes on an offline VM", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string)) {
 			By("Adding test volumes")
-			volumeNamesOdd := make([]string, 0)
-			volumeNamesEven := make([]string, 0)
-			for i := 0; i < 10; i = i + 2 {
-				evenName := fmt.Sprintf("some-new-volume%d", i)
-				oddName := fmt.Sprintf("some-new-volume%d", i+1)
-				volumeNamesEven = append(volumeNamesEven, evenName)
-				volumeNamesOdd = append(volumeNamesOdd, oddName)
-			}
-			for _, name := range volumeNamesEven {
-				By("Adding volume: " + name)
-				addVolumeFunc(vm.Name, vm.Namespace, name, "madeup", "scsi")
-			}
+			addVolumeFunc(vm.Name, vm.Namespace, "some-new-volume1", "madeup", "scsi")
+			addVolumeFunc(vm.Name, vm.Namespace, "some-new-volume2", "madeup", "scsi")
 			By("Verifying the volumes have been added to the template spec")
-			verifyVolumeAndDiskVMAdded(vm, volumeNamesEven...)
-
-			By("Adding and removing at the same time")
-			for i := 0; i < 5; i++ {
-				By("Adding volume: " + volumeNamesOdd[i])
-				addVolumeFunc(vm.Name, vm.Namespace, volumeNamesOdd[i], "madeup", "scsi")
-				By("Removing volume: " + volumeNamesEven[i])
-				removeVolumeFunc(vm.Name, vm.Namespace, volumeNamesEven[i])
-			}
-			verifyVolumeAndDiskVMAdded(vm, volumeNamesOdd...)
-			verifyVolumeAndDiskVMRemoved(vm, volumeNamesEven...)
-
+			verifyVolumeAndDiskVMAdded(vm, "some-new-volume1", "some-new-volume2")
 			By("Removing new volumes from VM")
-			for _, name := range volumeNamesOdd {
-				By("Removing volume: " + name)
-				removeVolumeFunc(vm.Name, vm.Namespace, name)
-			}
-			verifyVolumeAndDiskVMRemoved(vm, volumeNamesOdd...)
+			removeVolumeFunc(vm.Name, vm.Namespace, "some-new-volume1")
+			removeVolumeFunc(vm.Name, vm.Namespace, "some-new-volume2")
+
+			verifyVolumeAndDiskVMRemoved(vm, "some-new-volume1", "some-new-volume2")
 		},
 			table.Entry("[QUARANTINE][owner:@sig-storage]with DataVolume", addDVVolumeVM, removeVolumeVM),
 			table.Entry("[QUARANTINE][owner:@sig-storage]with PersistentVolume", addPVCVolumeVM, removeVolumeVM),
