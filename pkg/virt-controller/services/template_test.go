@@ -268,6 +268,16 @@ var _ = Describe("Template", func() {
 				By("setting the right hostname")
 				Expect(pod.Spec.Hostname).To(Equal("testvmi"))
 				Expect(pod.Spec.Subdomain).To(BeEmpty())
+
+				hasPodNameEnvVar := false
+				for _, ev := range pod.Spec.Containers[0].Env {
+					if ev.Name == ENV_VAR_POD_NAME && ev.ValueFrom.FieldRef.FieldPath == "metadata.name" {
+						hasPodNameEnvVar = true
+						break
+					}
+				}
+				Expect(hasPodNameEnvVar).To(BeTrue())
+
 			})
 		})
 		Context("with SELinux types", func() {
