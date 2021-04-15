@@ -60,11 +60,11 @@ bazel run \
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --name libvirt-devel_x86_64 $basesystem libvirt-devel-${LIBVIRT_VERSION}
+    //:bazeldnf -- rpmtree --public --name libvirt-devel_x86_64 $basesystem libvirt-devel-${LIBVIRT_VERSION} lz4-libs
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --arch=aarch64 --name libvirt-devel_aarch64 $basesystem libvirt-devel-${LIBVIRT_VERSION}
+    //:bazeldnf -- rpmtree --public --arch=aarch64 --name libvirt-devel_aarch64 $basesystem libvirt-devel-${LIBVIRT_VERSION} lz4-libs
 # create a rpmtree for virt-launcher and virt-handler. This is the OS for our node-components.
 bazel run \
     --config=${ARCHITECTURE} \

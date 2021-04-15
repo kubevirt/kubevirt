@@ -6,7 +6,7 @@ ifeq (${TIMESTAMP}, 1)
 endif
 
 all:
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
+	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
 	    hack/bazel-fmt.sh && hack/bazel-build.sh"
 
 go-all:
@@ -16,7 +16,7 @@ bazel-generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
 
 bazel-build:
-	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build.sh"
+	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && hack/bazel-build.sh"
 
 bazel-build-verify: bazel-build
 	./hack/dockerized "hack/bazel-fmt.sh"
@@ -25,10 +25,10 @@ bazel-build-verify: bazel-build
 	./hack/dockerized "hack/bazel-test.sh"
 
 bazel-build-images:
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/bazel-build-images.sh"
+	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/bazel-build-images.sh"
 
 bazel-push-images:
-	hack/dockerized "hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/bazel-push-images.sh"
+	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/bazel-push-images.sh"
 
 push: bazel-push-images
 

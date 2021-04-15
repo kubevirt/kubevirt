@@ -38,7 +38,7 @@ mkdir -p "${TESTS_OUT_DIR}/tools"
 templator=${TESTS_OUT_DIR}/tools/manifest-templator
 
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     //:build-manifest-templator -- ${templator}
 
 # first process file includes only

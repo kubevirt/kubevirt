@@ -19,7 +19,8 @@ ARTIFACTS=${ARTIFACTS:-${OUT_DIR}/artifacts}
 MANIFESTS_OUT_DIR=$OUT_DIR/manifests
 MANIFEST_TEMPLATES_OUT_DIR=$OUT_DIR/templates/manifests
 PYTHON_CLIENT_OUT_DIR=$OUT_DIR/client-python
-ARCHITECTURE=$(uname -m)
+ARCHITECTURE="${BUILD_ARCH:-$(uname -m)}"
+HOST_ARCHITECTURE="$(uname -m)"
 
 function build_func_tests() {
     mkdir -p "${TESTS_OUT_DIR}/"
