@@ -38,22 +38,22 @@ bazel run \
 
 # build platform native virtctl explicitly
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
 
 # cross-compile virtctl for
 
 # linux
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     :build-virtctl-amd64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
 
 # darwin
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
 
 # windows
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     :build-virtctl-windows -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe

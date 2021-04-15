@@ -1,9 +1,24 @@
+load("//third_party:deps.bzl", "deps")
+
+deps()
+
+# register crosscompiler toolchains
+load("//bazel/toolchain:toolchain.bzl", "register_all_toolchains")
+
+register_all_toolchains()
+
 load(
     "@bazel_tools//tools/build_defs/repo:http.bzl",
     "http_archive",
     "http_file",
 )
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+http_archive(
+    name = "rules_python",
+    sha256 = "778197e26c5fbeb07ac2a2c5ae405b30f6cb7ad1f5510ea6fdac03bded96cc6f",
+    url = "https://github.com/bazelbuild/rules_python/releases/download/0.2.0/rules_python-0.2.0.tar.gz",
+)
 
 # Additional bazel rules
 
@@ -40,12 +55,9 @@ http_archive(
 
 http_archive(
     name = "io_bazel_rules_docker",
-    sha256 = "4521794f0fba2e20f3bf15846ab5e01d5332e587e9ce81629c7f96c793bb7036",
-    strip_prefix = "rules_docker-0.14.4",
-    urls = [
-        "https://github.com/bazelbuild/rules_docker/releases/download/v0.14.4/rules_docker-v0.14.4.tar.gz",
-        "https://storage.googleapis.com/builddeps/4521794f0fba2e20f3bf15846ab5e01d5332e587e9ce81629c7f96c793bb7036",
-    ],
+    sha256 = "95d39fd84ff4474babaf190450ee034d958202043e366b9fc38f438c9e6c3334",
+    strip_prefix = "rules_docker-0.16.0",
+    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.16.0/rules_docker-v0.16.0.tar.gz"],
 )
 
 http_archive(
@@ -310,46 +322,6 @@ load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
 
 container_deps()
 
-load("@io_bazel_rules_docker//repositories:pip_repositories.bzl", "pip_deps")
-
-pip_deps()
-
-http_file(
-    name = "go_puller_linux_aarch64",
-    executable = True,
-    sha256 = "433133e05182aaffe8842194433566e90345ca2ec3fc85f9a2e3fa4bac8a0bb5",
-    urls = [
-        "https://storage.googleapis.com/builddeps/433133e05182aaffe8842194433566e90345ca2ec3fc85f9a2e3fa4bac8a0bb5",
-    ],
-)
-
-http_file(
-    name = "go_pusher_linux_aarch64",
-    executable = True,
-    sha256 = "8d0c13034f7473cb778e4b488dc02d9ac781a4548826c9aac56e1b6a6b7ea36f",
-    urls = [
-        "https://storage.googleapis.com/builddeps/8d0c13034f7473cb778e4b488dc02d9ac781a4548826c9aac56e1b6a6b7ea36f",
-    ],
-)
-
-http_file(
-    name = "go_puller_linux_ppc64le",
-    executable = True,
-    sha256 = "540f4d7b2a3d627d7c3190f11c4fab5f8aad48bd42a9dffb037786e26270b6bd",
-    urls = [
-        "https://storage.googleapis.com/builddeps/540f4d7b2a3d627d7c3190f11c4fab5f8aad48bd42a9dffb037786e26270b6bd",
-    ],
-)
-
-http_file(
-    name = "go_pusher_linux_ppc64le",
-    executable = True,
-    sha256 = "961e5a11677ab5ebf9d7ada76864ca271abcc795a6808ac2e7e98b3458b4e435",
-    urls = [
-        "https://storage.googleapis.com/builddeps/961e5a11677ab5ebf9d7ada76864ca271abcc795a6808ac2e7e98b3458b4e435",
-    ],
-)
-
 # Pull base image fedora31
 # WARNING: please update any automated process to push this image to quay.io
 # instead of index.docker.io
@@ -366,7 +338,6 @@ container_pull(
 container_pull(
     name = "fedora_ppc64le",
     digest = "sha256:50ab81a4619f7e94793aba65f3a40505bdfb9b59dcf6ae6deb8f974723e966d9",
-    puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
     registry = "quay.io",
     repository = "kubevirtci/fedora",
     tag = "31",
@@ -377,7 +348,6 @@ container_pull(
 container_pull(
     name = "fedora_aarch64",
     digest = "sha256:425676dd30f2c85ba3593b82040ce03341cd6dc4e38838e57c8bc5eef95b5f81",
-    puller_linux = "@go_puller_linux_aarch64//file:downloaded",
     registry = "index.docker.io",
     repository = "library/fedora",
     tag = "32",
@@ -397,7 +367,6 @@ container_pull(
 container_pull(
     name = "fedora_sriov_lane_ppc64le",
     digest = "sha256:2d332d28863d0e415d58e335e836bd4f8a8c714e7a9d1f8f87418ef3db7c0afb",
-    puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
     registry = "index.docker.io",
     repository = "kubevirt/fedora-sriov-testing",
     #tag = "32",
@@ -406,7 +375,6 @@ container_pull(
 container_pull(
     name = "fedora_sriov_lane_aarch64",
     digest = "sha256:6f66ee747d62c354c0d36e640f8c97d6be0b6ad88a9e8c0180496ac55cba31bf",
-    puller_linux = "@go_puller_linux_aarch64//file:downloaded",
     registry = "quay.io",
     repository = "kubevirtci/fedora-sriov-testing",
 )
@@ -422,7 +390,6 @@ container_pull(
 container_pull(
     name = "go_image_base_ppc64le",
     digest = "sha256:4c45b244e8b23b064a822b46732defaff32455b3cd4671e2dd367d8e8a051e10",
-    puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
     registry = "gcr.io",
     repository = "distroless/base",
 )
@@ -430,7 +397,6 @@ container_pull(
 container_pull(
     name = "go_image_base_aarch64",
     digest = "sha256:789c477fbd30a7d85435450306e54f20c53938e40af644284a229d852db30dde",
-    puller_linux = "@go_puller_linux_aarch64//file:downloaded",
     registry = "gcr.io",
     repository = "distroless/base",
 )
@@ -449,7 +415,6 @@ container_pull(
 container_pull(
     name = "nfs-server_ppc64le",
     digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
-    puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
     registry = "quay.io",
     repository = "kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
 )
@@ -457,7 +422,6 @@ container_pull(
 container_pull(
     name = "nfs-server_aarch64",
     digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
-    puller_linux = "@go_puller_linux_aarch64//file:downloaded",
     registry = "quay.io",
     repository = "kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
 )
@@ -475,7 +439,6 @@ container_pull(
 container_pull(
     name = "fedora_with_test_tooling_ppc64le",
     digest = "sha256:9ec3e137bff093597d192f5a4e346f25b614c3a94216b857de0e3d75b68bfb17",
-    puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
     registry = "quay.io",
     repository = "kubevirt/fedora-with-test-tooling",
 )
@@ -483,7 +446,6 @@ container_pull(
 container_pull(
     name = "fedora_with_test_tooling_aarch64",
     digest = "sha256:9ec3e137bff093597d192f5a4e346f25b614c3a94216b857de0e3d75b68bfb17",
-    puller_linux = "@go_puller_linux_aarch64//file:downloaded",
     registry = "quay.io",
     repository = "kubevirt/fedora-with-test-tooling",
 )
