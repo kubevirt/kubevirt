@@ -67,6 +67,13 @@ var _ = Describe("Migration watcher", func() {
 	var pvcInformer cache.SharedIndexInformer
 	var qemuGid int64 = 107
 
+	shouldExpectMigrationFinalizerRemoval := func(migration *v1.VirtualMachineInstanceMigration) {
+		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
+			Expect(len(arg.(*v1.VirtualMachineInstanceMigration).Finalizers)).To(Equal(0))
+			return arg, nil
+		})
+	}
+
 	shouldExpectPodCreation := func(uid types.UID, migrationUid types.UID, expectedAntiAffinityCount int, expectedAffinityCount int, expectedNodeAffinityCount int) {
 		// Expect pod creation
 		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
@@ -483,6 +490,9 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: migration.UID,
 			}
+			if phase == v1.MigrationTargetReady {
+				vmi.Status.MigrationState.StartTimestamp = now()
+			}
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodSucceeded)
 			pod.Spec.NodeName = "node01"
 
@@ -717,6 +727,44 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
 		})
+		table.DescribeTable("should finalize migration on VMI if target pod fails before migration starts", func(phase v1.VirtualMachineInstanceMigrationPhase, hasPod bool, podPhase k8sv1.PodPhase) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, phase)
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+				TargetNode:   "node01",
+				SourceNode:   "node02",
+			}
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			if hasPod {
+				pod := newTargetPodForVirtualMachine(vmi, migration, podPhase)
+				pod.Spec.NodeName = "node01"
+				podFeeder.Add(pod)
+			}
+
+			if phase == v1.MigrationFailed {
+				shouldExpectMigrationFinalizerRemoval(migration)
+			} else {
+				shouldExpectMigrationFailedState(migration)
+			}
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
+			controller.Execute()
+
+			// in this case, we have two failed events. one for the VMI and one on the Migration object.
+			testutils.ExpectEvent(recorder, FailedMigrationReason)
+			if phase != v1.MigrationFailed {
+				testutils.ExpectEvent(recorder, FailedMigrationReason)
+			}
+		},
+			table.Entry("in preparing target state", v1.MigrationPreparingTarget, true, k8sv1.PodFailed),
+			table.Entry("in target ready state", v1.MigrationTargetReady, true, k8sv1.PodFailed),
+			table.Entry("in failed state", v1.MigrationFailed, true, k8sv1.PodFailed),
+			table.Entry("in failed state and pod does not exist", v1.MigrationFailed, false, k8sv1.PodFailed),
+		)
 	})
 })
 
