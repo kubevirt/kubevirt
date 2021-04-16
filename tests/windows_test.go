@@ -114,7 +114,7 @@ var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
 
 }
 
-var _ = Describe("[Serial][owner:@sig-compute]Windows VirtualMachineInstance", func() {
+var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

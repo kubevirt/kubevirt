@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component][owner:@sig-compute]Pausing", func() {
+var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Pausing", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

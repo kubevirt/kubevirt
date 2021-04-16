@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[Serial][owner:@sig-compute]SecurityFeatures", func() {
+var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
