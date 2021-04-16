@@ -921,10 +921,23 @@ var updateHostsFile = func(entry string) (err error) {
 	return nil
 }
 
+func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Annotations == nil {
+		return false
+	}
+
+	_, shouldBlock := vmi.Annotations[v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation]
+	return shouldBlock
+}
+
 // Prepares the target pod environment by executing the preStartHook
 func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
 
 	logger := log.Log.Object(vmi)
+
+	if shouldBlockMigrationTargetPreparation(vmi) {
+		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
+	}
 
 	var emulatorThreadCpu *int
 	domain := &api.Domain{}
