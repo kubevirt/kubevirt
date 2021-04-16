@@ -96,7 +96,7 @@ type NetworkHandler interface {
 	LinkSetLearningOff(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
 	GetHostAndGwAddressesFromCIDR(s string) (string, string, error)
-	SetRandomMac(iface string) (net.HardwareAddr, error)
+	SetRandomMac(ifaceName string) (*net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error
@@ -328,38 +328,26 @@ func (h *NetworkUtilsHandler) GetMacDetails(iface string) (net.HardwareAddr, err
 }
 
 // SetRandomMac changes the MAC address for a given interface to a randomly generated, preserving the vendor prefix
-func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
-	var mac net.HardwareAddr
-
-	currentMac, err := h.GetMacDetails(iface)
-	if err != nil {
-		return nil, err
-	}
-
-	changed := false
-
+func (h *NetworkUtilsHandler) SetRandomMac(ifaceName string) (*net.HardwareAddr, error) {
 	for i := 0; i < randomMacGenerationAttempts; i++ {
-		changed, err = lmf.SpoofMacSameVendor(iface, false)
+		changed, err := lmf.SpoofMacSameVendor(ifaceName, false)
 		if err != nil {
-			log.Log.Reason(err).Errorf("failed to spoof MAC for an interface: %s", iface)
+			log.Log.Reason(err).Errorf("failed to spoof MAC for an interface: %s", ifaceName)
 			return nil, err
 		}
 
 		if changed {
-			mac, err = h.GetMacDetails(iface)
+			updatedIface, err := h.LinkByName(ifaceName)
 			if err != nil {
 				return nil, err
 			}
-			log.Log.Infof("updated MAC for %s interface: old: %s -> new: %s", iface, currentMac, mac)
-			break
+
+			return &updatedIface.Attrs().HardwareAddr, nil
 		}
 	}
-	if !changed {
-		err := fmt.Errorf("failed to spoof MAC for an interface %s after %d attempts", iface, randomMacGenerationAttempts)
-		log.Log.Reason(err)
-		return nil, err
-	}
-	return currentMac, nil
+	err := fmt.Errorf("failed to spoof MAC for an interface %s after %d attempts", ifaceName, randomMacGenerationAttempts)
+	log.Log.Reason(err)
+	return nil, err
 }
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {

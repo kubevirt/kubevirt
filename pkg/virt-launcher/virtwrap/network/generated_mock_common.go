@@ -170,9 +170,9 @@ func (_mr *_MockNetworkHandlerRecorder) GetHostAndGwAddressesFromCIDR(arg0 inter
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetHostAndGwAddressesFromCIDR", arg0)
 }
 
-func (_m *MockNetworkHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
-	ret := _m.ctrl.Call(_m, "SetRandomMac", iface)
-	ret0, _ := ret[0].(net.HardwareAddr)
+func (_m *MockNetworkHandler) SetRandomMac(ifaceName string) (*net.HardwareAddr, error) {
+	ret := _m.ctrl.Call(_m, "SetRandomMac", ifaceName)
+	ret0, _ := ret[0].(*net.HardwareAddr)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

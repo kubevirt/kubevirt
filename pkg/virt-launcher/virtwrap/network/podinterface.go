@@ -474,16 +474,18 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces() error {
 		}
 	}
 
-	if _, err := b.handler.SetRandomMac(b.podInterfaceName); err != nil {
+	currentMac := b.podNicLink.Attrs().HardwareAddr
+	newMAC, err := b.handler.SetRandomMac(b.podNicLink.Attrs().Name)
+	if err != nil {
 		return err
 	}
+	log.Log.Infof("updated MAC for %s interface: old: %s -> new: %s", b.podInterfaceName, currentMac, newMAC)
 
 	if err := b.createBridge(); err != nil {
 		return err
 	}
 
-	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId)
-	if err != nil {
+	if err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId); err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
 	}
