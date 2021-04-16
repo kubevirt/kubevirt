@@ -709,6 +709,9 @@ const (
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
+
+	// This annotation represents vmi running nonroot implementation
+	NonRootVMIAnnotation = "kubevirt.io/nonroot"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

@@ -293,6 +293,13 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, podVolumeName, 
 
 		log.Log.Object(vmi).Infof("arguments for container-disk \"%s\": --copy-path %s", name, copyPathArg)
 	}
+
+	nonRoot := util.IsNonRootVMI(vmi)
+	var userId int64 = util.RootUser
+	if nonRoot {
+		userId = util.NonRootUID
+	}
+
 	container := &kubev1.Container{
 		Name:            name,
 		Image:           diskContainerImage,
@@ -310,6 +317,10 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, podVolumeName, 
 			},
 		},
 		Resources: resources,
+		SecurityContext: &kubev1.SecurityContext{
+			RunAsUser:    &userId,
+			RunAsNonRoot: &nonRoot,
+		},
 	}
 
 	return container

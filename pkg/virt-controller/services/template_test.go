@@ -21,6 +21,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
@@ -50,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	networkconsts "kubevirt.io/kubevirt/pkg/network/consts"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -142,6 +144,66 @@ var _ = Describe("Template", func() {
 	})
 
 	Describe("Rendering", func() {
+		Context("with NonRoot feature-gate", func() {
+			var vmi *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				vmi = v1.NewMinimalVMI("random")
+				vmi.Annotations = map[string]string{v1.NonRootVMIAnnotation: ""}
+
+				volumes := []v1.Volume{
+					{
+						Name: "containerdisk",
+						VolumeSource: v1.VolumeSource{
+							ContainerDisk: &v1.ContainerDiskSource{
+								Image: "my-image-1",
+							},
+						},
+					},
+				}
+
+				vmi.Spec.Volumes = volumes
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+					{
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "virtio",
+							},
+						},
+						Name: "containerdisk",
+					},
+				}
+			})
+
+			qemu := int64(util.NonRootUID)
+			runAsQemuUser := func(container *kubev1.Container) {
+				ExpectWithOffset(1, container.SecurityContext.RunAsUser).NotTo(BeNil(), fmt.Sprintf("RunAsUser must be set, %s", container.Name))
+				ExpectWithOffset(1, *container.SecurityContext.RunAsUser).To(Equal(qemu))
+			}
+			runAsNonRootUser := func(container *kubev1.Container) {
+				ExpectWithOffset(1, container.SecurityContext.RunAsNonRoot).NotTo(BeNil(), fmt.Sprintf("RunAsNonRoot must be set, %s", container.Name))
+				ExpectWithOffset(1, *container.SecurityContext.RunAsNonRoot).To(BeTrue())
+			}
+
+			type checkContainerFunc func(*kubev1.Container)
+
+			table.DescribeTable("all containers", func(assertFunc checkContainerFunc) {
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, container := range pod.Spec.InitContainers {
+					assertFunc(&container)
+				}
+
+				for _, container := range pod.Spec.Containers {
+					assertFunc(&container)
+				}
+
+			},
+				table.Entry("run as qemu user", runAsQemuUser),
+				table.Entry("run as nonroot user", runAsNonRootUser),
+			)
+
+		})
 		Context("launch template with correct parameters", func() {
 			table.DescribeTable("should check annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{

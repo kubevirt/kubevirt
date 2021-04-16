@@ -30,6 +30,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -235,7 +236,11 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				}
 			}
 			caps := *container.SecurityContext.Capabilities
-			Expect(len(caps.Add)).To(Equal(1))
+			if tests.HasFeature(virtconfig.NonRoot) {
+				Expect(caps.Add).To(BeEmpty(), fmt.Sprintf("Found capabilities %s", caps.Add))
+			} else {
+				Expect(len(caps.Add)).To(Equal(1), fmt.Sprintf("Found capabilities %s, expecting SYS_NICE", caps.Add))
+			}
 
 			By("Checking virt-launcher Pod's compute container has precisely the documented extra capabilities")
 			for _, cap := range caps.Add {

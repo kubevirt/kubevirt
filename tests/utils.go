@@ -3374,6 +3374,12 @@ func BeforeAll(fn func()) {
 	})
 }
 
+func SkipIfNonRoot(virtClient kubecli.KubevirtClient, feature string) {
+	if HasFeature(virtconfig.NonRoot) {
+		Skip(fmt.Sprintf("NonRoot implementation doesn't support %s", feature))
+	}
+}
+
 func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
 	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), DiskWindows, metav1.GetOptions{})
 	if err != nil || windowsPv.Status.Phase == k8sv1.VolumePending || windowsPv.Status.Phase == k8sv1.VolumeFailed {
