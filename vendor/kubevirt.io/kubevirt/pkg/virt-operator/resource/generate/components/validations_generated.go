@@ -17,12 +17,34 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: DataVolumeSpec contains the DataVolume specification.
       properties:
+        checkpoints:
+          description: Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+          items:
+            description: DataVolumeCheckpoint defines a stage in a warm migration.
+            properties:
+              current:
+                description: Current is the identifier of the snapshot created for this checkpoint.
+                type: string
+              previous:
+                description: Previous is the identifier of the snapshot from the previous checkpoint.
+                type: string
+            required:
+            - current
+            - previous
+            type: object
+          type: array
         contentType:
           description: 'DataVolumeContentType options: "kubevirt", "archive"'
           enum:
           - kubevirt
           - archive
           type: string
+        finalCheckpoint:
+          description: FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+          type: boolean
+        preallocation:
+          description: Preallocation controls whether storage for DataVolumes should be allocated in advance.
+          type: boolean
         pvc:
           description: PVC is the PVC specification
           properties:
@@ -180,6 +202,9 @@ var CRDsValidation map[string]string = map[string]string{
             s3:
               description: DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source
               properties:
+                certConfigMap:
+                  description: CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
+                  type: string
                 secretRef:
                   description: SecretRef provides the secret reference needed to access the S3 source
                   type: string
@@ -341,6 +366,8 @@ var CRDsValidation map[string]string = map[string]string{
                 unsafeMigrationOverride:
                   type: boolean
               type: object
+            minCPUModel:
+              type: string
             network:
               description: NetworkConfiguration holds network options
               properties:
@@ -350,6 +377,10 @@ var CRDsValidation map[string]string = map[string]string{
                   type: boolean
                 permitSlirpInterface:
                   type: boolean
+              type: object
+            obsoleteCPUModels:
+              additionalProperties:
+                type: boolean
               type: object
             ovmfPath:
               type: string
@@ -417,8 +448,10 @@ var CRDsValidation map[string]string = map[string]string{
                   patch:
                     type: string
                   resourceName:
+                    minLength: 1
                     type: string
                   resourceType:
+                    minLength: 1
                     type: string
                   type:
                     type: string
@@ -1254,6 +1287,32 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+        generations:
+          items:
+            description: GenerationStatus keeps track of the generation for a given resource so that decisions about forced updates can be made.
+            properties:
+              group:
+                description: group is the group of the thing you're tracking
+                type: string
+              hash:
+                description: hash is an optional field set for resources without generation that are content sensitive like secrets and configmaps
+                type: string
+              lastGeneration:
+                description: lastGeneration is the last generation of the workload controller involved
+                format: int64
+                type: integer
+              name:
+                description: name is the name of the thing you're tracking
+                type: string
+              namespace:
+                description: namespace is where the thing you're tracking is
+                type: string
+              resource:
+                description: resource is the resource type of the thing you're tracking
+                type: string
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         observedDeploymentConfig:
           type: string
         observedDeploymentID:
@@ -1314,12 +1373,34 @@ var CRDsValidation map[string]string = map[string]string{
               spec:
                 description: DataVolumeSpec contains the DataVolume specification.
                 properties:
+                  checkpoints:
+                    description: Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+                    items:
+                      description: DataVolumeCheckpoint defines a stage in a warm migration.
+                      properties:
+                        current:
+                          description: Current is the identifier of the snapshot created for this checkpoint.
+                          type: string
+                        previous:
+                          description: Previous is the identifier of the snapshot from the previous checkpoint.
+                          type: string
+                      required:
+                      - current
+                      - previous
+                      type: object
+                    type: array
                   contentType:
                     description: 'DataVolumeContentType options: "kubevirt", "archive"'
                     enum:
                     - kubevirt
                     - archive
                     type: string
+                  finalCheckpoint:
+                    description: FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+                    type: boolean
+                  preallocation:
+                    description: Preallocation controls whether storage for DataVolumes should be allocated in advance.
+                    type: boolean
                   pvc:
                     description: PVC is the PVC specification
                     properties:
@@ -1477,6 +1558,9 @@ var CRDsValidation map[string]string = map[string]string{
                       s3:
                         description: DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source
                         properties:
+                          certConfigMap:
+                            description: CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
+                            type: string
                           secretRef:
                             description: SecretRef provides the secret reference needed to access the S3 source
                             type: string
@@ -2119,7 +2203,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                           type: boolean
                         blockMultiQueue:
-                          description: Whether or not to enable virtio multi-queue for block devices
+                          description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                           type: boolean
                         disableHotplug:
                           description: DisableHotplug disabled the ability to hotplug disks.
@@ -2132,7 +2216,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
                               cache:
-                                description: Cache specifies which kvm disk cache mode should be used.
+                                description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                 type: string
                               cdrom:
                                 description: Attach a volume as a cdrom to the vmi.
@@ -2468,8 +2552,14 @@ var CRDsValidation map[string]string = map[string]string{
                             synictimer:
                               description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                               properties:
+                                direct:
+                                  description: Represents if a feature is enabled or disabled.
+                                  properties:
+                                    enabled:
+                                      description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                      type: boolean
+                                  type: object
                                 enabled:
-                                  description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                                   type: boolean
                               type: object
                             tlbflush:
@@ -3188,7 +3278,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
                       cache:
-                        description: Cache specifies which kvm disk cache mode should be used.
+                        description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -3918,7 +4008,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                   type: boolean
                 blockMultiQueue:
-                  description: Whether or not to enable virtio multi-queue for block devices
+                  description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                   type: boolean
                 disableHotplug:
                   description: DisableHotplug disabled the ability to hotplug disks.
@@ -3931,7 +4021,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
                       cache:
-                        description: Cache specifies which kvm disk cache mode should be used.
+                        description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -4267,8 +4357,14 @@ var CRDsValidation map[string]string = map[string]string{
                     synictimer:
                       description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                       properties:
+                        direct:
+                          description: Represents if a feature is enabled or disabled.
+                          properties:
+                            enabled:
+                              description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                              type: boolean
+                          type: object
                         enabled:
-                          description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                           type: boolean
                       type: object
                     tlbflush:
@@ -5163,6 +5259,7 @@ var CRDsValidation map[string]string = map[string]string{
   type: object
 `,
 	"virtualmachineinstancepreset": `openAPIV3Schema:
+  description: 'VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides'
   properties:
     apiVersion:
       description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -5313,7 +5410,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                   type: boolean
                 blockMultiQueue:
-                  description: Whether or not to enable virtio multi-queue for block devices
+                  description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                   type: boolean
                 disableHotplug:
                   description: DisableHotplug disabled the ability to hotplug disks.
@@ -5326,7 +5423,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
                       cache:
-                        description: Cache specifies which kvm disk cache mode should be used.
+                        description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -5662,8 +5759,14 @@ var CRDsValidation map[string]string = map[string]string{
                     synictimer:
                       description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                       properties:
+                        direct:
+                          description: Represents if a feature is enabled or disabled.
+                          properties:
+                            enabled:
+                              description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                              type: boolean
+                          type: object
                         enabled:
-                          description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                           type: boolean
                       type: object
                     tlbflush:
@@ -6484,7 +6587,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                           type: boolean
                         blockMultiQueue:
-                          description: Whether or not to enable virtio multi-queue for block devices
+                          description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                           type: boolean
                         disableHotplug:
                           description: DisableHotplug disabled the ability to hotplug disks.
@@ -6497,7 +6600,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
                               cache:
-                                description: Cache specifies which kvm disk cache mode should be used.
+                                description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                 type: string
                               cdrom:
                                 description: Attach a volume as a cdrom to the vmi.
@@ -6833,8 +6936,14 @@ var CRDsValidation map[string]string = map[string]string{
                             synictimer:
                               description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                               properties:
+                                direct:
+                                  description: Represents if a feature is enabled or disabled.
+                                  properties:
+                                    enabled:
+                                      description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                      type: boolean
+                                  type: object
                                 enabled:
-                                  description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                                   type: boolean
                               type: object
                             tlbflush:
@@ -7763,12 +7872,34 @@ var CRDsValidation map[string]string = map[string]string{
                           spec:
                             description: DataVolumeSpec contains the DataVolume specification.
                             properties:
+                              checkpoints:
+                                description: Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+                                items:
+                                  description: DataVolumeCheckpoint defines a stage in a warm migration.
+                                  properties:
+                                    current:
+                                      description: Current is the identifier of the snapshot created for this checkpoint.
+                                      type: string
+                                    previous:
+                                      description: Previous is the identifier of the snapshot from the previous checkpoint.
+                                      type: string
+                                  required:
+                                  - current
+                                  - previous
+                                  type: object
+                                type: array
                               contentType:
                                 description: 'DataVolumeContentType options: "kubevirt", "archive"'
                                 enum:
                                 - kubevirt
                                 - archive
                                 type: string
+                              finalCheckpoint:
+                                description: FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+                                type: boolean
+                              preallocation:
+                                description: Preallocation controls whether storage for DataVolumes should be allocated in advance.
+                                type: boolean
                               pvc:
                                 description: PVC is the PVC specification
                                 properties:
@@ -7926,6 +8057,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   s3:
                                     description: DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source
                                     properties:
+                                      certConfigMap:
+                                        description: CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
+                                        type: string
                                       secretRef:
                                         description: SecretRef provides the secret reference needed to access the S3 source
                                         type: string
@@ -8568,7 +8702,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                                       type: boolean
                                     blockMultiQueue:
-                                      description: Whether or not to enable virtio multi-queue for block devices
+                                      description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                                       type: boolean
                                     disableHotplug:
                                       description: DisableHotplug disabled the ability to hotplug disks.
@@ -8581,7 +8715,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                             type: integer
                                           cache:
-                                            description: Cache specifies which kvm disk cache mode should be used.
+                                            description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                             type: string
                                           cdrom:
                                             description: Attach a volume as a cdrom to the vmi.
@@ -8917,8 +9051,14 @@ var CRDsValidation map[string]string = map[string]string{
                                         synictimer:
                                           description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                                           properties:
+                                            direct:
+                                              description: Represents if a feature is enabled or disabled.
+                                              properties:
+                                                enabled:
+                                                  description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                                  type: boolean
+                                              type: object
                                             enabled:
-                                              description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                                               type: boolean
                                           type: object
                                         tlbflush:
@@ -9637,7 +9777,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                     type: integer
                                   cache:
-                                    description: Cache specifies which kvm disk cache mode should be used.
+                                    description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                     type: string
                                   cdrom:
                                     description: Attach a volume as a cdrom to the vmi.

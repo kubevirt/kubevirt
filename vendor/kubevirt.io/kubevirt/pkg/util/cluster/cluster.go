@@ -48,7 +48,7 @@ func IsOnOpenShift(clientset kubecli.KubevirtClient) (bool, error) {
 	return false, nil
 }
 
-func GetKubernetesVersion(clientset kubecli.KubevirtClient) (string, error) {
+func GetKubernetesVersion() (string, error) {
 	var info k8sversion.Info
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -72,7 +72,7 @@ func GetKubernetesVersion(clientset kubecli.KubevirtClient) (string, error) {
 }
 
 func GetOpenShiftMajorVersion(clientset kubecli.KubevirtClient) int {
-	k8sVersion, err := GetKubernetesVersion(clientset)
+	k8sVersion, err := GetKubernetesVersion()
 	if err != nil {
 		log.Log.Errorf("Unable to detect major OpenShift version: %v", err)
 		return -1

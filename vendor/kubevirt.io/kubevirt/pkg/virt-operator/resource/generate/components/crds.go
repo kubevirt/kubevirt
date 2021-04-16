@@ -26,7 +26,7 @@ import (
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -51,27 +51,72 @@ var (
 	PreserveUnknownFieldsFalse       = false
 )
 
-func patchValidation(crd *extv1beta1.CustomResourceDefinition) error {
+func getVersion(crd *extv1.CustomResourceDefinition, version string) (*extv1.CustomResourceDefinitionVersion, error) {
+	for i := range crd.Spec.Versions {
+		if version == crd.Spec.Versions[i].Name {
+			return &crd.Spec.Versions[i], nil
+		}
+	}
+	return nil, fmt.Errorf("version %s not found in CustomResourceDefinition: %v", version, crd.Name)
+}
+
+func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
+	for _, field := range fields {
+		switch v := field.(type) {
+		case []extv1.CustomResourceColumnDefinition:
+			version.AdditionalPrinterColumns = v
+		case *extv1.CustomResourceSubresources:
+			version.Subresources = v
+		case *extv1.CustomResourceValidation:
+			version.Schema = v
+		default:
+			return fmt.Errorf("cannot add field of type %T to a CustomResourceDefinitionVersion", v)
+		}
+	}
+	return nil
+}
+
+func addFieldsToAllVersions(crd *extv1.CustomResourceDefinition, fields ...interface{}) error {
+	for i := range crd.Spec.Versions {
+		if err := addFieldsToVersion(&crd.Spec.Versions[i], fields...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func patchValidation(crd *extv1.CustomResourceDefinition, version *extv1.CustomResourceDefinitionVersion) error {
 	name := crd.Spec.Names.Singular
 
-	crd.Spec.PreserveUnknownFields = &PreserveUnknownFieldsFalse
+	crd.Spec.PreserveUnknownFields = PreserveUnknownFieldsFalse
 	validation, ok := CRDsValidation[name]
 	if !ok {
 		return nil
 	}
-	crvalidation := extv1beta1.CustomResourceValidation{}
+	crvalidation := extv1.CustomResourceValidation{}
 	err := k8syaml.NewYAMLToJSONDecoder(strings.NewReader(validation)).Decode(&crvalidation)
 	if err != nil {
-		return fmt.Errorf("Couldn't decode validation for %s, %v", name, err)
+		return fmt.Errorf("Could not decode validation for %s, %v", name, err)
 	}
-	crd.Spec.Validation = &crvalidation
+	if err = addFieldsToVersion(version, &crvalidation); err != nil {
+		return err
+	}
 	return nil
 }
 
-func newBlankCrd() *extv1beta1.CustomResourceDefinition {
-	return &extv1beta1.CustomResourceDefinition{
+func patchValidationForAllVersions(crd *extv1.CustomResourceDefinition) error {
+	for i := range crd.Spec.Versions {
+		if err := patchValidation(crd, &crd.Spec.Versions[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func newBlankCrd() *extv1.CustomResourceDefinition {
+	return &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apiextensions.k8s.io/v1beta1",
+			APIVersion: "apiextensions.k8s.io/v1",
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -82,17 +127,22 @@ func newBlankCrd() *extv1beta1.CustomResourceDefinition {
 	}
 }
 
-func NewVirtualMachineInstanceCrd() (*extv1beta1.CustomResourceDefinition, error) {
+func newCRDVersions() []extv1.CustomResourceDefinitionVersion {
+	versions := make([]extv1.CustomResourceDefinitionVersion, len(virtv1.ApiSupportedVersions))
+	copy(versions, virtv1.ApiSupportedVersions)
+	return versions
+}
+
+func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCE
-	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineInstanceGroupVersionKind.Group,
-		Version:  virtv1.ApiSupportedVersions[0].Name,
-		Versions: virtv1.ApiSupportedVersions,
+		Versions: newCRDVersions(),
 		Scope:    "Namespaced",
 
-		Names: extv1beta1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachineinstances",
 			Singular:   "virtualmachineinstance",
 			Kind:       virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
@@ -101,33 +151,35 @@ func NewVirtualMachineInstanceCrd() (*extv1beta1.CustomResourceDefinition, error
 				"all",
 			},
 		},
-		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
-			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
-			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
-			{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
-			{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
-			{Name: "Live-Migratable", Type: "string", JSONPath: ".status.conditions[?(@.type=='LiveMigratable')].status", Priority: 1},
-			{Name: "Paused", Type: "string", JSONPath: ".status.conditions[?(@.type=='Paused')].status", Priority: 1},
-		},
+	}
+	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
+		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
+		{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
+		{Name: "Live-Migratable", Type: "string", JSONPath: ".status.conditions[?(@.type=='LiveMigratable')].status", Priority: 1},
+		{Name: "Paused", Type: "string", JSONPath: ".status.conditions[?(@.type=='Paused')].status", Priority: 1},
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	if err := patchValidation(crd); err != nil {
+	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
 }
 
-func NewVirtualMachineCrd() (*extv1beta1.CustomResourceDefinition, error) {
+func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINE
-	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineGroupVersionKind.Group,
-		Version:  virtv1.ApiSupportedVersions[0].Name,
-		Versions: virtv1.ApiSupportedVersions,
+		Versions: newCRDVersions(),
 		Scope:    "Namespaced",
 
-		Names: extv1beta1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachines",
 			Singular:   "virtualmachine",
 			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
@@ -136,33 +188,32 @@ func NewVirtualMachineCrd() (*extv1beta1.CustomResourceDefinition, error) {
 				"all",
 			},
 		},
-		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
-			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
-			{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
-			{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1},
-		},
-		Subresources: &extv1beta1.CustomResourceSubresources{
-			Status: &extv1beta1.CustomResourceSubresourceStatus{},
-		},
+	}
+	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
+		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
+		{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1}}, &extv1.CustomResourceSubresources{
+		Status: &extv1.CustomResourceSubresourceStatus{}})
+	if err != nil {
+		return nil, err
 	}
 
-	if err := patchValidation(crd); err != nil {
+	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
 }
 
-func NewPresetCrd() (*extv1beta1.CustomResourceDefinition, error) {
+func NewPresetCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEPRESET
-	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineInstancePresetGroupVersionKind.Group,
-		Version:  virtv1.ApiSupportedVersions[0].Name,
-		Versions: virtv1.ApiSupportedVersions,
+		Versions: newCRDVersions(),
 		Scope:    "Namespaced",
 
-		Names: extv1beta1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachineinstancepresets",
 			Singular:   "virtualmachineinstancepreset",
 			Kind:       virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
@@ -173,24 +224,23 @@ func NewPresetCrd() (*extv1beta1.CustomResourceDefinition, error) {
 		},
 	}
 
-	if err := patchValidation(crd); err != nil {
+	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
 }
 
-func NewReplicaSetCrd() (*extv1beta1.CustomResourceDefinition, error) {
+func NewReplicaSetCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 	labelSelector := ".status.labelSelector"
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEREPLICASET
-	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
-		Version:  virtv1.ApiSupportedVersions[0].Name,
-		Versions: virtv1.ApiSupportedVersions,
+		Versions: newCRDVersions(),
 		Scope:    "Namespaced",
 
-		Names: extv1beta1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachineinstancereplicasets",
 			Singular:   "virtualmachineinstancereplicaset",
 			Kind:       virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
@@ -199,7 +249,9 @@ func NewReplicaSetCrd() (*extv1beta1.CustomResourceDefinition, error) {
 				"all",
 			},
 		},
-		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+	}
+	err := addFieldsToAllVersions(crd,
+		[]extv1.CustomResourceColumnDefinition{
 			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
 				Description: "Number of desired VirtualMachineInstances"},
 			{Name: "Current", Type: "integer", JSONPath: ".status.replicas",
@@ -207,34 +259,33 @@ func NewReplicaSetCrd() (*extv1beta1.CustomResourceDefinition, error) {
 			{Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
 				Description: "Number of managed VirtualMachineInstances which are ready to receive traffic"},
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
-		},
-		Subresources: &extv1beta1.CustomResourceSubresources{
-			Scale: &extv1beta1.CustomResourceSubresourceScale{
+		}, &extv1.CustomResourceSubresources{
+			Scale: &extv1.CustomResourceSubresourceScale{
 				SpecReplicasPath:   ".spec.replicas",
 				StatusReplicasPath: ".status.replicas",
 				LabelSelectorPath:  &labelSelector,
 			},
-			Status: &extv1beta1.CustomResourceSubresourceStatus{},
-		},
+			Status: &extv1.CustomResourceSubresourceStatus{},
+		})
+	if err != nil {
+		return nil, err
 	}
-
-	if err := patchValidation(crd); err != nil {
+	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
 }
 
-func NewVirtualMachineInstanceMigrationCrd() (*extv1beta1.CustomResourceDefinition, error) {
+func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEMIGRATION
-	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
-		Version:  virtv1.ApiSupportedVersions[0].Name,
-		Versions: virtv1.ApiSupportedVersions,
+		Versions: newCRDVersions(),
 		Scope:    "Namespaced",
 
-		Names: extv1beta1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachineinstancemigrations",
 			Singular:   "virtualmachineinstancemigration",
 			Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
@@ -243,12 +294,15 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1beta1.CustomResourceDefiniti
 				"all",
 			},
 		},
-		Subresources: &extv1beta1.CustomResourceSubresources{
-			Status: &extv1beta1.CustomResourceSubresourceStatus{},
-		},
+	}
+	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{
+		Status: &extv1.CustomResourceSubresourceStatus{},
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	if err := patchValidation(crd); err != nil {
+	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
@@ -257,12 +311,12 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1beta1.CustomResourceDefiniti
 // Used by manifest generation
 // If you change something here, you probably need to change the CSV manifest too,
 // see /manifests/release/kubevirt.VERSION.csv.yaml.in
-func NewKubeVirtCrd() (*extv1beta1.CustomResourceDefinition, error) {
+func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
 
 	// we use a different label here, so no newBlankCrd()
-	crd := &extv1beta1.CustomResourceDefinition{
+	crd := &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apiextensions.k8s.io/v1beta1",
+			APIVersion: "apiextensions.k8s.io/v1",
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -273,13 +327,12 @@ func NewKubeVirtCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	}
 
 	crd.ObjectMeta.Name = KUBEVIRT
-	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group:    virtv1.KubeVirtGroupVersionKind.Group,
-		Version:  virtv1.ApiSupportedVersions[0].Name,
-		Versions: virtv1.ApiSupportedVersions,
+		Versions: newCRDVersions(),
 		Scope:    "Namespaced",
 
-		Names: extv1beta1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "kubevirts",
 			Singular:   "kubevirt",
 			Kind:       virtv1.KubeVirtGroupVersionKind.Kind,
@@ -288,29 +341,30 @@ func NewKubeVirtCrd() (*extv1beta1.CustomResourceDefinition, error) {
 				"all",
 			},
 		},
-		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
-			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
-			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
-		},
-		Subresources: &extv1beta1.CustomResourceSubresources{
-			Status: &extv1beta1.CustomResourceSubresourceStatus{},
-		},
+	}
+	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
+		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+	}, &extv1.CustomResourceSubresources{
+		Status: &extv1.CustomResourceSubresourceStatus{},
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	if err := patchValidation(crd); err != nil {
+	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
 }
 
-func NewVirtualMachineSnapshotCrd() (*extv1beta1.CustomResourceDefinition, error) {
+func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINESNAPSHOT
-	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
-		Group:   snapshotv1.SchemeGroupVersion.Group,
-		Version: snapshotv1.SchemeGroupVersion.Version,
-		Versions: []extv1beta1.CustomResourceDefinitionVersion{
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: snapshotv1.SchemeGroupVersion.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    snapshotv1.SchemeGroupVersion.Version,
 				Served:  true,
@@ -318,7 +372,7 @@ func NewVirtualMachineSnapshotCrd() (*extv1beta1.CustomResourceDefinition, error
 			},
 		},
 		Scope: "Namespaced",
-		Names: extv1beta1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachinesnapshots",
 			Singular:   "virtualmachinesnapshot",
 			Kind:       "VirtualMachineSnapshot",
@@ -327,29 +381,31 @@ func NewVirtualMachineSnapshotCrd() (*extv1beta1.CustomResourceDefinition, error
 				"all",
 			},
 		},
-		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
-			{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
-			{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
-			{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
-			{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
-			{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
-		},
+	}
+	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
+		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
+		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
+		{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
+		{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
+		{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	if err := patchValidation(crd); err != nil {
+	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
 }
 
-func NewVirtualMachineSnapshotContentCrd() (*extv1beta1.CustomResourceDefinition, error) {
+func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINESNAPSHOTCONTENT
-	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
-		Group:   snapshotv1.SchemeGroupVersion.Group,
-		Version: snapshotv1.SchemeGroupVersion.Version,
-		Versions: []extv1beta1.CustomResourceDefinitionVersion{
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: snapshotv1.SchemeGroupVersion.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    snapshotv1.SchemeGroupVersion.Version,
 				Served:  true,
@@ -357,7 +413,7 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1beta1.CustomResourceDefinition
 			},
 		},
 		Scope: "Namespaced",
-		Names: extv1beta1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachinesnapshotcontents",
 			Singular:   "virtualmachinesnapshotcontent",
 			Kind:       "VirtualMachineSnapshotContent",
@@ -366,27 +422,29 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1beta1.CustomResourceDefinition
 				"all",
 			},
 		},
-		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
-			{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
-			{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
-			{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
-		},
+	}
+	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
+		{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
+		{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
+		{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	if err := patchValidation(crd); err != nil {
+	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
 }
 
-func NewVirtualMachineRestoreCrd() (*extv1beta1.CustomResourceDefinition, error) {
+func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = "virtualmachinerestores." + snapshotv1.SchemeGroupVersion.Group
-	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
-		Group:   snapshotv1.SchemeGroupVersion.Group,
-		Version: snapshotv1.SchemeGroupVersion.Version,
-		Versions: []extv1beta1.CustomResourceDefinitionVersion{
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: snapshotv1.SchemeGroupVersion.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    snapshotv1.SchemeGroupVersion.Version,
 				Served:  true,
@@ -394,7 +452,7 @@ func NewVirtualMachineRestoreCrd() (*extv1beta1.CustomResourceDefinition, error)
 			},
 		},
 		Scope: "Namespaced",
-		Names: extv1beta1.CustomResourceDefinitionNames{
+		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachinerestores",
 			Singular:   "virtualmachinerestore",
 			Kind:       "VirtualMachineRestore",
@@ -403,16 +461,19 @@ func NewVirtualMachineRestoreCrd() (*extv1beta1.CustomResourceDefinition, error)
 				"all",
 			},
 		},
-		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
-			{Name: "TargetKind", Type: "string", JSONPath: ".spec.target.kind"},
-			{Name: "TargetName", Type: "string", JSONPath: ".spec.target.name"},
-			{Name: "Complete", Type: "boolean", JSONPath: ".status.complete"},
-			{Name: "RestoreTime", Type: "date", JSONPath: ".status.restoreTime"},
-			{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
-		},
+	}
+	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
+		{Name: "TargetKind", Type: "string", JSONPath: ".spec.target.kind"},
+		{Name: "TargetName", Type: "string", JSONPath: ".spec.target.name"},
+		{Name: "Complete", Type: "boolean", JSONPath: ".status.complete"},
+		{Name: "RestoreTime", Type: "date", JSONPath: ".status.restoreTime"},
+		{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	if err := patchValidation(crd); err != nil {
+	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
@@ -443,7 +504,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 				MatchNames: []string{namespace},
 			},
 			Endpoints: []promv1.Endpoint{
-				promv1.Endpoint{
+				{
 					Port:   "metrics",
 					Scheme: "https",
 					TLSConfig: &promv1.TLSConfig{
@@ -766,6 +827,22 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 							"summary": "More than 80% of the rest calls failed in virt-handler for the last 5 minutes",
 						},
 					},
+					{
+						Record: "kubevirt_vm_container_free_memory_bytes",
+						Expr:   intstr.FromString("sum by(pod, container) ( kube_pod_container_resource_limits_memory_bytes{pod=~'virt-launcher-.*', container='compute'} - on(pod,container) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
+					},
+					{
+						Alert: "KubevirtVmHighMemoryUsage",
+						Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes < 20971520"),
+						For:   "1m",
+						Annotations: map[string]string{
+							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} free memory is less than 20 MB and it is close to memory limit",
+							"summary":     "VM is at risk of being terminated by the runtime.",
+						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
+					},
 				},
 			},
 		},
@@ -787,8 +864,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 }
 
 // Used by manifest generation
-func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy) *virtv1.KubeVirt {
-	return &virtv1.KubeVirt{
+func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates string) *virtv1.KubeVirt {
+	cr := &virtv1.KubeVirt{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.GroupVersion.String(),
 			Kind:       "KubeVirt",
@@ -801,6 +878,16 @@ func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy) *virtv1.KubeV
 			ImagePullPolicy: pullPolicy,
 		},
 	}
+
+	if featureGates != "" {
+		cr.Spec.Configuration = virtv1.KubeVirtConfiguration{
+			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+				FeatureGates: strings.Split(featureGates, ","),
+			},
+		}
+	}
+
+	return cr
 }
 
 // NewKubeVirtPriorityClassCR is used for manifest generation

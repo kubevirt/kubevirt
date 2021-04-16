@@ -33,6 +33,10 @@ import (
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const (
+	nodeLabellerVolumePath = "/var/lib/kubevirt-node-labeller"
+)
+
 func NewPrometheusService(namespace string) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -357,7 +361,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	return deployment, nil
 }
 
-func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
+func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
 
 	deploymentName := "virt-handler"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -404,6 +408,37 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	pod.ServiceAccountName = rbac.HandlerServiceAccountName
 	pod.HostPID = true
 
+	launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
+	pod.InitContainers = []corev1.Container{
+		{
+			Command: []string{
+				"/bin/sh",
+				"-c",
+			},
+			Image: fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
+			Name:  "virt-launcher",
+			Args: []string{
+				"/bin/node-labeller.sh",
+			},
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: boolPtr(true),
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "node-labeller",
+					MountPath: nodeLabellerVolumePath,
+				},
+			},
+		},
+	}
+
+	// give the handler grace period some padding
+	// in order to ensure we have a chance to cleanly exit
+	// before SIG_KILL
+	podGracePeriod := int64(330)
+	handlerGracePeriod := podGracePeriod - 15
+	podTemplateSpec.Spec.TerminationGracePeriodSeconds = &podGracePeriod
+
 	container := &pod.Containers[0]
 	container.Command = []string{
 		"virt-handler",
@@ -417,6 +452,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		"3",
 		"--console-server-port",
 		"8186",
+		"--graceful-shutdown-seconds",
+		fmt.Sprintf("%d", handlerGracePeriod),
 		"-v",
 		verbosity,
 	}
@@ -457,7 +494,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	container.VolumeMounts = []corev1.VolumeMount{}
 
 	container.LivenessProbe = &corev1.Probe{
-		FailureThreshold: 8,
+		FailureThreshold: 3,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
@@ -470,6 +507,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		},
 		InitialDelaySeconds: 15,
 		TimeoutSeconds:      10,
+		PeriodSeconds:       45,
 	}
 	container.ReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
@@ -484,6 +522,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		},
 		InitialDelaySeconds: 15,
 		TimeoutSeconds:      10,
+		PeriodSeconds:       20,
 	}
 
 	pod.Volumes = []corev1.Volume{}
@@ -510,6 +549,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		{"device-plugin", "/var/lib/kubelet/device-plugins", "/var/lib/kubelet/device-plugins", nil},
 		{"kubelet-pods-shortened", "/var/lib/kubelet/pods", "/pods", nil},
 		{"kubelet-pods", "/var/lib/kubelet/pods", "/var/lib/kubelet/pods", &bidi},
+		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil},
 	}
 
 	for _, volume := range volumes {

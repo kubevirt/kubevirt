@@ -29,11 +29,16 @@ import (
 const (
 	DefaultTestGracePeriod int64 = 0
 	DefaultVmiName               = "testvmi"
+
+	userDataSetPassword = `#!/bin/bash
+	echo "fedora" | passwd fedora --stdin
+	echo `
 )
 
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	opts = append([]Option{WithCloudInitNoCloudUserData(userDataSetPassword, false)}, opts...)
 	return newFedora(cd.ContainerDiskFedora, opts...)
 }
 
@@ -41,6 +46,7 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 // building its extra properties based on the specified With* options.
 // This image has tooling for the guest agent, stress, and more
 func NewTestToolingFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	opts = append([]Option{WithCloudInitNoCloudUserData(userDataSetPassword, false)}, opts...)
 	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
 }
 
@@ -55,16 +61,11 @@ func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 // containerDisk, building its extra properties based on the specified With*
 // options.
 func newFedora(containerDisk cd.ContainerDisk, opts ...Option) *kvirtv1.VirtualMachineInstance {
-	configurePassword := `#!/bin/bash
-	echo "fedora" |passwd fedora --stdin
-	echo `
-
 	fedoraOptions := []Option{
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(containerDisk)),
-		WithCloudInitNoCloudUserData(configurePassword, false),
 	}
 	opts = append(fedoraOptions, opts...)
 	return New(RandName(DefaultVmiName), opts...)
@@ -75,7 +76,7 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
-		WithResourceMemory("64M"),
+		WithResourceMemory("128Mi"),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)

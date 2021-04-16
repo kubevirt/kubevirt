@@ -57,7 +57,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("start", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_START, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -72,7 +72,7 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("stop", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_STOP, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -87,7 +87,7 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("restart", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.Flags().BoolVar(&forceRestart, "force", forceRestart, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
@@ -104,7 +104,7 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("migrate", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -119,7 +119,7 @@ func NewRenameCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("rename", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_RENAME, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -134,7 +134,7 @@ func NewGuestOsInfoCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("guestosinfo", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_GUESTOSINFO, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -149,7 +149,7 @@ func NewUserListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("userlist", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_USERLIST, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -164,7 +164,7 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("fslist", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_FSLIST, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -183,12 +183,18 @@ func usage(cmd string) string {
 		return usage
 	}
 
+	if cmd == COMMAND_USERLIST || cmd == COMMAND_FSLIST || cmd == COMMAND_GUESTOSINFO {
+		usage := fmt.Sprintf("  # %s a virtual machine instance called 'myvm':\n", strings.Title(cmd))
+		usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
+		return usage
+	}
+
 	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
 	usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
 	return usage
 }
 
-func (o *Command) Run(cmd *cobra.Command, args []string) error {
+func (o *Command) Run(args []string) error {
 
 	vmiName := args[0]
 
@@ -245,7 +251,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	case COMMAND_GUESTOSINFO:
 		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error getting guestosinfo of VirtualMachine %s, %v", vmiName, err)
+			return fmt.Errorf("Error getting guestosinfo of VirtualMachineInstance %s, %v", vmiName, err)
 		}
 
 		data, err := json.MarshalIndent(guestosinfo, "", "  ")
@@ -258,7 +264,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	case COMMAND_USERLIST:
 		userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error listing users of VirtualMachine %s, %v", vmiName, err)
+			return fmt.Errorf("Error listing users of VirtualMachineInstance %s, %v", vmiName, err)
 		}
 
 		data, err := json.MarshalIndent(userlist, "", "  ")
@@ -271,7 +277,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	case COMMAND_FSLIST:
 		fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error listing filesystems of VirtualMachine %s, %v", vmiName, err)
+			return fmt.Errorf("Error listing filesystems of VirtualMachineInstance %s, %v", vmiName, err)
 		}
 
 		data, err := json.MarshalIndent(fslist, "", "  ")

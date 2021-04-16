@@ -41,7 +41,6 @@ var strProtocol string
 var strTargetPort string
 var strServiceType string
 var portName string
-var namespace string
 var strIPFamily string
 
 // NewExposeCommand generates a new "expose" command
@@ -61,7 +60,7 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 		Args:    templates.ExactArgs("expose", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_EXPOSE, clientConfig: clientConfig}
-			return c.RunE(cmd, args)
+			return c.RunE(args)
 		},
 	}
 
@@ -95,7 +94,7 @@ func usage() string {
 }
 
 // executing the "expose" command
-func (o *Command) RunE(cmd *cobra.Command, args []string) error {
+func (o *Command) RunE(args []string) error {
 	// first argument is type of VM: VMI, VM or VMIRS
 	vmType := strings.ToLower(args[0])
 	// second argument must be name of the VM

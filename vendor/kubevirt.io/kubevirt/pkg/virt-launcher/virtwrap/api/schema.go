@@ -262,7 +262,7 @@ type FeatureHyperv struct {
 	VPIndex         *FeatureState     `xml:"vpindex,omitempty"`
 	Runtime         *FeatureState     `xml:"runtime,omitempty"`
 	SyNIC           *FeatureState     `xml:"synic,omitempty"`
-	SyNICTimer      *FeatureState     `xml:"stimer,omitempty"`
+	SyNICTimer      *SyNICTimer       `xml:"stimer,omitempty"`
 	Reset           *FeatureState     `xml:"reset,omitempty"`
 	VendorID        *FeatureVendorID  `xml:"vendor_id,omitempty"`
 	Frequencies     *FeatureState     `xml:"frequencies,omitempty"`
@@ -275,6 +275,11 @@ type FeatureHyperv struct {
 type FeatureSpinlocks struct {
 	State   string  `xml:"state,attr,omitempty"`
 	Retries *uint32 `xml:"retries,attr,omitempty"`
+}
+
+type SyNICTimer struct {
+	Direct *FeatureState `xml:"direct,omitempty"`
+	State  string        `xml:"state,attr,omitempty"`
 }
 
 type FeaturePVSpinlock struct {
@@ -448,6 +453,7 @@ type Input struct {
 
 // BEGIN HostDevice -----------------------------
 type HostDevice struct {
+	XMLName   xml.Name         `xml:"hostdev"`
 	Source    HostDeviceSource `xml:"source"`
 	Type      string           `xml:"type,attr"`
 	BootOrder *BootOrder       `xml:"boot,omitempty"`
@@ -540,6 +546,7 @@ type DiskDriver struct {
 	Type        string `xml:"type,attr"`
 	IOThread    *uint  `xml:"iothread,attr,omitempty"`
 	Queues      *uint  `xml:"queues,attr,omitempty"`
+	Discard     string `xml:"discard,attr,omitempty"`
 }
 
 type DiskSourceHost struct {

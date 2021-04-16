@@ -22,6 +22,7 @@ package types
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -75,4 +76,16 @@ func IsSharedPVCFromClient(client kubecli.KubevirtClient, namespace string, clai
 		isShared = IsPVCShared(pvc)
 	}
 	return
+}
+
+func IsPreallocated(annotations map[string]string) bool {
+	for a, value := range annotations {
+		if strings.Contains(a, "/storage.preallocation") && value == "true" {
+			return true
+		}
+		if strings.Contains(a, "/storage.thick-provisioned") && value == "true" {
+			return true
+		}
+	}
+	return false
 }

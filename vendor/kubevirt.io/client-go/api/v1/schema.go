@@ -398,7 +398,8 @@ type Devices struct {
 	// Whether to have random number generator from host
 	// +optional
 	Rng *Rng `json:"rng,omitempty"`
-	// Whether or not to enable virtio multi-queue for block devices
+	// Whether or not to enable virtio multi-queue for block devices.
+	// Defaults to false.
 	// +optional
 	BlockMultiQueue *bool `json:"blockMultiQueue,omitempty"`
 	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
@@ -483,6 +484,7 @@ type Disk struct {
 	// +optional
 	DedicatedIOThread *bool `json:"dedicatedIOThread,omitempty"`
 	// Cache specifies which kvm disk cache mode should be used.
+	// Supported values are: CacheNone, CacheWriteThrough.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
 	// IO specifies which QEMU disk IO mode should be used.
@@ -903,6 +905,13 @@ type Features struct {
 	Pvspinlock *FeatureState `json:"pvspinlock,omitempty"`
 }
 
+//
+// +k8s:openapi-gen=true
+type SyNICTimer struct {
+	Enabled *bool         `json:"enabled,omitempty"`
+	Direct  *FeatureState `json:"direct,omitempty"`
+}
+
 // Represents if a feature is enabled or disabled.
 //
 // +k8s:openapi-gen=true
@@ -982,7 +991,7 @@ type FeatureHyperv struct {
 	// SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
 	// Defaults to the machine type setting.
 	// +optional
-	SyNICTimer *FeatureState `json:"synictimer,omitempty"`
+	SyNICTimer *SyNICTimer `json:"synictimer,omitempty"`
 	// Reset enables Hyperv reboot/reset for the vmi. Requires synic.
 	// Defaults to the machine type setting.
 	// +optional

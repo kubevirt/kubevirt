@@ -214,11 +214,7 @@ const (
 )
 
 const (
-	k8sAuditLogPath = "/var/log/k8s-audit/k8s-audit.log"
-	osAuditLogPath  = "/var/lib/origin/audit-ocp.log"
-	swaggerPath     = "api/openapi-spec/swagger.json"
-	artifactsEnv    = "ARTIFACTS"
-	tmpPath         = "/var/provision/kubevirt.io/tests"
+	tmpPath = "/var/provision/kubevirt.io/tests"
 )
 
 const (
@@ -227,15 +223,34 @@ const (
 	capSysNice  k8sv1.Capability = "SYS_NICE"
 )
 
+const MigrationWaitTime = 240
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
 	object                 runtime.Object
 	timeout                *time.Duration
-	failOnWarnings         bool
 	resourceVersion        string
 	startType              startType
+	warningPolicy          WarningsPolicy
 	dontFailOnMissingEvent bool
+}
+
+type WarningsPolicy struct {
+	FailOnWarnings     bool
+	WarningsIgnoreList []string
+}
+
+func (wp *WarningsPolicy) shouldIgnoreWarning(event *k8sv1.Event) bool {
+	if event.Type == string(WarningEvent) {
+		for _, message := range wp.WarningsIgnoreList {
+			if message == event.Message {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
@@ -247,8 +262,8 @@ func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher
 	return w
 }
 
-func (w *ObjectEventWatcher) FailOnWarnings() *ObjectEventWatcher {
-	w.failOnWarnings = true
+func (w *ObjectEventWatcher) SetWarningsPolicy(wp WarningsPolicy) *ObjectEventWatcher {
+	w.warningPolicy = wp
 	return w
 }
 
@@ -313,18 +328,16 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 
 	f := processFunc
 
-	if w.failOnWarnings {
+	if w.warningPolicy.FailOnWarnings {
 		f = func(event *k8sv1.Event) bool {
 			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
-			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event received")).ObjectRef(&event.InvolvedObject).Error(msg)
-			} else {
-				log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
+			if w.warningPolicy.shouldIgnoreWarning(event) == false {
+				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
 			}
-			ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
+			log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
+
 			return processFunc(event)
 		}
-
 	} else {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
@@ -550,7 +563,7 @@ func CleanNodes() {
 		}
 		new.Spec.Taints = taints
 
-		for k, _ := range node.Labels {
+		for k := range node.Labels {
 			if strings.HasPrefix(k, "tests.kubevirt.io") {
 				found = true
 				delete(new.Labels, k)
@@ -682,7 +695,7 @@ func SynchronizedBeforeTestSetup() []byte {
 }
 
 func BeforeTestSuitSetup(_ []byte) {
-	rand.Seed(time.Now().Unix())
+	rand.Seed(int64(config.GinkgoConfig.ParallelNode))
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
@@ -723,8 +736,9 @@ func AdjustKubeVirtResource() {
 	PanicOnError(err)
 
 	kv := GetCurrentKv(virtClient)
-
 	originalKV = kv.DeepCopy()
+
+	KubeVirtDefaultConfig = originalKV.Spec.Configuration
 
 	if !flags.ApplyDefaulte2eConfiguration {
 		return
@@ -856,6 +870,74 @@ func EnsureKVMPresent() {
 	}
 }
 
+func GetNodesWithKVM() []*k8sv1.Node {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+
+	nodes := make([]*k8sv1.Node, 0)
+	// cluster is not ready until all nodes are ready.
+	for _, pod := range virtHandlerPods.Items {
+		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+		if ok {
+			nodes = append(nodes, virtHandlerNode)
+		}
+	}
+	return nodes
+}
+
+func GetSupportedCPUFeatures(nodes k8sv1.NodeList) []string {
+	var featureDenyList = map[string]bool{
+		"svm": true,
+	}
+	featuresMap := make(map[string]bool)
+	for _, node := range nodes.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
+				feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+				if _, ok := featureDenyList[feature]; !ok {
+					featuresMap[feature] = true
+				}
+			}
+		}
+	}
+
+	features := make([]string, 0)
+	for feature := range featuresMap {
+		features = append(features, feature)
+	}
+	return features
+}
+
+func GetSupportedCPUModels(nodes k8sv1.NodeList) []string {
+	var cpuDenyList = map[string]bool{
+		"qemu64":     true,
+		"Opteron_G2": true,
+	}
+	cpuMap := make(map[string]bool)
+	for _, node := range nodes.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+				if _, ok := cpuDenyList[cpu]; !ok {
+					cpuMap[cpu] = true
+				}
+			}
+		}
+	}
+
+	cpus := make([]string, 0)
+	for model := range cpuMap {
+		cpus = append(cpus, model)
+	}
+	return cpus
+}
+
 func CreateConfigMap(name string, data map[string]string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -928,11 +1010,11 @@ func newPVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVol
 	}
 }
 
-func CreateHostPathPv(osName string, hostPath string) {
-	CreateHostPathPvWithSize(osName, hostPath, "1Gi")
+func CreateHostPathPv(osName string, hostPath string) string {
+	return CreateHostPathPvWithSize(osName, hostPath, "1Gi")
 }
 
-func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
+func CreateHostPathPvWithSize(osName string, hostPath string, size string) string {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -985,6 +1067,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
+	return schedulableNode
 }
 
 func GetListOfManifests(pathToManifestsDir string) []string {
@@ -1430,6 +1513,15 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 	return obj
 }
 
+func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
+	obj := RunVMI(vmi, timeout)
+	By("Waiting until the DataVolume is ready")
+	WaitForSuccessfulDataVolumeImport(dv, timeout)
+	By("Waiting until the VirtualMachineInstance will start")
+	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+	return obj
+}
+
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will start")
@@ -1461,7 +1553,8 @@ func RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi *v1.VirtualMachineInstance, t
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will be scheduled")
-	waitForVMIScheduling(obj, timeout, false)
+	wp := WarningsPolicy{FailOnWarnings: true}
+	waitForVMIScheduling(obj, timeout, wp)
 	return obj
 }
 
@@ -1917,14 +2010,13 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 			Masquerade: &v1.InterfaceMasquerade{}}}}}
 
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 
 	return vmi
 }
 
 func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 
 	diskName := "disk0"
 	bus := "virtio"
@@ -2089,7 +2181,6 @@ func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInst
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedora) {
 		vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
@@ -2231,7 +2322,7 @@ func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineI
 
 func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+
 	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
 	vmi = AddPVCFS(vmi, "disk1", claimName)
@@ -2342,14 +2433,14 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+
 	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
 	return vmi
 }
 
 func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+
 	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
 	AddUserData(vmi, "disk1", userData)
 	return vmi
@@ -2467,7 +2558,6 @@ func deleteBlockPVAndPVC() {
 func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: "disk0",
 		DiskDevice: v1.DiskDevice{
@@ -2492,7 +2582,6 @@ func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: "disk0",
 		DiskDevice: v1.DiskDevice{
@@ -2749,49 +2838,47 @@ func waitForDataVolumePhase(namespace, name string, seconds int, phase ...cdiv1.
 }
 
 // Block until the specified VirtualMachineInstance reached either Failed or Running states
-func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, wp WarningsPolicy) (nodeName string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running, v1.Failed}, obj, seconds, ignoreWarnings, true)
+	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running, v1.Failed}, obj, seconds, wp, true)
 }
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
-func waitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
-	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, ignoreWarnings, false)
+func waitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, wp WarningsPolicy) (nodeName string) {
+	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, wp, false)
 }
 
 // Block until the specified VirtualMachineInstance scheduled and return the target node name.
-func waitForVMIScheduling(obj runtime.Object, seconds int, ignoreWarnings bool) {
+func waitForVMIScheduling(obj runtime.Object, seconds int, wp WarningsPolicy) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, ignoreWarnings, false)
+	waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, wp, false)
 }
 
-func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, ignoreWarnings bool, waitForFail bool) (nodeName string) {
+func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, wp WarningsPolicy, waitForFail bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	// In case we don't want errors, start an event watcher and  check in parallel if we receive some warnings
-	if ignoreWarnings != true {
-
-		// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
-		// FIXME: This may start watching too late and we may miss some warnings
-		if vmi.ResourceVersion == "" {
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		}
-
-		objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
-		objectEventWatcher.FailOnWarnings()
-
-		go func() {
-			defer GinkgoRecover()
-			objectEventWatcher.WaitFor(ctx, NormalEvent, v1.Started)
-		}()
+	// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
+	// FIXME: This may start watching too late and we may miss some warnings
+	if vmi.ResourceVersion == "" {
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}
+
+	objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
+	if wp.FailOnWarnings == true {
+		objectEventWatcher.SetWarningsPolicy(wp)
+	}
+
+	go func() {
+		defer GinkgoRecover()
+		objectEventWatcher.WaitFor(ctx, NormalEvent, v1.Started)
+	}()
 
 	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, phases)
 	// FIXME the event order is wrong. First the document should be updated
@@ -2814,19 +2901,22 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) string {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return waitForVMIStart(ctx, vmi, 180, true)
+	wp := WarningsPolicy{FailOnWarnings: false}
+	return waitForVMIStart(ctx, vmi, 180, wp)
 }
 
 func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) (nodeName string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return waitForVMIStart(ctx, vmi, seconds, false)
+	wp := WarningsPolicy{FailOnWarnings: true}
+	return waitForVMIStart(ctx, vmi, seconds, wp)
 }
 
 func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi runtime.Object, seconds int) string {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return waitForVMIStart(ctx, vmi, seconds, true)
+	wp := WarningsPolicy{FailOnWarnings: false}
+	return waitForVMIStart(ctx, vmi, seconds, wp)
 }
 
 func WaitForPodToDisappearWithTimeout(podName string, seconds int) {
@@ -2863,7 +2953,13 @@ func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
 }
 
 func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Object) string {
-	return waitForVMIStart(ctx, vmi, 360, false)
+	wp := WarningsPolicy{FailOnWarnings: true}
+	return waitForVMIStart(ctx, vmi, 360, wp)
+}
+
+func WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx context.Context, vmi runtime.Object, warningsIgnoreList []string) string {
+	wp := WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
+	return waitForVMIStart(ctx, vmi, 360, wp)
 }
 
 func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) func() *v1.VirtualMachineInstance {
@@ -2890,10 +2986,25 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFa
 	return WaitUntilVMIReadyWithContext(ctx, vmi, loginTo)
 }
 
+func WaitUntilVMIReadyIgnoreSelectedWarnings(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory, warningsIgnoreList []string) *v1.VirtualMachineInstance {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return WaitUntilVMIReadyWithContextIgnoreSelectedWarnings(ctx, vmi, loginTo, warningsIgnoreList)
+}
+
 func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	WaitForSuccessfulVMIStartWithContext(ctx, vmi)
+	return LoginToVM(vmi, loginTo)
+}
 
+func WaitUntilVMIReadyWithContextIgnoreSelectedWarnings(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory, warningsIgnoreList []string) *v1.VirtualMachineInstance {
+	// Wait for VirtualMachineInstance start
+	WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx, vmi, warningsIgnoreList)
+	return LoginToVM(vmi, loginTo)
+}
+
+func LoginToVM(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
@@ -2903,13 +3014,11 @@ func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineIns
 	// Lets make sure that the OS is up by waiting until we can login
 
 	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
+
 	return vmi
 }
-func NewInt32(x int32) *int32 {
-	return &x
-}
 
-func NewInt64(x int64) *int64 {
+func NewInt32(x int32) *int32 {
 	return &x
 }
 
@@ -3761,10 +3870,7 @@ func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 
 // SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified
 func SkipIfVersionBelow(message string, expectedVersion string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	curVersion, err := cluster.GetKubernetesVersion()
 	Expect(err).NotTo(HaveOccurred())
 
 	if curVersion < expectedVersion {
@@ -3773,10 +3879,7 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 }
 
 func SkipIfVersionAboveOrEqual(message string, expectedVersion string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	curVersion, err := cluster.GetKubernetesVersion()
 	Expect(err).NotTo(HaveOccurred())
 
 	if curVersion >= expectedVersion {
@@ -3791,10 +3894,7 @@ func SkipIfOpenShift(message string) {
 }
 
 func SkipIfOpenShiftAndBelowOrEqualVersion(message string, version string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	curVersion, err := cluster.GetKubernetesVersion()
 	Expect(err).NotTo(HaveOccurred())
 
 	// version is above
@@ -3815,6 +3915,22 @@ func SkipIfOpenShift4(message string) {
 		PanicOnError(err)
 	} else if t && cluster.GetOpenShiftMajorVersion(virtClient) == cluster.OpenShift4Major {
 		Skip(message)
+	}
+}
+
+func SkipIfMigrationIsNotPossible() {
+	if !HasLiveMigration() {
+		Skip("LiveMigration feature gate is not enabled in kubevirt-config")
+	}
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	nodes := GetAllSchedulableNodes(virtClient)
+	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+
+	if len(nodes.Items) < 2 {
+		Skip("Migration tests require at least 2 nodes")
 	}
 }
 
@@ -4035,7 +4151,7 @@ func HasDataVolumeCRD() bool {
 	ext, err := extclient.NewForConfig(virtClient.Config())
 	PanicOnError(err)
 
-	_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "datavolumes.cdi.kubevirt.io", metav1.GetOptions{})
+	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "datavolumes.cdi.kubevirt.io", metav1.GetOptions{})
 
 	if err != nil {
 		return false
@@ -4066,7 +4182,7 @@ func GetCephStorageClass() (string, bool) {
 	Expect(err).ToNot(HaveOccurred())
 	for _, storageClass := range storageClassList.Items {
 		switch storageClass.Provisioner {
-		case "rook-ceph.rbd.csi.ceph.com", "csi-rbdplugin":
+		case "rook-ceph.rbd.csi.ceph.com", "csi-rbdplugin", "openshift-storage.rbd.csi.ceph.com":
 			return storageClass.Name, true
 		}
 	}
@@ -4377,7 +4493,6 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	By("Waiting for guest agent connection")
 	WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 12*60)
 }
 
@@ -4732,20 +4847,6 @@ func FormatIPForURL(ip string) string {
 		return "[" + ip + "]"
 	}
 	return ip
-}
-
-func getClusterDnsServiceIP(virtClient kubecli.KubevirtClient) (string, error) {
-	dnsServiceName := "kube-dns"
-	dnsNamespace := "kube-system"
-	if IsOpenShift() {
-		dnsServiceName = "dns-default"
-		dnsNamespace = "openshift-dns"
-	}
-	kubeDNSService, err := virtClient.CoreV1().Services(dnsNamespace).Get(context.Background(), dnsServiceName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	return kubeDNSService.Spec.ClusterIP, nil
 }
 
 func IsRunningOnKindInfra() bool {

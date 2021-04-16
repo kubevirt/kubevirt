@@ -44,6 +44,16 @@ func SetDefaults_FeatureState(obj *FeatureState) {
 	}
 }
 
+func SetDefaults_SyNICTimer(obj *SyNICTimer) {
+	if obj.Enabled == nil {
+		obj.Enabled = _true
+	}
+
+	if obj.Direct != nil && obj.Direct.Enabled == nil {
+		obj.Direct.Enabled = _true
+	}
+}
+
 func SetDefaults_FeatureAPIC(obj *FeatureAPIC) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true

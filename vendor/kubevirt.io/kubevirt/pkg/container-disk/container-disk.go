@@ -44,6 +44,8 @@ var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
 type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
 
+const ephemeralStorageOverheadSize = "50M"
+
 func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
 }
@@ -56,7 +58,7 @@ func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, erro
 	basepath := ""
 	foundEntries := 0
 	foundBasepath := ""
-	for podUID, _ := range vmi.Status.ActivePods {
+	for podUID := range vmi.Status.ActivePods {
 		basepath = fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", podsBaseDir, string(podUID))
 		exists, err := diskutils.FileExists(basepath)
 		if err != nil {
@@ -94,7 +96,7 @@ func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
 
 func SetLocalDirectory(dir string) error {
 	mountBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0750)
 }
 
 func SetKubeletPodsDirectory(dir string) {
@@ -104,7 +106,7 @@ func SetKubeletPodsDirectory(dir string) {
 // used for testing - we don't want to MkdirAll on a production host mount
 func setPodsDirectory(dir string) error {
 	podsBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0750)
 }
 
 // The unit test suite uses this function
@@ -130,7 +132,7 @@ func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
 // can be provided which can for instance point to /tmp.
 func NewSocketPathGetter(baseDir string) SocketPathGetter {
 	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-		for podUID, _ := range vmi.Status.ActivePods {
+		for podUID := range vmi.Status.ActivePods {
 			basepath := fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, string(podUID))
 			socketPath := filepath.Join(basepath, fmt.Sprintf("disk_%d.sock", volumeIndex))
 			exists, _ := diskutils.FileExists(socketPath)
@@ -187,19 +189,17 @@ func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName stri
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.ContainerDisk.Image
 			resources := kubev1.ResourceRequirements{}
+			resources.Limits = make(kubev1.ResourceList)
+			resources.Requests = make(kubev1.ResourceList)
+			resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
+			resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
+			resources.Requests[kubev1.ResourceEphemeralStorage] = resource.MustParse(ephemeralStorageOverheadSize)
+
 			if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-				resources.Limits = make(kubev1.ResourceList)
 				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("10m")
-				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
-				resources.Requests = make(kubev1.ResourceList)
-				resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
 				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("40M")
 			} else {
-				resources.Limits = make(kubev1.ResourceList)
 				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("100m")
-				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
-				resources.Requests = make(kubev1.ResourceList)
-				resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
 				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1M")
 			}
 			var args []string

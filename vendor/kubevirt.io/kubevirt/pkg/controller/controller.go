@@ -98,21 +98,6 @@ func NewResourceEventHandlerFuncsForWorkqueue(queue workqueue.RateLimitingInterf
 	}
 }
 
-func NewResourceEventHandlerFuncsForFunc(f func(interface{})) cache.ResourceEventHandlerFuncs {
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			f(obj)
-		},
-		UpdateFunc: func(old interface{}, new interface{}) {
-			f(new)
-
-		},
-		DeleteFunc: func(obj interface{}) {
-			f(obj)
-		},
-	}
-}
-
 func MigrationKey(migration *v1.VirtualMachineInstanceMigration) string {
 	return fmt.Sprintf("%v/%v", migration.ObjectMeta.Namespace, migration.ObjectMeta.Name)
 }
@@ -133,14 +118,6 @@ func VirtualMachineKeys(vmis []*v1.VirtualMachineInstance) []string {
 	keys := []string{}
 	for _, vmi := range vmis {
 		keys = append(keys, VirtualMachineKey(vmi))
-	}
-	return keys
-}
-
-func PodKeys(pods []*k8sv1.Pod) []string {
-	keys := []string{}
-	for _, pod := range pods {
-		keys = append(keys, PodKey(pod))
 	}
 	return keys
 }

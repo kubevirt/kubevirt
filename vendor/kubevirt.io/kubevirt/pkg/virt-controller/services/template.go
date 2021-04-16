@@ -51,7 +51,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const configMapName = "kubevirt-config"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
@@ -62,11 +61,13 @@ const virtiofsDebugLogs = "virtiofsdDebugLogs"
 
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
-const CAP_NET_ADMIN = "NET_ADMIN"
-const CAP_NET_RAW = "NET_RAW"
-const CAP_SYS_ADMIN = "SYS_ADMIN"
-const CAP_SYS_NICE = "SYS_NICE"
-const CAP_SYS_RESOURCE = "SYS_RESOURCE"
+const (
+	CAP_NET_ADMIN    = "NET_ADMIN"
+	CAP_NET_RAW      = "NET_RAW"
+	CAP_SYS_ADMIN    = "SYS_ADMIN"
+	CAP_SYS_NICE     = "SYS_NICE"
+	CAP_SYS_RESOURCE = "SYS_RESOURCE"
+)
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
 // Libvirt needs roughly 10 seconds to start.
@@ -74,9 +75,9 @@ const LibvirtStartupDelay = 10
 
 //These perfixes for node feature discovery, are used in a NodeSelector on the pod
 //to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
-const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
-const NFD_CPU_FEATURE_PREFIX = "feature.node.kubernetes.io/cpu-feature-"
-const NFD_KVM_INFO_PREFIX = "feature.node.kubernetes.io/kvm-info-cap-hyperv-"
+const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
+const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
+const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
@@ -91,9 +92,11 @@ const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
 // extensive log verbosity threshold after which libvirt debug logs will be enabled
 const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
+const ephemeralStorageOverheadSize = "50M"
+
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	GetLauncherImage() string
 }
@@ -140,42 +143,48 @@ func makeHVFeatureLabelTable(vmi *v1.VirtualMachineInstance) []hvFeatureLabel {
 	// to learn about dependencies between enlightenments
 
 	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
+
+	syNICTimer := &v1.FeatureState{}
+	if hyperv.SyNICTimer != nil {
+		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
+	}
+
 	return []hvFeatureLabel{
-		hvFeatureLabel{
+		{
 			Feature: hyperv.VPIndex,
 			Label:   "vpindex",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.Runtime,
 			Label:   "runtime",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.Reset,
 			Label:   "reset",
 		},
-		hvFeatureLabel{
+		{
 			// TODO: SyNIC depends on vp-index on QEMU level. We should enforce this constraint.
 			Feature: hyperv.SyNIC,
 			Label:   "synic",
 		},
-		hvFeatureLabel{
+		{
 			// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
-			Feature: hyperv.SyNICTimer,
+			Feature: syNICTimer,
 			Label:   "synictimer",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.Frequencies,
 			Label:   "frequencies",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.Reenlightenment,
 			Label:   "reenlightenment",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.TLBFlush,
 			Label:   "tlbflush",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.IPI,
 			Label:   "ipi",
 		},
@@ -764,6 +773,18 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		resources.Limits[key] = value
 	}
 
+	// Add ephemeral storage request to container to be used by Kubevirt. This amount of ephemeral storage
+	// should be added to the user's request.
+	ephemeralStorageOverhead := resource.MustParse(ephemeralStorageOverheadSize)
+	ephemeralStorageRequested := resources.Requests[k8sv1.ResourceEphemeralStorage]
+	ephemeralStorageRequested.Add(ephemeralStorageOverhead)
+	resources.Requests[k8sv1.ResourceEphemeralStorage] = ephemeralStorageRequested
+
+	if ephemeralStorageLimit, ephemeralStorageLimitDefined := resources.Limits[k8sv1.ResourceEphemeralStorage]; ephemeralStorageLimitDefined {
+		ephemeralStorageLimit.Add(ephemeralStorageOverhead)
+		resources.Limits[k8sv1.ResourceEphemeralStorage] = ephemeralStorageLimit
+	}
+
 	// Consider hugepages resource for pod scheduling
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
@@ -1103,7 +1124,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			Args:            requestedHookSidecar.Args,
 			Resources:       resources,
 			VolumeMounts: []k8sv1.VolumeMount{
-				k8sv1.VolumeMount{
+				{
 					Name:      "hook-sidecar-sockets",
 					MountPath: hooks.HookSocketsSharedDirectory,
 				},
@@ -1128,7 +1149,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	if HaveContainerDiskVolume(vmi.Spec.Volumes) {
 
 		initContainerVolumeMounts := []k8sv1.VolumeMount{
-			k8sv1.VolumeMount{
+			{
 				Name:      "virt-bin-share-dir",
 				MountPath: "/init/usr/bin",
 			},
@@ -1234,15 +1255,16 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	return &pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
+	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
 	if tempPod {
 		command = []string{"/bin/bash",
 			"-c",
 			"exit", "0"}
 	} else {
-		command = []string{"/bin/sh", "-c", "tail -f /dev/null"}
+		command = []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 	}
 
 	annotationsList := make(map[string]string)
@@ -1286,6 +1308,13 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 						SELinuxOptions: &k8sv1.SELinuxOptions{
 							Level: "s0",
 							Type:  t.clusterConfig.GetSELinuxLauncherType(),
+						},
+					},
+					VolumeMounts: []k8sv1.VolumeMount{
+						{
+							Name:             "hotplug-disks",
+							MountPath:        "/path",
+							MountPropagation: &sharedMount,
 						},
 					},
 				},
@@ -1335,14 +1364,25 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 			RunAsUser: &[]int64{0}[0],
 		}
 	} else {
-		pod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
-			{
-				Name:      volume.Name,
-				MountPath: "/pvc",
-			},
-		}
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+			Name:      volume.Name,
+			MountPath: "/pvc",
+		})
 	}
 	return pod, nil
+}
+
+func getVirtiofsCapabilities() []k8sv1.Capability {
+	return []k8sv1.Capability{
+		"CHOWN",
+		"DAC_OVERRIDE",
+		"FOWNER",
+		"FSETID",
+		"SETGID",
+		"SETUID",
+		"MKNOD",
+		"SETFCAP",
+	}
 }
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []k8sv1.Capability {
@@ -1359,6 +1399,7 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 	// add CAP_SYS_ADMIN capability to allow virtiofs
 	if util.IsVMIVirtiofsEnabled(vmi) {
 		capabilities = append(capabilities, CAP_SYS_ADMIN)
+		capabilities = append(capabilities, getVirtiofsCapabilities()...)
 	}
 
 	// add SYS_RESOURCE capability to enable Live Migration for VM with SRIOV interfaces
