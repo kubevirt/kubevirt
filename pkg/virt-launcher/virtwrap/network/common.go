@@ -97,7 +97,6 @@ type NetworkHandler interface {
 	ParseAddr(s string) (*netlink.Addr, error)
 	GetHostAndGwAddressesFromCIDR(s string) (string, string, error)
 	SetRandomMac(ifaceName string) (*net.HardwareAddr, error)
-	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error
 	HasNatIptables(proto iptables.Protocol) bool
@@ -315,16 +314,6 @@ func inc(ip net.IP) {
 			break
 		}
 	}
-}
-
-// GetMacDetails from an interface
-func (h *NetworkUtilsHandler) GetMacDetails(iface string) (net.HardwareAddr, error) {
-	currentMac, err := lmf.GetCurrentMac(iface)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get mac information for interface: %s", iface)
-		return nil, err
-	}
-	return currentMac, nil
 }
 
 // SetRandomMac changes the MAC address for a given interface to a randomly generated, preserving the vendor prefix
