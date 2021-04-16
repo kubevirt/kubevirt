@@ -17,6 +17,15 @@ const HostRootMount = "/proc/1/root/"
 const CPUManagerOS3Path = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
 const CPUManagerPath = HostRootMount + "var/lib/kubelet/cpu_manager_state"
 
+const NonRootUID = 107
+const NonRootUserString = "qemu"
+const RootUser = 0
+
+func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
+	_, ok := vmi.Annotations[v1.NonRootVMIAnnotation]
+	return ok
+}
+
 func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.SRIOV != nil {

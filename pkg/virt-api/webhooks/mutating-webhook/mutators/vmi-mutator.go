@@ -33,6 +33,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -119,6 +120,15 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// Set the phase to pending to avoid blank status
 		newVMI.Status.Phase = v1.Pending
 
+		if mutator.ClusterConfig.NonRootEnabled() {
+			if canBeNonRoot(newVMI) {
+				if newVMI.ObjectMeta.Annotations == nil {
+					newVMI.ObjectMeta.Annotations = make(map[string]string)
+				}
+				newVMI.ObjectMeta.Annotations[v1.NonRootVMIAnnotation] = ""
+			}
+		}
+
 		var value interface{}
 		value = newVMI.Spec
 		patch = append(patch, utiltypes.PatchOperation{
@@ -140,6 +150,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			Path:  "/status",
 			Value: value,
 		})
+
 	} else if ar.Request.Operation == admissionv1.Update {
 		// Ignore status updates if they are not coming from our service accounts
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
@@ -315,4 +326,17 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 		}
 		resources.Requests[k8sv1.ResourceCPU] = *mutator.ClusterConfig.GetCPURequest()
 	}
+}
+
+func canBeNonRoot(vmi *v1.VirtualMachineInstance) bool {
+	// hugepages are temporarily not working with non-root implementation
+	// This need to sync the owneship change of /dev/hugepages with libvird startup
+	hugepages := false
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+		hugepages = true
+
+	}
+
+	// VirtioFS doesn't work with session mode
+	return !util.IsVMIVirtiofsEnabled(vmi) && !hugepages && !util.IsSRIOVVmi(vmi)
 }
