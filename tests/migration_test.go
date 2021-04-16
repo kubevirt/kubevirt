@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"strconv"
