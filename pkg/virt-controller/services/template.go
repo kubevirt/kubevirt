@@ -404,11 +404,16 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 
 	var volumes []k8sv1.Volume
 	var volumeDevices []k8sv1.VolumeDevice
-	var userId int64 = 0
-	var privileged = false
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
+	var userId int64 = util.RootUser
+	var privileged bool = false
+
+	nonRoot := util.IsNonRootVMI(vmi)
+	if nonRoot {
+		userId = util.NonRootUID
+	}
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
 	if t.IsPPC64() {
 		privileged = true
@@ -985,6 +990,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"--minimum-pvc-reserve-bytes", strconv.FormatUint(reservePVCBytes, 10),
 			"--ovmf-path", ovmfPath,
 		}
+		if nonRoot {
+			command = append(command, "--run-as-nonroot")
+		}
 	}
 
 	useEmulation := t.clusterConfig.IsUseEmulation()
@@ -1052,6 +1060,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		VolumeMounts:  volumeMounts,
 		Resources:     resources,
 		Ports:         ports,
+	}
+	if nonRoot {
+		compute.SecurityContext.RunAsGroup = &userId
+		compute.SecurityContext.RunAsNonRoot = &nonRoot
 	}
 
 	if vmi.Spec.ReadinessProbe != nil {
@@ -1202,12 +1214,20 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			Command:         requestedHookSidecar.Command,
 			Args:            requestedHookSidecar.Args,
 			Resources:       resources,
+			SecurityContext: &k8sv1.SecurityContext{
+				RunAsUser:  &userId,
+				Privileged: &privileged,
+			},
 			VolumeMounts: []k8sv1.VolumeMount{
 				{
 					Name:      "hook-sidecar-sockets",
 					MountPath: hooks.HookSocketsSharedDirectory,
 				},
 			},
+		}
+		if nonRoot {
+			sidecar.SecurityContext.RunAsGroup = &userId
+			sidecar.SecurityContext.RunAsNonRoot = &nonRoot
 		}
 		containers = append(containers, sidecar)
 	}
@@ -1258,9 +1278,17 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			Name:            "container-disk-binary",
 			Image:           t.launcherImage,
 			ImagePullPolicy: imagePullPolicy,
-			Command:         initContainerCommand,
-			VolumeMounts:    initContainerVolumeMounts,
-			Resources:       initContainerResources,
+			SecurityContext: &k8sv1.SecurityContext{
+				RunAsUser:  &userId,
+				Privileged: &privileged,
+			},
+			Command:      initContainerCommand,
+			VolumeMounts: initContainerVolumeMounts,
+			Resources:    initContainerResources,
+		}
+		if nonRoot {
+			cpInitContainer.SecurityContext.RunAsGroup = &userId
+			cpInitContainer.SecurityContext.RunAsNonRoot = &nonRoot
 		}
 
 		initContainers = append(initContainers, cpInitContainer)
@@ -1295,6 +1323,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			DNSConfig:                     vmi.Spec.DNSConfig,
 			DNSPolicy:                     vmi.Spec.DNSPolicy,
 		},
+	}
+
+	if nonRoot {
+		pod.Spec.SecurityContext.RunAsGroup = &userId
+		pod.Spec.SecurityContext.RunAsNonRoot = &nonRoot
 	}
 
 	// If an SELinux type was specified, use that--otherwise don't set an SELinux type
@@ -1625,6 +1658,9 @@ func haveSlirp(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []k8sv1.Capability {
+	if util.IsNonRootVMI(vmi) {
+		return []k8sv1.Capability{CAP_NET_BIND_SERVICE}
+	}
 	capabilities := []k8sv1.Capability{}
 	if requireDHCP(vmi) || haveSlirp(vmi) {
 		capabilities = append(capabilities, CAP_NET_BIND_SERVICE)
@@ -1968,18 +2004,20 @@ func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string) {
 	for i := range pod.Spec.Containers {
 		container := &pod.Spec.Containers[i]
 		if container.Name != "compute" {
-			container.SecurityContext = generateContainerSecurityContext(selinuxType)
+			generateContainerSecurityContext(selinuxType, container)
 		}
 	}
 }
 
-func generateContainerSecurityContext(selinuxType string) *k8sv1.SecurityContext {
-	return &k8sv1.SecurityContext{
-		SELinuxOptions: &k8sv1.SELinuxOptions{
-			Type:  selinuxType,
-			Level: "s0",
-		},
+func generateContainerSecurityContext(selinuxType string, container *k8sv1.Container) {
+	if container.SecurityContext == nil {
+		container.SecurityContext = &k8sv1.SecurityContext{}
 	}
+	if container.SecurityContext.SELinuxOptions == nil {
+		container.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{}
+	}
+	container.SecurityContext.SELinuxOptions.Type = selinuxType
+	container.SecurityContext.SELinuxOptions.Level = "s0"
 }
 
 func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, error) {

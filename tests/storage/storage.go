@@ -880,8 +880,16 @@ var _ = SIGDescribe("Storage", func() {
 
 				BeforeEach(func() {
 					for _, pvc := range pvcs {
-						tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
+						hostpath := filepath.Join(tests.HostPathBase, pvc)
+						tests.CreateHostPathPv(pvc, hostpath)
 						tests.CreateHostPathPVC(pvc, "1G")
+						if checks.HasFeature(virtconfig.NonRoot) {
+							By("changing permissions to qemu")
+							args := []string{fmt.Sprintf(`chown 107 %s`, hostpath)}
+							pod := tests.RenderHostPathPod("tmp-change-owner-job", hostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+
+							runHostPathJobAndExpectCompletion(pod)
+						}
 					}
 				}, 120)
 
@@ -893,7 +901,7 @@ var _ = SIGDescribe("Storage", func() {
 				}, 120)
 
 				// Not a candidate for NFS testing because multiple VMIs are started
-				It("[test_id:868]Should initialize an empty PVC by creating a disk.img", func() {
+				It("[test_id:868] Should initialize an empty PVC by creating a disk.img", func() {
 					for _, pvc := range pvcs {
 						By("starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithPVC(fmt.Sprintf("disk-%s", pvc))
