@@ -48,11 +48,7 @@ func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, o
 		return err
 	}
 
-	if ops == nil {
-		ops = make([]string, 1)
-	}
 	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(newSpec)))
-
 	_, err = client.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch crd %+v: %v", crd, err)
@@ -150,7 +146,7 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefi
 			return nil
 		}
 		// enable the status subresources now, in case that they were disabled before
-		if err := patchCRD(client, crd, nil); err != nil {
+		if err := patchCRD(client, crd, []string{}); err != nil {
 			return err
 		}
 	}
