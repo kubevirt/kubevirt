@@ -66,6 +66,11 @@ type migrationProxyManager struct {
 	isShuttingDown bool
 }
 
+type MigrationProxyListener interface {
+	Start() error
+	Stop()
+}
+
 type migrationProxy struct {
 	unixSocketPath string
 	tcpBindAddress string
@@ -149,7 +154,7 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 		} else {
 			// stop the current proxy and point it somewhere new.
 			for _, curProxy := range curProxies {
-				curProxy.StopListening()
+				curProxy.Stop()
 			}
 		}
 	}
@@ -160,12 +165,12 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 		// 0 means random port is used
 		proxy := NewTargetProxy(zeroAddress, 0, m.serverTLSConfig, m.clientTLSConfig, targetUnixFile)
 
-		err := proxy.StartListening()
+		err := proxy.Start()
 		if err != nil {
-			proxy.StopListening()
+			proxy.Stop()
 			// close all already created proxies for this key
 			for _, curProxy := range proxiesList {
-				curProxy.StopListening()
+				curProxy.Stop()
 			}
 			return err
 		}
@@ -231,7 +236,7 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 	curProxies, exists := m.targetProxies[key]
 	if exists {
 		for _, curProxy := range curProxies {
-			curProxy.StopListening()
+			curProxy.Stop()
 			delete(m.targetProxies, key)
 			log.Log.Infof("Stopping proxy target %s listening on %d", key, curProxy.tcpBindPort)
 		}
@@ -272,7 +277,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		} else {
 			// stop the current proxy and point it somewhere new.
 			for _, curProxy := range curProxies {
-				curProxy.StopListening()
+				curProxy.Stop()
 			}
 		}
 	}
@@ -286,12 +291,12 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		os.RemoveAll(filePath)
 		proxy := NewSourceProxy(filePath, targetFullAddr, m.serverTLSConfig, m.clientTLSConfig)
 
-		err := proxy.StartListening()
+		err := proxy.Start()
 		if err != nil {
-			proxy.StopListening()
+			proxy.Stop()
 			// close all already created proxies for this key
 			for _, curProxy := range proxiesList {
-				curProxy.StopListening()
+				curProxy.Stop()
 			}
 			return err
 		}
@@ -309,7 +314,7 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 	curProxies, exists := m.sourceProxies[key]
 	if exists {
 		for _, curProxy := range curProxies {
-			curProxy.StopListening()
+			curProxy.Stop()
 			os.RemoveAll(curProxy.unixSocketPath)
 		}
 		delete(m.sourceProxies, key)
@@ -395,7 +400,7 @@ func (m *migrationProxy) createUnixListener() error {
 
 }
 
-func (m *migrationProxy) StopListening() {
+func (m *migrationProxy) Stop() {
 
 	close(m.stopChan)
 	if m.listener != nil {
@@ -449,7 +454,7 @@ func handleConnection(fd net.Conn, targetAddress string, targetProtocol string, 
 	}
 }
 
-func (m *migrationProxy) StartListening() error {
+func (m *migrationProxy) Start() error {
 
 	if m.unixSocketPath != "" {
 		err := m.createUnixListener()

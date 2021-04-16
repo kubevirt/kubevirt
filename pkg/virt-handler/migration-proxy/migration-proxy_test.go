@@ -66,9 +66,9 @@ var _ = Describe("MigrationProxy", func() {
 				defer listener.Close()
 
 				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig)
-				defer sourceProxy.StopListening()
+				defer sourceProxy.Stop()
 
-				err = sourceProxy.StartListening()
+				err = sourceProxy.Start()
 				Expect(err).ShouldNot(HaveOccurred())
 
 				numBytes := make(chan int)
@@ -109,12 +109,12 @@ var _ = Describe("MigrationProxy", func() {
 
 				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, tlsConfig, libvirtdSock)
 				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig)
-				defer targetProxy.StopListening()
-				defer sourceProxy.StopListening()
+				defer targetProxy.Stop()
+				defer sourceProxy.Stop()
 
-				err = targetProxy.StartListening()
+				err = targetProxy.Start()
 				Expect(err).ShouldNot(HaveOccurred())
-				err = sourceProxy.StartListening()
+				err = sourceProxy.Start()
 				Expect(err).ShouldNot(HaveOccurred())
 
 				numBytes := make(chan int)

@@ -909,7 +909,8 @@ var _ = Describe("Manager", func() {
 				AnyTimes().
 				Return("<kubevirt></kubevirt>", nil)
 
-			liveMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
 		})
 		It("migration should be canceled if timeout has been reached", func() {
 			migrationErrorChan := make(chan error)
@@ -955,7 +956,8 @@ var _ = Describe("Manager", func() {
 				AnyTimes().
 				Return("<kubevirt></kubevirt>", nil)
 
-			liveMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
 		})
 		It("migration should switch to PostCopy", func() {
 			migrationErrorChan := make(chan error)
@@ -1026,7 +1028,8 @@ var _ = Describe("Manager", func() {
 				return mockDomain, nil
 			})
 
-			liveMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
 		})
 		It("migration should be canceled when requested", func() {
 			// Make sure that we always free the domain after use
@@ -1343,7 +1346,7 @@ var _ = Describe("Manager", func() {
 			migrationMode := migrationType == "postCopy"
 			isVmiPaused := migrationType == "paused"
 
-			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode, isVmiPaused)
+			flags := generateMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode, isVmiPaused)
 			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 			if isBlockMigration {
@@ -1628,7 +1631,7 @@ var _ = Describe("getDetachedDisks", func() {
 	)
 })
 
-var _ = Describe("domXMLWithoutKubevirtMetadata", func() {
+var _ = Describe("migratableDomXML", func() {
 	var ctrl *gomock.Controller
 	var mockDomain *cli.MockVirDomain
 	BeforeEach(func() {
@@ -1656,7 +1659,7 @@ var _ = Describe("domXMLWithoutKubevirtMetadata", func() {
   </metadata>
   <kubevirt>this should stay</kubevirt>
 </domain>`
-		// domXMLWithoutKubevirtMetadata() removes the kubevirt block but not its ident, which is its own token, hence the blank line below
+		// migratableDomXML() removes the kubevirt block but not its ident, which is its own token, hence the blank line below
 		expectedXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
   <metadata>
@@ -1672,7 +1675,7 @@ var _ = Describe("domXMLWithoutKubevirtMetadata", func() {
 		mockDomain.EXPECT().Free()
 		vmi := newVMI("testns", "kubevirt")
 		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(string(domXML), nil)
-		newXML, err := domXMLWithoutKubevirtMetadata(mockDomain, vmi)
+		newXML, err := migratableDomXML(mockDomain, vmi)
 		Expect(err).To(BeNil())
 		Expect(newXML).To(Equal(expectedXML))
 	})
