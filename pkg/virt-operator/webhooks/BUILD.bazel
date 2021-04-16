@@ -11,6 +11,7 @@ go_library(
     deps = [
         "//pkg/util/webhooks:go_default_library",
         "//pkg/util/webhooks/validating-webhooks:go_default_library",
+        "//pkg/virt-operator/resource/apply:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/k8s.io/api/admission/v1:go_default_library",

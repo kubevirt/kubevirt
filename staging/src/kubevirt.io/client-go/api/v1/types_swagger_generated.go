@@ -358,7 +358,20 @@ func (KubeVirtList) SwaggerDoc() map[string]string {
 
 func (KubeVirtSelfSignConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "+k8s:openapi-gen=true",
+		"":                   "+k8s:openapi-gen=true",
+		"caRotateInterval":   "Deprecated. Use CA.Duration instead",
+		"certRotateInterval": "Deprecated. Use Server.Duration instead",
+		"caOverlapInterval":  "Deprecated. Use CA.Duration and CA.RenewBefore instead",
+		"ca":                 "CA configuration\nCA certs are kept in the CA bundle as long as they are valid",
+		"server":             "Server configuration\nCerts are rotated and discarded",
+	}
+}
+
+func (CertConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "CertConfig contains the tunables for TLS certificates\n+k8s:openapi-gen=true",
+		"duration":    "The requested 'duration' (i.e. lifetime) of the Certificate.",
+		"renewBefore": "The amount of time before the currently issued certificate's \"notAfter\"\ntime that we will begin to attempt to renew the certificate.",
 	}
 }
 

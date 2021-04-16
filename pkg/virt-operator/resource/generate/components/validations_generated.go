@@ -266,12 +266,35 @@ var CRDsValidation map[string]string = map[string]string{
           properties:
             selfSigned:
               properties:
+                ca:
+                  description: CA configuration CA certs are kept in the CA bundle as long as they are valid
+                  properties:
+                    duration:
+                      description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                      type: string
+                    renewBefore:
+                      description: The amount of time before the currently issued certificate's "notAfter" time that we will begin to attempt to renew the certificate.
+                      type: string
+                  type: object
                 caOverlapInterval:
+                  description: Deprecated. Use CA.Duration and CA.RenewBefore instead
                   type: string
                 caRotateInterval:
+                  description: Deprecated. Use CA.Duration instead
                   type: string
                 certRotateInterval:
+                  description: Deprecated. Use Server.Duration instead
                   type: string
+                server:
+                  description: Server configuration Certs are rotated and discarded
+                  properties:
+                    duration:
+                      description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                      type: string
+                    renewBefore:
+                      description: The amount of time before the currently issued certificate's "notAfter" time that we will begin to attempt to renew the certificate.
+                      type: string
+                  type: object
               type: object
           type: object
         configuration:

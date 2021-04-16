@@ -747,9 +747,14 @@ func AdjustKubeVirtResource() {
 
 	// Rotate very often during the tests to ensure that things are working
 	kv.Spec.CertificateRotationStrategy = v1.KubeVirtCertificateRotateStrategy{SelfSigned: &v1.KubeVirtSelfSignConfiguration{
-		CARotateInterval:   &metav1.Duration{Duration: 20 * time.Minute},
-		CertRotateInterval: &metav1.Duration{Duration: 14 * time.Minute},
-		CAOverlapInterval:  &metav1.Duration{Duration: 8 * time.Minute},
+		CA: &v1.CertConfig{
+			Duration:    &metav1.Duration{Duration: 20 * time.Minute},
+			RenewBefore: &metav1.Duration{Duration: 12 * time.Minute},
+		},
+		Server: &v1.CertConfig{
+			Duration:    &metav1.Duration{Duration: 14 * time.Minute},
+			RenewBefore: &metav1.Duration{Duration: 10 * time.Minute},
+		},
 	}}
 
 	// match default kubevirt-config testing resource
