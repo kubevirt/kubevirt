@@ -45,8 +45,21 @@ func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineIns
 	return nil
 }
 
+func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Annotations == nil {
+		return false
+	}
+
+	_, shouldBlock := vmi.Annotations[v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation]
+	return shouldBlock
+}
+
 func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
 	logger := log.Log.Object(vmi)
+
+	if shouldBlockMigrationTargetPreparation(vmi) {
+		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
+	}
 
 	c, err := l.generateConverterContext(vmi, useEmulation, nil, true)
 	if err != nil {

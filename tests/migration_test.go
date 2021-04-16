@@ -1564,6 +1564,69 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
+
+			It("Migration should fail if target pod fails during target preparation", func() {
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+
+				// this annotation causes virt launcher to immediately fail a migration
+				vmi.Annotations = map[string]string{v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation: ""}
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// execute a migration
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for Migration to reach Preparing Target Phase")
+				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					phase := migration.Status.Phase
+					Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
+					return phase
+				}, 120, 1*time.Second).Should(Equal(v1.MigrationPreparingTarget))
+
+				By("Killing the target pod and expecting failure")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.MigrationState).ToNot(BeNil())
+				Expect(vmi.Status.MigrationState.TargetPod).ToNot(Equal(""))
+
+				err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), vmi.Status.MigrationState.TargetPod, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Expecting VMI migration failure")
+				Eventually(func() error {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vmi.Status.MigrationState).ToNot(BeNil())
+
+					if !vmi.Status.MigrationState.Failed {
+						return fmt.Errorf("Waiting on vmi's migration state to be marked as failed")
+					}
+
+					// once set to failed, we expect start and end times and completion to be set as well.
+					Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
+					Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+					Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+
+					return nil
+				}, 120*time.Second, time.Second).Should(Succeed(), "vmi's migration state should be finalized as failed after target pod exits")
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
 		})
 		Context("with an Cirros non-shared ISCSI PVC (using ISCSI IPv4 address)", func() {
 			var pvName string
