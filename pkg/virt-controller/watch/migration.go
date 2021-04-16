@@ -213,7 +213,7 @@ func (c *MigrationController) execute(key string) error {
 
 	var syncErr error
 
-	if needsSync && !migration.IsFinal() {
+	if needsSync {
 		syncErr = c.sync(key, migration, vmi, targetPods)
 	}
 
@@ -443,38 +443,10 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		pod = pods[0]
 	}
 
-	if vmi != nil && migration.DeletionTimestamp != nil &&
-		migration.Status.Phase == virtv1.MigrationRunning {
-		vmiCopy := vmi.DeepCopy()
-		if vmiCopy.Status.MigrationState != nil {
-			vmiCopy.Status.MigrationState.AbortRequested = true
-			if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
-				newStatus, err := json.Marshal(vmiCopy.Status)
-				if err != nil {
-					return err
-				}
-				oldStatus, err := json.Marshal(vmi.Status)
-				if err != nil {
-					return err
-				}
-				test := fmt.Sprintf(`{ "op": "test", "path": "/status", "value": %s }`, string(oldStatus))
-				patch := fmt.Sprintf(`{ "op": "replace", "path": "/status", "value": %s }`, string(newStatus))
-				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
-				if err != nil {
-					msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
-					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, msg)
-					return fmt.Errorf(msg)
-				}
-				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
-			}
-		}
-		return nil
-	}
-
 	vmiDeleted := vmi == nil || vmi.DeletionTimestamp != nil
-	migrationDone := vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID && vmi.Status.MigrationState.EndTimestamp != nil
+	migrationFinalizedOnVMI := vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID && vmi.Status.MigrationState.EndTimestamp != nil
 
-	if vmiDeleted || migrationDone {
+	if vmiDeleted || migrationFinalizedOnVMI {
 		return nil
 	}
 
@@ -565,6 +537,68 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 					return err
 				}
 				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
+			}
+		}
+	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady, virtv1.MigrationFailed:
+		if (!podExists || podIsDown(pod)) &&
+			len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 &&
+			vmi.Status.MigrationState.StartTimestamp == nil &&
+			!vmi.Status.MigrationState.Failed &&
+			!vmi.Status.MigrationState.Completed {
+
+			// Mark Migration Done on VMI if virt handler never started it.
+			// Once virt-handler starts the migration, it's up to handler
+			// to finalize it.
+
+			vmiCopy := vmi.DeepCopy()
+
+			now := v1.NewTime(time.Now())
+			vmiCopy.Status.MigrationState.StartTimestamp = &now
+			vmiCopy.Status.MigrationState.EndTimestamp = &now
+			vmiCopy.Status.MigrationState.Failed = true
+			vmiCopy.Status.MigrationState.Completed = true
+
+			newStatus, err := json.Marshal(vmiCopy.Status)
+			if err != nil {
+				return err
+			}
+			oldStatus, err := json.Marshal(vmi.Status)
+			if err != nil {
+				return err
+			}
+			test := fmt.Sprintf(`{ "op": "test", "path": "/status", "value": %s }`, string(oldStatus))
+			patch := fmt.Sprintf(`{ "op": "replace", "path": "/status", "value": %s }`, string(newStatus))
+			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
+			if err != nil {
+				return err
+			}
+			log.Log.Object(vmi).Infof("Marked Migration failed on vmi due to target pod disappearing before migration kicked off.")
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: target pod is down", string(migration.UID)))
+
+		}
+	case virtv1.MigrationRunning:
+		// abort the migration if the migration is being deleted.
+		vmiCopy := vmi.DeepCopy()
+		if migration.DeletionTimestamp != nil && vmiCopy.Status.MigrationState != nil {
+			vmiCopy.Status.MigrationState.AbortRequested = true
+			if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
+				newStatus, err := json.Marshal(vmiCopy.Status)
+				if err != nil {
+					return err
+				}
+				oldStatus, err := json.Marshal(vmi.Status)
+				if err != nil {
+					return err
+				}
+				test := fmt.Sprintf(`{ "op": "test", "path": "/status", "value": %s }`, string(oldStatus))
+				patch := fmt.Sprintf(`{ "op": "replace", "path": "/status", "value": %s }`, string(newStatus))
+				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
+				if err != nil {
+					msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
+					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, msg)
+					return fmt.Errorf(msg)
+				}
+				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
 			}
 		}
 	}
