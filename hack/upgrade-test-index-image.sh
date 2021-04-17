@@ -99,7 +99,10 @@ PREVIOUS_OVS_STATE=$(${CMD} get networkaddonsconfigs cluster -o jsonpath='{.spec
 
 # Before starting the upgrade, make sure the CSV is installed properly.
 Msg "Read the CSV to make sure the deployment is done"
-./hack/retry.sh 30 10 "${CMD} get ClusterServiceVersion  -n ${HCO_NAMESPACE} kubevirt-hyperconverged-operator.v${INITIAL_CHANNEL} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
+# Make sure the CSV is in Succeeded phase
+./hack/retry.sh 30 10 "${CMD} get ${CSV} -n ${HCO_NAMESPACE} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
+# Make sure the CSV is in the correct version
+./hack/retry.sh 30 10 "${CMD} get ${CSV} -n ${HCO_NAMESPACE} -o jsonpath='{ .spec.version }' | grep ${INITIAL_CHANNEL}"
 
 # When upgrading from 1.3.0, we expect to have the KV configMap, that will be dropped during upgrade
 if ${CMD} get cm kubevirt-config -n ${HCO_NAMESPACE}; then
@@ -153,8 +156,11 @@ timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
 # Make sure the CSV is installed properly.
 Msg "Read the CSV to make sure the deployment is done"
-./hack/retry.sh 90 10 "${CMD} get ClusterServiceVersion  -n ${HCO_NAMESPACE} kubevirt-hyperconverged-operator.v${TARGET_VERSION} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
-
+CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE})
+# Make sure the CSV is in Succeeded phase
+./hack/retry.sh 90 10 "${CMD} get ${CSV} -n ${HCO_NAMESPACE} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
+# Make sure the CSV is in the correct version
+./hack/retry.sh 30 10 "${CMD} get ${CSV} -n ${HCO_NAMESPACE} -o jsonpath='{ .spec.version }' | grep ${TARGET_VERSION}"
 
 echo "----- Pod after upgrade"
 Msg "Verify that the hyperconverged-cluster Pod is using the new image"
