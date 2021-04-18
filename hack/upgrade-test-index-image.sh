@@ -117,7 +117,7 @@ fi
 
 Msg "Patch the subscription to move to the new channel"
 HCO_SUBSCRIPTION_NAME=$(${CMD} get subscription -n ${HCO_NAMESPACE} -o name)
-${CMD} patch subscription ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"channel\": \"${TARGET_CHANNEL}\"}}"  --type merge
+${CMD} patch ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"channel\": \"${TARGET_CHANNEL}\"}}"  --type merge
 
 # Patch the OperatorGroup to match the required InstallMode of the new version
 sleep 60
