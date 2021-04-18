@@ -381,7 +381,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			doRestore := func(device string) {
+			doRestore := func(device string, onlineSnapshot bool) {
 				By("creating 'message with initial value")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
@@ -424,14 +424,18 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 
-				By("Stopping VM")
-				vm = tests.StopVirtualMachine(vm)
+				if !onlineSnapshot {
+					By("Stopping VM")
+					vm = tests.StopVirtualMachine(vm)
+				}
 
 				By("creating snapshot")
 				snapshot = createSnapshot(vm)
 
-				By("Starting VM")
-				vm = tests.StartVirtualMachine(vm)
+				if !onlineSnapshot {
+					By("Starting VM")
+					vm = tests.StartVirtualMachine(vm)
+				}
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -563,7 +567,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("")
+				doRestore("", false)
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
@@ -595,7 +599,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("")
+				doRestore("", false)
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
@@ -652,7 +656,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("")
+				doRestore("", false)
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
@@ -720,13 +724,26 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("/dev/vdc")
+				doRestore("/dev/vdc", false)
 
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
 				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
+
+			It("[test_id:5264]should restore a vm from an online snapshot", func() {
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithBlockDataVolumeAndUserDataInStorageClass(
+					tests.GetUrl(tests.CirrosHttpUrl),
+					tests.NamespaceTestDefault,
+					"#!/bin/bash\necho 'hello'\n",
+					snapshotStorageClass,
+				))
+
+				doRestore("", true)
+
+			})
+
 		})
 	})
 })
