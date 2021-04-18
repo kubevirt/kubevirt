@@ -53,7 +53,7 @@ const (
 	verifyCannotAccessDisk = "ls: cannot access '%s'"
 )
 
-var _ = SIGDescribe("Hotplug", func() {
+var _ = SIGDescribe("[SKIP]Hotplug", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

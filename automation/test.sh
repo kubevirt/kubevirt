@@ -326,6 +326,8 @@ if [ -z "$KUBEVIRT_QUARANTINE" ]; then
     fi
 fi
 
+export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|SKIP"
+
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
   ginko_params="$ginko_params|Networkpolicy"
