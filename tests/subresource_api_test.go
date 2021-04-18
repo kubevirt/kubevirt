@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("[owner:@sig-compute]Subresource Api", func() {
+var _ = Describe("[SKIP][owner:@sig-compute]Subresource Api", func() {
 
 	var err error
 	var virtCli kubecli.KubevirtClient

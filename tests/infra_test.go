@@ -68,7 +68,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
+var _ = Describe("[SKIP][Serial][owner:@sig-compute]Infrastructure", func() {
 	var (
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset
