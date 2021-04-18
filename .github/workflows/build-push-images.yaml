@@ -60,4 +60,4 @@ jobs:
       - name: Build and Push the Index Image
         run: |
           export OPM=$(pwd)/linux-amd64-opm
-          ./hack/build-index-image.sh ${{ env.IMAGE_TAG }} ${{ UNSTABLE }}
+          ./hack/build-index-image.sh ${{ env.IMAGE_TAG }} ${{ env.UNSTABLE }}

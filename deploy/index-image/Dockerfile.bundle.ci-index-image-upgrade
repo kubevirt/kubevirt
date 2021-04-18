@@ -7,8 +7,8 @@ COPY ${PACKAGE_NAME}/${INITIAL_VERSION}/manifests/ /manifests/
 COPY ${PACKAGE_NAME}/${INITIAL_VERSION}/metadata /metadata/
 RUN mv /manifests/kubevirt-hyperconverged-operator.v${INITIAL_VERSION}.clusterserviceversion.yaml \
     /manifests/kubevirt-hyperconverged-operator.v${TARGET_VERSION}.clusterserviceversion.yaml && \
-    sed -i 's/${INITIAL_VERSION}/${TARGET_VERSION}/g' /manifests/kubevirt-hyperconverged-operator.v${TARGET_VERSION}.clusterserviceversion.yaml && \
-    sed -i 's/${INITIAL_VERSION}/${TARGET_VERSION}/g' /metadata/annotations.yaml
+    sed -i "s/${INITIAL_VERSION}/${TARGET_VERSION}/g" /manifests/kubevirt-hyperconverged-operator.v${TARGET_VERSION}.clusterserviceversion.yaml && \
+    sed -i "s/${INITIAL_VERSION}/${TARGET_VERSION}/g" /metadata/annotations.yaml
 
 FROM scratch
 
