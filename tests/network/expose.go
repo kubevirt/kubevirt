@@ -299,6 +299,65 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			)
 		})
 
+		Context("Expose ClusterIP service with IPFamilyPolicy", func() {
+			const serviceNamePrefix = "cluster-ip-with-ip-family-policy"
+
+			var serviceName string
+			var vmiExposeArgs []string
+
+			BeforeEach(func() {
+				serviceName = randomizeName(serviceNamePrefix)
+
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
+					"--name", serviceName,
+				}
+			})
+
+			table.DescribeTable("Should expose a ClusterIP service with the correct IPFamilyPolicy", func(ipFamiyPolicy k8sv1.IPFamilyPolicyType) {
+				tests.SkipIfVersionBelow("IPFamilyPolicy property on a service requires v1.20 and above", "1.20")
+
+				if ipFamiyPolicy == k8sv1.IPFamilyPolicyRequireDualStack {
+					libnet.SkipWhenNotDualStackCluster(virtClient)
+				}
+
+				calcNumOfClusterIPs := func() int {
+					switch ipFamiyPolicy {
+					case k8sv1.IPFamilyPolicySingleStack:
+						return 1
+					case k8sv1.IPFamilyPolicyPreferDualStack:
+						isClusterDualStack, err := libnet.IsClusterDualStack(virtClient)
+						ExpectWithOffset(1, err).NotTo(HaveOccurred(), "should have been able to infer if the cluster is dual stack")
+						if isClusterDualStack {
+							return 2
+						}
+						return 1
+					case k8sv1.IPFamilyPolicyRequireDualStack:
+						return 2
+					}
+					return 0
+				}
+
+				vmiExposeArgs = append(vmiExposeArgs, "--ip-family-policy", string(ipFamiyPolicy))
+
+				By("Exposing the service via virtctl command")
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
+				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
+
+				By("Getting back the service")
+				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Validating the num of cluster ips")
+				Expect(len(svc.Spec.ClusterIPs)).To(Equal(calcNumOfClusterIPs()))
+			},
+				table.Entry("over SingleStack IPv4 IP family policy", k8sv1.IPFamilyPolicySingleStack),
+				table.Entry("over PreferDualStack IP family policy", k8sv1.IPFamilyPolicyPreferDualStack),
+				table.Entry("over RequireDualStack IP family policy", k8sv1.IPFamilyPolicyRequireDualStack),
+			)
+		})
+
 		Context("Expose NodePort service", func() {
 			const servicePort = "27017"
 			const serviceNamePrefix = "node-port-vmi"
