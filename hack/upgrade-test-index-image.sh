@@ -121,6 +121,7 @@ ${CMD} patch ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"chan
 
 # Patch the OperatorGroup to match the required InstallMode of the new version
 sleep 60
+source hack/patch_og.sh
 patch_og ${TARGET_CHANNEL}
 sleep 30
 CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep ${INITIAL_CHANNEL})
