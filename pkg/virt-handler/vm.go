@@ -26,6 +26,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -64,6 +65,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -372,6 +374,14 @@ func (d *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan
 		return err
 	}
 
+	if util.IsNonRootVMI(vmi) {
+		err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
+		if err != nil {
+			log.Log.Reason(err).Error("unable to change ownership for domain notify")
+			return err
+		}
+	}
+
 	handleDomainNotifyPipe(domainPipeStopChan, listener, d.virtShareDir, vmi)
 
 	return nil
@@ -495,16 +505,24 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		return false, nil
 	}
 
+	if virtutil.IsNonRootVMI(vmi) && virtutil.NeedVirtioNetDevice(vmi, d.clusterConfig.IsUseEmulation()) {
+		vhostNet := path.Join(res.MountRoot(), "dev", "vhost-net")
+		err := diskutils.DefaultOwnershipManager.SetFileOwnership(vhostNet)
+		if err != nil {
+			return true, fmt.Errorf("Failed to set up vhost-net device, %s", err)
+		}
+	}
+
 	err = res.DoNetNS(func() error {
 		return network.NewVMNetworkConfigurator(vmi, d.networkCacheStoreFactory).SetupPodNetworkPhase1(pid)
 	})
+
 	if err != nil {
 		_, critical := err.(*neterrors.CriticalNetworkError)
 		if critical {
 			return true, err
-		} else {
-			return false, err
 		}
+		return false, err
 
 	}
 
@@ -1670,6 +1688,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	}
 
 	if syncErr != nil && !vmi.IsFinal() {
+
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
 		log.Log.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}

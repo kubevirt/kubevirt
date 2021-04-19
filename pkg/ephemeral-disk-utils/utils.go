@@ -29,6 +29,10 @@ import (
 // TODO this should be part of structs, instead of a global
 var DefaultOwnershipManager OwnershipManagerInterface = &OwnershipManager{user: "qemu"}
 
+func SetNonRootDefault() {
+	DefaultOwnershipManager = &nonOpManager{}
+}
+
 // For testing
 func MockDefaultOwnershipManager() {
 	owner, err := user.Current()
@@ -37,6 +41,13 @@ func MockDefaultOwnershipManager() {
 	}
 
 	DefaultOwnershipManager = &OwnershipManager{user: owner.Username}
+}
+
+type nonOpManager struct {
+}
+
+func (no *nonOpManager) SetFileOwnership(file string) error {
+	return nil
 }
 
 type OwnershipManager struct {

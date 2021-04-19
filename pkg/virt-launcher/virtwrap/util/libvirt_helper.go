@@ -79,6 +79,21 @@ var PausedReasonTranslationMap = map[libvirt.DomainPausedReason]api.StateChangeR
 	libvirt.DOMAIN_PAUSED_POSTCOPY_FAILED: api.ReasonPausedPostcopyFailed,
 }
 
+type LibvirtWraper struct {
+	user uint32
+}
+
+func NewLibvirtWrapper(nonRoot bool) *LibvirtWraper {
+	if nonRoot {
+		return &LibvirtWraper{
+			user: util.NonRootUID,
+		}
+	}
+	return &LibvirtWraper{
+		user: util.RootUser,
+	}
+}
+
 func ConvState(status libvirt.DomainState) api.LifeCycle {
 	return LifeCycleTranslationMap[status]
 }
@@ -199,7 +214,7 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
-func StartLibvirt(stopChan chan struct{}) {
+func (l LibvirtWraper) StartLibvirt(stopChan chan struct{}) {
 	// we spawn libvirt from virt-launcher in order to ensure the libvirtd+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
 	// to perform special shutdown logic. These processes need to live in the same
@@ -334,7 +349,7 @@ func startQEMUSeaBiosLogging(stopChan chan struct{}) {
 		return
 	}
 
-	QEMUPipe, err := os.OpenFile(QEMUSeaBiosDebugPipe, os.O_RDONLY, 0600)
+	QEMUPipe, err := os.OpenFile(QEMUSeaBiosDebugPipe, os.O_RDONLY, 0604)
 
 	if err != nil {
 		log.Log.Reason(err).Error(fmt.Sprintf("%s failed to open %s", logLinePrefix, QEMUSeaBiosDebugPipe))
@@ -412,34 +427,36 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 	return domain
 }
 
-func SetupLibvirt() (err error) {
-	// TODO: setting permissions and owners is not part of device plugins.
-	// Configure these manually right now on "/dev/kvm"
-	stats, err := os.Stat("/dev/kvm")
-	if err == nil {
-		s, ok := stats.Sys().(*syscall.Stat_t)
-		if !ok {
-			return fmt.Errorf("can't convert file stats to unix/linux stats")
-		}
-		g, err := user.LookupGroup("qemu")
-		if err != nil {
+func (l LibvirtWraper) SetupLibvirt() (err error) {
+	if l.root() {
+		// TODO: setting permissions and owners is not part of device plugins.
+		// Configure these manually right now on "/dev/kvm"
+		stats, err := os.Stat("/dev/kvm")
+		if err == nil {
+			s, ok := stats.Sys().(*syscall.Stat_t)
+			if !ok {
+				return fmt.Errorf("can't convert file stats to unix/linux stats")
+			}
+			g, err := user.LookupGroup("qemu")
+			if err != nil {
+				return err
+			}
+			gid, err := strconv.Atoi(g.Gid)
+			if err != nil {
+				return err
+			}
+			err = os.Chown("/dev/kvm", int(s.Uid), gid)
+			if err != nil {
+				return err
+			}
+			// #nosec G302: Poor file permissions used with chmod. Safe to use the common permission setting for the specific system file
+			err = os.Chmod("/dev/kvm", 0660)
+			if err != nil {
+				return err
+			}
+		} else if !os.IsNotExist(err) {
 			return err
 		}
-		gid, err := strconv.Atoi(g.Gid)
-		if err != nil {
-			return err
-		}
-		err = os.Chown("/dev/kvm", int(s.Uid), gid)
-		if err != nil {
-			return err
-		}
-		// #nosec G302: Poor file permissions used with chmod. Safe to use the common permission setting for the specific system file
-		err = os.Chmod("/dev/kvm", 0660)
-		if err != nil {
-			return err
-		}
-	} else if !os.IsNotExist(err) {
-		return err
 	}
 
 	qemuConf, err := os.OpenFile("/etc/libvirt/qemu.conf", os.O_APPEND|os.O_WRONLY, 0600)
@@ -501,4 +518,8 @@ func getDomainModificationImpactFlag(dom cli.VirDomain) (libvirt.DomainModificat
 	}
 	log.Log.V(3).Info("domain is persistent")
 	return libvirt.DOMAIN_AFFECT_CONFIG, nil
+}
+
+func (l LibvirtWraper) root() bool {
+	return l.user == 0
 }
