@@ -772,13 +772,16 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	critSection := func() error {
 		l.domainModifyLock.Lock()
 		defer l.domainModifyLock.Unlock()
+
+		if err := prepareDomainForMigration(l.virConn, dom); err != nil {
+			return fmt.Errorf("error encountered during preparing domain for migration: %v", err)
+		}
+
 		params, err = generateMigrationParams(dom, vmi, options)
 		if err != nil {
 			return fmt.Errorf("error encountered while generating migration parameters: %v", err)
 		}
-		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
-			return fmt.Errorf("error encountered during device unhotplug: %v", err)
-		}
+
 		return nil
 	}
 
@@ -804,6 +807,12 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	}
 
 	return nil
+}
+
+// prepareDomainForMigration perform necessary operation
+// on the source domain just before migration
+func prepareDomainForMigration(virtConn cli.Connection, domain cli.VirDomain) error {
+	return hotUnplugHostDevices(virtConn, domain)
 }
 
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
