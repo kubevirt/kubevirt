@@ -2065,7 +2065,14 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	}
 
 	if d.isPreMigrationTarget(vmi) {
-		if !migrations.IsMigrating(vmi) {
+		if migrations.MigrationFailed(vmi) {
+			// if the migration failed, signal the target pod it's okay to exit
+			err = client.SignalTargetPodCleanup(vmi)
+			if err != nil {
+				return err
+			}
+			log.Log.Object(vmi).Infof("Signaled target pod for failed migration to clean up")
+		} else if !migrations.IsMigrating(vmi) {
 
 			// give containerDisks some time to become ready before throwing errors on retries
 			info := d.getLauncherClinetInfo(vmi)
