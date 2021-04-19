@@ -2373,9 +2373,9 @@ func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
 	return fmt.Sprintf(`#!/bin/bash
             echo "fedora" |passwd fedora --stdin
             sudo setenforce Permissive
-	    sudo cp /home/fedora/qemu-guest-agent.service /lib/systemd/system/
-	    echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
-	    sudo systemctl daemon-reload
+            sudo cp /home/fedora/qemu-guest-agent.service /lib/systemd/system/
+            echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
+            sudo systemctl daemon-reload
             sudo systemctl start qemu-guest-agent
             sudo systemctl enable qemu-guest-agent
 `, commands)
