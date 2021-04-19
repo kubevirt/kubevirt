@@ -21,6 +21,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
+var (
+	waitingForCertRotation bool
+)
+
 func (r *Reconciler) syncKubevirtNamespaceLabels() error {
 
 	targetNamespace := r.kv.ObjectMeta.Namespace
@@ -286,11 +290,20 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 	if err != nil {
 		return err
 	}
-
 	// create/update APIServices
 	err = r.createOrUpdateAPIServices(caBundle)
 	if err != nil {
 		return err
+	}
+
+	if !r.rolloutCertificateSecrets(caCert) {
+		//don't enqueue other event, when there was already one added
+		if !waitingForCertRotation {
+			queue.AddAfter(r.kvKey, 30*time.Second)
+			waitingForCertRotation = true
+		}
+
+		return nil
 	}
 
 	// create/update Certificate secrets
@@ -298,7 +311,43 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 	if err != nil {
 		return err
 	}
+
+	waitingForCertRotation = false
+
 	return nil
+}
+
+func (r *Reconciler) rolloutCertificateSecrets(ca *tls.Certificate) bool {
+	for _, secret := range r.targetStrategy.CertificateSecrets() {
+		//handle CA secret later
+		if secret.Name == components.KubeVirtCASecretName {
+			continue
+		}
+
+		var cachedSecret *corev1.Secret
+		var err error
+		secret = secret.DeepCopy()
+
+		obj, exists, _ := r.stores.SecretCache.Get(secret)
+		if !exists {
+			//certificate doesn't exist, rollout new certificate
+			return true
+		}
+		cachedSecret = obj.(*corev1.Secret)
+
+		crt, err := components.LoadCertificates(cachedSecret)
+
+		if time.Now().After(crt.Leaf.NotAfter) || err != nil {
+			return true
+		}
+	}
+
+	//if CA secret is older than 30 seconds rollout other certificates
+	if time.Now().Before(ca.Leaf.NotBefore.Add(time.Second * 30)) {
+		return false
+	}
+
+	return true
 }
 
 // This function determines how to process updating a service endpoint.

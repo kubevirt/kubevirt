@@ -2184,7 +2184,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			// 4 because 2 for virt-controller service and deployment,
 			// 1 because of the pdb of virt-controller
 			// and another 1 because of the namespace was not patched yet.
-			Expect(totalPatches).To(Equal(patchCount - 4))
+			// and another 5 because kubevirt-virt-api-certs, kubevirt-controller-certs, kubevirt-virt-handler-server-certs
+			// kubevirt-virt-handler-certs, kubevirt-operator-certs are not updated (this is because CA certificate is not "old" enough.
+			// After rollout of CA, kubevirt operator waits for 30 second to wait until kubernetes api pick up the newest CA)
+			Expect(totalPatches).To(Equal(patchCount - 9))
 			// 2 for virt-controller and pdb
 			Expect(totalUpdates).To(Equal(updateCount))
 
@@ -2234,7 +2237,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
-
 			kv = getLatestKubeVirt(kv)
 			// conditions should reflect an ongoing update
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
@@ -2247,7 +2249,11 @@ var _ = Describe("KubeVirt Operator", func() {
 			//   daemonsets and before controller and namespace
 
 			// 5 because virt-controller, virt-api, PDBs and the namespace are not patched
-			Expect(totalPatches).To(Equal(patchCount - 5))
+			// and another 5 because kubevirt-virt-api-certs, kubevirt-controller-certs, kubevirt-virt-handler-server-certs
+			// kubevirt-virt-handler-certs, kubevirt-operator-certs are not updated (this is because CA certificate is not "old" enough.
+			// After rollout of CA, kubevirt operator waits for 30 second to wait until kubernetes api pick up the newest CA)
+
+			Expect(totalPatches).To(Equal(patchCount - 10))
 
 			// Make sure the 5 unpatched are as expected
 			Expect(resourceChanges["deployments"][Patched]).To(Equal(0))          // virt-controller and virt-api unpatched
@@ -2311,7 +2317,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			// That will allow both daemonset and controller pods to get patched before the pause.
 
 			// 3 because virt-api, PDB and the namespace should not be patched
-			Expect(totalPatches).To(Equal(patchCount - 3))
+			// and another 5 because kubevirt-virt-api-certs, kubevirt-controller-certs, kubevirt-virt-handler-server-certs
+			// kubevirt-virt-handler-certs, kubevirt-operator-certs are not updated (this is because CA certificate is not "old" enough.
+			// After rollout of CA, kubevirt operator waits for 30 second to wait until kubernetes api pick up the newest CA)
+			Expect(totalPatches).To(Equal(patchCount - 8))
 
 			// Make sure the 3 unpatched are as expected
 			Expect(resourceChanges["deployments"][Patched]).To(Equal(1))          // virt-operator patched, virt-api unpatched
@@ -2367,13 +2376,15 @@ var _ = Describe("KubeVirt Operator", func() {
 			kv = getLatestKubeVirt(kv)
 			// conditions should reflect a successful update
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
-
-			Expect(totalPatches).To(Equal(patchCount))
+			// 5 minus because kubevirt-virt-api-certs, kubevirt-controller-certs, kubevirt-virt-handler-server-certs
+			// kubevirt-virt-handler-certs, kubevirt-operator-certs are not updated (this is because CA certificate is not "old" enough.
+			// After rollout of CA, kubevirt operator waits for 30 second to wait until kubernetes api pick up the newest CA)
+			Expect(totalPatches).To(Equal(patchCount - 5))
 			Expect(totalUpdates).To(Equal(updateCount))
 
 			// ensure every resource is either patched or updated
 			// + 1 is for the namespace patch which we don't consider as a resource we own.
-			Expect(totalUpdates + totalPatches).To(Equal(resourceCount + 1))
+			Expect(totalUpdates + totalPatches).To(Equal(resourceCount + 1 - 5))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(2))
 
@@ -2429,13 +2440,15 @@ var _ = Describe("KubeVirt Operator", func() {
 			kv = getLatestKubeVirt(kv)
 			// conditions should reflect a successful update
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
-
-			Expect(totalPatches).To(Equal(patchCount))
+			// 5 minus because kubevirt-virt-api-certs, kubevirt-controller-certs, kubevirt-virt-handler-server-certs
+			// kubevirt-virt-handler-certs, kubevirt-operator-certs are not updated (this is because CA certificate is not "old" enough.
+			// After rollout of CA, kubevirt operator waits for 30 second to wait until kubernetes api pick up the newest CA)
+			Expect(totalPatches).To(Equal(patchCount - 5))
 			Expect(totalUpdates).To(Equal(updateCount))
 
 			// ensure every resource is either patched or updated
 			// + 1 is for the namespace patch which we don't consider as a resource we own.
-			Expect(totalUpdates + totalPatches).To(Equal(resourceCount + 1))
+			Expect(totalUpdates + totalPatches).To(Equal(resourceCount + 1 - 5))
 
 		}, 15)
 
