@@ -14,6 +14,7 @@ go_library(
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-handler/virt-chroot:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/containernetworking/plugins/pkg/ns:go_default_library",

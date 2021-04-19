@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/reporter",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virt-handler/virt-chroot:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
