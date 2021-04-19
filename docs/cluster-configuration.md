@@ -241,7 +241,7 @@ The `mediatedDevices` array is an array of `MediatedDevice` objects. The fields 
   
   **default**: `false`
 
-### Permitted Host Devises Example
+### Permitted Host Devices Example
 ```yaml
 apiVersion: hco.kubevirt.io/v1beta1
 kind: HyperConverged
