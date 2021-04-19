@@ -38,7 +38,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][owner:@sig-compute]Console", func() {
+var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Console", func() {
 
 	var virtClient kubecli.KubevirtClient
 
@@ -96,7 +96,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			})
 
 			Context("with a fedora image", func() {
-				It("[owner:@sig-compute][test_id:1589]should return that we are running fedora", func() {
+				It("[sig-compute][test_id:1589]should return that we are running fedora", func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora))
 					RunVMIAndWaitForStart(vmi)
 					ExpectConsoleOutput(

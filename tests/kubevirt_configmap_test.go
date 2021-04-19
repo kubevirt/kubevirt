@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("[Serial][owner:@sig-compute]KubeVirtConfigmapConfiguration", func() {
+var _ = Describe("[Serial][sig-compute]KubeVirtConfigmapConfiguration", func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 

@@ -53,7 +53,7 @@ const (
 	testUserData     = "#cloud-config"
 )
 
-var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][owner:@sig-compute]CloudInit UserData", func() {
+var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]CloudInit UserData", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

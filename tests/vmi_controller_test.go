@@ -14,7 +14,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[owner:@sig-compute]Controller devices", func() {
+var _ = Describe("[sig-compute]Controller devices", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

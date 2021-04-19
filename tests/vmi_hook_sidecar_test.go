@@ -46,7 +46,7 @@ const (
 	sidecarContainerName = "hook-sidecar-0"
 )
 
-var _ = Describe("[owner:@sig-compute]HookSidecars", func() {
+var _ = Describe("[sig-compute]HookSidecars", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

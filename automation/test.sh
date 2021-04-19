@@ -50,6 +50,8 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
+elif [[ $TARGET =~ sig-compute ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -301,6 +303,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]"
+  elif [[ $TARGET =~ sig-compute ]]; then
+    export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
+    export KUBEVIRT_E2E_SKIP="GPU"
   elif [[ $TARGET =~ sriov.* ]]; then
     export KUBEVIRT_E2E_FOCUS=SRIOV
   elif [[ $TARGET =~ gpu.* ]]; then

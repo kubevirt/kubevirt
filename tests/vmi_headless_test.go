@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[rfe_id:609][owner:@sig-compute]VMIheadless", func() {
+var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
