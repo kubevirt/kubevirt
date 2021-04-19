@@ -30,6 +30,7 @@ go_library(
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
         "//pkg/virt-handler/node-labeller/api:go_default_library",
+        "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/network:go_default_library",
         "//pkg/watchdog:go_default_library",
