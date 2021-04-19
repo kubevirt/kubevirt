@@ -772,13 +772,16 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	critSection := func() error {
 		l.domainModifyLock.Lock()
 		defer l.domainModifyLock.Unlock()
+
+		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
+			return fmt.Errorf("error encountered during device hot-unplug: %v", err)
+		}
+
 		params, err = generateMigrationParams(dom, vmi, options)
 		if err != nil {
 			return fmt.Errorf("error encountered while generating migration parameters: %v", err)
 		}
-		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
-			return fmt.Errorf("error encountered during device unhotplug: %v", err)
-		}
+
 		return nil
 	}
 
