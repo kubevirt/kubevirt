@@ -2436,6 +2436,10 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	}
 
+	if virtutil.IsNonRootVMI(vmi) {
+		d.prepareStorage(vmi, origVMI)
+	}
+
 	if err := client.SyncMigrationTarget(vmi); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
 
@@ -2509,6 +2513,9 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 				return fmt.Errorf("failed to configure vmi network: %v", err)
 			}
 
+		}
+		if virtutil.IsNonRootVMI(vmi) {
+			d.prepareStorage(vmi, origVMI)
 		}
 
 		// set runtime limits as needed

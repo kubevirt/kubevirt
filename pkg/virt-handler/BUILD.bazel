@@ -3,7 +3,10 @@ load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["vm.go"],
+    srcs = [
+        "non-root.go",
+        "vm.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler",
     visibility = ["//visibility:public"],
     deps = [

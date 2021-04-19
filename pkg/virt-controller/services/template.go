@@ -1677,7 +1677,6 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 	capabilities := []k8sv1.Capability{}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	capabilities = append(capabilities, CAP_SYS_NICE)
-
 	// add CAP_SYS_ADMIN capability to allow virtiofs
 	if util.IsVMIVirtiofsEnabled(vmi) {
 		capabilities = append(capabilities, CAP_SYS_ADMIN)
