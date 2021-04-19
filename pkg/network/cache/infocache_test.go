@@ -9,6 +9,7 @@ import (
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -23,6 +24,7 @@ var _ = Describe("Infocache", func() {
 		Expect(err).ToNot(HaveOccurred())
 		cacheFactory = NewInterfaceCacheFactory()
 		cacheFactory.baseDir = tmpDir
+		dutils.MockDefaultOwnershipManager()
 	})
 
 	AfterEach(func() {

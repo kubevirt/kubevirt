@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
@@ -165,7 +166,6 @@ func initializeDirs(ephemeralDiskDir string,
 	defer syscall.Umask(mask)
 
 	err := virtlauncher.InitializePrivateDirectories(filepath.Join("/var/run/kubevirt-private", uid))
-
 	if err != nil {
 		panic(err)
 	}
@@ -372,6 +372,10 @@ func main() {
 			log.Log.Warningf("failed to set log verbosity. The value of logVerbosity label should be an integer, got %s instead.", verbosityStr)
 		}
 	}
+	// non-root user is not able to use chown syscall
+	if *runWithNonRoot {
+		diskutils.SetNonRootDefault()
+	}
 
 	if !*noFork {
 		exitCode, err := ForkAndMonitor(*containerDiskDir)
@@ -401,13 +405,16 @@ func main() {
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
 
-	err = util.SetupLibvirt()
+	l := util.NewLibvirtWrapper(*runWithNonRoot)
+	err = l.SetupLibvirt()
 	if err != nil {
 		panic(err)
 	}
-	util.StartLibvirt(stopChan)
+
+	l.StartLibvirt(stopChan)
 	// only single domain should be present
 	domainName := api.VMINamespaceKeyFunc(vmi)
+
 	util.StartVirtlog(stopChan, domainName)
 
 	domainConn := createLibvirtConnection(*runWithNonRoot)

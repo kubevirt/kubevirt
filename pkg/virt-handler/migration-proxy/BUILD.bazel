@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-config:go_default_library",

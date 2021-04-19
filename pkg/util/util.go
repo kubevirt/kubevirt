@@ -72,6 +72,15 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, useEmulation bool) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if !useEmulation && (iface.Model == "" || iface.Model == "virtio") {
+			return true
+		}
+	}
+	return false
+}
+
 func ResourceNameToEnvVar(prefix string, resourceName string) string {
 	varName := strings.ToUpper(resourceName)
 	varName = strings.Replace(varName, "/", "_", -1)

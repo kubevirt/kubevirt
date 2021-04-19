@@ -414,6 +414,29 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	if nonRoot {
 		userId = util.NonRootUID
 	}
+
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "private",
+		MountPath: util.VirtPrivateDir,
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "private",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "public",
+		MountPath: util.VirtShareDir,
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "public",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
 	if t.IsPPC64() {
 		privileged = true
@@ -1653,14 +1676,13 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, useEmulation bool) k8s
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res[TunDevice] = resource.MustParse("1")
 	}
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if !useEmulation && (iface.Model == "" || iface.Model == "virtio") {
-			// Note that about network interface, useEmulation does not make
-			// any difference on eventual Domain xml, but uniformly making
-			// /dev/vhost-net unavailable and libvirt implicitly fallback
-			// to use QEMU userland NIC emulation.
-			res[VhostNetDevice] = resource.MustParse("1")
-		}
+	if util.NeedVirtioNetDevice(vmi, useEmulation) {
+		// Note that about network interface, useEmulation does not make
+		// any difference on eventual Domain xml, but uniformly making
+		// /dev/vhost-net unavailable and libvirt implicitly fallback
+		// to use QEMU userland NIC emulation.
+		res[VhostNetDevice] = resource.MustParse("1")
+
 	}
 	return res
 }

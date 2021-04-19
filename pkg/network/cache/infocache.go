@@ -26,6 +26,8 @@ import (
 	"os"
 	"path/filepath"
 
+	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -158,11 +160,11 @@ func writeToCachedFile(obj interface{}, fileName string) error {
 		return fmt.Errorf("error marshaling cached object: %v", err)
 	}
 
-	err = ioutil.WriteFile(fileName, buf, 0600)
+	err = ioutil.WriteFile(fileName, buf, 0604)
 	if err != nil {
 		return fmt.Errorf("error writing cached object: %v", err)
 	}
-	return nil
+	return dutils.DefaultOwnershipManager.SetFileOwnership(fileName)
 }
 
 func readFromCachedFile(obj interface{}, fileName string) error {
