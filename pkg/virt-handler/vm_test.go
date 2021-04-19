@@ -118,6 +118,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var certDir string
 
 	BeforeEach(func() {
+		diskutils.MockDefaultOwnershipManager()
+
 		wg = &sync.WaitGroup{}
 		stop = make(chan struct{})
 		eventChan = make(chan watch.Event, 100)
