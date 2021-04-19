@@ -11,7 +11,7 @@ RUN mv /manifests/kubevirt-hyperconverged-operator.v${INITIAL_VERSION}.clusterse
     sed -i "s/${INITIAL_VERSION}/${TARGET_VERSION}/g" ${CSV_FILE} && \
     sed -i "s/${INITIAL_VERSION}/${TARGET_VERSION}/g" /metadata/annotations.yaml && \
     sed -i "/olm.skipRange:/d" ${CSV_FILE} && \
-    sed -i "s/^  annotations:.*$/  annotations:\n    olm.skipRange: $OLM_SKIP_RANGE/g" ${CSV_FILE}
+    sed -i "s/^  annotations:.*$/  annotations:\n    olm.skipRange: \"${OLM_SKIP_RANGE}\"/g" ${CSV_FILE}
 
 
 FROM scratch
