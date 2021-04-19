@@ -89,6 +89,7 @@ type migrationProxy struct {
 	clientTLSConfig *tls.Config
 
 	logger *log.FilteredLogger
+	// ownerShipManager
 }
 
 func (m *migrationProxyManager) InitiateGracefulShutdown() {
@@ -361,7 +362,6 @@ func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, serverTLSCon
 
 // Target proxy listens on a tcp socket and pipes to a libvirtd unix socket
 func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, libvirtdSocketPath string, vmiUID string) *migrationProxy {
-
 	return &migrationProxy{
 		tcpBindAddress:  tcpBindAddress,
 		tcpBindPort:     tcpBindPort,

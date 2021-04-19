@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 var _ = Describe("MigrationProxy", func() {
@@ -56,6 +57,8 @@ var _ = Describe("MigrationProxy", func() {
 			},
 		}
 		Expect(err).ToNot(HaveOccurred())
+
+		diskutils.MockDefaultOwnershipManager()
 	})
 
 	AfterEach(func() {

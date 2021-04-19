@@ -35,6 +35,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -857,6 +858,9 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 	// initiate the live migration
 	dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(ip.GetLoopbackAddress(), strconv.Itoa(LibvirtLocalConnectionPort)))
+	if virtutil.IsNonRootVMI(vmi) {
+		dstURI = fmt.Sprintf("qemu+tcp://%s/session", net.JoinHostPort(ip.GetLoopbackAddress(), strconv.Itoa(LibvirtLocalConnectionPort)))
+	}
 	err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 	if err != nil {
 		return fmt.Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)

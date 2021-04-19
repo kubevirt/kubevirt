@@ -23,6 +23,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/certificates:go_default_library",
+        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/testutils:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
