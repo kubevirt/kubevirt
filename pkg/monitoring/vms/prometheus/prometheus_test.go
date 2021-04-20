@@ -22,9 +22,12 @@ package prometheus
 import (
 	"fmt"
 
+	"github.com/onsi/ginkgo/extensions/table"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	libvirt "libvirt.org/libvirt-go"
 
 	. "github.com/onsi/ginkgo"
@@ -1084,7 +1087,60 @@ var _ = Describe("Prometheus", func() {
 			Expect(s).To(ContainSubstring("vcpu_0_cpu_2=true"))
 		})
 	})
+
+	Context("VMI Eviction blocker", func() {
+
+		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
+		table.DescribeTable("Add evictionion alert matrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
+
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
+			updateVMIEvictionBlocker("testNode", vmis, ch)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_non_evictable"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(expectedVal))
+		},
+			table.Entry("VMI Eviction policy set to LiveMigration and vm is not migratable", &liveMigrateEvictPolicy, k8sv1.ConditionFalse, 1.0),
+			table.Entry("VMI Eviction policy set to LiveMigration and vm migratable status is not known", &liveMigrateEvictPolicy, k8sv1.ConditionUnknown, 1.0),
+			table.Entry("VMI Eviction policy set to LiveMigration and vm is migratable", &liveMigrateEvictPolicy, k8sv1.ConditionTrue, 0.0),
+			table.Entry("VMI Eviction policy is not set and vm is not migratable", nil, k8sv1.ConditionFalse, 0.0),
+			table.Entry("VMI Eviction policy is not set and vm is migratable", nil, k8sv1.ConditionTrue, 0.0),
+			table.Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
+		)
+	})
 })
+
+func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) []*k6tv1.VirtualMachineInstance {
+
+	vmis := []*k6tv1.VirtualMachineInstance{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-ns",
+				Name:      "testvmi",
+			},
+		},
+	}
+
+	if migratableCondStatus != k8sv1.ConditionUnknown {
+		vmis[0].Status.Conditions = []k6tv1.VirtualMachineInstanceCondition{
+			{
+				Type:   k6tv1.VirtualMachineInstanceIsMigratable,
+				Status: migratableCondStatus,
+			},
+		}
+	}
+
+	vmis[0].Spec.EvictionStrategy = evictionStrategy
+
+	return vmis
+}
 
 var _ = Describe("Utility functions", func() {
 	Context("VMI Count map reporting", func() {

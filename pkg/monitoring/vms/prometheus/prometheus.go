@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	libvirt "libvirt.org/libvirt-go"
@@ -36,6 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
+	"kubevirt.io/kubevirt/pkg/controller"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -65,6 +67,15 @@ var (
 		"VMI phase.",
 		[]string{
 			"node", "phase", "os", "workload", "flavor",
+		},
+		nil,
+	)
+
+	vmiEvictionBlockerDesc = prometheus.NewDesc(
+		"kubevirt_vmi_non_evictable",
+		"Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
+		[]string{
+			"node", "namespace", "name",
 		},
 		nil,
 	)
@@ -494,6 +505,36 @@ func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch c
 	}
 }
 
+func updateVMIEvictionBlocker(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+	for _, vmi := range vmis {
+		mv, err := prometheus.NewConstMetric(
+			vmiEvictionBlockerDesc, prometheus.GaugeValue,
+			checkNonEvictableVMAndSetMetric(vmi),
+			nodeName, vmi.Namespace, vmi.Name,
+		)
+		if err != nil {
+			continue
+		}
+		ch <- mv
+	}
+}
+
+func checkNonEvictableVMAndSetMetric(vmi *k6tv1.VirtualMachineInstance) float64 {
+	setVal := 0.0
+	if vmi.IsEvictable() {
+		vmiIsMigratableCond := controller.NewVirtualMachineInstanceConditionManager().
+			GetCondition(vmi, k6tv1.VirtualMachineInstanceIsMigratable)
+
+		//As this metric is used for user alert we refer to be conservative - so if the VirtualMachineInstanceIsMigratable
+		//condition is still not set we treat the VM as if it's "not migratable"
+		if vmiIsMigratableCond == nil || vmiIsMigratableCond.Status == k8sv1.ConditionFalse {
+			setVal = 1.0
+		}
+
+	}
+	return setVal
+}
+
 func updateVersion(ch chan<- prometheus.Metric) {
 	verinfo := version.Get()
 	ch <- prometheus.MustNewConstMetric(
@@ -568,6 +609,7 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
 
 	updateVMIsPhase(co.nodeName, vmis, ch)
+	updateVMIEvictionBlocker(co.nodeName, vmis, ch)
 	return
 }
 
@@ -631,7 +673,6 @@ func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachine
 
 	vmiMetrics := newVmiMetrics(vmi, ps.ch)
 	vmiMetrics.updateMetrics(vmStats)
-
 }
 
 func Handler(MaxRequestsInFlight int) http.Handler {
