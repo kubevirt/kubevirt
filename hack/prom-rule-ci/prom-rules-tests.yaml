@@ -6,30 +6,51 @@ group_eval_order:
   - kubevirt.hyperconverged.rules
 
 tests:
-  # CR out of band update detected
   - interval: 1m
     input_series:
       - series: 'kubevirt_hco_out_of_band_modifications_count{component_name="kubevirt"}'
-        values: "0 1 1 1 1 1 1 1 1 1 1 1"
+        values: "0 0 0 1 2 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3"
 
     alert_rule_test:
-      - eval_time: 11m
+      #  No CR out of band updates
+      - eval_time: 2m
+        alertname: KubevirtHyperconvergedClusterOperatorCRModification
+        exp_alerts: [ ]
+
+      # CR out of band update detected.
+      - eval_time: 4m
         alertname: KubevirtHyperconvergedClusterOperatorCRModification
         exp_alerts:
           - exp_annotations:
               description: "Out-of-band modification for kubevirt ."
-              summary: "Out-of-band CR modification was detected"
+              summary: "2 out-of-band CR modifications were detected in the last 10 minutes."
             exp_labels:
               severity: "warning"
               component_name: "kubevirt"
 
-  # No CR out of band updates
-  - interval: 1m
-    input_series:
-      - series: 'kubevirt_hco_out_of_band_modifications_count{component_name="kubevirt"}'
-        values: "0 0 0 0 0 0 0 0 0 0 0 0 0"
+      # New increase must be recognized
+      - eval_time: 8m
+        alertname: KubevirtHyperconvergedClusterOperatorCRModification
+        exp_alerts:
+          - exp_annotations:
+              description: "Out-of-band modification for kubevirt ."
+              summary: "3 out-of-band CR modifications were detected in the last 10 minutes."
+            exp_labels:
+              severity: "warning"
+              component_name: "kubevirt"
 
-    alert_rule_test:
-      - eval_time: 11m
+      # Old increases must be ignored.
+      - eval_time: 14m
+        alertname: KubevirtHyperconvergedClusterOperatorCRModification
+        exp_alerts:
+          - exp_annotations:
+              description: "Out-of-band modification for kubevirt ."
+              summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
+            exp_labels:
+              severity: "warning"
+              component_name: "kubevirt"
+
+      # Should resolve after 10 minutes
+      - eval_time: 15m
         alertname: KubevirtHyperconvergedClusterOperatorCRModification
         exp_alerts: []

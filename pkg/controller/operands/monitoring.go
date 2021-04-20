@@ -251,11 +251,10 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 			Name: alertRuleGroup,
 			Rules: []monitoringv1.Rule{{
 				Alert: outOfBandUpdateAlert,
-				Expr:  intstr.FromString("sum(kubevirt_hco_out_of_band_modifications_count) by (component_name) > 0"),
-				For:   "10m",
+				Expr:  intstr.FromString("sum by(component_name) (round(increase(kubevirt_hco_out_of_band_modifications_count[10m]))) > 0"),
 				Annotations: map[string]string{
 					"description": "Out-of-band modification for {{ $labels.component_name }} .",
-					"summary":     "Out-of-band CR modification was detected",
+					"summary":     "{{ $value }} out-of-band CR modifications were detected in the last 10 minutes.",
 				},
 				Labels: map[string]string{
 					"severity": "warning",
