@@ -126,6 +126,7 @@ func (c *Console) Run(args []string) error {
 		return fmt.Errorf("Make raw terminal failed: %s", err)
 	}
 	fmt.Fprint(os.Stderr, "Successfully connected to ", vmi, " console. The escape sequence is ^]\n")
+	templates.PrintWarningForPausedVMI(virtCli, vmi, namespace)
 
 	in := os.Stdin
 	out := os.Stdout
