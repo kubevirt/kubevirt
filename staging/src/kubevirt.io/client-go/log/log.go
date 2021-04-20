@@ -205,6 +205,15 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 	}
 	return nil
 }
+
+func (l FilteredLogger) CustomField(key string, value string) *FilteredLogger {
+
+	logParams := make([]interface{}, 0)
+	logParams = append(logParams, key, value)
+	l.With(logParams...)
+	return &l
+}
+
 func (l FilteredLogger) Key(key string, kind string) *FilteredLogger {
 	if key == "" {
 		return &l

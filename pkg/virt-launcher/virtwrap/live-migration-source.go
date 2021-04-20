@@ -700,7 +700,7 @@ func (l *LibvirtDomainManager) generateMigrationProxies(vmi *v1.VirtualMachineIn
 			port = 0
 		}
 		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
-		newProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key))
+		newProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key), string(vmi.UID))
 		proxies = append(proxies, newProxy)
 	}
 
@@ -710,7 +710,7 @@ func (l *LibvirtDomainManager) generateMigrationProxies(vmi *v1.VirtualMachineIn
 		// this is only set to 0 during unit tests
 		tcpBindPort = 0
 	}
-	libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, tcpBindPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+	libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, tcpBindPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)), string(vmi.UID))
 	proxies = append(proxies, libvirtConnectionProxy)
 
 	return proxies

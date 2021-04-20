@@ -100,7 +100,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 		curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
 		unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
-		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil)
+		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
 
 		err := migrationProxy.Start()
 		if err != nil {

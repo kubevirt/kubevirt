@@ -668,6 +668,7 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		vmi.Status.EvacuationNodeName = ""
 		vmi.Status.MigrationState.Completed = true
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
+		log.Log.Object(vmi).Infof("migration completed to node %s", migrationHost)
 	}
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
