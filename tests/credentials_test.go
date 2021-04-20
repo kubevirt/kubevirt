@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -267,7 +266,7 @@ var _ = Describe("Guest Access Credentials", func() {
 					"my-key1": []byte(key1),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)
@@ -328,7 +327,7 @@ var _ = Describe("Guest Access Credentials", func() {
 					"fedora": []byte(customPassword),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)
