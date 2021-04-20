@@ -2278,15 +2278,19 @@ func GetGuestAgentUserData() string {
 }
 
 func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
+	guestAgentUrl := GetUrl(GuestAgentHttpUrl)
 	return fmt.Sprintf(`#!/bin/bash
-            echo "fedora" |passwd fedora --stdin
-            sudo setenforce Permissive
-            sudo cp /home/fedora/qemu-guest-agent.service /lib/systemd/system/
-            echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
-            sudo systemctl daemon-reload
-            sudo systemctl start qemu-guest-agent
-            sudo systemctl enable qemu-guest-agent
-`, commands)
+                echo "fedora" |passwd fedora --stdin
+                mkdir -p /usr/local/bin
+                for i in {1..20}; do curl -I %s | grep "200 OK" && break || sleep 0.1; done
+                curl %s > /usr/local/bin/qemu-ga
+                chmod +x /usr/local/bin/qemu-ga
+                curl %s > /lib64/libpixman-1.so.0
+                curl %s > /usr/local/bin/stress
+                chmod +x /usr/local/bin/stress
+                setenforce 0
+                systemd-run --unit=guestagent /usr/local/bin/qemu-ga --blacklist %s
+                `, guestAgentUrl, guestAgentUrl, GetUrl(PixmanUrl), GetUrl(StressHttpUrl), commands)
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
