@@ -18,7 +18,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = SIGDescribe("[ref_id:1182]Probes", func() {
+var _ = SIGDescribe("[BLOCK_100][ref_id:1182]Probes", func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient

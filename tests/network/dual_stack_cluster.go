@@ -9,7 +9,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = SIGDescribe("Dual stack cluster network configuration", func() {
+var _ = SIGDescribe("[BLOCK_0]Dual stack cluster network configuration", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

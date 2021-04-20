@@ -22,7 +22,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
+var _ = SIGDescribe("[BLOCK_11][Serial]VirtualMachineSnapshot Tests", func() {
 
 	var (
 		err        error

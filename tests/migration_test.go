@@ -73,7 +73,7 @@ const (
 	stressdefaultTimeout = 1600
 )
 
-var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", func() {
+var _ = Describe("[BLOCK_0][Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", func() {
 	var virtClient kubecli.KubevirtClient
 	var originalKubeVirtConfig *v1.KubeVirt
 	var err error

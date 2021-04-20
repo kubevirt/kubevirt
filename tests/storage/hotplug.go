@@ -62,7 +62,7 @@ const (
 	testNewVolume2 = "some-new-volume2"
 )
 
-var _ = SIGDescribe("Hotplug", func() {
+var _ = SIGDescribe("[BLOCK_11]Hotplug", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

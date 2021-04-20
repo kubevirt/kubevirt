@@ -26,7 +26,7 @@ const (
 	diskName   = "disk0"
 )
 
-var _ = Describe("[Serial] K8s IO events", func() {
+var _ = Describe("[Block_100][Serial] K8s IO events", func() {
 	var (
 		ns         string
 		node       string

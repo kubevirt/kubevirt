@@ -33,7 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[sig-compute]Health Monitoring", func() {
+var _ = Describe("[BLOCK_0][sig-compute]Health Monitoring", func() {
 
 	var virtClient kubecli.KubevirtClient
 

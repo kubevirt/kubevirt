@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
+var _ = Describe("[BLOCK_0][Serial][sig-compute]MultiQueue", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

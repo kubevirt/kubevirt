@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
+var _ = SIGDescribe("[BLOCK_0][Serial]Primary Pod Network", func() {
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		var err error

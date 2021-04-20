@@ -9,7 +9,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = PDescribe("Ensure stable functionality", func() {
+var _ = PDescribe("[BLOCK_0]Ensure stable functionality", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[sig-compute]oc/kubectl integration", func() {
+var _ = Describe("[BLOCK_100][sig-compute]oc/kubectl integration", func() {
 	var (
 		k8sClient, result string
 		err               error
