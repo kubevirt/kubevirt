@@ -171,7 +171,7 @@ A design proposal and its implementation history can be seen [here](https://docs
 ## kubevirt_vmi_memory_used_total_bytes
 #### HELP kubevirt_vmi_memory_used_total_bytes The amount of memory in bytes used by the domain.
 
- # Other Metrics 
+ # Other Metrics
 ## kubevirt_vmi_cpu_affinity
 #### HELP kubevirt_vmi_cpu_affinity vcpu affinity details
 
@@ -180,3 +180,21 @@ A design proposal and its implementation history can be seen [here](https://docs
 #### HELP kubevirt_virt_controller_leading Indication for an operating virt-controller.
 ## kubevirt_virt_controller_ready_total
 #### HELP kubevirt_virt_controller_ready Indication for a virt-controller that is ready to take the lead.
+
+ # Other Metrics
+## kubevirt_vmi_storage_flush_requests_total
+#### HELP kubevirt_vmi_storage_flush_requests_total storage flush requests.
+## kubevirt_vmi_storage_flush_times_ms_total
+#### HELP kubevirt_vmi_storage_flush_times_ms_total total time (ms) spent on cache flushing.
+## kubevirt_vmi_storage_iops_read_total
+#### HELP kubevirt_vmi_storage_iops_read_total I/O read operations
+## kubevirt_vmi_storage_iops_write_total
+#### HELP kubevirt_vmi_storage_iops_write_total I/O write operations
+## kubevirt_vmi_storage_read_times_ms_total
+#### HELP kubevirt_vmi_storage_read_times_ms_total Storage read operation time
+## kubevirt_vmi_storage_read_traffic_bytes_total
+#### HELP kubevirt_vmi_storage_read_traffic_bytes_total Storage read traffic in bytes
+## kubevirt_vmi_storage_write_times_ms_total
+#### HELP kubevirt_vmi_storage_write_times_ms_total Storage write operation time
+## kubevirt_vmi_storage_write_traffic_bytes_total
+#### HELP kubevirt_vmi_storage_write_traffic_bytes_total Storage write traffic in bytes
