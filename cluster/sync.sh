@@ -2,7 +2,7 @@
 
 source ./hack/common.sh
 
-registry_port=$(docker ps | grep -Po '\d+(?=->5000)')
+registry_port=$(docker ps | grep -Po '(?<=0.0.0.0:)\d+(?=->5000\/tcp)')
 registry=localhost:$registry_port
 
 # Cleanup previously generated manifests
