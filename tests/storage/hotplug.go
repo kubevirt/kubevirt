@@ -98,7 +98,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	addVolumeVMIWithSource := func(name, namespace string, volumeOptions *kubevirtv1.AddVolumeOptions) {
 		Eventually(func() error {
 			return virtClient.VirtualMachineInstance(namespace).AddVolume(name, volumeOptions)
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	addDVVolumeVMI := func(name, namespace, volumeName, claimName, bus string) {
@@ -120,7 +120,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	addVolumeVMWithSource := func(name, namespace string, volumeOptions *kubevirtv1.AddVolumeOptions) {
 		Eventually(func() error {
 			return virtClient.VirtualMachine(namespace).AddVolume(name, volumeOptions)
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	addDVVolumeVM := func(name, namespace, volumeName, claimName, bus string) {
@@ -144,7 +144,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		addvolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_ADDVOLUME, name, fmt.Sprintf(virtCtlVolumeName, claimName), virtCtlNamespace, namespace)
 		Eventually(func() error {
 			return addvolumeCommand()
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeVolumeVMI := func(name, namespace, volumeName string) {
@@ -152,7 +152,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			return virtClient.VirtualMachineInstance(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
 				Name: volumeName,
 			})
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeVolumeVM := func(name, namespace, volumeName string) {
@@ -160,7 +160,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			return virtClient.VirtualMachine(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
 				Name: volumeName,
 			})
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeVolumeVirtctl := func(name, namespace, volumeName string) {
@@ -168,7 +168,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		removeVolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_REMOVEVOLUME, name, fmt.Sprintf(virtCtlVolumeName, volumeName), virtCtlNamespace, namespace)
 		Eventually(func() error {
 			return removeVolumeCommand()
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	verifyVolumeAndDiskVMAdded := func(vm *kubevirtv1.VirtualMachine, volumeNames ...string) {
