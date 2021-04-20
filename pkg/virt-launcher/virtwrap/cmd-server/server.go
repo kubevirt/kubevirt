@@ -38,6 +38,8 @@ import (
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
 
+var receivedEarlyExitSignalEnvVar = "VIRT_LAUNCHER_TARGET_POD_EXIT_SIGNAL"
+
 type ServerOptions struct {
 	useEmulation bool
 }
@@ -129,6 +131,23 @@ func (l *Launcher) CancelVirtualMachineMigration(ctx context.Context, request *c
 	log.Log.Object(vmi).Info("Live migration as been aborted")
 	return response, nil
 
+}
+
+func (l *Launcher) SignalTargetPodCleanup(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	myPodName := os.Getenv("POD_NAME")
+
+	if myPodName != "" && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetPod == myPodName {
+		os.Setenv(receivedEarlyExitSignalEnvVar, "")
+		log.Log.Object(vmi).Infof("Signaled target pod %s to cleanup", myPodName)
+	}
+
+	return response, nil
 }
 
 func (l *Launcher) SyncMigrationTarget(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
@@ -476,4 +495,9 @@ func (l *Launcher) Ping(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv
 		Success: true,
 	}
 	return response, nil
+}
+
+func ReceivedEarlyExitSignal() bool {
+	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
+	return earlyExit
 }

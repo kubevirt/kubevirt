@@ -463,6 +463,7 @@ func (vca *VirtControllerApp) initEvacuationController() {
 		vca.vmiInformer,
 		vca.migrationInformer,
 		vca.nodeInformer,
+		vca.kvPodInformer,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig,

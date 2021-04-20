@@ -462,9 +462,23 @@ func domXMLWithoutKubevirtMetadata(dom cli.VirDomain, vmi *v1.VirtualMachineInst
 	return string(buf.Bytes()), nil
 }
 
+func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Annotations == nil {
+		return false
+	}
+
+	_, shouldFail := vmi.Annotations[v1.FuncTestForceLauncherMigrationFailureAnnotation]
+	return shouldFail
+}
+
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
+		if shouldImmediatelyFailMigration(vmi) {
+			log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
+			l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
+			return
+		}
 
 		// Start local migration proxy.
 		//
@@ -893,10 +907,23 @@ var updateHostsFile = func(entry string) error {
 	return nil
 }
 
+func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Annotations == nil {
+		return false
+	}
+
+	_, shouldBlock := vmi.Annotations[v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation]
+	return shouldBlock
+}
+
 // Prepares the target pod environment by executing the preStartHook
 func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
 
 	logger := log.Log.Object(vmi)
+
+	if shouldBlockMigrationTargetPreparation(vmi) {
+		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
+	}
 
 	var emulatorThreadCpu *int
 	domain := &api.Domain{}
