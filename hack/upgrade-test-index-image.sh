@@ -116,12 +116,26 @@ fi
 # The currentCSV in the package manifest is also updated to point to the new version.
 
 Msg "Patch the subscription to move to the new channel"
-HCO_SUBSCRIPTION_NAME=$(${CMD} get subscription -n ${HCO_NAMESPACE} -o name)
-${CMD} patch ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"channel\": \"${TARGET_CHANNEL}\"}}"  --type merge
-${CMD} patch ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} -p '{"spec": {"installPlanApproval": "Automatic"}}' --type merge
+HCO_SUBSCRIPTION=$(${CMD} get subscription -n ${HCO_NAMESPACE} -o name)
+${CMD} patch ${HCO_SUBSCRIPTION} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"channel\": \"${TARGET_CHANNEL}\"}}"  --type merge
+
+Msg "wait up to 5 minutes for CSV installPlan to appear, and approve it"
+for _ in $(seq 1 60); do
+    INSTALL_PLAN=$(oc -n "${HCO_NAMESPACE}" get "${HCO_SUBSCRIPTION}" -o jsonpath='{.status.installplan.name}' || true)
+    if [[ -n "${INSTALL_PLAN}" ]]; then
+      ${CMD} -n "${HCO_NAMESPACE}" patch installPlan "${INSTALL_PLAN}" --type merge --patch '{"spec":{"approved":true}}'
+      FOUND_INSTALLPLAN=true
+      break
+    fi
+    sleep 5
+done
+
+[[ "${FOUND_INSTALLPLAN}" = true ]]
+
 
 # Patch the OperatorGroup to match the required InstallMode of the new version
 sleep 60
+HCO_OPERATORGROUP_NAME=$(${CMD} get og -n ${HCO_NAMESPACE} -o jsonpath='{.items[].metadata.name}')
 source hack/patch_og.sh
 patch_og ${TARGET_CHANNEL}
 sleep 30
@@ -129,9 +143,8 @@ CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep ${INITIAL_CHANNEL})
 if [ -n "${CSV}" ] && [ ${OG_PATCHED} -eq 1 ]
 then
   ${CMD} delete "${CSV}" -n ${HCO_NAMESPACE}
+  sleep 30
 fi
-
-sleep 30
 
 # Verify the subscription has changed to the new version
 #  currentCSV: kubevirt-hyperconverged-operator.v100.0.0
@@ -150,7 +163,7 @@ ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${
 Msg "Verify the hyperconverged-cluster deployment is using the new image"
 
 set -x
-SEARCH_PHRASE="${OPENSHIFT_BUILD_NAMESPACE}/stable"
+SEARCH_PHRASE="${OPENSHIFT_BUILD_NAMESPACE}/pipeline"
 ./hack/retry.sh 60 30 "${CMD} get -n ${HCO_NAMESPACE} deployment ${HCO_DEPLOYMENT_NAME} -o jsonpath=\"{ .spec.template.spec.containers[0].image }\" | grep ${SEARCH_PHRASE}"
 
 Msg "Wait that cluster is operational after upgrade"
@@ -158,7 +171,7 @@ timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
 # Make sure the CSV is installed properly.
 Msg "Read the CSV to make sure the deployment is done"
-CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE})
+CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep ${TARGET_VERSION})
 # Make sure the CSV is in Succeeded phase
 ./hack/retry.sh 90 10 "${CMD} get ${CSV} -n ${HCO_NAMESPACE} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
 # Make sure the CSV is in the correct version

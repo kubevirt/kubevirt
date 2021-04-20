@@ -43,8 +43,11 @@ function create_index_image() {
   docker build -t "${BUNDLE_IMAGE_NAME}" -f bundle.Dockerfile --build-arg "VERSION=${CURRENT_VERSION}" .
   docker push "${BUNDLE_IMAGE_NAME}"
 
-  # Extract the digest of the bundle image, to be added to the index image
-  BUNDLE_IMAGE_NAME=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}")
+  # In case of stable version, extract the digest of the bundle image, to be added to the index image
+  # Otherwise use a floating tag for the unstable bundle image.
+  if [[ "${UNSTABLE}" != "UNSTABLE" ]]; then
+    BUNDLE_IMAGE_NAME=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}")
+  fi
 
   # shellcheck disable=SC2086
   ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u docker
