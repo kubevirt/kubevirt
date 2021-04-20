@@ -269,6 +269,7 @@ rpmtree(
     ],
     symlinks = {
         "/var/run": "../run",
+        "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
     },
     visibility = ["//visibility:public"],
 )
