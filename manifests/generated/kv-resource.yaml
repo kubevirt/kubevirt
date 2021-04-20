@@ -237,6 +237,7 @@ spec:
                         type: string
                     type: object
                   supportedGuestAgentVersions:
+                    description: deprecated
                     items:
                       type: string
                     type: array
@@ -1364,6 +1365,7 @@ spec:
                         type: string
                     type: object
                   supportedGuestAgentVersions:
+                    description: deprecated
                     items:
                       type: string
                     type: array

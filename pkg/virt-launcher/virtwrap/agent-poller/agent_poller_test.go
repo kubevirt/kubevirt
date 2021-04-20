@@ -33,7 +33,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should store and load the data", func() {
 			var agentStore = NewAsyncAgentStore()
-			agentVersion := "4.1"
+			agentVersion := AgentInfo{Version: "4.1"}
 			agentStore.Store(GET_AGENT, agentVersion)
 			agent := agentStore.GetGA()
 

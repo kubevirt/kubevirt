@@ -105,6 +105,32 @@ const (
 	VMISignalDeletion = "Signaled Deletion"
 )
 
+var RequiredGuestAgentCommands = []string{
+	"guest-ping",
+	"guest-get-time",
+	"guest-info",
+	"guest-shutdown",
+	"guest-network-get-interfaces",
+	"guest-get-fsinfo",
+	"guest-get-host-name",
+	"guest-get-users",
+	"guest-get-timezone",
+	"guest-get-osinfo",
+}
+
+var SSHRelatedGuestAgentCommands = []string{
+	"guest-exec-status",
+	"guest-exec",
+	"guest-file-open",
+	"guest-file-close",
+	"guest-file-read",
+	"guest-file-write",
+}
+
+var PasswordRelatedGuestAgentCommands = []string{
+	"guest-set-user-password",
+}
+
 type launcherClientInfo struct {
 	client              cmdclient.LauncherClient
 	socketFile          string
@@ -1051,12 +1077,21 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 			return err
 		}
 
-		var match = false
-		for _, version := range d.clusterConfig.GetSupportedAgentVersions() {
-			match = match || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
+		var supported = false
+
+		// For current versions, virt-launcher's supported commands will always contain data.
+		// For backwards compatibility: during upgrade from a previous version of KubeVirt,
+		// virt-launcher might not provide any supported commands. If the list of supported
+		// commands is empty, fall back to previous behavior.
+		if len(guestInfo.SupportedCommands) > 0 {
+			supported = isGuestAgentSupported(vmi, guestInfo.SupportedCommands)
+		} else {
+			for _, version := range d.clusterConfig.GetSupportedAgentVersions() {
+				supported = supported || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
+			}
 		}
 
-		if !match {
+		if !supported {
 			if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent) {
 				agentCondition := v1.VirtualMachineInstanceCondition{
 					Type:          v1.VirtualMachineInstanceUnsupportedAgent,
@@ -1119,6 +1154,64 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	}
 
 	return nil
+}
+
+func _guestAgentCommandSubsetSupported(requiredCommands []string, commands []v1.GuestAgentCommandInfo) bool {
+	var found bool
+	for _, cmd := range requiredCommands {
+		found = false
+		for _, foundCmd := range commands {
+			if cmd == foundCmd.Name {
+				if foundCmd.Enabled {
+					found = true
+				}
+				break
+			}
+		}
+		if found == false {
+			return false
+		}
+	}
+	return true
+
+}
+
+func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAgentCommandInfo) bool {
+	log.Log.V(3).Object(vmi).Infof("checking guest agent: %v", commands)
+	if !_guestAgentCommandSubsetSupported(RequiredGuestAgentCommands, commands) {
+		log.Log.V(3).Object(vmi).Info("This guest agent doesn't support required basic commands")
+		return false
+	}
+
+	checkSSH := false
+	checkPasswd := false
+
+	if vmi != nil && vmi.Spec.AccessCredentials != nil {
+		for _, accessCredential := range vmi.Spec.AccessCredentials {
+			if accessCredential.SSHPublicKey != nil && accessCredential.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
+				// defer checking the command list so we only do that once
+				checkSSH = true
+			}
+			if accessCredential.UserPassword != nil && accessCredential.UserPassword.PropagationMethod.QemuGuestAgent != nil {
+				// defer checking the command list so we only do that once
+				checkPasswd = true
+			}
+
+		}
+	}
+
+	if checkSSH && !_guestAgentCommandSubsetSupported(SSHRelatedGuestAgentCommands, commands) {
+		log.Log.V(3).Object(vmi).Info("This guest agent doesn't support required public key commands")
+		return false
+	}
+
+	if checkPasswd && !_guestAgentCommandSubsetSupported(PasswordRelatedGuestAgentCommands, commands) {
+		log.Log.V(3).Object(vmi).Info("This guest agent doesn't support required password commands")
+		return false
+	}
+
+	log.Log.V(3).Object(vmi).Info("This guest agent is supported")
+	return true
 }
 
 func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance, hasHotplug bool) (*v1.VirtualMachineInstanceCondition, bool) {

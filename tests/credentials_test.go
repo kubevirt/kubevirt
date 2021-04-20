@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	expect "github.com/google/goexpect"
 	kubev1 "k8s.io/api/core/v1"
@@ -227,6 +228,130 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				&expect.BSnd{S: customPassword + "\n"},
 				&expect.BExp{R: "\\$"},
 			}, time.Second*180)
+		})
+
+		It("should update guest agent for public ssh keys", func() {
+			secretID := "my-pub-key"
+			vmi := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec")
+			vmi.Namespace = tests.NamespaceTestDefault
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: secretID,
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+								Users: []string{"fedora"},
+							},
+						},
+					},
+				},
+			}
+
+			key1 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"
+
+			By("Creating a secret with an ssh key")
+			secret := kubev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretID,
+					Namespace: vmi.Namespace,
+					Labels: map[string]string{
+						tests.SecretLabel: secretID,
+					},
+				},
+				Type: "Opaque",
+				Data: map[string][]byte{
+					"my-key1": []byte(key1),
+				},
+			}
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+			Expect(err).To(BeNil())
+
+			LaunchVMI(vmi)
+
+			By("Waiting for agent to connect")
+			tests.WaitAgentConnected(virtClient, vmi)
+
+			By("Checking that blacklisted commands triggered unsupported guest agent condition")
+			getOptions := metav1.GetOptions{}
+			freshVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+
+			Eventually(func() []v1.VirtualMachineInstanceCondition {
+				freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+				return freshVMI.Status.Conditions
+			}, 240*time.Second, 2).Should(
+				ContainElement(
+					MatchFields(
+						IgnoreExtras,
+						Fields{"Type": Equal(v1.VirtualMachineInstanceUnsupportedAgent)})),
+				"Should have unsupported agent connected condition")
+		})
+
+		It("should update guest agent for user password", func() {
+			secretID := "my-user-pass"
+			vmi := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-set-user-password")
+			vmi.Namespace = tests.NamespaceTestDefault
+
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					UserPassword: &v1.UserPasswordAccessCredential{
+						Source: v1.UserPasswordAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: secretID,
+							},
+						},
+						PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
+
+			customPassword := "imadethisup"
+
+			By("Creating a secret with custom password")
+			secret := kubev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretID,
+					Namespace: vmi.Namespace,
+					Labels: map[string]string{
+						tests.SecretLabel: secretID,
+					},
+				},
+				Type: "Opaque",
+				Data: map[string][]byte{
+					"fedora": []byte(customPassword),
+				},
+			}
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+			Expect(err).To(BeNil())
+
+			LaunchVMI(vmi)
+
+			By("Waiting for agent to connect")
+			tests.WaitAgentConnected(virtClient, vmi)
+
+			By("Checking that blacklisted commands triggered unsupported guest agent condition")
+			getOptions := metav1.GetOptions{}
+			freshVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+
+			Eventually(func() []v1.VirtualMachineInstanceCondition {
+				freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+				return freshVMI.Status.Conditions
+			}, 240*time.Second, 2).Should(
+				ContainElement(
+					MatchFields(
+						IgnoreExtras,
+						Fields{"Type": Equal(v1.VirtualMachineInstanceUnsupportedAgent)})),
+				"Should have unsupported agent connected condition")
+
 		})
 	})
 	Context("with secret and configDrive propagation", func() {

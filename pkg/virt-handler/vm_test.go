@@ -2711,6 +2711,99 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 	})
+
+	Context("Guest Agent Compatibility", func() {
+		var vmi *v1.VirtualMachineInstance
+		var vmiWithPassword *v1.VirtualMachineInstance
+		var vmiWithSSH *v1.VirtualMachineInstance
+		var basicCommands []v1.GuestAgentCommandInfo
+		var allCommands []v1.GuestAgentCommandInfo
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{}
+			vmiWithPassword = &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					AccessCredentials: []v1.AccessCredential{
+						v1.AccessCredential{
+							UserPassword: &v1.UserPasswordAccessCredential{
+								PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+									QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmiWithSSH = &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					AccessCredentials: []v1.AccessCredential{
+						v1.AccessCredential{
+							SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+								PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+									QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
+								},
+							},
+						},
+					},
+				},
+			}
+			basicCommands = []v1.GuestAgentCommandInfo{}
+			allCommands = []v1.GuestAgentCommandInfo{}
+
+			for _, cmdName := range RequiredGuestAgentCommands {
+				cmd := v1.GuestAgentCommandInfo{
+					Name:    cmdName,
+					Enabled: true,
+				}
+				basicCommands = append(basicCommands, cmd)
+				allCommands = append(allCommands, cmd)
+			}
+			for _, cmdName := range SSHRelatedGuestAgentCommands {
+				cmd := v1.GuestAgentCommandInfo{
+					Name:    cmdName,
+					Enabled: true,
+				}
+				allCommands = append(allCommands, cmd)
+			}
+			for _, cmdName := range PasswordRelatedGuestAgentCommands {
+				cmd := v1.GuestAgentCommandInfo{
+					Name:    cmdName,
+					Enabled: true,
+				}
+				allCommands = append(allCommands, cmd)
+			}
+		})
+
+		It("should succeed with empty VMI and basic commands", func() {
+			result := isGuestAgentSupported(vmi, basicCommands)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should succeed with empty VMI and all commands", func() {
+			result := isGuestAgentSupported(vmi, allCommands)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should fail with password and basic commands", func() {
+			result := isGuestAgentSupported(vmiWithPassword, basicCommands)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should succeed with password and all commands", func() {
+			result := isGuestAgentSupported(vmiWithPassword, allCommands)
+			Expect(result).To(BeTrue())
+		})
+
+		It("should fail with SSH and basic commands", func() {
+			result := isGuestAgentSupported(vmiWithSSH, basicCommands)
+			Expect(result).To(BeFalse())
+		})
+
+		It("should succeed with SSH and all commands", func() {
+			result := isGuestAgentSupported(vmiWithSSH, allCommands)
+			Expect(result).To(BeTrue())
+		})
+	})
 })
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
