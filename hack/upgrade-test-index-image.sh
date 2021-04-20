@@ -117,21 +117,22 @@ fi
 
 Msg "Patch the subscription to move to the new channel"
 HCO_SUBSCRIPTION=$(${CMD} get subscription -n ${HCO_NAMESPACE} -o name)
+OLD_INSTALL_PLAN=$(oc -n "${HCO_NAMESPACE}" get "${HCO_SUBSCRIPTION}" -o jsonpath='{.status.installplan.name}')
 ${CMD} patch ${HCO_SUBSCRIPTION} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"channel\": \"${TARGET_CHANNEL}\"}}"  --type merge
 
-Msg "wait up to 5 minutes for CSV installPlan to appear, and approve it"
+Msg "Wait up to 5 minutes for the new installPlan to appear, and approve it to begin upgrade"
+INSTALL_PLAN_APPROVED=false
 for _ in $(seq 1 60); do
     INSTALL_PLAN=$(oc -n "${HCO_NAMESPACE}" get "${HCO_SUBSCRIPTION}" -o jsonpath='{.status.installplan.name}' || true)
-    if [[ -n "${INSTALL_PLAN}" ]]; then
+    if [[ "${INSTALL_PLAN}" != "${OLD_INSTALL_PLAN}" ]]; then
       ${CMD} -n "${HCO_NAMESPACE}" patch installPlan "${INSTALL_PLAN}" --type merge --patch '{"spec":{"approved":true}}'
-      FOUND_INSTALLPLAN=true
+      INSTALL_PLAN_APPROVED=true
       break
     fi
     sleep 5
 done
 
-[[ "${FOUND_INSTALLPLAN}" = true ]]
-
+[[ "${INSTALL_PLAN_APPROVED}" = true ]]
 
 # Patch the OperatorGroup to match the required InstallMode of the new version
 sleep 60
