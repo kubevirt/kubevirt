@@ -307,6 +307,34 @@ spec:
         memory: "1Gi"
 ```
 
+## CPU Plugin Configurations
+You can schedule a virtual machine (VM) on a node where the CPU model and policy attribute of the VM are compatible with
+the CPU models and policy attributes that the node supports. By specifying a list of obsolete CPU models in a the 
+HyperConverged custom resource, you can exclude them from the list of labels created for CPU models.
+
+Through the process of iteration, the list of base CPU features in the minimum CPU model are eliminated from the list of
+labels generated for the node. For example, an environment might have two supported CPU models: `Penryn` and `Haswell`.
+
+Use the `spec.obsoleteCPUs` to configure the CPU plugin. Add the obsolete CPU list under `spec.obsoleteCPUs.cpuModels`,
+and the minCPUModel as the value of  `spec.obsoleteCPUs.minCPUModel`.
+
+### CPU Plugin Configurations Example
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  obsoleteCPUs:
+    cpuModels:
+      - "486"
+      - "pentium"
+      - "pentium2"
+      - "pentium3"
+      - "pentiumpro"
+    minCPUModel: "Penryn"
+```
+
 ## Configurations via Annotations
 
 In addition to `featureGates` field in HyperConverged CR's spec, the user can set annotations in the HyperConverged CR

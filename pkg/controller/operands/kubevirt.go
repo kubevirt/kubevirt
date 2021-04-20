@@ -8,14 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -217,6 +216,8 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 		return nil, err
 	}
 
+	obsoleteCPUs, minCPUModel := getObsoleteCPUConfig(hc.Spec.ObsoleteCPUs)
+
 	config := &kubevirtv1.KubeVirtConfiguration{
 		DeveloperConfiguration: devConfig,
 		SELinuxLauncherType:    SELinuxLauncherType,
@@ -225,6 +226,8 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 		},
 		MigrationConfiguration: kvLiveMigration,
 		PermittedHostDevices:   toKvPermittedHostDevices(hc.Spec.PermittedHostDevices),
+		ObsoleteCPUModels:      obsoleteCPUs,
+		MinCPUModel:            minCPUModel,
 	}
 
 	if smbiosConfig, ok := os.LookupEnv(smbiosEnvName); ok {
@@ -244,6 +247,19 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 	}
 
 	return config, nil
+}
+
+func getObsoleteCPUConfig(hcObsoleteCPUConf *hcov1beta1.HyperConvergedObsoleteCPUs) (map[string]bool, string) {
+	if hcObsoleteCPUConf != nil {
+		obsoleteCPUModels := make(map[string]bool)
+		for _, cpu := range hcObsoleteCPUConf.CPUModels {
+			obsoleteCPUModels[cpu] = true
+		}
+
+		return obsoleteCPUModels, hcObsoleteCPUConf.MinCPUModel
+	}
+
+	return nil, ""
 }
 
 func toKvPermittedHostDevices(permittedDevices *hcov1beta1.PermittedHostDevices) *kubevirtv1.PermittedHostDevices {

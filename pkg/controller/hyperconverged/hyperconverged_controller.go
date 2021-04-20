@@ -7,18 +7,16 @@ import (
 	"reflect"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	"github.com/google/uuid"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	operatorhandler "github.com/operator-framework/operator-lib/handler"
-
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -30,16 +28,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
 )
 
 var (
@@ -862,6 +861,7 @@ const (
 	imsCmName        = "v2v-vmware"
 	liveMigrationKey = "migrations"
 	vddkInitImakeKey = "vddk-init-image"
+	cpuPluginCmName  = "cpu-plugin-configmap"
 )
 
 func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (bool, error) {
@@ -880,44 +880,29 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 		return false, err
 	}
 
-	return kvConfigMmodified || cdiConfigModified || imsConfigModified, nil
-}
-
-func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest) (bool, error) {
-	req.Logger.Info("read KubeVirt configmap")
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kvCmName,
-			Namespace: req.Namespace,
-		},
-	}
-
-	if err := hcoutil.GetRuntimeObject(req.Ctx, r.client, cm, req.Logger); err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("KubeVirt configmap already removed")
-			return false, nil
-		}
-		req.Logger.Info("failed to get KubeVirt configmap", "error", err.Error())
+	cpuPluginConfigModified, err := r.migrateCPUPluginConfigurations(req)
+	if err != nil {
 		return false, err
 	}
 
-	backupCm := makeCmBackup(cm)
+	return kvConfigMmodified || cdiConfigModified || imsConfigModified || cpuPluginConfigModified, nil
+}
 
-	req.Logger.Info("creating KubeVirt configmap backup")
-	if err := r.client.Create(req.Ctx, backupCm); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			req.Logger.Info("KubeVirt configmap backup already exists")
-		} else {
-			req.Logger.Info("failed to create KubeVirt configmap backup", "error", err.Error())
-			return false, err
-		}
-	} else {
-		r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Created", fmt.Sprintf("Created ConfigMap %s", backupKvCmName))
+func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest) (bool, error) {
+	cm, err := r.getCm(kvCmName, req)
+	if err != nil {
+		return false, err
+	} else if cm == nil {
+		return false, nil
+	}
+
+	if err = r.makeCmBackup(cm, backupKvCmName, req); err != nil {
+		return false, err
 	}
 
 	modified := adoptOldKvConfigs(req, cm)
 
-	err := r.removeKvConfigMap(req, cm)
+	err = r.removeConfigMap(req, cm, kvCmName)
 	if err != nil {
 		return false, err
 	}
@@ -971,18 +956,18 @@ func (r ReconcileHyperConverged) migrateImsConfigurations(req *common.HcoRequest
 	return modified, nil
 }
 
-func (r *ReconcileHyperConverged) removeKvConfigMap(req *common.HcoRequest, cm *corev1.ConfigMap) error {
+func (r *ReconcileHyperConverged) removeConfigMap(req *common.HcoRequest, cm *corev1.ConfigMap, cmName string) error {
 	req.Logger.Info("removing the kubevirt configMap")
 	err := hcoutil.ComponentResourceRemoval(req.Ctx, r.client, cm, req.Name, req.Logger, false, true)
 	if err != nil {
 		return err
 	}
 
-	r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed ConfigMap %s", kvCmName))
+	r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed ConfigMap %s", cmName))
 
 	refs := make([]corev1.ObjectReference, 0, len(req.Instance.Status.RelatedObjects))
 	for _, obj := range req.Instance.Status.RelatedObjects {
-		if obj.Kind == "ConfigMap" && obj.Name == kvCmName {
+		if obj.Kind == "ConfigMap" && obj.Name == cmName {
 			continue
 		}
 		refs = append(refs, obj)
@@ -994,15 +979,62 @@ func (r *ReconcileHyperConverged) removeKvConfigMap(req *common.HcoRequest, cm *
 	return nil
 }
 
-func makeCmBackup(cm *corev1.ConfigMap) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+func (r ReconcileHyperConverged) migrateCPUPluginConfigurations(req *common.HcoRequest) (bool, error) {
+	cm, err := r.getCm(cpuPluginCmName, req)
+	if err != nil {
+		return false, err
+	} else if cm == nil {
+		return false, nil
+	}
+
+	modified := adoptOldCPUPluginConfigs(req, cm)
+
+	return modified, nil
+}
+
+func (r *ReconcileHyperConverged) getCm(cmName string, req *common.HcoRequest) (*corev1.ConfigMap, error) {
+	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      backupKvCmName,
+			Name:      cmName,
+			Namespace: req.Namespace,
+		},
+	}
+
+	if err := hcoutil.GetRuntimeObject(req.Ctx, r.client, cm, req.Logger); err != nil {
+		if apierrors.IsNotFound(err) {
+			req.Logger.Info(fmt.Sprintf("%s configmap already removed", cmName))
+			return nil, nil
+		}
+		req.Logger.Info(fmt.Sprintf("failed to get %s configmap", cmName), "error", err.Error())
+		return nil, err
+	}
+
+	return cm, nil
+}
+
+func (r *ReconcileHyperConverged) makeCmBackup(cm *corev1.ConfigMap, backupName string, req *common.HcoRequest) error {
+	backupCm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      backupName,
 			Namespace: cm.Namespace,
 			Labels:    cm.Labels,
 		},
 		Data: cm.Data,
 	}
+
+	req.Logger.Info(fmt.Sprintf("creating %s configmap backup", backupName))
+	if err := r.client.Create(req.Ctx, backupCm); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			req.Logger.Info(fmt.Sprintf("%s configmap backup already exists", backupName))
+		} else {
+			req.Logger.Info(fmt.Sprintf("failed to create %s configmap backup", backupName), "error", err.Error())
+			return err
+		}
+	} else {
+		r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Created", fmt.Sprintf("Created ConfigMap %s", backupName))
+	}
+
+	return nil
 }
 
 // Read the old KubeVit configuration from the config map, and move them to the HyperConverged CR
@@ -1078,6 +1110,45 @@ func kvConfigMapToHyperConvergedCr(req *common.HcoRequest, hcoLiveMigrationConfi
 	if hcoLiveMigrationConfig.ProgressTimeout != nil {
 		req.Instance.Spec.LiveMigrationConfig.ProgressTimeout = hcoLiveMigrationConfig.ProgressTimeout
 	}
+}
+
+// Read the CPU Plugin configuration from the config map, and move them to the HyperConverged CR
+//
+// In case of wrong foramt of the configmap, the HCO ignores this error (but print it to the log) in order to prevent
+// an infinite loop (returning error will cause the same error again and again, and the only way to stop the loop
+// is to manually fix or delete the wrong configMap).
+func adoptOldCPUPluginConfigs(req *common.HcoRequest, cm *corev1.ConfigMap) bool {
+	if req.Instance.Spec.ObsoleteCPUs != nil {
+		return false
+	}
+
+	cupPluginConfStr, ok := cm.Data["cpu-plugin-configmap"]
+	if !ok {
+		return false
+	}
+
+	cupPluginConf := &struct {
+		ObsoleteCPUs []string `json:"obsoleteCPUs,omitempty"`
+		MinCPU       string   `json:"minCPU,omitempty"`
+	}{}
+
+	err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(cupPluginConfStr), 1024).Decode(cupPluginConf)
+	if err != nil {
+		req.Logger.Error(err, "Failed to read the CPU Plugin ConfigMap, and its content was ignored.")
+		return false
+	}
+
+	obsoleteCPUs := &hcov1beta1.HyperConvergedObsoleteCPUs{
+		CPUModels:   cupPluginConf.ObsoleteCPUs,
+		MinCPUModel: cupPluginConf.MinCPU,
+	}
+
+	req.Logger.Info("updating the HyperConverged CR from the CPU Plugin configMap")
+	req.Instance.Spec.ObsoleteCPUs = obsoleteCPUs
+
+	req.Dirty = true
+
+	return true
 }
 
 // getHyperConvergedNamespacedName returns the name/namespace of the HyperConverged resource

@@ -12,6 +12,7 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [HyperConvergedConfig](#hyperconvergedconfig)
 * [HyperConvergedFeatureGates](#hyperconvergedfeaturegates)
 * [HyperConvergedList](#hyperconvergedlist)
+* [HyperConvergedObsoleteCPUs](#hyperconvergedobsoletecpus)
 * [HyperConvergedSpec](#hyperconvergedspec)
 * [HyperConvergedStatus](#hyperconvergedstatus)
 * [LiveMigrationConfigurations](#livemigrationconfigurations)
@@ -87,6 +88,17 @@ HyperConvergedList contains a list of HyperConverged
 
 [Back to TOC](#table-of-contents)
 
+## HyperConvergedObsoleteCPUs
+
+HyperConvergedObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| minCPUModel | MinCPUModel is the Minimum CPU model that is used for basic CPU features; e.g. Penryn or Haswell | string |  | false |
+| cpuModels | CPUModels is a list of obsolete CPU models. When the node-labeller obtains the list of obsolete CPU models, it eliminates those CPU models and creates labels for valid CPU models. | []string |  | false |
+
+[Back to TOC](#table-of-contents)
+
 ## HyperConvergedSpec
 
 HyperConvergedSpec defines the desired state of HyperConverged
@@ -103,6 +115,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | resourceRequirements | ResourceRequirements describes the resource requirements for the operand workloads. | *[OperandResourceRequirements](#operandresourcerequirements) |  | false |
 | scratchSpaceStorageClass | Override the storage class used for scratch space during transfer operations. The scratch space storage class is determined in the following order: value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space | *string |  | false |
 | vddkInitImage | VDDK Init Image eventually used to import VMs from external providers | *string |  | false |
+| obsoleteCPUs | ObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models | *[HyperConvergedObsoleteCPUs](#hyperconvergedobsoletecpus) |  | false |
 | version | operator version | string |  | false |
 
 [Back to TOC](#table-of-contents)

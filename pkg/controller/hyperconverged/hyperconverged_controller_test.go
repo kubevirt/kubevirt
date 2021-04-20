@@ -8,33 +8,27 @@ import (
 	"os"
 	"time"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
-	"k8s.io/client-go/tools/reference"
-
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	k8sTime "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/reference"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	k8sTime "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-
 	// TODO: Move to envtest to get an actual api server
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -2102,7 +2096,7 @@ progressTimeout: 150`,
 				expected = getBasicDeployment()
 			})
 
-			Context("Positive Tests", func() {
+			Context("Positive Tests - KV Config", func() {
 				It("Should delete the CM and create a backup", func() {
 					resources := append(expected.toArray(), &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
@@ -2493,7 +2487,79 @@ progressTimeout: 300`,
 				})
 			})
 
-			Context("Test Errors", func() {
+			Context("Positive Tests - CPU Plugin Config", func() {
+				It("Should adopt CPU plugin configuration from the configMap, if missing in HCO", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      cpuPluginCmName,
+							Namespace: namespace,
+						},
+						Data: map[string]string{
+							"cpu-plugin-configmap": `obsoleteCPUs: 
+  - "486"
+  - "pentium"
+  - "pentium2"
+  - "pentium3"
+  - "pentiumpro"
+minCPU: "Penryn"`,
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeTrue())
+
+					Expect(req.Instance.Spec.ObsoleteCPUs).ShouldNot(BeNil())
+					Expect(req.Instance.Spec.ObsoleteCPUs.MinCPUModel).Should(Equal("Penryn"))
+					Expect(req.Instance.Spec.ObsoleteCPUs.CPUModels).Should(HaveLen(5))
+					Expect(req.Instance.Spec.ObsoleteCPUs.CPUModels).Should(ContainElements("486", "pentium", "pentium2", "pentium3", "pentiumpro"))
+				})
+
+				It("Should ignore KV configuration from the configMap, if if HCO contains the ObsoleteCPUs object", func() {
+					expected.hco.Spec.ObsoleteCPUs = &hcov1beta1.HyperConvergedObsoleteCPUs{
+						MinCPUModel: "Haswell",
+						CPUModels:   []string{"some", "other", "CPUs"},
+					}
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							"cpu-plugin-configmap": `obsoleteCPUs: 
+  - "486"
+  - "pentium"
+  - "pentium2"
+  - "pentium3"
+  - "pentiumpro"
+minCPU: "Penryn"`,
+						},
+					})
+
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeFalse())
+
+					Expect(req.Instance.Spec.ObsoleteCPUs).ShouldNot(BeNil())
+					Expect(req.Instance.Spec.ObsoleteCPUs.MinCPUModel).Should(Equal("Haswell"))
+					Expect(req.Instance.Spec.ObsoleteCPUs.CPUModels).Should(HaveLen(3))
+					Expect(req.Instance.Spec.ObsoleteCPUs.CPUModels).Should(ContainElements("some", "other", "CPUs"))
+				})
+			})
+
+			Context("Test Errors - KV Config", func() {
 				It("Should return error if failed to read KV CM", func() {
 					resources := append(expected.toArray(), &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
@@ -2682,6 +2748,56 @@ progressTimeout: 300`,
 						},
 					}
 					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
+				})
+			})
+
+			Context("Test Errors - CPU Plugin Config", func() {
+				It("Should return error if failed to read CPU Plugin CM", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      cpuPluginCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+					fakeError := fmt.Errorf("fake read error")
+					cl.InitiateGetErrors(func(key client.ObjectKey) error {
+						if key.Name == cpuPluginCmName {
+							return fakeError
+						}
+						return nil
+					})
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).To(HaveOccurred())
+					Expect(err).Should(Equal(fakeError))
+					Expect(modified).Should(BeFalse())
+				})
+
+				It("Should gnore and not modify the CR if the format of the MC is wrong", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      cpuPluginCmName,
+							Namespace: namespace,
+						},
+						Data: map[string]string{
+							"cpu-plugin-configmap": `wrong yaml format`,
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).Should(BeFalse())
 				})
 			})
 		})

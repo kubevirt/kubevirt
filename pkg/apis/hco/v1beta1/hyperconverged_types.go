@@ -71,6 +71,10 @@ type HyperConvergedSpec struct {
 	// +optional
 	VddkInitImage *string `json:"vddkInitImage,omitempty"`
 
+	// ObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models
+	// +optional
+	ObsoleteCPUs *HyperConvergedObsoleteCPUs `json:"obsoleteCPUs,omitempty"`
+
 	// operator version
 	Version string `json:"version,omitempty"`
 }
@@ -205,6 +209,17 @@ type OperandResourceRequirements struct {
 	// resource
 	// +optional
 	StorageWorkloads *corev1.ResourceRequirements `json:"storageWorkloads,omitempty"`
+}
+
+// HyperConvergedObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models
+// +k8s:openapi-gen=true
+type HyperConvergedObsoleteCPUs struct {
+	// MinCPUModel is the Minimum CPU model that is used for basic CPU features; e.g. Penryn or Haswell
+	MinCPUModel string `json:"minCPUModel,omitempty"`
+	// CPUModels is a list of obsolete CPU models. When the node-labeller obtains the list of obsolete CPU models, it
+	// eliminates those CPU models and creates labels for valid CPU models.
+	// +optional
+	CPUModels []string `json:"cpuModels,omitempty"`
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

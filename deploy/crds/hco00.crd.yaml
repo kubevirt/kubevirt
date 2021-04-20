@@ -862,6 +862,23 @@ spec:
               localStorageClassName:
                 description: LocalStorageClassName the name of the local storage class.
                 type: string
+              obsoleteCPUs:
+                description: ObsoleteCPUs allows avoiding scheduling of VMs for obsolete
+                  CPU models
+                properties:
+                  cpuModels:
+                    description: CPUModels is a list of obsolete CPU models. When
+                      the node-labeller obtains the list of obsolete CPU models, it
+                      eliminates those CPU models and creates labels for valid CPU
+                      models.
+                    items:
+                      type: string
+                    type: array
+                  minCPUModel:
+                    description: MinCPUModel is the Minimum CPU model that is used
+                      for basic CPU features; e.g. Penryn or Haswell
+                    type: string
+                type: object
               permittedHostDevices:
                 description: PermittedHostDevices holds inforamtion about devices
                   allowed for passthrough
