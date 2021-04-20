@@ -103,7 +103,8 @@ const ephemeralStorageOverheadSize = "50M"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate (volume []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]bool, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentTriggerPodTemplate (volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	GetLauncherImage() string
 	GetCpuArch() string
@@ -1337,7 +1338,123 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	return &pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, _ *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, _ *v1.VirtualMachineInstance, claimMap map[string]bool, tempPod bool) (*k8sv1.Pod, error) {
+	zero := int64(0)
+	sharedMount := k8sv1.MountPropagationHostToContainer
+	command := []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
+
+	pod := &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "hp-volume-",
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(ownerPod, schema.GroupVersionKind{
+					Group:   k8sv1.SchemeGroupVersion.Group,
+					Version: k8sv1.SchemeGroupVersion.Version,
+					Kind:    "Pod",
+				}),
+			},
+			Labels: map[string]string{
+				v1.AppLabel: "hotplug-disk",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			Containers: []k8sv1.Container{
+				{
+					Name:    "hotplug-disk",
+					Image:   t.launcherImage,
+					Command: command,
+					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
+						Limits: map[k8sv1.ResourceName]resource.Quantity{
+							k8sv1.ResourceCPU:    resource.MustParse("100m"),
+							k8sv1.ResourceMemory: resource.MustParse("80M"),
+						},
+						Requests: map[k8sv1.ResourceName]resource.Quantity{
+							k8sv1.ResourceCPU:    resource.MustParse("10m"),
+							k8sv1.ResourceMemory: resource.MustParse("2M"),
+						},
+					},
+					SecurityContext: &k8sv1.SecurityContext{
+						SELinuxOptions: &k8sv1.SELinuxOptions{
+							Level: "s0",
+							Type:  t.clusterConfig.GetSELinuxLauncherType(),
+						},
+					},
+					VolumeMounts: []k8sv1.VolumeMount{
+						{
+							Name:             "hotplug-disks",
+							MountPath:        "/path",
+							MountPropagation: &sharedMount,
+						},
+					},
+				},
+			},
+			Affinity: &k8sv1.Affinity{
+				PodAffinity: &k8sv1.PodAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+						{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: ownerPod.GetLabels(),
+							},
+							TopologyKey: "kubernetes.io/hostname",
+						},
+					},
+				},
+			},
+			Volumes: []k8sv1.Volume{
+				{
+					Name: "hotplug-disks",
+					VolumeSource: k8sv1.VolumeSource{
+						EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+			HostNetwork:                   true,
+			TerminationGracePeriodSeconds: &zero,
+		},
+	}
+
+	for _, volume := range volumes {
+		claimName := ""
+		if volume.DataVolume != nil {
+			// TODO, look up the correct PVC name based on the datavolume, right now they match, but that will not always be true.
+			claimName = volume.DataVolume.Name
+		} else if volume.PersistentVolumeClaim != nil {
+			claimName = volume.PersistentVolumeClaim.ClaimName
+		}
+		if claimName == "" {
+			continue
+		}
+		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+			Name: volume.Name,
+			VolumeSource: k8sv1.VolumeSource{
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: claimName,
+					ReadOnly:  false,
+				},
+			},
+		})
+		if claimMap[volume.Name] {
+			pod.Spec.Containers[0].VolumeDevices = []k8sv1.VolumeDevice{
+				{
+					Name:       volume.Name,
+					DevicePath: fmt.Sprintf("/dev/hpdev-%s", volume.Name),
+				},
+			}
+			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
+				RunAsUser: &[]int64{0}[0],
+			}
+		} else {
+			pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: fmt.Sprintf("/pvc-%s", volume.Name),
+			})
+		}
+	}
+
+	return pod, nil
+}
+
+func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, _ *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
