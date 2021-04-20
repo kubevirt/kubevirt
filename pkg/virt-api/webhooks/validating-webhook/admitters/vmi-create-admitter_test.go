@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 var _ = Describe("Validating VMICreate Admitter", func() {
@@ -3400,6 +3401,123 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		path := k8sfield.NewPath("spec")
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
 		Expect(len(causes)).To(Equal(0))
+	})
+
+	It("Should validate VMIs with hyperv EVMCS configuration without deps", func() {
+		_true := true
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(Equal(2), "should return error")
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid), "type should equal")
+		Expect(causes[0].Field).To(Equal("spec.domain.features.hyperv.evmcs"), "field should equal")
+		Expect(causes[1].Type).To(Equal(metav1.CauseTypeFieldValueRequired), "type should equal")
+		Expect(causes[1].Field).To(Equal("spec.domain.cpu.features"), "field should equal")
+	})
+	It("Should validate VMIs with hyperv EVMCS configuration without deps", func() {
+		_true := true
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.CPU = &v1.CPU{
+			Features: []v1.CPUFeature{
+				{
+					Name:   nodelabellerutil.VmxFeature,
+					Policy: nodelabellerutil.RequirePolicy,
+				},
+			},
+		}
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(Equal(1), "should return error")
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid), "type should equal")
+		Expect(causes[0].Field).To(Equal("spec.domain.features.hyperv.evmcs"), "field should equal")
+	})
+
+	It("Should validate VMIs with hyperv EVMCS configuration with hyperv deps, but without vmx cpu feature", func() {
+		_true := true
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				VAPIC: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(Equal(1), "should return error")
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired), "type should equal")
+		Expect(causes[0].Field).To(Equal("spec.domain.cpu.features"), "field should equal")
+	})
+
+	It("Should validate VMIs with hyperv EVMCS configuration with vmx forbid", func() {
+		_true := true
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.CPU = &v1.CPU{
+			Features: []v1.CPUFeature{
+				{
+					Name:   nodelabellerutil.VmxFeature,
+					Policy: "forbid",
+				},
+			},
+		}
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				VAPIC: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(Equal(1), "should return error")
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid), "type should equal")
+		Expect(causes[0].Field).To(Equal("spec.domain.cpu.features[0].policy"), "field should equal")
+	})
+
+	It("Should validate VMIs with hyperv EVMCS configuration with wrong vmx policy", func() {
+		_true := true
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.CPU = &v1.CPU{
+			Features: []v1.CPUFeature{
+				{
+					Name:   nodelabellerutil.VmxFeature,
+					Policy: nodelabellerutil.RequirePolicy,
+				},
+			},
+		}
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				EVMCS: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				VAPIC: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(Equal(0), "should not return error")
 	})
 
 	It("Should not validate VMIs with broken hyperv deps", func() {

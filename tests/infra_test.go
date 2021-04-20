@@ -1004,14 +1004,17 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	})
 
 	Describe("Node-labeller", func() {
+		var nodesWithKVM []*k8sv1.Node
+
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+			nodesWithKVM = tests.GetNodesWithKVM()
+			if len(nodesWithKVM) == 0 {
+				Skip("Skip testing with node-labeller, because there are no nodes with kvm")
+			}
+		})
+
 		Context("basic labelling", func() {
-			var nodesWithKVM []*k8sv1.Node
-
-			BeforeEach(func() {
-				tests.BeforeTestCleanup()
-				nodesWithKVM = tests.GetNodesWithKVM()
-			})
-
 			It("label nodes with cpu model and cpu features", func() {
 				for _, node := range nodesWithKVM {
 					Expect(err).ToNot(HaveOccurred())
@@ -1062,13 +1065,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		})
 
 		Context("advanced labelling", func() {
-			var nodesWithKVM []*k8sv1.Node
 			var originalKubeVirt *v1.KubeVirt
 
 			BeforeEach(func() {
-				tests.BeforeTestCleanup()
-				nodesWithKVM = tests.GetNodesWithKVM()
-
 				originalKubeVirt = tests.GetCurrentKv(virtClient)
 			})
 
@@ -1104,6 +1103,20 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}
 
 				Expect(found).To(Equal(false), "Node can't contain label "+v1.CPUModelLabel+obsoleteModel)
+			})
+
+			It("should update node with new cpu model vendor label", func() {
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, node := range nodes.Items {
+					for key := range node.Labels {
+						if strings.HasPrefix(key, v1.CPUModelVendorLabel) {
+							return
+						}
+					}
+				}
+
+				Fail("No node contains label " + v1.CPUModelVendorLabel)
 			})
 
 			It("should update node with new cpu feature label set", func() {
@@ -1154,13 +1167,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		})
 
 		Context("Clean up after old labeller", func() {
-			var nodesWithKVM []*k8sv1.Node
 			nfdLabel := "feature.node.kubernetes.io/some-fancy-feature-which-should-not-be-deleted"
 			var originalKubeVirt *v1.KubeVirt
 
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
-				nodesWithKVM = tests.GetNodesWithKVM()
 				originalKubeVirt = tests.GetCurrentKv(virtClient)
 
 			})
