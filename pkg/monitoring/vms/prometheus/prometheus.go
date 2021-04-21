@@ -28,6 +28,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/vms"
+
 	libvirt "libvirt.org/libvirt-go"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -41,8 +43,6 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
-
-const statsMaxAge time.Duration = collectionTimeout + 2*time.Second // "a bit more" than timeout, heuristic again
 
 var (
 
@@ -548,7 +548,7 @@ type Collector struct {
 	virtCli       kubecli.KubevirtClient
 	virtShareDir  string
 	nodeName      string
-	concCollector *concurrentCollector
+	concCollector *vms.ConcurrentCollector
 	vmiInformer   cache.SharedIndexInformer
 }
 
@@ -558,7 +558,7 @@ func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName strin
 		virtCli:       virtCli,
 		virtShareDir:  virtShareDir,
 		nodeName:      nodeName,
-		concCollector: NewConcurrentCollector(MaxRequestsInFlight),
+		concCollector: vms.NewConcurrentCollector(MaxRequestsInFlight),
 		vmiInformer:   vmiInformer,
 	}
 	prometheus.MustRegister(co)
@@ -567,25 +567,6 @@ func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName strin
 
 func (co *Collector) Describe(_ chan<- *prometheus.Desc) {
 	// TODO: Use DescribeByCollect?
-}
-
-func newvmiSocketMapFromVMIs(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
-	if len(vmis) == 0 {
-		return nil
-	}
-
-	ret := make(vmiSocketMap)
-	for _, vmi := range vmis {
-		socketPath, err := cmdclient.FindSocketOnHost(vmi)
-		if err != nil {
-			// nothing to scrape...
-			// this means there's no socket or the socket
-			// is currently unreachable for this vmi.
-			continue
-		}
-		ret[socketPath] = vmi
-	}
-	return ret
 }
 
 // Note that Collect could be called concurrently
@@ -604,9 +585,8 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
 	}
 
-	socketToVMIs := newvmiSocketMapFromVMIs(vmis)
 	scraper := &prometheusScraper{ch: ch}
-	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
+	co.concCollector.Collect(vmis, scraper, vms.CollectionTimeout)
 
 	updateVMIsPhase(co.nodeName, vmis, ch)
 	updateVMIEvictionBlocker(co.nodeName, vmis, ch)
@@ -650,7 +630,7 @@ func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachine
 	// In the best case the information is stale, in the worst case the information is stale *and*
 	// the reporting channel is already closed, leading to a possible panic - see below
 	elapsed := time.Now().Sub(ts)
-	if elapsed > statsMaxAge {
+	if elapsed > vms.StatsMaxAge {
 		log.Log.Infof("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
 		return
 	}

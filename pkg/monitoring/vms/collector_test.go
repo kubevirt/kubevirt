@@ -17,26 +17,40 @@
  *
  */
 
-package prometheus
+package vms
 
 import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/client-go/api/v1"
 )
 
 var _ = Describe("Collector", func() {
-	var socketToVMI vmiSocketMap
+	var vmis []*k6tv1.VirtualMachineInstance
+
+	var newCollector = func(retries int) *ConcurrentCollector {
+		fakeMapper := func(vmi []*k6tv1.VirtualMachineInstance) vmiSocketMap {
+			m := vmiSocketMap{}
+			for _, vmi := range vmi {
+				m[vmi.Name] = vmi
+			}
+			return m
+		}
+		collector := NewConcurrentCollector(retries)
+		collector.socketMapper = fakeMapper
+		return collector
+	}
 
 	BeforeEach(func() {
-		socketToVMI = make(vmiSocketMap)
-		socketToVMI["a"] = &k6tv1.VirtualMachineInstance{}
-		socketToVMI["b"] = &k6tv1.VirtualMachineInstance{}
-		socketToVMI["c"] = &k6tv1.VirtualMachineInstance{}
-
+		vmis = []*k6tv1.VirtualMachineInstance{
+			{ObjectMeta: metav1.ObjectMeta{Name: "a"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "b"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "c"}},
+		}
 	})
 
 	Context("on running source", func() {
@@ -44,7 +58,7 @@ var _ = Describe("Collector", func() {
 			fs := newFakeScraper()
 			cc := NewConcurrentCollector(1)
 
-			skipped, completed := cc.Collect(socketToVMI, fs, 1*time.Second)
+			skipped, completed := cc.Collect(vmis, fs, 1*time.Second)
 
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeTrue())
@@ -55,9 +69,9 @@ var _ = Describe("Collector", func() {
 		It("should gather the available data", func() {
 			fs := newFakeScraper()
 			fs.Block("a")
-			cc := NewConcurrentCollector(1)
+			cc := newCollector(1)
 
-			skipped, completed := cc.Collect(socketToVMI, fs, 1*time.Second)
+			skipped, completed := cc.Collect(vmis, fs, 1*time.Second)
 
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeFalse())
@@ -66,22 +80,22 @@ var _ = Describe("Collector", func() {
 		It("should skip it on later collections", func() {
 			fs := newFakeScraper()
 			fs.Block("a")
-			cc := NewConcurrentCollector(2)
+			cc := newCollector(2)
 
 			By("Doing a first collection")
-			skipped, completed := cc.Collect(socketToVMI, fs, 1*time.Second)
+			skipped, completed := cc.Collect(vmis, fs, 1*time.Second)
 			// first collection is not aware of the blocked source
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeFalse())
 
 			By("Doing a second collection")
-			skipped, completed = cc.Collect(socketToVMI, fs, 1*time.Second)
+			skipped, completed = cc.Collect(vmis, fs, 1*time.Second)
 			// second collection is not aware of the blocked source
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeFalse())
 
 			By("Collecting again with a blocked source")
-			skipped, completed = cc.Collect(socketToVMI, fs, 1*time.Second)
+			skipped, completed = cc.Collect(vmis, fs, 1*time.Second)
 			// second collection is aware of the blocked source
 			Expect(len(skipped)).To(Equal(1))
 			Expect(skipped[0]).To(Equal("a"))
@@ -92,16 +106,16 @@ var _ = Describe("Collector", func() {
 		It("should resume scraping when unblocks", func() {
 			fs := newFakeScraper()
 			fs.Block("b")
-			cc := NewConcurrentCollector(1)
+			cc := newCollector(1)
 
 			By("Doing a first collection")
-			skipped, completed := cc.Collect(socketToVMI, fs, 1*time.Second)
+			skipped, completed := cc.Collect(vmis, fs, 1*time.Second)
 			// first collection is not aware of the blocked source
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeFalse())
 
 			By("Collecting again with a blocked source")
-			skipped, completed = cc.Collect(socketToVMI, fs, 1*time.Second)
+			skipped, completed = cc.Collect(vmis, fs, 1*time.Second)
 			// second collection is aware of the blocked source
 			Expect(len(skipped)).To(Equal(1))
 			Expect(skipped[0]).To(Equal("b"))
@@ -113,7 +127,7 @@ var _ = Describe("Collector", func() {
 			fs.Unblock("b")
 
 			By("Restored a clean state")
-			skipped, completed = cc.Collect(socketToVMI, fs, 1*time.Second)
+			skipped, completed = cc.Collect(vmis, fs, 1*time.Second)
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeTrue())
 		})
@@ -132,19 +146,19 @@ func newFakeScraper() *fakeScraper {
 	}
 }
 
-// Unblock makes sure Scrape() WILL block. Call it when no goroutines are running (e.g. when concurrentCollector is known idle.)
+// Unblock makes sure Scrape() WILL block. Call it when no goroutines are running (e.g. when ConcurrentCollector is known idle.)
 func (fs *fakeScraper) Block(key string) {
 	fs.blocked[key] = make(chan bool)
 	fs.ready[key] = make(chan bool)
 }
 
-// Unblock makes sure Scrape() won't block. Call it when no goroutines are running (e.g. when concurrentCollector is known idle.)
+// Unblock makes sure Scrape() won't block. Call it when no goroutines are running (e.g. when ConcurrentCollector is known idle.)
 func (fs *fakeScraper) Unblock(key string) {
 	delete(fs.blocked, key)
 	delete(fs.ready, key)
 }
 
-// Wakeup awakens a blocked Scrape(). Can be called when concurrentCollector is running.
+// Wakeup awakens a blocked Scrape(). Can be called when ConcurrentCollector is running.
 func (fs *fakeScraper) Wakeup(key string) chan bool {
 	if c, ok := fs.blocked[key]; ok {
 		c <- true

@@ -17,7 +17,7 @@
  *
  */
 
-package prometheus
+package vms
 
 import (
 	"sync"
@@ -25,30 +25,36 @@ import (
 
 	k6tv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
-const collectionTimeout = 10 * time.Second // "long enough", crude heuristic
+const CollectionTimeout = 10 * time.Second            // "long enough", crude heuristic
+const StatsMaxAge = CollectionTimeout + 2*time.Second // "a bit more" than timeout, heuristic again
 
 type vmiSocketMap map[string]*k6tv1.VirtualMachineInstance
 
-type metricsScraper interface {
+type Collector interface {
 	Scrape(key string, vmi *k6tv1.VirtualMachineInstance)
+	Collect(vmis []*k6tv1.VirtualMachineInstance, scraper MetricsScraper, timeout time.Duration) (skipped []string, completed bool)
 }
 
-type concurrentCollector struct {
+type ConcurrentCollector struct {
 	lock             sync.Mutex
 	clientsPerKey    map[string]int
 	maxClientsPerKey int
+	socketMapper     func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap
 }
 
-func NewConcurrentCollector(MaxRequestsPerKey int) *concurrentCollector {
-	return &concurrentCollector{
+func NewConcurrentCollector(MaxRequestsPerKey int) *ConcurrentCollector {
+	return &ConcurrentCollector{
 		clientsPerKey:    make(map[string]int),
 		maxClientsPerKey: MaxRequestsPerKey,
+		socketMapper:     newvmiSocketMapFromVMIs,
 	}
 }
 
-func (cc *concurrentCollector) Collect(socketToVMIs vmiSocketMap, scraper metricsScraper, timeout time.Duration) ([]string, bool) {
+func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scraper MetricsScraper, timeout time.Duration) ([]string, bool) {
+	socketToVMIs := cc.socketMapper(vmis)
 	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
 	var busyScrapers sync.WaitGroup
 
@@ -85,16 +91,16 @@ func (cc *concurrentCollector) Collect(socketToVMIs vmiSocketMap, scraper metric
 	return skipped, completed
 }
 
-func (cc *concurrentCollector) collectFromSource(scraper metricsScraper, wg *sync.WaitGroup, key string, vmi *k6tv1.VirtualMachineInstance) {
+func (cc *ConcurrentCollector) collectFromSource(scraper MetricsScraper, wg *sync.WaitGroup, socket string, vmi *k6tv1.VirtualMachineInstance) {
 	defer wg.Done()
-	defer cc.releaseKey(key)
+	defer cc.releaseKey(socket)
 
-	log.Log.V(4).Infof("Getting stats from source %s", key)
-	scraper.Scrape(key, vmi)
-	log.Log.V(4).Infof("Updated stats from source %s", key)
+	log.Log.V(4).Infof("Getting stats from source %s", socket)
+	scraper.Scrape(socket, vmi)
+	log.Log.V(4).Infof("Updated stats from source %s", socket)
 }
 
-func (cc *concurrentCollector) reserveKey(key string) bool {
+func (cc *ConcurrentCollector) reserveKey(key string) bool {
 	cc.lock.Lock()
 	defer cc.lock.Unlock()
 	count := cc.clientsPerKey[key]
@@ -105,8 +111,27 @@ func (cc *concurrentCollector) reserveKey(key string) bool {
 	return true
 }
 
-func (cc *concurrentCollector) releaseKey(key string) {
+func (cc *ConcurrentCollector) releaseKey(key string) {
 	cc.lock.Lock()
 	defer cc.lock.Unlock()
 	cc.clientsPerKey[key] -= 1
+}
+
+func newvmiSocketMapFromVMIs(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
+	if len(vmis) == 0 {
+		return nil
+	}
+
+	ret := make(vmiSocketMap)
+	for _, vmi := range vmis {
+		socketPath, err := cmdclient.FindSocketOnHost(vmi)
+		if err != nil {
+			// nothing to scrape...
+			// this means there's no socket or the socket
+			// is currently unreachable for this vmi.
+			continue
+		}
+		ret[socketPath] = vmi
+	}
+	return ret
 }
