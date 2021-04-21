@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -606,6 +608,23 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 
 		if volume.ServiceAccount != nil {
 			serviceAccountName = volume.ServiceAccount.ServiceAccountName
+		}
+
+		if volume.DownwardMetrics != nil {
+			sizeLimit := resource.MustParse("1Mi")
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					EmptyDir: &k8sv1.EmptyDirVolumeSource{
+						Medium:    "Memory",
+						SizeLimit: &sizeLimit,
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: config.DownwardMetricDisksDir,
+			})
 		}
 
 		if volume.CloudInitNoCloud != nil {
@@ -1545,6 +1564,12 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
 	if util.IsVFIOVMI(vmi) {
 		overhead.Add(resource.MustParse("1Gi"))
+	}
+
+	// DownardMetrics volumes are using emptyDirs backed by memory.
+	// the max. disk size is only 256Ki.
+	if downwardmetrics.HasDownwardMetricDisk(vmi) {
+		overhead.Add(resource.MustParse("1Mi"))
 	}
 
 	return overhead

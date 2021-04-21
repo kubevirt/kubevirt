@@ -11,6 +11,7 @@ go_library(
     deps = [
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/util:go_default_library",
@@ -40,6 +41,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/config:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",

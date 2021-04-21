@@ -69,6 +69,10 @@ var (
 	SysprepDisksDir = mountBaseDir + "/sysprep-disks"
 	// DownwardAPIDisksDir represents a path to DownwardAPI iso images
 	DownwardAPIDisksDir = mountBaseDir + "/downwardapi-disks"
+	// DownwardMetricDisksDir represents a path to DownwardMetric block disk
+	DownwardMetricDisksDir = mountBaseDir + "/downwardmetric-disk"
+	// DownwardMetricDisks represents the disk location for the DownwardMetric disk
+	DownwardMetricDisk = filepath.Join(DownwardAPIDisksDir, "vhostmd0")
 	// ServiceAccountDiskDir represents a path to the ServiceAccount iso image
 	ServiceAccountDiskDir = mountBaseDir + "/service-account-disk"
 	// ServiceAccountDiskName represents the name of the ServiceAccount iso image

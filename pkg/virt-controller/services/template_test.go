@@ -37,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 
+	k6tconfig "kubevirt.io/kubevirt/pkg/config"
+
 	testutils2 "kubevirt.io/client-go/testutils"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -2216,6 +2218,63 @@ var _ = Describe("Template", func() {
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
 
 				Expect(caps.Drop).To(ContainElement(kubev1.Capability(CAP_NET_RAW)), "Expected compute container to drop NET_RAW capability")
+			})
+		})
+
+		Context("with a downwardMetrics volume source", func() {
+
+			var vmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = &v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							DisableHotplug: true,
+						},
+					}},
+				}
+			})
+
+			It("Should add an empytDir backed by Memory", func() {
+				vmi.Spec.Volumes = []v1.Volume{
+					{
+						Name: "downardMetrics",
+						VolumeSource: v1.VolumeSource{
+							DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+				Expect(len(pod.Spec.Volumes)).To(Equal(6))
+				Expect(pod.Spec.Volumes[1].EmptyDir).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[1].EmptyDir.Medium).To(Equal(kubev1.StorageMediumMemory))
+				Expect(pod.Spec.Volumes[1].EmptyDir.SizeLimit.Equal(resource.MustParse("1Mi"))).To(BeTrue())
+				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal(k6tconfig.DownwardMetricDisksDir))
+			})
+
+			It("Should add 1Mi memory overhead", func() {
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				overhead := pod.Spec.Containers[0].Resources.Requests.Memory()
+				vmi.Spec.Volumes = []v1.Volume{
+					{
+						Name: "downardMetrics",
+						VolumeSource: v1.VolumeSource{
+							DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
+						},
+					},
+				}
+				pod, err = svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				newOverhead := pod.Spec.Containers[0].Resources.Requests.Memory()
+				overhead.Add(resource.MustParse("1Mi"))
+				Expect(newOverhead.Equal(*overhead)).To(BeTrue())
 			})
 		})
 

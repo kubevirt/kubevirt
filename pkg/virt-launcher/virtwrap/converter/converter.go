@@ -560,6 +560,9 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 	if source.ServiceAccount != nil {
 		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.ServiceAccount)
 	}
+	if source.DownwardMetrics != nil {
+		return Convert_v1_DownwardMetricSource_To_api_Disk(disk, c)
+	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.GetName())
 }
@@ -738,6 +741,21 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
+	return nil
+}
+
+func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *ConverterContext) error {
+	disk.Type = "file"
+	disk.ReadOnly = toApiReadOnly(true)
+	disk.Driver = &api.DiskDriver{
+		Type: "raw",
+		Name: "qemu",
+	}
+	// This disk always needs `virtio`. Validation ensures that bus is unset or is already virtio
+	disk.Model = translateModel(c, "virtio")
+	disk.Source = api.DiskSource{
+		File: config.DownwardMetricDisk,
+	}
 	return nil
 }
 
