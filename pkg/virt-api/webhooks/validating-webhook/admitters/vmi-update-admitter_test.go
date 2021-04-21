@@ -362,7 +362,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		res := make([]v1.VolumeStatus, 0)
 		for i := 0; i < statusCount; i++ {
 			res = append(res, v1.VolumeStatus{
-				Name: fmt.Sprintf("volume-name-%d", i),
+				Name:   fmt.Sprintf("volume-name-%d", i),
+				Target: fmt.Sprintf("volume-target-%d", i),
 			})
 			if i >= statusCount-hotplugCount {
 				res[i].HotplugVolume = &v1.HotplugVolumeStatus{
