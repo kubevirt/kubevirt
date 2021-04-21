@@ -17,8 +17,6 @@
  *
  */
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-
 package network
 
 import (
