@@ -72,6 +72,7 @@ type migrationMonitor struct {
 
 	progressTimeout          int64
 	acceptableCompletionTime int64
+	migrationFailedWithError error
 }
 
 type inflightMigrationAborted struct {
@@ -605,13 +606,18 @@ func (m *migrationMonitor) startMonitor() {
 		time.Sleep(400 * time.Millisecond)
 
 		err := m.hasMigrationErr()
-		if err != nil {
-			logger.Reason(err).Error("Live migration failed")
+		if err != nil && m.migrationFailedWithError == nil {
+			logger.Reason(err).Error("Recevied a live migration error. Will check the latest migration status.")
+			m.migrationFailedWithError = err
+			continue
+		} else if m.migrationFailedWithError != nil {
+			logger.Info("Didn't manage to get a job status. Post the received error and finilize.")
+			logger.Reason(m.migrationFailedWithError).Error("Live migration failed")
 			var abortStatus v1.MigrationAbortStatus
-			if strings.Contains(err.Error(), "canceled by client") {
+			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
 			}
-			m.l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", err), abortStatus)
+			m.l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
 			return
 		}
 
