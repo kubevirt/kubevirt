@@ -773,7 +773,7 @@ func (app *virtAPIApp) Run() {
 
 // Update virt-api log verbosity on relevant config changes
 func (app *virtAPIApp) shouldChangeLogVerbosity() {
-	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.host)
+	verbosity := app.clusterConfig.GetVirtAPIVerbosity(app.host)
 	log.Log.SetVerbosityLevel(int(verbosity))
 	log.Log.V(2).Infof("set log verbosity to %d", verbosity)
 }
