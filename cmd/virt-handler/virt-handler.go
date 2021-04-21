@@ -45,6 +45,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/vms/downwardmetrics"
+
 	"kubevirt.io/kubevirt/pkg/healthz"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -321,6 +323,7 @@ func (app *virtHandlerApp) Run() {
 	)
 
 	promvm.SetupCollector(app.virtCli, app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer)
+	downwardmetrics.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector)
 
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()

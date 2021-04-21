@@ -44,6 +44,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
+const PrometheusCollectionTimeout = vms.CollectionTimeout
+
 var (
 
 	// Formatter used to sanitize k8s metadata into metric labels
@@ -586,7 +588,7 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	scraper := &prometheusScraper{ch: ch}
-	co.concCollector.Collect(vmis, scraper, vms.CollectionTimeout)
+	co.concCollector.Collect(vmis, scraper, PrometheusCollectionTimeout)
 
 	updateVMIsPhase(co.nodeName, vmis, ch)
 	updateVMIEvictionBlocker(co.nodeName, vmis, ch)
