@@ -357,7 +357,7 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		}, nil
 	}
 	if iface.Slirp != nil {
-		return &SlirpBindMechanism{vmi: vmi, iface: iface, domain: domain}, nil
+		return &SlirpBindMechanism{iface: iface, domain: domain}, nil
 	}
 	if iface.Macvtap != nil {
 		mac, err := retrieveMacAddress(iface)
@@ -1166,10 +1166,8 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 }
 
 type SlirpBindMechanism struct {
-	vmi       *v1.VirtualMachineInstance
-	iface     *v1.Interface
-	virtIface *api.Interface
-	domain    *api.Domain
+	iface  *v1.Interface
+	domain *api.Domain
 }
 
 func (s *SlirpBindMechanism) discoverPodNetworkInterface() error {
