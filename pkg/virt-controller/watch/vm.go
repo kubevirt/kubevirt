@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/util/migrations"
+
 	"github.com/pborman/uuid"
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
@@ -615,6 +617,40 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	}
 }
 
+// isVMIStartExpected determines whether a VMI is expected to be started for this VM.
+func (c *VMController) isVMIStartExpected(vm *virtv1.VirtualMachine) bool {
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching vmKey: %v", err)
+		return false
+	}
+
+	expectations, exists, _ := c.expectations.GetExpectations(vmKey)
+	if !exists || expectations == nil {
+		return false
+	}
+
+	adds, _ := expectations.GetExpectations()
+	return adds > 0
+}
+
+// isVMIStopExpected determines whether a VMI is expected to be stopped for this VM.
+func (c *VMController) isVMIStopExpected(vm *virtv1.VirtualMachine) bool {
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching vmKey: %v", err)
+		return false
+	}
+
+	expectations, exists, _ := c.expectations.GetExpectations(vmKey)
+	if !exists || expectations == nil {
+		return false
+	}
+
+	_, dels := expectations.GetExpectations()
+	return dels > 0
+}
+
 func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// TODO add check for existence
 	vmKey, err := controller.KeyFunc(vm)
@@ -1193,6 +1229,8 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 		vmCondManager.RemoveCondition(vm, virtv1.VirtualMachinePaused)
 	}
 
+	c.setPrintableStatus(vm, vmi)
+
 	// only update if necessary
 	err = nil
 	if !reflect.DeepEqual(vm.Status, vmOrig.Status) {
@@ -1200,6 +1238,114 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 
 	return err
+}
+
+func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	// For each status, there's a separate function that evaluates
+	// whether the status is "true" for the given VM.
+	//
+	// Note that these statuses aren't mutually exclusive,
+	// and several of them can be "true" at the same time
+	// (e.g., Running && Migrating, or Paused && Terminating).
+	//
+	// The actual precedence of these statuses are determined by the order
+	// of evaluation - first match wins.
+	statuses := []struct {
+		statusType virtv1.VirtualMachinePrintableStatus
+		statusFunc func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool
+	}{
+		{virtv1.VirtualMachineStatusTerminating, c.isVirtualMachineStatusTerminating},
+		{virtv1.VirtualMachineStatusStopping, c.isVirtualMachineStatusStopping},
+		{virtv1.VirtualMachineStatusMigrating, c.isVirtualMachineStatusMigrating},
+		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
+		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
+		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
+		{virtv1.VirtualMachineStatusPaused, c.isVirtualMachineStatusPaused},
+		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
+	}
+
+	for _, status := range statuses {
+		if status.statusFunc(vm, vmi) {
+			vm.Status.PrintableStatus = status.statusType
+			return
+		}
+	}
+
+	vm.Status.PrintableStatus = virtv1.VirtualMachineStatusUnknown
+}
+
+// isVirtualMachineStatusStopped determines whether the VM status field should be set to "Stopped".
+func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi != nil {
+		return vmi.IsFinal()
+	}
+
+	return !c.isVMIStartExpected(vm)
+}
+
+// isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
+func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return c.isVMIStartExpected(vm)
+	}
+
+	hasProvisioningCondition := controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstanceProvisioning, k8score.ConditionTrue)
+
+	return (vmi.IsUnprocessed() || hasProvisioningCondition)
+}
+
+// isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
+func (c *VMController) isVirtualMachineStatusStarting(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+
+	hasProvisioningCondition := controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstanceProvisioning, k8score.ConditionTrue)
+
+	return (vmi.IsScheduling() || vmi.IsScheduled()) && !hasProvisioningCondition
+}
+
+// isVirtualMachineStatusRunning determines whether the VM status field should be set to "Running".
+func (c *VMController) isVirtualMachineStatusRunning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+
+	hasPausedCondition := controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstancePaused, k8score.ConditionTrue)
+
+	return vmi.IsRunning() && !hasPausedCondition
+}
+
+// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Paused".
+func (c *VMController) isVirtualMachineStatusPaused(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+
+	isRunningPhase := vmi.Status.Phase == virtv1.Running
+	hasPausedCondition := controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstancePaused, k8score.ConditionTrue)
+
+	return isRunningPhase && hasPausedCondition
+}
+
+// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Paused".
+func (c *VMController) isVirtualMachineStatusStopping(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return vmi != nil && !vmi.IsFinal() &&
+		(vmi.IsMarkedForDeletion() || c.isVMIStopExpected(vm))
+}
+
+// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Paused".
+func (c *VMController) isVirtualMachineStatusTerminating(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return vm.ObjectMeta.DeletionTimestamp != nil
+}
+
+// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Paused".
+func (c *VMController) isVirtualMachineStatusMigrating(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return vmi != nil && migrations.IsMigrating(vmi)
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {

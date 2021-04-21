@@ -295,6 +295,10 @@ func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
 
+func (v *VirtualMachineInstance) IsMarkedForDeletion() bool {
+	return v.ObjectMeta.DeletionTimestamp != nil
+}
+
 func (v *VirtualMachineInstance) IsUnknown() bool {
 	return v.Status.Phase == Unknown
 }
