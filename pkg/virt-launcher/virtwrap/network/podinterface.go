@@ -207,13 +207,13 @@ func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 			return createCriticalNetworkError(err)
 		}
 
-		if err := bindMechanism.setCachedInterface(); err != nil {
-			log.Log.Reason(err).Error("failed to save interface configuration")
+		if err := bindMechanism.setCachedVIF(getPIDString(&pid)); err != nil {
+			log.Log.Reason(err).Error("failed to save vif configuration")
 			return createCriticalNetworkError(err)
 		}
 
-		if err := bindMechanism.setCachedVIF(getPIDString(&pid)); err != nil {
-			log.Log.Reason(err).Error("failed to save vif configuration")
+		if err := bindMechanism.setCachedInterface(); err != nil {
+			log.Log.Reason(err).Error("failed to save interface configuration")
 			return createCriticalNetworkError(err)
 		}
 	}
