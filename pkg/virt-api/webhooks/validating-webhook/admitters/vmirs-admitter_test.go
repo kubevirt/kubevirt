@@ -118,7 +118,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 					WithVolume(v1.Volume{
 						Name: "testdisk",
 						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{},
+							ContainerDisk: testutils.NewFakeContainerDiskSource(),
 						},
 					}).
 					WithLabel("match", "me").

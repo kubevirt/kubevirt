@@ -120,7 +120,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testdisk",
 			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{},
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
 			},
 		})
 
@@ -158,7 +158,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testdisk",
 			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{},
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
 			},
 		})
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -383,7 +383,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testdisk",
 			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{},
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
 			},
 		})
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -698,7 +698,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
 			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake", NetworkData: "fake"}}),
-			table.Entry("with containerDisk volume source", v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{}}),
+			table.Entry("with containerDisk volume source", v1.VolumeSource{ContainerDisk: testutils.NewFakeContainerDiskSource()}),
 			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
 			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
 			table.Entry("with dataVolume volume source", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}),
@@ -752,7 +752,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					ContainerDisk:         &v1.ContainerDiskSource{},
+					ContainerDisk:         testutils.NewFakeContainerDiskSource(),
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
 				},
 			})
@@ -767,13 +767,13 @@ var _ = Describe("Validating VM Admitter", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					ContainerDisk: &v1.ContainerDiskSource{},
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
 				},
 			})
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					ContainerDisk: &v1.ContainerDiskSource{},
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
 				},
 			})
 
@@ -789,7 +789,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: "testvolume" + name,
 					VolumeSource: v1.VolumeSource{
-						ContainerDisk: &v1.ContainerDiskSource{},
+						ContainerDisk: testutils.NewFakeContainerDiskSource(),
 					},
 				})
 			}

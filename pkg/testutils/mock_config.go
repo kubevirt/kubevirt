@@ -60,6 +60,14 @@ func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*vir
 	return NewFakeClusterConfigUsingKV(kv)
 }
 
+func NewFakeContainerDiskSource() *KVv1.ContainerDiskSource {
+	return &KVv1.ContainerDiskSource{
+		Image:           "fake-image",
+		ImagePullSecret: "fake-pull-secret",
+		Path:            "fake-path",
+	}
+}
+
 func RemoveDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 	crdInformer.GetStore().Replace(nil, "")
 }

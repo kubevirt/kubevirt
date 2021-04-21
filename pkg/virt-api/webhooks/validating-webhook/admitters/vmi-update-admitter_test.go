@@ -92,7 +92,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		updateVmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testdisk",
 			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{},
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
 			},
 		})
 		newVMIBytes, _ := json.Marshal(&updateVmi)
@@ -291,7 +291,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					res = append(res, v1.Volume{
 						Name: fmt.Sprintf("volume-name-%d", index),
 						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{},
+							ContainerDisk: testutils.NewFakeContainerDiskSource(),
 						},
 					})
 				}

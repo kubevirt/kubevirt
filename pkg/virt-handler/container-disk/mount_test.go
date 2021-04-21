@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/testutils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -65,7 +67,7 @@ var _ = Describe("ContainerDisk", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "test",
 			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{},
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
 			},
 		})
 	})
