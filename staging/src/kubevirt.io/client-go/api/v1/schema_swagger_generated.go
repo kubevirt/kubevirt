@@ -427,12 +427,13 @@ func (HypervTimer) SwaggerDoc() map[string]string {
 
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "+k8s:openapi-gen=true",
-		"acpi":   "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
-		"apic":   "Defaults to the machine type setting.\n+optional",
-		"hyperv": "Defaults to the machine type setting.\n+optional",
-		"smm":    "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
-		"kvm":    "Configure how KVM presence is exposed to the guest.\n+optional",
+		"":           "+k8s:openapi-gen=true",
+		"acpi":       "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
+		"apic":       "Defaults to the machine type setting.\n+optional",
+		"hyperv":     "Defaults to the machine type setting.\n+optional",
+		"smm":        "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
+		"kvm":        "Configure how KVM presence is exposed to the guest.\n+optional",
+		"pvspinlock": "Notify the guest that the host supports paravirtual spinlocks.\nFor older kernels this feature should be explicitly disabled.\n+optional",
 	}
 }
 

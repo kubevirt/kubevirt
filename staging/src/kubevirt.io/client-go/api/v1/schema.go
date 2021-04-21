@@ -882,6 +882,10 @@ type Features struct {
 	// Configure how KVM presence is exposed to the guest.
 	// +optional
 	KVM *FeatureKVM `json:"kvm,omitempty"`
+	// Notify the guest that the host supports paravirtual spinlocks.
+	// For older kernels this feature should be explicitly disabled.
+	// +optional
+	Pvspinlock *FeatureState `json:"pvspinlock,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.

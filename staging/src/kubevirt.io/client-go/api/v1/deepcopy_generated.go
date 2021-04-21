@@ -1118,6 +1118,11 @@ func (in *Features) DeepCopyInto(out *Features) {
 		*out = new(FeatureKVM)
 		**out = **in
 	}
+	if in.Pvspinlock != nil {
+		in, out := &in.Pvspinlock, &out.Pvspinlock
+		*out = new(FeatureState)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
