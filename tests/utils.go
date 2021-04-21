@@ -2182,6 +2182,18 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	)
 }
 
+func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
+	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+	Expect(err).NotTo(HaveOccurred())
+
+	return libvmi.NewFedora(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentBlacklistUserData(commands), false),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+	)
+}
+
 func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 		Name:     name,
@@ -2263,6 +2275,22 @@ func GetGuestAgentUserData() string {
                 setenforce 0
                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
                 `, guestAgentUrl, guestAgentUrl, GetUrl(PixmanUrl), GetUrl(StressHttpUrl))
+}
+
+func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
+	guestAgentUrl := GetUrl(GuestAgentHttpUrl)
+	return fmt.Sprintf(`#!/bin/bash
+                echo "fedora" |passwd fedora --stdin
+                mkdir -p /usr/local/bin
+                for i in {1..20}; do curl -I %s | grep "200 OK" && break || sleep 0.1; done
+                curl %s > /usr/local/bin/qemu-ga
+                chmod +x /usr/local/bin/qemu-ga
+                curl %s > /lib64/libpixman-1.so.0
+                curl %s > /usr/local/bin/stress
+                chmod +x /usr/local/bin/stress
+                setenforce 0
+                systemd-run --unit=guestagent /usr/local/bin/qemu-ga --blacklist %s
+                `, guestAgentUrl, guestAgentUrl, GetUrl(PixmanUrl), GetUrl(StressHttpUrl), commands)
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
