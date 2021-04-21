@@ -62,6 +62,14 @@ type VirtualMachineSnapshotSpec struct {
 	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
 }
 
+// Indication is a way to indicate the state of the vm when taking the snapshot
+type Indication string
+
+const (
+	VMSnapshotOnlineSnapshotIndication Indication = "Online"
+	VMSnapshotNoGuestAgentIndication   Indication = "NoGuestAgent"
+)
+
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource
 type VirtualMachineSnapshotStatus struct {
 	// +optional
@@ -82,6 +90,10 @@ type VirtualMachineSnapshotStatus struct {
 
 	// +optional
 	Conditions []Condition `json:"conditions,omitempty"`
+
+	// +optional
+	// +listType=set
+	Indications []Indication `json:"indications,omitempty"`
 }
 
 // Error is the last error encountered during the snapshot/restore

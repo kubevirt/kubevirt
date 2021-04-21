@@ -12930,6 +12930,13 @@
      "error": {
       "$ref": "#/definitions/v1alpha1.Error"
      },
+     "indications": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "set"
+     },
      "readyToUse": {
       "type": "boolean"
      },
