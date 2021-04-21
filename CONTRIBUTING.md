@@ -13,6 +13,41 @@ test and deploy. Sometimes, however, HCO cannot guess what is the right thing to
 configurable is exposed in its Resource. Each configurable must be documented, so it is clear for a human operator when
 it should be used, and why the correct value cannot be guessed automatically.
 
+## Expectations from a PR
+
+The items below must be checked per PR by the author and reviewers. Authors are responsible for stating the status of PR and reviewers are responsible for checking/verifying them. 
+
+- ***PR Message:*** PR message must explain the purpose of the PR clearly. If it fixes a bug, describe the bug or mention the github issue/bugzilla id.
+If it adds a new feature, explain why we add it and how to use it.
+It is totally OK to copy/paste documentation into PR message.
+
+- ***Commit Messages:*** Commits in a PR are squashed and merged into the target branch as a single commit by kubevirt-bot. The message of that single commit consists of PR title and messages of all squashed commits. Therefore, commit messages must be clear, concise and comprehensive.
+
+
+- ***How to test:***: If automated tests are not applicable for the PR, explain how to test the functionality in the PR. 
+  
+- ***Unit Tests:*** Production code under `pkg` folder must have unit test. PRs should not decrease the test coverage. 
+
+- ***Functional Tests:*** New features must have functional tests under `tests/func-tests`. 
+  
+- ***User Documentation:*** If the PR adds/changes something which affect end users, user documents (e.g. /docs/api.md ) must be updated.
+  
+- ***Developer Documentation:*** If the PR adds/changes something which affect developers of this repo, developer documents (e.g. /docs/run-locally.md ) must be updated.
+  
+- ***Upgrade Scenario:*** Upgrade scenario must be handled/tested in the PR. For example, if the PR adds new labels to an operand, it must be handled that existing operands during upgrades are labelled as well. If the PR removes an operand from desired state, it must handle removal of the operand during upgrade as well. 
+  
+- ***Uninstallation Scenario:*** Uninstallation scenario must be handled/tested in the PR. 
+  
+- ***Backward Compatibility:*** The APIs/interfaces we provide via this repository can be used by anyone, and we don't want to break our consumers. Changes in PRs must be backward compatible. Otherwise, it must state explicitly why we have to do it and how the community agreed on it.
+  
+- ***Troubleshooting Friendly:*** When there is a failure, the root cause must be able to be pinpointed quickly. Error mechanism must provide enough information (e.g. logs, events etc. ).
+
+<br>
+
+> If one of the checks above is not applicable for a PR, the author must put "N/A" in the PR description like below. 
+> - [ ] Upgrade Scenario -> N/A
+
+
 ### Add new Feature Gate
 
 Think twice before you do. Feature gates make HCO very hard to test; each of them essentially duplicates our test
