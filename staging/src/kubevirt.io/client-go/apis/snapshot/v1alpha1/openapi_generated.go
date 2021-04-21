@@ -16926,7 +16926,6 @@ func schema_kubevirtio_client_go_api_v1_Machine(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				Required: []string{"type"},
 			},
 		},
 	}

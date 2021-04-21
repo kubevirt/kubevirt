@@ -2896,8 +2896,6 @@ var CRDsValidation map[string]string = map[string]string{
                         type:
                           description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                           type: string
-                      required:
-                      - type
                       type: object
                     memory:
                       description: Memory allow specifying the VMI memory features.
@@ -4754,8 +4752,6 @@ var CRDsValidation map[string]string = map[string]string{
                 type:
                   description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                   type: string
-              required:
-              - type
               type: object
             memory:
               description: Memory allow specifying the VMI memory features.
@@ -6184,8 +6180,6 @@ var CRDsValidation map[string]string = map[string]string{
                 type:
                   description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                   type: string
-              required:
-              - type
               type: object
             memory:
               description: Memory allow specifying the VMI memory features.
@@ -7383,8 +7377,6 @@ var CRDsValidation map[string]string = map[string]string{
                         type:
                           description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                           type: string
-                      required:
-                      - type
                       type: object
                     memory:
                       description: Memory allow specifying the VMI memory features.
@@ -9620,8 +9612,6 @@ var CRDsValidation map[string]string = map[string]string{
                                     type:
                                       description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                                       type: string
-                                  required:
-                                  - type
                                   type: object
                                 memory:
                                   description: Memory allow specifying the VMI memory features.

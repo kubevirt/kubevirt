@@ -451,11 +451,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should accept valid machine type", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			if webhooks.IsPPC64() {
-				vmi.Spec.Domain.Machine.Type = "pseries"
+				vmi.Spec.Domain.Machine = &v1.Machine{Type: "pseries"}
 			} else if webhooks.IsARM64() {
-				vmi.Spec.Domain.Machine.Type = "virt"
+				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
 			} else {
-				vmi.Spec.Domain.Machine.Type = "q35"
+				vmi.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -463,7 +463,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject invalid machine type", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Machine.Type = "test"
+			vmi.Spec.Domain.Machine = &v1.Machine{Type: "test"}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))

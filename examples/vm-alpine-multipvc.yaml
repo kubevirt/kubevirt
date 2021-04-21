@@ -21,8 +21,6 @@ spec:
           - disk:
               bus: virtio
             name: pvcdisk2
-        machine:
-          type: ""
         resources:
           requests:
             memory: 128Mi

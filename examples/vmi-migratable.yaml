@@ -15,8 +15,6 @@ spec:
       interfaces:
       - masquerade: {}
         name: default
-    machine:
-      type: ""
     resources:
       requests:
         memory: 128Mi

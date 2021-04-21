@@ -33,8 +33,6 @@ spec:
           - disk:
               bus: virtio
             name: datavolumedisk1
-        machine:
-          type: ""
         resources:
           requests:
             memory: 128Mi

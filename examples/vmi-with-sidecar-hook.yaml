@@ -19,8 +19,6 @@ spec:
           bus: virtio
         name: cloudinitdisk
       rng: {}
-    machine:
-      type: ""
     resources:
       requests:
         memory: 1024M

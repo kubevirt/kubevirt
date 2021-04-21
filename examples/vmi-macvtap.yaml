@@ -19,8 +19,6 @@ spec:
       - macvtap: {}
         name: macvtap
       rng: {}
-    machine:
-      type: ""
     resources:
       requests:
         memory: 1024M

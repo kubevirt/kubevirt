@@ -1184,12 +1184,11 @@ func validateFirmwareSerial(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 }
 
 func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if len(spec.Domain.Machine.Type) > 0 {
-		machine := spec.Domain.Machine.Type
+	if machine := spec.Domain.Machine; machine != nil && len(machine.Type) > 0 {
 		supportedMachines := config.GetEmulatedMachines()
 		var match = false
 		for _, val := range supportedMachines {
-			if regexp.MustCompile(val).MatchString(machine) {
+			if regexp.MustCompile(val).MatchString(machine.Type) {
 				match = true
 			}
 		}
@@ -1198,7 +1197,7 @@ func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 				Type: metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s is not supported: %s (allowed values: %v)",
 					field.Child("domain", "machine", "type").String(),
-					machine,
+					machine.Type,
 					supportedMachines,
 				),
 				Field: field.Child("domain", "machine", "type").String(),

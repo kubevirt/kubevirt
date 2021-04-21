@@ -147,7 +147,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		It("[test_id:3312]should set the default MachineType when created without explicit value", func() {
 			By("Creating VirtualMachine")
 			template, _ := newVirtualMachineInstanceWithContainerDisk()
-			template.Spec.Domain.Machine.Type = ""
+			template.Spec.Domain.Machine = nil
 			vm := createVirtualMachine(false, template)
 
 			createdVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
@@ -160,7 +160,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Creating VirtualMachine")
 			explicitMachineType := "pc-q35-3.0"
 			template, _ := newVirtualMachineInstanceWithContainerDisk()
-			template.Spec.Domain.Machine.Type = explicitMachineType
+			template.Spec.Domain.Machine = &v1.Machine{Type: explicitMachineType}
 			vm := createVirtualMachine(false, template)
 
 			createdVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})

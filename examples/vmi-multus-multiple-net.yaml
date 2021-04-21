@@ -21,8 +21,6 @@ spec:
       - bridge: {}
         name: ptp
       rng: {}
-    machine:
-      type: ""
     resources:
       requests:
         memory: 1024M

@@ -479,7 +479,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			k8sv1.ResourceMemory: resource.MustParse("512Mi"),
 		}
 		vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC"}
-		vmi.Spec.Domain.Machine.Type = "q35"
+		vmi.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
 
 		vmiSpec, _ := getVMISpecMetaFromResponse()
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(vmi.Spec.Domain.CPU.Model))

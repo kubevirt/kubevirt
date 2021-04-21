@@ -238,8 +238,14 @@ func (mutator *VMIsMutator) setDefaultGuestCPUTopology(vmi *v1.VirtualMachineIns
 }
 
 func (mutator *VMIsMutator) setDefaultMachineType(vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.Machine.Type == "" {
-		vmi.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType()
+	machineType := mutator.ClusterConfig.GetMachineType()
+
+	if machine := vmi.Spec.Domain.Machine; machine != nil {
+		if machine.Type == "" {
+			machine.Type = machineType
+		}
+	} else {
+		vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 	}
 }
 

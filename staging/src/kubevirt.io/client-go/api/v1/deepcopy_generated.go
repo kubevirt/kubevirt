@@ -864,7 +864,11 @@ func (in *DomainSpec) DeepCopyInto(out *DomainSpec) {
 		*out = new(Memory)
 		(*in).DeepCopyInto(*out)
 	}
-	out.Machine = in.Machine
+	if in.Machine != nil {
+		in, out := &in.Machine, &out.Machine
+		*out = new(Machine)
+		**out = **in
+	}
 	if in.Firmware != nil {
 		in, out := &in.Firmware, &out.Firmware
 		*out = new(Firmware)

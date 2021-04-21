@@ -23,8 +23,6 @@ spec:
           protocol: TCP
         slirp: {}
       rng: {}
-    machine:
-      type: ""
     resources:
       requests:
         memory: 1024M
