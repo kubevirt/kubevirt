@@ -1132,8 +1132,9 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				"description":    params.MetaDescription,
 				"repository":     "https://github.com/kubevirt/hyperconverged-cluster-operator",
 				"support":        "false",
-				"operatorframework.io/suggested-namespace":     params.Namespace,
-				"operatorframework.io/initialization-resource": string(almExamples),
+				"operatorframework.io/suggested-namespace":       params.Namespace,
+				"operators.openshift.io/infrastructure-features": `["Disconnected"]`,
+				"operatorframework.io/initialization-resource":   string(almExamples),
 			},
 		},
 		Spec: csvv1alpha1.ClusterServiceVersionSpec{
