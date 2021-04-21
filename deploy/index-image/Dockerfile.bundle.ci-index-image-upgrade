@@ -3,7 +3,7 @@ ARG INITIAL_VERSION=1.4.0
 ARG TARGET_VERSION=100.0.0
 ARG PACKAGE_NAME=community-kubevirt-hyperconverged
 ARG CSV_FILE=/manifests/kubevirt-hyperconverged-operator.v${TARGET_VERSION}.clusterserviceversion.yaml
-ARG OLM_SKIP_RANGE=">=${INITIAL_VERSION}-1 <${TARGET_VERSION}"
+ARG OLM_SKIP_RANGE="<${TARGET_VERSION}"
 
 COPY ${PACKAGE_NAME}/${INITIAL_VERSION}/manifests/ /manifests/
 COPY ${PACKAGE_NAME}/${INITIAL_VERSION}/metadata /metadata/
