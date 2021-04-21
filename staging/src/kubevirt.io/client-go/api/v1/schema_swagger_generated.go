@@ -44,6 +44,12 @@ func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 	}
 }
 
+func (DownwardMetricsVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.\n\n+k8s:openapi-gen=true",
+	}
+}
+
 func (SysprepSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":          "Represents a Sysprep volume source.\n\n+k8s:openapi-gen=true",
@@ -333,6 +339,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"secret":                "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
 		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
+		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
 	}
 }
 

@@ -114,6 +114,13 @@ type ServiceAccountVolumeSource struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
+// DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest
+// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+//
+// +k8s:openapi-gen=true
+type DownwardMetricsVolumeSource struct {
+}
+
 // Represents a Sysprep volume source.
 //
 // +k8s:openapi-gen=true
@@ -667,6 +674,9 @@ type VolumeSource struct {
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	// +optional
 	ServiceAccount *ServiceAccountVolumeSource `json:"serviceAccount,omitempty"`
+	// DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest
+	// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable

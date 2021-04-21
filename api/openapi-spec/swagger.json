@@ -9640,6 +9640,10 @@
      }
     }
    },
+   "v1.DownwardMetricsVolumeSource": {
+    "description": "DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
+    "type": "object"
+   },
    "v1.EFI": {
     "description": "If set, EFI will be used instead of BIOS.",
     "type": "object",
@@ -12205,6 +12209,10 @@
      "downwardAPI": {
       "description": "DownwardAPI represents downward API about the pod that should populate this volume",
       "$ref": "#/definitions/v1.DownwardAPIVolumeSource"
+     },
+     "downwardMetrics": {
+      "description": "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
+      "$ref": "#/definitions/v1.DownwardMetricsVolumeSource"
      },
      "emptyDisk": {
       "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",

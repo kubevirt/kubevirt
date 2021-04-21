@@ -3340,6 +3340,9 @@ var CRDsValidation map[string]string = map[string]string{
                             description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
                             type: string
                         type: object
+                      downwardMetrics:
+                        description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                        type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
                         properties:
@@ -5194,6 +5197,9 @@ var CRDsValidation map[string]string = map[string]string{
                   volumeLabel:
                     description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
                     type: string
+                type: object
+              downwardMetrics:
+                description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
                 type: object
               emptyDisk:
                 description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
@@ -7824,6 +7830,9 @@ var CRDsValidation map[string]string = map[string]string{
                             description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
                             type: string
                         type: object
+                      downwardMetrics:
+                        description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                        type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
                         properties:
@@ -10060,6 +10069,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       volumeLabel:
                                         description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
                                         type: string
+                                    type: object
+                                  downwardMetrics:
+                                    description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
                                     type: object
                                   emptyDisk:
                                     description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
