@@ -38,56 +38,64 @@ func (_mr *_MockBindMechanismRecorder) discoverPodNetworkInterface() *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "discoverPodNetworkInterface")
 }
 
-func (_m *MockBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
-	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces", queueNumber, launcherPID)
+func (_m *MockBindMechanism) preparePodNetworkInterfaces() error {
+	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces", arg0, arg1)
+func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces")
 }
 
-func (_m *MockBindMechanism) loadCachedInterface(pid string, name string) (bool, error) {
-	ret := _m.ctrl.Call(_m, "loadCachedInterface", pid, name)
+func (_m *MockBindMechanism) loadCachedInterface() error {
+	ret := _m.ctrl.Call(_m, "loadCachedInterface")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) loadCachedInterface() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedInterface")
+}
+
+func (_m *MockBindMechanism) setCachedInterface() error {
+	ret := _m.ctrl.Call(_m, "setCachedInterface")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) setCachedInterface() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedInterface")
+}
+
+func (_m *MockBindMechanism) wasCachedInterfaceLoaded() bool {
+	ret := _m.ctrl.Call(_m, "wasCachedInterfaceLoaded")
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) loadCachedInterface(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedInterface", arg0, arg1)
+func (_mr *_MockBindMechanismRecorder) wasCachedInterfaceLoaded() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "wasCachedInterfaceLoaded")
 }
 
-func (_m *MockBindMechanism) setCachedInterface(pid string, name string) error {
-	ret := _m.ctrl.Call(_m, "setCachedInterface", pid, name)
+func (_m *MockBindMechanism) loadCachedVIF(pid string) error {
+	ret := _m.ctrl.Call(_m, "loadCachedVIF", pid)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) setCachedInterface(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedInterface", arg0, arg1)
+func (_mr *_MockBindMechanismRecorder) loadCachedVIF(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedVIF", arg0)
 }
 
-func (_m *MockBindMechanism) loadCachedVIF(pid string, name string) (bool, error) {
-	ret := _m.ctrl.Call(_m, "loadCachedVIF", pid, name)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockBindMechanismRecorder) loadCachedVIF(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedVIF", arg0, arg1)
-}
-
-func (_m *MockBindMechanism) setCachedVIF(pid string, name string) error {
-	ret := _m.ctrl.Call(_m, "setCachedVIF", pid, name)
+func (_m *MockBindMechanism) setCachedVIF(pid string) error {
+	ret := _m.ctrl.Call(_m, "setCachedVIF", pid)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) setCachedVIF(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedVIF", arg0, arg1)
+func (_mr *_MockBindMechanismRecorder) setCachedVIF(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedVIF", arg0)
 }
 
 func (_m *MockBindMechanism) decorateConfig() error {
