@@ -1306,6 +1306,8 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: "ip a\n"},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: macAddress},
 		&expect.BSnd{S: "echo $?\n"},
