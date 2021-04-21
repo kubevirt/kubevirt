@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -1468,6 +1469,184 @@ Version: 1.2.3`)
 					})
 
 				})
+			})
+		})
+
+		Context("Certificate rotation strategy", func() {
+			It("should add certificate rotation strategy if missing in KV", func() {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
+					CA: hcov1beta1.CertRotateConfig{
+						Duration:    metav1.Duration{Duration: 24 * time.Hour},
+						RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
+					},
+					Server: hcov1beta1.CertRotateConfig{
+						Duration:    metav1.Duration{Duration: 12 * time.Hour},
+						RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+					},
+				}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.CertificateRotationStrategy).ToNot(BeNil())
+				certificateRotationStrategy := foundResource.Spec.CertificateRotationStrategy
+				Expect(certificateRotationStrategy.SelfSigned.CA.Duration.Duration.String()).Should(Equal("24h0m0s"))
+				Expect(certificateRotationStrategy.SelfSigned.CA.RenewBefore.Duration.String()).Should(Equal("1h0m0s"))
+				Expect(certificateRotationStrategy.SelfSigned.Server.Duration.Duration.String()).Should(Equal("12h0m0s"))
+				Expect(certificateRotationStrategy.SelfSigned.Server.RenewBefore.Duration.String()).Should(Equal("30m0s"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should set certificate rotation strategy to defaults if missing in HCO CR", func() {
+				existingResource := NewKubeVirtWithNameOnly(hco)
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(existingResource.Spec.CertificateRotationStrategy.SelfSigned).To(BeNil())
+
+				Expect(foundResource.Spec.CertificateRotationStrategy).ToNot(BeNil())
+				certificateRotationStrategy := foundResource.Spec.CertificateRotationStrategy
+				Expect(certificateRotationStrategy.SelfSigned.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
+				Expect(certificateRotationStrategy.SelfSigned.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
+				Expect(certificateRotationStrategy.SelfSigned.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
+				Expect(certificateRotationStrategy.SelfSigned.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should modify certificate rotation strategy according to HCO CR", func() {
+
+				hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
+					CA: hcov1beta1.CertRotateConfig{
+						Duration:    metav1.Duration{Duration: 24 * time.Hour},
+						RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
+					},
+					Server: hcov1beta1.CertRotateConfig{
+						Duration:    metav1.Duration{Duration: 12 * time.Hour},
+						RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+					},
+				}
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Modify HCO's cert configuration")
+				hco.Spec.CertConfig.CA.Duration.Duration *= 2
+				hco.Spec.CertConfig.CA.RenewBefore.Duration *= 2
+				hco.Spec.CertConfig.Server.Duration.Duration *= 2
+				hco.Spec.CertConfig.Server.RenewBefore.Duration *= 2
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(existingResource.Spec.CertificateRotationStrategy).ToNot(BeNil())
+				existingCertificateRotationStrategy := existingResource.Spec.CertificateRotationStrategy
+				Expect(existingCertificateRotationStrategy.SelfSigned.CA.Duration.Duration.String()).Should(Equal("24h0m0s"))
+				Expect(existingCertificateRotationStrategy.SelfSigned.CA.RenewBefore.Duration.String()).Should(Equal("1h0m0s"))
+				Expect(existingCertificateRotationStrategy.SelfSigned.Server.Duration.Duration.String()).Should(Equal("12h0m0s"))
+				Expect(existingCertificateRotationStrategy.SelfSigned.Server.RenewBefore.Duration.String()).Should(Equal("30m0s"))
+
+				Expect(foundResource.Spec.CertificateRotationStrategy).ToNot(BeNil())
+				foundCertificateRotationStrategy := foundResource.Spec.CertificateRotationStrategy
+				Expect(foundCertificateRotationStrategy.SelfSigned.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
+				Expect(foundCertificateRotationStrategy.SelfSigned.CA.RenewBefore.Duration.String()).Should(Equal("2h0m0s"))
+				Expect(foundCertificateRotationStrategy.SelfSigned.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
+				Expect(foundCertificateRotationStrategy.SelfSigned.Server.RenewBefore.Duration.String()).Should(Equal("1h0m0s"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should overwrite certificate rotation strategy if directly set on KV CR", func() {
+
+				hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
+					CA: hcov1beta1.CertRotateConfig{
+						Duration:    metav1.Duration{Duration: 24 * time.Hour},
+						RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
+					},
+					Server: hcov1beta1.CertRotateConfig{
+						Duration:    metav1.Duration{Duration: 12 * time.Hour},
+						RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+					},
+				}
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Mock a reconciliation triggered by a change in KV CR")
+				req.HCOTriggered = false
+
+				By("Modify KV's cert configuration")
+				existingResource.Spec.CertificateRotationStrategy.SelfSigned.CA.Duration = &metav1.Duration{Duration: 48 * time.Hour}
+				existingResource.Spec.CertificateRotationStrategy.SelfSigned.CA.RenewBefore = &metav1.Duration{Duration: 2 * time.Hour}
+				existingResource.Spec.CertificateRotationStrategy.SelfSigned.Server.Duration = &metav1.Duration{Duration: 24 * time.Hour}
+				existingResource.Spec.CertificateRotationStrategy.SelfSigned.Server.RenewBefore = &metav1.Duration{Duration: 1 * time.Hour}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(existingResource.Spec.CertificateRotationStrategy).ToNot(BeNil())
+				existingCertificateRotationStrategy := existingResource.Spec.CertificateRotationStrategy
+				Expect(existingCertificateRotationStrategy.SelfSigned.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
+				Expect(existingCertificateRotationStrategy.SelfSigned.CA.RenewBefore.Duration.String()).Should(Equal("2h0m0s"))
+				Expect(existingCertificateRotationStrategy.SelfSigned.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
+				Expect(existingCertificateRotationStrategy.SelfSigned.Server.RenewBefore.Duration.String()).Should(Equal("1h0m0s"))
+
+				Expect(foundResource.Spec.CertificateRotationStrategy).ToNot(BeNil())
+				foundCertificateRotationStrategy := foundResource.Spec.CertificateRotationStrategy
+				Expect(foundCertificateRotationStrategy.SelfSigned.CA.Duration.Duration.String()).Should(Equal("24h0m0s"))
+				Expect(foundCertificateRotationStrategy.SelfSigned.CA.RenewBefore.Duration.String()).Should(Equal("1h0m0s"))
+				Expect(foundCertificateRotationStrategy.SelfSigned.Server.Duration.Duration.String()).Should(Equal("12h0m0s"))
+				Expect(foundCertificateRotationStrategy.SelfSigned.Server.RenewBefore.Duration.String()).Should(Equal("30m0s"))
+
+				Expect(req.Conditions).To(BeEmpty())
 			})
 		})
 

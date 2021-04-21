@@ -186,14 +186,15 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtv1.Kub
 		return nil, err
 	}
 
-	spec := kubevirtv1.KubeVirtSpec{
-		UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
-		Infra:             hcoConfig2KvConfig(hc.Spec.Infra),
-		Workloads:         hcoConfig2KvConfig(hc.Spec.Workloads),
-		Configuration:     *config,
-	}
+	kvCertConfig := hcoCertConfig2KvCertificateRotateStrategy(hc.Spec.CertConfig)
 
-	// TODO: support passing certificate rotation configuration to KubeVirt spec
+	spec := kubevirtv1.KubeVirtSpec{
+		UninstallStrategy:           kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
+		Infra:                       hcoConfig2KvConfig(hc.Spec.Infra),
+		Workloads:                   hcoConfig2KvConfig(hc.Spec.Workloads),
+		Configuration:               *config,
+		CertificateRotationStrategy: *kvCertConfig,
+	}
 
 	kv := NewKubeVirtWithNameOnly(hc, opts...)
 	kv.Spec = spec
@@ -511,4 +512,19 @@ func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	}
 
 	return res
+}
+
+func hcoCertConfig2KvCertificateRotateStrategy(hcoCertConfig hcov1beta1.HyperConvergedCertConfig) *kubevirtv1.KubeVirtCertificateRotateStrategy {
+	return &kubevirtv1.KubeVirtCertificateRotateStrategy{
+		SelfSigned: &kubevirtv1.KubeVirtSelfSignConfiguration{
+			CA: &kubevirtv1.CertConfig{
+				Duration:    hcoCertConfig.CA.Duration.DeepCopy(),
+				RenewBefore: hcoCertConfig.CA.RenewBefore.DeepCopy(),
+			},
+			Server: &kubevirtv1.CertConfig{
+				Duration:    hcoCertConfig.Server.Duration.DeepCopy(),
+				RenewBefore: hcoCertConfig.Server.RenewBefore.DeepCopy(),
+			},
+		},
+	}
 }
