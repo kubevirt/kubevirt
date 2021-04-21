@@ -965,6 +965,15 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 
 		for _, obj := range all {
+			m := obj.(metav1.Object)
+			a := m.GetAnnotations()
+			if len(a) == 0 {
+				a = map[string]string{}
+			}
+
+			a[v1.KubeVirtCustomizeComponentAnnotationHash] = c.Hash()
+			m.SetAnnotations(a)
+
 			addResource(obj, config, kv)
 		}
 	}
