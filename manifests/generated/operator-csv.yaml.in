@@ -868,7 +868,10 @@ spec:
                     scheme: HTTPS
                   initialDelaySeconds: 5
                   timeoutSeconds: 10
-                resources: {}
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 150Mi
                 volumeMounts:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
