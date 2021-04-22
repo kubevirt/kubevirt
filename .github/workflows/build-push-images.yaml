@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - master
-      - release-*
+      - release-1*
+    paths-ignore:
+      - 'docs/**'
+      - 'images/**'
+      - 'automation/**'
+      - 'cluster/**'
+      - 'tests/**'
 jobs:
   build_push:
     if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
