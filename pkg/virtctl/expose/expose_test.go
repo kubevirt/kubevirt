@@ -282,10 +282,63 @@ var _ = Describe("Expose", func() {
 					Expect(obtainedService.Spec.IPFamilies).To(ConsistOf(k8sv1.IPv6Protocol))
 				})
 
+				It("should succeed with IPv4, IPv6", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http", "--ip-family", "ipv4,ipv6")
+					Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv4,ipv6 is valid")
+					Expect(obtainedService).ToNot(BeNil())
+					Expect(obtainedService.Spec.IPFamilies).Should(HaveLen(2))
+					Expect(obtainedService.Spec.IPFamilies[0]).To(Equal(k8sv1.IPv4Protocol))
+					Expect(obtainedService.Spec.IPFamilies[1]).To(Equal(k8sv1.IPv6Protocol))
+				})
+
+				It("should succeed with IPv6, IPv4", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http", "--ip-family", "ipv6,ipv4")
+					Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv6,ipv4 is valid")
+					Expect(obtainedService).ToNot(BeNil())
+					Expect(obtainedService.Spec.IPFamilies).Should(HaveLen(2))
+					Expect(obtainedService.Spec.IPFamilies[0]).To(Equal(k8sv1.IPv6Protocol))
+					Expect(obtainedService.Spec.IPFamilies[1]).To(Equal(k8sv1.IPv4Protocol))
+				})
+
 				It("should fail with an invalid IPFamily", func() {
 					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999", "--target-port", "http", "--ip-family", "ipv14")
 					Expect(cmd()).To(HaveOccurred(), "should fail on an invalid IP family")
+
+				})
+			})
+			Context("With parametrized IPFamilyPolicy", func() {
+				It("should succeed with singlestack", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http", "--ip-family-policy", "singlestack")
+					Expect(cmd()).To(Succeed(), "should succeed on a valid IP family policy - singlestack is valid")
+					Expect(obtainedService).ToNot(BeNil())
+					Expect(*obtainedService.Spec.IPFamilyPolicy).To(Equal(k8sv1.IPFamilyPolicySingleStack))
+
+				})
+
+				It("should succeed with PreferDualStack", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http", "--ip-family-policy", "PreferDualStack")
+					Expect(cmd()).To(Succeed(), "should succeed on a valid IP family policy - PreferDualStack is valid")
+					Expect(obtainedService).ToNot(BeNil())
+					Expect(*obtainedService.Spec.IPFamilyPolicy).To(Equal(k8sv1.IPFamilyPolicyPreferDualStack))
+				})
+
+				It("should succeed with RequiredualStack", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http", "--ip-family-policy", "RequiredualStack")
+					Expect(cmd()).To(Succeed(), "should succeed on a valid IP family policy - RequiredualStack is valid")
+					Expect(obtainedService).ToNot(BeNil())
+					Expect(*obtainedService.Spec.IPFamilyPolicy).To(Equal(k8sv1.IPFamilyPolicyRequireDualStack))
+				})
+
+				It("should fail with an invalid IPFamilyPolicy", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http", "--ip-family-policy", "non-valid-policy")
+					Expect(cmd()).To(HaveOccurred(), "should fail on an invalid IP family policy")
 
 				})
 			})
@@ -328,6 +381,25 @@ var _ = Describe("Expose", func() {
 					Expect(found).To(BeTrue())
 					Expect(ipFamily).To(Equal(string(k8sv1.IPv6Protocol)))
 
+				})
+
+				It("should fail with IPv4,IPv6", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http", "--ip-family", "ipv4,ipv6")
+					Expect(cmd()).ToNot(Succeed(), "should fail on an invalid IP family - ipv4,ipv6 is invalid")
+				})
+
+				It("should fail with IPv6,IPv4", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http", "--ip-family", "ipv6,ipv4")
+					Expect(cmd()).ToNot(Succeed(), "should fail on an invalid IP family - ipv6,ipv4 is invalid")
+				})
+			})
+			Context("With IPFamilyPolicy", func() {
+				It("should fail with non-empty IPFamilyPolicy", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+						"--port", "9999", "--target-port", "http", "--ip-family-policy", "PreferDualStack")
+					Expect(cmd()).ToNot(Succeed(), "should fail on non empty IP family policy")
 				})
 			})
 		})
