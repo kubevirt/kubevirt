@@ -9702,14 +9702,13 @@ rpm(
 )
 
 rpm(
-    name = "usbredir-0__0.8.0-4.fc32.x86_64",
-    sha256 = "62cdf815d1c8235745dc40a314480e972a0b7ba7f69fb68355eeacf1333e72b4",
+    name = "usbredir-0__0.9.0-1.fc32.x86_64",
+    sha256 = "565bf717a81dacd313cba21e25b4c8be55a9bf964258bc2f0d1b160a41096eb5",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/u/usbredir-0.8.0-4.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/u/usbredir-0.8.0-4.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/u/usbredir-0.8.0-4.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/u/usbredir-0.8.0-4.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/62cdf815d1c8235745dc40a314480e972a0b7ba7f69fb68355eeacf1333e72b4",
+        "https://mirror.genesisadaptive.com/fedora/updates/32/Everything/x86_64/Packages/u/usbredir-0.9.0-1.fc32.x86_64.rpm",
+        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/u/usbredir-0.9.0-1.fc32.x86_64.rpm",
+        "https://mirror.lax.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/u/usbredir-0.9.0-1.fc32.x86_64.rpm",
+        "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/u/usbredir-0.9.0-1.fc32.x86_64.rpm",
     ],
 )
 
