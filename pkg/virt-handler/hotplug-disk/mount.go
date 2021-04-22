@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -59,11 +61,11 @@ var (
 	}
 
 	mountCommand = func(sourcePath, targetPath string) ([]byte, error) {
-		return exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "bind", strings.TrimPrefix(sourcePath, isolation.NodeIsolationResult().MountRoot()), targetPath).CombinedOutput()
+		return virt_chroot.MountChroot(strings.TrimPrefix(sourcePath, isolation.NodeIsolationResult().MountRoot()), targetPath, false).CombinedOutput()
 	}
 
 	unmountCommand = func(diskPath string) ([]byte, error) {
-		return exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "umount", diskPath).CombinedOutput()
+		return virt_chroot.UmountChroot(diskPath).CombinedOutput()
 	}
 
 	isMounted = func(path string) (bool, error) {

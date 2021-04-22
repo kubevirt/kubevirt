@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
+
 	"kubevirt.io/client-go/log"
 )
 
@@ -90,12 +92,12 @@ func (se *SELinuxImpl) semodule(args ...string) (out []byte, err error) {
 		return []byte{}, fmt.Errorf("could not find 'semodule' binary")
 	}
 
-	argsArray := []string{"--mount", "/proc/1/ns/mnt", "exec", "--", path}
+	argsArray := []string{"--mount", virt_chroot.GetChrootMountNamespace(), "exec", "--", path}
 	for _, arg := range args {
 		argsArray = append(argsArray, arg)
 	}
 
-	out, err = se.execFunc("/usr/bin/virt-chroot", argsArray...)
+	out, err = se.execFunc(virt_chroot.GetChrootBinaryPath(), argsArray...)
 	if err != nil && se.isPermissive() {
 		log.DefaultLogger().Warningf("Permissive mode, ignoring 'semodule' failure: out: %q, error: %v", string(out), err)
 		return []byte{}, nil
@@ -113,12 +115,12 @@ func (se *SELinuxImpl) Mode() string {
 }
 
 func (se *SELinuxImpl) selinux(args ...string) (out []byte, err error) {
-	argsArray := []string{"--mount", "/proc/1/ns/mnt", "selinux"}
+	argsArray := []string{"--mount", virt_chroot.GetChrootMountNamespace(), "selinux"}
 	for _, arg := range args {
 		argsArray = append(argsArray, arg)
 	}
 
-	return se.execFunc("/usr/bin/virt-chroot", argsArray...)
+	return se.execFunc(virt_chroot.GetChrootBinaryPath(), argsArray...)
 }
 
 func defaultCopyPolicyFunc(policyName string, dir string) (err error) {

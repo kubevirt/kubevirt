@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
+
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	"kubevirt.io/client-go/log"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -247,8 +248,7 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				f.Close()
 
 				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile)
-				// #nosec g204 no risk to TrimPref as argument as it just trims two fixed strings
-				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "ro,bind", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile).CombinedOutput()
+				out, err := virt_chroot.MountChroot(strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile, true).CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
 				}
@@ -292,7 +292,7 @@ func (m *mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
 				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
 			} else if mounted {
 				// #nosec No risk for attacket injection. Parameters are predefined strings
-				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
+				out, err := virt_chroot.UmountChroot(path).CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
 				}
@@ -336,7 +336,7 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			} else if mounted {
 				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", path)
 				// #nosec No risk for attacket injection. Parameters are predefined strings
-				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
+				out, err := virt_chroot.UmountChroot(path).CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
 				}

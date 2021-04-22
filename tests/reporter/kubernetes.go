@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
+
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/types"
@@ -365,9 +367,9 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, duration
 		}
 
 		commands := []string{
-			"/usr/bin/virt-chroot",
+			virt_chroot.GetChrootBinaryPath(),
 			"--mount",
-			"/proc/1/ns/mnt",
+			virt_chroot.GetChrootMountNamespace(),
 			"exec",
 			"--",
 			"/usr/bin/journalctl",
