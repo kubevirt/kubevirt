@@ -744,7 +744,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
 			},
 				table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				table.XEntry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtLocalConnectionPort, ""),
+				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtLocalConnectionPort, ""),
 				table.Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
 				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
 			)
@@ -789,7 +789,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
 				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				table.XEntry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtLocalConnectionPort, ""),
+				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtLocalConnectionPort, ""),
 				table.Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
 				table.Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
 			)
@@ -916,7 +916,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(ping(podIP)).To(Succeed())
 			},
 				table.Entry("IPv4", k8sv1.IPv4Protocol, []v1.Port{}),
-				table.XEntry("IPv4 with explicit ports used by live migration", k8sv1.IPv4Protocol, portsUsedByLiveMigration()),
+				table.Entry("IPv4 with explicit ports used by live migration", k8sv1.IPv4Protocol, portsUsedByLiveMigration()),
 				table.Entry("IPv6", k8sv1.IPv6Protocol, []v1.Port{}),
 			)
 		})
