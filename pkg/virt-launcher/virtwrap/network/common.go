@@ -194,11 +194,11 @@ func (h *NetworkUtilsHandler) ConfigureIpForwarding(proto iptables.Protocol) err
 }
 
 func (h *NetworkUtilsHandler) IsIpv6Enabled(interfaceName string) (bool, error) {
-	link, err := Handler.LinkByName(interfaceName)
+	link, err := h.LinkByName(interfaceName)
 	if err != nil {
 		return false, err
 	}
-	addrList, err := Handler.AddrList(link, netlink.FAMILY_V6)
+	addrList, err := h.AddrList(link, netlink.FAMILY_V6)
 	if err != nil {
 		return false, err
 	}
@@ -240,7 +240,7 @@ func (h *NetworkUtilsHandler) IptablesAppendRule(proto iptables.Protocol, table,
 
 func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, chain string) error {
 	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ipv6" or "ip" strings
-	output, err := exec.Command("nft", "add", "chain", Handler.GetNFTIPString(proto), table, chain).CombinedOutput()
+	output, err := exec.Command("nft", "add", "chain", h.GetNFTIPString(proto), table, chain).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s", string(output))
 	}
@@ -249,7 +249,7 @@ func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, c
 }
 
 func (h *NetworkUtilsHandler) NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error {
-	cmd := append([]string{"add", "rule", Handler.GetNFTIPString(proto), table, chain}, rulespec...)
+	cmd := append([]string{"add", "rule", h.GetNFTIPString(proto), table, chain}, rulespec...)
 	// #nosec No risk for attacket injection. CMD variables are predefined strings
 	output, err := exec.Command("nft", cmd...).CombinedOutput()
 	if err != nil {
@@ -334,7 +334,7 @@ func (h *NetworkUtilsHandler) GetMacDetails(iface string) (net.HardwareAddr, err
 func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
 	var mac net.HardwareAddr
 
-	currentMac, err := Handler.GetMacDetails(iface)
+	currentMac, err := h.GetMacDetails(iface)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +349,7 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 		}
 
 		if changed {
-			mac, err = Handler.GetMacDetails(iface)
+			mac, err = h.GetMacDetails(iface)
 			if err != nil {
 				return nil, err
 			}
