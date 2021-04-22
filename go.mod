@@ -135,8 +135,7 @@ replace (
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.5.1 // indirect
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	// TODO: Move to v0.41.0 once available
-	// kubevirt.io/client-go => kubevirt.io/client-go v0.40.0-rc.2
-	kubevirt.io/client-go => ./kubevirt/staging/src/kubevirt.io/client-go
+	kubevirt.io/client-go => kubevirt.io/client-go v0.40.0-rc.0.0.20210417001930-20134d14e2ec
 )
 
 // Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.33.0
