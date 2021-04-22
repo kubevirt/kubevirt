@@ -124,15 +124,19 @@ type Collector struct {
 	concCollector *vms.ConcurrentCollector
 }
 
-func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiInformer cache.SharedIndexInformer, isolation isolation.PodIsolationDetector) {
+func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiInformer cache.SharedIndexInformer, isolation isolation.PodIsolationDetector) error {
 
+	compactVersion, err := version.GetCompactJSON()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve compaced version info: %v", err)
+	}
 	scraper := &Scraper{
 		isolation: isolation,
 		staticHostInfo: &StaticHostMetrics{
 			HostName:             nodeName,
 			HostSystemInfo:       "linux",
 			VirtualizationVendor: "kubevirt.io",
-			VirtProductInfo:      fmt.Sprintf("%#v", version.Get()),
+			VirtProductInfo:      compactVersion,
 		},
 		hostMetricsCollector: defaultHostMetricsCollector(),
 	}
@@ -160,4 +164,5 @@ func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiIn
 			}
 		}
 	}()
+	return nil
 }

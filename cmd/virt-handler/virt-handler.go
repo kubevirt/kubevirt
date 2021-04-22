@@ -323,7 +323,9 @@ func (app *virtHandlerApp) Run() {
 	)
 
 	promvm.SetupCollector(app.virtCli, app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer)
-	downwardmetrics.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector)
+	if err := downwardmetrics.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector); err != nil {
+		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
+	}
 
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
