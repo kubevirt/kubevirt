@@ -1513,6 +1513,30 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, "Migration Target is listening")
 		}, 3)
 
+		It("should signal target pod to early exit on failed migration", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:   host,
+				SourceNode:   "othernode",
+				MigrationUID: "123",
+				Failed:       true,
+			}
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+
+			client.EXPECT().Ping()
+			client.EXPECT().SignalTargetPodCleanup(vmi)
+			controller.Execute()
+		}, 3)
+
 		It("should abort target prep if VMI is deleted", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID

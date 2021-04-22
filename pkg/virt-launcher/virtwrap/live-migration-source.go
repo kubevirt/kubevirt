@@ -815,10 +815,25 @@ func prepareDomainForMigration(virtConn cli.Connection, domain cli.VirDomain) er
 	return hotUnplugHostDevices(virtConn, domain)
 }
 
+func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Annotations == nil {
+		return false
+	}
+
+	_, shouldFail := vmi.Annotations[v1.FuncTestForceLauncherMigrationFailureAnnotation]
+	return shouldFail
+}
+
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
 
 	// get connection proxies for tunnelling migration through virt-handler
 	go func() {
+		if shouldImmediatelyFailMigration(vmi) {
+			log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
+			l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
+			return
+		}
+
 		migrationErrorChan := make(chan error, 1)
 		defer close(migrationErrorChan)
 

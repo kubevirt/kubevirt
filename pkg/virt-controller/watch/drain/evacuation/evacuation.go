@@ -34,6 +34,7 @@ type EvacuationController struct {
 	clientset             kubecli.KubevirtClient
 	Queue                 workqueue.RateLimitingInterface
 	vmiInformer           cache.SharedIndexInformer
+	vmiPodInformer        cache.SharedIndexInformer
 	migrationInformer     cache.SharedIndexInformer
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
@@ -45,6 +46,7 @@ func NewEvacuationController(
 	vmiInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	nodeInformer cache.SharedIndexInformer,
+	vmiPodInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -55,6 +57,7 @@ func NewEvacuationController(
 		vmiInformer:           vmiInformer,
 		migrationInformer:     migrationInformer,
 		nodeInformer:          nodeInformer,
+		vmiPodInformer:        vmiPodInformer,
 		recorder:              recorder,
 		clientset:             clientset,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -470,6 +473,10 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 	}
 
 	for _, vmi := range vmis {
+		// vmi is shutting down
+		if vmi.IsFinal() || vmi.DeletionTimestamp != nil {
+			continue
+		}
 
 		// does not want to migrate
 		if vmi.Spec.EvictionStrategy == nil || *vmi.Spec.EvictionStrategy != virtv1.EvictionStrategyLiveMigrate {
@@ -480,12 +487,25 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 			nonMigrateable = append(nonMigrateable, vmi)
 			continue
 		}
-		if exists := lookup[vmi.Namespace+"/"+vmi.Name]; !exists &&
-			!vmi.IsFinal() && vmi.DeletionTimestamp == nil {
-			// no migration exists,
-			// the vmi is running,
-			migrateable = append(migrateable, vmi)
+
+		hasMigration := lookup[vmi.Namespace+"/"+vmi.Name]
+		// already migrating
+		if hasMigration {
+			continue
 		}
+
+		if controller.VMIActivePodsCount(vmi, c.vmiPodInformer) > 1 {
+			// waiting on target/source pods from a previous migration to terminate
+			//
+			// We only want to create a migration when num pods == 1 or else we run the
+			// risk of invalidating our pdb which prevents the VMI from being evicted
+			continue
+		}
+
+		// no migration exists,
+		// the vmi is running,
+		// only one pod is currently active for vmi
+		migrateable = append(migrateable, vmi)
 	}
 	return migrateable, nonMigrateable
 }

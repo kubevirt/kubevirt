@@ -683,6 +683,11 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 
 	vmiCopy := vmi.DeepCopy()
 
+	if migrations.MigrationFailed(vmi) {
+		// nothing left to report on the target node if the migration failed
+		return nil
+	}
+
 	// Handle post migration
 	if domainExists && vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.TargetNodeDomainDetected {
 		// record that we've see the domain populated on the target's node
@@ -2311,6 +2316,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 	}
 	return nil
 }
+
 func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.VirtualMachineInstance) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
@@ -2319,15 +2325,24 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	vmi := origVMI.DeepCopy()
 
+	if migrations.MigrationFailed(vmi) {
+		// if the migration failed, signal the target pod it's okay to exit
+		err = client.SignalTargetPodCleanup(vmi)
+		if err != nil {
+			return err
+		}
+		log.Log.Object(vmi).Infof("Signaled target pod for failed migration to clean up")
+		// nothing left to do here if the migration failed.
+		return nil
+	} else if migrations.IsMigrating(vmi) {
+		// If the migration has already started,
+		// then there's nothing left to prepare on the target side
+		return nil
+	}
+
 	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
 	if err != nil {
 		return err
-	}
-
-	// If the migration has already started,
-	// then there's nothing left to prepare on the target side
-	if migrations.IsMigrating(vmi) {
-		return nil
 	}
 
 	// give containerDisks some time to become ready before throwing errors on retries
