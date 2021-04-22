@@ -94,9 +94,6 @@ var _ = Describe("Pod Network", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = NewMockNetworkHandler(ctrl)
 		podnic = podNICImpl{cacheFactory: cacheFactory, handler: mockNetwork}
-		podNICFactory = func(cacheFactory cache.InterfaceCacheFactory) podNIC {
-			return &podNICImpl{cacheFactory: cacheFactory, handler: mockNetwork}
-		}
 		testMac := "12:34:56:78:9A:BC"
 		updateTestMac := "AF:B3:1F:78:2A:CA"
 		mtu = 1410
@@ -281,14 +278,13 @@ var _ = Describe("Pod Network", func() {
 		}
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu, libvirtUser).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
-
-		err := SetupPodNetworkPhase1(vm, pid, cacheFactory)
+		err := podnic.PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], primaryPodInterfaceName, pid)
 		Expect(err).To(BeNil())
 
-		// Calling SetupPodNetworkPhase1 a second time should result in
+		// Calling SetupPhase1 a second time should result in
 		// no mockNetwork function calls, as confirmed by mock object
 		// limited number of calls expected for each mocked entry point.
-		err = SetupPodNetworkPhase1(vm, pid, cacheFactory)
+		err = podnic.PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], primaryPodInterfaceName, pid)
 		Expect(err).To(BeNil())
 	}
 
@@ -341,11 +337,11 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().DisableTXOffloadChecksum(bridgeTest.Name).Return(nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
-			err := SetupPodNetworkPhase1(vm, pid, cacheFactory)
-			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")
+			err := podnic.PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], primaryPodInterfaceName, pid)
+			Expect(err).To(HaveOccurred(), "SetupPhase1 should return an error")
 
 			_, ok := err.(*CriticalNetworkError)
-			Expect(ok).To(BeTrue(), "SetupPodNetworkPhase1 should return an error of type CriticalNetworkError")
+			Expect(ok).To(BeTrue(), "SetupPhase1 should return an error of type CriticalNetworkError")
 		})
 		It("should return an error if the MTU is out or range", func() {
 			primaryPodInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 65536}}
@@ -360,7 +356,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().GetMacDetails(primaryPodInterfaceName).Return(fakeMac, nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
-			err := SetupPodNetworkPhase1(vm, pid, cacheFactory)
+			err := podnic.PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], primaryPodInterfaceName, pid)
 			Expect(err).To(HaveOccurred())
 		})
 		Context("func filterPodNetworkRoutes()", func() {
@@ -389,7 +385,7 @@ var _ = Describe("Pod Network", func() {
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("failed to open file"))
-				SetupPodNetworkPhase2(vm, domain, cacheFactory)
+				Expect(podnic.PlugPhase2(vm, &vm.Spec.Domain.Devices.Interfaces[0], &vm.Spec.Networks[0], domain, primaryPodInterfaceName)).To(Succeed())
 			}
 			Expect(testDhcpPanic).To(Panic())
 		})
