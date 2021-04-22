@@ -51,10 +51,10 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("HCO Lifecycle", func() {
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
-				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
-				os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
-				os.Setenv("OPERATOR_NAMESPACE", namespace)
+				_ = os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
+				_ = os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
+				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
+				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 			})
 
 			It("should handle not found", func() {
@@ -749,11 +749,11 @@ var _ = Describe("HyperconvergedController", func() {
 			)
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
-				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
-				os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
-				os.Setenv("OPERATOR_NAMESPACE", namespace)
-				os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
+				_ = os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
+				_ = os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
+				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
+				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
+				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 
 				expected = getBasicDeployment()
 				origConds = expected.hco.Status.Conditions
@@ -792,7 +792,7 @@ var _ = Describe("HyperconvergedController", func() {
 			// assumes there is no change in labels. Therefore, it should be
 			// set before getBasicDeployment so that the existing resource can
 			// have the correct labels
-			os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
+			_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 			var (
 				expected       *BasicExpected
@@ -801,31 +801,30 @@ var _ = Describe("HyperconvergedController", func() {
 			)
 
 			BeforeEach(func() {
-				operands.Initiate(true)
 				expected = getBasicDeployment()
 				origConditions = expected.hco.Status.Conditions
 				okConds = expected.hco.Status.Conditions
 			})
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
-				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
-				os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
-				os.Setenv("OPERATOR_NAMESPACE", namespace)
+				_ = os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
+				_ = os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
+				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
+				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 
 				expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion
-				os.Setenv(hcoutil.KubevirtVersionEnvV, newComponentVersion)
+				_ = os.Setenv(hcoutil.KubevirtVersionEnvV, newComponentVersion)
 
 				expected.cdi.Status.ObservedVersion = newComponentVersion
-				os.Setenv(hcoutil.CdiVersionEnvV, newComponentVersion)
+				_ = os.Setenv(hcoutil.CdiVersionEnvV, newComponentVersion)
 
 				expected.cna.Status.ObservedVersion = newComponentVersion
-				os.Setenv(hcoutil.CnaoVersionEnvV, newComponentVersion)
+				_ = os.Setenv(hcoutil.CnaoVersionEnvV, newComponentVersion)
 
 				expected.vmi.Status.ObservedVersion = newComponentVersion
-				os.Setenv(hcoutil.VMImportEnvV, newComponentVersion)
+				_ = os.Setenv(hcoutil.VMImportEnvV, newComponentVersion)
 
-				os.Setenv(hcoutil.SspVersionEnvV, newComponentVersion)
+				_ = os.Setenv(hcoutil.SspVersionEnvV, newComponentVersion)
 				expected.ssp.Status.ObservedVersion = newComponentVersion
 
 				expected.hco.Status.Conditions = origConditions
@@ -904,7 +903,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				// check that the image Id is not set, because upgrade is not completed
 				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
-				fmt.Fprintln(GinkgoWriter, "foundResource.Status.Versions", foundResource.Status.Versions)
+				_, _ = fmt.Fprintln(GinkgoWriter, "foundResource.Status.Versions", foundResource.Status.Versions)
 				Expect(ok).To(BeFalse())
 				Expect(ver).Should(BeEmpty())
 				Expect(foundResource.Spec.Version).To(BeEmpty())
@@ -927,7 +926,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("don't complete upgrade if kubevirt version is not match to the kubevirt version env ver", func() {
-				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
+				_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
@@ -995,7 +994,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("don't complete upgrade if CDI version is not match to the CDI version env ver", func() {
-				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
+				_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
@@ -1048,7 +1047,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("don't complete upgrade if CNA version is not match to the CNA version env ver", func() {
-				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
+				_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
@@ -1091,7 +1090,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("don't complete upgrade if VM-Import version is not match to the VM-Import version env ver", func() {
-				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
+				_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
@@ -1565,13 +1564,13 @@ progressTimeout: 150`,
 					checkAvailability(foundHC, corev1.ConditionTrue)
 
 					By("Check that IMS cm still contains the expected values")
-					vmi_cm, err := operands.NewIMSConfigForCR(foundHC, namespace)
+					vmiCM, err := operands.NewIMSConfigForCR(foundHC, namespace)
 					Expect(err).ToNot(HaveOccurred())
 
-					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmiCM, log)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi_cm.Data).ShouldNot(BeNil())
-					Expect(vmi_cm.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
+					Expect(vmiCM.Data).ShouldNot(BeNil())
+					Expect(vmiCM.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
 				})
 
 				It("should ignore IMS value if already exists in HC CR", func() {
@@ -1599,13 +1598,13 @@ progressTimeout: 150`,
 					Expect(*foundHC.Spec.VddkInitImage).Should(Not(Equal(vddkInitImageValue)))
 
 					By("Check that IMS CM value is now the same as HCO's")
-					vmi_cm, err := operands.NewIMSConfigForCR(foundHC, namespace)
+					vmiCM, err := operands.NewIMSConfigForCR(foundHC, namespace)
 					Expect(err).ToNot(HaveOccurred())
 
-					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmiCM, log)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi_cm.Data).ShouldNot(BeNil())
-					Expect(vmi_cm.Data).To(HaveKeyWithValue(vddkk, hcoVddkInitImageValue))
+					Expect(vmiCM.Data).ShouldNot(BeNil())
+					Expect(vmiCM.Data).To(HaveKeyWithValue(vddkk, hcoVddkInitImageValue))
 
 				})
 
@@ -1632,13 +1631,13 @@ progressTimeout: 150`,
 					Expect(*foundHC.Spec.VddkInitImage).Should(Equal(vddkInitImageValue))
 
 					By("Check that IMS CM value is still the same as HCO's")
-					vmi_cm, err := operands.NewIMSConfigForCR(foundHC, namespace)
+					vmiCM, err := operands.NewIMSConfigForCR(foundHC, namespace)
 					Expect(err).ToNot(HaveOccurred())
 
-					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmiCM, log)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi_cm.Data).ShouldNot(BeNil())
-					Expect(vmi_cm.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
+					Expect(vmiCM.Data).ShouldNot(BeNil())
+					Expect(vmiCM.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
 				})
 
 			})
@@ -1647,7 +1646,7 @@ progressTimeout: 150`,
 
 		Context("Aggregate Negative Conditions", func() {
 			const errorReason = "CdiTestError1"
-			os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
+			_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 			It("should be degraded when a component is degraded", func() {
 				expected := getBasicDeployment()
 				conditionsv1.SetStatusCondition(&expected.cdi.Status.Conditions, conditionsv1.Condition{

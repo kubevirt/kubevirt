@@ -142,7 +142,7 @@ Version: 1.2.3`)
 		enabled := true
 
 		It("should create if not present", func() {
-			Initiate(true)
+			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 				WithHostPassthroughCPU: &enabled,
 			}
@@ -239,7 +239,7 @@ Version: 1.2.3`)
 		})
 
 		It("should force mandatory configurations", func() {
-			Initiate(true)
+			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 				WithHostPassthroughCPU: &enabled,
 			}
@@ -343,13 +343,6 @@ Version: 1.2.3`)
 			}
 
 			_ = os.Setenv(smbiosEnvName, "WRONG YAML")
-
-			_, err := NewKubeVirt(hco, commonTestUtils.Namespace)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should fail if the KVM_EMULATION is wrongly formatted", func() {
-			_ = os.Setenv(kvmEmulationEnvName, "WRONG_BOOLEAN")
 
 			_, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 			Expect(err).To(HaveOccurred())
@@ -972,7 +965,7 @@ Version: 1.2.3`)
 				})
 
 				It("should not add the feature gates if FeatureGates field is empty", func() {
-					Initiate(true)
+					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1043,7 +1036,7 @@ Version: 1.2.3`)
 					).To(BeNil())
 
 					By("KV CR should contain the HC enabled managed feature gates", func() {
-						Initiate(true)
+						mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 						fgList := getKvFeatureGateList(&hco.Spec.FeatureGates)
 						Expect(fgList).To(HaveLen(basicNumFgOnOpenshift))
@@ -1074,7 +1067,7 @@ Version: 1.2.3`)
 					).To(BeNil())
 
 					By("KV CR should contain the HC enabled managed feature gates", func() {
-						Initiate(true)
+						mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 						fgList := getKvFeatureGateList(&hco.Spec.FeatureGates)
 						Expect(fgList).To(HaveLen(basicNumFgOnOpenshift))
@@ -1084,7 +1077,7 @@ Version: 1.2.3`)
 				})
 
 				It("should keep FG if already exist", func() {
-					Initiate(false)
+					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(true)
 					fgs := append(hardCodeKvFgs, kvWithHostPassthroughCPU, kvSRIOVLiveMigration)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
@@ -1124,7 +1117,7 @@ Version: 1.2.3`)
 				})
 
 				It("should remove FG if it disabled in HC CR", func() {
-					Initiate(true)
+					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
@@ -1164,7 +1157,7 @@ Version: 1.2.3`)
 				})
 
 				It("should remove FG if it missing from the HC CR", func() {
-					Initiate(true)
+					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
@@ -1201,7 +1194,7 @@ Version: 1.2.3`)
 				})
 
 				It("should remove FG if it the HC CR does not contain the featureGates field", func() {
-					Initiate(false)
+					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(true)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
@@ -1239,58 +1232,58 @@ Version: 1.2.3`)
 
 			Context("Test getKvFeatureGateList", func() {
 				DescribeTable("Should return featureGate slice",
-					func(isOpenShift bool, fgs *hcov1beta1.HyperConvergedFeatureGates, expectedLength int, expectedFgs [][]string) {
-						Initiate(isOpenShift)
+					func(isKVMEmulation bool, fgs *hcov1beta1.HyperConvergedFeatureGates, expectedLength int, expectedFgs [][]string) {
+						mandatoryKvFeatureGates = getMandatoryKvFeatureGates(isKVMEmulation)
 						fgList := getKvFeatureGateList(fgs)
 						Expect(getKvFeatureGateList(fgs)).To(HaveLen(expectedLength))
 						for _, expected := range expectedFgs {
 							Expect(fgList).Should(ContainElements(expected))
 						}
 					},
-					Entry("When running in openshift and FG is nil",
-						true,
+					Entry("When not using kvm-emulation and FG is nil",
+						false,
 						nil,
 						basicNumFgOnOpenshift,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs},
 					),
-					Entry("When not running in openshift and FG is nil",
-						false,
+					Entry("When using kvm-emulation and FG is nil",
+						true,
 						nil,
 						len(hardCodeKvFgs),
 						[][]string{hardCodeKvFgs},
 					),
-					Entry("When running in openshift and FG is empty",
-						true,
+					Entry("When not using kvm-emulation and FG is empty",
+						false,
 						&hcov1beta1.HyperConvergedFeatureGates{},
 						basicNumFgOnOpenshift,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs},
 					),
-					Entry("When not running in openshift and FG is empty",
-						false,
+					Entry("When using kvm-emulation and FG is empty",
+						true,
 						&hcov1beta1.HyperConvergedFeatureGates{},
 						len(hardCodeKvFgs),
 						[][]string{hardCodeKvFgs},
 					),
-					Entry("When running in openshift and all FGs are disabled",
-						true,
+					Entry("When not using kvm-emulation and all FGs are disabled",
+						false,
 						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: &disabled},
 						basicNumFgOnOpenshift,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs},
 					),
-					Entry("When not running in openshift all FGs are disabled",
-						false,
+					Entry("When using kvm-emulation all FGs are disabled",
+						true,
 						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: &disabled},
 						len(hardCodeKvFgs),
 						[][]string{hardCodeKvFgs},
 					),
-					Entry("When running in openshift and all FGs are enabled",
-						true,
+					Entry("When not using kvm-emulation and all FGs are enabled",
+						false,
 						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: &enabled},
 						basicNumFgOnOpenshift+1,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs, {kvWithHostPassthroughCPU}},
 					),
-					Entry("When not running in openshift all FGs are enabled",
-						false,
+					Entry("When using kvm-emulation all FGs are enabled",
+						true,
 						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: &enabled},
 						len(hardCodeKvFgs)+1,
 						[][]string{hardCodeKvFgs, {kvWithHostPassthroughCPU}},
@@ -1299,14 +1292,14 @@ Version: 1.2.3`)
 
 			Context("Test getMandatoryKvFeatureGates", func() {
 				It("Should include the sspConditionKvFgs if running in openshift", func() {
-					fgs := getMandatoryKvFeatureGates(true)
+					fgs := getMandatoryKvFeatureGates(false)
 					Expect(fgs).To(HaveLen(basicNumFgOnOpenshift))
 					Expect(fgs).To(ContainElements(hardCodeKvFgs))
 					Expect(fgs).To(ContainElements(sspConditionKvFgs))
 				})
 
 				It("Should not include the sspConditionKvFgs if not running in openshift", func() {
-					fgs := getMandatoryKvFeatureGates(false)
+					fgs := getMandatoryKvFeatureGates(true)
 					Expect(fgs).To(HaveLen(len(hardCodeKvFgs)))
 					Expect(fgs).To(ContainElements(hardCodeKvFgs))
 				})
@@ -1714,7 +1707,7 @@ Version: 1.2.3`)
 		})
 
 		Context("jsonpath Annotation", func() {
-			Initiate(true)
+			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			It("Should create KV object with changes from the annotation", func() {
 
 				hco.Annotations = map[string]string{common.JSONPatchKVAnnotationName: `[

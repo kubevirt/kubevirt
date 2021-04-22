@@ -35,6 +35,20 @@ const (
 	machineTypeEnvName  = "MACHINETYPE"
 )
 
+var (
+	useKVMEmulation = false
+)
+
+func init() {
+	kvmEmulationStr, varExists := os.LookupEnv(kvmEmulationEnvName)
+	if varExists {
+		isKVMEmulation, err := strconv.ParseBool(strings.ToLower(kvmEmulationStr))
+		useKVMEmulation = err == nil && isKVMEmulation
+	}
+
+	mandatoryKvFeatureGates = getMandatoryKvFeatureGates(useKVMEmulation)
+}
+
 // KubeVirt hard coded FeatureGates
 // These feature gates are set by HCO in the KubeVirt CR and can't be modified by the end user.
 const (
@@ -328,22 +342,10 @@ func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtv1
 func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.DeveloperConfiguration, error) {
 	fgs := getKvFeatureGateList(&hc.Spec.FeatureGates)
 
-	var kvmEmulation = false
-	kvmEmulationStr, ok := os.LookupEnv(kvmEmulationEnvName)
-	if ok {
-		if kvmEmulationStr = strings.TrimSpace(kvmEmulationStr); kvmEmulationStr != "" {
-			var err error
-			kvmEmulation, err = strconv.ParseBool(kvmEmulationStr)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	if len(fgs) > 0 || kvmEmulation {
+	if len(fgs) > 0 || useKVMEmulation {
 		return &kubevirtv1.DeveloperConfiguration{
 			FeatureGates: fgs,
-			UseEmulation: kvmEmulation,
+			UseEmulation: useKVMEmulation,
 		}, nil
 	}
 
@@ -491,11 +493,13 @@ func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []conditionsv1.
 	return translated
 }
 
-func getMandatoryKvFeatureGates(isOpenshiftCluster bool) []string {
+func getMandatoryKvFeatureGates(isKVMEmulation bool) []string {
 	mandatoryFeatureGates := hardCodeKvFgs
-	if isOpenshiftCluster {
+
+	if !isKVMEmulation {
 		mandatoryFeatureGates = append(mandatoryFeatureGates, sspConditionKvFgs...)
 	}
+
 	return mandatoryFeatureGates
 }
 

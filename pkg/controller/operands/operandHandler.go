@@ -7,11 +7,6 @@ import (
 	"time"
 
 	consolev1 "github.com/openshift/api/console/v1"
-
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,6 +14,11 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
@@ -56,8 +56,6 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		newKubeVirtCmHandler(client, eventEmitter),
 	}
 
-	Initiate(isOpenshiftCluster)
-
 	if isOpenshiftCluster {
 		operands = append(operands, []Operand{
 			newSspHandler(client, scheme),
@@ -73,10 +71,6 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		operands:     operands,
 		eventEmitter: eventEmitter,
 	}
-}
-
-func Initiate(isOpenshiftCluster bool) {
-	mandatoryKvFeatureGates = getMandatoryKvFeatureGates(isOpenshiftCluster)
 }
 
 // The k8s client is not available when calling to NewOperandHandler.
