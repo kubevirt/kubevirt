@@ -24,7 +24,7 @@ function prefetch-images::pull_on_nodes() {
         count=0
         until ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${containers_to_pull}\" | xargs \-\-max-args=1 sudo docker pull"; do
             count=$((count + 1))
-            if [ $count -eq max_retry ]; then
+            if [ $count -eq $max_retry ]; then
                 echo "Failed to 'docker pull' in ${node}" >&2
                 exit 1
             fi
@@ -44,7 +44,7 @@ function prefetch-images::tag_on_nodes() {
         count=0
         until ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${container_alias}\" | xargs \-\-max-args=2 sudo docker tag"; do
             count=$((count + 1))
-            if [ $count -eq max_retry ]; then
+            if [ $count -eq $max_retry ]; then
                 echo "Failed to 'docker tag' in ${node}" >&2
                 exit 1
             fi
