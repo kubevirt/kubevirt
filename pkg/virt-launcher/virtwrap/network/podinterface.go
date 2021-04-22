@@ -45,6 +45,12 @@ import (
 
 var bridgeFakeIP = "169.254.75.1%d/32"
 
+const (
+	LibvirtLocalConnectionPort = 22222
+	LibvirtDirectMigrationPort = 49152
+	LibvirtBlockMigrationPort  = 49153
+)
+
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
 	preparePodNetworkInterfaces() error
@@ -1148,12 +1154,36 @@ func (b *MasqueradeBindMechanism) getVifIpByProtocol(proto iptables.Protocol) st
 	}
 }
 
+func (b *MasqueradeBindMechanism) skipForwardingForReservedPorts(proto iptables.Protocol) error {
+	chainWhereDnatIsPerformed := "output"
+	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
+	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
+		err := b.handler.NftablesAppendRule(proto, "nat", chain,
+			"tcp", "dport", portsUsedByLiveMigration(),
+			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+			"counter", "return")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func getLoopbackAdrress(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv4 {
 		return "127.0.0.1"
 	} else {
 		return "::1"
 	}
+}
+
+func portsUsedByLiveMigration() string {
+	ports := []string{
+		fmt.Sprint(LibvirtLocalConnectionPort),
+		fmt.Sprint(LibvirtDirectMigrationPort),
+		fmt.Sprint(LibvirtBlockMigrationPort),
+	}
+	return fmt.Sprintf("{ %s }", strings.Join(ports, ", "))
 }
 
 func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Protocol) error {
@@ -1178,6 +1208,11 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 	}
 
 	err = b.handler.NftablesAppendRule(proto, "nat", "postrouting", "oifname", b.bridgeInterfaceName, "counter", "jump", "KUBEVIRT_POSTINBOUND")
+	if err != nil {
+		return err
+	}
+
+	err = b.skipForwardingForReservedPorts(proto)
 	if err != nil {
 		return err
 	}
