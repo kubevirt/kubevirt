@@ -36,6 +36,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -45,6 +46,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"k8s.io/utils/pointer"
@@ -919,90 +921,138 @@ spec:
 	})
 
 	Describe("should reconcile components", func() {
-		It("test updating a deployment is reverted to it's original state", func() {
-			envVarKey := "USER_ADDED_ENV"
 
+		deploymentName := "virt-controller"
+		envVarDeploymentKeyToUpdate := "USER_ADDED_ENV"
+
+		crdName := "virtualmachines.kubevirt.io"
+		shortNameAdded := "new"
+
+		table.DescribeTable("checking updating resource is reverted to original state for ", func(changeResource func(), getResource func() runtime.Object, compareResource func() bool) {
+			resource := getResource()
 			By("Updating KubeVirt Object")
-			vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			changeResource()
 
-			vc.Spec.Template.Spec.Containers[0].Env = []k8sv1.EnvVar{
-				k8sv1.EnvVar{
-					Name:  envVarKey,
-					Value: "value",
-				},
-			}
-
-			vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarKey))
-
+			var generation int64
 			By("Test that the added envvar was removed")
 			Eventually(func() bool {
-				vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
-					if env.Name == envVarKey {
-						return false
-					}
+				equal := compareResource()
+				if equal {
+					r := getResource()
+					o := r.(metav1.Object)
+					generation = o.GetGeneration()
 				}
 
-				return true
+				return equal
 			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for deployment to revert to original state")
 
-			generation := vc.ObjectMeta.Generation
 			Eventually(func() int64 {
 				currentKV := tests.GetCurrentKv(virtClient)
-				return apply.GetExpectedGeneration(vc, currentKV.Status.Generations)
+				return apply.GetExpectedGeneration(resource, currentKV.Status.Generations)
 			}, 60*time.Second, 5*time.Second).Should(Equal(generation), "reverted deployment generation should be set on KV resource")
 
 			By("Test that the expected generation is unchanged")
 			Consistently(func() int64 {
 				currentKV := tests.GetCurrentKv(virtClient)
-				return apply.GetExpectedGeneration(vc, currentKV.Status.Generations)
+				return apply.GetExpectedGeneration(resource, currentKV.Status.Generations)
 			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
+		},
 
-		})
+			table.Entry("deployments",
 
-		It("test updating a PDB is reverted to it's original state", func() {
-			var originalVersion string
-			versionAnnotation := v1.InstallStrategyVersionAnnotation
-			fakeVersion := originalVersion + "_fake"
+				func() {
 
-			By("Updating KubeVirt Object")
-			pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-			originalVersion = pdb.Annotations[versionAnnotation]
-			pdb.Annotations[versionAnnotation] = fakeVersion
+					vc.Spec.Template.Spec.Containers[0].Env = []k8sv1.EnvVar{
+						{
+							Name:  envVarDeploymentKeyToUpdate,
+							Value: "value",
+						},
+					}
 
-			pdb, err = virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Update(context.Background(), pdb, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pdb.Annotations[versionAnnotation]).To(Equal(fakeVersion))
+					vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarDeploymentKeyToUpdate))
+				},
 
-			By("Test that the version is back to the original")
-			Eventually(func() bool {
-				pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				func() runtime.Object {
+					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vc
+				},
 
-				return pdb.Annotations[versionAnnotation] == originalVersion
-			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for PDB to revert to original state")
+				func() bool {
+					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-			generation := pdb.ObjectMeta.Generation
-			Eventually(func() int64 {
-				currentKV := tests.GetCurrentKv(virtClient)
-				return apply.GetExpectedGeneration(pdb, currentKV.Status.Generations)
-			}, 60*time.Second, 5*time.Second).Should(Equal(generation), "reverted PDB generation should be set on KV resource")
+					for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
+						if env.Name == envVarDeploymentKeyToUpdate {
+							return false
+						}
+					}
 
-			By("Test that the expected generation is unchanged")
-			Consistently(func() int64 {
-				currentKV := tests.GetCurrentKv(virtClient)
-				return apply.GetExpectedGeneration(pdb, currentKV.Status.Generations)
-			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
+					return true
+				}),
 
-		})
+			table.Entry("customresourcedefinitions",
+				func() {
+					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
+					vmcrd.Spec.Names.ShortNames = append(vmcrd.Spec.Names.ShortNames, shortNameAdded)
+
+					vmcrd, err = virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Update(context.Background(), vmcrd, metav1.UpdateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vmcrd.Spec.Names.ShortNames).To(ContainElement(shortNameAdded))
+				},
+
+				func() runtime.Object {
+					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vmcrd
+				},
+
+				func() bool {
+					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					for _, sn := range vmcrd.Spec.Names.ShortNames {
+						if sn == shortNameAdded {
+							return false
+						}
+					}
+
+					return true
+				}),
+			table.Entry("poddisruptionbudgets",
+				func() {
+					pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					pdb.Spec.Selector.MatchLabels = map[string]string{
+						"kubevirt.io": "dne",
+					}
+
+					pdb, err = virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Update(context.Background(), pdb, metav1.UpdateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pdb.Spec.Selector.MatchLabels["kubevirt.io"]).To(Equal("dne"))
+				},
+
+				func() runtime.Object {
+					pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return pdb
+				},
+
+				func() bool {
+					pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					return pdb.Spec.Selector.MatchLabels["kubevirt.io"] != "dne"
+				}),
+		)
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {

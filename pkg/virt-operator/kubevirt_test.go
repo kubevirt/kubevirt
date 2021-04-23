@@ -443,8 +443,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addCrd := func(crd *extv1.CustomResourceDefinition) {
+	addCrd := func(crd *extv1.CustomResourceDefinition, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
+		if kv != nil {
+			apply.SetGeneration(&kv.Status.Generations, crd)
+		}
+
 		crdSource.Add(crd)
 		mockQueue.Wait()
 	}
@@ -576,7 +580,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addRoleBinding(resource)
 		case *extv1.CustomResourceDefinition:
 			injectMetadata(&obj.(*extv1.CustomResourceDefinition).ObjectMeta, config)
-			addCrd(resource)
+			addCrd(resource, kv)
 		case *k8sv1.Service:
 			injectMetadata(&obj.(*k8sv1.Service).ObjectMeta, config)
 			addService(resource)
@@ -1289,6 +1293,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		return true, &policyv1beta1.PodDisruptionBudget{}, nil
 	}
 
+	crdPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &extv1.CustomResourceDefinition{}, nil
+	}
+
 	genericCreateFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
@@ -1364,7 +1374,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	shouldExpectPatchesAndUpdates := func() {
-		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", genericPatchFunc)
+		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", crdPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "serviceaccounts", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("update", "clusterroles", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "clusterrolebindings", genericUpdateFunc)
@@ -1740,7 +1750,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectPatchesAndUpdates()
 			shouldExpectKubeVirtUpdateStatus(1)
 
-			// invalid all lastGeneration versions
+			// invalidate all lastGeneration versions
 			numGenerations := len(kv.Status.Generations)
 			for i := range kv.Status.Generations {
 				kv.Status.Generations[i].LastGeneration = -1

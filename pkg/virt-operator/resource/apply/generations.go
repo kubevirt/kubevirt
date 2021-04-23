@@ -11,6 +11,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/policy/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -18,6 +19,9 @@ import (
 func getGroupResource(required runtime.Object) (group string, resource string, err error) {
 
 	switch required.(type) {
+	case *extv1.CustomResourceDefinition:
+		group = "apiextensions.k8s.io/v1"
+		resource = "customresourcedefinitions"
 	case *admissionregistrationv1.MutatingWebhookConfiguration:
 		group = "admissionregistration.k8s.io"
 		resource = "mutatingwebhookconfigurations"
