@@ -1533,7 +1533,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			if err != nil {
 				return nil, err
 			}
-			defer dom.Free()
 			logger.Info("Domain defined.")
 		} else {
 			logger.Reason(err).Error("Getting the domain failed.")
