@@ -1,0 +1,16 @@
+apiVersion: settings.k8s.io/v1alpha1
+kind: PodPreset
+metadata:
+  name: virt-launcher-fake-product-uuid
+spec:
+  selector:
+    matchLabels:
+      kubevirt.io: virt-launcher
+  volumeMounts:
+  - name: product-uuid
+    mountPath: /sys/class/dmi/id/product_uuid
+  volumes:
+  - name: product-uuid
+    hostPath:
+      path: /proc/sys/kernel/random/uuid
+
