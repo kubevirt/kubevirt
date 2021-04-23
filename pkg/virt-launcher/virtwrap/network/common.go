@@ -48,6 +48,7 @@ import (
 const (
 	randomMacGenerationAttempts = 10
 	allowForwarding             = 1
+	libvirtUserAndGroupId       = "0"
 )
 
 type VIF struct {
