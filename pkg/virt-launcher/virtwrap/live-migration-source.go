@@ -500,7 +500,7 @@ func isMigrationAbortInProgress(domSpec *api.DomainSpec) bool {
 func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain) *libvirt.DomainJobInfo {
 	logger := log.Log.Object(m.vmi)
 	// check if an ongoing migration has been completed before we could capture the outcome
-	if m.lastProgressUpdate != 0 {
+	if m.lastProgressUpdate > m.start {
 		logger.Info("Migration job has probably completed before we could capture the status. Getting latest status.")
 		// at this point the migration is over, but we don't know the result.
 		// check if we were trying to cancel this job. In this case, finalize the migration.
@@ -525,7 +525,7 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 				(libvirtError.Code == libvirt.ERR_NO_DOMAIN ||
 					libvirtError.Code == libvirt.ERR_OPERATION_INVALID) {
 				logger.Info("domain is not running on this node")
-                return nil
+				return nil
 			}
 		}
 		if domainState == libvirt.DOMAIN_RUNNING {
