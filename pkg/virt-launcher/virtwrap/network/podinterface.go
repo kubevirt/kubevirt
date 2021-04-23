@@ -1312,14 +1312,6 @@ func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
 		return err
 	}
 	b.podNicLink = link
-	b.virtIface = &api.Interface{
-		MAC: &api.MAC{MAC: b.podIfaceMAC()},
-		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
-		Target: &api.InterfaceTarget{
-			Device:  b.podInterfaceName,
-			Managed: "no",
-		},
-	}
 
 	return nil
 }
@@ -1333,6 +1325,14 @@ func (b *MacvtapBindMechanism) podIfaceMAC() string {
 }
 
 func (b *MacvtapBindMechanism) preparePodNetworkInterface() error {
+	b.virtIface = &api.Interface{
+		MAC: &api.MAC{MAC: b.podIfaceMAC()},
+		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
+		Target: &api.InterfaceTarget{
+			Device:  b.podInterfaceName,
+			Managed: "no",
+		},
+	}
 	return nil
 }
 
