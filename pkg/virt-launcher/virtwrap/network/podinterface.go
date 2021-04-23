@@ -225,7 +225,7 @@ func createCriticalNetworkError(err error) *CriticalNetworkError {
 	return &CriticalNetworkError{fmt.Sprintf("Critical network error: %v", err)}
 }
 
-func ensureDHCP(vmi *v1.VirtualMachineInstance, bindMechanism BindMechanism, podInterfaceName string) error {
+func ensureDHCP(bindMechanism BindMechanism, podInterfaceName string) error {
 	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
@@ -272,8 +272,7 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
-	err = ensureDHCP(vmi, bindMechanism, podInterfaceName)
-	if err != nil {
+	if err := ensureDHCP(bindMechanism, podInterfaceName); err != nil {
 		log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for %s: %s", podInterfaceName, err)
 		panic(err)
 	}
