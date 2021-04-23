@@ -390,12 +390,12 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtv1.C
 	return nil
 }
 
-type featureGateChecks map[string]func() bool
+type featureGateChecks map[string]bool
 
 func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) featureGateChecks {
-	return map[string]func() bool{
-		kvWithHostPassthroughCPU: featureGates.IsWithHostPassthroughCPUEnabled,
-		kvSRIOVLiveMigration:     featureGates.IsSRIOVLiveMigrationEnabled,
+	return map[string]bool{
+		kvWithHostPassthroughCPU: featureGates.WithHostPassthroughCPU,
+		kvSRIOVLiveMigration:     featureGates.SRIOVLiveMigration,
 	}
 }
 
@@ -510,7 +510,7 @@ func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	res = append(res, mandatoryKvFeatureGates...)
 
 	for gate, check := range checks {
-		if check() {
+		if check {
 			res = append(res, gate)
 		}
 	}

@@ -43,32 +43,51 @@ spec:
                 type: string
             type: object
           spec:
+            default:
+              certConfig:
+                ca:
+                  duration: 48h0m0s
+                  renewBefore: 24h0m0s
+                server:
+                  duration: 24h0m0s
+                  renewBefore: 12h0m0s
+              featureGates:
+                sriovLiveMigration: false
+                withHostPassthroughCPU: false
+              liveMigrationConfig:
+                bandwidthPerMigration: 64Mi
+                completionTimeoutPerGiB: 800
+                parallelMigrationsPerCluster: 5
+                parallelOutboundMigrationsPerNode: 2
+                progressTimeout: 150
             description: HyperConvergedSpec defines the desired state of HyperConverged
             properties:
               certConfig:
                 default:
                   ca:
-                    duration: 48h
-                    renewBefore: 24h
+                    duration: 48h0m0s
+                    renewBefore: 24h0m0s
                   server:
-                    duration: 24h
-                    renewBefore: 12h
+                    duration: 24h0m0s
+                    renewBefore: 12h0m0s
                 description: certConfig holds the rotation policy for internal, self-signed
                   certificates
                 properties:
                   ca:
                     default:
-                      duration: 48h
-                      renewBefore: 24h
+                      duration: 48h0m0s
+                      renewBefore: 24h0m0s
                     description: CA configuration - CA certs are kept in the CA bundle
                       as long as they are valid
                     properties:
                       duration:
+                        default: 48h0m0s
                         description: The requested 'duration' (i.e. lifetime) of the
                           Certificate. This should comply with golang's ParseDuration
                           format (https://golang.org/pkg/time/#ParseDuration)
                         type: string
                       renewBefore:
+                        default: 24h0m0s
                         description: The amount of time before the currently issued
                           certificate's `notAfter` time that we will begin to attempt
                           to renew the certificate. This should comply with golang's
@@ -77,16 +96,18 @@ spec:
                     type: object
                   server:
                     default:
-                      duration: 24h
-                      renewBefore: 12h
+                      duration: 24h0m0s
+                      renewBefore: 12h0m0s
                     description: Server configuration - Certs are rotated and discarded
                     properties:
                       duration:
+                        default: 24h0m0s
                         description: The requested 'duration' (i.e. lifetime) of the
                           Certificate. This should comply with golang's ParseDuration
                           format (https://golang.org/pkg/time/#ParseDuration)
                         type: string
                       renewBefore:
+                        default: 12h0m0s
                         description: The amount of time before the currently issued
                           certificate's `notAfter` time that we will begin to attempt
                           to renew the certificate. This should comply with golang's
@@ -95,6 +116,9 @@ spec:
                     type: object
                 type: object
               featureGates:
+                default:
+                  sriovLiveMigration: false
+                  withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
@@ -824,6 +848,12 @@ spec:
                     type: object
                 type: object
               liveMigrationConfig:
+                default:
+                  bandwidthPerMigration: 64Mi
+                  completionTimeoutPerGiB: 800
+                  parallelMigrationsPerCluster: 5
+                  parallelOutboundMigrationsPerNode: 2
+                  progressTimeout: 150
                 description: Live migration limits and timeouts are applied so that
                   migration processes do not overwhelm the cluster.
                 properties:

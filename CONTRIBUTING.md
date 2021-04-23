@@ -13,6 +13,8 @@ test and deploy. Sometimes, however, HCO cannot guess what is the right thing to
 configurable is exposed in its Resource. Each configurable must be documented, so it is clear for a human operator when
 it should be used, and why the correct value cannot be guessed automatically.
 
+Please try to be compliant with [Kubernetes api conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md) or, case by case, explicitly justify why doing that is not possible or not reasonable.  
+
 ## Expectations from a PR
 
 The items below must be checked per PR by the author and reviewers. Authors are responsible for stating the status of PR and reviewers are responsible for checking/verifying them. 
@@ -62,7 +64,7 @@ If there is a real need for a new feature gate, please follow these steps:
    in [pkg/apis/hco/v1beta1/hyperconverged_types.go](pkg/apis/hco/v1beta1/hyperconverged_types.go)
     - make sure the name of the feature gate field is as the feature gate field in the target operand, including casing.
       It also must start with a capital letter, to be exposed from the api package.
-    - Set the field type to `FeatureGate`.
+    - Set the field type to `bool`.
     - Make sure the json name in the json tag is valid (e.g. starts with a small cap).
     - add open-api annotations:
         - add detailed description in the comment
@@ -74,15 +76,9 @@ for example:
     // enabled only when the Cluster is homogeneous from CPU HW perspective doc here
     // +optional
     // +kubebuilder:default=false
-    WithHostPassthroughCPU FeatureGate `json:"withHostPassthroughCPU,omitempty"`
+    WithHostPassthroughCPU bool `json:"withHostPassthroughCPU,omitempty"`
     ```
 
-1. Add `IsEnabled` method for the new feature gate. It should be something like this:
-   ```golang
-   func (fgs *HyperConvergedFeatureGates) IsWithHostPassthroughCPUEnabled() bool {
-      return (fgs != nil) && (fgs.WithHostPassthroughCPU != nil) && (*fgs.WithHostPassthroughCPU)
-   }
-   ```
 1. Run openapi-gen code generation (the GOPATH below is an example. use the right value for your settings)
     ```shell
     GOPATH=~/go GO111MODULE=auto openapi-gen --output-file-base zz_generated.openapi --input-dirs="github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1" --output-package github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1
@@ -105,4 +101,4 @@ for example:
     ```shell
     make build-manifests
     ```
-    
+1. If you are specifying a default value, please add a functional test for it in hack/check_defaults.sh (it's a bash script and not a golang code to be sure that the default mechanism is properly working at user eyes regardless of any client-go implementation).

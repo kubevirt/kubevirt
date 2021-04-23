@@ -11,7 +11,9 @@ spec:
     server:
       duration: 24h0m0s
       renewBefore: 12h0m0s
-  featureGates: {}
+  featureGates:
+    sriovLiveMigration: false
+    withHostPassthroughCPU: false
   infra: {}
   liveMigrationConfig:
     bandwidthPerMigration: 64Mi

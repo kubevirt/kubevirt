@@ -647,11 +647,11 @@ var _ = Describe("CDI Operand", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
-				CA: hcov1beta1.CertRotateConfig{
+				CA: hcov1beta1.CertRotateConfigCA{
 					Duration:    metav1.Duration{Duration: 5 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 6 * time.Hour},
 				},
-				Server: hcov1beta1.CertRotateConfig{
+				Server: hcov1beta1.CertRotateConfigServer{
 					Duration:    metav1.Duration{Duration: 7 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 8 * time.Hour},
 				},

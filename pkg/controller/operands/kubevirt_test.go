@@ -139,12 +139,10 @@ Version: 1.2.3`)
 			os.Setenv(kvmEmulationEnvName, "false")
 		})
 
-		enabled := true
-
 		It("should create if not present", func() {
 			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: &enabled,
+				WithHostPassthroughCPU: true,
 			}
 
 			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
@@ -241,7 +239,7 @@ Version: 1.2.3`)
 		It("should force mandatory configurations", func() {
 			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: &enabled,
+				WithHostPassthroughCPU: true,
 			}
 
 			os.Setenv(smbiosEnvName,
@@ -339,7 +337,7 @@ Version: 1.2.3`)
 
 		It("should fail if the SMBIOS is wrongly formatted mandatory configurations", func() {
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: &enabled,
+				WithHostPassthroughCPU: true,
 			}
 
 			_ = os.Setenv(smbiosEnvName, "WRONG YAML")
@@ -903,15 +901,11 @@ Version: 1.2.3`)
 		})
 
 		Context("Feature Gates", func() {
-			var (
-				enabled  = true
-				disabled = false
-			)
 			Context("test feature gates in NewKubeVirt", func() {
 				It("should add the WithHostPassthroughCPU feature gate if it's set in HyperConverged CR", func() {
 					// one enabled, one disabled and one missing
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: &enabled,
+						WithHostPassthroughCPU: true,
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -925,7 +919,7 @@ Version: 1.2.3`)
 				It("should not add the WithHostPassthroughCPU feature gate if it's disabled in HyperConverged CR", func() {
 					// one enabled, one disabled and one missing
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: &disabled,
+						WithHostPassthroughCPU: false,
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -939,7 +933,7 @@ Version: 1.2.3`)
 				It("should add the SRIOVLiveMigration feature gate if it's set in HyperConverged CR", func() {
 					// one enabled, one disabled and one missing
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						SRIOVLiveMigration: &enabled,
+						SRIOVLiveMigration: true,
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -953,7 +947,7 @@ Version: 1.2.3`)
 				It("should not add the SRIOVLiveMigration feature gate if it's disabled in HyperConverged CR", func() {
 					// one enabled, one disabled and one missing
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						SRIOVLiveMigration: &disabled,
+						SRIOVLiveMigration: false,
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -985,8 +979,8 @@ Version: 1.2.3`)
 					Expect(err).ToNot(HaveOccurred())
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: &enabled,
-						SRIOVLiveMigration:     &enabled,
+						WithHostPassthroughCPU: true,
+						SRIOVLiveMigration:     true,
 					}
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1016,8 +1010,8 @@ Version: 1.2.3`)
 					Expect(err).ToNot(HaveOccurred())
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: &disabled,
-						SRIOVLiveMigration:     &disabled,
+						WithHostPassthroughCPU: false,
+						SRIOVLiveMigration:     false,
 					}
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1086,8 +1080,8 @@ Version: 1.2.3`)
 					}
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: &enabled,
-						SRIOVLiveMigration:     &enabled,
+						WithHostPassthroughCPU: true,
+						SRIOVLiveMigration:     true,
 					}
 
 					By("Make sure the existing KV is with the the expected FGs", func() {
@@ -1131,8 +1125,8 @@ Version: 1.2.3`)
 					})
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: &disabled,
-						SRIOVLiveMigration:     &disabled,
+						WithHostPassthroughCPU: false,
+						SRIOVLiveMigration:     false,
 					}
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -1240,18 +1234,6 @@ Version: 1.2.3`)
 							Expect(fgList).Should(ContainElements(expected))
 						}
 					},
-					Entry("When not using kvm-emulation and FG is nil",
-						false,
-						nil,
-						basicNumFgOnOpenshift,
-						[][]string{hardCodeKvFgs, sspConditionKvFgs},
-					),
-					Entry("When using kvm-emulation and FG is nil",
-						true,
-						nil,
-						len(hardCodeKvFgs),
-						[][]string{hardCodeKvFgs},
-					),
 					Entry("When not using kvm-emulation and FG is empty",
 						false,
 						&hcov1beta1.HyperConvergedFeatureGates{},
@@ -1266,26 +1248,26 @@ Version: 1.2.3`)
 					),
 					Entry("When not using kvm-emulation and all FGs are disabled",
 						false,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: &disabled},
+						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: false, WithHostPassthroughCPU: false},
 						basicNumFgOnOpenshift,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs},
 					),
 					Entry("When using kvm-emulation all FGs are disabled",
 						true,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: &disabled},
+						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: false, WithHostPassthroughCPU: false},
 						len(hardCodeKvFgs),
 						[][]string{hardCodeKvFgs},
 					),
 					Entry("When not using kvm-emulation and all FGs are enabled",
 						false,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: &enabled},
-						basicNumFgOnOpenshift+1,
+						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: true, WithHostPassthroughCPU: true},
+						basicNumFgOnOpenshift+2,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs, {kvWithHostPassthroughCPU}},
 					),
 					Entry("When using kvm-emulation all FGs are enabled",
 						true,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: &enabled},
-						len(hardCodeKvFgs)+1,
+						&hcov1beta1.HyperConvergedFeatureGates{SRIOVLiveMigration: true, WithHostPassthroughCPU: true},
+						len(hardCodeKvFgs)+2,
 						[][]string{hardCodeKvFgs, {kvWithHostPassthroughCPU}},
 					))
 			})
@@ -1471,11 +1453,11 @@ Version: 1.2.3`)
 				Expect(err).ToNot(HaveOccurred())
 
 				hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
-					CA: hcov1beta1.CertRotateConfig{
+					CA: hcov1beta1.CertRotateConfigCA{
 						Duration:    metav1.Duration{Duration: 24 * time.Hour},
 						RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
 					},
-					Server: hcov1beta1.CertRotateConfig{
+					Server: hcov1beta1.CertRotateConfigServer{
 						Duration:    metav1.Duration{Duration: 12 * time.Hour},
 						RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
 					},
@@ -1537,11 +1519,11 @@ Version: 1.2.3`)
 			It("should modify certificate rotation strategy according to HCO CR", func() {
 
 				hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
-					CA: hcov1beta1.CertRotateConfig{
+					CA: hcov1beta1.CertRotateConfigCA{
 						Duration:    metav1.Duration{Duration: 24 * time.Hour},
 						RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
 					},
-					Server: hcov1beta1.CertRotateConfig{
+					Server: hcov1beta1.CertRotateConfigServer{
 						Duration:    metav1.Duration{Duration: 12 * time.Hour},
 						RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
 					},
@@ -1589,11 +1571,11 @@ Version: 1.2.3`)
 			It("should overwrite certificate rotation strategy if directly set on KV CR", func() {
 
 				hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
-					CA: hcov1beta1.CertRotateConfig{
+					CA: hcov1beta1.CertRotateConfigCA{
 						Duration:    metav1.Duration{Duration: 24 * time.Hour},
 						RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
 					},
-					Server: hcov1beta1.CertRotateConfig{
+					Server: hcov1beta1.CertRotateConfigServer{
 						Duration:    metav1.Duration{Duration: 12 * time.Hour},
 						RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
 					},

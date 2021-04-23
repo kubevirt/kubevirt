@@ -215,6 +215,9 @@ Msg "Check that OVS is deployed or not deployed according to deployOVS annotatio
 Msg "Check that managed objects has correct labels"
 ./hack/retry.sh 10 30 "KUBECTL_BINARY=${CMD} ./hack/check_labels.sh"
 
+Msg "Check the defaulting mechanism"
+KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_defaults.sh
+
 # If we found the KV config map before the upgrade, let's check that it's not
 # exists anymore, and its backup was created.
 Msg "Check that the kubevirt-config ConfigMap was removed"

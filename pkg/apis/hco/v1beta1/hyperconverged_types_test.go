@@ -302,67 +302,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 	})
 
-	Context("HyperConvergedFeatureGates", func() {
-		disabled := false
-		enabled := true
-
-		Context("Test IsWithHostPassthroughCPUEnabled", func() {
-			It("Should return false if HyperConvergedFeatureGates is nil", func() {
-				var fgs *HyperConvergedFeatureGates = nil
-				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if WithHostPassthroughCPU does not exist", func() {
-				fgs := &HyperConvergedFeatureGates{}
-				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if WithHostPassthroughCPU is false", func() {
-				fgs := &HyperConvergedFeatureGates{
-					WithHostPassthroughCPU: &disabled,
-				}
-				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeFalse())
-			})
-
-			It("Should return true if WithHostPassthroughCPU is true", func() {
-				fgs := &HyperConvergedFeatureGates{
-					WithHostPassthroughCPU: &enabled,
-				}
-				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeTrue())
-			})
-		})
-
-		Context("Test IsSRIOVLiveMigrationEnabled", func() {
-			It("Should return false if HyperConvergedFeatureGates is nil", func() {
-				var fgs *HyperConvergedFeatureGates = nil
-				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if IsSRIOVLiveMigrationEnabled does not exist", func() {
-				fgs := &HyperConvergedFeatureGates{}
-				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if IsSRIOVLiveMigrationEnabled is false", func() {
-				disabled := false
-				fgs := &HyperConvergedFeatureGates{
-					SRIOVLiveMigration: &disabled,
-				}
-				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if IsSRIOVLiveMigrationEnabled is true", func() {
-				enabled := true
-				fgs := &HyperConvergedFeatureGates{
-					SRIOVLiveMigration: &enabled,
-				}
-				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeTrue())
-			})
-		})
-	})
-
 	Context("Test Auto generated code", func() {
-		enabled := true
 		bandwidthPerMigration := "64Mi"
 		completionTimeoutPerGiB := int64(800)
 		parallelMigrationsPerCluster := uint32(5)
@@ -397,7 +337,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 					},
 				},
 				FeatureGates: HyperConvergedFeatureGates{
-					WithHostPassthroughCPU: &enabled,
+					WithHostPassthroughCPU: true,
 				},
 				LiveMigrationConfig: LiveMigrationConfigurations{
 					BandwidthPerMigration:             &bandwidthPerMigration,
@@ -423,7 +363,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 					},
 				},
 				CertConfig: HyperConvergedCertConfig{
-					CA: CertRotateConfig{
+					CA: CertRotateConfigCA{
 						Duration: metav1.Duration{
 							Duration: time.Hour * 24 * 365,
 						},
@@ -431,7 +371,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 							Duration: time.Hour * 24,
 						},
 					},
-					Server: CertRotateConfig{
+					Server: CertRotateConfigServer{
 						Duration: metav1.Duration{
 							Duration: time.Hour * 24 * 365,
 						},
@@ -485,7 +425,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 			Expect(aCopy.Spec.LocalStorageClassName).Should(Equal("LocalStorageClassName"))
 			Expect(aCopy.Spec.Infra.NodePlacement).Should(Equal(hco.Spec.Infra.NodePlacement))
 			Expect(aCopy.Spec.Workloads.NodePlacement).Should(Equal(hco.Spec.Workloads.NodePlacement))
-			Expect(*aCopy.Spec.FeatureGates.WithHostPassthroughCPU).Should(BeTrue())
+			Expect(aCopy.Spec.FeatureGates.WithHostPassthroughCPU).Should(BeTrue())
 		})
 
 		It("Should fail to compare if modified", func() {

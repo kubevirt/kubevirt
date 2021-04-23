@@ -29,7 +29,8 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfig":            schema_pkg_apis_hco_v1beta1_CertRotateConfig(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfigCA":          schema_pkg_apis_hco_v1beta1_CertRotateConfigCA(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfigServer":      schema_pkg_apis_hco_v1beta1_CertRotateConfigServer(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConverged":              schema_pkg_apis_hco_v1beta1_HyperConverged(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedCertConfig":    schema_pkg_apis_hco_v1beta1_HyperConvergedCertConfig(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates":  schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref),
@@ -44,11 +45,38 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 	}
 }
 
-func schema_pkg_apis_hco_v1beta1_CertRotateConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_hco_v1beta1_CertRotateConfigCA(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CertConfig contains the tunables for TLS certificates.",
+				Description: "CertRotateConfigCA contains the tunables for TLS certificates.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"duration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+					"renewBefore": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
+	}
+}
+
+func schema_pkg_apis_hco_v1beta1_CertRotateConfigServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CertRotateConfigServer contains the tunables for TLS certificates.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"duration": {
@@ -125,20 +153,20 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedCertConfig(ref common.ReferenceCa
 					"ca": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CA configuration - CA certs are kept in the CA bundle as long as they are valid",
-							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfig"),
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfigCA"),
 						},
 					},
 					"server": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Server configuration - Certs are rotated and discarded",
-							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfig"),
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfigServer"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfig"},
+			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfigCA", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfigServer"},
 	}
 }
 

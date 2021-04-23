@@ -38,11 +38,13 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
+	// +kubebuilder:default={"withHostPassthroughCPU": false, "sriovLiveMigration": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
 	// Live migration limits and timeouts are applied so that migration processes do not
 	// overwhelm the cluster.
+	// +kubebuilder:default={"bandwidthPerMigration": "64Mi", "completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}
 	// +optional
 	LiveMigrationConfig LiveMigrationConfigurations `json:"liveMigrationConfig,omitempty"`
 
@@ -51,7 +53,7 @@ type HyperConvergedSpec struct {
 	PermittedHostDevices *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
 
 	// certConfig holds the rotation policy for internal, self-signed certificates
-	// +kubebuilder:default={ca: {duration: "48h", renewBefore: "24h"}, server: {duration: "24h", renewBefore: "12h"}}
+	// +kubebuilder:default={"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}
 	// +optional
 	CertConfig HyperConvergedCertConfig `json:"certConfig,omitempty"`
 
@@ -76,35 +78,58 @@ type HyperConvergedSpec struct {
 	ObsoleteCPUs *HyperConvergedObsoleteCPUs `json:"obsoleteCPUs,omitempty"`
 
 	// operator version
+	// +optional
 	Version string `json:"version,omitempty"`
 }
 
-// CertConfig contains the tunables for TLS certificates.
+// CertRotateConfigCA contains the tunables for TLS certificates.
 // +k8s:openapi-gen=true
-type CertRotateConfig struct {
+type CertRotateConfigCA struct {
 	// The requested 'duration' (i.e. lifetime) of the Certificate.
 	// This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)
+	// +kubebuilder:default="48h0m0s"
+	// +optional
 	Duration metav1.Duration `json:"duration,omitempty"`
 
 	// The amount of time before the currently issued certificate's `notAfter`
 	// time that we will begin to attempt to renew the certificate.
 	// This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)
+	// +kubebuilder:default="24h0m0s"
+	// +optional
+	RenewBefore metav1.Duration `json:"renewBefore,omitempty"`
+}
+
+// CertRotateConfigServer contains the tunables for TLS certificates.
+// +k8s:openapi-gen=true
+type CertRotateConfigServer struct {
+	// The requested 'duration' (i.e. lifetime) of the Certificate.
+	// This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)
+	// +kubebuilder:default="24h0m0s"
+	// +optional
+	Duration metav1.Duration `json:"duration,omitempty"`
+
+	// The amount of time before the currently issued certificate's `notAfter`
+	// time that we will begin to attempt to renew the certificate.
+	// This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)
+	// +kubebuilder:default="12h0m0s"
+	// +optional
 	RenewBefore metav1.Duration `json:"renewBefore,omitempty"`
 }
 
 // HyperConvergedCertConfig holds the CertConfig entries for the HCO operands
 // +k8s:openapi-gen=true
-// +optional
 type HyperConvergedCertConfig struct {
 	// CA configuration -
 	// CA certs are kept in the CA bundle as long as they are valid
-	// +kubebuilder:default={duration: "48h", renewBefore: "24h"}
-	CA CertRotateConfig `json:"ca,omitempty"`
+	// +kubebuilder:default={"duration": "48h0m0s", "renewBefore": "24h0m0s"}
+	// +optional
+	CA CertRotateConfigCA `json:"ca,omitempty"`
 
 	// Server configuration -
 	// Certs are rotated and discarded
-	// +kubebuilder:default={duration: "24h", renewBefore: "12h"}
-	Server CertRotateConfig `json:"server,omitempty"`
+	// +kubebuilder:default={"duration": "24h0m0s", "renewBefore": "12h0m0s"}
+	// +optional
+	Server CertRotateConfigServer `json:"server,omitempty"`
 }
 
 // HyperConvergedConfig defines a set of configurations to pass to components
@@ -116,7 +141,6 @@ type HyperConvergedConfig struct {
 
 // LiveMigrationConfigurations - Live migration limits and timeouts are applied so that migration processes do not
 // overwhelm the cluster.
-// +optional
 // +k8s:openapi-gen=true
 type LiveMigrationConfigurations struct {
 	// Number of migrations running in parallel in the cluster.
@@ -140,25 +164,24 @@ type LiveMigrationConfigurations struct {
 	// migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included
 	// in the calculation.
 	// +kubebuilder:default=800
+	// +optional
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 
 	// The migration will be canceled if memory copy fails to make progress in this time, in seconds.
 	// +kubebuilder:default=150
+	// +optional
 	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
 }
 
-type FeatureGate *bool
-
 // HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled
 // by default yet.
-// +optional
 // +k8s:openapi-gen=true
 type HyperConvergedFeatureGates struct {
 	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
 	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 	// +optional
 	// +kubebuilder:default=false
-	WithHostPassthroughCPU FeatureGate `json:"withHostPassthroughCPU,omitempty"`
+	WithHostPassthroughCPU bool `json:"withHostPassthroughCPU"`
 
 	// Allow migrating a virtual machine with SRIOV interfaces.
 	// When enabled virt-launcher pods of virtual machines with SRIOV
@@ -166,15 +189,7 @@ type HyperConvergedFeatureGates struct {
 	// This may degrade virt-launcher security.
 	// +optional
 	// +kubebuilder:default=false
-	SRIOVLiveMigration FeatureGate `json:"sriovLiveMigration,omitempty"`
-}
-
-func (fgs *HyperConvergedFeatureGates) IsWithHostPassthroughCPUEnabled() bool {
-	return (fgs != nil) && (fgs.WithHostPassthroughCPU != nil) && (*fgs.WithHostPassthroughCPU)
-}
-
-func (fgs *HyperConvergedFeatureGates) IsSRIOVLiveMigrationEnabled() bool {
-	return (fgs != nil) && (fgs.SRIOVLiveMigration != nil) && (*fgs.SRIOVLiveMigration)
+	SRIOVLiveMigration bool `json:"sriovLiveMigration"`
 }
 
 // PermittedHostDevices holds inforamtion about devices allowed for passthrough
@@ -309,6 +324,8 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": false}, "liveMigrationConfig": {"bandwidthPerMigration": "64Mi", "completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}}
+	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`
 }

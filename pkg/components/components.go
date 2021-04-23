@@ -969,14 +969,18 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 		},
 		Spec: hcov1beta1.HyperConvergedSpec{
 			CertConfig: hcov1beta1.HyperConvergedCertConfig{
-				CA: hcov1beta1.CertRotateConfig{
+				CA: hcov1beta1.CertRotateConfigCA{
 					Duration:    metav1.Duration{Duration: 48 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
 				},
-				Server: hcov1beta1.CertRotateConfig{
+				Server: hcov1beta1.CertRotateConfigServer{
 					Duration:    metav1.Duration{Duration: 24 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
 				},
+			},
+			FeatureGates: hcov1beta1.HyperConvergedFeatureGates{
+				WithHostPassthroughCPU: false,
+				SRIOVLiveMigration:     false,
 			},
 			LiveMigrationConfig: hcov1beta1.LiveMigrationConfigurations{
 				BandwidthPerMigration:             &bandwidthPerMigration,

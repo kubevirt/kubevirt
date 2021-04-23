@@ -275,11 +275,11 @@ var _ = Describe("CNA Operand", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
-				CA: hcov1beta1.CertRotateConfig{
+				CA: hcov1beta1.CertRotateConfigCA{
 					Duration:    metav1.Duration{Duration: 24 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
 				},
-				Server: hcov1beta1.CertRotateConfig{
+				Server: hcov1beta1.CertRotateConfigServer{
 					Duration:    metav1.Duration{Duration: 12 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
 				},
@@ -341,11 +341,11 @@ var _ = Describe("CNA Operand", func() {
 		It("should modify self signed configutation according to HCO CR", func() {
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
-				CA: hcov1beta1.CertRotateConfig{
+				CA: hcov1beta1.CertRotateConfigCA{
 					Duration:    metav1.Duration{Duration: 24 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
 				},
-				Server: hcov1beta1.CertRotateConfig{
+				Server: hcov1beta1.CertRotateConfigServer{
 					Duration:    metav1.Duration{Duration: 12 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
 				},
@@ -393,11 +393,11 @@ var _ = Describe("CNA Operand", func() {
 		It("should overwrite self signed configutation if directly set on CNAO CR", func() {
 
 			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
-				CA: hcov1beta1.CertRotateConfig{
+				CA: hcov1beta1.CertRotateConfigCA{
 					Duration:    metav1.Duration{Duration: 24 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 1 * time.Hour},
 				},
-				Server: hcov1beta1.CertRotateConfig{
+				Server: hcov1beta1.CertRotateConfigServer{
 					Duration:    metav1.Duration{Duration: 12 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
 				},

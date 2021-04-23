@@ -109,9 +109,8 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("should create all managed resources", func() {
 				hco := commonTestUtils.NewHco()
-				enabled := true
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-					WithHostPassthroughCPU: &enabled,
+					WithHostPassthroughCPU: true,
 				}
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
