@@ -551,7 +551,10 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 				return nil, fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
 			}
 		} else {
-			if !objectMatchesVersion(&cachedConfigMap.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) || updateBundle {
+			modified := resourcemerge.BoolPtr(false)
+			resourcemerge.EnsureObjectMeta(modified, &cachedConfigMap.DeepCopy().ObjectMeta, configMap.ObjectMeta)
+
+			if *modified || updateBundle {
 				// Patch if old version
 				var ops []string
 
