@@ -503,67 +503,6 @@ func (r *Reconciler) createOrUpdateRbac() error {
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateConfigMaps() error {
-	core := r.clientset.CoreV1()
-	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-
-	for _, cm := range r.targetStrategy.ConfigMaps() {
-
-		if cm.Name == components.KubeVirtCASecretName {
-			continue
-		}
-
-		var cachedCM *corev1.ConfigMap
-
-		cm := cm.DeepCopy()
-		obj, exists, _ := r.stores.ConfigMapCache.Get(cm)
-		if exists {
-			cachedCM = obj.(*corev1.ConfigMap)
-		}
-
-		injectOperatorMetadata(r.kv, &cm.ObjectMeta, version, imageRegistry, id, true)
-		if !exists {
-			// Create non existent
-			r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := core.ConfigMaps(cm.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
-			if err != nil {
-				r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
-				return fmt.Errorf("unable to create config map %+v: %v", cm, err)
-			}
-			log.Log.V(2).Infof("config map %v created", cm.GetName())
-
-		} else if !objectMatchesVersion(&cachedCM.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
-			// Patch if old version
-			var ops []string
-
-			// Add Labels and Annotations Patches
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&cm.ObjectMeta)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, labelAnnotationPatch...)
-
-			// Add Spec Patch
-			newSpec, err := json.Marshal(cm.Data)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-
-			_, err = core.ConfigMaps(cm.Namespace).Patch(context.Background(), cm.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to patch config map %+v: %v", cm, err)
-			}
-			log.Log.V(2).Infof("config map %v updated", cm.GetName())
-
-		} else {
-			log.Log.V(4).Infof("config map %v is up-to-date", cm.GetName())
-		}
-	}
-
-	return nil
-}
-
 func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimitingInterface, caCert *tls.Certificate, overlapInterval *metav1.Duration) (caBundle []byte, err error) {
 
 	for _, configMap := range r.targetStrategy.ConfigMaps() {
