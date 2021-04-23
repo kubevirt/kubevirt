@@ -306,11 +306,10 @@ var _ = Describe("Pod Network", func() {
 		err := driver.discoverPodNetworkInterface()
 		Expect(err).ToNot(HaveOccurred())
 
-		err = driver.preparePodNetworkInterface()
+		domainIface, err := driver.preparePodNetworkInterface()
 		Expect(err).ToNot(HaveOccurred())
 
-		err = driver.decorateConfig()
-		Expect(err).ToNot(HaveOccurred())
+		Expect(driver.decorateConfig(domainIface)).ToNot(HaveOccurred())
 	}
 
 	Context("on successful setup", func() {
