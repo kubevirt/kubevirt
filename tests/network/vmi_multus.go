@@ -1010,7 +1010,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			var vmi *v1.VirtualMachineInstance
-			var interfaceName string
 
 			const mac = "de:ad:00:00:be:ef"
 
@@ -1021,6 +1020,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
+
+				var interfaceName string
 
 				// It may take some time for the VMI interface status to be updated with the information reported by
 				// the guest-agent.
@@ -1041,7 +1042,17 @@ var _ = Describe("[Serial]SRIOV", func() {
 				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 
-				Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(),
+				// It may take some time for the VMI interface status to be updated with the information reported by
+				// the guest-agent.
+				Eventually(func() error {
+					updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
+					if err != nil {
+						return err
+					}
+					return checkMacAddress(updatedVMI, interfaceName, mac)
+				}, 30*time.Second, 5*time.Second).Should(Succeed(),
 					"SR-IOV VF is expected to exist in the guest after migration")
 			})
 		})
