@@ -47,7 +47,7 @@ var bridgeFakeIP = "169.254.75.1%d/32"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
-	preparePodNetworkInterfaces() error
+	preparePodNetworkInterface() error
 
 	loadCachedInterface() error
 	setCachedInterface() error
@@ -270,7 +270,7 @@ func (l *podNIC) PlugPhase1() error {
 			return err
 		}
 
-		if err := bindMechanism.preparePodNetworkInterfaces(); err != nil {
+		if err := bindMechanism.preparePodNetworkInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
 			return errors.CreateCriticalNetworkError(err)
 		}
@@ -512,7 +512,7 @@ func (b *BridgeBindMechanism) startDHCP() error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) preparePodNetworkInterfaces() error {
+func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
 	// Set interface link to down to change its MAC address
 	if err := b.handler.LinkSetDown(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
@@ -858,7 +858,7 @@ func (b *MasqueradeBindMechanism) startDHCP() error {
 	return b.handler.StartDHCP(b.vif, b.vif.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
 }
 
-func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces() error {
+func (b *MasqueradeBindMechanism) preparePodNetworkInterface() error {
 	// Create an master bridge interface
 	bridgeNicName := fmt.Sprintf("%s-nic", b.bridgeInterfaceName)
 	bridgeNic := &netlink.Dummy{
@@ -1236,7 +1236,7 @@ func (b *SlirpBindMechanism) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (b *SlirpBindMechanism) preparePodNetworkInterfaces() error {
+func (b *SlirpBindMechanism) preparePodNetworkInterface() error {
 	return nil
 }
 
@@ -1332,7 +1332,7 @@ func (b *MacvtapBindMechanism) podIfaceMAC() string {
 	}
 }
 
-func (b *MacvtapBindMechanism) preparePodNetworkInterfaces() error {
+func (b *MacvtapBindMechanism) preparePodNetworkInterface() error {
 	return nil
 }
 
