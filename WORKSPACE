@@ -311,6 +311,17 @@ go_repository(
     importpath = "golang.org/x/crypto",
 )
 
+# override rules_docker issue with this dependency
+# rules_docker 0.16 uses 0.1.4, bit since there the checksum changed, which is very weird, going with 0.1.4.1 to
+go_repository(
+    name = "com_github_google_go_containerregistry",
+    importpath = "github.com/google/go-containerregistry",
+    sha256 = "bc0136a33f9c1e4578a700f7afcdaa1241cfff997d6bba695c710d24c5ae26bd",
+    strip_prefix = "google-go-containerregistry-efb2d62",
+    type = "tar.gz",
+    urls = ["https://api.github.com/repos/google/go-containerregistry/tarball/efb2d62d93a7705315b841d0544cb5b13565ff2a"],  # v0.1.4.1
+)
+
 # bazel docker rules
 load(
     "@io_bazel_rules_docker//container:container.bzl",
