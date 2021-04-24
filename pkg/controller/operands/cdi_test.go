@@ -3,14 +3,9 @@ package operands
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"reflect"
 	"time"
 
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
@@ -18,11 +13,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 var _ = Describe("CDI Operand", func() {
@@ -507,6 +508,89 @@ var _ = Describe("CDI Operand", func() {
 
 				Expect(foundCDI.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
 				Expect(*foundCDI.Spec.Config.ScratchSpaceStorageClass).To(Equal(hcoScratchSpaceStorageClassValue))
+			})
+		})
+
+		Context("Test StorageImport", func() {
+
+			It("should add InsecureRegistries if exists in HC and missing in CDI", func() {
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				hco.Spec.StorageImport = &hcov1beta1.StorageImportConfig{
+					InsecureRegistries: []string{"first:5000", "second:5000", "third:5000"},
+				}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundCdi := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundCdi),
+				).To(BeNil())
+
+				Expect(foundCdi.Spec.Config).ToNot(BeNil())
+				Expect(foundCdi.Spec.Config.InsecureRegistries).ToNot(BeEmpty())
+				Expect(foundCdi.Spec.Config.InsecureRegistries).Should(HaveLen(3))
+				Expect(foundCdi.Spec.Config.InsecureRegistries).Should(ContainElements("first:5000", "second:5000", "third:5000"))
+			})
+
+			It("should remove InsecureRegistries if missing in HCO CR", func() {
+				existingCdi, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				existingCdi.Spec.Config.InsecureRegistries = []string{"first:5000", "second:5000", "third:5000"}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCdi})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundCDI := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingCdi.Name, Namespace: existingCdi.Namespace},
+						foundCDI),
+				).To(BeNil())
+
+				Expect(foundCDI.Spec.Config).ToNot(BeNil())
+				Expect(foundCDI.Spec.Config.InsecureRegistries).To(BeNil())
+			})
+
+			It("should modify InsecureRegistries according to HCO CR", func() {
+				existingCDI, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				existingCDI.Spec.Config.InsecureRegistries = []string{"first:5000", "second:5000", "third:5000"}
+
+				hco.Spec.StorageImport = &hcov1beta1.StorageImportConfig{
+					InsecureRegistries: []string{"other1:5000", "other2:5000"},
+				}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCDI})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundCDI := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingCDI.Name, Namespace: existingCDI.Namespace},
+						foundCDI),
+				).To(BeNil())
+
+				Expect(foundCDI.Spec.Config.InsecureRegistries).To(HaveLen(2))
+				Expect(foundCDI.Spec.Config.InsecureRegistries).To(ContainElements("other1:5000", "other2:5000"))
 			})
 		})
 

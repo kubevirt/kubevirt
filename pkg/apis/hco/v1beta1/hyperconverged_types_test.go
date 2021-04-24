@@ -1,7 +1,6 @@
 package v1beta1
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	"testing"
 	"time"
 
@@ -9,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 )
@@ -391,6 +391,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 					},
 				},
 				ScratchSpaceStorageClass: &ScratchSpaceStorageClass,
+				StorageImport:            &StorageImportConfig{InsecureRegistries: []string{"aaa", "bbb", "ccc"}},
 				Version:                  "v1.2.3",
 			},
 			Status: HyperConvergedStatus{

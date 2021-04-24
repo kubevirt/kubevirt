@@ -21,6 +21,7 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [OperandResourceRequirements](#operandresourcerequirements)
 * [PciHostDevice](#pcihostdevice)
 * [PermittedHostDevices](#permittedhostdevices)
+* [StorageImportConfig](#storageimportconfig)
 * [Version](#version)
 
 ## CertRotateConfigCA
@@ -128,6 +129,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | scratchSpaceStorageClass | Override the storage class used for scratch space during transfer operations. The scratch space storage class is determined in the following order: value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space | *string |  | false |
 | vddkInitImage | VDDK Init Image eventually used to import VMs from external providers | *string |  | false |
 | obsoleteCPUs | ObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models | *[HyperConvergedObsoleteCPUs](#hyperconvergedobsoletecpus) |  | false |
+| storageImport | StorageImport contains configuration for importing containerized data | *[StorageImportConfig](#storageimportconfig) |  | false |
 | version | operator version | string |  | false |
 
 [Back to TOC](#table-of-contents)
@@ -200,6 +202,16 @@ PermittedHostDevices holds inforamtion about devices allowed for passthrough
 | ----- | ----------- | ------ | -------- |-------- |
 | pciHostDevices |  | [][PciHostDevice](#pcihostdevice) |  | false |
 | mediatedDevices |  | [][MediatedHostDevice](#mediatedhostdevice) |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## StorageImportConfig
+
+StorageImportConfig contains configuration for importing containerized data
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| insecureRegistries | InsecureRegistries is a list of image registries URLs that are not secured. Setting an insecure registry URL in this list allows pulling images from this registry. | []string |  | false |
 
 [Back to TOC](#table-of-contents)
 

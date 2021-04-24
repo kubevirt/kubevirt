@@ -988,6 +988,18 @@ spec:
                   storage class, use the storage class of the DataVolume, if no storage
                   class specified, use no storage class for scratch space'
                 type: string
+              storageImport:
+                description: StorageImport contains configuration for importing containerized
+                  data
+                properties:
+                  insecureRegistries:
+                    description: InsecureRegistries is a list of image registries
+                      URLs that are not secured. Setting an insecure registry URL
+                      in this list allows pulling images from this registry.
+                    items:
+                      type: string
+                    type: array
+                type: object
               vddkInitImage:
                 description: VDDK Init Image eventually used to import VMs from external
                   providers

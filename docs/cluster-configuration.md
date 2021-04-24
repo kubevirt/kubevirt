@@ -335,6 +335,25 @@ spec:
     minCPUModel: "Penryn"
 ```
 
+## Insecure Registries for Imported Data containerized Images
+If there is a need to import data images from an insecure registry, these registries should be added to the
+`insecureRegistries` field under the `storageImport` in the `HyperConverged`'s `spec` field.
+
+### Insecure Registry Example
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  insecureRegistries:
+    storageImport:
+      - "private-registry-example-1:5000"
+      - "private-registry-example-2:5000"
+      ...
+```
+
+
 ## Configurations via Annotations
 
 In addition to `featureGates` field in HyperConverged CR's spec, the user can set annotations in the HyperConverged CR

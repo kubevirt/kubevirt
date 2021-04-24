@@ -137,9 +137,17 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 		spec.Config.ScratchSpaceStorageClass = hc.Spec.ScratchSpaceStorageClass
 	}
 
+	if hc.Spec.StorageImport != nil {
+		if length := len(hc.Spec.StorageImport.InsecureRegistries); length > 0 {
+			spec.Config.InsecureRegistries = make([]string, length)
+			copy(spec.Config.InsecureRegistries, hc.Spec.StorageImport.InsecureRegistries)
+		}
+	}
+
 	if hc.Spec.Infra.NodePlacement != nil {
 		hc.Spec.Infra.NodePlacement.DeepCopyInto(&spec.Infra)
 	}
+
 	if hc.Spec.Workloads.NodePlacement != nil {
 		hc.Spec.Workloads.NodePlacement.DeepCopyInto(&spec.Workloads)
 	}

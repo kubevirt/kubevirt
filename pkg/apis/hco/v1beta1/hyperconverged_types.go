@@ -77,6 +77,10 @@ type HyperConvergedSpec struct {
 	// +optional
 	ObsoleteCPUs *HyperConvergedObsoleteCPUs `json:"obsoleteCPUs,omitempty"`
 
+	// StorageImport contains configuration for importing containerized data
+	// +optional
+	StorageImport *StorageImportConfig `json:"storageImport,omitempty"`
+
 	// operator version
 	// +optional
 	Version string `json:"version,omitempty"`
@@ -235,6 +239,15 @@ type HyperConvergedObsoleteCPUs struct {
 	// eliminates those CPU models and creates labels for valid CPU models.
 	// +optional
 	CPUModels []string `json:"cpuModels,omitempty"`
+}
+
+// StorageImportConfig contains configuration for importing containerized data
+// +k8s:openapi-gen=true
+type StorageImportConfig struct {
+	// InsecureRegistries is a list of image registries URLs that are not secured. Setting an insecure registry URL
+	// in this list allows pulling images from this registry.
+	// +optional
+	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged
