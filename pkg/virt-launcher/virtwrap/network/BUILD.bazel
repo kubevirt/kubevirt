@@ -6,7 +6,6 @@ go_library(
         "common.go",
         "generated_mock_common.go",
         "generated_mock_network.go",
-        "generated_mock_podinterface.go",
         "network.go",
         "podinterface.go",
     ],
