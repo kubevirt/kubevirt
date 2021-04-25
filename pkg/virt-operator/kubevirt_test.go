@@ -840,11 +840,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			},
 		})
 		for _, obj := range all {
-			if resource, ok := obj.(runtime.Object); ok {
-				addResource(resource, config, nil)
-			} else {
-				Fail("could not cast to runtime.Object")
-			}
+			addResource(obj, config, nil)
 		}
 		return len(all)
 	}
