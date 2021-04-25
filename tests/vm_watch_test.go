@@ -211,7 +211,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		// Read column titles
 		titles, err := readNewStatus(stdout, nil, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(titles).To(Equal([]string{"NAME", "AGE", "VOLUME"}),
+		Expect(titles).To(Equal([]string{"NAME", "AGE", "STATUS", "VOLUME"}),
 			"Output should have the proper columns")
 	})
 
