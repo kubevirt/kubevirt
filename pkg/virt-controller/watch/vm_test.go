@@ -155,8 +155,12 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume.Namespace = "default"
 			dataVolumeFeeder.Add(existingDataVolume)
+
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": "", "my": "label"}, map[string]string{"my": "annotation"}, &createCount)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
 			controller.Execute()
 			Expect(createCount).To(Equal(1))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -618,6 +622,9 @@ var _ = Describe("VirtualMachine", func() {
 
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
 			controller.Execute()
 			Expect(createCount).To(Equal(2))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -684,9 +691,7 @@ var _ = Describe("VirtualMachine", func() {
 				createCount := 0
 				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
 
-				if fail {
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
-				}
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.cloneAuthFunc = func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 					if dv.Spec.Source.PVC.Namespace != "" {
@@ -1085,6 +1090,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
 				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1099,6 +1105,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
 				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1113,6 +1120,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
 				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
