@@ -346,8 +346,8 @@ kind: HyperConverged
 metadata:
   name: kubevirt-hyperconverged
 spec:
-  insecureRegistries:
-    storageImport:
+  storageImport:
+    insecureRegistries:
       - "private-registry-example-1:5000"
       - "private-registry-example-2:5000"
       ...
