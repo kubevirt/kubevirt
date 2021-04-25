@@ -750,7 +750,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.Entry("[QUARANTINE] with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
 			It("should hotplug and permanently add volume when added to VM", func() {
