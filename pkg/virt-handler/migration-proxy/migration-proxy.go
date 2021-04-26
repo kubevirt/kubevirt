@@ -339,7 +339,7 @@ func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, serverTLSCon
 		listenErrChan:   make(chan error, 1),
 		serverTLSConfig: serverTLSConfig,
 		clientTLSConfig: clientTLSConfig,
-		logger:          log.Log.CustomField("uid", vmiUID).CustomField("listening", filepath.Base(unixSocketPath)).CustomField("outbound", tcpTargetAddress),
+		logger:          log.Log.With("uid", vmiUID).With("listening", filepath.Base(unixSocketPath)).With("outbound", tcpTargetAddress),
 	}
 }
 
@@ -356,7 +356,7 @@ func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls
 		listenErrChan:   make(chan error, 1),
 		serverTLSConfig: serverTLSConfig,
 		clientTLSConfig: clientTLSConfig,
-		logger:          log.Log.CustomField("uid", vmiUID).CustomField("outbound", filepath.Base(libvirtdSocketPath)),
+		logger:          log.Log.With("uid", vmiUID).With("outbound", filepath.Base(libvirtdSocketPath)),
 	}
 
 }
@@ -382,7 +382,7 @@ func (m *migrationProxy) createTcpListener() error {
 		// update the random port that was selected
 		m.tcpBindPort = listener.Addr().(*net.TCPAddr).Port
 		// Add the listener to the log output once we know the port
-		m.logger = m.logger.CustomField("listening", fmt.Sprintf("%s:%d", m.tcpBindAddress, m.tcpBindPort))
+		m.logger = m.logger.With("listening", fmt.Sprintf("%s:%d", m.tcpBindAddress, m.tcpBindPort))
 	}
 
 	m.listener = listener
