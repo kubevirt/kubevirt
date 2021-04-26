@@ -22,7 +22,6 @@
 package network
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net"
 	"os"
@@ -98,7 +97,6 @@ type NetworkHandler interface {
 	ParseAddr(s string) (*netlink.Addr, error)
 	GetHostAndGwAddressesFromCIDR(s string) (string, string, error)
 	SetRandomMac(iface string) (net.HardwareAddr, error)
-	GenerateRandomMac() (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error
@@ -408,18 +406,6 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 	}
 
 	return nil
-}
-
-// Generate a random mac for interface
-// Avoid MAC address starting with reserved value 0xFE (https://github.com/kubevirt/kubevirt/issues/1494)
-func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
-	prefix := []byte{0x02, 0x00, 0x00} // local unicast prefix
-	suffix := make([]byte, 3)
-	_, err := rand.Read(suffix)
-	if err != nil {
-		return nil, err
-	}
-	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
 
 func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
