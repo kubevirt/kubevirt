@@ -2236,6 +2236,28 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                           items:
                             properties:
+                              blockSize:
+                                description: If specified, the virtual disk will be presented with the given block sizes.
+                                properties:
+                                  custom:
+                                    description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                    properties:
+                                      logical:
+                                        type: integer
+                                      physical:
+                                        type: integer
+                                    required:
+                                    - logical
+                                    - physical
+                                    type: object
+                                  matchVolume:
+                                    description: Represents if a feature is enabled or disabled.
+                                    properties:
+                                      enabled:
+                                        description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                        type: boolean
+                                    type: object
+                                type: object
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
@@ -3301,6 +3323,28 @@ var CRDsValidation map[string]string = map[string]string{
                   disk:
                     description: Disk represents the hotplug disk that will be plugged into the running VMI
                     properties:
+                      blockSize:
+                        description: If specified, the virtual disk will be presented with the given block sizes.
+                        properties:
+                          custom:
+                            description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                            properties:
+                              logical:
+                                type: integer
+                              physical:
+                                type: integer
+                            required:
+                            - logical
+                            - physical
+                            type: object
+                          matchVolume:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                type: boolean
+                            type: object
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
@@ -4044,6 +4088,28 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                   items:
                     properties:
+                      blockSize:
+                        description: If specified, the virtual disk will be presented with the given block sizes.
+                        properties:
+                          custom:
+                            description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                            properties:
+                              logical:
+                                type: integer
+                              physical:
+                                type: integer
+                            required:
+                            - logical
+                            - physical
+                            type: object
+                          matchVolume:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                type: boolean
+                            type: object
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
@@ -5449,6 +5515,28 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                   items:
                     properties:
+                      blockSize:
+                        description: If specified, the virtual disk will be presented with the given block sizes.
+                        properties:
+                          custom:
+                            description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                            properties:
+                              logical:
+                                type: integer
+                              physical:
+                                type: integer
+                            required:
+                            - logical
+                            - physical
+                            type: object
+                          matchVolume:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                type: boolean
+                            type: object
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
@@ -6626,6 +6714,28 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                           items:
                             properties:
+                              blockSize:
+                                description: If specified, the virtual disk will be presented with the given block sizes.
+                                properties:
+                                  custom:
+                                    description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                    properties:
+                                      logical:
+                                        type: integer
+                                      physical:
+                                        type: integer
+                                    required:
+                                    - logical
+                                    - physical
+                                    type: object
+                                  matchVolume:
+                                    description: Represents if a feature is enabled or disabled.
+                                    properties:
+                                      enabled:
+                                        description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                        type: boolean
+                                    type: object
+                                type: object
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
@@ -8750,6 +8860,28 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                                       items:
                                         properties:
+                                          blockSize:
+                                            description: If specified, the virtual disk will be presented with the given block sizes.
+                                            properties:
+                                              custom:
+                                                description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                                properties:
+                                                  logical:
+                                                    type: integer
+                                                  physical:
+                                                    type: integer
+                                                required:
+                                                - logical
+                                                - physical
+                                                type: object
+                                              matchVolume:
+                                                description: Represents if a feature is enabled or disabled.
+                                                properties:
+                                                  enabled:
+                                                    description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                                    type: boolean
+                                                type: object
+                                            type: object
                                           bootOrder:
                                             description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                             type: integer
@@ -9815,6 +9947,28 @@ var CRDsValidation map[string]string = map[string]string{
                               disk:
                                 description: Disk represents the hotplug disk that will be plugged into the running VMI
                                 properties:
+                                  blockSize:
+                                    description: If specified, the virtual disk will be presented with the given block sizes.
+                                    properties:
+                                      custom:
+                                        description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                        properties:
+                                          logical:
+                                            type: integer
+                                          physical:
+                                            type: integer
+                                        required:
+                                        - logical
+                                        - physical
+                                        type: object
+                                      matchVolume:
+                                        description: Represents if a feature is enabled or disabled.
+                                        properties:
+                                          enabled:
+                                            description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                            type: boolean
+                                        type: object
+                                    type: object
                                   bootOrder:
                                     description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                     type: integer

@@ -44,6 +44,33 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
+var _ = Describe("getOptimalBlockIO", func() {
+
+	It("Should detect disk block sizes for a file DiskSource", func() {
+		disk := &api.Disk{
+			Source: api.DiskSource{
+				File: "/",
+			},
+		}
+		blockIO, err := getOptimalBlockIO(disk)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
+		// The default for most filesystems nowadays is 4096 but it can be changed.
+		// As such, relying on a specific value is flakey unless
+		// we create a disk image and filesystem just for this test.
+		// For now, as long as we have a value, the exact value doesn't matter.
+		Expect(blockIO.LogicalBlockSize).ToNot(BeZero())
+	})
+
+	It("Should fail for non-file or non-block devices", func() {
+		disk := &api.Disk{
+			Source: api.DiskSource{},
+		}
+		_, err := getOptimalBlockIO(disk)
+		Expect(err).To(HaveOccurred())
+	})
+})
+
 var _ = Describe("Converter", func() {
 
 	TestSmbios := &cmdv1.SMBios{}
@@ -136,13 +163,33 @@ var _ = Describe("Converter", func() {
 			Expect(xml).To(Equal(convertedDisk))
 		})
 
+		It("Should add blockio fields when custom sizes are provided", func() {
+			kubevirtDisk := &v1.Disk{
+				BlockSize: &v1.BlockSize{
+					Custom: &v1.CustomBlockSize{
+						Logical:  1234,
+						Physical: 1234,
+					},
+				},
+			}
+			expectedXML := `<Disk device="" type="">
+  <source></source>
+  <target></target>
+  <blockio logical_block_size="1234" physical_block_size="1234"></blockio>
+</Disk>`
+			libvirtDisk := &api.Disk{}
+			err := Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk)
+			Expect(err).ToNot(HaveOccurred())
+			data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
+			Expect(err).ToNot(HaveOccurred())
+			xml := string(data)
+			Expect(xml).To(Equal(expectedXML))
+		})
 	})
 
 	Context("with v1.VirtualMachineInstance", func() {
 
 		var vmi *v1.VirtualMachineInstance
-		_false := false
-		_true := true
 		domainType := "kvm"
 		if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 			domainType = "qemu"
@@ -171,23 +218,23 @@ var _ = Describe("Converter", func() {
 				},
 				Timer: &v1.Timer{
 					HPET: &v1.HPETTimer{
-						Enabled:    &_false,
+						Enabled:    False(),
 						TickPolicy: v1.HPETTickPolicyDelay,
 					},
 					KVM: &v1.KVMTimer{
-						Enabled: &_true,
+						Enabled: True(),
 					},
 					PIT: &v1.PITTimer{
-						Enabled:    &_false,
+						Enabled:    False(),
 						TickPolicy: v1.PITTickPolicyDiscard,
 					},
 					RTC: &v1.RTCTimer{
-						Enabled:    &_true,
+						Enabled:    True(),
 						TickPolicy: v1.RTCTickPolicyCatchup,
 						Track:      v1.TrackGuest,
 					},
 					Hyperv: &v1.HypervTimer{
-						Enabled: &_true,
+						Enabled: True(),
 					},
 				},
 			}
@@ -195,22 +242,22 @@ var _ = Describe("Converter", func() {
 				APIC:       &v1.FeatureAPIC{},
 				SMM:        &v1.FeatureState{},
 				KVM:        &v1.FeatureKVM{Hidden: true},
-				Pvspinlock: &v1.FeatureState{Enabled: &_false},
+				Pvspinlock: &v1.FeatureState{Enabled: False()},
 				Hyperv: &v1.FeatureHyperv{
-					Relaxed:         &v1.FeatureState{Enabled: &_false},
-					VAPIC:           &v1.FeatureState{Enabled: &_true},
-					Spinlocks:       &v1.FeatureSpinlocks{Enabled: &_true},
-					VPIndex:         &v1.FeatureState{Enabled: &_true},
-					Runtime:         &v1.FeatureState{Enabled: &_false},
-					SyNIC:           &v1.FeatureState{Enabled: &_true},
-					SyNICTimer:      &v1.SyNICTimer{Enabled: &_true, Direct: &v1.FeatureState{Enabled: &_true}},
-					Reset:           &v1.FeatureState{Enabled: &_true},
-					VendorID:        &v1.FeatureVendorID{Enabled: &_false, VendorID: "myvendor"},
-					Frequencies:     &v1.FeatureState{Enabled: &_false},
-					Reenlightenment: &v1.FeatureState{Enabled: &_false},
-					TLBFlush:        &v1.FeatureState{Enabled: &_true},
-					IPI:             &v1.FeatureState{Enabled: &_true},
-					EVMCS:           &v1.FeatureState{Enabled: &_false},
+					Relaxed:         &v1.FeatureState{Enabled: False()},
+					VAPIC:           &v1.FeatureState{Enabled: True()},
+					Spinlocks:       &v1.FeatureSpinlocks{Enabled: True()},
+					VPIndex:         &v1.FeatureState{Enabled: True()},
+					Runtime:         &v1.FeatureState{Enabled: False()},
+					SyNIC:           &v1.FeatureState{Enabled: True()},
+					SyNICTimer:      &v1.SyNICTimer{Enabled: True(), Direct: &v1.FeatureState{Enabled: True()}},
+					Reset:           &v1.FeatureState{Enabled: True()},
+					VendorID:        &v1.FeatureVendorID{Enabled: False(), VendorID: "myvendor"},
+					Frequencies:     &v1.FeatureState{Enabled: False()},
+					Reenlightenment: &v1.FeatureState{Enabled: False()},
+					TLBFlush:        &v1.FeatureState{Enabled: True()},
+					IPI:             &v1.FeatureState{Enabled: True()},
+					EVMCS:           &v1.FeatureState{Enabled: False()},
 				},
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
@@ -231,7 +278,7 @@ var _ = Describe("Converter", func() {
 							Bus: "virtio",
 						},
 					},
-					DedicatedIOThread: &_true,
+					DedicatedIOThread: True(),
 				},
 				{
 					Name: "nocloud",
@@ -240,16 +287,16 @@ var _ = Describe("Converter", func() {
 							Bus: "virtio",
 						},
 					},
-					DedicatedIOThread: &_true,
+					DedicatedIOThread: True(),
 				},
 				{
 					Name: "cdrom_tray_unspecified",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: &_false,
+							ReadOnly: False(),
 						},
 					},
-					DedicatedIOThread: &_false,
+					DedicatedIOThread: False(),
 				},
 				{
 					Name: "cdrom_tray_open",
@@ -304,19 +351,19 @@ var _ = Describe("Converter", func() {
 					Name: "sysprep",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: &_false,
+							ReadOnly: False(),
 						},
 					},
-					DedicatedIOThread: &_false,
+					DedicatedIOThread: False(),
 				},
 				{
 					Name: "sysprep_secret",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: &_false,
+							ReadOnly: False(),
 						},
 					},
-					DedicatedIOThread: &_false,
+					DedicatedIOThread: False(),
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
@@ -1411,7 +1458,7 @@ var _ = Describe("Converter", func() {
 		table.DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &_false
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = False()
 			c.Architecture = arch
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
@@ -2355,8 +2402,6 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("IOThreads", func() {
-		_false := false
-		_true := true
 
 		table.DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
 			vmi := v1.VirtualMachineInstance{
@@ -2382,7 +2427,7 @@ var _ = Describe("Converter", func() {
 											Bus: "virtio",
 										},
 									},
-									DedicatedIOThread: &_true,
+									DedicatedIOThread: True(),
 								},
 								{
 									Name: "shared",
@@ -2391,7 +2436,7 @@ var _ = Describe("Converter", func() {
 											Bus: "virtio",
 										},
 									},
-									DedicatedIOThread: &_false,
+									DedicatedIOThread: False(),
 								},
 								{
 									Name: "omitted1",

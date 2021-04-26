@@ -29,6 +29,8 @@ import (
 	"strings"
 	"syscall"
 
+	"golang.org/x/sys/unix"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -262,6 +264,88 @@ func checkDirectIOFlag(path string) bool {
 	}
 	defer util.CloseIOAndCheckErr(f, nil)
 	return true
+}
+
+func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error {
+	if source.BlockSize == nil {
+		return nil
+	}
+
+	if blockSize := source.BlockSize.Custom; blockSize != nil {
+		disk.BlockIO = &api.BlockIO{
+			LogicalBlockSize:  blockSize.Logical,
+			PhysicalBlockSize: blockSize.Physical,
+		}
+	} else if matchFeature := source.BlockSize.MatchVolume; matchFeature != nil && (matchFeature.Enabled == nil || *matchFeature.Enabled) {
+		blockIO, err := getOptimalBlockIO(disk)
+		if err != nil {
+			return fmt.Errorf("failed to configure disk with block size detection enabled: %v", err)
+		}
+		disk.BlockIO = blockIO
+	}
+	return nil
+}
+
+func getOptimalBlockIO(disk *api.Disk) (*api.BlockIO, error) {
+	if disk.Source.Dev != "" {
+		return getOptimalBlockIOForDevice(disk.Source.Dev)
+	} else if disk.Source.File != "" {
+		return getOptimalBlockIOForFile(disk.Source.File)
+	}
+	return nil, fmt.Errorf("disk is neither a block device nor a file")
+}
+
+// getOptimalBlockIOForDevice determines the optimal sizes based on the physical device properties.
+func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
+	f, err := os.OpenFile(path, syscall.O_RDONLY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open device %v: %v", path, err)
+	}
+	defer util.CloseIOAndCheckErr(f, nil)
+
+	logicalSize, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKSSZGET)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get logical block size from device %v: %v", path, err)
+	}
+	physicalSize, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKBSZGET)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get physical block size from device %v: %v", path, err)
+	}
+
+	log.Log.Infof("Detected logical size of %d and physical size of %d for device %v", logicalSize, physicalSize, path)
+
+	if logicalSize == 0 && physicalSize == 0 {
+		return nil, fmt.Errorf("block sizes returned by device %v are 0", path)
+	}
+	blockIO := &api.BlockIO{
+		LogicalBlockSize:  uint(logicalSize),
+		PhysicalBlockSize: uint(physicalSize),
+	}
+	if logicalSize == 0 || physicalSize == 0 {
+		if logicalSize > physicalSize {
+			log.Log.Infof("Invalid physical size %d. Matching it to the logical size %d", physicalSize, logicalSize)
+			blockIO.PhysicalBlockSize = uint(logicalSize)
+		} else {
+			log.Log.Infof("Invalid logical size %d. Matching it to the physical size %d", logicalSize, physicalSize)
+			blockIO.LogicalBlockSize = uint(physicalSize)
+		}
+	}
+	return blockIO, nil
+}
+
+// getOptimalBlockIOForFile determines the optimal sizes based on the filesystem settings
+// the VM's disk image is residing on. A filesystem does not differentiate between sizes.
+// The physical size will always match the logical size. The rest is up to the filesystem.
+func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
+	var statfs syscall.Statfs_t
+	err := syscall.Statfs(path, &statfs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat file %v: %v", path, err)
+	}
+	return &api.BlockIO{
+		LogicalBlockSize:  uint(statfs.Bsize),
+		PhysicalBlockSize: uint(statfs.Bsize),
+	}, nil
 }
 
 func SetDriverCacheMode(disk *api.Disk) error {
@@ -1235,10 +1319,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
-	for i, disk := range vmi.Spec.Domain.Devices.Disks {
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(c, &vmi.Spec.Domain.Devices.Disks[i], &newDisk, prefixMap, numBlkQueues)
+		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues)
 		if err != nil {
 			return err
 		}
@@ -1253,6 +1337,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			err = Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, c)
 		}
 		if err != nil {
+			return err
+		}
+
+		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk); err != nil {
 			return err
 		}
 

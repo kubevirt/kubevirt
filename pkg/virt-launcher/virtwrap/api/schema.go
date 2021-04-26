@@ -508,6 +508,7 @@ type Disk struct {
 	BootOrder    *BootOrder    `xml:"boot,omitempty"`
 	Address      *Address      `xml:"address,omitempty"`
 	Model        string        `xml:"model,attr,omitempty"`
+	BlockIO      *BlockIO      `xml:"blockio,omitempty"`
 }
 
 type DiskAuth struct {
@@ -562,6 +563,11 @@ type BackingStore struct {
 
 type BackingStoreFormat struct {
 	Type string `xml:"type,attr"`
+}
+
+type BlockIO struct {
+	LogicalBlockSize  uint `xml:"logical_block_size,attr,omitempty"`
+	PhysicalBlockSize uint `xml:"physical_block_size,attr,omitempty"`
 }
 
 // END Disk -----------------------------

@@ -33,6 +33,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1687,7 +1688,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	})
 
 	Context("with a custom scheduler", func() {
-		It("[test_id:4631]schould set the custom scheduler on the pod", func() {
+		It("[test_id:4631]should set the custom scheduler on the pod", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.SchedulerName = "my-custom-scheduler"
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -1836,7 +1837,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			ioThreads := string(v1.IOThreads)
 			ioNone := ""
 
-			By("checking if default io has not been seti for sparsed file")
+			By("checking if default io has not been set for sparsed file")
 			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
 			Expect(disks[0].Driver.IO).To(Equal(ioNone))
 
@@ -1860,6 +1861,124 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(disks[3].Alias.GetName()).To(Equal("ephemeral-disk2"))
 			Expect(disks[3].Driver.IO).To(Equal(ioThreads))
 
+		})
+	})
+
+	Context("Block size configuration set", func() {
+
+		It("Should set BlockIO when using custom block sizes", func() {
+			tests.SkipPVCTestIfRunnigOnKindInfra()
+
+			By("creating a block volume")
+			tests.CreateBlockVolumePvAndPvc("1Gi")
+
+			vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
+
+			By("setting the disk to use custom block sizes")
+			logicalSize := uint(16384)
+			physicalSize := uint(16384)
+			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
+				Custom: &v1.CustomBlockSize{
+					Logical:  logicalSize,
+					Physical: physicalSize,
+				},
+			}
+
+			By("initializing the VM")
+			tests.RunVMIAndExpectLaunch(vmi, 60)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking if number of attached disks is equal to real disks number")
+			disks := runningVMISpec.Devices.Disks
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+
+			By("checking if BlockIO is set to the custom block size")
+			Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
+			Expect(disks[0].BlockIO).ToNot(BeNil())
+			Expect(disks[0].BlockIO.LogicalBlockSize).To(Equal(logicalSize))
+			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
+		})
+
+		It("Should set BlockIO when set to match volume block sizes on block devices", func() {
+			tests.SkipPVCTestIfRunnigOnKindInfra()
+
+			By("creating a block volume")
+			tests.CreateBlockVolumePvAndPvc("1Gi")
+
+			vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
+
+			By("setting the disk to match the volume block sizes")
+			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
+				MatchVolume: &v1.FeatureState{},
+			}
+
+			By("initializing the VM")
+			tests.RunVMIAndExpectLaunch(vmi, 60)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking if number of attached disks is equal to real disks number")
+			disks := runningVMISpec.Devices.Disks
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+
+			By("checking if BlockIO is set for the disk")
+			Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
+			Expect(disks[0].BlockIO).ToNot(BeNil())
+			// Block devices should be one of 512n, 512e or 4096n so accept 512 and 4096 values.
+			expectedDiskSizes := SatisfyAny(Equal(uint(512)), Equal(uint(4096)))
+			Expect(disks[0].BlockIO.LogicalBlockSize).To(expectedDiskSizes)
+			Expect(disks[0].BlockIO.PhysicalBlockSize).To(expectedDiskSizes)
+		})
+
+		It("Should set BlockIO when set to match volume block sizes on files", func() {
+			originalConfig := tests.GetCurrentKv(virtClient).Spec.Configuration
+			tests.EnableFeatureGate(virtconfig.HostDiskGate)
+			defer tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+
+			By("creating a disk image")
+			var nodeName string
+			tmpHostDiskDir := tests.RandTmpDir()
+			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewRandom().String()))
+			job := tests.CreateHostDiskImage(tmpHostDiskPath)
+			job, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), job, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			getStatus := func() k8sv1.PodPhase {
+				pod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Get(context.Background(), job.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if pod.Spec.NodeName != "" && nodeName == "" {
+					nodeName = pod.Spec.NodeName
+				}
+				return pod.Status.Phase
+			}
+			Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
+			defer tests.RemoveHostDiskImage(tmpHostDiskDir, nodeName)
+
+			vmi := tests.NewRandomVMIWithHostDisk(tmpHostDiskPath, v1.HostDiskExistsOrCreate, nodeName)
+
+			By("setting the disk to match the volume block sizes")
+			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
+				MatchVolume: &v1.FeatureState{},
+			}
+
+			By("initializing the VM")
+			tests.RunVMIAndExpectLaunch(vmi, 60)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking if number of attached disks is equal to real disks number")
+			disks := runningVMISpec.Devices.Disks
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+
+			By("checking if BlockIO is set for the disk")
+			Expect(disks[0].Alias.GetName()).To(Equal("host-disk"))
+			Expect(disks[0].BlockIO).ToNot(BeNil())
+			// The default for most filesystems nowadays is 4096 but it can be changed.
+			// As such, relying on a specific value is flakey.
+			// As long as we have a value, the exact value doesn't matter.
+			Expect(disks[0].BlockIO.LogicalBlockSize).ToNot(BeZero())
+			// A filesystem only has a a single size so logical == physical
+			Expect(disks[0].BlockIO.LogicalBlockSize).To(Equal(disks[0].BlockIO.PhysicalBlockSize))
 		})
 	})
 

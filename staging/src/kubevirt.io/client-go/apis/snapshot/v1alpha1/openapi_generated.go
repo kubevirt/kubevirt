@@ -290,6 +290,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.AddVolumeOptions":                                      schema_kubevirtio_client_go_api_v1_AddVolumeOptions(ref),
 		"kubevirt.io/client-go/api/v1.AuthorizedKeysFile":                                    schema_kubevirtio_client_go_api_v1_AuthorizedKeysFile(ref),
 		"kubevirt.io/client-go/api/v1.BIOS":                                                  schema_kubevirtio_client_go_api_v1_BIOS(ref),
+		"kubevirt.io/client-go/api/v1.BlockSize":                                             schema_kubevirtio_client_go_api_v1_BlockSize(ref),
 		"kubevirt.io/client-go/api/v1.Bootloader":                                            schema_kubevirtio_client_go_api_v1_Bootloader(ref),
 		"kubevirt.io/client-go/api/v1.CDRomTarget":                                           schema_kubevirtio_client_go_api_v1_CDRomTarget(ref),
 		"kubevirt.io/client-go/api/v1.CPU":                                                   schema_kubevirtio_client_go_api_v1_CPU(ref),
@@ -305,6 +306,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation":    schema_kubevirtio_client_go_api_v1_ConfigDriveSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                                 schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ContainerDiskSource":                                   schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
+		"kubevirt.io/client-go/api/v1.CustomBlockSize":                                       schema_kubevirtio_client_go_api_v1_CustomBlockSize(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponents":                                   schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponentsPatch":                              schema_kubevirtio_client_go_api_v1_CustomizeComponentsPatch(ref),
 		"kubevirt.io/client-go/api/v1.DHCPOptions":                                           schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
@@ -13855,6 +13857,31 @@ func schema_kubevirtio_client_go_api_v1_BIOS(ref common.ReferenceCallback) commo
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_BlockSize(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BlockSize provides the option to change the block size presented to the VM for a disk. Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"custom": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.CustomBlockSize"),
+						},
+					},
+					"matchVolume": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.FeatureState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.CustomBlockSize", "kubevirt.io/client-go/api/v1.FeatureState"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_Bootloader(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -14376,6 +14403,32 @@ func schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref common.Reference
 					},
 				},
 				Required: []string{"image"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_CustomBlockSize(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CustomBlockSize represents the desired logical and physical block size for a VM disk.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"logical": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"physical": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+				Required: []string{"logical", "physical"},
 			},
 		},
 	}
@@ -14934,12 +14987,18 @@ func schema_kubevirtio_client_go_api_v1_Disk(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"blockSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the virtual disk will be presented with the given block sizes.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.BlockSize"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.CDRomTarget", "kubevirt.io/client-go/api/v1.DiskTarget", "kubevirt.io/client-go/api/v1.FloppyTarget", "kubevirt.io/client-go/api/v1.LunTarget"},
+			"kubevirt.io/client-go/api/v1.BlockSize", "kubevirt.io/client-go/api/v1.CDRomTarget", "kubevirt.io/client-go/api/v1.DiskTarget", "kubevirt.io/client-go/api/v1.FloppyTarget", "kubevirt.io/client-go/api/v1.LunTarget"},
 	}
 }
 

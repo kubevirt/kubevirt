@@ -250,6 +250,19 @@ func (Disk) SwaggerDoc() map[string]string {
 		"cache":             "Cache specifies which kvm disk cache mode should be used.\nSupported values are: CacheNone, CacheWriteThrough.\n+optional",
 		"io":                "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
 		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
+		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
+	}
+}
+
+func (CustomBlockSize) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "CustomBlockSize represents the desired logical and physical block size for a VM disk.\n\n+k8s:openapi-gen=true",
+	}
+}
+
+func (BlockSize) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "BlockSize provides the option to change the block size presented to the VM for a disk.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
 	}
 }
 
