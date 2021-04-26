@@ -1258,6 +1258,7 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 			return list, err
 		}
 		domain.Spec = *spec
+		domain.Status.OSInfo = l.agentData.GetOSInfo()
 		status, reason, err := dom.GetState()
 		if err != nil {
 			if domainerrors.IsNotFound(err) {
