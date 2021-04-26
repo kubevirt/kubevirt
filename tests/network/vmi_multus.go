@@ -41,7 +41,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -737,25 +736,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			}
 		}
 
-		It("should create virt-launcher pod with CAP_SYS_RESOURCE capability", func() {
-			tests.EnableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
-			defer tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
-
-			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-			vmi = startVmi(vmi)
-			vmi = waitVmi(vmi)
-
-			By("Looking up for VMI virt-launcher pod using VMI's label")
-			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(virtLauncherPod).ToNot(BeNil(), "should get virt-launcher pod")
-
-			computeContainer := tests.GetComputeContainerOfPod(virtLauncherPod)
-			Expect(computeContainer).ToNot(BeNil(), "should get virt-launcher pod, compute container")
-			Expect(computeContainer.SecurityContext.Capabilities.Add).
-				To(ContainElement(k8sv1.Capability(services.CAP_SYS_RESOURCE)))
-		})
-
-		It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on", func() {
+		It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
 			tests.EnableFeatureGate(virtconfig.LiveMigrationGate)
 			defer tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
 
