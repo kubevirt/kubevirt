@@ -330,9 +330,9 @@ fi
 # set the whole suite (quarantined and stable) will be run.
 if [ -z "$KUBEVIRT_QUARANTINE" ]; then
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-        KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|QUARANTINE"
+        export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|QUARANTINE"
     else
-        KUBEVIRT_E2E_SKIP="QUARANTINE"
+        export KUBEVIRT_E2E_SKIP="QUARANTINE"
     fi
 fi
 
