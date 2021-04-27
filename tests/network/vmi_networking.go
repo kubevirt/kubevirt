@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -818,10 +817,8 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).To(Succeed(), "failed to configure ipv6 on vmi")
 
-				assert.XFail("https://github.com/kubevirt/kubevirt/issues/5113", func() {
-					By("Checking ping (IPv6) from vmi to cluster nodes gateway")
-					Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
-				})
+				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
+				Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
 			})
 		})
 
