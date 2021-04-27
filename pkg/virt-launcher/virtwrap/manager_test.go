@@ -135,6 +135,27 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
+		It("should define and start a new VirtualMachineInstance with StartStrategy paused", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+			vmi := newVMI(testNamespace, testVmName)
+			strategy := v1.StartStrategyPaused
+			vmi.Spec.StartStrategy = &strategy
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).To(BeNil())
+			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_START_PAUSED).Return(nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, nil, "/usr/share/OVMF")
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
+		})
 		It("should define and start a new VirtualMachineInstance with userData", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()

@@ -1021,6 +1021,15 @@ func validateStartStrategy(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 				Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("startStrategy").String(), *spec.StartStrategy),
 				Field:   field.Child("startStrategy").String(),
 			})
+		} else if spec.LivenessProbe != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("either %s or %s should be provided.Pausing VMI with LivenessProbe is not supported",
+					field.Child("startStrategy").String(),
+					field.Child("livenessProbe").String(),
+				),
+				Field: field.Child("startStrategy").String(),
+			})
 		}
 	}
 	return causes

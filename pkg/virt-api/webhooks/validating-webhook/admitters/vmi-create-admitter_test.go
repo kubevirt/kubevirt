@@ -2134,6 +2134,50 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			table.Entry("with DNSPolicy None and nil DNSConfig", k8sv1.DNSNone, interface{}(nil), 1,
 				[]string{fmt.Sprintf("must provide `dnsConfig` when `dnsPolicy` is %s", k8sv1.DNSNone)}),
 		)
+		It("should accept valid start strategy", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			strategy := v1.StartStrategyPaused
+			vmi.Spec.StartStrategy = &strategy
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should allow no start strategy to be set", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.StartStrategy = nil
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject invalid start strategy", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			strategy := v1.StartStrategy("invalid")
+			vmi.Spec.StartStrategy = &strategy
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake.startStrategy"))
+			Expect(causes[0].Message).To(Equal("fake.startStrategy is set with an unrecognized option: invalid"))
+		})
+		It("should reject spec with paused start strategy and LivenessProbe", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			strategy := v1.StartStrategyPaused
+			vmi.Spec.StartStrategy = &strategy
+			vmi.Spec.LivenessProbe = &v1.Probe{
+				InitialDelaySeconds: 2,
+				Handler: v1.Handler{
+					HTTPGet: &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake.startStrategy"))
+			Expect(causes[0].Message).To(Equal("either fake.startStrategy or fake.livenessProbe should be provided.Pausing VMI with LivenessProbe is not supported"))
+		})
 	})
 	Context("with cpu pinning", func() {
 		var vmi *v1.VirtualMachineInstance
