@@ -243,11 +243,6 @@ func (l *podNIC) PlugPhase1() error {
 		return nil
 	}
 
-	bindMechanism, err := l.getPhase1Binding()
-	if err != nil {
-		return err
-	}
-
 	cachedDomainIface, err := l.loadCachedInterface()
 	if err != nil {
 		return err
@@ -262,6 +257,11 @@ func (l *podNIC) PlugPhase1() error {
 		}
 	}
 	if !doesExist {
+		bindMechanism, err := l.getPhase1Binding()
+		if err != nil {
+			return err
+		}
+
 		err = bindMechanism.discoverPodNetworkInterface()
 		if err != nil {
 			return err
@@ -311,17 +311,17 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return nil
 	}
 
-	bindMechanism, err := l.getPhase2Binding(domain)
-	if err != nil {
-		return err
-	}
-
 	domainIface, err := l.loadCachedInterface()
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to load cached interface configuration")
 	}
 	if domainIface == nil {
 		log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
+	}
+
+	bindMechanism, err := l.getPhase2Binding(domain)
+	if err != nil {
+		return err
 	}
 
 	pid := "self"
