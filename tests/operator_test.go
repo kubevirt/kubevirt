@@ -923,6 +923,7 @@ spec:
 	Describe("should reconcile components", func() {
 
 		deploymentName := "virt-controller"
+		daemonSetName := "virt-handler"
 		envVarDeploymentKeyToUpdate := "USER_ADDED_ENV"
 
 		crdName := "virtualmachines.kubevirt.io"
@@ -1051,6 +1052,41 @@ spec:
 					Expect(err).ToNot(HaveOccurred())
 
 					return pdb.Spec.Selector.MatchLabels["kubevirt.io"] != "dne"
+				}),
+			table.Entry("daemonsets",
+				func() {
+					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vc.Spec.Template.Spec.Containers[0].Env = []k8sv1.EnvVar{
+						{
+							Name:  envVarDeploymentKeyToUpdate,
+							Value: "value",
+						},
+					}
+
+					vc, err = virtClient.AppsV1().DaemonSets(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarDeploymentKeyToUpdate))
+				},
+
+				func() runtime.Object {
+					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vc
+				},
+
+				func() bool {
+					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
+						if env.Name == envVarDeploymentKeyToUpdate {
+							return false
+						}
+					}
+
+					return true
 				}),
 		)
 	})
