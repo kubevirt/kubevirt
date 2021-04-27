@@ -143,17 +143,34 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		if err != nil {
 			return err
 		}
-		rLimit := unix.Rlimit{
-			Max: uint64(memlockSize),
-			Cur: uint64(memlockSize),
-		}
-		err = prLimit(process.Pid(), unix.RLIMIT_MEMLOCK, &rLimit)
+		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize)
 		if err != nil {
-			return fmt.Errorf("failed to set rlimit for memory lock: %v", err)
+			return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", process.Pid(), memlockSize, err)
 		}
 		// we assume a single process should match
 		break
 	}
+	return nil
+}
+
+// setProcessMemoryLockRLimit Adjusts process MEMLOCK
+// soft-limit (current) and hard-limit (max) to the given size.
+func setProcessMemoryLockRLimit(pid int, size int64) error {
+	// standard golang libraries don't provide API to set runtime limits
+	// for other processes, so we have to directly call to kernel
+	rlimit := unix.Rlimit{
+		Cur: uint64(size),
+		Max: uint64(size),
+	}
+	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
+		uintptr(pid),
+		uintptr(unix.RLIMIT_MEMLOCK),
+		uintptr(unsafe.Pointer(&rlimit)), // #nosec used in unix RawSyscall6
+		0, 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("Error setting prlimit: %v", errno)
+	}
+
 	return nil
 }
 
@@ -207,20 +224,6 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, 
 	}
 
 	return
-}
-
-// standard golang libraries don't provide API to set runtime limits
-// for other processes, so we have to directly call to kernel
-func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
-	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
-		uintptr(pid),
-		limit,
-		uintptr(unsafe.Pointer(rlimit)), // #nosec used in unix RawSyscall6
-		0, 0, 0)
-	if errno != 0 {
-		return fmt.Errorf("Error setting prlimit: %v", errno)
-	}
-	return nil
 }
 
 // consider reusing getMemoryOverhead()
