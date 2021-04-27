@@ -37,6 +37,8 @@ import (
 
 const (
 	nodeLabellerVolumePath = "/var/lib/kubevirt-node-labeller"
+
+	VirtAPIName = "virt-api"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -81,14 +83,14 @@ func NewApiServerService(namespace string) *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "virt-api",
+			Name:      VirtAPIName,
 			Labels: map[string]string{
-				virtv1.AppLabel: "virt-api",
+				virtv1.AppLabel: VirtAPIName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				virtv1.AppLabel: "virt-api",
+				virtv1.AppLabel: VirtAPIName,
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -237,8 +239,8 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 }
 
 func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
-	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-api"})
-	deploymentName := "virt-api"
+	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{VirtAPIName})
+	deploymentName := VirtAPIName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
 	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, pullPolicy, podAntiAffinity, env)
@@ -256,7 +258,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
-		"virt-api",
+		VirtAPIName,
 		"--port",
 		"8443",
 		"--console-server-port",
@@ -267,7 +269,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	}
 	container.Ports = []corev1.ContainerPort{
 		{
-			Name:          "virt-api",
+			Name:          VirtAPIName,
 			Protocol:      corev1.ProtocolTCP,
 			ContainerPort: 8443,
 		},
