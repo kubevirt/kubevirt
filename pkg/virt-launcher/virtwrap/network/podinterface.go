@@ -243,13 +243,13 @@ func (l *podNIC) PlugPhase1() error {
 		return nil
 	}
 
-	cachedDomainIface, err := l.loadCachedInterface()
+	cachedDomainIface, err := l.cachedDomainInterface()
 	if err != nil {
 		return err
 	}
 
 	doesExist := cachedDomainIface != nil
-	// ignore the bindMechanism.loadCachedInterface for slirp and set the Pod interface cache
+	// ignore the bindMechanism.cachedDomainInterface for slirp and set the Pod interface cache
 	if !doesExist || l.iface.Slirp != nil {
 		err := l.setPodInterfaceCache()
 		if err != nil {
@@ -311,7 +311,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return nil
 	}
 
-	domainIface, err := l.loadCachedInterface()
+	domainIface, err := l.cachedDomainInterface()
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to load cached interface configuration")
 	}
@@ -594,7 +594,7 @@ func getPIDString(pid *int) string {
 	return "self"
 }
 
-func (l *podNIC) loadCachedInterface() (*api.Interface, error) {
+func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 	ifaceConfig, err := l.cacheFactory.CacheForPID(getPIDString(l.launcherPID)).Read(l.iface.Name)
 
 	if os.IsNotExist(err) {
