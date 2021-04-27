@@ -69,6 +69,7 @@ type BindMechanism interface {
 
 type podNICImpl struct {
 	cacheFactory cache.InterfaceCacheFactory
+	handler      NetworkHandler
 }
 
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
@@ -89,17 +90,17 @@ func writeVifFile(buf []byte, pid, name string) error {
 	return nil
 }
 
-func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory) error {
+func (l *podNICImpl) setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, vmi *v1.VirtualMachineInstance) error {
 	ifCache := &cache.PodCacheInterface{Iface: iface}
 
-	ipv4, ipv6, err := readIPAddressesFromLink(podInterfaceName)
+	ipv4, ipv6, err := l.readIPAddressesFromLink(podInterfaceName)
 	if err != nil {
 		return err
 	}
 
 	switch {
 	case ipv4 != "" && ipv6 != "":
-		ifCache.PodIPs, err = sortIPsBasedOnPrimaryIP(ipv4, ipv6)
+		ifCache.PodIPs, err = l.sortIPsBasedOnPrimaryIP(ipv4, ipv6)
 		if err != nil {
 			return err
 		}
@@ -112,7 +113,7 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, vmi *v1.
 	}
 
 	ifCache.PodIP = ifCache.PodIPs[0]
-	err = cacheFactory.CacheForVMI(vmi).Write(iface.Name, ifCache)
+	err = l.cacheFactory.CacheForVMI(vmi).Write(iface.Name, ifCache)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
 		return err
@@ -121,15 +122,15 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, vmi *v1.
 	return nil
 }
 
-func readIPAddressesFromLink(podInterfaceName string) (string, string, error) {
-	link, err := Handler.LinkByName(podInterfaceName)
+func (l *podNICImpl) readIPAddressesFromLink(podInterfaceName string) (string, string, error) {
+	link, err := l.handler.LinkByName(podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
 		return "", "", err
 	}
 
 	// get IP address
-	addrList, err := Handler.AddrList(link, netlink.FAMILY_ALL)
+	addrList, err := l.handler.AddrList(link, netlink.FAMILY_ALL)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a address for interface: %s", podInterfaceName)
 		return "", "", err
@@ -156,8 +157,8 @@ func readIPAddressesFromLink(podInterfaceName string) (string, string, error) {
 
 // sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
 // The operation clones the Pod status IP list order logic.
-func sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
-	ipv4Primary, err := Handler.IsIpv4Primary()
+func (l *podNICImpl) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
+	ipv4Primary, err := l.handler.IsIpv4Primary()
 	if err != nil {
 		return nil, err
 	}
@@ -170,14 +171,13 @@ func sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 }
 
 func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
-	initHandler()
 
 	// There is nothing to plug for SR-IOV devices
 	if iface.SRIOV != nil {
 		return nil
 	}
 
-	bindMechanism, err := getPhase1Binding(vmi, iface, network, podInterfaceName, l.cacheFactory, &pid)
+	bindMechanism, err := l.getPhase1Binding(vmi, iface, network, podInterfaceName, &pid)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 	doesExist := bindMechanism.wasCachedInterfaceLoaded()
 	// ignore the bindMechanism.loadCachedInterface for slirp and set the Pod interface cache
 	if !doesExist || iface.Slirp != nil {
-		err := setPodInterfaceCache(iface, podInterfaceName, vmi, l.cacheFactory)
+		err := l.setPodInterfaceCache(iface, podInterfaceName, vmi)
 		if err != nil {
 			return err
 		}
@@ -241,14 +241,13 @@ func ensureDHCP(bindMechanism BindMechanism, podInterfaceName string) error {
 
 func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
 	precond.MustNotBeNil(domain)
-	initHandler()
 
 	// There is nothing to plug for SR-IOV devices
 	if iface.SRIOV != nil {
 		return nil
 	}
 
-	bindMechanism, err := getPhase2Binding(vmi, iface, network, domain, podInterfaceName, l.cacheFactory, nil)
+	bindMechanism, err := l.getPhase2Binding(vmi, iface, network, domain, podInterfaceName, nil)
 	if err != nil {
 		return err
 	}
@@ -282,11 +281,11 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 // should not require access to domain definition, hence we pass nil instead of
 // it. This means that any functions called under phase1 code path should not
 // use the domain set on the binding.
-func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, storeFactory cache.InterfaceCacheFactory, launcherPID *int) (BindMechanism, error) {
-	return getPhase2Binding(vmi, iface, network, nil, podInterfaceName, storeFactory, launcherPID)
+func (l *podNICImpl) getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, launcherPID *int) (BindMechanism, error) {
+	return l.getPhase2Binding(vmi, iface, network, nil, podInterfaceName, launcherPID)
 }
 
-func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string, storeFactory cache.InterfaceCacheFactory, launcherPID *int) (BindMechanism, error) {
+func (l *podNICImpl) getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string, launcherPID *int) (BindMechanism, error) {
 	retrieveMacAddress := func(iface *v1.Interface) (*net.HardwareAddr, error) {
 		if iface.MacAddress != "" {
 			macAddress, err := net.ParseMAC(iface.MacAddress)
@@ -314,9 +313,10 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 			domain:              domain,
 			podInterfaceName:    podInterfaceName,
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
-			storeFactory:        storeFactory,
+			cacheFactory:        l.cacheFactory,
 			launcherPID:         launcherPID,
 			queueCount:          calculateNetworkQueues(vmi),
+			handler:             l.handler,
 		}, nil
 	}
 	if iface.Masquerade != nil {
@@ -337,9 +337,10 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 			vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
 			vmIPv6NetworkCIDR:   network.Pod.VMIPv6NetworkCIDR,
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
-			storeFactory:        storeFactory,
+			cacheFactory:        l.cacheFactory,
 			launcherPID:         launcherPID,
 			queueCount:          calculateNetworkQueues(vmi),
+			handler:             l.handler,
 		}, nil
 	}
 	if iface.Slirp != nil {
@@ -357,8 +358,9 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 			domain:           domain,
 			podInterfaceName: podInterfaceName,
 			mac:              mac,
-			storeFactory:     storeFactory,
+			cacheFactory:     l.cacheFactory,
 			launcherPID:      launcherPID,
+			handler:          l.handler,
 		}, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
@@ -374,13 +376,14 @@ type BridgeBindMechanism struct {
 	podInterfaceName    string
 	bridgeInterfaceName string
 	arpIgnore           bool
-	storeFactory        cache.InterfaceCacheFactory
+	cacheFactory        cache.InterfaceCacheFactory
 	launcherPID         *int
 	queueCount          uint32
+	handler             NetworkHandler
 }
 
 func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
-	link, err := Handler.LinkByName(b.podInterfaceName)
+	link, err := b.handler.LinkByName(b.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
 		return err
@@ -388,7 +391,7 @@ func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
 	b.podNicLink = link
 
 	// get IP address
-	addrList, err := Handler.AddrList(b.podNicLink, netlink.FAMILY_V4)
+	addrList, err := b.handler.AddrList(b.podNicLink, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get an ip address for %s", b.podInterfaceName)
 		return err
@@ -442,14 +445,14 @@ func (b *BridgeBindMechanism) startDHCP() error {
 			return fmt.Errorf("failed to parse address while starting DHCP server: %s", addr)
 		}
 		log.Log.Object(b.vmi).Infof("bridge pod interface: %+v %+v", b.vif, b)
-		return Handler.StartDHCP(b.vif, fakeServerAddr.IP, b.bridgeInterfaceName, b.iface.DHCPOptions, true)
+		return b.handler.StartDHCP(b.vif, fakeServerAddr.IP, b.bridgeInterfaceName, b.iface.DHCPOptions, true)
 	}
 	return nil
 }
 
 func (b *BridgeBindMechanism) preparePodNetworkInterfaces() error {
 	// Set interface link to down to change its MAC address
-	if err := Handler.LinkSetDown(b.podNicLink); err != nil {
+	if err := b.handler.LinkSetDown(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
 		return err
 	}
@@ -458,7 +461,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces() error {
 
 	if !b.vif.IPAMDisabled {
 		// Remove IP from POD interface
-		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
+		err := b.handler.AddrDel(b.podNicLink, &b.vif.IP)
 
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podInterfaceName)
@@ -471,7 +474,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces() error {
 		}
 	}
 
-	if _, err := Handler.SetRandomMac(b.podInterfaceName); err != nil {
+	if _, err := b.handler.SetRandomMac(b.podInterfaceName); err != nil {
 		return err
 	}
 
@@ -479,25 +482,25 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
 	}
 
 	if b.arpIgnore {
-		if err := Handler.ConfigureIpv4ArpIgnore(); err != nil {
+		if err := b.handler.ConfigureIpv4ArpIgnore(); err != nil {
 			log.Log.Reason(err).Errorf("failed to set arp_ignore=1 on interface %s", b.bridgeInterfaceName)
 			return err
 		}
 	}
 
-	if err := Handler.LinkSetUp(b.podNicLink); err != nil {
+	if err := b.handler.LinkSetUp(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
 		return err
 	}
 
-	if err := Handler.LinkSetLearningOff(b.podNicLink); err != nil {
+	if err := b.handler.LinkSetLearningOff(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to disable mac learning for interface: %s", b.podInterfaceName)
 		return err
 	}
@@ -535,7 +538,7 @@ func getPIDString(pid *int) string {
 }
 
 func (b *BridgeBindMechanism) loadCachedInterface() error {
-	ifaceConfig, err := b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
+	ifaceConfig, err := b.cacheFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
 
 	if os.IsNotExist(err) {
 		return nil
@@ -550,7 +553,7 @@ func (b *BridgeBindMechanism) loadCachedInterface() error {
 }
 
 func (b *BridgeBindMechanism) setCachedInterface() error {
-	return b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
+	return b.cacheFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
 }
 
 func (b *BridgeBindMechanism) wasCachedInterfaceLoaded() bool {
@@ -575,7 +578,7 @@ func (b *BridgeBindMechanism) setCachedVIF(pid string) error {
 }
 
 func (b *BridgeBindMechanism) setInterfaceRoutes() error {
-	routes, err := Handler.RouteList(b.podNicLink, netlink.FAMILY_V4)
+	routes, err := b.handler.RouteList(b.podNicLink, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get routes for %s", b.podInterfaceName)
 		return err
@@ -598,19 +601,19 @@ func (b *BridgeBindMechanism) createBridge() error {
 			Name: b.bridgeInterfaceName,
 		},
 	}
-	err := Handler.LinkAdd(bridge)
+	err := b.handler.LinkAdd(bridge)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create a bridge")
 		return err
 	}
 
-	err = Handler.LinkSetMaster(b.podNicLink, bridge)
+	err = b.handler.LinkSetMaster(b.podNicLink, bridge)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to connect interface %s to bridge %s", b.podInterfaceName, bridge.Name)
 		return err
 	}
 
-	err = Handler.LinkSetUp(bridge)
+	err = b.handler.LinkSetUp(bridge)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
 		return err
@@ -621,18 +624,18 @@ func (b *BridgeBindMechanism) createBridge() error {
 	if err != nil {
 		return err
 	}
-	fakeaddr, err := Handler.ParseAddr(addr)
+	fakeaddr, err := b.handler.ParseAddr(addr)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
 		return err
 	}
 
-	if err := Handler.AddrAdd(bridge, fakeaddr); err != nil {
+	if err := b.handler.AddrAdd(bridge, fakeaddr); err != nil {
 		log.Log.Reason(err).Errorf("failed to set bridge IP")
 		return err
 	}
 
-	if err = Handler.DisableTXOffloadChecksum(b.bridgeInterfaceName); err != nil {
+	if err = b.handler.DisableTXOffloadChecksum(b.bridgeInterfaceName); err != nil {
 		log.Log.Reason(err).Error("failed to disable TX offload checksum on bridge interface")
 		return err
 	}
@@ -652,21 +655,21 @@ func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
 	b.arpIgnore = true
 
 	// Rename pod interface to free the original name for a new dummy interface
-	err := Handler.LinkSetName(b.podNicLink, newPodInterfaceName)
+	err := b.handler.LinkSetName(b.podNicLink, newPodInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to rename interface : %s", b.podInterfaceName)
 		return err
 	}
 
 	b.podInterfaceName = newPodInterfaceName
-	b.podNicLink, err = Handler.LinkByName(newPodInterfaceName)
+	b.podNicLink, err = b.handler.LinkByName(newPodInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
 		return err
 	}
 
 	// Create a dummy interface named after the original interface
-	err = Handler.LinkAdd(dummy)
+	err = b.handler.LinkAdd(dummy)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create dummy interface : %s", originalPodInterfaceName)
 		return err
@@ -675,7 +678,7 @@ func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
 	// Replace original pod interface IP address to the dummy
 	// Since the dummy is not connected to anything, it should not affect networking
 	// Replace will add if ip doesn't exist or modify the ip
-	err = Handler.AddrReplace(dummy, &b.vif.IP)
+	err = b.handler.AddrReplace(dummy, &b.vif.IP)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", originalPodInterfaceName)
 		return err
@@ -697,13 +700,14 @@ type MasqueradeBindMechanism struct {
 	vmIPv6NetworkCIDR   string
 	gatewayAddr         *netlink.Addr
 	gatewayIpv6Addr     *netlink.Addr
-	storeFactory        cache.InterfaceCacheFactory
+	cacheFactory        cache.InterfaceCacheFactory
 	launcherPID         *int
 	queueCount          uint32
+	handler             NetworkHandler
 }
 
 func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
-	link, err := Handler.LinkByName(b.podInterfaceName)
+	link, err := b.handler.LinkByName(b.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
 		return err
@@ -722,7 +726,7 @@ func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
 		return err
 	}
 
-	ipv6Enabled, err := Handler.IsIpv6Enabled(b.podInterfaceName)
+	ipv6Enabled, err := b.handler.IsIpv6Enabled(b.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", b.podInterfaceName)
 		return err
@@ -741,20 +745,20 @@ func configureVifV4Addresses(b *MasqueradeBindMechanism, err error) error {
 		b.vmNetworkCIDR = api.DefaultVMCIDR
 	}
 
-	defaultGateway, vm, err := Handler.GetHostAndGwAddressesFromCIDR(b.vmNetworkCIDR)
+	defaultGateway, vm, err := b.handler.GetHostAndGwAddressesFromCIDR(b.vmNetworkCIDR)
 	if err != nil {
 		log.Log.Errorf("failed to get gw and vm available addresses from CIDR %s", b.vmNetworkCIDR)
 		return err
 	}
 
-	gatewayAddr, err := Handler.ParseAddr(defaultGateway)
+	gatewayAddr, err := b.handler.ParseAddr(defaultGateway)
 	if err != nil {
 		return fmt.Errorf("failed to parse gateway ip address %s", defaultGateway)
 	}
 	b.vif.Gateway = gatewayAddr.IP.To4()
 	b.gatewayAddr = gatewayAddr
 
-	vmAddr, err := Handler.ParseAddr(vm)
+	vmAddr, err := b.handler.ParseAddr(vm)
 	if err != nil {
 		return fmt.Errorf("failed to parse vm ip address %s", vm)
 	}
@@ -767,20 +771,20 @@ func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
 		b.vmIPv6NetworkCIDR = api.DefaultVMIpv6CIDR
 	}
 
-	defaultGatewayIpv6, vmIpv6, err := Handler.GetHostAndGwAddressesFromCIDR(b.vmIPv6NetworkCIDR)
+	defaultGatewayIpv6, vmIpv6, err := b.handler.GetHostAndGwAddressesFromCIDR(b.vmIPv6NetworkCIDR)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", b.vmIPv6NetworkCIDR)
 		return err
 	}
 
-	gatewayIpv6Addr, err := Handler.ParseAddr(defaultGatewayIpv6)
+	gatewayIpv6Addr, err := b.handler.ParseAddr(defaultGatewayIpv6)
 	if err != nil {
 		return fmt.Errorf("failed to parse gateway ipv6 address %s err %v", gatewayIpv6Addr, err)
 	}
 	b.vif.GatewayIpv6 = gatewayIpv6Addr.IP.To16()
 	b.gatewayIpv6Addr = gatewayIpv6Addr
 
-	vmAddr, err := Handler.ParseAddr(vmIpv6)
+	vmAddr, err := b.handler.ParseAddr(vmIpv6)
 	if err != nil {
 		return fmt.Errorf("failed to parse vm ipv6 address %s err %v", vmIpv6, err)
 	}
@@ -789,7 +793,7 @@ func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
 }
 
 func (b *MasqueradeBindMechanism) startDHCP() error {
-	return Handler.StartDHCP(b.vif, b.vif.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
+	return b.handler.StartDHCP(b.vif, b.vif.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
 }
 
 func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces() error {
@@ -801,13 +805,13 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces() error {
 			MTU:  int(b.vif.Mtu),
 		},
 	}
-	err := Handler.LinkAdd(bridgeNic)
+	err := b.handler.LinkAdd(bridgeNic)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create an interface: %s", bridgeNic.Name)
 		return err
 	}
 
-	err = Handler.LinkSetUp(bridgeNic)
+	err = b.handler.LinkSetUp(bridgeNic)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeNic.Name)
 		return err
@@ -818,7 +822,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
-	err = createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId)
+	err = createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -830,7 +834,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	ipv6Enabled, err := Handler.IsIpv6Enabled(b.podInterfaceName)
+	ipv6Enabled, err := b.handler.IsIpv6Enabled(b.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", b.podInterfaceName)
 		return err
@@ -871,7 +875,7 @@ func (b *MasqueradeBindMechanism) decorateConfig() error {
 }
 
 func (b *MasqueradeBindMechanism) loadCachedInterface() error {
-	ifaceConfig, err := b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
+	ifaceConfig, err := b.cacheFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -885,7 +889,7 @@ func (b *MasqueradeBindMechanism) loadCachedInterface() error {
 }
 
 func (b *MasqueradeBindMechanism) setCachedInterface() error {
-	return b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
+	return b.cacheFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
 }
 
 func (b *MasqueradeBindMechanism) wasCachedInterfaceLoaded() bool {
@@ -913,7 +917,7 @@ func (b *MasqueradeBindMechanism) setCachedVIF(pid string) error {
 func (b *MasqueradeBindMechanism) createBridge() error {
 	// Get dummy link
 	bridgeNicName := fmt.Sprintf("%s-nic", b.bridgeInterfaceName)
-	bridgeNicLink, err := Handler.LinkByName(bridgeNicName)
+	bridgeNicLink, err := b.handler.LinkByName(bridgeNicName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to find dummy interface for bridge")
 		return err
@@ -926,42 +930,42 @@ func (b *MasqueradeBindMechanism) createBridge() error {
 			MTU:  int(b.vif.Mtu),
 		},
 	}
-	err = Handler.LinkAdd(bridge)
+	err = b.handler.LinkAdd(bridge)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create a bridge")
 		return err
 	}
 
-	err = Handler.LinkSetMaster(bridgeNicLink, bridge)
+	err = b.handler.LinkSetMaster(bridgeNicLink, bridge)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to connect %s interface to bridge %s", bridgeNicName, b.bridgeInterfaceName)
 		return err
 	}
 
-	err = Handler.LinkSetUp(bridge)
+	err = b.handler.LinkSetUp(bridge)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
 		return err
 	}
 
-	if err := Handler.AddrAdd(bridge, b.gatewayAddr); err != nil {
+	if err := b.handler.AddrAdd(bridge, b.gatewayAddr); err != nil {
 		log.Log.Reason(err).Errorf("failed to set bridge IP")
 		return err
 	}
 
-	ipv6Enabled, err := Handler.IsIpv6Enabled(b.podInterfaceName)
+	ipv6Enabled, err := b.handler.IsIpv6Enabled(b.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", b.podInterfaceName)
 		return err
 	}
 	if ipv6Enabled {
-		if err := Handler.AddrAdd(bridge, b.gatewayIpv6Addr); err != nil {
+		if err := b.handler.AddrAdd(bridge, b.gatewayIpv6Addr); err != nil {
 			log.Log.Reason(err).Errorf("failed to set bridge IPv6")
 			return err
 		}
 	}
 
-	if err = Handler.DisableTXOffloadChecksum(b.bridgeInterfaceName); err != nil {
+	if err = b.handler.DisableTXOffloadChecksum(b.bridgeInterfaceName); err != nil {
 		log.Log.Reason(err).Error("failed to disable TX offload checksum on bridge interface")
 		return err
 	}
@@ -970,48 +974,48 @@ func (b *MasqueradeBindMechanism) createBridge() error {
 }
 
 func (b *MasqueradeBindMechanism) createNatRules(protocol iptables.Protocol) error {
-	err := Handler.ConfigureIpForwarding(protocol)
+	err := b.handler.ConfigureIpForwarding(protocol)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure ip forwarding")
 		return err
 	}
 
-	if Handler.NftablesLoad(protocol) == nil {
+	if b.handler.NftablesLoad(protocol) == nil {
 		return b.createNatRulesUsingNftables(protocol)
-	} else if Handler.HasNatIptables(protocol) {
+	} else if b.handler.HasNatIptables(protocol) {
 		return b.createNatRulesUsingIptables(protocol)
 	}
 	return fmt.Errorf("Couldn't configure ip nat rules")
 }
 
 func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.Protocol) error {
-	err := Handler.IptablesNewChain(protocol, "nat", "KUBEVIRT_PREINBOUND")
+	err := b.handler.IptablesNewChain(protocol, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.IptablesNewChain(protocol, "nat", "KUBEVIRT_POSTINBOUND")
+	err = b.handler.IptablesNewChain(protocol, "nat", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-s", b.getVifIpByProtocol(protocol), "-j", "MASQUERADE")
+	err = b.handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-s", b.getVifIpByProtocol(protocol), "-j", "MASQUERADE")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.IptablesAppendRule(protocol, "nat", "PREROUTING", "-i", b.podInterfaceName, "-j", "KUBEVIRT_PREINBOUND")
+	err = b.handler.IptablesAppendRule(protocol, "nat", "PREROUTING", "-i", b.podInterfaceName, "-j", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-o", b.bridgeInterfaceName, "-j", "KUBEVIRT_POSTINBOUND")
+	err = b.handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-o", b.bridgeInterfaceName, "-j", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
 	if len(b.iface.Ports) == 0 {
-		err = Handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
+		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
 			"-j",
 			"DNAT",
 			"--to-destination", b.getVifIpByProtocol(protocol))
@@ -1024,7 +1028,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 			port.Protocol = "tcp"
 		}
 
-		err = Handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_POSTINBOUND",
+		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_POSTINBOUND",
 			"-p",
 			strings.ToLower(port.Protocol),
 			"--dport",
@@ -1037,7 +1041,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 			return err
 		}
 
-		err = Handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
+		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
 			"-p",
 			strings.ToLower(port.Protocol),
 			"--dport",
@@ -1049,7 +1053,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 			return err
 		}
 
-		err = Handler.IptablesAppendRule(protocol, "nat", "OUTPUT",
+		err = b.handler.IptablesAppendRule(protocol, "nat", "OUTPUT",
 			"-p",
 			strings.ToLower(port.Protocol),
 			"--dport",
@@ -1091,33 +1095,33 @@ func getLoopbackAdrress(proto iptables.Protocol) string {
 }
 
 func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Protocol) error {
-	err := Handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
+	err := b.handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND")
+	err = b.handler.NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.NftablesAppendRule(proto, "nat", "postrouting", Handler.GetNFTIPString(proto), "saddr", b.getVifIpByProtocol(proto), "counter", "masquerade")
+	err = b.handler.NftablesAppendRule(proto, "nat", "postrouting", b.handler.GetNFTIPString(proto), "saddr", b.getVifIpByProtocol(proto), "counter", "masquerade")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.NftablesAppendRule(proto, "nat", "prerouting", "iifname", b.podInterfaceName, "counter", "jump", "KUBEVIRT_PREINBOUND")
+	err = b.handler.NftablesAppendRule(proto, "nat", "prerouting", "iifname", b.podInterfaceName, "counter", "jump", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.NftablesAppendRule(proto, "nat", "postrouting", "oifname", b.bridgeInterfaceName, "counter", "jump", "KUBEVIRT_POSTINBOUND")
+	err = b.handler.NftablesAppendRule(proto, "nat", "postrouting", "oifname", b.bridgeInterfaceName, "counter", "jump", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
 	if len(b.iface.Ports) == 0 {
-		err = Handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
 			"counter", "dnat", "to", b.getVifIpByProtocol(proto))
 
 		return err
@@ -1128,17 +1132,17 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 			port.Protocol = "tcp"
 		}
 
-		err = Handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
+		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			Handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
 			"counter", "snat", "to", b.getGatewayByProtocol(proto))
 		if err != nil {
 			return err
 		}
 
-		err = Handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
@@ -1147,8 +1151,8 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 			return err
 		}
 
-		err = Handler.NftablesAppendRule(proto, "nat", "output",
-			Handler.GetNFTIPString(proto), "daddr", getLoopbackAdrress(proto),
+		err = b.handler.NftablesAppendRule(proto, "nat", "output",
+			b.handler.GetNFTIPString(proto), "daddr", getLoopbackAdrress(proto),
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
@@ -1234,12 +1238,13 @@ type MacvtapBindMechanism struct {
 	podInterfaceName string
 	podNicLink       netlink.Link
 	mac              *net.HardwareAddr
-	storeFactory     cache.InterfaceCacheFactory
+	cacheFactory     cache.InterfaceCacheFactory
 	launcherPID      *int
+	handler          NetworkHandler
 }
 
 func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
-	link, err := Handler.LinkByName(b.podInterfaceName)
+	link, err := b.handler.LinkByName(b.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
 		return err
@@ -1283,7 +1288,7 @@ func (b *MacvtapBindMechanism) decorateConfig() error {
 }
 
 func (b *MacvtapBindMechanism) loadCachedInterface() error {
-	ifaceConfig, err := b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
+	ifaceConfig, err := b.cacheFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -1297,7 +1302,7 @@ func (b *MacvtapBindMechanism) loadCachedInterface() error {
 }
 
 func (b *MacvtapBindMechanism) setCachedInterface() error {
-	return b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
+	return b.cacheFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
 }
 
 func (b *MacvtapBindMechanism) wasCachedInterfaceLoaded() bool {
@@ -1317,12 +1322,12 @@ func (b *MacvtapBindMechanism) startDHCP() error {
 	return nil
 }
 
-func createAndBindTapToBridge(deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
-	err := Handler.CreateTapDevice(deviceName, queueNumber, launcherPID, mtu, tapOwner)
+func createAndBindTapToBridge(handler NetworkHandler, deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
+	err := handler.CreateTapDevice(deviceName, queueNumber, launcherPID, mtu, tapOwner)
 	if err != nil {
 		return err
 	}
-	return Handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
+	return handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
 }
 
 func generateTapDeviceName(podInterfaceName string) string {

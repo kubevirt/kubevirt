@@ -62,12 +62,13 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, cacheFactory
 	primaryNet := lookupPrimaryNetwork(vmi.Spec.Networks)
 	secondaryNets := filterSecondaryMultusNetworks(vmi.Spec.Networks)
 	podInterfaceNames := mapPodInterfaceNameByNetwork(primaryNet, secondaryNets)
+	handler := &NetworkUtilsHandler{}
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		network, ok := networks[iface.Name]
 		if !ok {
 			return fmt.Errorf("failed to find a network %s", iface.Name)
 		}
-		podnic := podNICFactory(cacheFactory)
+		podnic := podNICFactory(handler, cacheFactory)
 		podInterfaceName := podInterfaceNames[network.Name]
 		err := podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], &network, podInterfaceName, pid)
 		if err != nil {
@@ -82,12 +83,13 @@ func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain, c
 	primaryNet := lookupPrimaryNetwork(vmi.Spec.Networks)
 	secondaryNets := filterSecondaryMultusNetworks(vmi.Spec.Networks)
 	podInterfaceNames := mapPodInterfaceNameByNetwork(primaryNet, secondaryNets)
+	handler := &NetworkUtilsHandler{}
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		network, ok := networks[iface.Name]
 		if !ok {
 			return fmt.Errorf("failed to find a network %s", iface.Name)
 		}
-		podnic := podNICFactory(cacheFactory)
+		podnic := podNICFactory(handler, cacheFactory)
 		podInterfaceName := podInterfaceNames[network.Name]
 		err := podNIC.PlugPhase2(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], &network, domain, podInterfaceName)
 		if err != nil {
@@ -143,6 +145,6 @@ func isSecondaryMultusNetwork(net v1.Network) bool {
 	return net.Multus != nil && !net.Multus.Default
 }
 
-func newpodNIC(cacheFactory cache.InterfaceCacheFactory) podNIC {
-	return &podNICImpl{cacheFactory: cacheFactory}
+func newpodNIC(handler NetworkHandler, cacheFactory cache.InterfaceCacheFactory) podNIC {
+	return &podNICImpl{cacheFactory: cacheFactory, handler: handler}
 }
