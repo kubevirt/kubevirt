@@ -893,7 +893,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
 			mockDomain.EXPECT().
@@ -940,7 +940,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
 			mockDomain.EXPECT().
@@ -994,7 +994,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-			mockDomain.EXPECT().GetJobInfo().AnyTimes().DoAndReturn(func() (*libvirt.DomainJobInfo, error) {
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
 				return fake_jobinfo(), nil
 			})
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
@@ -1043,7 +1043,7 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
-			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob().MaxTimes(1)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(xml), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
@@ -1085,6 +1085,160 @@ var _ = Describe("Manager", func() {
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, nil, "/usr/share/OVMF")
 			err = manager.CancelVMIMigration(vmi)
 			Expect(err).To(BeNil())
+		})
+		It("migration cancellation should be finilized even if we missed status update", func() {
+			isMigrationAbortSet := make(chan bool, 1)
+			defer close(isMigrationAbortSet)
+
+			migrationErrorChan := make(chan error)
+			defer close(migrationErrorChan)
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free().AnyTimes()
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_NONE,
+					DataRemaining: uint64(0),
+				}
+			}()
+			fake_jobinfo_running := func() *libvirt.DomainJobInfo {
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining: uint64(32479827777),
+				}
+			}()
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 150,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+
+				UID:         vmi.Status.MigrationState.MigrationUID,
+				AbortStatus: string(v1.MigrationAbortInProgress),
+			}
+
+			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).To(BeNil())
+			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(domainXml), nil)
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return(string(metadataXml), nil)
+			manager := &LibvirtDomainManager{
+				virConn:                mockConn,
+				virtShareDir:           testVirtShareDir,
+				notifier:               nil,
+				lessPVCSpaceToleration: 0,
+			}
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			gomock.InOrder(
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
+			)
+			mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(domainXml string) (cli.VirDomain, error) {
+				Expect(strings.Contains(domainXml, string(v1.MigrationAbortSucceeded))).To(BeTrue())
+				isMigrationAbortSet <- true
+				return mockDomain, nil
+			})
+
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
+			Eventually(func() bool {
+				select {
+				case isSet := <-isMigrationAbortSet:
+					return isSet
+				default:
+				}
+				return false
+			}, 20*time.Second, 2).Should(BeTrue(), "migration cancelled result wasn't set")
+		})
+		It("migration failure should be finilized even if we missed status update", func() {
+			isMigrationFailedSet := make(chan bool, 1)
+			defer close(isMigrationFailedSet)
+
+			migrationErrorChan := make(chan error)
+			defer close(migrationErrorChan)
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free().AnyTimes()
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_NONE,
+					DataRemaining: uint64(0),
+				}
+			}()
+			fake_jobinfo_running := func() *libvirt.DomainJobInfo {
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining: uint64(32479827777),
+				}
+			}()
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 150,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+				UID: vmi.Status.MigrationState.MigrationUID,
+			}
+
+			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).To(BeNil())
+			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(domainXml), nil)
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return(string(metadataXml), nil)
+			manager := &LibvirtDomainManager{
+				virConn:                mockConn,
+				virtShareDir:           testVirtShareDir,
+				notifier:               nil,
+				lessPVCSpaceToleration: 0,
+			}
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			gomock.InOrder(
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
+			)
+			mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(domainXml string) (cli.VirDomain, error) {
+				Expect(strings.Contains(domainXml, "<failed>true</failed>")).To(BeTrue())
+				isMigrationFailedSet <- true
+				return mockDomain, nil
+			})
+
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
+			Eventually(func() bool {
+				select {
+				case isSet := <-isMigrationFailedSet:
+					return isSet
+				default:
+				}
+				return false
+			}, 20*time.Second, 2).Should(BeTrue(), "migration failed result wasn't set")
 		})
 
 	})
@@ -1144,7 +1298,7 @@ var _ = Describe("Manager", func() {
 
 			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
-			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
 			gomock.InOrder(
 				mockConn.EXPECT().DomainDefineXML(gomock.Any()).Return(mockDomain, nil),
 				mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(domainXml string) (cli.VirDomain, error) {

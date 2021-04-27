@@ -72,6 +72,7 @@ type migrationMonitor struct {
 
 	progressTimeout          int64
 	acceptableCompletionTime int64
+	migrationFailedWithError error
 }
 
 type inflightMigrationAborted struct {
@@ -491,6 +492,54 @@ func (m *migrationMonitor) isMigrationProgressing(domainSpec *api.DomainSpec) bo
 	return true
 }
 
+func isMigrationAbortInProgress(domSpec *api.DomainSpec) bool {
+	return domSpec.Metadata.KubeVirt.Migration != nil &&
+		domSpec.Metadata.KubeVirt.Migration.AbortStatus == string(v1.MigrationAbortInProgress)
+}
+
+func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain) *libvirt.DomainJobInfo {
+	logger := log.Log.Object(m.vmi)
+	// check if an ongoing migration has been completed before we could capture the outcome
+	if m.lastProgressUpdate > m.start {
+		logger.Info("Migration job has probably completed before we could capture the status. Getting latest status.")
+		// at this point the migration is over, but we don't know the result.
+		// check if we were trying to cancel this job. In this case, finalize the migration.
+		domainSpec, err := m.l.getDomainSpec(dom)
+		if err != nil {
+			logger.Reason(err).Error("failed to get domain spec info")
+			return nil
+		}
+		if isMigrationAbortInProgress(domainSpec) {
+			logger.Info("Migration job was canceled")
+			return &libvirt.DomainJobInfo{
+				Type:          libvirt.DOMAIN_JOB_CANCELLED,
+				DataRemaining: uint64(m.remainingData),
+			}
+		}
+
+		// If the domain is active, it means that the migration has failed.
+		domainState, _, err := dom.GetState()
+		if err != nil {
+			logger.Reason(err).Error("failed to get domain state")
+			if libvirtError, ok := err.(libvirt.Error); ok &&
+				(libvirtError.Code == libvirt.ERR_NO_DOMAIN ||
+					libvirtError.Code == libvirt.ERR_OPERATION_INVALID) {
+				logger.Info("domain is not running on this node")
+				return nil
+			}
+		}
+		if domainState == libvirt.DOMAIN_RUNNING {
+			logger.Info("Migration job failed")
+			return &libvirt.DomainJobInfo{
+				Type:          libvirt.DOMAIN_JOB_FAILED,
+				DataRemaining: uint64(m.remainingData),
+			}
+		}
+	}
+	logger.Info("Migration job didn't start yet")
+	return nil
+}
+
 func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflightMigrationAborted {
 	logger := log.Log.Object(m.vmi)
 
@@ -585,8 +634,9 @@ func (m *migrationMonitor) hasMigrationErr() error {
 }
 
 func (m *migrationMonitor) startMonitor() {
-
+	var completedJobInfo *libvirt.DomainJobInfo
 	vmi := m.vmi
+
 	m.start = time.Now().UTC().Unix()
 	m.lastProgressUpdate = m.start
 
@@ -605,23 +655,29 @@ func (m *migrationMonitor) startMonitor() {
 		time.Sleep(400 * time.Millisecond)
 
 		err := m.hasMigrationErr()
-		if err != nil {
-			logger.Reason(err).Error("Live migration failed")
+		if err != nil && m.migrationFailedWithError == nil {
+			logger.Reason(err).Error("Recevied a live migration error. Will check the latest migration status.")
+			m.migrationFailedWithError = err
+		} else if m.migrationFailedWithError != nil {
+			logger.Info("Didn't manage to get a job status. Post the received error and finilize.")
+			logger.Reason(m.migrationFailedWithError).Error("Live migration failed")
 			var abortStatus v1.MigrationAbortStatus
-			if strings.Contains(err.Error(), "canceled by client") {
+			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
 			}
-			m.l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", err), abortStatus)
+			m.l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
 			return
 		}
 
-		stats, err := dom.GetJobInfo()
-		if err != nil {
-			logger.Reason(err).Error("failed to get domain job info")
-			continue
+		stats := completedJobInfo
+		if stats == nil {
+			stats, err = dom.GetJobStats(0)
+			if err != nil {
+				logger.Reason(err).Error("failed to get domain job info")
+				continue
+			}
 		}
 		m.remainingData = int64(stats.DataRemaining)
-
 		switch stats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
 			aborted := m.processInflightMigration(dom)
@@ -631,14 +687,14 @@ func (m *migrationMonitor) startMonitor() {
 				return
 			}
 		case libvirt.DOMAIN_JOB_NONE:
-			logger.Info("Migration job didn't start yet")
+			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
 		case libvirt.DOMAIN_JOB_COMPLETED:
 			logger.Info("Migration has been completed")
 			m.l.setMigrationResult(vmi, false, "", "")
 			return
 		case libvirt.DOMAIN_JOB_FAILED:
 			logger.Info("Migration job failed")
-			m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+			m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", m.migrationFailedWithError), "")
 			return
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
