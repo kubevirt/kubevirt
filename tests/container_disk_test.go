@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]ContainerDisk", func() {
+var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]ContainerDisk", func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
