@@ -94,7 +94,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:4609]should successfully create a snapshot", func() {
+		createAndVerifyVMSnapshot := func(vm *v1.VirtualMachine) {
 			snapshot = newSnapshot()
 
 			_, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -105,7 +105,12 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			Expect(snapshot.Status.SourceUID).ToNot(BeNil())
 			Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
 
-			Expect(snapshot.Status.Indications).To(BeEmpty())
+			if *vm.Spec.Running {
+				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotNoGuestAgentIndication}
+				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
+			} else {
+				Expect(snapshot.Status.Indications).To(BeEmpty())
+			}
 
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 			content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
@@ -114,18 +119,19 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
 			Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
 			Expect(content.Spec.VolumeBackups).To(BeEmpty())
+		}
+
+		It("[test_id:4609]should successfully create a snapshot", func() {
+			createAndVerifyVMSnapshot(vm)
 		})
 
-		It("[test_id:4610]should not create a snapshot when VM is running", func() {
+		It("[test_id:4610]create a snapshot when VM is running should succeed", func() {
 			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(*vm.Spec.Running).Should(BeTrue())
 
-			snapshot = newSnapshot()
-
-			_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("VirtualMachine \"%s\" is running", vm.Name)))
+			createAndVerifyVMSnapshot(vm)
 		})
 
 		It("VM should contain snapshot status for all volumes", func() {

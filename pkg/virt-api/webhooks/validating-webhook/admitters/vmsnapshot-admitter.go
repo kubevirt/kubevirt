@@ -143,7 +143,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 }
 
 func (admitter *VMSnapshotAdmitter) validateCreateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+	_, err := admitter.Client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
 			{
@@ -158,21 +158,5 @@ func (admitter *VMSnapshotAdmitter) validateCreateVM(field *k8sfield.Path, names
 		return nil, err
 	}
 
-	var causes []metav1.StatusCause
-
-	rs, err := vm.RunStrategy()
-	if err != nil {
-		return nil, err
-	}
-
-	if rs != v1.RunStrategyHalted {
-		cause := metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("VirtualMachine %q is running", name),
-			Field:   field.String(),
-		}
-		causes = append(causes, cause)
-	}
-
-	return causes, nil
+	return []metav1.StatusCause{}, nil
 }

@@ -870,30 +870,22 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return false, err
 	}
 
-	if vmRunning {
-		log.Log.V(3).Infof("Snapshotting a running VM is not supported yet")
-		return false, nil
-	}
-
 	exists, err := s.controller.checkVMIRunning(s.vm)
 	if err != nil {
 		return false, err
 	}
 
-	if exists {
-		log.Log.V(3).Infof("VMI still running")
-		return false, nil
-	}
+	if !vmRunning && !exists {
+		pvcNames := s.pvcNames()
+		pods, err := podsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
+		if err != nil {
+			return false, err
+		}
 
-	pvcNames := s.pvcNames()
-	pods, err := podsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
-	if err != nil {
-		return false, err
-	}
-
-	if len(pods) > 0 {
-		log.Log.V(3).Infof("%d pods using PVCs %+v", len(pods), pvcNames)
-		return false, nil
+		if len(pods) > 0 {
+			log.Log.V(3).Infof("Vm is offline but %d pods using PVCs %+v", len(pods), pvcNames)
+			return false, nil
+		}
 	}
 
 	if s.vm.Status.SnapshotInProgress != nil && *s.vm.Status.SnapshotInProgress != s.snapshot.Name {

@@ -189,7 +189,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				}
 			})
 
-			It("should reject when VM is running", func() {
+			It("should accept when VM is running", func() {
 				snapshot := &snapshotv1.VirtualMachineSnapshot{
 					Spec: snapshotv1.VirtualMachineSnapshotSpec{
 						Source: corev1.TypedLocalObjectReference{
@@ -205,9 +205,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.name"))
+				Expect(resp.Allowed).To(BeTrue())
 			})
 
 			It("should reject invalid kind", func() {
