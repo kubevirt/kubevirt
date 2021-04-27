@@ -38,6 +38,8 @@ import (
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
 
+var receivedEarlyExitSignalEnvVar = "VIRT_LAUNCHER_TARGET_POD_EXIT_SIGNAL"
+
 type ServerOptions struct {
 	useEmulation bool
 }
@@ -87,7 +89,7 @@ func getErrorMessage(err error) string {
 	return err.Error()
 }
 
-func (l *Launcher) MigrateVirtualMachine(ctx context.Context, request *cmdv1.MigrationRequest) (*cmdv1.Response, error) {
+func (l *Launcher) MigrateVirtualMachine(_ context.Context, request *cmdv1.MigrationRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
@@ -112,7 +114,7 @@ func (l *Launcher) MigrateVirtualMachine(ctx context.Context, request *cmdv1.Mig
 	return response, nil
 }
 
-func (l *Launcher) CancelVirtualMachineMigration(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) CancelVirtualMachineMigration(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
@@ -131,7 +133,24 @@ func (l *Launcher) CancelVirtualMachineMigration(ctx context.Context, request *c
 
 }
 
-func (l *Launcher) SyncMigrationTarget(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) SignalTargetPodCleanup(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	myPodName := os.Getenv("POD_NAME")
+
+	if myPodName != "" && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetPod == myPodName {
+		os.Setenv(receivedEarlyExitSignalEnvVar, "")
+		log.Log.Object(vmi).Infof("Signaled target pod %s to cleanup", myPodName)
+	}
+
+	return response, nil
+}
+
+func (l *Launcher) SyncMigrationTarget(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
@@ -150,7 +169,7 @@ func (l *Launcher) SyncMigrationTarget(ctx context.Context, request *cmdv1.VMIRe
 
 }
 
-func (l *Launcher) SyncVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
@@ -168,7 +187,7 @@ func (l *Launcher) SyncVirtualMachine(ctx context.Context, request *cmdv1.VMIReq
 	return response, nil
 }
 
-func (l *Launcher) PauseVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) PauseVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -185,7 +204,7 @@ func (l *Launcher) PauseVirtualMachine(ctx context.Context, request *cmdv1.VMIRe
 	return response, nil
 }
 
-func (l *Launcher) UnpauseVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) UnpauseVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -202,7 +221,7 @@ func (l *Launcher) UnpauseVirtualMachine(ctx context.Context, request *cmdv1.VMI
 	return response, nil
 }
 
-func (l *Launcher) KillVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) KillVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
@@ -220,7 +239,7 @@ func (l *Launcher) KillVirtualMachine(ctx context.Context, request *cmdv1.VMIReq
 	return response, nil
 }
 
-func (l *Launcher) ShutdownVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) ShutdownVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
@@ -238,7 +257,7 @@ func (l *Launcher) ShutdownVirtualMachine(ctx context.Context, request *cmdv1.VM
 	return response, nil
 }
 
-func (l *Launcher) DeleteVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) DeleteVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
@@ -256,26 +275,24 @@ func (l *Launcher) DeleteVirtualMachine(ctx context.Context, request *cmdv1.VMIR
 	return response, nil
 }
 
-func (l *Launcher) SetVirtualMachineGuestTime(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
+func (l *Launcher) FinalizeVirtualMachineMigration(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
 
-	if err := l.domainManager.SetGuestTime(vmi); err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("failed to update VMI guest current time")
+	if err := l.domainManager.FinalizeVirtualMachineMigration(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("failed to finalize migration")
 		response.Success = false
 		response.Message = getErrorMessage(err)
 		return response, nil
 	}
 
-	log.Log.Object(vmi).Info("VMI Guests time has been updated")
+	log.Log.Object(vmi).Info("migration finalized successfully")
 	return response, nil
-
 }
 
-func (l *Launcher) GetDomain(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {
+func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {
 
 	response := &cmdv1.DomainResponse{
 		Response: &cmdv1.Response{
@@ -304,7 +321,7 @@ func (l *Launcher) GetDomain(ctx context.Context, request *cmdv1.EmptyRequest) (
 	return response, nil
 }
 
-func (l *Launcher) GetDomainStats(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.DomainStatsResponse, error) {
+func (l *Launcher) GetDomainStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainStatsResponse, error) {
 
 	response := &cmdv1.DomainStatsResponse{
 		Response: &cmdv1.Response{
@@ -334,7 +351,7 @@ func (l *Launcher) GetDomainStats(ctx context.Context, request *cmdv1.EmptyReque
 }
 
 // GetGuestInfo collect guest info from the domain
-func (l *Launcher) GetGuestInfo(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.GuestInfoResponse, error) {
+func (l *Launcher) GetGuestInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestInfoResponse, error) {
 	response := &cmdv1.GuestInfoResponse{
 		Response: &cmdv1.Response{
 			Success: true,
@@ -361,7 +378,7 @@ func (l *Launcher) GetGuestInfo(ctx context.Context, request *cmdv1.EmptyRequest
 }
 
 // GetUsers returns the list of active users on the guest machine
-func (l *Launcher) GetUsers(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.GuestUserListResponse, error) {
+func (l *Launcher) GetUsers(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestUserListResponse, error) {
 	response := &cmdv1.GuestUserListResponse{
 		Response: &cmdv1.Response{
 			Success: true,
@@ -388,7 +405,7 @@ func (l *Launcher) GetUsers(ctx context.Context, request *cmdv1.EmptyRequest) (*
 }
 
 // GetFilesystems returns a full list of active filesystems on the guest machine
-func (l *Launcher) GetFilesystems(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.GuestFilesystemsResponse, error) {
+func (l *Launcher) GetFilesystems(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestFilesystemsResponse, error) {
 	response := &cmdv1.GuestFilesystemsResponse{
 		Response: &cmdv1.Response{
 			Success: true,
@@ -471,9 +488,14 @@ func RunServer(socketPath string,
 	return done, nil
 }
 
-func (l *Launcher) Ping(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.Response, error) {
+func (l *Launcher) Ping(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.Response, error) {
 	response := &cmdv1.Response{
 		Success: true,
 	}
 	return response, nil
+}
+
+func ReceivedEarlyExitSignal() bool {
+	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
+	return earlyExit
 }

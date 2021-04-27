@@ -22,14 +22,9 @@ package virt_api
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestVirtApi(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Virt_Api Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Virt_Api Suite")
 }

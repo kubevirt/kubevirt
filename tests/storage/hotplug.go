@@ -42,10 +42,15 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+
+	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 )
 
 const (
-	guestDiskIdPrefix = "scsi-0QEMU_QEMU_HARDDISK_"
+	guestDiskIdPrefix      = "scsi-0QEMU_QEMU_HARDDISK_"
+	virtCtlNamespace       = "--namespace"
+	virtCtlVolumeName      = "--volume-name=%s"
+	verifyCannotAccessDisk = "ls: cannot access '%s'"
 )
 
 var _ = SIGDescribe("Hotplug", func() {
@@ -93,7 +98,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	addVolumeVMIWithSource := func(name, namespace string, volumeOptions *kubevirtv1.AddVolumeOptions) {
 		Eventually(func() error {
 			return virtClient.VirtualMachineInstance(namespace).AddVolume(name, volumeOptions)
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	addDVVolumeVMI := func(name, namespace, volumeName, claimName, bus string) {
@@ -115,7 +120,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	addVolumeVMWithSource := func(name, namespace string, volumeOptions *kubevirtv1.AddVolumeOptions) {
 		Eventually(func() error {
 			return virtClient.VirtualMachine(namespace).AddVolume(name, volumeOptions)
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	addDVVolumeVM := func(name, namespace, volumeName, claimName, bus string) {
@@ -134,18 +139,36 @@ var _ = SIGDescribe("Hotplug", func() {
 		}))
 	}
 
+	addVolumeVirtctl := func(name, namespace, volumeName, claimName, bus string) {
+		By("Invoking virtlctl addvolume")
+		addvolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_ADDVOLUME, name, fmt.Sprintf(virtCtlVolumeName, claimName), virtCtlNamespace, namespace)
+		Eventually(func() error {
+			return addvolumeCommand()
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
 	removeVolumeVMI := func(name, namespace, volumeName string) {
-		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
-			Name: volumeName,
-		})
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			return virtClient.VirtualMachineInstance(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
+				Name: volumeName,
+			})
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	removeVolumeVM := func(name, namespace, volumeName string) {
-		err = virtClient.VirtualMachine(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
-			Name: volumeName,
-		})
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			return virtClient.VirtualMachine(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
+				Name: volumeName,
+			})
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
+	removeVolumeVirtctl := func(name, namespace, volumeName string) {
+		By("Invoking virtlctl removevolume")
+		removeVolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_REMOVEVOLUME, name, fmt.Sprintf(virtCtlVolumeName, volumeName), virtCtlNamespace, namespace)
+		Eventually(func() error {
+			return removeVolumeCommand()
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	verifyVolumeAndDiskVMAdded := func(vm *kubevirtv1.VirtualMachine, volumeNames ...string) {
@@ -372,8 +395,8 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			verifyVolumeAndDiskVMRemoved(vm, "some-new-volume1", "some-new-volume2")
 		},
-			table.Entry("with DataVolume", addDVVolumeVM, removeVolumeVM),
-			table.Entry("with PersistentVolume", addPVCVolumeVM, removeVolumeVM),
+			table.Entry("[QUARANTINE][owner:@sig-storage]with DataVolume", addDVVolumeVM, removeVolumeVM),
+			table.Entry("[QUARANTINE][owner:@sig-storage]with PersistentVolume", addPVCVolumeVM, removeVolumeVM),
 		)
 	})
 
@@ -397,19 +420,16 @@ var _ = SIGDescribe("Hotplug", func() {
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
-		It("Should be able to add and use WFFC local storage", func() {
+		table.DescribeTable("Should be able to add and use WFFC local storage", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string)) {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
-			testVolumes := make([]string, 0)
 			dvNames := make([]string, 0)
 			for i := 0; i < 3; i++ {
-				volumeName := fmt.Sprintf("volume%d", i)
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
-				testVolumes = append(testVolumes, volumeName)
 				dvNames = append(dvNames, dv.Name)
 			}
 			defer func(dvNames []string, namespace string) {
@@ -421,18 +441,18 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			for i := 0; i < 3; i++ {
 				By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
-				addDVVolumeVMI(vm.Name, vm.Namespace, testVolumes[i], dvNames[i], "scsi")
+				addVolumeFunc(vm.Name, vm.Namespace, dvNames[i], dvNames[i], "scsi")
 			}
 
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			verifyVolumeAndDiskVMIAdded(vmi, testVolumes...)
+			verifyVolumeAndDiskVMIAdded(vmi, dvNames...)
 			By("Verify the volume status of the hotplugged volume is ready")
-			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes...)
+			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, dvNames...)
 			By("Obtaining the serial console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
-			targets := getTargetsFromVolumeStatus(vmi, testVolumes...)
-			for i := range testVolumes {
+			targets := getTargetsFromVolumeStatus(vmi, dvNames...)
+			for i := range dvNames {
 				Eventually(func() error {
 					return console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[i])},
@@ -445,17 +465,20 @@ var _ = SIGDescribe("Hotplug", func() {
 			for _, target := range targets {
 				verifyCreateData(vmi, target)
 			}
-			for i, volumeName := range testVolumes {
+			for _, volumeName := range dvNames {
 				By("removing volume " + volumeName + " from VM")
-				removeVolumeVMI(vm.Name, vm.Namespace, volumeName)
+				removeVolumeFunc(vm.Name, vm.Namespace, volumeName)
 				Eventually(func() error {
 					return console.SafeExpectBatch(vmi, []expect.Batcher{
-						&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[i])},
-						&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[i])},
+						&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", volumeName)},
+						&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, volumeName)},
 					}, 5)
 				}, 90*time.Second, 2*time.Second).Should(Succeed())
 			}
-		})
+		},
+			table.Entry("calling endpoints directly", addDVVolumeVMI, removeVolumeVMI),
+			table.Entry("using virtctl", addVolumeVirtctl, removeVolumeVirtctl),
+		)
 	})
 
 	Context("rook-ceph", func() {
@@ -551,7 +574,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Eventually(func() error {
 					return console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[0])},
-						&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[0])},
+						&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[0])},
 					}, 10)
 				}, 40*time.Second, 2*time.Second).Should(Succeed())
 			},
@@ -624,7 +647,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Eventually(func() error {
 						return console.SafeExpectBatch(vmi, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[i])},
-							&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[i])},
+							&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[i])},
 						}, 5)
 					}, 90*time.Second, 2*time.Second).Should(Succeed())
 				}
@@ -727,7 +750,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.Entry("[QUARANTINE] with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
 			It("should hotplug and permanently add volume when added to VM", func() {
@@ -840,7 +863,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Eventually(func() error {
 						return console.SafeExpectBatch(vmi, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[i])},
-							&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[i])},
+							&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[i])},
 						}, 5)
 					}, 90*time.Second, 2*time.Second).Should(Succeed())
 				}
@@ -1032,12 +1055,82 @@ var _ = SIGDescribe("Hotplug", func() {
 			Eventually(func() error {
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[0])},
-					&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[0])},
+					&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[0])},
 				}, 10)
 			}, 40*time.Second, 2*time.Second).Should(Succeed())
 			By("Verifying the secret is gone")
 			_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("virtctl", func() {
+		const (
+			diskName = "testdisk"
+		)
+
+		var (
+			vm *kubevirtv1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			hasWffc := tests.HasBindingModeWaitForFirstConsumer()
+			if !hasWffc {
+				Skip("Skip no local wffc storage class available")
+			}
+
+			template := tests.NewRandomFedoraVMI()
+			vm = createVirtualMachine(true, template)
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Ready
+			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+		})
+
+		It("should add volume", func() {
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			By("Creating DataVolume")
+			dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
+			Expect(err).To(BeNil())
+			Eventually(func() error {
+				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Get(context.TODO(), dv.Name, metav1.GetOptions{})
+				return err
+			}, 40*time.Second, 2*time.Second).Should(Succeed())
+
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			addVolumeVirtctl(vmi.Name, vmi.Namespace, "", dv.Name, "")
+			By("Verify the volume status of the hotplugged volume is ready")
+			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, dv.Name)
+
+			By("Obtaining the serial console")
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			targets := getTargetsFromVolumeStatus(vmi, dv.Name)
+			Eventually(func() error {
+				return console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[0])},
+					&expect.BExp{R: targets[0]},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 10)
+			}, 40*time.Second, 2*time.Second).Should(Succeed())
+
+			// verifyCreateData(vmi, targets[0])
+			By("Invoking virtlctl removevolume")
+			removeVolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_REMOVEVOLUME, vmi.Name, fmt.Sprintf(virtCtlVolumeName, dv.Name), virtCtlNamespace, vmi.Namespace)
+			err = removeVolumeCommand()
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				return console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[0])},
+					&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[0])},
+				}, 5)
+			}, 90*time.Second, 2*time.Second).Should(Succeed())
 		})
 	})
 })

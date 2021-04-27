@@ -35,11 +35,23 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
+if [ -z $TARGET ]; then
+  echo "FATAL: TARGET must be non empty"
+  exit 1
+fi
+
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
 elif [[ $TARGET =~ cnao ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_PROVIDER=${TARGET/-cnao/}
+elif [[ $TARGET =~ sig-network ]]; then
+  export KUBEVIRT_WITH_CNAO=true
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
+elif [[ $TARGET =~ sig-storage ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
+elif [[ $TARGET =~ sig-compute ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -49,7 +61,12 @@ if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   exit 1
 fi
 
-export KUBEVIRT_NUM_NODES=2
+if [[ $TARGET =~ sriov.* ]]; then
+  export KUBEVIRT_NUM_NODES=3
+else
+  export KUBEVIRT_NUM_NODES=2
+fi
+
 # Give the nodes enough memory to run tests in parallel, including tests which involve fedora
 export KUBEVIRT_MEMORY_SIZE=9216M
 
@@ -174,10 +191,8 @@ make cluster-down
 
 # Create .bazelrc to use remote cache
 cat >ci.bazelrc <<EOF
-startup --host_jvm_args=-Dbazel.DigestFunction=sha256
-build --remote_local_fallback
-build --remote_http_cache=${BAZEL_CACHE}
 build --jobs=4
+build --remote_download_toplevel
 EOF
 
 # Build and test images with a custom image name prefix
@@ -280,33 +295,40 @@ spec:
     path: /
   storageClassName: windows
 EOF
-  # Run only Windows tests
-  export KUBEVIRT_E2E_FOCUS=Windows
-elif [[ $TARGET =~ (cnao|multus) ]]; then
-  export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose|Macvtap"
-elif [[ $TARGET =~ sriov.* ]]; then
-  export KUBEVIRT_E2E_FOCUS=SRIOV
-elif [[ $TARGET =~ gpu.* ]]; then
-  export KUBEVIRT_E2E_FOCUS=GPU
-elif [[ $TARGET =~ (okd|ocp).* ]]; then
-  export KUBEVIRT_E2E_SKIP="SRIOV|GPU"
-else
-  export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|Macvtap"
 fi
 
-if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
-  export KUBEVIRT_E2E_FOCUS=rook-ceph
+# Set KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP only if both of them are not already set
+if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
+  if [[ $TARGET =~ windows.* ]]; then
+    # Run only Windows tests
+    export KUBEVIRT_E2E_FOCUS=Windows
+  elif [[ $TARGET =~ (cnao|multus) ]]; then
+    export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose|Macvtap"
+  elif [[ $TARGET =~ sig-network ]]; then
+    export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
+  elif [[ $TARGET =~ sig-storage ]]; then
+    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]"
+  elif [[ $TARGET =~ sig-compute ]]; then
+    export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
+    export KUBEVIRT_E2E_SKIP="GPU"
+  elif [[ $TARGET =~ sriov.* ]]; then
+    export KUBEVIRT_E2E_FOCUS=SRIOV
+  elif [[ $TARGET =~ gpu.* ]]; then
+    export KUBEVIRT_E2E_FOCUS=GPU
+  elif [[ $TARGET =~ (okd|ocp).* ]]; then
+    export KUBEVIRT_E2E_SKIP="SRIOV|GPU"
+  else
+    export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|Macvtap"
+  fi
+
+  if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" || "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
+    export KUBEVIRT_E2E_FOCUS=rook-ceph
+  fi
 fi
 
-# If KUBEVIRT_QUARANTINE is set, only run quarantined tests; if not,
-# do not run quarantined tests.
-if [ -n "$KUBEVIRT_QUARANTINE" ]; then
-    if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
-        KUBEVIRT_E2E_FOCUS="${KUBEVIRT_E2E_FOCUS}|QUARANTINE"
-    else
-        KUBEVIRT_E2E_FOCUS="QUARANTINE"
-    fi
-else
+# If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
+# set the whole suite (quarantined and stable) will be run.
+if [ -z "$KUBEVIRT_QUARANTINE" ]; then
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
         KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|QUARANTINE"
     else

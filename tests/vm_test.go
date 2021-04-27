@@ -55,7 +55,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
+var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachine", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -141,7 +141,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}
 			})
 
-			It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
+			It("[owner:@sig-storage][test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
 
 				dv := tests.NewRandomDataVolumeWithHttpImportInStorageClass(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce)
 				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -1545,7 +1545,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(strings.HasPrefix(stdErr, "Error from server (AlreadyExists): error when creating")).To(BeTrue(), "command should error when creating VM second time")
 		})
 
-		table.DescribeTable("[test_id:299]should create VM via command line using all supported API versions", func(version string) {
+		table.DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", func(version string) {
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vm := tests.NewRandomVirtualMachine(vmi, true)
 

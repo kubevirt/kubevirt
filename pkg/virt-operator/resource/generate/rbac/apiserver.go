@@ -22,14 +22,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
 const ApiServiceAccountName = "kubevirt-apiserver"
 
-func GetAllApiServer(namespace string) []interface{} {
-	return []interface{}{
+func GetAllApiServer(namespace string) []runtime.Object {
+	return []runtime.Object{
 		newApiServerServiceAccount(namespace),
 		newApiServerClusterRole(),
 		newApiServerClusterRoleBinding(namespace),

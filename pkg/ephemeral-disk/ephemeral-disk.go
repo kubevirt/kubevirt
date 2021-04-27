@@ -27,6 +27,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 var mountBaseDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
@@ -46,19 +47,19 @@ func getBackingFilePath(volumeName string) string {
 
 func SetLocalDirectory(dir string) error {
 	mountBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return util.MkdirAllWithNosec(dir)
 }
 
 // Used by tests.
 func setBackingDirectory(dir string) error {
 	pvcBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return util.MkdirAllWithNosec(dir)
 }
 
 func createVolumeDirectory(volumeName string) error {
 	dir := generateVolumeMountDir(volumeName)
 
-	err := os.MkdirAll(dir, 0755)
+	err := util.MkdirAllWithNosec(dir)
 	if err != nil {
 		return err
 	}
@@ -103,6 +104,7 @@ func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
 		return fmt.Errorf("qemu-img failed with output '%s': %v", string(output), err)
 	}
 
+	// #nosec G302: Poor file permissions used with chmod. Safe permission setting for files shared between virt-launcher and qemu.
 	if err = os.Chmod(imagePath, 0640); err != nil {
 		return fmt.Errorf("failed to change permissions on %s", imagePath)
 	}

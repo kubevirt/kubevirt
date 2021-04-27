@@ -398,7 +398,8 @@ type Devices struct {
 	// Whether to have random number generator from host
 	// +optional
 	Rng *Rng `json:"rng,omitempty"`
-	// Whether or not to enable virtio multi-queue for block devices
+	// Whether or not to enable virtio multi-queue for block devices.
+	// Defaults to false.
 	// +optional
 	BlockMultiQueue *bool `json:"blockMultiQueue,omitempty"`
 	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
@@ -483,6 +484,7 @@ type Disk struct {
 	// +optional
 	DedicatedIOThread *bool `json:"dedicatedIOThread,omitempty"`
 	// Cache specifies which kvm disk cache mode should be used.
+	// Supported values are: CacheNone, CacheWriteThrough.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
 	// IO specifies which QEMU disk IO mode should be used.
@@ -492,6 +494,26 @@ type Disk struct {
 	// If specified, disk address and its tag will be provided to the guest via config drive metadata
 	// +optional
 	Tag string `json:"tag,omitempty"`
+	// If specified, the virtual disk will be presented with the given block sizes.
+	// +optional
+	BlockSize *BlockSize `json:"blockSize,omitempty"`
+}
+
+// CustomBlockSize represents the desired logical and physical block size for a VM disk.
+//
+// +k8s:openapi-gen=true
+type CustomBlockSize struct {
+	Logical  uint `json:"logical"`
+	Physical uint `json:"physical"`
+}
+
+// BlockSize provides the option to change the block size presented to the VM for a disk.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type BlockSize struct {
+	Custom      *CustomBlockSize `json:"custom,omitempty"`
+	MatchVolume *FeatureState    `json:"matchVolume,omitempty"`
 }
 
 // Represents the target of a volume to mount.
@@ -1346,6 +1368,10 @@ type PodNetwork struct {
 	// CIDR for vm network.
 	// Default 10.0.2.0/24 if not specified.
 	VMNetworkCIDR string `json:"vmNetworkCIDR,omitempty"`
+
+	// IPv6 CIDR for the vm network.
+	// Defaults to fd10:0:2::/120 if not specified.
+	VMIPv6NetworkCIDR string `json:"vmIPv6NetworkCIDR,omitempty"`
 }
 
 // Rng represents the random device passed from host

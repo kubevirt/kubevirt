@@ -325,6 +325,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("addvolume")).
 			To(subresourceApp.VMIAddVolumeRequestHandler).
+			Reads(v1.AddVolumeOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation(version.Version+"vmi-addvolume").
 			Doc("Add a volume and disk to a running Virtual Machine Instance").
@@ -333,6 +334,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("removevolume")).
 			To(subresourceApp.VMIRemoveVolumeRequestHandler).
+			Reads(v1.RemoveVolumeOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation(version.Version+"vmi-removevolume").
 			Doc("Removes a volume and disk from a running Virtual Machine Instance").
@@ -341,6 +343,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("addvolume")).
 			To(subresourceApp.VMAddVolumeRequestHandler).
+			Reads(v1.AddVolumeOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation(version.Version+"vm-addvolume").
 			Doc("Add a volume and disk to a running Virtual Machine.").
@@ -349,6 +352,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("removevolume")).
 			To(subresourceApp.VMRemoveVolumeRequestHandler).
+			Reads(v1.RemoveVolumeOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation(version.Version+"vm-removevolume").
 			Doc("Removes a volume and disk from a running Virtual Machine.").
@@ -620,7 +624,7 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 	http.HandleFunc(components.MigrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig)
+		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.MigrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
@@ -769,7 +773,7 @@ func (app *virtAPIApp) Run() {
 
 // Update virt-api log verbosity on relevant config changes
 func (app *virtAPIApp) shouldChangeLogVerbosity() {
-	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.host)
+	verbosity := app.clusterConfig.GetVirtAPIVerbosity(app.host)
 	log.Log.SetVerbosityLevel(int(verbosity))
 	log.Log.V(2).Infof("set log verbosity to %d", verbosity)
 }

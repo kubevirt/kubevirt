@@ -22,14 +22,9 @@ package inotifyinformer
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestInotifyInformer(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "InotifyInformer Test Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "InotifyInformer Test Suite")
 }

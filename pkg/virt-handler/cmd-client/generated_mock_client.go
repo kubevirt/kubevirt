@@ -73,6 +73,16 @@ func (_mr *_MockLauncherClientRecorder) SyncMigrationTarget(arg0 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncMigrationTarget", arg0)
 }
 
+func (_m *MockLauncherClient) SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "SignalTargetPodCleanup", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) SignalTargetPodCleanup(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SignalTargetPodCleanup", arg0)
+}
+
 func (_m *MockLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "ShutdownVirtualMachine", vmi)
 	ret0, _ := ret[0].(error)
@@ -113,14 +123,14 @@ func (_mr *_MockLauncherClientRecorder) CancelVirtualMachineMigration(arg0 inter
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CancelVirtualMachineMigration", arg0)
 }
 
-func (_m *MockLauncherClient) SetVirtualMachineGuestTime(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "SetVirtualMachineGuestTime", vmi)
+func (_m *MockLauncherClient) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "FinalizeVirtualMachineMigration", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLauncherClientRecorder) SetVirtualMachineGuestTime(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineGuestTime", arg0)
+func (_mr *_MockLauncherClientRecorder) FinalizeVirtualMachineMigration(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0)
 }
 
 func (_m *MockLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {

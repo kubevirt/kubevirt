@@ -23,10 +23,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
-	"syscall"
-
-	"github.com/opencontainers/selinux/go-selinux"
 )
 
 const (
@@ -39,70 +35,81 @@ type ContextExecutor struct {
 	desiredLabel  string
 	originalLabel string
 	pid           int
+	executor      Executor
 }
 
 func NewContextExecutor(pid int, cmd *exec.Cmd) (*ContextExecutor, error) {
-	desiredLabel, err := getLabelForPID(pid)
-	if err != nil {
-		return nil, err
-	}
-	originalLabel, err := getLabelForPID(os.Getpid())
-	if err != nil {
-		return nil, err
-	}
-	return &ContextExecutor{
-		pid:           pid,
-		cmdToExecute:  cmd,
-		desiredLabel:  desiredLabel,
-		originalLabel: originalLabel,
-	}, nil
+	return newContextExecutor(pid, cmd, SELinuxExecutor{})
 }
 
-func (ce ContextExecutor) Execute() error {
-	if isSELinuxEnabled() {
+func newContextExecutor(pid int, cmd *exec.Cmd, executor Executor) (*ContextExecutor, error) {
+	ce := &ContextExecutor{
+		pid:          pid,
+		cmdToExecute: cmd,
+		executor:     executor,
+	}
+
+	if ce.isSELinuxEnabled() {
+		desiredLabel, err := ce.getLabelForPID(pid)
+		if err != nil {
+			return nil, err
+		}
+		originalLabel, err := ce.getLabelForPID(os.Getpid())
+		if err != nil {
+			return nil, err
+		}
+		ce.desiredLabel = desiredLabel
+		ce.originalLabel = originalLabel
+	}
+
+	return ce, nil
+}
+
+func (ce *ContextExecutor) Execute() error {
+	if ce.isSELinuxEnabled() {
 		if err := ce.setDesiredContext(); err != nil {
 			return err
 		}
 		defer ce.resetContext()
 	}
 
-	preventFDLeakOntoChild()
-	if err := ce.cmdToExecute.Run(); err != nil {
+	ce.preventFDLeakOntoChild()
+	if err := ce.executor.Run(ce.cmdToExecute); err != nil {
 		return fmt.Errorf("failed to execute command in launcher namespace %d: %v", ce.pid, err)
 	}
 	return nil
 }
 
-func (ce ContextExecutor) setDesiredContext() error {
-	runtime.LockOSThread()
-	if err := selinux.SetExecLabel(ce.desiredLabel); err != nil {
+func (ce *ContextExecutor) setDesiredContext() error {
+	ce.executor.LockOSThread()
+	if err := ce.executor.SetExecLabel(ce.desiredLabel); err != nil {
 		return fmt.Errorf("failed to switch selinux context to %s. Reason: %v", ce.desiredLabel, err)
 	}
 	return nil
 }
 
-func (ce ContextExecutor) resetContext() error {
-	defer runtime.UnlockOSThread()
-	return selinux.SetExecLabel(ce.originalLabel)
+func (ce *ContextExecutor) resetContext() error {
+	defer ce.executor.UnlockOSThread()
+	return ce.executor.SetExecLabel(ce.originalLabel)
 }
 
-func isSELinuxEnabled() bool {
-	_, selinuxEnabled, err := NewSELinux()
+func (ce *ContextExecutor) isSELinuxEnabled() bool {
+	_, selinuxEnabled, err := ce.executor.NewSELinux()
 	return err == nil && selinuxEnabled
 }
 
-func getLabelForPID(pid int) (string, error) {
-	fileLabel, err := selinux.FileLabel(fmt.Sprintf("/proc/%d/attr/current", pid))
+func (ce *ContextExecutor) getLabelForPID(pid int) (string, error) {
+	fileLabel, err := ce.executor.FileLabel(fmt.Sprintf("/proc/%d/attr/current", pid))
 	if err != nil {
 		return "", fmt.Errorf("could not retrieve pid %d selinux label: %v", pid, err)
 	}
 	return fileLabel, nil
 }
 
-func preventFDLeakOntoChild() {
+func (ce *ContextExecutor) preventFDLeakOntoChild() {
 	// we want to share the parent process std{in|out|err} - fds 0 through 2.
 	// Since the FDs are inherited on fork / exec, we close on exec all others.
 	for fd := minFDToCloseOnExec; fd < maxFDToCloseOnExec; fd++ {
-		syscall.CloseOnExec(fd)
+		ce.executor.CloseOnExec(fd)
 	}
 }

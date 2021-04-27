@@ -99,14 +99,14 @@ var (
 
 	leaderGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "leading_virt_operator",
+			Name: "kubevirt_virt_operator_leading",
 			Help: "Indication for an operating virt-operator.",
 		},
 	)
 
 	readyGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "ready_virt_operator",
+			Name: "kubevirt_virt_operator_ready",
 			Help: "Indication for a virt-operator that is ready to take the lead.",
 		},
 	)
@@ -265,7 +265,7 @@ func Execute() {
 	app.prepareCertManagers()
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-operator")
-	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1beta1().APIServices(), app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
+	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
 
 	image := os.Getenv(util.OperatorImageEnvName)
 	if image == "" {

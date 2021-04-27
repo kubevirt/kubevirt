@@ -21,7 +21,7 @@ package mutators
 import (
 	"encoding/json"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -36,13 +36,13 @@ type VMsMutator struct {
 
 // until the minimum supported version is kubernetes 1.15 (see https://github.com/kubernetes/kubernetes/commit/c2fcdc818be1441dd788cae22648c04b1650d3af#diff-e057ec5b2ec27b4ba1e1a3915f715262)
 // the mtuating webhook must pass silently on errors instead of returning errors
-func emptyValidResponse() *v1beta1.AdmissionResponse {
-	return &v1beta1.AdmissionResponse{
+func emptyValidResponse() *admissionv1.AdmissionResponse {
+	return &admissionv1.AdmissionResponse{
 		Allowed: true,
 	}
 }
 
-func (mutator *VMsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
 		log.Log.V(1).Warningf("vm-mutator: received invalid request")
 		return emptyValidResponse()
@@ -88,8 +88,8 @@ func (mutator *VMsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissio
 		return emptyValidResponse()
 	}
 
-	jsonPatchType := v1beta1.PatchTypeJSONPatch
-	return &v1beta1.AdmissionResponse{
+	jsonPatchType := admissionv1.PatchTypeJSONPatch
+	return &admissionv1.AdmissionResponse{
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,

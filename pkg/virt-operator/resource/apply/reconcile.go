@@ -27,18 +27,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver"
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
-
-	"github.com/blang/semver"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -53,14 +52,19 @@ import (
 const Duration7d = time.Hour * 24 * 7
 const Duration1d = time.Hour * 24
 
+const (
+	replaceSpecPatchTemplate     = `{ "op": "replace", "path": "/spec", "value": %s }`
+	replaceWebhooksValueTemplate = `{ "op": "replace", "path": "/webhooks", "value": %s }`
+
+	testGenerationJSONPatchTemplate = `{ "op": "test", "path": "/metadata/generation", "value": %d }`
+)
+
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
 	if objectMeta.Annotations == nil {
 		return false
 	}
 
-	foundVersion := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
-	foundImageRegistry := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
-	foundID := objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
+	foundVersion, foundImageRegistry, foundID, _ := getInstallStrategyAnnotations(objectMeta)
 	foundGeneration, generationExists := objectMeta.Annotations[v1.KubeVirtGenerationAnnotation]
 	foundLabels := objectMeta.Labels[v1.ManagedByLabel] == v1.ManagedByLabelOperatorValue
 	sGeneration := strconv.FormatInt(generation, 10)
@@ -242,6 +246,21 @@ func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) ([]string, e
 	return ops, nil
 }
 
+func getPatchWithObjectMetaAndSpec(ops []string, meta *metav1.ObjectMeta, spec []byte) ([]string, error) {
+	// Add Labels and Annotations Patches
+	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(meta)
+	if err != nil {
+		return ops, err
+	}
+
+	ops = append(ops, labelAnnotationPatch...)
+
+	// and spec replacement to patch
+	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(spec)))
+
+	return ops, nil
+}
+
 func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 	// if no current version, then this can't be an update
 	if currentVersion == "" {
@@ -308,14 +327,14 @@ func haveDaemonSetsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt,
 
 func (r *Reconciler) createDummyWebhookValidator() error {
 
-	var webhooks []admissionregistrationv1beta1.ValidatingWebhook
+	var webhooks []admissionregistrationv1.ValidatingWebhook
 
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	// If webhook already exists in cache, then exit.
 	objects := r.stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
+		if webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok {
 
 			if objectMatchesVersion(&webhook.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 				// already created blocking webhook for this version
@@ -325,7 +344,8 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	}
 
 	// generate a fake cert. this isn't actually used
-	failurePolicy := admissionregistrationv1beta1.Fail
+	sideEffectNone := admissionregistrationv1.SideEffectClassNone
+	failurePolicy := admissionregistrationv1.Fail
 
 	for _, crd := range r.targetStrategy.CRDs() {
 		_, exists, _ := r.stores.CrdCache.Get(crd)
@@ -336,21 +356,23 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 			continue
 		}
 		path := fmt.Sprintf("/fake-path/%s", crd.Name)
-		webhooks = append(webhooks, admissionregistrationv1beta1.ValidatingWebhook{
-			Name:          fmt.Sprintf("%s-tmp-validator", crd.Name),
-			FailurePolicy: &failurePolicy,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
+		webhooks = append(webhooks, admissionregistrationv1.ValidatingWebhook{
+			Name:                    fmt.Sprintf("%s-tmp-validator", crd.Name),
+			AdmissionReviewVersions: []string{"v1", "v1beta1"},
+			SideEffects:             &sideEffectNone,
+			FailurePolicy:           &failurePolicy,
+			Rules: []admissionregistrationv1.RuleWithOperations{{
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
 				},
-				Rule: admissionregistrationv1beta1.Rule{
+				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{crd.Spec.Group},
 					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{crd.Spec.Names.Plural},
 				},
 			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
+			ClientConfig: admissionregistrationv1.WebhookClientConfig{
+				Service: &admissionregistrationv1.ServiceReference{
 					Namespace: r.kv.Namespace,
 					Name:      "fake-validation-service",
 					Path:      &path,
@@ -372,7 +394,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 		webhook.ClientConfig.CABundle = signingCertBytes
 	}
 
-	validationWebhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+	validationWebhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-operator-tmp-webhook",
 		},
@@ -381,7 +403,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	injectOperatorMetadata(r.kv, &validationWebhook.ObjectMeta, version, imageRegistry, id, true)
 
 	r.expectations.ValidationWebhook.RaiseExpectations(r.kvKey, 1, 0)
-	_, err := r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), validationWebhook, metav1.CreateOptions{})
+	_, err := r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), validationWebhook, metav1.CreateOptions{})
 	if err != nil {
 		r.expectations.ValidationWebhook.LowerExpectations(r.kvKey, 1, 0)
 		return fmt.Errorf("unable to create validation webhook: %v", err)
@@ -516,7 +538,7 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 
 	// backup any old RBAC rules that don't match current version
 	if !infrastructureRolledOver {
-		err = r.backupRbac()
+		err = r.backupRBACs()
 		if err != nil {
 			return false, err
 		}
@@ -534,46 +556,6 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		return false, err
 	}
 
-	caDuration := getCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caOverlapTime := getCAOverlapTime(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	certDuration := getCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-
-	// create/update CA Certificate secret
-	caCert, err := r.createOrUpdateCACertificateSecret(queue, caDuration)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update CA config map
-	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, caOverlapTime)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update Certificate secrets
-	err = r.createOrUpdateCertificateSecrets(queue, caCert, certDuration)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update ValidatingWebhookConfiguration
-	err = r.createOrUpdateValidatingWebhookConfigurations(caBundle)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update MutatingWebhookConfiguration
-	err = r.createOrUpdateMutatingWebhookConfigurations(caBundle)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update APIServices
-	err = r.createOrUpdateAPIServices(caBundle)
-	if err != nil {
-		return false, err
-	}
-
 	// create/update Services
 	pending, err := r.createOrUpdateService()
 	if err != nil {
@@ -585,6 +567,11 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		// then create the new service. This is because a service's "type" is
 		// not mutatable.
 		return false, nil
+	}
+
+	err = r.createOrUpdateComponentsWithCertificates(queue)
+	if err != nil {
+		return false, err
 	}
 
 	if infrastructureRolledOver {
@@ -687,14 +674,14 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 		GracePeriodSeconds: &gracePeriod,
 	}
 
-	ext := r.clientset.ExtensionsClient()
+	client := r.clientset.ExtensionsClient()
 	// -------- CLEAN UP OLD UNUSED OBJECTS --------
 	// outdated webhooks can potentially block deletes of other objects during the cleanup and need to be removed first
 
 	// remove unused validating webhooks
 	objects := r.stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
+		if webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
 			found := false
 			if strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") {
 				continue
@@ -717,7 +704,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
 					r.expectations.ValidationWebhook.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+					err := r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ValidationWebhook.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
@@ -731,7 +718,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	// remove unused mutating webhooks
 	objects = r.stores.MutatingWebhookCache.List()
 	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
+		if webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
 			found := false
 			for _, targetWebhook := range r.targetStrategy.MutatingWebhookConfigurations() {
 				if targetWebhook.Name == webhook.Name {
@@ -749,7 +736,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
 					r.expectations.MutatingWebhook.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+					err := r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
 					if err != nil {
 						r.expectations.MutatingWebhook.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
@@ -763,7 +750,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	// remove unused APIServices
 	objects = r.stores.APIServiceCache.List()
 	for _, obj := range objects {
-		if apiService, ok := obj.(*v1beta1.APIService); ok && apiService.DeletionTimestamp == nil {
+		if apiService, ok := obj.(*apiregv1.APIService); ok && apiService.DeletionTimestamp == nil {
 			found := false
 			for _, targetAPIService := range r.targetStrategy.APIServices() {
 				if targetAPIService.Name == apiService.Name {
@@ -852,7 +839,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	// remove unused crds
 	objects = r.stores.CrdCache.List()
 	for _, obj := range objects {
-		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			found := false
 			for _, targetCrd := range r.targetStrategy.CRDs() {
 				if targetCrd.Name == crd.Name {
@@ -863,7 +850,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(crd); err == nil {
 					r.expectations.Crd.AddExpectedDeletion(r.kvKey, key)
-					err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
+					err := client.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
 					if err != nil {
 						r.expectations.Crd.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
@@ -1134,4 +1121,23 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	}
 
 	return nil
+}
+
+func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {
+	var exists bool
+
+	imageTag, exists = meta.Annotations[v1.InstallStrategyVersionAnnotation]
+	if !exists {
+		ok = false
+	}
+	imageRegistry, exists = meta.Annotations[v1.InstallStrategyRegistryAnnotation]
+	if !exists {
+		ok = false
+	}
+	id, exists = meta.Annotations[v1.InstallStrategyIdentifierAnnotation]
+	if !exists {
+		ok = false
+	}
+
+	return
 }

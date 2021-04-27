@@ -26,14 +26,14 @@ import (
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -60,7 +60,7 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 
 	objects := stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
+		if webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok {
 			if !strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") {
 				continue
 			}
@@ -69,7 +69,7 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 			}
 			if key, err := controller.KeyFunc(webhook); err == nil {
 				expectations.ValidationWebhook.AddExpectedDeletion(kvkey, key)
-				err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+				err = clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
 				if err != nil {
 					expectations.ValidationWebhook.DeletionObserved(kvkey, key)
 					return fmt.Errorf("unable to delete validation webhook: %v", err)
@@ -83,7 +83,6 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 }
 
 func DeleteAll(kv *v1.KubeVirt,
-	strategy *install.Strategy,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
 	aggregatorclient install.APIServiceInterface,
@@ -103,10 +102,10 @@ func DeleteAll(kv *v1.KubeVirt,
 	ext := clientset.ExtensionsClient()
 	objects := stores.CrdCache.List()
 	for _, obj := range objects {
-		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(crd); err == nil {
 				expectations.Crd.AddExpectedDeletion(kvkey, key)
-				err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
+				err := ext.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
 				if err != nil {
 					expectations.Crd.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
@@ -185,10 +184,10 @@ func DeleteAll(kv *v1.KubeVirt,
 	// delete validatingwebhooks
 	objects = stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
-		if webhookConfiguration, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok && webhookConfiguration.DeletionTimestamp == nil {
+		if webhookConfiguration, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok && webhookConfiguration.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(webhookConfiguration); err == nil {
 				expectations.ValidationWebhook.AddExpectedDeletion(kvkey, key)
-				err := clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.Background(), webhookConfiguration.Name, deleteOptions)
+				err := clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhookConfiguration.Name, deleteOptions)
 				if err != nil {
 					expectations.ValidationWebhook.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete validatingwebhook %+v: %v", webhookConfiguration, err)
@@ -204,10 +203,10 @@ func DeleteAll(kv *v1.KubeVirt,
 	// delete mutatingwebhooks
 	objects = stores.MutatingWebhookCache.List()
 	for _, obj := range objects {
-		if webhookConfiguration, ok := obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration); ok && webhookConfiguration.DeletionTimestamp == nil {
+		if webhookConfiguration, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok && webhookConfiguration.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(webhookConfiguration); err == nil {
 				expectations.MutatingWebhook.AddExpectedDeletion(kvkey, key)
-				err := clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(context.Background(), webhookConfiguration.Name, deleteOptions)
+				err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), webhookConfiguration.Name, deleteOptions)
 				if err != nil {
 					expectations.MutatingWebhook.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete mutatingwebhook %+v: %v", webhookConfiguration, err)
@@ -223,7 +222,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	// delete apiservices
 	objects = stores.APIServiceCache.List()
 	for _, obj := range objects {
-		if apiservice, ok := obj.(*v1beta1.APIService); ok && apiservice.DeletionTimestamp == nil {
+		if apiservice, ok := obj.(*apiregv1.APIService); ok && apiservice.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(apiservice); err == nil {
 				expectations.APIService.AddExpectedDeletion(kvkey, key)
 				err := aggregatorclient.Delete(context.Background(), apiservice.Name, deleteOptions)

@@ -115,7 +115,7 @@ func newPodInterfaceCacheStore(vmi *v1.VirtualMachineInstance, baseDir, pattern 
 }
 
 func writeToCachedFile(obj interface{}, fileName string) error {
-	if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
 		return err
 	}
 	buf, err := json.MarshalIndent(&obj, "", "  ")
@@ -123,7 +123,7 @@ func writeToCachedFile(obj interface{}, fileName string) error {
 		return fmt.Errorf("error marshaling cached object: %v", err)
 	}
 
-	err = ioutil.WriteFile(fileName, buf, 0644)
+	err = ioutil.WriteFile(fileName, buf, 0600)
 	if err != nil {
 		return fmt.Errorf("error writing cached object: %v", err)
 	}

@@ -23,19 +23,19 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,10 +59,37 @@ import (
 
 type VMICreationFuncWithEFI func() *v1.VirtualMachineInstance
 
-var _ = Describe("Configurations", func() {
+var _ = Describe("[sig-compute]Configurations", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
+
+	const (
+		cgroupV1MemoryUsagePath = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
+		cgroupV2MemoryUsagePath = "/sys/fs/cgroup/memory.current"
+	)
+
+	getPodMemoryUsage := func(pod *kubev1.Pod) (output string, err error) {
+		output, err = tests.ExecuteCommandOnPod(
+			virtClient,
+			pod,
+			"compute",
+			[]string{"cat", cgroupV2MemoryUsagePath},
+		)
+
+		if err == nil {
+			return
+		}
+
+		output, err = tests.ExecuteCommandOnPod(
+			virtClient,
+			pod,
+			"compute",
+			[]string{"cat", cgroupV1MemoryUsagePath},
+		)
+
+		return
+	}
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -619,12 +646,7 @@ var _ = Describe("Configurations", func() {
 				}, 15)).To(Succeed())
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				podMemoryUsage, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", "cat /sys/fs/cgroup/memory/memory.usage_in_bytes"},
-				)
+				podMemoryUsage, err := getPodMemoryUsage(pod)
 				Expect(err).ToNot(HaveOccurred())
 				By("Converting pod memory usage")
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
@@ -1004,7 +1026,7 @@ var _ = Describe("Configurations", func() {
 
 			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string) {
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
-				v, err := cluster.GetKubernetesVersion(virtClient)
+				v, err := cluster.GetKubernetesVersion()
 				Expect(err).ShouldNot(HaveOccurred())
 				if strings.Contains(v, "1.16") {
 					hugepagesVmi.Annotations = map[string]string{
@@ -1242,17 +1264,56 @@ var _ = Describe("Configurations", func() {
 				})
 
 				It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
-					agentVMI := prepareAgentVM()
-					getOptions := metav1.GetOptions{}
+					agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-shutdown")
+					By("Starting a VirtualMachineInstance")
+					agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+					tests.WaitForSuccessfulVMIStart(agentVMI)
 
+					getOptions := metav1.GetOptions{}
 					freshVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 
 					Eventually(func() []v1.VirtualMachineInstanceCondition {
 						freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-						Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+						Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 						return freshVMI.Status.Conditions
 					}, 240*time.Second, 2).Should(
+						ContainElement(
+							MatchFields(
+								IgnoreExtras,
+								Fields{"Type": Equal(v1.VirtualMachineInstanceUnsupportedAgent)})),
+						"Should have unsupported agent connected condition")
+
+				})
+
+				It("VMI condition should not signal unsupported agent presence for optional commands", func() {
+					agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec,guest-set-password")
+					By("Starting a VirtualMachineInstance")
+					agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+					tests.WaitForSuccessfulVMIStart(agentVMI)
+
+					getOptions := metav1.GetOptions{}
+					freshVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+
+					By("VMI has the guest agent connected condition")
+					Eventually(func() []v1.VirtualMachineInstanceCondition {
+						freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+						Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+						return freshVMI.Status.Conditions
+					}, 240*time.Second, 2).Should(
+						ContainElement(
+							MatchFields(
+								IgnoreExtras,
+								Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+						"Should have agent connected condition")
+
+					By("fetching the VMI after agent has connected")
+					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+					Expect(freshVMI.Status.Conditions).ToNot(
 						ContainElement(
 							MatchFields(
 								IgnoreExtras,
@@ -1410,7 +1471,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("with Clock and timezone", func() {
 
-			It("[test_id:5268]guest should see timezone", func() {
+			It("[QUARANTINE][sig-compute][test_id:5268]guest should see timezone", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				timezone := "America/New_York"
 				tz := v1.ClockOffsetTimezone(timezone)
@@ -1449,84 +1510,48 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec", func() {
-		libvirtCPUModelRegexp := regexp.MustCompile(`<model>(\w+)\-*\w*</model>`)
-		libvirtCPUVendorRegexp := regexp.MustCompile(`<vendor>(\w+)</vendor>`)
-		libvirtCPUFeatureRegexp := regexp.MustCompile(`<feature name='(\w+)'/>`)
-		cpuModelNameRegexp := regexp.MustCompile(`Model name:[\t ]*([\t \w\-@\.\(\)]+)`)
-
-		var libvirtCpuModel string
-		var libvirtCpuVendor string
-		var cpuModelName string
-		var cpuFeatures []string
 		var cpuVmi *v1.VirtualMachineInstance
-		var node string
+		var nodes *k8sv1.NodeList
+
+		parseCPUNiceName := func(name string) string {
+			updatedCPUName := strings.Replace(name, "\n", "", -1)
+			if strings.Contains(updatedCPUName, ":") {
+				updatedCPUName = strings.Split(name, ":")[1]
+
+			}
+			updatedCPUName = strings.Replace(updatedCPUName, " ", "", 1)
+			updatedCPUName = strings.Replace(updatedCPUName, "(", "", -1)
+			updatedCPUName = strings.Replace(updatedCPUName, ")", "", -1)
+
+			updatedCPUName = strings.Split(updatedCPUName, "-")[0]
+			updatedCPUName = strings.Split(updatedCPUName, "_")[0]
+
+			for i, char := range updatedCPUName {
+				if unicode.IsUpper(char) && i != 0 {
+					updatedCPUName = strings.Split(updatedCPUName, string(char))[0]
+				}
+			}
+			return updatedCPUName
+		}
 
 		// Collect capabilities once for all tests
 		tests.BeforeAll(func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			node = tests.WaitForSuccessfulVMIStart(vmi)
-
-			virshCaps := tests.GetNodeLibvirtCapabilities(vmi)
-
-			model := libvirtCPUModelRegexp.FindStringSubmatch(virshCaps)
-			Expect(len(model)).To(Equal(2))
-			libvirtCpuModel = model[1]
-
-			vendor := libvirtCPUVendorRegexp.FindStringSubmatch(virshCaps)
-			Expect(len(vendor)).To(Equal(2))
-			libvirtCpuVendor = vendor[1]
-
-			cpuFeaturesList := libvirtCPUFeatureRegexp.FindAllStringSubmatch(virshCaps, -1)
-
-			for _, cpuFeature := range cpuFeaturesList {
-				cpuFeatures = append(cpuFeatures, cpuFeature[1])
-			}
-
-			cpuInfo := tests.GetNodeCPUInfo(vmi)
-			modelName := cpuModelNameRegexp.FindStringSubmatch(cpuInfo)
-			Expect(len(modelName)).To(Equal(2))
-			cpuModelName = modelName[1]
-
-			// Best to also delete the VMI, in the case that there is only one spot free for scheduling
-			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				return false
-			}, 120*time.Second, 1*time.Second).Should(BeTrue())
+			nodes = tests.GetAllSchedulableNodes(virtClient)
+			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 		})
 
 		BeforeEach(func() {
 			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			cpuVmi.Spec.Affinity = &kubev1.Affinity{
-				NodeAffinity: &kubev1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &kubev1.NodeSelector{
-						NodeSelectorTerms: []kubev1.NodeSelectorTerm{
-							{
-								MatchExpressions: []kubev1.NodeSelectorRequirement{
-									{Key: "kubernetes.io/hostname", Operator: kubev1.NodeSelectorOpIn, Values: []string{node}},
-								},
-							},
-						},
-					},
-				},
-			}
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
-			It("[test_id:1678]should report defined CPU model", func() {
-				vmiModel := "Conroe"
-				if libvirtCpuVendor == "AMD" {
-					vmiModel = "Opteron_G1"
-				}
+			It("[QUARANTINE][test_id:1678]should report defined CPU model", func() {
+				supportedCPUs := tests.GetSupportedCPUModels(*nodes)
+				Expect(len(supportedCPUs)).ToNot(Equal(0))
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Model: vmiModel,
+					Model: supportedCPUs[0],
 				}
+				niceName := parseCPUNiceName(supportedCPUs[0])
 
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
@@ -1538,8 +1563,8 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking the CPU model under the guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", vmiModel)},
-					&expect.BExp{R: "model name"},
+					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", niceName)},
+					&expect.BExp{R: fmt.Sprintf(".*model name.*%s.*", niceName)},
 				}, 10)).To(Succeed())
 			})
 		})
@@ -1555,13 +1580,18 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
+				By("Checking the CPU model under the guest OS")
+				output := tests.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
+
+				niceName := parseCPUNiceName(output)
+
 				By("Expecting the VirtualMachineInstance console")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", cpuModelName)},
-					&expect.BExp{R: "model name"},
+					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", niceName)},
+					&expect.BExp{R: fmt.Sprintf(".*model name.*%s.*", niceName)},
 				}, 10)).To(Succeed())
 			})
 		})
@@ -1573,23 +1603,29 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
+				output := tests.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
+
+				niceName := parseCPUNiceName(output)
+
 				By("Expecting the VirtualMachineInstance console")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
 				console.SafeExpectBatch(cpuVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", libvirtCpuModel)},
-					&expect.BExp{R: "model name"},
+					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", niceName)},
+					&expect.BExp{R: fmt.Sprintf(".*model name.*%s.*", niceName)},
 				}, 10)
 			})
 		})
 
 		Context("when CPU features defined", func() {
-			It("[test_id:3123]should start a Virtaul Machine with matching features", func() {
+			It("[test_id:3123]should start a Virtual Machine with matching features", func() {
+				supportedCPUFeatures := tests.GetSupportedCPUFeatures(*nodes)
+				Expect(len(supportedCPUFeatures)).ToNot(Equal(0))
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
 						{
-							Name: cpuFeatures[0],
+							Name: supportedCPUFeatures[0],
 						},
 					},
 				}
@@ -1601,13 +1637,6 @@ var _ = Describe("Configurations", func() {
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(cpuVmi)).To(Succeed())
-
-				By("Checking the CPU features under the guest OS")
-				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuFeatures[0])},
-					&expect.BExp{R: "flags"},
-				}, 10)).To(Succeed())
-
 			})
 		})
 	})
@@ -1659,7 +1688,7 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("with a custom scheduler", func() {
-		It("[test_id:4631]schould set the custom scheduler on the pod", func() {
+		It("[test_id:4631]should set the custom scheduler on the pod", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.SchedulerName = "my-custom-scheduler"
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -1808,7 +1837,7 @@ var _ = Describe("Configurations", func() {
 			ioThreads := string(v1.IOThreads)
 			ioNone := ""
 
-			By("checking if default io has not been seti for sparsed file")
+			By("checking if default io has not been set for sparsed file")
 			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
 			Expect(disks[0].Driver.IO).To(Equal(ioNone))
 
@@ -1832,6 +1861,124 @@ var _ = Describe("Configurations", func() {
 			Expect(disks[3].Alias.GetName()).To(Equal("ephemeral-disk2"))
 			Expect(disks[3].Driver.IO).To(Equal(ioThreads))
 
+		})
+	})
+
+	Context("Block size configuration set", func() {
+
+		It("Should set BlockIO when using custom block sizes", func() {
+			tests.SkipPVCTestIfRunnigOnKindInfra()
+
+			By("creating a block volume")
+			tests.CreateBlockVolumePvAndPvc("1Gi")
+
+			vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
+
+			By("setting the disk to use custom block sizes")
+			logicalSize := uint(16384)
+			physicalSize := uint(16384)
+			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
+				Custom: &v1.CustomBlockSize{
+					Logical:  logicalSize,
+					Physical: physicalSize,
+				},
+			}
+
+			By("initializing the VM")
+			tests.RunVMIAndExpectLaunch(vmi, 60)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking if number of attached disks is equal to real disks number")
+			disks := runningVMISpec.Devices.Disks
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+
+			By("checking if BlockIO is set to the custom block size")
+			Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
+			Expect(disks[0].BlockIO).ToNot(BeNil())
+			Expect(disks[0].BlockIO.LogicalBlockSize).To(Equal(logicalSize))
+			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
+		})
+
+		It("Should set BlockIO when set to match volume block sizes on block devices", func() {
+			tests.SkipPVCTestIfRunnigOnKindInfra()
+
+			By("creating a block volume")
+			tests.CreateBlockVolumePvAndPvc("1Gi")
+
+			vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
+
+			By("setting the disk to match the volume block sizes")
+			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
+				MatchVolume: &v1.FeatureState{},
+			}
+
+			By("initializing the VM")
+			tests.RunVMIAndExpectLaunch(vmi, 60)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking if number of attached disks is equal to real disks number")
+			disks := runningVMISpec.Devices.Disks
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+
+			By("checking if BlockIO is set for the disk")
+			Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
+			Expect(disks[0].BlockIO).ToNot(BeNil())
+			// Block devices should be one of 512n, 512e or 4096n so accept 512 and 4096 values.
+			expectedDiskSizes := SatisfyAny(Equal(uint(512)), Equal(uint(4096)))
+			Expect(disks[0].BlockIO.LogicalBlockSize).To(expectedDiskSizes)
+			Expect(disks[0].BlockIO.PhysicalBlockSize).To(expectedDiskSizes)
+		})
+
+		It("Should set BlockIO when set to match volume block sizes on files", func() {
+			originalConfig := tests.GetCurrentKv(virtClient).Spec.Configuration
+			tests.EnableFeatureGate(virtconfig.HostDiskGate)
+			defer tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+
+			By("creating a disk image")
+			var nodeName string
+			tmpHostDiskDir := tests.RandTmpDir()
+			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewRandom().String()))
+			job := tests.CreateHostDiskImage(tmpHostDiskPath)
+			job, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), job, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			getStatus := func() k8sv1.PodPhase {
+				pod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Get(context.Background(), job.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if pod.Spec.NodeName != "" && nodeName == "" {
+					nodeName = pod.Spec.NodeName
+				}
+				return pod.Status.Phase
+			}
+			Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
+			defer tests.RemoveHostDiskImage(tmpHostDiskDir, nodeName)
+
+			vmi := tests.NewRandomVMIWithHostDisk(tmpHostDiskPath, v1.HostDiskExistsOrCreate, nodeName)
+
+			By("setting the disk to match the volume block sizes")
+			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
+				MatchVolume: &v1.FeatureState{},
+			}
+
+			By("initializing the VM")
+			tests.RunVMIAndExpectLaunch(vmi, 60)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking if number of attached disks is equal to real disks number")
+			disks := runningVMISpec.Devices.Disks
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+
+			By("checking if BlockIO is set for the disk")
+			Expect(disks[0].Alias.GetName()).To(Equal("host-disk"))
+			Expect(disks[0].BlockIO).ToNot(BeNil())
+			// The default for most filesystems nowadays is 4096 but it can be changed.
+			// As such, relying on a specific value is flakey.
+			// As long as we have a value, the exact value doesn't matter.
+			Expect(disks[0].BlockIO.LogicalBlockSize).ToNot(BeZero())
+			// A filesystem only has a a single size so logical == physical
+			Expect(disks[0].BlockIO.LogicalBlockSize).To(Equal(disks[0].BlockIO.PhysicalBlockSize))
 		})
 	})
 
@@ -1947,6 +2094,33 @@ var _ = Describe("Configurations", func() {
 		})
 
 		Context("[Serial]with cpu pinning enabled", func() {
+			const (
+				cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+				cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+			)
+
+			getPodCPUSet := func(pod *kubev1.Pod) (output string, err error) {
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"cat", cgroupV2cpusetPath},
+				)
+
+				if err == nil {
+					return
+				}
+
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"cat", cgroupV1cpusetPath},
+				)
+
+				return
+			}
+
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
 				By("adding a cpumanger=true label to a node")
@@ -2014,12 +2188,7 @@ var _ = Describe("Configurations", func() {
 					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					readyPod,
-					"compute",
-					[]string{"cat", hw_utils.CPUSET_PATH},
-				)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -2084,12 +2253,7 @@ var _ = Describe("Configurations", func() {
 				}, 15)).To(Succeed())
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				podMemoryUsage, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", "cat /sys/fs/cgroup/memory/memory.usage_in_bytes"},
-				)
+				podMemoryUsage, err := getPodMemoryUsage(pod)
 				Expect(err).ToNot(HaveOccurred())
 				By("Converting pod memory usage")
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
@@ -2134,12 +2298,7 @@ var _ = Describe("Configurations", func() {
 					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					readyPod,
-					"compute",
-					[]string{"cat", hw_utils.CPUSET_PATH},
-				)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -2373,7 +2532,7 @@ var _ = Describe("Configurations", func() {
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') = Test-123 ] && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-			}, 1)).To(Succeed())
+			}, 10)).To(Succeed())
 		})
 	})
 

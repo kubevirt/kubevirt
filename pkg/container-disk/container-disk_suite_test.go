@@ -22,14 +22,9 @@ package containerdisk
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestContainerDisk(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "ContainerDisk Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "ContainerDisk Suite")
 }

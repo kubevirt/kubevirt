@@ -30,18 +30,40 @@ EOF
 function new_tests {
     local target_commit
     target_commit="$1"
-    # 1. fetch the changed file names from within the tests/ directory
-    # 2. grep all files ending with '_test.go'
-    # 3. remove `tests/` and `.go` to only have the test name
+    # 1. fetch the names of all added, copied, modified or renamed files
+    #    from within the tests/ directory
+    # 2. print only the last column of the line (in case of rename this is the new name)
+    # 3. grep all files ending with '.go' but not with '_suite.go'
     # 4. replace newline with `|`
     # 5. remove last `|`
-    git diff --name-status "${target_commit}".. -- tests/ \
-        | grep -v -E '^D.*' \
-        | grep -v '_suite' \
-        | grep -oE '(\w|\/)+_test\.go$' \
-        | sed -E 's/[AM]\s+tests\/(.*_test)\.go/\1/' \
+    git diff --diff-filter=ACMR --name-status "${target_commit}".. -- tests/ \
+        | awk '{print $NF}' \
+        | grep '\.go' \
+        | grep -v '_suite\.go' \
         | tr '\n' '|' \
         | sed -E 's/\|$//'
+}
+
+# taking into account that each file containing changed tests is run several times per default
+# and considering overhead of cluster-up etc., we should just skip the run
+# if the total number of tests for all runs gets higher than the total number of tests
+function should_skip_test_run_due_to_too_many_tests() {
+    local new_tests="$1"
+    local test_start_pattern='(Specify|It|Entry)\('
+    local tests_total_estimate=0
+    while IFS= read -r -d '' test_file_name; do
+        tests_total_estimate=$(( tests_total_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name") ))
+    done < <(find tests/ -name '*.go' -print0)
+    local tests_to_run_estimate=0
+    for test_file_name in $(echo "${new_tests}" | tr '|' '\n'); do
+        set +e
+        tests_to_run_estimate=$(( tests_to_run_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name") ))
+        set -e
+    done
+    local tests_total_for_all_runs_estimate
+    tests_total_for_all_runs_estimate=$(( tests_to_run_estimate * NUM_TESTS * ${#TEST_LANES[@]} ))
+    echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
+    [ "$tests_total_for_all_runs_estimate" -gt $tests_total_estimate ]
 }
 
 
@@ -91,15 +113,7 @@ echo "Test files touched: $(echo ${NEW_TESTS} | tr '|' ',')"
 NUM_TESTS=${NUM_TESTS-3}
 echo "Number of per lane runs: $NUM_TESTS"
 
-test_start_pattern='(Specify|It|Entry)\('
-tests_total_estimate=$(find tests/ -name '*_test.go' -print0 | xargs -0 grep -hcE "${test_start_pattern}" | awk '{total += $1} END {print total}')
-tests_to_run_estimate=$(echo "${NEW_TESTS}" | tr '|' '\n' | xargs grep -hcE "${test_start_pattern}" | awk '{total += $1} END {print total}')
-tests_total_for_all_runs_estimate=$(expr $tests_to_run_estimate \* $NUM_TESTS \* ${#TEST_LANES[@]})
-echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
-if [ $tests_total_for_all_runs_estimate -gt $tests_total_estimate ]; then
-    # taking into account that each file containing changed tests is run several times per default
-    # and considering overhead of cluster-up etc., we should just skip the run
-    # if the total number of tests for all runs gets higher than the total number of tests
+if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
     echo "Skipping run due to number of tests in total being too high for repeated run."
     exit 0
 fi

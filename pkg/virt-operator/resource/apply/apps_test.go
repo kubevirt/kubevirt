@@ -88,17 +88,17 @@ var _ = Describe("Apply Apps", func() {
 					return true, nil, fmt.Errorf("Patch failed!")
 				}
 				patched = true
-				return true, nil, nil
+				return true, &v1beta1.PodDisruptionBudget{}, nil
 			})
 
 			pdbClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				_, ok := action.(testing.CreateAction)
+				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
 				if shouldCreateFail {
 					return true, nil, fmt.Errorf("Create failed!")
 				}
 				created = true
-				return true, nil, nil
+				return true, update.GetObject(), nil
 			})
 
 			stores = util.Stores{}
@@ -157,6 +157,7 @@ var _ = Describe("Apply Apps", func() {
 			kv.Status.TargetKubeVirtVersion = Version
 			kv.Status.TargetDeploymentID = Id
 
+			SetGeneration(&kv.Status.Generations, cachedPodDisruptionBudget)
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
 			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
 			r := &Reconciler{
@@ -361,9 +362,9 @@ var _ = Describe("Apply Apps", func() {
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							corev1.NodeSelectorTerm{
+							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "required",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -373,10 +374,10 @@ var _ = Describe("Apply Apps", func() {
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-						corev1.PreferredSchedulingTerm{
+						{
 							Preference: corev1.NodeSelectorTerm{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "preferred",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -388,14 +389,14 @@ var _ = Describe("Apply Apps", func() {
 				},
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"required": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"preferred": "term"},
@@ -406,14 +407,14 @@ var _ = Describe("Apply Apps", func() {
 				},
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"anti-required": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"anti-preferred": "term"},
@@ -428,9 +429,9 @@ var _ = Describe("Apply Apps", func() {
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							corev1.NodeSelectorTerm{
+							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "required2",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -440,10 +441,10 @@ var _ = Describe("Apply Apps", func() {
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-						corev1.PreferredSchedulingTerm{
+						{
 							Preference: corev1.NodeSelectorTerm{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "preferred2",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -455,14 +456,14 @@ var _ = Describe("Apply Apps", func() {
 				},
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"required2": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"preferred2": "term"},
@@ -473,14 +474,14 @@ var _ = Describe("Apply Apps", func() {
 				},
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"anti-required2": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"anti-preferred2": "term"},
@@ -747,7 +748,7 @@ var _ = Describe("Apply Apps", func() {
 			var expectedJsonPatch string
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
-			for key, _ := range saMap {
+			for key := range saMap {
 				serviceAccounts = append(serviceAccounts, key)
 			}
 			serviceAccounts = append(serviceAccounts, additionalUserlist...)

@@ -13,7 +13,7 @@ import (
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -268,7 +268,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshotClass{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
-			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1alpha1.DataVolume{})
 
 			recorder = record.NewFakeRecorder(100)
@@ -362,7 +362,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			mockVMSnapshotContentQueue.Wait()
 		}
 
-		addCRD := func(crd *extv1beta1.CustomResourceDefinition) {
+		addCRD := func(crd *extv1.CustomResourceDefinition) {
 			syncCaches(stop)
 			mockCRDQueue.ExpectAdds(1)
 			crdSource.Add(crd)
@@ -659,6 +659,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
 				updatedSnapshot.Status.CreationTime = timeFunc()
 				updatedSnapshot.Status.ReadyToUse = &t
+				updatedSnapshot.Status.Indications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
@@ -863,13 +864,13 @@ var _ = Describe("Snapshot controlleer", func() {
 			})
 
 			DescribeTable("should delete informer", func(crdName string) {
-				crd := &extv1beta1.CustomResourceDefinition{
+				crd := &extv1.CustomResourceDefinition{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:              crdName,
 						DeletionTimestamp: timeFunc(),
 					},
-					Spec: extv1beta1.CustomResourceDefinitionSpec{
-						Versions: []extv1beta1.CustomResourceDefinitionVersion{
+					Spec: extv1.CustomResourceDefinitionSpec{
+						Versions: []extv1.CustomResourceDefinitionVersion{
 							{
 								Name:   "v1beta1",
 								Served: true,
@@ -1179,27 +1180,27 @@ var _ = Describe("Snapshot controlleer", func() {
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Name).To(Equal("disk1"))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk1]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [local] [disk1]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Name).To(Equal("disk2"))
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Reason).
-							To(Equal("Volume type does not suport snapshots"))
+							To(Equal("Volume type has no StorageClass defined"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[2].Name).To(Equal("disk3"))
 						Expect(vm.Status.VolumeSnapshotStatuses[2].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[2].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk3]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [local] [disk3]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[3].Name).To(Equal("disk4"))
 						Expect(vm.Status.VolumeSnapshotStatuses[3].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[3].Reason).
-							To(Equal("Volume type does not suport snapshots"))
+							To(Equal("Volume type has no StorageClass defined"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Name).To(Equal("disk5"))
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk5]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [local] [disk5]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[5].Name).To(Equal("disk6"))
 						Expect(vm.Status.VolumeSnapshotStatuses[5].Enabled).To(BeFalse())
@@ -1209,12 +1210,12 @@ var _ = Describe("Snapshot controlleer", func() {
 						Expect(vm.Status.VolumeSnapshotStatuses[6].Name).To(Equal("disk7"))
 						Expect(vm.Status.VolumeSnapshotStatuses[6].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[6].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk7]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [] [disk7]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[7].Name).To(Equal("disk8"))
 						Expect(vm.Status.VolumeSnapshotStatuses[7].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[7].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk8]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [] [disk8]"))
 
 						updateCalled = true
 					})
@@ -1373,12 +1374,12 @@ var _ = Describe("Snapshot controlleer", func() {
 			})
 
 			DescribeTable("should create informer", func(crdName string) {
-				crd := &extv1beta1.CustomResourceDefinition{
+				crd := &extv1.CustomResourceDefinition{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: crdName,
 					},
-					Spec: extv1beta1.CustomResourceDefinitionSpec{
-						Versions: []extv1beta1.CustomResourceDefinitionVersion{
+					Spec: extv1.CustomResourceDefinitionSpec{
+						Versions: []extv1.CustomResourceDefinitionVersion{
 							{
 								Name:   "v1beta1",
 								Served: true,

@@ -28,7 +28,7 @@ toolchain(
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@io_bazel_rules_go//go:def.bzl", "nogo")
-load("@com_github_atlassian_bazel_tools//goimports:def.bzl", "goimports")
+load("@com_github_ash2k_bazel_tools//goimports:def.bzl", "goimports")
 load("@bazeldnf//:def.bzl", "bazeldnf")
 
 goimports(
@@ -103,15 +103,20 @@ genrule(
 
 cc_library(
     name = "libvirt-libs",
-    srcs = [
-        "//rpm:libvirt-libs_x86_64/usr/lib64",
-    ],
-    hdrs = [
-        "//rpm:libvirt-libs_x86_64/usr/include/libvirt",
-    ],
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:libvirt-libs_aarch64/usr/lib64"],
+        "//conditions:default": ["//rpm:libvirt-libs_x86_64/usr/lib64"],
+    }),
+    hdrs = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:libvirt-libs_aarch64/usr/include/libvirt"],
+        "//conditions:default": ["//rpm:libvirt-libs_x86_64/usr/include/libvirt"],
+    }),
     include_prefix = "libvirt",
     linkstatic = 1,
-    strip_include_prefix = "/rpm/libvirt-libs_x86_64/",
+    strip_include_prefix = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "/rpm/libvirt-libs_aarch64/",
+        "//conditions:default": "/rpm/libvirt-libs_x86_64/",
+    }),
     visibility = ["//visibility:public"],
 )
 
@@ -151,7 +156,16 @@ load(
 
 container_image(
     name = "passwd-image",
-    base = "@go_image_base//image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@go_image_base_ppc64le//image",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64//image",
+        "//conditions:default": "@go_image_base//image",
+    }),
     tars = [":passwd-tar"],
     user = "1001",
     visibility = ["//visibility:public"],
@@ -263,7 +277,7 @@ genrule(
         "//cmd/virtctl",
     ],
     outs = ["virtctl-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -273,7 +287,7 @@ genrule(
         "//cmd/virtctl:virtctl-amd64",
     ],
     outs = ["virtctl-copier-amd64"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -283,7 +297,7 @@ genrule(
         "//cmd/virtctl:virtctl-darwin",
     ],
     outs = ["virtctl-copier-darwin"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -293,7 +307,7 @@ genrule(
         "//cmd/virtctl:virtctl-windows",
     ],
     outs = ["virtctl-copier-windows"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -303,17 +317,17 @@ genrule(
         "//vendor/github.com/onsi/ginkgo/ginkgo",
     ],
     outs = ["ginkgo-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
 genrule(
     name = "build-manifest-templator",
     srcs = [
-        "//tools/manifest-templator",
+        "//tools/manifest-templator:templator",
     ],
     outs = ["manifest-templator-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -323,7 +337,7 @@ genrule(
         "//tools/junit-merger",
     ],
     outs = ["junit-merger-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -334,7 +348,7 @@ genrule(
         "//tests:go_default_test",
     ],
     outs = ["functests-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -344,7 +358,7 @@ genrule(
         "//cmd/dump",
     ],
     outs = ["dump-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 

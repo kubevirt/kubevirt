@@ -273,7 +273,9 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	defer func() {
 		for i := range domStats {
 			err := domStats[i].Domain.Free()
-			log.Log.Reason(err).Warning("Error freeing a domain.")
+			if err != nil {
+				log.Log.Reason(err).Warning("Error freeing a domain.")
+			}
 		}
 	}()
 
@@ -291,11 +293,24 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 			return list, err
 		}
 
-		stat := &stats.DomainStats{}
-		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStats[i], memStats, devAliasMap, stat)
+		domInfo, err := domStat.Domain.GetInfo()
 		if err != nil {
 			return list, err
 		}
+
+		stat := &stats.DomainStats{}
+		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStats[i], memStats, domInfo, devAliasMap, stat)
+		if err != nil {
+			return list, err
+		}
+
+		cpuMap, err := domStat.Domain.GetVcpuPinInfo(libvirt.DOMAIN_AFFECT_CURRENT)
+		if err != nil {
+			return list, err
+		}
+
+		stat.CPUMap = cpuMap
+		stat.CPUMapSet = true
 
 		list = append(list, stat)
 	}
@@ -318,6 +333,10 @@ func (l *LibvirtConnection) GetDeviceAliasMap(domain *libvirt.Domain) (map[strin
 
 	for _, iface := range domSpec.Devices.Interfaces {
 		devAliasMap[iface.Target.Device] = iface.Alias.GetName()
+	}
+
+	for _, disk := range domSpec.Devices.Disks {
+		devAliasMap[disk.Target.Device] = disk.Alias.GetName()
 	}
 
 	return devAliasMap, nil
@@ -440,7 +459,9 @@ type VirDomain interface {
 	Suspend() error
 	Resume() error
 	AttachDevice(xml string) error
+	AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DetachDevice(xml string) error
+	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
 	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error
@@ -462,13 +483,17 @@ type VirDomain interface {
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
+	return NewConnectionWithTimeout(uri, user, pass, checkInterval, ConnectionInterval, ConnectionTimeout)
+}
+
+func NewConnectionWithTimeout(uri string, user string, pass string, checkInterval, connectionInterval, connectionTimeout time.Duration) (Connection, error) {
 	logger := log.Log
 	logger.V(1).Infof("Connecting to libvirt daemon: %s", uri)
 
 	var err error
 	var virConn *libvirt.Connect
 
-	err = utilwait.PollImmediate(ConnectionInterval, ConnectionTimeout, func() (done bool, err error) {
+	err = utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
 		virConn, err = newConnection(uri, user, pass)
 		if err != nil {
 			logger.V(1).Infof("Connecting to libvirt daemon failed: %v", err)

@@ -22,7 +22,6 @@ package network
 import (
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -57,14 +56,6 @@ var _ = Describe("Common Methods", func() {
 			networkHandler := NetworkUtilsHandler{}
 			_, _, err := networkHandler.GetHostAndGwAddressesFromCIDR("fd10:0:2::/127")
 			Expect(err).To(HaveOccurred())
-		})
-	})
-	Context("GenerateRandomMac function", func() {
-		It("should return a valid mac address", func() {
-			networkHandler := NetworkUtilsHandler{}
-			mac, err := networkHandler.GenerateRandomMac()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(strings.HasPrefix(mac.String(), "02:00:00")).To(BeTrue())
 		})
 	})
 	Context("composeNftablesLoad function", func() {

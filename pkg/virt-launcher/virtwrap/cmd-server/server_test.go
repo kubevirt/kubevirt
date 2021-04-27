@@ -20,6 +20,7 @@
 package cmdserver
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -30,7 +31,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -51,8 +51,6 @@ var _ = Describe("Virt remote commands", func() {
 	var stopped bool
 	var useEmulation bool
 	var options *ServerOptions
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
@@ -182,7 +180,7 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should return full user list", func() {
 			userList := []v1.VirtualMachineInstanceGuestOSUser{
-				v1.VirtualMachineInstanceGuestOSUser{
+				{
 					UserName: "testUser",
 				},
 			}
@@ -196,7 +194,7 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should return full filesystem list", func() {
 			fsList := []v1.VirtualMachineInstanceFileSystem{
-				v1.VirtualMachineInstanceFileSystem{
+				{
 					DiskName:       "main",
 					MountPoint:     "/",
 					FileSystemType: "EXT4",
@@ -210,6 +208,20 @@ var _ = Describe("Virt remote commands", func() {
 			fetchedList, err := client.GetFilesystems()
 			Expect(err).ToNot(HaveOccurred(), "should fetch filesystems without any issue")
 			Expect(fetchedList.Items).To(Equal(fsList), "fetched list should be the same")
+		})
+
+		It("should finalize VM migration", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(nil)
+
+			Expect(client.FinalizeVirtualMachineMigration(vmi)).Should(Succeed())
+		})
+
+		It("should fail to finalize VM migration", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(errors.New("error"))
+
+			Expect(client.FinalizeVirtualMachineMigration(vmi)).ToNot(Succeed())
 		})
 	})
 

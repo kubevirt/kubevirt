@@ -22,14 +22,9 @@ package hardware
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestHardwareUtils(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Hardware Utils Test Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Hardware Utils Test Suite")
 }

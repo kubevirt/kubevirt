@@ -24,7 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -38,8 +38,8 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		migrationBytes, err := json.Marshal(migration)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the Migration object")
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
 				Object: runtime.RawExtension{
 					Raw: migrationBytes,
@@ -85,5 +85,11 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 	It("should apply finalizer on migration create", func() {
 		_, migrationMeta := getMigrationSpecMetaFromResponse()
 		Expect(migrationMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceMigrationFinalizer))
+	})
+
+	It("should add the selector label", func() {
+		_, migrationMeta := getMigrationSpecMetaFromResponse()
+		Expect(migrationMeta.Labels).ToNot(BeNil())
+		Expect(migrationMeta.Labels[v1.MigrationSelectorLabel]).To(Equal(migration.Spec.VMIName))
 	})
 })

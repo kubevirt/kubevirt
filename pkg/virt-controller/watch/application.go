@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/emicklei/go-restful"
@@ -91,14 +92,14 @@ var (
 
 	leaderGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "leading_virt_controller",
+			Name: "kubevirt_virt_controller_leading",
 			Help: "Indication for an operating virt-controller.",
 		},
 	)
 
 	readyGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "ready_virt_controller",
+			Name: "kubevirt_virt_controller_ready",
 			Help: "Indication for a virt-controller that is ready to take the lead.",
 		},
 	)
@@ -325,7 +326,7 @@ func (vca *VirtControllerApp) configModificationCallback() {
 
 // Update virt-controller log verbosity on relevant config changes
 func (vca *VirtControllerApp) shouldChangeLogVerbosity() {
-	verbosity := vca.clusterConfig.GetVirtHandlerVerbosity(vca.host)
+	verbosity := vca.clusterConfig.GetVirtControllerVerbosity(vca.host)
 	log.Log.SetVerbosityLevel(int(verbosity))
 	log.Log.V(2).Infof("set log verbosity to %d", verbosity)
 }
@@ -442,6 +443,7 @@ func (vca *VirtControllerApp) initCommon() {
 		virtClient,
 		vca.clusterConfig,
 		vca.launcherSubGid,
+		runtime.GOARCH,
 	)
 
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.persistentVolumeClaimInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
@@ -497,6 +499,7 @@ func (vca *VirtControllerApp) initEvacuationController() {
 		vca.vmiInformer,
 		vca.migrationInformer,
 		vca.nodeInformer,
+		vca.kvPodInformer,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig,

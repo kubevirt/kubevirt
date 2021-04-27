@@ -21,6 +21,7 @@ package webhooks
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 
 	"github.com/golang/glog"
@@ -39,6 +40,7 @@ import (
 )
 
 var webhookInformers *Informers
+var Arch = runtime.GOARCH
 
 var Validator = openapi.CreateOpenAPIValidator(rest.ComposeAPIDefinitions())
 
@@ -135,4 +137,18 @@ func IsKubeVirtServiceAccount(serviceAccount string) bool {
 	return serviceAccount == fmt.Sprintf("%s:%s", prefix, rbac.ApiServiceAccountName) ||
 		serviceAccount == fmt.Sprintf("%s:%s", prefix, rbac.HandlerServiceAccountName) ||
 		serviceAccount == fmt.Sprintf("%s:%s", prefix, rbac.ControllerServiceAccountName)
+}
+
+func IsARM64() bool {
+	if Arch == "arm64" {
+		return true
+	}
+	return false
+}
+
+func IsPPC64() bool {
+	if Arch == "ppc64le" {
+		return true
+	}
+	return false
 }

@@ -22,14 +22,9 @@ package kubecli_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestKubecli(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Kubecli Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "kubecli Suite")
 }

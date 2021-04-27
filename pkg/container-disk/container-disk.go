@@ -58,7 +58,7 @@ func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, erro
 	basepath := ""
 	foundEntries := 0
 	foundBasepath := ""
-	for podUID, _ := range vmi.Status.ActivePods {
+	for podUID := range vmi.Status.ActivePods {
 		basepath = fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", podsBaseDir, string(podUID))
 		exists, err := diskutils.FileExists(basepath)
 		if err != nil {
@@ -96,7 +96,7 @@ func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
 
 func SetLocalDirectory(dir string) error {
 	mountBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0750)
 }
 
 func SetKubeletPodsDirectory(dir string) {
@@ -106,7 +106,7 @@ func SetKubeletPodsDirectory(dir string) {
 // used for testing - we don't want to MkdirAll on a production host mount
 func setPodsDirectory(dir string) error {
 	podsBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0750)
 }
 
 // The unit test suite uses this function
@@ -132,7 +132,7 @@ func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
 // can be provided which can for instance point to /tmp.
 func NewSocketPathGetter(baseDir string) SocketPathGetter {
 	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-		for podUID, _ := range vmi.Status.ActivePods {
+		for podUID := range vmi.Status.ActivePods {
 			basepath := fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, string(podUID))
 			socketPath := filepath.Join(basepath, fmt.Sprintf("disk_%d.sock", volumeIndex))
 			exists, _ := diskutils.FileExists(socketPath)

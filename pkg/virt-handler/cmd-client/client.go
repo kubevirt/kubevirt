@@ -82,11 +82,12 @@ type LauncherClient interface {
 	PauseVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	UnpauseVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error
+	SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error
 	CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
-	SetVirtualMachineGuestTime(vmi *v1.VirtualMachineInstance) error
+	FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	GetDomainStats() (*stats.DomainStats, bool, error)
@@ -231,7 +232,7 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	// this particular local node if it exists. A active pod not
 	// running on this node will not have a kubelet pods directory,
 	// so it will not be found.
-	for podUID, _ := range vmi.Status.ActivePods {
+	for podUID := range vmi.Status.ActivePods {
 		socketPodDir := SocketDirectoryOnHost(string(podUID))
 		exists, _ := diskutils.FileExists(socketPodDir)
 		if exists {
@@ -260,7 +261,7 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	// this particular local node if it exists. A active pod not
 	// running on this node will not have a kubelet pods directory,
 	// so it will not be found.
-	for podUID, _ := range vmi.Status.ActivePods {
+	for podUID := range vmi.Status.ActivePods {
 		socket := SocketFilePathOnHost(string(podUID))
 		exists, _ := diskutils.FileExists(socket)
 		if exists {
@@ -460,11 +461,14 @@ func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachin
 
 func (c *VirtLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {
 	return c.genericSendVMICmd("SyncMigrationTarget", c.v1client.SyncMigrationTarget, vmi, &cmdv1.VirtualMachineOptions{})
-
 }
 
-func (c *VirtLauncherClient) SetVirtualMachineGuestTime(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("SetVirtualMachineGuestTime", c.v1client.SetVirtualMachineGuestTime, vmi, &cmdv1.VirtualMachineOptions{})
+func (c *VirtLauncherClient) SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("SignalTargetPodCleanup", c.v1client.SignalTargetPodCleanup, vmi, &cmdv1.VirtualMachineOptions{})
+}
+
+func (c *VirtLauncherClient) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("FinalizeVirtualMachineMigration", c.v1client.FinalizeVirtualMachineMigration, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
 func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {

@@ -37,7 +37,6 @@ function build_release_artifacts() {
     make olm-verify
     make prom-rules-verify
 
-    docker login -u="$QUAY_USER" -p="$QUAY_PASSWORD" quay.io
     QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make bazel-push-images
 
     make build-functests
@@ -73,9 +72,7 @@ function update_github_release() {
 
 function upload_testing_manifests() {
     # replaces periodic-kubevirt-update-release-x.y-testing-manifests periodics
-    if [ "$(gsutil ls 'gs://kubevirt-prow/devel/release/kubevirt/kubevirt/'|grep $DOCKER_TAG|wc -l)" -gt 0 ]; then
-        gsutil -m rm -r "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG"
-    fi
+    gsutil -m rm -r "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG" || true
     gsutil cp -r "_out/manifests/testing" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG/manifests/"
 }
 

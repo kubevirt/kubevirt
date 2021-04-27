@@ -31,6 +31,7 @@ go_test(
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-launcher/virtwrap/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/fsnotify/fsnotify:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

@@ -65,6 +65,7 @@ type templateData struct {
 	VirtHandlerSha         string
 	VirtLauncherSha        string
 	PriorityClassSpec      string
+	FeatureGates           []string
 	GeneratedManifests     map[string]string
 }
 
@@ -91,6 +92,7 @@ func main() {
 	virtControllerSha := flag.String("virt-controller-sha", "", "")
 	virtHandlerSha := flag.String("virt-handler-sha", "", "")
 	virtLauncherSha := flag.String("virt-launcher-sha", "", "")
+	featureGates := flag.String("feature-gates", "", "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -133,6 +135,9 @@ func main() {
 		data.ReplacesCsvVersion = ""
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 2)
 		data.PriorityClassSpec = getPriorityClassSpec(2)
+		if *featureGates != "" {
+			data.FeatureGates = strings.Split(*featureGates, ",")
+		}
 
 		// operator deployment differs a bit in normal manifest and CSV
 		if strings.Contains(*inputFile, ".clusterserviceversion.yaml") {

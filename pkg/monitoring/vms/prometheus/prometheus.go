@@ -25,6 +25,9 @@ import (
 	"strings"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
+
 	libvirt "libvirt.org/libvirt-go"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -34,7 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
-	"kubevirt.io/kubevirt/pkg/util/lookup"
+	"kubevirt.io/kubevirt/pkg/controller"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -64,6 +67,15 @@ var (
 		"VMI phase.",
 		[]string{
 			"node", "phase", "os", "workload", "flavor",
+		},
+		nil,
+	)
+
+	vmiEvictionBlockerDesc = prometheus.NewDesc(
+		"kubevirt_vmi_non_evictable",
+		"Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
+		[]string{
+			"node", "namespace", "name",
 		},
 		nil,
 	)
@@ -105,20 +117,88 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 		)
 	}
 
-	if mem.SwapInSet || mem.SwapOutSet {
-		desc := metrics.newPrometheusDesc(
-			"kubevirt_vmi_memory_swap_traffic_bytes_total",
-			"swap memory traffic.",
-			[]string{"type"},
+	if mem.SwapInSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_swap_in_traffic_bytes_total",
+			"Swap in memory traffic in bytes",
+			prometheus.GaugeValue,
+			float64(mem.SwapIn)*1024,
 		)
+	}
 
-		if mem.SwapInSet {
-			metrics.pushPrometheusMetric(desc, prometheus.GaugeValue, float64(mem.SwapIn)*1024, []string{"in"})
-		}
-		if mem.SwapOutSet {
-			metrics.pushPrometheusMetric(desc, prometheus.GaugeValue, float64(mem.SwapOut)*1024, []string{"out"})
+	if mem.SwapOutSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_swap_out_traffic_bytes_total",
+			"Swap out memory traffic in bytes",
+			prometheus.GaugeValue,
+			float64(mem.SwapOut)*1024,
+		)
+	}
+
+	if mem.MajorFaultSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_pgmajfault",
+			"The number of page faults when disk IO was required.",
+			prometheus.CounterValue,
+			float64(mem.MajorFault),
+		)
+	}
+
+	if mem.MinorFaultSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_pgminfault",
+			"The number of other page faults, when disk IO was not required.",
+			prometheus.CounterValue,
+			float64(mem.MinorFault),
+		)
+	}
+
+	if mem.ActualBalloonSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_actual_balloon_bytes",
+			"current balloon bytes.",
+			prometheus.GaugeValue,
+			float64(mem.ActualBalloon)*1024,
+		)
+	}
+
+	if mem.UsableSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_usable_bytes",
+			"The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.",
+			prometheus.GaugeValue,
+			float64(mem.Usable)*1024,
+		)
+	}
+
+	if mem.TotalSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_used_total_bytes",
+			"The amount of memory in bytes used by the domain.",
+			prometheus.GaugeValue,
+			float64(mem.Total)*1024,
+		)
+	}
+}
+
+func (metrics *vmiMetrics) updateCPUAffinity(cpuMap [][]bool) {
+	affinityLabels := []string{}
+	affinityValues := []string{}
+
+	for vidx := 0; vidx < len(cpuMap); vidx++ {
+		for cidx := 0; cidx < len(cpuMap[vidx]); cidx++ {
+			affinityLabels = append(affinityLabels, fmt.Sprintf("vcpu_%v_cpu_%v", vidx, cidx))
+			affinityValues = append(affinityValues, fmt.Sprintf("%t", cpuMap[vidx][cidx]))
 		}
 	}
+
+	metrics.pushCustomMetric(
+		"kubevirt_vmi_cpu_affinity",
+		"vcpu affinity details",
+		prometheus.CounterValue, 1,
+		affinityLabels,
+		affinityValues,
+	)
 }
 
 func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
@@ -156,49 +236,99 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 			continue
 		}
 
-		if block.RdReqsSet || block.WrReqsSet {
-			desc := metrics.newPrometheusDesc(
-				"kubevirt_vmi_storage_iops_total",
-				"I/O operation performed.",
-				[]string{"drive", "type"},
-			)
+		blkLabels := []string{"drive"}
+		blkLabelValues := []string{block.Name}
 
-			if block.RdReqsSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdReqs), []string{block.Name, "read"})
-			}
-			if block.WrReqsSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrReqs), []string{block.Name, "write"})
-			}
+		if block.Alias != "" {
+			blkLabelValues[0] = block.Alias
 		}
 
-		if block.RdBytesSet || block.WrBytesSet {
-			desc := metrics.newPrometheusDesc(
-				"kubevirt_vmi_storage_traffic_bytes_total",
-				"storage traffic.",
-				[]string{"drive", "type"},
+		if block.RdReqsSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_iops_read_total",
+				"I/O read operations",
+				prometheus.CounterValue,
+				float64(block.RdReqs),
+				blkLabels,
+				blkLabelValues,
 			)
-
-			if block.RdBytesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdBytes), []string{block.Name, "read"})
-			}
-			if block.WrBytesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrBytes), []string{block.Name, "write"})
-			}
 		}
 
-		if block.RdTimesSet || block.WrTimesSet {
-			desc := metrics.newPrometheusDesc(
-				"kubevirt_vmi_storage_times_ms_total",
-				"storage operation time.",
-				[]string{"drive", "type"},
+		if block.WrReqsSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_iops_write_total",
+				"I/O write operations",
+				prometheus.CounterValue,
+				float64(block.WrReqs),
+				blkLabels,
+				blkLabelValues,
 			)
+		}
 
-			if block.RdTimesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdTimes), []string{block.Name, "read"})
-			}
-			if block.WrTimesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrTimes), []string{block.Name, "write"})
-			}
+		if block.RdBytesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_read_traffic_bytes_total",
+				"Storage read traffic in bytes",
+				prometheus.CounterValue,
+				float64(block.RdBytes),
+				blkLabels,
+				blkLabelValues,
+			)
+		}
+
+		if block.WrBytesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_write_traffic_bytes_total",
+				"Storage write traffic in bytes",
+				prometheus.CounterValue,
+				float64(block.WrBytes),
+				blkLabels,
+				blkLabelValues,
+			)
+		}
+
+		if block.RdTimesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_read_times_ms_total",
+				"Storage read operation time",
+				prometheus.CounterValue,
+				float64(block.RdTimes)/1000000,
+				blkLabels,
+				blkLabelValues,
+			)
+		}
+
+		if block.WrTimesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_write_times_ms_total",
+				"Storage write operation time",
+				prometheus.CounterValue,
+				float64(block.WrTimes)/1000000,
+				blkLabels,
+				blkLabelValues,
+			)
+		}
+
+		if block.FlReqsSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_flush_requests_total",
+				"storage flush requests.",
+				prometheus.CounterValue,
+				float64(block.FlReqs),
+				blkLabels,
+				blkLabelValues,
+			)
+		}
+
+		if block.FlTimesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_flush_times_ms_total",
+				"total time (ms) spent on cache flushing.",
+				prometheus.CounterValue,
+				float64(block.FlTimes)/1000000,
+				blkLabels,
+				blkLabelValues,
+			)
 		}
 	}
 }
@@ -375,6 +505,36 @@ func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch c
 	}
 }
 
+func updateVMIEvictionBlocker(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+	for _, vmi := range vmis {
+		mv, err := prometheus.NewConstMetric(
+			vmiEvictionBlockerDesc, prometheus.GaugeValue,
+			checkNonEvictableVMAndSetMetric(vmi),
+			nodeName, vmi.Namespace, vmi.Name,
+		)
+		if err != nil {
+			continue
+		}
+		ch <- mv
+	}
+}
+
+func checkNonEvictableVMAndSetMetric(vmi *k6tv1.VirtualMachineInstance) float64 {
+	setVal := 0.0
+	if vmi.IsEvictable() {
+		vmiIsMigratableCond := controller.NewVirtualMachineInstanceConditionManager().
+			GetCondition(vmi, k6tv1.VirtualMachineInstanceIsMigratable)
+
+		//As this metric is used for user alert we refer to be conservative - so if the VirtualMachineInstanceIsMigratable
+		//condition is still not set we treat the VM as if it's "not migratable"
+		if vmiIsMigratableCond == nil || vmiIsMigratableCond.Status == k8sv1.ConditionFalse {
+			setVal = 1.0
+		}
+
+	}
+	return setVal
+}
+
 func updateVersion(ch chan<- prometheus.Metric) {
 	verinfo := version.Get()
 	ch <- prometheus.MustNewConstMetric(
@@ -389,25 +549,27 @@ type Collector struct {
 	virtShareDir  string
 	nodeName      string
 	concCollector *concurrentCollector
+	vmiInformer   cache.SharedIndexInformer
 }
 
-func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string, MaxRequestsInFlight int) *Collector {
+func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) *Collector {
 	log.Log.Infof("Starting collector: node name=%v", nodeName)
 	co := &Collector{
 		virtCli:       virtCli,
 		virtShareDir:  virtShareDir,
 		nodeName:      nodeName,
 		concCollector: NewConcurrentCollector(MaxRequestsInFlight),
+		vmiInformer:   vmiInformer,
 	}
 	prometheus.MustRegister(co)
 	return co
 }
 
-func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
+func (co *Collector) Describe(_ chan<- *prometheus.Desc) {
 	// TODO: Use DescribeByCollect?
 }
 
-func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
+func newvmiSocketMapFromVMIs(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
 	if len(vmis) == 0 {
 		return nil
 	}
@@ -430,22 +592,24 @@ func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstanc
 func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	updateVersion(ch)
 
-	vmis, err := lookup.VirtualMachinesOnNode(co.virtCli, co.nodeName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to list all VMIs in '%s': %s", co.nodeName, err)
-		return
-	}
-
-	if len(vmis) == 0 {
+	cachedObjs := co.vmiInformer.GetIndexer().List()
+	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMIs detected")
 		return
 	}
 
-	socketToVMIs := newvmiSocketMapFromVMIs(co.virtShareDir, vmis)
+	vmis := make([]*k6tv1.VirtualMachineInstance, len(cachedObjs))
+
+	for i, obj := range cachedObjs {
+		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
+	}
+
+	socketToVMIs := newvmiSocketMapFromVMIs(vmis)
 	scraper := &prometheusScraper{ch: ch}
 	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
 
 	updateVMIsPhase(co.nodeName, vmis, ch)
+	updateVMIEvictionBlocker(co.nodeName, vmis, ch)
 	return
 }
 
@@ -509,7 +673,6 @@ func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachine
 
 	vmiMetrics := newVmiMetrics(vmi, ps.ch)
 	vmiMetrics.updateMetrics(vmStats)
-
 }
 
 func Handler(MaxRequestsInFlight int) http.Handler {
@@ -537,6 +700,10 @@ func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
 	metrics.updateVcpu(vmStats.Vcpu)
 	metrics.updateBlock(vmStats.Block)
 	metrics.updateNetwork(vmStats.Net)
+
+	if vmStats.CPUMapSet {
+		metrics.updateCPUAffinity(vmStats.CPUMap)
+	}
 }
 
 func (metrics *vmiMetrics) newPrometheusDesc(name string, help string, customLabels []string) *prometheus.Desc {

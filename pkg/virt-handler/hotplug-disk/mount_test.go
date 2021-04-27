@@ -112,20 +112,6 @@ var _ = Describe("HotplugVolume mount target records", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("setMountTargetRecord should not write record to file, if record already exists, and no changes", func() {
-		recordFile := filepath.Join(tempDir, string(vmi.UID))
-		info, err := os.Stat(recordFile)
-		Expect(err).ToNot(HaveOccurred())
-		expectedModTime := info.ModTime()
-		m.mountRecords[vmi.UID] = record
-		err = m.setMountTargetRecord(vmi, record)
-		Expect(err).ToNot(HaveOccurred())
-		resInfo, err := os.Stat(recordFile)
-		Expect(err).ToNot(HaveOccurred())
-		resModTime := resInfo.ModTime()
-		Expect(expectedModTime).To(Equal(resModTime))
-	})
-
 	It("getMountTargetRecord should get record from file if not in cache", func() {
 		res, err := m.getMountTargetRecord(vmi)
 		Expect(err).ToNot(HaveOccurred())
@@ -297,7 +283,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 
 	It("getSourceMajorMinor should return an error if no uid", func() {
 		vmi.UID = ""
-		_, _, _, err := m.getSourceMajorMinor(vmi, "fghij")
+		_, _, _, err := m.getSourceMajorMinor("fghij")
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -307,7 +293,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = ioutil.WriteFile(deviceFile, []byte("test"), 0644)
 		Expect(err).ToNot(HaveOccurred())
-		major, minor, perm, err := m.getSourceMajorMinor(vmi, "fghij")
+		major, minor, perm, err := m.getSourceMajorMinor("fghij")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(major).To(Equal(int64(6)))
 		Expect(minor).To(Equal(int64(6)))
@@ -318,7 +304,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 		deviceFile := filepath.Join(tempDir, "fghij", "volumes", "file")
 		err = os.MkdirAll(filepath.Dir(deviceFile), 0755)
 		Expect(err).ToNot(HaveOccurred())
-		major, minor, perm, err := m.getSourceMajorMinor(vmi, "fghij")
+		major, minor, perm, err := m.getSourceMajorMinor("fghij")
 		Expect(err).To(HaveOccurred())
 		Expect(major).To(Equal(int64(-1)))
 		Expect(minor).To(Equal(int64(-1)))
@@ -1092,21 +1078,21 @@ type mockIsolationDetector struct {
 	err        error
 }
 
-func (i *mockIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
+func (i *mockIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
 	return isolation.NewIsolationResult(i.pid, i.slice, i.controller), i.err
 }
 
-func (i *mockIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (isolation.IsolationResult, error) {
+func (i *mockIsolationDetector) DetectForSocket(_ *v1.VirtualMachineInstance, _ string) (isolation.IsolationResult, error) {
 	if i.pid == 1 {
 		return isolation.NewIsolationResult(i.pid, tempDir, []string{}), nil
 	}
 	return nil, fmt.Errorf("isolation error")
 }
 
-func (i *mockIsolationDetector) Whitelist(controller []string) isolation.PodIsolationDetector {
+func (i *mockIsolationDetector) Whitelist(_ []string) isolation.PodIsolationDetector {
 	return i
 }
 
-func (i *mockIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
+func (i *mockIsolationDetector) AdjustResources(_ *v1.VirtualMachineInstance) error {
 	return nil
 }

@@ -16,9 +16,12 @@ import (
 	"strings"
 	"sync"
 
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups/devices"
@@ -46,7 +49,7 @@ var (
 	}
 
 	cgroupsBasePath = func() string {
-		return "/proc/1/root/sys/fs/cgroup/devices/"
+		return filepath.Join("/proc/1/root", cgroup.ControllerPath("devices"))
 	}
 
 	statCommand = func(fileName string) ([]byte, error) {
@@ -58,11 +61,11 @@ var (
 	}
 
 	mountCommand = func(sourcePath, targetPath string) ([]byte, error) {
-		return exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "bind", strings.TrimPrefix(sourcePath, isolation.NodeIsolationResult().MountRoot()), targetPath).CombinedOutput()
+		return virt_chroot.MountChroot(strings.TrimPrefix(sourcePath, isolation.NodeIsolationResult().MountRoot()), targetPath, false).CombinedOutput()
 	}
 
 	unmountCommand = func(diskPath string) ([]byte, error) {
-		return exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "umount", diskPath).CombinedOutput()
+		return virt_chroot.UmountChroot(diskPath).CombinedOutput()
 	}
 
 	isMounted = func(path string) (bool, error) {
@@ -74,7 +77,7 @@ var (
 	}
 
 	isolationDetector = func(path string) isolation.PodIsolationDetector {
-		return isolation.NewSocketBasedIsolationDetector(path)
+		return isolation.NewSocketBasedIsolationDetector(path, cgroup.NewParser())
 	}
 
 	procMounts = func(pid int) ([]*procfs.MountInfo, error) {
@@ -211,12 +214,12 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 		return err
 	}
 
-	err = os.MkdirAll(filepath.Dir(recordFile), 0755)
+	err = os.MkdirAll(filepath.Dir(recordFile), 0750)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(recordFile, bytes, 0644)
+	err = ioutil.WriteFile(recordFile, bytes, 0600)
 	if err != nil {
 		return err
 	}
@@ -301,7 +304,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(vmi, sourceUID)
+		sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(sourceUID)
 		if err != nil {
 			return err
 		}
@@ -321,7 +324,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		sourceMajor, sourceMinor, _, err := m.getSourceMajorMinor(vmi, sourceUID)
+		sourceMajor, sourceMinor, _, err := m.getSourceMajorMinor(sourceUID)
 		if err != nil {
 			return err
 		}
@@ -345,7 +348,7 @@ func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMach
 	return true
 }
 
-func (m *volumeMounter) getSourceMajorMinor(vmi *v1.VirtualMachineInstance, sourceUID types.UID) (int64, int64, string, error) {
+func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID) (int64, int64, string, error) {
 	result := make([]int64, 2)
 	perms := ""
 	if sourceUID != types.UID("") {

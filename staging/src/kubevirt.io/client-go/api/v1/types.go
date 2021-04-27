@@ -22,7 +22,7 @@ package v1
 //go:generate swagger-doc
 //go:generate deepcopy-gen -i . --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
 //go:generate defaulter-gen -i . --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
-//go:generate openapi-gen -i kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,kubevirt.io/client-go/api/v1 --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1  --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
+//go:generate openapi-gen -i kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,kubevirt.io/client-go/api/v1,github.com/openshift/api/operator/v1 --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1  --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
@@ -38,6 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	operatorsv1 "github.com/openshift/api/operator/v1"
+
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 )
 
@@ -47,6 +49,7 @@ const DefaultGracePeriodSeconds int64 = 30
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
+// +genclient
 type VirtualMachineInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -556,6 +559,10 @@ const (
 	MigrationJobNameAnnotation                    string = "kubevirt.io/migrationJobName"
 	ControllerAPILatestVersionObservedAnnotation  string = "kubevirt.io/latest-observed-api-version"
 	ControllerAPIStorageVersionObservedAnnotation string = "kubevirt.io/storage-observed-api-version"
+	// Used by functional tests to force a VMI to fail the migration internally within launcher
+	FuncTestForceLauncherMigrationFailureAnnotation string = "kubevirt.io/func-test-force-launcher-migration-failure"
+	// Used by functional tests to prevent virt launcher from finishing the target pod preparation.
+	FuncTestBlockLauncherPrepareMigrationTargetAnnotation string = "kubevirt.io/func-test-block-migration-target-preparation"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	// Internal use only.
@@ -610,6 +617,8 @@ const (
 	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
 	// This annotation represents the kubevirt deployment identifier used for an install strategy configmap.
 	InstallStrategyIdentifierAnnotation = "kubevirt.io/install-strategy-identifier"
+	// This annotation shows the enconding used for the manifests in the Install Strategy ConfigMap.
+	InstallStrategyConfigMapEncoding = "kubevirt.io/install-strategy-cm-encoding"
 	// This annotation is a hash of all customizations that live under spec.CustomizeComponents
 	KubeVirtCustomizeComponentAnnotationHash = "kubevirt.io/customizer-identifier"
 	// This annotation represents the kubevirt generation that was used to create a resource
@@ -630,8 +639,19 @@ const (
 	IgnitionAnnotation           string = "kubevirt.io/ignitiondata"
 	PlacePCIDevicesOnRootComplex string = "kubevirt.io/placePCIDevicesOnRootComplex"
 
+	// This label represents supported cpu features on the node
+	CPUFeatureLabel = "cpu-feature.node.kubevirt.io/"
+	// This laberepresents supported cpu models on the node
+	CPUModelLabel = "cpu-model.node.kubevirt.io/"
+	// This label represents supported HyperV features on the node
+	HypervLabel = "hyperv.node.kubevirt.io/"
+	// This label represents vendor of cpu model on the node
+	CPUModelVendorLabel = "cpu-vendor.node.kubevirt.io/"
+
 	VirtualMachineLabel        = AppLabel + "/vm"
 	MemfdMemoryBackend  string = "kubevirt.io/memfd"
+
+	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -753,6 +773,7 @@ func PrepareVMINodeAntiAffinitySelectorRequirement(vmi *VirtualMachineInstance) 
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
+// +genclient
 type VirtualMachineInstanceReplicaSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -877,6 +898,7 @@ type VirtualMachineInstanceTemplateSpec struct {
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
+// +genclient
 type VirtualMachineInstanceMigration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -940,6 +962,7 @@ const (
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
+// +genclient
 type VirtualMachineInstancePreset struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -992,6 +1015,7 @@ func NewVirtualMachinePreset(name string, selector metav1.LabelSelector) *Virtua
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
+// +genclient
 type VirtualMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -1271,6 +1295,7 @@ type Probe struct {
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
+// +genclient
 type KubeVirt struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -1291,9 +1316,31 @@ type KubeVirtList struct {
 //
 // +k8s:openapi-gen=true
 type KubeVirtSelfSignConfiguration struct {
-	CARotateInterval   *metav1.Duration `json:"caRotateInterval,omitempty"`
+	// Deprecated. Use CA.Duration instead
+	CARotateInterval *metav1.Duration `json:"caRotateInterval,omitempty"`
+	// Deprecated. Use Server.Duration instead
 	CertRotateInterval *metav1.Duration `json:"certRotateInterval,omitempty"`
-	CAOverlapInterval  *metav1.Duration `json:"caOverlapInterval,omitempty"`
+	// Deprecated. Use CA.Duration and CA.RenewBefore instead
+	CAOverlapInterval *metav1.Duration `json:"caOverlapInterval,omitempty"`
+
+	// CA configuration
+	// CA certs are kept in the CA bundle as long as they are valid
+	CA *CertConfig `json:"ca,omitempty"`
+
+	// Server configuration
+	// Certs are rotated and discarded
+	Server *CertConfig `json:"server,omitempty"`
+}
+
+// CertConfig contains the tunables for TLS certificates
+// +k8s:openapi-gen=true
+type CertConfig struct {
+	// The requested 'duration' (i.e. lifetime) of the Certificate.
+	Duration *metav1.Duration `json:"duration,omitempty"`
+
+	// The amount of time before the currently issued certificate's "notAfter"
+	// time that we will begin to attempt to renew the certificate.
+	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
 }
 
 //
@@ -1417,7 +1464,9 @@ type CustomizeComponents struct {
 
 // +k8s:openapi-gen=true
 type CustomizeComponentsPatch struct {
-	ResourceName string    `json:"resourceName"`
+	// +kubebuilder:validation:MinLength=1
+	ResourceName string `json:"resourceName"`
+	// +kubebuilder:validation:MinLength=1
 	ResourceType string    `json:"resourceType"`
 	Patch        string    `json:"patch"`
 	Type         PatchType `json:"type"`
@@ -1454,6 +1503,8 @@ type KubeVirtStatus struct {
 	ObservedDeploymentConfig                string              `json:"observedDeploymentConfig,omitempty" optional:"true"`
 	ObservedDeploymentID                    string              `json:"observedDeploymentID,omitempty" optional:"true"`
 	OutdatedVirtualMachineInstanceWorkloads *int                `json:"outdatedVirtualMachineInstanceWorkloads,omitempty" optional:"true"`
+	// +listType=atomic
+	Generations []operatorsv1.GenerationStatus `json:"generations,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
@@ -1536,6 +1587,9 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	metav1.TypeMeta `json:",inline"`
 	// GAVersion is a version of currently installed guest agent
 	GAVersion string `json:"guestAgentVersion,omitempty"`
+	// Return command list the guest agent supports
+	// +listType=atomic
+	SupportedCommands []GuestAgentCommandInfo `json:"supportedCommands,omitempty"`
 	// Hostname represents FQDN of a guest
 	Hostname string `json:"hostname,omitempty"`
 	// OS contains the guest operating system information
@@ -1546,6 +1600,14 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	UserList []VirtualMachineInstanceGuestOSUser `json:"userList,omitempty"`
 	// FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage
 	FSInfo VirtualMachineInstanceFileSystemInfo `json:"fsInfo,omitempty"`
+}
+
+// List of commands that QEMU guest agent supports
+//
+// +k8s:openapi-gen=true
+type GuestAgentCommandInfo struct {
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled,omitempty"`
 }
 
 // VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine
@@ -1623,20 +1685,23 @@ type RemoveVolumeOptions struct {
 // KubeVirtConfiguration holds all kubevirt configurations
 // +k8s:openapi-gen=true
 type KubeVirtConfiguration struct {
-	CPUModel                    string                  `json:"cpuModel,omitempty"`
-	CPURequest                  *resource.Quantity      `json:"cpuRequest,omitempty"`
-	DeveloperConfiguration      *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
-	EmulatedMachines            []string                `json:"emulatedMachines,omitempty"`
-	ImagePullPolicy             k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
-	MigrationConfiguration      *MigrationConfiguration `json:"migrations,omitempty"`
-	MachineType                 string                  `json:"machineType,omitempty"`
-	NetworkConfiguration        *NetworkConfiguration   `json:"network,omitempty"`
-	OVMFPath                    string                  `json:"ovmfPath,omitempty"`
-	SELinuxLauncherType         string                  `json:"selinuxLauncherType,omitempty"`
-	SMBIOSConfig                *SMBiosConfiguration    `json:"smbios,omitempty"`
-	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod       *uint32                 `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices        *PermittedHostDevices   `json:"permittedHostDevices,omitempty"`
+	CPUModel               string                  `json:"cpuModel,omitempty"`
+	CPURequest             *resource.Quantity      `json:"cpuRequest,omitempty"`
+	DeveloperConfiguration *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
+	EmulatedMachines       []string                `json:"emulatedMachines,omitempty"`
+	ImagePullPolicy        k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
+	MigrationConfiguration *MigrationConfiguration `json:"migrations,omitempty"`
+	MachineType            string                  `json:"machineType,omitempty"`
+	NetworkConfiguration   *NetworkConfiguration   `json:"network,omitempty"`
+	OVMFPath               string                  `json:"ovmfPath,omitempty"`
+	SELinuxLauncherType    string                  `json:"selinuxLauncherType,omitempty"`
+	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
+	// deprecated
+	SupportedGuestAgentVersions []string              `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod       *uint32               `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices        *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
+	MinCPUModel                 string                `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels           map[string]bool       `json:"obsoleteCPUModels,omitempty"`
 }
 
 //

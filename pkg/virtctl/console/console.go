@@ -45,7 +45,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("console", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Console{clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 
@@ -67,7 +67,7 @@ func usage() string {
 	return usage
 }
 
-func (c *Console) Run(cmd *cobra.Command, args []string) error {
+func (c *Console) Run(args []string) error {
 	namespace, _, err := c.clientConfig.Namespace()
 	if err != nil {
 		return err
@@ -126,6 +126,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Make raw terminal failed: %s", err)
 	}
 	fmt.Fprint(os.Stderr, "Successfully connected to ", vmi, " console. The escape sequence is ^]\n")
+	templates.PrintWarningForPausedVMI(virtCli, vmi, namespace)
 
 	in := os.Stdin
 	out := os.Stdout

@@ -22,6 +22,7 @@ package hooks_test
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -52,7 +53,7 @@ func (s dynamicInfoServer) Info(ctx context.Context, params *hooksInfo.InfoParam
 			hooksV1alpha1.Version,
 		},
 		HookPoints: []*hooksInfo.HookPoint{
-			&hooksInfo.HookPoint{
+			{
 				Name:     s.hookPointName,
 				Priority: s.hookPointPriority,
 			},
@@ -81,10 +82,14 @@ func hookListenAndServe(socketPath string, hookName string, hookPointName string
 
 var _ = Describe("HooksManager", func() {
 	Context("With existing sockets", func() {
-		socketDir := hooks.HookSocketsSharedDirectory
+		var socketDir string
 
 		BeforeEach(func() {
-			os.MkdirAll(socketDir, os.ModePerm)
+			var err error
+			socketDir, err = ioutil.TempDir("", "hooks-manager-test")
+			Expect(err).ToNot(HaveOccurred())
+			err = os.MkdirAll(socketDir, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should find sidecar", func() {
@@ -96,7 +101,7 @@ var _ = Describe("HooksManager", func() {
 			defer socket.Close()
 			defer os.Remove(socketPath)
 
-			manager := hooks.GetManager()
+			manager := hooks.NewManager(socketDir)
 			err = manager.Collect(1, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -117,7 +122,7 @@ var _ = Describe("HooksManager", func() {
 				defer os.Remove(socketPath)
 			}
 
-			manager := hooks.GetManager()
+			manager := hooks.NewManager(socketDir)
 			err := manager.Collect(uint(len(hookNames)), 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -139,7 +144,7 @@ var _ = Describe("HooksManager", func() {
 				defer os.Remove(socketPath)
 			}
 
-			manager := hooks.GetManager()
+			manager := hooks.NewManager(socketDir)
 			err := manager.Collect(uint(len(hookNameMap)), 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 

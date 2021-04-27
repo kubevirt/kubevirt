@@ -38,15 +38,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
+	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -76,7 +77,7 @@ func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
 	}
 }
 
-var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]VMIlifecycle", func() {
+var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIlifecycle", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -100,7 +101,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Context("when virt-handler is deleted", func() {
-		It("[Serial][test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
+		It("[QUARANTINE][Serial][test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
 			pods, err := virtClient.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"),
 			})
@@ -570,76 +571,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				tests.WaitForSuccessfulVMIStart(newVMI)
 			})
-
-			It("VMIs with Bridge Networking shouldn't fail after the kubelet restarts", func() {
-				bridgeVMI := vmi
-				// Remove the masquerade interface to use the default bridge one
-				bridgeVMI.Spec.Domain.Devices.Interfaces = nil
-				bridgeVMI.Spec.Networks = nil
-				v1.SetDefaults_NetworkInterface(bridgeVMI)
-				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
-
-				By("starting a VMI with bridged network on a node")
-				bridgeVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(bridgeVMI)
-				Expect(err).To(BeNil(), "Should submit VMI successfully")
-
-				// Start a VirtualMachineInstance with bridged networking
-				nodeName := tests.WaitForSuccessfulVMIStart(bridgeVMI)
-
-				tests.VerifyDummyNicForBridgeNetwork(bridgeVMI)
-
-				By("restarting kubelet")
-				pod := renderPkillAllPod("kubelet")
-				pod.Spec.NodeName = nodeName
-				_, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("starting another VMI on the same node, to verify kubelet is running again")
-				newVMI := newCirrosVMI()
-				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				Eventually(func() error {
-					newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(newVMI)
-					Expect(err).To(BeNil())
-					return nil
-				}, 100, 10).Should(Succeed(), "Should be able to start a new VM")
-
-				By("checking if the VMI with bridged networking is still running, it will verify the CNI didn't cause the pod to be killed")
-				tests.WaitForSuccessfulVMIStart(bridgeVMI)
-			})
-
-			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", func() {
-				bridgeVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				// Remove the masquerade interface to use the default bridge one
-				bridgeVMI.Spec.Domain.Devices.Interfaces = nil
-				bridgeVMI.Spec.Networks = nil
-				v1.SetDefaults_NetworkInterface(bridgeVMI)
-				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
-
-				By("starting a VMI with bridged network on a node")
-				bridgeVMI, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(bridgeVMI)
-				Expect(err).To(BeNil(), "Should submit VMI successfully")
-
-				// Start a VirtualMachineInstance with bridged networking
-				By("Waiting the VirtualMachineInstance start")
-				tests.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
-				tests.VerifyDummyNicForBridgeNetwork(bridgeVMI)
-
-				// Update the VMI object so we get the IP address
-				bridgeVMI, err = virtClient.VirtualMachineInstance(bridgeVMI.Namespace).Get(bridgeVMI.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vmIP := libnet.GetVmiPrimaryIpByFamily(bridgeVMI, k8sv1.IPv4Protocol)
-				dadCommand := fmt.Sprintf("sudo /usr/sbin/arping -D -I eth0 -c 2 %s | grep Received | cut -d ' ' -f 2\n", vmIP)
-
-				Expect(console.SafeExpectBatch(bridgeVMI, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
-
-					&expect.BSnd{S: dadCommand},
-					&expect.BExp{R: "0"},
-				}, 600)).To(Succeed())
-			})
-
 		})
 
 		Context("[Serial]when virt-handler is not responsive", func() {
@@ -650,15 +581,23 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
-				var nodes *k8sv1.NodeList
 
-				Eventually(func() []k8sv1.Node {
-					nodes = tests.GetAllSchedulableNodes(virtClient)
-					return nodes.Items
-				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be schedulable nodes")
+				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 
-				node := nodes.Items[0]
-				nodeName = node.GetName()
+				// Ensure that the VMI is running. This is necessary to ensure that virt-handler is fully responsible for
+				// the VMI. Otherwise virt-controller may move the VMI to failed instead of the node controller.
+				nodeName = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+
+				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
+
+				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
+				// Save virt-handler number of desired pods
+				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
 
 				kv := tests.GetCurrentKv(virtClient)
 				kv.Spec.Workloads = &v1.ComponentConfig{
@@ -678,22 +617,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 				_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
 				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
-
-				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
-				vmi.Spec.NodeSelector = map[string]string{
-					"kubernetes.io/hostname": nodeName,
-				}
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-
-				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
-
-				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
-				// Save virt-handler number of desired pods
-				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
 
 				Eventually(func() bool {
 					_, err := virtClient.CoreV1().Pods(virtHandler.Namespace).Get(context.Background(), virtHandler.Name, metav1.GetOptions{})
@@ -924,7 +847,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			})
 
-			It("[test_id:3201]should not set cpu model when vmi does not have it set and default cpu model is not set", func() {
+			It("[sig-compute][test_id:3201]should not set cpu model when vmi does not have it set and default cpu model is not set", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -938,53 +861,131 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("[Serial]with node feature discovery", func() {
-
 			var node *k8sv1.Node
-			var originalLabels map[string]string
+			var supportedCPU string
+			var supportedCPUs []string
+			var supportedFeatures []string
+
+			var supportedKVMInfoFeature []string
+
+			enableHyperVInVMI := func(label string) v1.FeatureHyperv {
+				features := v1.FeatureHyperv{}
+				trueV := true
+				switch label {
+				case "vpindex":
+					features.VPIndex = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "runtime":
+					features.Runtime = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "reset":
+					features.Reset = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "synic":
+					features.SyNIC = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "frequencies":
+					features.Frequencies = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "reenlightenment":
+					features.Reenlightenment = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				}
+
+				return features
+			}
 
 			BeforeEach(func() {
 				nodes := tests.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				node = &nodes.Items[0]
-				originalLabels = node.GetObjectMeta().GetLabels()
+				supportedCPUs = tests.GetSupportedCPUModels(*nodes)
+				Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
+
+				supportedCPU = supportedCPUs[0]
+
+				supportedFeatures = tests.GetSupportedCPUFeatures(*nodes)
+				Expect(supportedFeatures).ToNot(BeEmpty(), "There should be some supported cpu features")
+
+				for key, _ := range node.Labels {
+					if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
+						!strings.Contains(key, "tlbflush") &&
+						!strings.Contains(key, "ipi") &&
+						!strings.Contains(key, "synictimer") {
+						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, services.NFD_KVM_INFO_PREFIX))
+					}
+
+				}
 
 				tests.EnableFeatureGate(virtconfig.CPUNodeDiscoveryGate)
-			})
-
-			AfterEach(func() {
-				Expect(err).ToNot(HaveOccurred())
-				labelBytes, err := json.Marshal(originalLabels)
-				Expect(err).ToNot(HaveOccurred())
-
-				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": %s}}`, labelBytes)), metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
-
-				time.Sleep(5 * time.Second)
+				tests.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
 			})
 
 			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
-					Model: "Conroe",
+					Model: supportedCPU,
 				}
-
-				cpuModelLabel, err := services.CPUModelLabelFromCPUModel(vmi)
-				Expect(err).ToNot(HaveOccurred(), "CPU model label should have been retrieved successfully")
-
-				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, cpuModelLabel)), metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				By("Verifying VirtualMachineInstance's status is Succeeded")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					currVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+					return currVMI.Status.Phase
+				}, 120, 0.5).Should(Equal(v1.Running), "VMI should be succeeded")
+			})
+
+			It("the vmi with HyperV feature matching a nfd label on a node should be scheduled", func() {
+
+				for _, label := range supportedKVMInfoFeature {
+					fmt.Println("Using " + label)
+					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+					features := enableHyperVInVMI(label)
+					vmi.Spec.Domain.Features = &v1.Features{
+						Hyperv: &features,
+					}
+
+					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+					Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+					tests.WaitForSuccessfulVMIStart(vmi)
+
+					_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+				}
+
+			})
+
+			It("the vmi with EVMCS HyperV feature should have correct hyperv and cpu features auto filled", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi.Spec.Domain.Features = &v1.Features{
+					Hyperv: &v1.FeatureHyperv{
+						EVMCS: &v1.FeatureState{},
+					},
+				}
+
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Status.NodeName).To(Equal(node.Name), "VMI should run on a node with matching NFD CPU label")
+
+				Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
+				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).ToNot(BeNil(), "vapic should not be nil")
+				Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")
+				Expect(len(vmi.Spec.Domain.CPU.Features)).To(Equal(1), "cpu topology has to contain 1 feature")
+				Expect(vmi.Spec.Domain.CPU.Features[0].Name).To(Equal(nodelabellerutil.VmxFeature), "vmx cpu feature should be requested")
 
 			})
 
@@ -992,15 +993,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
-					Model: "Conroe",
+					Model: "486",
 				}
-
-				cpuModelLabel, err := services.CPUModelLabelFromCPUModel(vmi)
-				Expect(err).ToNot(HaveOccurred(), "CPU model label should have been retrieved successfully")
-
-				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, cpuModelLabel)), metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
 				//Make sure the vmi should try to be scheduled only on master node
 				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
@@ -1027,36 +1021,26 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Cores: 1,
 					Features: []v1.CPUFeature{
 						{
-							Name:   "lahf_lm",
+							Name:   supportedFeatures[0],
 							Policy: "require",
 						},
 						{
-							Name:   "mmx",
+							Name:   "fpu",
 							Policy: "disable",
 						},
 					},
 				}
 
-				labels := "{"
-				featureLabels := services.CPUFeatureLabelsFromCPUFeatures(vmi)
-				labels += `"` + featureLabels[0] + `"` + ":\"true\""
-				for _, featurelabel := range featureLabels[1:] {
-					labels += `,"` + featurelabel + `"` + ":\"true\""
-				}
-				labels += "}"
-
-				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": %s }}`, labels)), metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
-
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Status.NodeName).To(Equal(node.Name), "VMI should run on a node with matching NFD CPU features labels")
-
+				By("Verifying VirtualMachineInstance's status is Succeeded")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					currVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+					return currVMI.Status.Phase
+				}, 120, 0.5).Should(Equal(v1.Running), "VMI should be succeeded")
 			})
 
 			It("[test_id:3203]the vmi with cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
@@ -1066,43 +1050,32 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Cores: 1,
 					Features: []v1.CPUFeature{
 						{
-							Name:   "lahf_lm",
+							Name:   supportedFeatures[0],
 							Policy: "require",
 						},
 						{
-							Name:   "mmx",
-							Policy: "disable",
+							Name:   supportedFeatures[1],
+							Policy: "forbid",
 						},
 					},
 				}
-
-				labels := "{"
-				featureLabels := services.CPUFeatureLabelsFromCPUFeatures(vmi)
-				labels += `"` + featureLabels[0] + `"` + ":\"false\""
-				for _, featurelabel := range featureLabels[1:] {
-					labels += `,"` + featurelabel + `"` + ":\"false\""
-				}
-				labels += "}"
-
-				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": %s }}`, labels)), metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
-
-				//Make sure the vmi should try to be scheduled only on master node
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
-				Eventually(func() string {
+				Eventually(func() bool {
 					curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get vmi")
 					if curVMI.Status.Conditions != nil {
-						return curVMI.Status.Conditions[0].Reason
+						for _, condition := range curVMI.Status.Conditions {
+							if condition.Reason == "Unschedulable" {
+								return true
+							}
+						}
 					}
-					return ""
-				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unchedulable")
+					return false
+				}, 60*time.Second, 1*time.Second).Should(Equal(true), "VMI should be unchedulable")
 			})
 
 			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
@@ -1112,7 +1085,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Cores: 1,
 					Features: []v1.CPUFeature{
 						{
-							Name:   "monitor",
+							Name:   supportedFeatures[0],
 							Policy: "forbid",
 						},
 					},
@@ -1121,10 +1094,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				// Add node affinity first to test later on that although there is node affinity to
 				// the specific node - the feature policy 'forbid' will deny shceduling on that node.
 				addNodeAffinityToVMI(vmi, node.Name)
-
-				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, services.NFD_CPU_FEATURE_PREFIX+"monitor")), metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")

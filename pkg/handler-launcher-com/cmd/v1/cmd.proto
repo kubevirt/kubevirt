@@ -13,7 +13,8 @@ service Cmd {
   rpc MigrateVirtualMachine(MigrationRequest) returns (Response) {}
   rpc SyncMigrationTarget(VMIRequest) returns (Response) {}
   rpc CancelVirtualMachineMigration(VMIRequest) returns (Response) {}
-  rpc SetVirtualMachineGuestTime(VMIRequest) returns (Response) {}
+  rpc SignalTargetPodCleanup(VMIRequest) returns (Response) {}
+  rpc FinalizeVirtualMachineMigration(VMIRequest) returns (Response) {}
   rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
   rpc GetDomainStats(EmptyRequest) returns (DomainStatsResponse) {}
   rpc GetGuestInfo(EmptyRequest) returns (GuestInfoResponse) {}
@@ -37,6 +38,7 @@ message SMBios {
 message VirtualMachineOptions {
   SMBios VirtualMachineSMBios = 1;
   uint32 MemBalloonStatsPeriod = 2;
+  repeated string PreallocatedVolumes = 3;
 }
 
 message VMIRequest {

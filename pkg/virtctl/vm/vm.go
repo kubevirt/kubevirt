@@ -20,9 +20,13 @@
 package vm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 
@@ -34,19 +38,26 @@ import (
 )
 
 const (
-	COMMAND_START       = "start"
-	COMMAND_STOP        = "stop"
-	COMMAND_RESTART     = "restart"
-	COMMAND_MIGRATE     = "migrate"
-	COMMAND_RENAME      = "rename"
-	COMMAND_GUESTOSINFO = "guestosinfo"
-	COMMAND_USERLIST    = "userlist"
-	COMMAND_FSLIST      = "fslist"
+	COMMAND_START        = "start"
+	COMMAND_STOP         = "stop"
+	COMMAND_RESTART      = "restart"
+	COMMAND_MIGRATE      = "migrate"
+	COMMAND_RENAME       = "rename"
+	COMMAND_GUESTOSINFO  = "guestosinfo"
+	COMMAND_USERLIST     = "userlist"
+	COMMAND_FSLIST       = "fslist"
+	COMMAND_ADDVOLUME    = "addvolume"
+	COMMAND_REMOVEVOLUME = "removevolume"
+
+	volumeNameArg = "volume-name"
 )
 
 var (
 	forceRestart bool
 	gracePeriod  int = -1
+	volumeName   string
+	serial       string
+	persist      bool
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -57,7 +68,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("start", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_START, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -72,7 +83,7 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("stop", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_STOP, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -87,7 +98,7 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("restart", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.Flags().BoolVar(&forceRestart, "force", forceRestart, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
@@ -104,7 +115,7 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("migrate", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -119,7 +130,7 @@ func NewRenameCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("rename", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_RENAME, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -134,7 +145,7 @@ func NewGuestOsInfoCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("guestosinfo", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_GUESTOSINFO, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -149,7 +160,7 @@ func NewUserListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("userlist", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_USERLIST, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -164,11 +175,72 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("fslist", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_FSLIST, clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
+}
+
+func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "addvolume VMI",
+		Short:   "add a volume to a running VM",
+		Example: usageAddVolume(),
+		Args:    templates.ExactArgs("addvolume", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_ADDVOLUME, clientConfig: clientConfig}
+			return c.Run(args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
+	cmd.MarkFlagRequired(volumeNameArg)
+	cmd.Flags().StringVar(&serial, "serial", "", "serial number you want to assign to the disk")
+	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+
+	return cmd
+}
+
+func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "removevolume VMI",
+		Short:   "remove a volume from a running VM",
+		Example: usage(COMMAND_REMOVEVOLUME),
+		Args:    templates.ExactArgs("removevolume", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_REMOVEVOLUME, clientConfig: clientConfig}
+			return c.Run(args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
+	cmd.MarkFlagRequired(volumeNameArg)
+	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	return cmd
+}
+
+func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
+	//Check if data volume exists.
+	_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
+	if err == nil {
+		return &v1.HotplugVolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: volumeName,
+			},
+		}, nil
+	}
+	// DataVolume not found, try PVC
+	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
+	if err == nil {
+		return &v1.HotplugVolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: volumeName,
+			},
+		}, nil
+	}
+	// Neither return error
+	return nil, fmt.Errorf("Volume %s is not a DataVolume or PersistentVolumeClaim", volumeName)
 }
 
 type Command struct {
@@ -183,12 +255,80 @@ func usage(cmd string) string {
 		return usage
 	}
 
+	if cmd == COMMAND_USERLIST || cmd == COMMAND_FSLIST || cmd == COMMAND_GUESTOSINFO {
+		usage := fmt.Sprintf("  # %s a virtual machine instance called 'myvm':\n", strings.Title(cmd))
+		usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
+		return usage
+	}
+
 	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
 	usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
 	return usage
 }
 
-func (o *Command) Run(cmd *cobra.Command, args []string) error {
+func usageAddVolume() string {
+	usage := `  #Dynamically attach a volume to a running VM.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv
+
+  #Dynamically attach a volume to a running VM giving it a serial number to identify the volume inside the guest.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --serial=1234567890
+
+  #Dynamically attach a volume to a running VM and persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --persist
+  `
+	return usage
+}
+
+func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient) error {
+	volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
+	if err != nil {
+		return fmt.Errorf("error adding volume, %v", err)
+	}
+	hotplugRequest := &v1.AddVolumeOptions{
+		Name: volumeName,
+		Disk: &v1.Disk{
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: "scsi",
+				},
+			},
+		},
+		VolumeSource: volumeSource,
+	}
+	if serial != "" {
+		hotplugRequest.Disk.Serial = serial
+	} else {
+		hotplugRequest.Disk.Serial = volumeName
+	}
+	if !persist {
+		err = virtClient.VirtualMachineInstance(namespace).AddVolume(vmiName, hotplugRequest)
+	} else {
+		err = virtClient.VirtualMachine(namespace).AddVolume(vmiName, hotplugRequest)
+	}
+	if err != nil {
+		return fmt.Errorf("error adding volume, %v", err)
+	}
+	return nil
+}
+
+func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient) error {
+	var err error
+	if !persist {
+		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
+			Name: volumeName,
+		})
+	} else {
+		err = virtClient.VirtualMachine(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
+			Name: volumeName,
+		})
+	}
+	if err != nil {
+		return fmt.Errorf("Error removing volume, %v", err)
+	}
+	return nil
+}
+
+func (o *Command) Run(args []string) error {
 
 	vmiName := args[0]
 
@@ -245,7 +385,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	case COMMAND_GUESTOSINFO:
 		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error getting guestosinfo of VirtualMachine %s, %v", vmiName, err)
+			return fmt.Errorf("Error getting guestosinfo of VirtualMachineInstance %s, %v", vmiName, err)
 		}
 
 		data, err := json.MarshalIndent(guestosinfo, "", "  ")
@@ -258,7 +398,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	case COMMAND_USERLIST:
 		userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error listing users of VirtualMachine %s, %v", vmiName, err)
+			return fmt.Errorf("Error listing users of VirtualMachineInstance %s, %v", vmiName, err)
 		}
 
 		data, err := json.MarshalIndent(userlist, "", "  ")
@@ -271,7 +411,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	case COMMAND_FSLIST:
 		fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error listing filesystems of VirtualMachine %s, %v", vmiName, err)
+			return fmt.Errorf("Error listing filesystems of VirtualMachineInstance %s, %v", vmiName, err)
 		}
 
 		data, err := json.MarshalIndent(fslist, "", "  ")
@@ -281,6 +421,10 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 
 		fmt.Printf("%s\n", string(data))
 		return nil
+	case COMMAND_ADDVOLUME:
+		return addVolume(args[0], volumeName, namespace, virtClient)
+	case COMMAND_REMOVEVOLUME:
+		return removeVolume(args[0], volumeName, namespace, virtClient)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)

@@ -68,7 +68,7 @@ group_entry(
 group_entry(
     name = "root-group",
     gid = 0,
-    groupname = "qemu",
+    groupname = "root",
 )
 
 group_file(
@@ -120,23 +120,32 @@ container_image(
     name = "version-container",
     directory = "/",
     files = ["//:get-version"],
-    tars = [
-        ":libvirt-config",
-        ":passwd-tar",
-        "//rpm:launcherbase_x86_64",
-    ],
+    tars = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": [
+            ":libvirt-config",
+            ":passwd-tar",
+            "//rpm:launcherbase_aarch64",
+        ],
+        "//conditions:default": [
+            ":libvirt-config",
+            ":passwd-tar",
+            "//rpm:launcherbase_x86_64",
+        ],
+    }),
 )
 
 container_image(
     name = "virt-launcher-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     base = ":version-container",
     directory = "/usr/bin",
     entrypoint = ["/usr/bin/virt-launcher"],
     files = [
+        "node-labeller/node-labeller.sh",
         ":virt-launcher",
         "//cmd/container-disk-v2alpha:container-disk",
     ],

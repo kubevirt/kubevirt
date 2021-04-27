@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -35,7 +35,7 @@ import (
 type VMIPresetAdmitter struct {
 }
 
-func (admitter *VMIPresetAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *VMIPresetAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstancePresetGroupVersionResource.Group, webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource)
 		return webhookutils.ToAdmissionResponseError(err)
@@ -58,7 +58,7 @@ func (admitter *VMIPresetAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
 }

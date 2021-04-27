@@ -266,12 +266,35 @@ var CRDsValidation map[string]string = map[string]string{
           properties:
             selfSigned:
               properties:
+                ca:
+                  description: CA configuration CA certs are kept in the CA bundle as long as they are valid
+                  properties:
+                    duration:
+                      description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                      type: string
+                    renewBefore:
+                      description: The amount of time before the currently issued certificate's "notAfter" time that we will begin to attempt to renew the certificate.
+                      type: string
+                  type: object
                 caOverlapInterval:
+                  description: Deprecated. Use CA.Duration and CA.RenewBefore instead
                   type: string
                 caRotateInterval:
+                  description: Deprecated. Use CA.Duration instead
                   type: string
                 certRotateInterval:
+                  description: Deprecated. Use Server.Duration instead
                   type: string
+                server:
+                  description: Server configuration Certs are rotated and discarded
+                  properties:
+                    duration:
+                      description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                      type: string
+                    renewBefore:
+                      description: The amount of time before the currently issued certificate's "notAfter" time that we will begin to attempt to renew the certificate.
+                      type: string
+                  type: object
               type: object
           type: object
         configuration:
@@ -366,6 +389,8 @@ var CRDsValidation map[string]string = map[string]string{
                 unsafeMigrationOverride:
                   type: boolean
               type: object
+            minCPUModel:
+              type: string
             network:
               description: NetworkConfiguration holds network options
               properties:
@@ -375,6 +400,10 @@ var CRDsValidation map[string]string = map[string]string{
                   type: boolean
                 permitSlirpInterface:
                   type: boolean
+              type: object
+            obsoleteCPUModels:
+              additionalProperties:
+                type: boolean
               type: object
             ovmfPath:
               type: string
@@ -430,6 +459,7 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
               type: object
             supportedGuestAgentVersions:
+              description: deprecated
               items:
                 type: string
               type: array
@@ -442,8 +472,10 @@ var CRDsValidation map[string]string = map[string]string{
                   patch:
                     type: string
                   resourceName:
+                    minLength: 1
                     type: string
                   resourceType:
+                    minLength: 1
                     type: string
                   type:
                     type: string
@@ -1279,6 +1311,32 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+        generations:
+          items:
+            description: GenerationStatus keeps track of the generation for a given resource so that decisions about forced updates can be made.
+            properties:
+              group:
+                description: group is the group of the thing you're tracking
+                type: string
+              hash:
+                description: hash is an optional field set for resources without generation that are content sensitive like secrets and configmaps
+                type: string
+              lastGeneration:
+                description: lastGeneration is the last generation of the workload controller involved
+                format: int64
+                type: integer
+              name:
+                description: name is the name of the thing you're tracking
+                type: string
+              namespace:
+                description: namespace is where the thing you're tracking is
+                type: string
+              resource:
+                description: resource is the resource type of the thing you're tracking
+                type: string
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         observedDeploymentConfig:
           type: string
         observedDeploymentID:
@@ -2169,7 +2227,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                           type: boolean
                         blockMultiQueue:
-                          description: Whether or not to enable virtio multi-queue for block devices
+                          description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                           type: boolean
                         disableHotplug:
                           description: DisableHotplug disabled the ability to hotplug disks.
@@ -2178,11 +2236,33 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                           items:
                             properties:
+                              blockSize:
+                                description: If specified, the virtual disk will be presented with the given block sizes.
+                                properties:
+                                  custom:
+                                    description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                    properties:
+                                      logical:
+                                        type: integer
+                                      physical:
+                                        type: integer
+                                    required:
+                                    - logical
+                                    - physical
+                                    type: object
+                                  matchVolume:
+                                    description: Represents if a feature is enabled or disabled.
+                                    properties:
+                                      enabled:
+                                        description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                        type: boolean
+                                    type: object
+                                type: object
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
                               cache:
-                                description: Cache specifies which kvm disk cache mode should be used.
+                                description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                 type: string
                               cdrom:
                                 description: Attach a volume as a cdrom to the vmi.
@@ -2773,6 +2853,9 @@ var CRDsValidation map[string]string = map[string]string{
                       pod:
                         description: Represents the stock pod network interface.
                         properties:
+                          vmIPv6NetworkCIDR:
+                            description: IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.
+                            type: string
                           vmNetworkCIDR:
                             description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                             type: string
@@ -3240,11 +3323,33 @@ var CRDsValidation map[string]string = map[string]string{
                   disk:
                     description: Disk represents the hotplug disk that will be plugged into the running VMI
                     properties:
+                      blockSize:
+                        description: If specified, the virtual disk will be presented with the given block sizes.
+                        properties:
+                          custom:
+                            description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                            properties:
+                              logical:
+                                type: integer
+                              physical:
+                                type: integer
+                            required:
+                            - logical
+                            - physical
+                            type: object
+                          matchVolume:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                type: boolean
+                            type: object
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
                       cache:
-                        description: Cache specifies which kvm disk cache mode should be used.
+                        description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -3974,7 +4079,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                   type: boolean
                 blockMultiQueue:
-                  description: Whether or not to enable virtio multi-queue for block devices
+                  description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                   type: boolean
                 disableHotplug:
                   description: DisableHotplug disabled the ability to hotplug disks.
@@ -3983,11 +4088,33 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                   items:
                     properties:
+                      blockSize:
+                        description: If specified, the virtual disk will be presented with the given block sizes.
+                        properties:
+                          custom:
+                            description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                            properties:
+                              logical:
+                                type: integer
+                              physical:
+                                type: integer
+                            required:
+                            - logical
+                            - physical
+                            type: object
+                          matchVolume:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                type: boolean
+                            type: object
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
                       cache:
-                        description: Cache specifies which kvm disk cache mode should be used.
+                        description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -4578,6 +4705,9 @@ var CRDsValidation map[string]string = map[string]string{
               pod:
                 description: Represents the stock pod network interface.
                 properties:
+                  vmIPv6NetworkCIDR:
+                    description: IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.
+                    type: string
                   vmNetworkCIDR:
                     description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                     type: string
@@ -5376,7 +5506,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                   type: boolean
                 blockMultiQueue:
-                  description: Whether or not to enable virtio multi-queue for block devices
+                  description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                   type: boolean
                 disableHotplug:
                   description: DisableHotplug disabled the ability to hotplug disks.
@@ -5385,11 +5515,33 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                   items:
                     properties:
+                      blockSize:
+                        description: If specified, the virtual disk will be presented with the given block sizes.
+                        properties:
+                          custom:
+                            description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                            properties:
+                              logical:
+                                type: integer
+                              physical:
+                                type: integer
+                            required:
+                            - logical
+                            - physical
+                            type: object
+                          matchVolume:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                type: boolean
+                            type: object
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
                       cache:
-                        description: Cache specifies which kvm disk cache mode should be used.
+                        description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -6553,7 +6705,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                           type: boolean
                         blockMultiQueue:
-                          description: Whether or not to enable virtio multi-queue for block devices
+                          description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                           type: boolean
                         disableHotplug:
                           description: DisableHotplug disabled the ability to hotplug disks.
@@ -6562,11 +6714,33 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                           items:
                             properties:
+                              blockSize:
+                                description: If specified, the virtual disk will be presented with the given block sizes.
+                                properties:
+                                  custom:
+                                    description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                    properties:
+                                      logical:
+                                        type: integer
+                                      physical:
+                                        type: integer
+                                    required:
+                                    - logical
+                                    - physical
+                                    type: object
+                                  matchVolume:
+                                    description: Represents if a feature is enabled or disabled.
+                                    properties:
+                                      enabled:
+                                        description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                        type: boolean
+                                    type: object
+                                type: object
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
                               cache:
-                                description: Cache specifies which kvm disk cache mode should be used.
+                                description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                 type: string
                               cdrom:
                                 description: Attach a volume as a cdrom to the vmi.
@@ -7157,6 +7331,9 @@ var CRDsValidation map[string]string = map[string]string{
                       pod:
                         description: Represents the stock pod network interface.
                         properties:
+                          vmIPv6NetworkCIDR:
+                            description: IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.
+                            type: string
                           vmNetworkCIDR:
                             description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                             type: string
@@ -7777,6 +7954,12 @@ var CRDsValidation map[string]string = map[string]string{
               format: date-time
               type: string
           type: object
+        indications:
+          items:
+            description: Indication is a way to indicate the state of the vm when taking the snapshot
+            type: string
+          type: array
+          x-kubernetes-list-type: set
         readyToUse:
           type: boolean
         sourceUID:
@@ -8668,7 +8851,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                                       type: boolean
                                     blockMultiQueue:
-                                      description: Whether or not to enable virtio multi-queue for block devices
+                                      description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                                       type: boolean
                                     disableHotplug:
                                       description: DisableHotplug disabled the ability to hotplug disks.
@@ -8677,11 +8860,33 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                                       items:
                                         properties:
+                                          blockSize:
+                                            description: If specified, the virtual disk will be presented with the given block sizes.
+                                            properties:
+                                              custom:
+                                                description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                                properties:
+                                                  logical:
+                                                    type: integer
+                                                  physical:
+                                                    type: integer
+                                                required:
+                                                - logical
+                                                - physical
+                                                type: object
+                                              matchVolume:
+                                                description: Represents if a feature is enabled or disabled.
+                                                properties:
+                                                  enabled:
+                                                    description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                                    type: boolean
+                                                type: object
+                                            type: object
                                           bootOrder:
                                             description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                             type: integer
                                           cache:
-                                            description: Cache specifies which kvm disk cache mode should be used.
+                                            description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                             type: string
                                           cdrom:
                                             description: Attach a volume as a cdrom to the vmi.
@@ -9272,6 +9477,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod:
                                     description: Represents the stock pod network interface.
                                     properties:
+                                      vmIPv6NetworkCIDR:
+                                        description: IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.
+                                        type: string
                                       vmNetworkCIDR:
                                         description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                                         type: string
@@ -9739,11 +9947,33 @@ var CRDsValidation map[string]string = map[string]string{
                               disk:
                                 description: Disk represents the hotplug disk that will be plugged into the running VMI
                                 properties:
+                                  blockSize:
+                                    description: If specified, the virtual disk will be presented with the given block sizes.
+                                    properties:
+                                      custom:
+                                        description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                        properties:
+                                          logical:
+                                            type: integer
+                                          physical:
+                                            type: integer
+                                        required:
+                                        - logical
+                                        - physical
+                                        type: object
+                                      matchVolume:
+                                        description: Represents if a feature is enabled or disabled.
+                                        properties:
+                                          enabled:
+                                            description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                            type: boolean
+                                        type: object
+                                    type: object
                                   bootOrder:
                                     description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                     type: integer
                                   cache:
-                                    description: Cache specifies which kvm disk cache mode should be used.
+                                    description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                     type: string
                                   cdrom:
                                     description: Attach a volume as a cdrom to the vmi.

@@ -22,7 +22,6 @@
 package network
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net"
 	"os"
@@ -47,9 +46,8 @@ import (
 
 const (
 	randomMacGenerationAttempts = 10
-	tapOwnerUID                 = "0"
-	tapOwnerGID                 = "0"
 	allowForwarding             = 1
+	libvirtUserAndGroupId       = "0"
 )
 
 type VIF struct {
@@ -99,7 +97,6 @@ type NetworkHandler interface {
 	ParseAddr(s string) (*netlink.Addr, error)
 	GetHostAndGwAddressesFromCIDR(s string) (string, string, error)
 	SetRandomMac(iface string) (net.HardwareAddr, error)
-	GenerateRandomMac() (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error
@@ -196,11 +193,11 @@ func (h *NetworkUtilsHandler) ConfigureIpForwarding(proto iptables.Protocol) err
 }
 
 func (h *NetworkUtilsHandler) IsIpv6Enabled(interfaceName string) (bool, error) {
-	link, err := Handler.LinkByName(interfaceName)
+	link, err := h.LinkByName(interfaceName)
 	if err != nil {
 		return false, err
 	}
-	addrList, err := Handler.AddrList(link, netlink.FAMILY_V6)
+	addrList, err := h.AddrList(link, netlink.FAMILY_V6)
 	if err != nil {
 		return false, err
 	}
@@ -242,7 +239,7 @@ func (h *NetworkUtilsHandler) IptablesAppendRule(proto iptables.Protocol, table,
 
 func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, chain string) error {
 	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ipv6" or "ip" strings
-	output, err := exec.Command("nft", "add", "chain", Handler.GetNFTIPString(proto), table, chain).CombinedOutput()
+	output, err := exec.Command("nft", "add", "chain", h.GetNFTIPString(proto), table, chain).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s", string(output))
 	}
@@ -251,7 +248,7 @@ func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, c
 }
 
 func (h *NetworkUtilsHandler) NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error {
-	cmd := append([]string{"add", "rule", Handler.GetNFTIPString(proto), table, chain}, rulespec...)
+	cmd := append([]string{"add", "rule", h.GetNFTIPString(proto), table, chain}, rulespec...)
 	// #nosec No risk for attacket injection. CMD variables are predefined strings
 	output, err := exec.Command("nft", cmd...).CombinedOutput()
 	if err != nil {
@@ -336,7 +333,7 @@ func (h *NetworkUtilsHandler) GetMacDetails(iface string) (net.HardwareAddr, err
 func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
 	var mac net.HardwareAddr
 
-	currentMac, err := Handler.GetMacDetails(iface)
+	currentMac, err := h.GetMacDetails(iface)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +348,7 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 		}
 
 		if changed {
-			mac, err = Handler.GetMacDetails(iface)
+			mac, err = h.GetMacDetails(iface)
 			if err != nil {
 				return nil, err
 			}
@@ -409,18 +406,6 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 	}
 
 	return nil
-}
-
-// Generate a random mac for interface
-// Avoid MAC address starting with reserved value 0xFE (https://github.com/kubevirt/kubevirt/issues/1494)
-func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
-	prefix := []byte{0x02, 0x00, 0x00} // local unicast prefix
-	suffix := make([]byte, 3)
-	_, err := rand.Read(suffix)
-	if err != nil {
-		return nil, err
-	}
-	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
 
 func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
@@ -510,8 +495,4 @@ func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []
 		filteredRoutes = append(filteredRoutes, route)
 	}
 	return
-}
-
-func setVifCacheFile(path string) {
-	vifCacheFile = path
 }

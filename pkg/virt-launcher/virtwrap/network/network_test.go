@@ -96,19 +96,19 @@ var _ = Describe("Network", func() {
 			// We plug three multus interfaces in, with the default being second, to ensure the netN
 			// interfaces are numbered correctly
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				v1.Interface{
+				{
 					Name: "additional1",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
 						Bridge: &v1.InterfaceBridge{},
 					},
 				},
-				v1.Interface{
+				{
 					Name: "default",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
 						Bridge: &v1.InterfaceBridge{},
 					},
 				},
-				v1.Interface{
+				{
 					Name: "additional2",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
 						Bridge: &v1.InterfaceBridge{},

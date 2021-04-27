@@ -24,7 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -76,8 +76,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		enableFeatureGate(virtconfig.LiveMigrationGate)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: newMigrationBytes,
@@ -85,7 +85,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: oldMigrationBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 
@@ -114,8 +114,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		enableFeatureGate(virtconfig.LiveMigrationGate)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: migrationBytes,
@@ -123,7 +123,145 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: migrationBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
+			},
+		}
+
+		resp := migrationUpdateAdmitter.Admit(ar)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
+	It("should reject Migration on update if labels include our selector and are removed", func() {
+		vmi := v1.NewMinimalVMI("testmigratevmiupdate-labelsremoved")
+
+		informers := webhooks.GetInformers()
+		informers.VMIInformer.GetIndexer().Add(vmi)
+
+		migration := v1.VirtualMachineInstanceMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "somemigration",
+				Namespace: "default",
+				UID:       "1234",
+				Labels: map[string]string{
+					v1.MigrationSelectorLabel: vmi.Name,
+					"someOtherLabel":          vmi.Name,
+				},
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: vmi.Name,
+			},
+		}
+
+		oldMigrationBytes, _ := json.Marshal(&migration)
+
+		newMigration := migration.DeepCopy()
+		newMigration.Labels = nil
+		newMigrationBytes, _ := json.Marshal(&newMigration)
+
+		enableFeatureGate(virtconfig.LiveMigrationGate)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.MigrationGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: newMigrationBytes,
+				},
+				OldObject: runtime.RawExtension{
+					Raw: oldMigrationBytes,
+				},
+				Operation: admissionv1.Update,
+			},
+		}
+
+		resp := migrationUpdateAdmitter.Admit(ar)
+		Expect(resp.Allowed).To(BeFalse())
+	})
+
+	It("should reject Migration on update if our selector label is removed", func() {
+		vmi := v1.NewMinimalVMI("testmigratevmiupdate-selectorremoved")
+
+		informers := webhooks.GetInformers()
+		informers.VMIInformer.GetIndexer().Add(vmi)
+
+		migration := v1.VirtualMachineInstanceMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "somemigration",
+				Namespace: "default",
+				UID:       "1234",
+				Labels: map[string]string{
+					v1.MigrationSelectorLabel: vmi.Name,
+					"someOtherLabel":          vmi.Name,
+				},
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: vmi.Name,
+			},
+		}
+
+		oldMigrationBytes, _ := json.Marshal(&migration)
+
+		newMigration := migration.DeepCopy()
+		delete(newMigration.Labels, v1.MigrationSelectorLabel)
+		newMigrationBytes, _ := json.Marshal(&newMigration)
+
+		enableFeatureGate(virtconfig.LiveMigrationGate)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.MigrationGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: newMigrationBytes,
+				},
+				OldObject: runtime.RawExtension{
+					Raw: oldMigrationBytes,
+				},
+				Operation: admissionv1.Update,
+			},
+		}
+
+		resp := migrationUpdateAdmitter.Admit(ar)
+		Expect(resp.Allowed).To(BeFalse())
+	})
+
+	It("should accept Migration on update if non-selector label is removed", func() {
+		vmi := v1.NewMinimalVMI("testmigratevmiupdate-otherremoved")
+
+		informers := webhooks.GetInformers()
+		informers.VMIInformer.GetIndexer().Add(vmi)
+
+		migration := v1.VirtualMachineInstanceMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "somemigration",
+				Namespace: "default",
+				UID:       "1234",
+				Labels: map[string]string{
+					v1.MigrationSelectorLabel: vmi.Name,
+					"someOtherLabel":          vmi.Name,
+				},
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: vmi.Name,
+			},
+		}
+
+		oldMigrationBytes, _ := json.Marshal(&migration)
+
+		newMigration := migration.DeepCopy()
+		delete(newMigration.Labels, "someOtherLabel")
+		newMigrationBytes, _ := json.Marshal(&newMigration)
+
+		enableFeatureGate(virtconfig.LiveMigrationGate)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.MigrationGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: newMigrationBytes,
+				},
+				OldObject: runtime.RawExtension{
+					Raw: oldMigrationBytes,
+				},
+				Operation: admissionv1.Update,
 			},
 		}
 

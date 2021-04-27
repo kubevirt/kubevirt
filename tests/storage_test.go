@@ -42,7 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -356,14 +355,21 @@ var _ = Describe("Storage", func() {
 				}
 				dataVolume = tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			})
+			AfterEach(func() {
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-			It("[QUARANTINE][owner:@sig-compute]should be successfully started and virtiofs could be accessed", func() {
+			It("should be successfully started and virtiofs could be accessed", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 
 				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
-				Eventually(ThisDV(dataVolume), 160, 1).Should(Or(BeInPhase(cdiv1.Succeeded), BeInPhase(v1beta1.WaitForFirstConsumer)), "Timed out waiting for DataVolume to complete")
+				Expect(err).ToNot(HaveOccurred())
+				By("Waiting until the DataVolume is ready")
+				if tests.HasBindingModeWaitForFirstConsumer() {
+					tests.WaitForDataVolumePhaseWFFC(dataVolume.Namespace, dataVolume.Name, 30)
+				}
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
@@ -380,7 +386,9 @@ var _ = Describe("Storage", func() {
 				userData := fmt.Sprintf("%s\n%s", tests.GetFedoraToolsGuestAgentUserData(), mountVirtiofsCommands)
 				tests.AddUserData(vmi, "cloud-init", userData)
 
-				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
+				// import and start
+				vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
 				// Wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -405,6 +413,10 @@ var _ = Describe("Storage", func() {
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
 			})
 		})
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
@@ -463,7 +475,7 @@ var _ = Describe("Storage", func() {
 				},
 					table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", nil),
 					table.Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv4Protocol),
-					table.Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv6Protocol),
+					table.Entry("[QUARANTINE][owner:@sig-storage]with Ephemeral PVC from NFS using ipv6 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv6Protocol),
 				)
 			})
 
@@ -879,7 +891,7 @@ var _ = Describe("Storage", func() {
 			})
 
 			// Not a candidate for NFS because local volumes are used in test
-			It("[QUARANTINE][owner:@sig-storage][test_id:1015] should be successfully started", func() {
+			It("[owner:@sig-storage][test_id:1015] should be successfully started", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi = tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)

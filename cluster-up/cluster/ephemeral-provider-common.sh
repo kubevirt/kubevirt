@@ -68,6 +68,14 @@ function _add_common_params() {
           params=" --etcd-capacity $KUBEVIRT_WITH_ETC_CAPACITY $params"
         fi
     fi
+    if [ $KUBEVIRT_DEPLOY_ISTIO == "true" ]; then
+       params=" --enable-istio $params"
+    fi
+
+    # alternate (new) way to specify storage providers
+    if [[ $KUBEVIRT_STORAGE == "rook-ceph-default" ]] && [[ $KUBEVIRT_PROVIDER_EXTRA_ARGS != *"--enable-ceph"* ]]; then
+        params=" --enable-ceph $params"
+    fi
 
     echo $params
 }

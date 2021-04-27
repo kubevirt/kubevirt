@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"strings"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,7 +42,7 @@ type VMIsMutator struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
 
-func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
 		return webhookutils.ToAdmissionResponseError(err)
@@ -60,13 +60,13 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	var patch []patchOperation
 
 	// Patch the spec with defaults if we deal with a create operation
-	if ar.Request.Operation == v1beta1.Create {
+	if ar.Request.Operation == admissionv1.Create {
 		informers := webhooks.GetInformers()
 
 		// Apply presets
 		err = applyPresets(newVMI, informers.VMIPresetInformer)
 		if err != nil {
-			return &v1beta1.AdmissionResponse{
+			return &admissionv1.AdmissionResponse{
 				Result: &metav1.Status{
 					Message: err.Error(),
 					Code:    http.StatusUnprocessableEntity,
@@ -103,6 +103,15 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 			log.Log.V(2).Infof("Failed to set HyperV dependencies: %s", err)
 		}
 
+		// Do some specific setting for Arm64 Arch. It should put before SetObjectDefaults_VirtualMachineInstance
+		if webhooks.IsARM64() {
+			log.Log.V(4).Info("Apply Arm64 specific setting")
+			err = webhooks.SetVirtualMachineInstanceArm64Defaults(newVMI)
+			if err != nil {
+				// if SetVirtualMachineInstanceArm64Defaults fails, it's due to a validation error, which will get caught in the validation webhook after mutation finishes.
+				log.Log.V(2).Infof("Failed to setting for Arm64: %s", err)
+			}
+		}
 		// Add foreground finalizer
 		newVMI.Finalizers = append(newVMI.Finalizers, v1.VirtualMachineInstanceFinalizer)
 
@@ -120,7 +129,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 			Path:  "/metadata",
 			Value: value,
 		})
-	} else if ar.Request.Operation == v1beta1.Update {
+	} else if ar.Request.Operation == admissionv1.Update {
 		// Ignore status updates if they are not coming from our service accounts
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
@@ -141,8 +150,8 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	jsonPatchType := v1beta1.PatchTypeJSONPatch
-	return &v1beta1.AdmissionResponse{
+	jsonPatchType := admissionv1.PatchTypeJSONPatch
+	return &admissionv1.AdmissionResponse{
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,

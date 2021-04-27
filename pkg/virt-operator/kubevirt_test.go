@@ -32,20 +32,19 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,17 +54,17 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
+	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -78,13 +77,12 @@ const (
 )
 
 var _ = Describe("KubeVirt Operator", func() {
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	var ctrl *gomock.Controller
 	var kvInterface *kubecli.MockKubeVirtInterface
 	var kvSource *framework.FakeControllerSource
 	var kvInformer cache.SharedIndexInformer
-	var apiServiceClient *installstrategy.MockAPIServiceInterface
+	var apiServiceClient *install.MockAPIServiceInterface
 
 	var serviceAccountSource *framework.FakeControllerSource
 	var clusterRoleSource *framework.FakeControllerSource
@@ -232,7 +230,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		kvInterface = kubecli.NewMockKubeVirtInterface(ctrl)
-		apiServiceClient = installstrategy.NewMockAPIServiceInterface(ctrl)
+		apiServiceClient = install.NewMockAPIServiceInterface(ctrl)
 
 		kvInformer, kvSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		recorder = record.NewFakeRecorder(100)
@@ -252,7 +250,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.RoleBinding, roleBindingSource = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
 		stores.RoleBindingCache = informers.RoleBinding.GetStore()
 
-		informers.Crd, crdSource = testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+		informers.Crd, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 		stores.CrdCache = informers.Crd.GetStore()
 
 		informers.Service, serviceSource = testutils.NewFakeInformerFor(&k8sv1.Service{})
@@ -264,11 +262,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.DaemonSet, daemonSetSource = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 		stores.DaemonSetCache = informers.DaemonSet.GetStore()
 
-		informers.ValidationWebhook, validatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{})
+		informers.ValidationWebhook, validatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
 		stores.ValidationWebhookCache = informers.ValidationWebhook.GetStore()
-		informers.MutatingWebhook, mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.MutatingWebhookConfiguration{})
+		informers.MutatingWebhook, mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
 		stores.MutatingWebhookCache = informers.MutatingWebhook.GetStore()
-		informers.APIService, apiserviceSource = testutils.NewFakeInformerFor(&v1beta1.APIService{})
+		informers.APIService, apiserviceSource = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 		stores.APIServiceCache = informers.APIService.GetStore()
 
 		informers.SCC, sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
@@ -326,7 +324,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		promClient = promclientfake.NewSimpleClientset()
 
-		virtClient.EXPECT().AdmissionregistrationV1beta1().Return(kubeClient.AdmissionregistrationV1beta1()).AnyTimes()
+		virtClient.EXPECT().AdmissionregistrationV1().Return(kubeClient.AdmissionregistrationV1()).AnyTimes()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().BatchV1().Return(kubeClient.BatchV1()).AnyTimes()
 		virtClient.EXPECT().RbacV1().Return(kubeClient.RbacV1()).AnyTimes()
@@ -391,6 +389,13 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 		objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
 
+		if config.GetProductVersion() != "" {
+			objectMeta.Labels[v1.AppVersionLabel] = config.GetProductVersion()
+		}
+		if config.GetProductName() != "" {
+			objectMeta.Labels[v1.AppPartOfLabel] = config.GetProductName()
+		}
+
 		if objectMeta.Annotations == nil {
 			objectMeta.Annotations = make(map[string]string)
 		}
@@ -398,6 +403,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = config.GetImageRegistry()
 		objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = config.GetDeploymentID()
 		objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = "1"
+
+		objectMeta.Labels[v1.AppComponentLabel] = v1.AppComponent
 	}
 
 	addKubeVirt := func(kv *v1.KubeVirt) {
@@ -436,8 +443,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addCrd := func(crd *extv1beta1.CustomResourceDefinition) {
+	addCrd := func(crd *extv1.CustomResourceDefinition, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
+		if kv != nil {
+			apply.SetGeneration(&kv.Status.Generations, crd)
+		}
+
 		crdSource.Add(crd)
 		mockQueue.Wait()
 	}
@@ -448,31 +459,47 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addDeployment := func(depl *appsv1.Deployment) {
+	addDeployment := func(depl *appsv1.Deployment, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
+		if kv != nil {
+			apply.SetGeneration(&kv.Status.Generations, depl)
+		}
+
 		deploymentSource.Add(depl)
 		mockQueue.Wait()
 	}
 
-	addDaemonset := func(ds *appsv1.DaemonSet) {
+	addDaemonset := func(ds *appsv1.DaemonSet, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
+		if kv != nil {
+			apply.SetGeneration(&kv.Status.Generations, ds)
+		}
+
 		daemonSetSource.Add(ds)
 		mockQueue.Wait()
 	}
 
-	addValidatingWebhook := func(wh *admissionregistrationv1beta1.ValidatingWebhookConfiguration) {
+	addValidatingWebhook := func(wh *admissionregistrationv1.ValidatingWebhookConfiguration, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
+		if kv != nil {
+			apply.SetGeneration(&kv.Status.Generations, wh)
+		}
+
 		validatingWebhookSource.Add(wh)
 		mockQueue.Wait()
 	}
 
-	addMutatingWebhook := func(wh *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
+	addMutatingWebhook := func(wh *admissionregistrationv1.MutatingWebhookConfiguration, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
+		if kv != nil {
+			apply.SetGeneration(&kv.Status.Generations, wh)
+		}
+
 		mutatingWebhookSource.Add(wh)
 		mockQueue.Wait()
 	}
 
-	addAPIService := func(wh *v1beta1.APIService) {
+	addAPIService := func(wh *apiregv1.APIService) {
 		mockQueue.ExpectAdds(1)
 		apiserviceSource.Add(wh)
 		mockQueue.Wait()
@@ -490,8 +517,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addPodDisruptionBudget := func(podDisruptionBudget *policyv1beta1.PodDisruptionBudget) {
+	addPodDisruptionBudget := func(podDisruptionBudget *policyv1beta1.PodDisruptionBudget, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
+		if kv != nil {
+			apply.SetGeneration(&kv.Status.Generations, podDisruptionBudget)
+		}
+
 		podDisruptionBudgetSource.Add(podDisruptionBudget)
 		mockQueue.Wait()
 	}
@@ -530,7 +561,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addResource := func(obj runtime.Object, config *util.KubeVirtDeploymentConfig) {
+	addResource := func(obj runtime.Object, config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
 			injectMetadata(&obj.(*k8sv1.ServiceAccount).ObjectMeta, config)
@@ -547,26 +578,26 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *rbacv1.RoleBinding:
 			injectMetadata(&obj.(*rbacv1.RoleBinding).ObjectMeta, config)
 			addRoleBinding(resource)
-		case *extv1beta1.CustomResourceDefinition:
-			injectMetadata(&obj.(*extv1beta1.CustomResourceDefinition).ObjectMeta, config)
-			addCrd(resource)
+		case *extv1.CustomResourceDefinition:
+			injectMetadata(&obj.(*extv1.CustomResourceDefinition).ObjectMeta, config)
+			addCrd(resource, kv)
 		case *k8sv1.Service:
 			injectMetadata(&obj.(*k8sv1.Service).ObjectMeta, config)
 			addService(resource)
 		case *appsv1.Deployment:
 			injectMetadata(&obj.(*appsv1.Deployment).ObjectMeta, config)
-			addDeployment(resource)
+			addDeployment(resource, kv)
 		case *appsv1.DaemonSet:
 			injectMetadata(&obj.(*appsv1.DaemonSet).ObjectMeta, config)
-			addDaemonset(resource)
-		case *admissionregistrationv1beta1.ValidatingWebhookConfiguration:
-			injectMetadata(&obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration).ObjectMeta, config)
-			addValidatingWebhook(resource)
-		case *admissionregistrationv1beta1.MutatingWebhookConfiguration:
-			injectMetadata(&obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration).ObjectMeta, config)
-			addMutatingWebhook(resource)
-		case *v1beta1.APIService:
-			injectMetadata(&obj.(*v1beta1.APIService).ObjectMeta, config)
+			addDaemonset(resource, kv)
+		case *admissionregistrationv1.ValidatingWebhookConfiguration:
+			injectMetadata(&obj.(*admissionregistrationv1.ValidatingWebhookConfiguration).ObjectMeta, config)
+			addValidatingWebhook(resource, kv)
+		case *admissionregistrationv1.MutatingWebhookConfiguration:
+			injectMetadata(&obj.(*admissionregistrationv1.MutatingWebhookConfiguration).ObjectMeta, config)
+			addMutatingWebhook(resource, kv)
+		case *apiregv1.APIService:
+			injectMetadata(&obj.(*apiregv1.APIService).ObjectMeta, config)
 			addAPIService(resource)
 		case *batchv1.Job:
 			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, config)
@@ -579,7 +610,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addPod(resource)
 		case *policyv1beta1.PodDisruptionBudget:
 			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, config)
-			addPodDisruptionBudget(resource)
+			addPodDisruptionBudget(resource, kv)
 		case *k8sv1.Secret:
 			injectMetadata(&obj.(*k8sv1.Secret).ObjectMeta, config)
 			addSecret(resource)
@@ -605,13 +636,15 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	addInstallStrategy := func(config *util.KubeVirtDeploymentConfig) {
 		// install strategy config
-		resource, _ := installstrategy.NewInstallStrategyConfigMap(config, true, NAMESPACE)
+		resource, _ := install.NewInstallStrategyConfigMap(config, true, NAMESPACE)
 
 		resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
-		addResource(resource, config)
+
+		injectMetadata(&resource.ObjectMeta, config)
+		addConfigMap(resource)
 	}
 
-	addPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig, apiDeployment *appsv1.Deployment, controller *appsv1.Deployment) {
+	addPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig, apiDeployment *appsv1.Deployment, controller *appsv1.Deployment, kv *v1.KubeVirt) {
 		minAvailable := intstr.FromInt(int(1))
 		apiPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
 			ObjectMeta: metav1.ObjectMeta{
@@ -625,7 +658,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			},
 		}
 		injectMetadata(&apiPodDisruptionBudget.ObjectMeta, config)
-		addPodDisruptionBudget(apiPodDisruptionBudget)
+		addPodDisruptionBudget(apiPodDisruptionBudget, kv)
 		controllerPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: controller.Namespace,
@@ -638,13 +671,14 @@ var _ = Describe("KubeVirt Operator", func() {
 			},
 		}
 		injectMetadata(&controllerPodDisruptionBudget.ObjectMeta, config)
-		addPodDisruptionBudget(controllerPodDisruptionBudget)
+		addPodDisruptionBudget(controllerPodDisruptionBudget, kv)
 	}
 
 	addPodsWithIndividualConfigs := func(config *util.KubeVirtDeploymentConfig,
 		configController *util.KubeVirtDeploymentConfig,
 		configHandler *util.KubeVirtDeploymentConfig,
-		shouldAddPodDisruptionBudgets bool) {
+		shouldAddPodDisruptionBudgets bool,
+		kv *v1.KubeVirt) {
 		// we need at least one active pod for
 		// virt-api
 		// virt-controller
@@ -680,7 +714,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		injectMetadata(&pod.ObjectMeta, configController)
 		addPod(pod)
 
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, configHandler.GetImageRegistry(), configHandler.GetImagePrefix(), configHandler.GetHandlerVersion(), "", "", configHandler.GetImagePullPolicy(), configHandler.GetVerbosity(), configHandler.GetExtraEnv())
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, configHandler.GetImageRegistry(), configHandler.GetImagePrefix(), configHandler.GetHandlerVersion(), "", "", configController.GetLauncherVersion(), configHandler.GetImagePullPolicy(), configHandler.GetVerbosity(), configHandler.GetExtraEnv())
 		pod = &k8sv1.Pod{
 			ObjectMeta: handler.Spec.Template.ObjectMeta,
 			Spec:       handler.Spec.Template.Spec,
@@ -696,16 +730,16 @@ var _ = Describe("KubeVirt Operator", func() {
 		addPod(pod)
 
 		if shouldAddPodDisruptionBudgets {
-			addPodDisruptionBudgets(config, apiDeployment, controller)
+			addPodDisruptionBudgets(config, apiDeployment, controller, kv)
 		}
 	}
 
-	addPodsWithOptionalPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig, shouldAddPodDisruptionBudgets bool) {
-		addPodsWithIndividualConfigs(config, config, config, shouldAddPodDisruptionBudgets)
+	addPodsWithOptionalPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig, shouldAddPodDisruptionBudgets bool, kv *v1.KubeVirt) {
+		addPodsWithIndividualConfigs(config, config, config, shouldAddPodDisruptionBudgets, kv)
 	}
 
-	addPodsAndPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig) {
-		addPodsWithOptionalPodDisruptionBudgets(config, true)
+	addPodsAndPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
+		addPodsWithOptionalPodDisruptionBudgets(config, true, kv)
 	}
 
 	generateRandomResources := func() int {
@@ -713,7 +747,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		registry := fmt.Sprintf("rand-%s", rand.String(10))
 		config := getConfig(registry, version)
 
-		all := make([]interface{}, 0)
+		all := make([]runtime.Object, 0)
 		all = append(all, &k8sv1.ServiceAccount{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "v1",
@@ -759,9 +793,9 @@ var _ = Describe("KubeVirt Operator", func() {
 				Name: fmt.Sprintf("rand-%s", rand.String(10)),
 			},
 		})
-		all = append(all, &extv1beta1.CustomResourceDefinition{
+		all = append(all, &extv1.CustomResourceDefinition{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "apiextensions.k8s.io/v1beta1",
+				APIVersion: "apiextensions.k8s.io/v1",
 				Kind:       "CustomResourceDefinition",
 			},
 			ObjectMeta: metav1.ObjectMeta{
@@ -806,12 +840,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			},
 		})
 		for _, obj := range all {
-
-			if resource, ok := obj.(runtime.Object); ok {
-				addResource(resource, config)
-			} else {
-				Fail("could not cast to runtime.Object")
-			}
+			addResource(obj, config, nil)
 		}
 		return len(all)
 	}
@@ -821,26 +850,28 @@ var _ = Describe("KubeVirt Operator", func() {
 		registry := fmt.Sprintf("rand-%s", rand.String(10))
 		config := getConfig(registry, version)
 
-		validationWebhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+		validationWebhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "virt-operator-tmp-webhook",
 			},
 		}
 
 		injectMetadata(&validationWebhook.ObjectMeta, config)
-		addValidatingWebhook(validationWebhook)
+		addValidatingWebhook(validationWebhook, nil)
 	}
 
-	addAll := func(config *util.KubeVirtDeploymentConfig) {
-		all := make([]interface{}, 0)
+	addAll := func(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
+		c, _ := apply.NewCustomizer(kv.Spec.CustomizeComponents)
+
+		all := make([]runtime.Object, 0)
 
 		// rbac
-		all = append(all, rbac.GetAllCluster(NAMESPACE)...)
+		all = append(all, rbac.GetAllCluster()...)
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
 		all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 		all = append(all, rbac.GetAllController(NAMESPACE)...)
 		// crds
-		functions := []func() (*extv1beta1.CustomResourceDefinition, error){
+		functions := []func() (*extv1.CustomResourceDefinition, error){
 			components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
 			components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
 			components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
@@ -863,10 +894,29 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
 		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		apiDeployment.ObjectMeta.Annotations = map[string]string{
+			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
+		}
 		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
+		apiDeploymentPdb.ObjectMeta.Annotations = map[string]string{
+			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
+		}
+
 		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		controller.ObjectMeta.Annotations = map[string]string{
+			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
+		}
+
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		controllerPdb.ObjectMeta.Annotations = map[string]string{
+			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
+		}
+
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		handler.ObjectMeta.Annotations = map[string]string{
+			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
+		}
+
 		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
@@ -885,12 +935,14 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		// webhooks and apiservice
 		validatingWebhook := components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace())
-		for i, _ := range validatingWebhook.Webhooks {
+		validatingWebhook.ObjectMeta.Annotations[v1.KubeVirtCustomizeComponentAnnotationHash] = c.Hash()
+		for i := range validatingWebhook.Webhooks {
 			validatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 		all = append(all, validatingWebhook)
 		mutatingWebhook := components.NewVirtAPIMutatingWebhookConfiguration(config.GetNamespace())
-		for i, _ := range mutatingWebhook.Webhooks {
+		mutatingWebhook.ObjectMeta.Annotations[v1.KubeVirtCustomizeComponentAnnotationHash] = c.Hash()
+		for i := range mutatingWebhook.Webhooks {
 			mutatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 		all = append(all, mutatingWebhook)
@@ -900,7 +952,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			all = append(all, apiService)
 		}
 		validatingWebhook = components.NewOpertorValidatingWebhookConfiguration(NAMESPACE)
-		for i, _ := range validatingWebhook.Webhooks {
+		validatingWebhook.ObjectMeta.Annotations[v1.KubeVirtCustomizeComponentAnnotationHash] = c.Hash()
+		for i := range validatingWebhook.Webhooks {
 			validatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 		all = append(all, validatingWebhook)
@@ -912,11 +965,16 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 
 		for _, obj := range all {
-			if resource, ok := obj.(runtime.Object); ok {
-				addResource(resource, config)
-			} else {
-				Fail("could not cast to runtime.Object")
+			m := obj.(metav1.Object)
+			a := m.GetAnnotations()
+			if len(a) == 0 {
+				a = map[string]string{}
 			}
+
+			a[v1.KubeVirtCustomizeComponentAnnotationHash] = c.Hash()
+			m.SetAnnotations(a)
+
+			addResource(obj, config, kv)
 		}
 	}
 
@@ -1186,7 +1244,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	genericUpdateFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		update, ok := action.(testing.UpdateAction)
-		Expect(ok).To(BeTrue())
+		Expect(ok).To(BeTrue(), "genericUpdateFunction testing ok")
 		totalUpdates++
 		resource := action.GetResource().Resource
 		if _, ok := resourceChanges[resource]; !ok {
@@ -1210,12 +1268,48 @@ var _ = Describe("KubeVirt Operator", func() {
 		return true, nil, nil
 	}
 
+	webhookValidationPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &admissionregistrationv1.ValidatingWebhookConfiguration{}, nil
+	}
+
+	webhookMutatingPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &admissionregistrationv1.MutatingWebhookConfiguration{}, nil
+	}
+
+	deploymentPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &appsv1.Deployment{}, nil
+	}
+
+	daemonsetPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &appsv1.DaemonSet{}, nil
+	}
+
+	podDisruptionBudgetPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &policyv1beta1.PodDisruptionBudget{}, nil
+	}
+
+	crdPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &extv1.CustomResourceDefinition{}, nil
+	}
+
 	genericCreateFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
 		totalAdds++
 		if addToCache {
-			addResource(create.GetObject(), nil)
+			addResource(create.GetObject(), nil, nil)
 		}
 		return true, create.GetObject(), nil
 	}
@@ -1285,21 +1379,21 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	shouldExpectPatchesAndUpdates := func() {
-		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", genericPatchFunc)
+		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", crdPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "serviceaccounts", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("update", "clusterroles", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "clusterrolebindings", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "roles", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "rolebindings", genericUpdateFunc)
-		kubeClient.Fake.PrependReactor("patch", "validatingwebhookconfigurations", genericPatchFunc)
-		kubeClient.Fake.PrependReactor("patch", "mutatingwebhookconfigurations", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "validatingwebhookconfigurations", webhookValidationPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "mutatingwebhookconfigurations", webhookMutatingPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "secrets", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "configmaps", genericPatchFunc)
 
 		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
-		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
-		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
-		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "daemonsets", daemonsetPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "deployments", deploymentPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", podDisruptionBudgetPatchFunc)
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 		promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
 		promClient.Fake.PrependReactor("patch", "prometheusrules", genericPatchFunc)
@@ -1460,11 +1554,12 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectKubeVirtUpdateStatus(1)
 			shouldExpectCreations()
 			addInstallStrategy(defaultConfig)
-			addAll(defaultConfig)
-			addPodsAndPodDisruptionBudgets(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
 			makeHandlerReady()
 			makeApiAndControllerReady()
 			makeHandlerReady()
+			shouldExpectPatchesAndUpdates()
 
 			// Now when the controller runs, if the namespace will be patched, the test will fail
 			// because the patch is not expected here.
@@ -1525,10 +1620,11 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			fakeNamespaceModificationEvent()
 			shouldExpectNamespacePatch()
-			addAll(customConfig)
+			shouldExpectPatchesAndUpdates()
+			addAll(customConfig, kv)
 			// install strategy config
 			addInstallStrategy(customConfig)
-			addPodsAndPodDisruptionBudgets(customConfig)
+			addPodsAndPodDisruptionBudgets(customConfig, kv)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1566,14 +1662,16 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 			addDummyValidationWebhook()
 			addInstallStrategy(defaultConfig)
-			addAll(defaultConfig)
-			addPodsAndPodDisruptionBudgets(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
 			shouldExpectDeletions()
 			fakeNamespaceModificationEvent()
 			shouldExpectNamespacePatch()
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
 			Expect(totalDeletions).To(Equal(1))
@@ -1604,16 +1702,78 @@ var _ = Describe("KubeVirt Operator", func() {
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultConfig)
-			addAll(defaultConfig)
-			addPodsAndPodDisruptionBudgets(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
 			makeApiAndControllerReady()
 			makeHandlerReady()
+
 			fakeNamespaceModificationEvent()
 			shouldExpectNamespacePatch()
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
 
 		}, 15)
+
+		It("should update KubeVirt object if generation IDs do not match", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+					Generation: int64(1),
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:           v1.KubeVirtPhaseDeployed,
+					OperatorVersion: version.Get().String(),
+				},
+			}
+			defaultConfig.SetTargetDeploymentConfig(kv)
+			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
+
+			defaultConfig.SetTargetDeploymentConfig(kv)
+			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
+
+			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			addKubeVirt(kv)
+			addInstallStrategy(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			fakeNamespaceModificationEvent()
+			shouldExpectNamespacePatch()
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdateStatus(1)
+
+			// invalidate all lastGeneration versions
+			numGenerations := len(kv.Status.Generations)
+			for i := range kv.Status.Generations {
+				kv.Status.Generations[i].LastGeneration = -1
+			}
+
+			controller.Execute()
+
+			// add one for the namespace
+			Expect(totalPatches).To(Equal(numGenerations + 1))
+
+			// all these resources should be tracked by there generation so everyone that has been added should now be patched
+			// since they where the `lastGeneration` was set to -1 on the KubeVirt CR
+			Expect(resourceChanges["mutatingwebhookconfigurations"][Patched]).To(Equal(resourceChanges["mutatingwebhookconfigurations"][Added]))
+			Expect(resourceChanges["validatingwebhookconfigurations"][Patched]).To(Equal(resourceChanges["validatingwebhookconfigurations"][Added]))
+			Expect(resourceChanges["deployements"][Patched]).To(Equal(resourceChanges["deployements"][Added]))
+			Expect(resourceChanges["daemonsets"][Patched]).To(Equal(resourceChanges["daemonsets"][Added]))
+			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(resourceChanges["poddisruptionbudgets"][Added]))
+		}, 150)
 
 		It("should delete operator managed resources not in the deployed installstrategy", func() {
 			defer GinkgoRecover()
@@ -1640,9 +1800,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultConfig)
-			addAll(defaultConfig)
+			addAll(defaultConfig, kv)
 			numResources := generateRandomResources()
-			addPodsAndPodDisruptionBudgets(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1650,6 +1810,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectDeletions()
 			fakeNamespaceModificationEvent()
 			shouldExpectNamespacePatch()
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
 			Expect(totalDeletions).To(Equal(numResources))
@@ -1773,7 +1935,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
@@ -1954,9 +2116,9 @@ var _ = Describe("KubeVirt Operator", func() {
 				addKubeVirt(kv)
 
 				// install strategy config
-				resource, _ := installstrategy.NewInstallStrategyConfigMap(defaultConfig, false, NAMESPACE)
+				resource, _ := install.NewInstallStrategyConfigMap(defaultConfig, false, NAMESPACE)
 				resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
-				addResource(resource, defaultConfig)
+				addResource(resource, defaultConfig, nil)
 
 				job, err := controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
 				Expect(err).ToNot(HaveOccurred())
@@ -2011,8 +2173,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultConfig)
 			addInstallStrategy(rollbackConfig)
 
-			addAll(defaultConfig)
-			addPodsAndPodDisruptionBudgets(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -2038,6 +2200,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// 1 because of the pdb of virt-controller
 			// and another 1 because of the namespace was not patched yet.
 			Expect(totalPatches).To(Equal(patchCount - 4))
+			// 2 for virt-controller and pdb
 			Expect(totalUpdates).To(Equal(updateCount))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1))
@@ -2074,8 +2237,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultConfig)
 			addInstallStrategy(updatedConfig)
 
-			addAll(defaultConfig)
-			addPodsAndPodDisruptionBudgets(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -2138,10 +2301,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultConfig)
 			addInstallStrategy(updatedConfig)
 
-			addAll(defaultConfig)
+			addAll(defaultConfig, kv)
 			// Create virt-api and virt-controller under defaultConfig,
 			// but use updatedConfig for virt-handler (hack) to avoid pausing after daemonsets
-			addPodsWithIndividualConfigs(defaultConfig, defaultConfig, updatedConfig, true)
+			addPodsWithIndividualConfigs(defaultConfig, defaultConfig, updatedConfig, true, kv)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -2198,13 +2361,13 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultConfig)
 			addInstallStrategy(updatedConfig)
 
-			addAll(defaultConfig)
-			addPodsAndPodDisruptionBudgets(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
 
 			// pods for the new version are added so this test won't
 			// wait for daemonsets to rollover before updating/patching
 			// all resources.
-			addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false)
+			addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, kv)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -2260,13 +2423,13 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultConfig)
 			addInstallStrategy(updatedConfig)
 
-			addAll(defaultConfig)
-			addPodsAndPodDisruptionBudgets(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
 
 			// pods for the new version are added so this test won't
 			// wait for daemonsets to rollover before updating/patching
 			// all resources.
-			addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false)
+			addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, kv)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -2332,13 +2495,13 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultConfig)
 			addInstallStrategy(updatedConfig)
 
-			addAll(defaultConfig)
-			addPodsAndPodDisruptionBudgets(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig, kv)
 
 			// pods for the new version are added so this test won't
 			// wait for daemonsets to rollover before updating/patching
 			// all resources.
-			addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false)
+			addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, kv)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -2365,7 +2528,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// create all resources which should be deleted
 			addInstallStrategy(defaultConfig)
-			addAll(defaultConfig)
+			addAll(defaultConfig, kv)
 
 			shouldExpectKubeVirtUpdateStatus(1)
 			shouldExpectDeletions()
@@ -2397,7 +2560,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// create all resources which should be deleted
 			addInstallStrategy(defaultConfig)
-			addAll(defaultConfig)
+			addAll(defaultConfig, kv)
 
 			shouldExpectKubeVirtUpdateStatus(1)
 			shouldExpectDeletions()
@@ -2442,7 +2605,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			})
 
 			// This generates and posts the install strategy config map
-			installstrategy.DumpInstallStrategyToConfigMap(virtClient, NAMESPACE)
+			install.DumpInstallStrategyToConfigMap(virtClient, NAMESPACE)
 		}, 15)
 	})
 })

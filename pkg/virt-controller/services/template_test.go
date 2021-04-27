@@ -37,19 +37,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 
+	testutils2 "kubevirt.io/client-go/testutils"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+// TODO: The memory module is different in different cpu arch, apply multi-arch testing for memory contraint
 var _ = Describe("Template", func() {
 	var qemuGid int64 = 107
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	var svc TemplateService
@@ -79,8 +79,8 @@ var _ = Describe("Template", func() {
 			virtClient,
 			config,
 			qemuGid,
+			runtime.GOARCH,
 		)
-
 		// Set up mock clients
 		networkClient := fakenetworkclient.NewSimpleClientset()
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
@@ -197,6 +197,12 @@ var _ = Describe("Template", func() {
 
 			It("should work", func() {
 				trueVar := true
+				ovmfPath := ""
+				if svc.IsARM64() {
+					ovmfPath = "/usr/share/AAVMF"
+				} else {
+					ovmfPath = "/usr/share/OVMF"
+				}
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 					"test":                              "shouldBeInPod",
@@ -253,7 +259,7 @@ var _ = Describe("Template", func() {
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
 					"--less-pvc-space-toleration", "10",
-					"--ovmf-path", "/usr/share/OVMF"}))
+					"--ovmf-path", ovmfPath}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
@@ -262,6 +268,16 @@ var _ = Describe("Template", func() {
 				By("setting the right hostname")
 				Expect(pod.Spec.Hostname).To(Equal("testvmi"))
 				Expect(pod.Spec.Subdomain).To(BeEmpty())
+
+				hasPodNameEnvVar := false
+				for _, ev := range pod.Spec.Containers[0].Env {
+					if ev.Name == ENV_VAR_POD_NAME && ev.ValueFrom.FieldRef.FieldPath == "metadata.name" {
+						hasPodNameEnvVar = true
+						break
+					}
+				}
+				Expect(hasPodNameEnvVar).To(BeTrue())
+
 			})
 		})
 		Context("with SELinux types", func() {
@@ -799,7 +815,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								Interfaces: []v1.Interface{
-									v1.Interface{
+									{
 										Name: "test1",
 										InterfaceBindingMethod: v1.InterfaceBindingMethod{
 											SRIOV: &v1.InterfaceSRIOV{},
@@ -863,6 +879,12 @@ var _ = Describe("Template", func() {
 		})
 		Context("with node selectors", func() {
 			It("should add node selectors to template", func() {
+				ovmfPath := ""
+				if svc.IsARM64() {
+					ovmfPath = "/usr/share/AAVMF"
+				} else {
+					ovmfPath = "/usr/share/OVMF"
+				}
 
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
@@ -902,7 +924,7 @@ var _ = Describe("Template", func() {
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
 					"--less-pvc-space-toleration", "10",
-					"--ovmf-path", "/usr/share/OVMF"}))
+					"--ovmf-path", ovmfPath}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
@@ -1010,6 +1032,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
+				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.CPUModelVendorLabel))))
 			})
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features, but feature gate is disabled", func() {
@@ -1033,6 +1056,9 @@ var _ = Describe("Template", func() {
 									Reenlightenment: &v1.FeatureState{
 										Enabled: &enabled,
 									},
+									EVMCS: &v1.FeatureState{
+										Enabled: &enabled,
+									},
 								},
 							},
 						},
@@ -1043,6 +1069,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
+				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.CPUModelVendorLabel))))
 			})
 
 			It("should add node selector for hyperv nodes if VMI requests hyperv features which depend on host kernel", func() {
@@ -1074,6 +1101,9 @@ var _ = Describe("Template", func() {
 									IPI: &v1.FeatureState{
 										Enabled: &enabled,
 									},
+									EVMCS: &v1.FeatureState{
+										Enabled: &enabled,
+									},
 								},
 							},
 						},
@@ -1087,6 +1117,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"synictimer", "true"))
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"frequencies", "true"))
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"ipi", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUModelVendorLabel+IntelVendorName, "true"))
 			})
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features which do not depend on host kernel", func() {
@@ -1944,7 +1975,7 @@ var _ = Describe("Template", func() {
 
 			It("should not run privileged", func() {
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if runtime.GOARCH == "ppc64le" {
+				if svc.IsPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
@@ -1992,9 +2023,10 @@ var _ = Describe("Template", func() {
 				}
 
 				pod, err := svc.RenderLaunchManifest(vmi)
+				arch := svc.GetCpuArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*getMemoryOverhead(vmi))
+				expectedMemory.Add(*getMemoryOverhead(vmi, arch))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
@@ -2018,9 +2050,10 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				pod1, err := svc.RenderLaunchManifest(vmi1)
+				arch := svc.GetCpuArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*getMemoryOverhead(vmi1))
+				expectedMemory.Add(*getMemoryOverhead(vmi1, arch))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 				Expect(pod1.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
@@ -2137,7 +2170,6 @@ var _ = Describe("Template", func() {
 
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
 
-				Expect(caps.Add).To(ContainElement(kubev1.Capability(CAP_NET_ADMIN)), "Expected compute container to be granted NET_ADMIN capability")
 				Expect(caps.Drop).To(ContainElement(kubev1.Capability(CAP_NET_RAW)), "Expected compute container to drop NET_RAW capability")
 			})
 
@@ -2161,7 +2193,6 @@ var _ = Describe("Template", func() {
 
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
 
-				Expect(caps.Add).To(ContainElement(kubev1.Capability(CAP_NET_ADMIN)), "Expected compute container to be granted NET_ADMIN capability")
 				Expect(caps.Drop).To(ContainElement(kubev1.Capability(CAP_NET_RAW)), "Expected compute container to drop NET_RAW capability")
 			})
 
@@ -2184,7 +2215,6 @@ var _ = Describe("Template", func() {
 
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
 
-				Expect(caps.Add).To(Not(ContainElement(kubev1.Capability(CAP_NET_ADMIN))), "Expected compute container not to be granted NET_ADMIN capability")
 				Expect(caps.Drop).To(ContainElement(kubev1.Capability(CAP_NET_RAW)), "Expected compute container to drop NET_RAW capability")
 			})
 		})
@@ -2401,7 +2431,7 @@ var _ = Describe("Template", func() {
 		Context("with GPU device interface", func() {
 			It("should not run privileged", func() {
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if runtime.GOARCH == "ppc64le" {
+				if svc.IsPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				vmi := v1.VirtualMachineInstance{
@@ -2415,7 +2445,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								GPUs: []v1.GPU{
-									v1.GPU{
+									{
 										Name:       "gpu1",
 										DeviceName: "vendor.com/gpu_name",
 									},
@@ -2442,7 +2472,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								GPUs: []v1.GPU{
-									v1.GPU{
+									{
 										Name:       "gpu1",
 										DeviceName: "vendor.com/gpu_name",
 									},
@@ -2476,7 +2506,7 @@ var _ = Describe("Template", func() {
 		Context("with HostDevice device interface", func() {
 			It("should not run privileged", func() {
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if runtime.GOARCH == "ppc64le" {
+				if svc.IsPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				vmi := v1.VirtualMachineInstance{
@@ -2490,7 +2520,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								HostDevices: []v1.HostDevice{
-									v1.HostDevice{
+									{
 										Name:       "hostdev1",
 										DeviceName: "vendor.com/dev_name",
 									},
@@ -2517,7 +2547,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								HostDevices: []v1.HostDevice{
-									v1.HostDevice{
+									{
 										Name:       "hostdev1",
 										DeviceName: "vendor.com/dev_name",
 									},
@@ -2787,7 +2817,5 @@ func False() *bool {
 }
 
 func TestTemplate(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Template")
+	testutils2.KubeVirtTestSuiteSetup(t, "Template")
 }

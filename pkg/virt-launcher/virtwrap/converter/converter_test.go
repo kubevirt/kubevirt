@@ -44,6 +44,33 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
+var _ = Describe("getOptimalBlockIO", func() {
+
+	It("Should detect disk block sizes for a file DiskSource", func() {
+		disk := &api.Disk{
+			Source: api.DiskSource{
+				File: "/",
+			},
+		}
+		blockIO, err := getOptimalBlockIO(disk)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
+		// The default for most filesystems nowadays is 4096 but it can be changed.
+		// As such, relying on a specific value is flakey unless
+		// we create a disk image and filesystem just for this test.
+		// For now, as long as we have a value, the exact value doesn't matter.
+		Expect(blockIO.LogicalBlockSize).ToNot(BeZero())
+	})
+
+	It("Should fail for non-file or non-block devices", func() {
+		disk := &api.Disk{
+			Source: api.DiskSource{},
+		}
+		_, err := getOptimalBlockIO(disk)
+		Expect(err).To(HaveOccurred())
+	})
+})
+
 var _ = Describe("Converter", func() {
 
 	TestSmbios := &cmdv1.SMBios{}
@@ -59,7 +86,7 @@ var _ = Describe("Converter", func() {
 			}
 
 			var convertClock api.Clock
-			Convert_v1_Clock_To_api_Clock(clock, &convertClock, &ConverterContext{})
+			Convert_v1_Clock_To_api_Clock(clock, &convertClock)
 			data, err := xml.MarshalIndent(convertClock, "", "  ")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -83,7 +110,7 @@ var _ = Describe("Converter", func() {
 			var convertedDisk = `<Disk device="disk" type="" model="virtio-non-transitional">
   <source></source>
   <target bus="virtio" dev="vda"></target>
-  <driver error_policy="stop" name="qemu" type=""></driver>
+  <driver error_policy="stop" name="qemu" type="" discard="unmap"></driver>
   <alias name="ua-mydisk"></alias>
   <boot order="1"></boot>
 </Disk>`
@@ -129,20 +156,40 @@ var _ = Describe("Converter", func() {
 			var convertedDisk = `<Disk device="disk" type="" model="virtio-non-transitional">
   <source></source>
   <target bus="virtio" dev="vda"></target>
-  <driver error_policy="stop" name="qemu" type=""></driver>
+  <driver error_policy="stop" name="qemu" type="" discard="unmap"></driver>
   <alias name="ua-mydisk"></alias>
 </Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
 			Expect(xml).To(Equal(convertedDisk))
 		})
 
+		It("Should add blockio fields when custom sizes are provided", func() {
+			kubevirtDisk := &v1.Disk{
+				BlockSize: &v1.BlockSize{
+					Custom: &v1.CustomBlockSize{
+						Logical:  1234,
+						Physical: 1234,
+					},
+				},
+			}
+			expectedXML := `<Disk device="" type="">
+  <source></source>
+  <target></target>
+  <blockio logical_block_size="1234" physical_block_size="1234"></blockio>
+</Disk>`
+			libvirtDisk := &api.Disk{}
+			err := Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk)
+			Expect(err).ToNot(HaveOccurred())
+			data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
+			Expect(err).ToNot(HaveOccurred())
+			xml := string(data)
+			Expect(xml).To(Equal(expectedXML))
+		})
 	})
 
 	Context("with v1.VirtualMachineInstance", func() {
 
 		var vmi *v1.VirtualMachineInstance
-		_false := false
-		_true := true
 		domainType := "kvm"
 		if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 			domainType = "qemu"
@@ -171,23 +218,23 @@ var _ = Describe("Converter", func() {
 				},
 				Timer: &v1.Timer{
 					HPET: &v1.HPETTimer{
-						Enabled:    &_false,
+						Enabled:    False(),
 						TickPolicy: v1.HPETTickPolicyDelay,
 					},
 					KVM: &v1.KVMTimer{
-						Enabled: &_true,
+						Enabled: True(),
 					},
 					PIT: &v1.PITTimer{
-						Enabled:    &_false,
+						Enabled:    False(),
 						TickPolicy: v1.PITTickPolicyDiscard,
 					},
 					RTC: &v1.RTCTimer{
-						Enabled:    &_true,
+						Enabled:    True(),
 						TickPolicy: v1.RTCTickPolicyCatchup,
 						Track:      v1.TrackGuest,
 					},
 					Hyperv: &v1.HypervTimer{
-						Enabled: &_true,
+						Enabled: True(),
 					},
 				},
 			}
@@ -195,22 +242,22 @@ var _ = Describe("Converter", func() {
 				APIC:       &v1.FeatureAPIC{},
 				SMM:        &v1.FeatureState{},
 				KVM:        &v1.FeatureKVM{Hidden: true},
-				Pvspinlock: &v1.FeatureState{Enabled: &_false},
+				Pvspinlock: &v1.FeatureState{Enabled: False()},
 				Hyperv: &v1.FeatureHyperv{
-					Relaxed:         &v1.FeatureState{Enabled: &_false},
-					VAPIC:           &v1.FeatureState{Enabled: &_true},
-					Spinlocks:       &v1.FeatureSpinlocks{Enabled: &_true},
-					VPIndex:         &v1.FeatureState{Enabled: &_true},
-					Runtime:         &v1.FeatureState{Enabled: &_false},
-					SyNIC:           &v1.FeatureState{Enabled: &_true},
-					SyNICTimer:      &v1.SyNICTimer{Enabled: &_true, Direct: &v1.FeatureState{Enabled: &_true}},
-					Reset:           &v1.FeatureState{Enabled: &_true},
-					VendorID:        &v1.FeatureVendorID{Enabled: &_false, VendorID: "myvendor"},
-					Frequencies:     &v1.FeatureState{Enabled: &_false},
-					Reenlightenment: &v1.FeatureState{Enabled: &_false},
-					TLBFlush:        &v1.FeatureState{Enabled: &_true},
-					IPI:             &v1.FeatureState{Enabled: &_true},
-					EVMCS:           &v1.FeatureState{Enabled: &_false},
+					Relaxed:         &v1.FeatureState{Enabled: False()},
+					VAPIC:           &v1.FeatureState{Enabled: True()},
+					Spinlocks:       &v1.FeatureSpinlocks{Enabled: True()},
+					VPIndex:         &v1.FeatureState{Enabled: True()},
+					Runtime:         &v1.FeatureState{Enabled: False()},
+					SyNIC:           &v1.FeatureState{Enabled: True()},
+					SyNICTimer:      &v1.SyNICTimer{Enabled: True(), Direct: &v1.FeatureState{Enabled: True()}},
+					Reset:           &v1.FeatureState{Enabled: True()},
+					VendorID:        &v1.FeatureVendorID{Enabled: False(), VendorID: "myvendor"},
+					Frequencies:     &v1.FeatureState{Enabled: False()},
+					Reenlightenment: &v1.FeatureState{Enabled: False()},
+					TLBFlush:        &v1.FeatureState{Enabled: True()},
+					IPI:             &v1.FeatureState{Enabled: True()},
+					EVMCS:           &v1.FeatureState{Enabled: False()},
 				},
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
@@ -231,7 +278,7 @@ var _ = Describe("Converter", func() {
 							Bus: "virtio",
 						},
 					},
-					DedicatedIOThread: &_true,
+					DedicatedIOThread: True(),
 				},
 				{
 					Name: "nocloud",
@@ -240,16 +287,16 @@ var _ = Describe("Converter", func() {
 							Bus: "virtio",
 						},
 					},
-					DedicatedIOThread: &_true,
+					DedicatedIOThread: True(),
 				},
 				{
 					Name: "cdrom_tray_unspecified",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: &_false,
+							ReadOnly: False(),
 						},
 					},
-					DedicatedIOThread: &_false,
+					DedicatedIOThread: False(),
 				},
 				{
 					Name: "cdrom_tray_open",
@@ -304,19 +351,19 @@ var _ = Describe("Converter", func() {
 					Name: "sysprep",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: &_false,
+							ReadOnly: False(),
 						},
 					},
-					DedicatedIOThread: &_false,
+					DedicatedIOThread: False(),
 				},
 				{
 					Name: "sysprep_secret",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: &_false,
+							ReadOnly: False(),
 						},
 					},
-					DedicatedIOThread: &_false,
+					DedicatedIOThread: False(),
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
@@ -519,13 +566,13 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="2"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="2" discard="unmap"></driver>
       <alias name="ua-myvolume"></alias>
     </disk>
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="3"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap"></driver>
       <alias name="ua-nocloud"></alias>
     </disk>
     <disk device="cdrom" type="file">
@@ -557,13 +604,13 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
       <target bus="sata" dev="sdc"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
       <target bus="sata" dev="sdd"></target>
-      <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1"></driver>
+      <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1" discard="unmap"></driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
@@ -574,32 +621,32 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
       <target bus="sata" dev="sde"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
       <target bus="sata" dev="sdf"></target>
       <serial>CVLY623300HK240D</serial>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
       <source dev="/dev/pvc_block_test"></source>
       <target bus="sata" dev="sdg"></target>
-      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
     <disk device="disk" type="block">
       <source dev="/dev/dv_block_test"></source>
       <target bus="sata" dev="sdh"></target>
-      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
       <target bus="sata" dev="sdi"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
     <disk device="cdrom" type="file">
@@ -734,13 +781,13 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="2"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="2" discard="unmap"></driver>
       <alias name="ua-myvolume"></alias>
     </disk>
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="3"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap"></driver>
       <alias name="ua-nocloud"></alias>
     </disk>
     <disk device="cdrom" type="file">
@@ -772,13 +819,13 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
       <target bus="sata" dev="sdc"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
       <target bus="sata" dev="sdd"></target>
-      <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1"></driver>
+      <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1" discard="unmap"></driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
@@ -789,32 +836,32 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
       <target bus="sata" dev="sde"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
       <target bus="sata" dev="sdf"></target>
       <serial>CVLY623300HK240D</serial>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
       <source dev="/dev/pvc_block_test"></source>
       <target bus="sata" dev="sdg"></target>
-      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
     <disk device="disk" type="block">
       <source dev="/dev/dv_block_test"></source>
       <target bus="sata" dev="sdh"></target>
-      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
       <target bus="sata" dev="sdi"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
     <disk device="cdrom" type="file">
@@ -909,6 +956,222 @@ var _ = Describe("Converter", func() {
       <stats period="10"></stats>
     </memballoon>`)
 
+		//TODO: Make this xml fit for real arm64 configuration
+		var convertedDomainarm64 = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+  <name>mynamespace_testvmi</name>
+  <memory unit="b">8388608</memory>
+  <os>
+    <type arch="aarch64" machine="virt">hvm</type>
+  </os>
+  <sysinfo type="smbios">
+    <system>
+      <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
+      <entry name="serial">e4686d2c-6e8d-4335-b8fd-81bee22f4815</entry>
+      <entry name="manufacturer"></entry>
+      <entry name="family"></entry>
+      <entry name="product"></entry>
+      <entry name="sku"></entry>
+      <entry name="version"></entry>
+    </system>
+    <bios></bios>
+    <baseBoard></baseBoard>
+    <chassis></chassis>
+  </sysinfo>
+  <devices>
+    <interface type="ethernet">
+      <source></source>
+      <model type="virtio-non-transitional"></model>
+      <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
+    </interface>
+    <channel type="unix">
+      <target name="org.qemu.guest_agent.0" type="virtio"></target>
+    </channel>
+    <controller type="usb" index="0" model="none"></controller>
+    <controller type="virtio-serial" index="0" model="virtio-non-transitional"></controller>
+    <video>
+      <model type="vga" heads="1" vram="16384"></model>
+    </video>
+    <graphics type="vnc">
+      <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
+    </graphics>
+    %s
+    <disk device="disk" type="file" model="virtio-non-transitional">
+      <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
+      <target bus="virtio" dev="vda"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="2" discard="unmap"></driver>
+      <alias name="ua-myvolume"></alias>
+    </disk>
+    <disk device="disk" type="file" model="virtio-non-transitional">
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
+      <target bus="virtio" dev="vdb"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap"></driver>
+      <alias name="ua-nocloud"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
+      <target bus="sata" dev="sda" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-cdrom_tray_unspecified"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/vmi-disks/cdrom_tray_open/disk.img"></source>
+      <target bus="sata" dev="sdb" tray="open"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <readonly></readonly>
+      <alias name="ua-cdrom_tray_open"></alias>
+    </disk>
+    <disk device="floppy" type="file">
+      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_unspecified/disk.img"></source>
+      <target bus="fdc" dev="fda" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-floppy_tray_unspecified"></alias>
+    </disk>
+    <disk device="floppy" type="file">
+      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_open/disk.img"></source>
+      <target bus="fdc" dev="fdb" tray="open"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <readonly></readonly>
+      <alias name="ua-floppy_tray_open"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
+      <target bus="sata" dev="sdc"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <alias name="ua-should_default_to_disk"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
+      <target bus="sata" dev="sdd"></target>
+      <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1" discard="unmap"></driver>
+      <alias name="ua-ephemeral_pvc"></alias>
+      <backingStore type="file">
+        <format type="raw"></format>
+        <source file="/var/run/kubevirt-private/vmi-disks/ephemeral_pvc/disk.img"></source>
+      </backingStore>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
+      <target bus="sata" dev="sde"></target>
+      <serial>D23YZ9W6WA5DJ487</serial>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <alias name="ua-secret_test"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
+      <target bus="sata" dev="sdf"></target>
+      <serial>CVLY623300HK240D</serial>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <alias name="ua-configmap_test"></alias>
+    </disk>
+    <disk device="disk" type="block">
+      <source dev="/dev/pvc_block_test"></source>
+      <target bus="sata" dev="sdg"></target>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <alias name="ua-pvc_block_test"></alias>
+    </disk>
+    <disk device="disk" type="block">
+      <source dev="/dev/dv_block_test"></source>
+      <target bus="sata" dev="sdh"></target>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <alias name="ua-dv_block_test"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
+      <target bus="sata" dev="sdi"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <alias name="ua-serviceaccount_test"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/sysprep-disks/sysprep.iso"></source>
+      <target bus="sata" dev="sdj" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-sysprep"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/sysprep-disks/sysprep_secret.iso"></source>
+      <target bus="sata" dev="sdk" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-sysprep_secret"></alias>
+    </disk>
+    <input type="tablet" bus="virtio" model="virtio">
+      <alias name="ua-tablet0"></alias>
+    </input>
+    <serial type="unix">
+      <target port="0"></target>
+      <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>
+    </serial>
+    <console type="pty">
+      <target type="serial" port="0"></target>
+    </console>
+    <watchdog model="i6300esb" action="poweroff">
+      <alias name="ua-mywatchdog"></alias>
+    </watchdog>
+    <rng model="virtio-non-transitional">
+      <backend model="random">/dev/urandom</backend>
+    </rng>
+  </devices>
+  <clock offset="utc" adjustment="reset">
+    <timer name="rtc" tickpolicy="catchup" present="yes" track="guest"></timer>
+    <timer name="pit" tickpolicy="discard" present="no"></timer>
+    <timer name="kvmclock" present="yes"></timer>
+    <timer name="hpet" tickpolicy="delay" present="no"></timer>
+    <timer name="hypervclock" present="yes"></timer>
+  </clock>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
+      <graceperiod>
+        <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
+  </metadata>
+  <features>
+    <acpi></acpi>
+    <apic></apic>
+    <hyperv>
+      <relaxed state="off"></relaxed>
+      <vapic state="on"></vapic>
+      <spinlocks state="on" retries="4096"></spinlocks>
+      <vpindex state="on"></vpindex>
+      <runtime state="off"></runtime>
+      <synic state="on"></synic>
+      <stimer state="on">
+        <direct state="on"></direct>
+      </stimer>
+      <reset state="on"></reset>
+      <vendor_id state="off" value="myvendor"></vendor_id>
+      <frequencies state="off"></frequencies>
+      <reenlightenment state="off"></reenlightenment>
+      <tlbflush state="on"></tlbflush>
+      <ipi state="on"></ipi>
+      <evmcs state="off"></evmcs>
+    </hyperv>
+    <smm></smm>
+    <kvm>
+      <hidden state="on"></hidden>
+    </kvm>
+    <pvspinlock state="off"></pvspinlock>
+  </features>
+  <cpu mode="host-model">
+    <topology sockets="1" cores="1" threads="1"></topology>
+  </cpu>
+  <vcpu placement="static">1</vcpu>
+  <iothreads>3</iothreads>
+</domain>`, domainType, "%s")
+		var convertedDomainarm64With5Period = fmt.Sprintf(convertedDomainarm64,
+			`<memballoon model="virtio-non-transitional">
+      <stats period="5"></stats>
+    </memballoon>`)
+		var convertedDomainarm64With0Period = fmt.Sprintf(convertedDomainarm64,
+			`<memballoon model="virtio-non-transitional"></memballoon>`)
+		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64,
+			`<memballoon model="none"></memballoon>`)
+		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64,
+			`<memballoon model="virtio-non-transitional">
+      <stats period="10"></stats>
+    </memballoon>`)
+
 		var convertedDomainWithDevicesOnRootBus = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
   <memory unit="b">8388608</memory>
@@ -960,14 +1223,14 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="2"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="2" discard="unmap"></driver>
       <alias name="ua-myvolume"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x05" function="0x0"></address>
     </disk>
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="3"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap"></driver>
       <alias name="ua-nocloud"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x06" function="0x0"></address>
     </disk>
@@ -1000,13 +1263,13 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
       <target bus="sata" dev="sdc"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
       <target bus="sata" dev="sdd"></target>
-      <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1"></driver>
+      <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1" discard="unmap"></driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
@@ -1017,32 +1280,32 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
       <target bus="sata" dev="sde"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
       <target bus="sata" dev="sdf"></target>
       <serial>CVLY623300HK240D</serial>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
       <source dev="/dev/pvc_block_test"></source>
       <target bus="sata" dev="sdg"></target>
-      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
     <disk device="disk" type="block">
       <source dev="/dev/dv_block_test"></source>
       <target bus="sata" dev="sdh"></target>
-      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
       <target bus="sata" dev="sdi"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
     <disk device="cdrom" type="file">
@@ -1174,6 +1437,7 @@ var _ = Describe("Converter", func() {
 		},
 			table.Entry("for amd64", "amd64", convertedDomain),
 			table.Entry("for ppc64le", "ppc64le", convertedDomainppc64le),
+			table.Entry("for arm64", "arm64", convertedDomainarm64),
 		)
 
 		table.DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string, period uint) {
@@ -1185,19 +1449,22 @@ var _ = Describe("Converter", func() {
 		},
 			table.Entry("when context define 5 period on memballoon device for amd64", "amd64", convertedDomainWith5Period, uint(5)),
 			table.Entry("when context define 5 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith5Period, uint(5)),
+			table.Entry("when context define 5 period on memballoon device for arm64", "arm64", convertedDomainarm64With5Period, uint(5)),
 			table.Entry("when context define 0 period on memballoon device for amd64 ", "amd64", convertedDomainWith0Period, uint(0)),
 			table.Entry("when context define 0 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith0Period, uint(0)),
+			table.Entry("when context define 0 period on memballoon device for arm64", "arm64", convertedDomainarm64With0Period, uint(0)),
 		)
 
 		table.DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &_false
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = False()
 			c.Architecture = arch
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
 			table.Entry("when Autoattach memballoon device is false for amd64", "amd64", convertedDomainWithFalseAutoattach),
 			table.Entry("when Autoattach memballoon device is false for ppc64le", "ppc64le", convertedDomainppc64leWithFalseAutoattach),
+			table.Entry("when Autoattach memballoon device is false for arm64", "arm64", convertedDomainarm64WithFalseAutoattach),
 		)
 
 		It("should use kvm if present", func() {
@@ -1692,7 +1959,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should add tcp if protocol not exist", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{v1.Port{Port: 80}}}
+			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}}}
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
@@ -1783,19 +2050,19 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
 			// 3rd network is the default pod network, name is "default"
 			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
-				v1.Network{
+				{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Pod: &v1.PodNetwork{},
@@ -1819,13 +2086,13 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
 			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red", Default: true},
 					},
 				},
-				v1.Network{
+				{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
@@ -2135,8 +2402,6 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("IOThreads", func() {
-		_false := false
-		_true := true
 
 		table.DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
 			vmi := v1.VirtualMachineInstance{
@@ -2162,7 +2427,7 @@ var _ = Describe("Converter", func() {
 											Bus: "virtio",
 										},
 									},
-									DedicatedIOThread: &_true,
+									DedicatedIOThread: True(),
 								},
 								{
 									Name: "shared",
@@ -2171,7 +2436,7 @@ var _ = Describe("Converter", func() {
 											Bus: "virtio",
 										},
 									},
-									DedicatedIOThread: &_false,
+									DedicatedIOThread: False(),
 								},
 								{
 									Name: "omitted1",
@@ -2432,12 +2697,12 @@ var _ = Describe("Converter", func() {
 			err := formatDomainIOThreadPin(vmi, domain, c)
 			Expect(err).ToNot(HaveOccurred())
 			expectedLayout := []api.CPUTuneIOThreadPin{
-				api.CPUTuneIOThreadPin{IOThread: 1, CPUSet: "5,6,7"},
-				api.CPUTuneIOThreadPin{IOThread: 2, CPUSet: "8,9,10"},
-				api.CPUTuneIOThreadPin{IOThread: 3, CPUSet: "11,12,13"},
-				api.CPUTuneIOThreadPin{IOThread: 4, CPUSet: "14,15,16"},
-				api.CPUTuneIOThreadPin{IOThread: 5, CPUSet: "17,18"},
-				api.CPUTuneIOThreadPin{IOThread: 6, CPUSet: "19,20"},
+				{IOThread: 1, CPUSet: "5,6,7"},
+				{IOThread: 2, CPUSet: "8,9,10"},
+				{IOThread: 3, CPUSet: "11,12,13"},
+				{IOThread: 4, CPUSet: "14,15,16"},
+				{IOThread: 5, CPUSet: "17,18"},
+				{IOThread: 6, CPUSet: "19,20"},
 			}
 			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
@@ -2454,12 +2719,12 @@ var _ = Describe("Converter", func() {
 			err := formatDomainIOThreadPin(vmi, domain, c)
 			Expect(err).ToNot(HaveOccurred())
 			expectedLayout := []api.CPUTuneIOThreadPin{
-				api.CPUTuneIOThreadPin{IOThread: 1, CPUSet: "6"},
-				api.CPUTuneIOThreadPin{IOThread: 2, CPUSet: "5"},
-				api.CPUTuneIOThreadPin{IOThread: 3, CPUSet: "6"},
-				api.CPUTuneIOThreadPin{IOThread: 4, CPUSet: "5"},
-				api.CPUTuneIOThreadPin{IOThread: 5, CPUSet: "6"},
-				api.CPUTuneIOThreadPin{IOThread: 6, CPUSet: "5"},
+				{IOThread: 1, CPUSet: "6"},
+				{IOThread: 2, CPUSet: "5"},
+				{IOThread: 3, CPUSet: "6"},
+				{IOThread: 4, CPUSet: "5"},
+				{IOThread: 5, CPUSet: "6"},
+				{IOThread: 6, CPUSet: "5"},
 			}
 			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
@@ -2625,7 +2890,7 @@ var _ = Describe("Converter", func() {
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{
-							v1.GPU{
+							{
 								Name: "vendor.com/gpu_name",
 							},
 						},
@@ -2691,7 +2956,7 @@ var _ = Describe("Converter", func() {
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{
-							v1.GPU{
+							{
 								DeviceName: "vendor.com/gpu_name",
 								Name:       "gpu_name",
 							},
@@ -2707,7 +2972,7 @@ var _ = Describe("Converter", func() {
 			c := &ConverterContext{
 				UseEmulation: true,
 				HostDevices: map[string]HostDevicesList{
-					"vendor.com/gpu_name": HostDevicesList{
+					"vendor.com/gpu_name": {
 						Type:     HostDevicePCI,
 						AddrList: []string{"2609:19:90.0", "2609:19:90.1"},
 					},
@@ -2730,7 +2995,7 @@ var _ = Describe("Converter", func() {
 			c := &ConverterContext{
 				UseEmulation: true,
 				HostDevices: map[string]HostDevicesList{
-					"vendor.com/gpu_name": HostDevicesList{
+					"vendor.com/gpu_name": {
 						Type:     HostDevicePCI,
 						AddrList: []string{"2609:19:90.0", "2609:19:90.1"},
 					},
@@ -2765,22 +3030,22 @@ var _ = Describe("Converter", func() {
 			c := &ConverterContext{
 				UseEmulation: true,
 				HostDevices: map[string]HostDevicesList{
-					"vendor.com/gpu_name": HostDevicesList{
+					"vendor.com/gpu_name": {
 						Type:     HostDevicePCI,
 						AddrList: []string{"2609:19:90.0", "2609:19:90.1"},
 					},
-					"vendor.com/vgpu_name": HostDevicesList{
+					"vendor.com/vgpu_name": {
 						Type:     HostDeviceMDEV,
 						AddrList: []string{"aa618089-8b16-4d01-a136-25a0f3c73123", "aa618089-8b16-4d01-a136-25a0f3c73124"},
 					},
 				},
 			}
 			gpus := []v1.GPU{
-				v1.GPU{
+				{
 					DeviceName: "vendor.com/gpu_name",
 					Name:       "gpu_name",
 				},
-				v1.GPU{
+				{
 					DeviceName: "vendor.com/vgpu_name",
 					Name:       "vgpu_name1",
 				},
@@ -2816,11 +3081,11 @@ var _ = Describe("Converter", func() {
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
-							v1.HostDevice{
+							{
 								DeviceName: "vendor.com/pci_name",
 								Name:       "pci_name",
 							},
-							v1.HostDevice{
+							{
 								DeviceName: "vendor.com/mdev_name",
 								Name:       "mdev_name",
 							},
@@ -2835,11 +3100,11 @@ var _ = Describe("Converter", func() {
 			c := &ConverterContext{
 				UseEmulation: true,
 				HostDevices: map[string]HostDevicesList{
-					"vendor.com/pci_name": HostDevicesList{
+					"vendor.com/pci_name": {
 						Type:     HostDevicePCI,
 						AddrList: []string{"2609:19:90.0", "2609:19:90.1"},
 					},
-					"vendor.com/mdev_name": HostDevicesList{
+					"vendor.com/mdev_name": {
 						Type:     HostDeviceMDEV,
 						AddrList: []string{"aa618089-8b16-4d01-a136-25a0f3c73123", "aa618089-8b16-4d01-a136-25a0f3c73124"},
 					},
@@ -2867,6 +3132,8 @@ var _ = Describe("Converter", func() {
 		var vmi *v1.VirtualMachineInstance
 		var c *ConverterContext
 
+		type ConverterFunc = func(name string, disk *api.Disk, c *ConverterContext) error
+
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -2880,6 +3147,15 @@ var _ = Describe("Converter", func() {
 			c = &ConverterContext{
 				VirtualMachine: vmi,
 				UseEmulation:   true,
+				IsBlockPVC: map[string]bool{
+					"test-block-pvc": true,
+				},
+				IsBlockDV: map[string]bool{
+					"test-block-dv": true,
+				},
+				VolumesDiscardIgnore: []string{
+					"test-discard-ignore",
+				},
 			}
 		})
 
@@ -2902,8 +3178,38 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(2))
 		})
-	})
 
+		table.DescribeTable("should convert",
+			func(converterFunc ConverterFunc, volumeName string, isBlockMode bool, ignoreDiscard bool) {
+				expectedDisk := &api.Disk{}
+				expectedDisk.Driver = &api.DiskDriver{}
+				expectedDisk.Driver.Type = "raw"
+				expectedDisk.Driver.ErrorPolicy = "stop"
+				if isBlockMode {
+					expectedDisk.Type = "block"
+					expectedDisk.Source.Dev = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", volumeName)
+				} else {
+					expectedDisk.Type = "file"
+					expectedDisk.Source.File = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s/disk.img", volumeName)
+				}
+				if !ignoreDiscard {
+					expectedDisk.Driver.Discard = "unmap"
+				}
+
+				disk := &api.Disk{
+					Driver: &api.DiskDriver{},
+				}
+				Expect(converterFunc(volumeName, disk, c)).To(Succeed())
+				Expect(disk).To(Equal(expectedDisk))
+			},
+			table.Entry("filesystem PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-fs-pvc", false, false),
+			table.Entry("block mode PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-block-pvc", true, false),
+			table.Entry("'discard ignore' PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-discard-ignore", false, true),
+			table.Entry("filesystem DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-fs-dv", false, false),
+			table.Entry("block mode DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
+			table.Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
+		)
+	})
 })
 
 var _ = Describe("disk device naming", func() {

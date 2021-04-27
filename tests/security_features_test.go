@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[Serial]SecurityFeatures", func() {
+var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -237,7 +237,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 				}
 			}
 			caps := *container.SecurityContext.Capabilities
-			Expect(len(caps.Add)).To(Equal(2))
+			Expect(len(caps.Add)).To(Equal(1))
 
 			By("Checking virt-launcher Pod's compute container has precisely the documented extra capabilities")
 			for _, cap := range caps.Add {

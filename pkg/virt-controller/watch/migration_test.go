@@ -21,6 +21,7 @@ package watch
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -28,7 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
@@ -40,13 +41,11 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 var _ = Describe("Migration watcher", func() {
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	var ctrl *gomock.Controller
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
@@ -68,9 +67,16 @@ var _ = Describe("Migration watcher", func() {
 	var pvcInformer cache.SharedIndexInformer
 	var qemuGid int64 = 107
 
+	shouldExpectMigrationFinalizerRemoval := func(migration *v1.VirtualMachineInstanceMigration) {
+		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
+			Expect(len(arg.(*v1.VirtualMachineInstanceMigration).Finalizers)).To(Equal(0))
+			return arg, nil
+		})
+	}
+
 	shouldExpectPodCreation := func(uid types.UID, migrationUid types.UID, expectedAntiAffinityCount int, expectedAffinityCount int, expectedNodeAffinityCount int) {
 		// Expect pod creation
-		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			update, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
@@ -172,7 +178,7 @@ var _ = Describe("Migration watcher", func() {
 		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		controller = NewMigrationController(
-			services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
+			services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, runtime.GOARCH),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -194,7 +200,7 @@ var _ = Describe("Migration watcher", func() {
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
-		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
@@ -232,6 +238,22 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+		It("should not create target pod if multiple pods exist in a non finalized state for VMI", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			pod1 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod1.Labels[v1.MigrationJobLabel] = "some other job"
+			pod2 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			pod2.Labels[v1.MigrationJobLabel] = "some other job"
+			podInformer.GetStore().Add(pod1)
+			podInformer.GetStore().Add(pod2)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			controller.Execute()
 		})
 
 		It("should create another target pods if only 4 migrations are in progress", func() {
@@ -468,6 +490,9 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: migration.UID,
 			}
+			if phase == v1.MigrationTargetReady {
+				vmi.Status.MigrationState.StartTimestamp = now()
+			}
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodSucceeded)
 			pod.Spec.NodeName = "node01"
 
@@ -702,6 +727,44 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
 		})
+		table.DescribeTable("should finalize migration on VMI if target pod fails before migration starts", func(phase v1.VirtualMachineInstanceMigrationPhase, hasPod bool, podPhase k8sv1.PodPhase) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, phase)
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+				TargetNode:   "node01",
+				SourceNode:   "node02",
+			}
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			if hasPod {
+				pod := newTargetPodForVirtualMachine(vmi, migration, podPhase)
+				pod.Spec.NodeName = "node01"
+				podFeeder.Add(pod)
+			}
+
+			if phase == v1.MigrationFailed {
+				shouldExpectMigrationFinalizerRemoval(migration)
+			} else {
+				shouldExpectMigrationFailedState(migration)
+			}
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
+			controller.Execute()
+
+			// in this case, we have two failed events. one for the VMI and one on the Migration object.
+			testutils.ExpectEvent(recorder, FailedMigrationReason)
+			if phase != v1.MigrationFailed {
+				testutils.ExpectEvent(recorder, FailedMigrationReason)
+			}
+		},
+			table.Entry("in preparing target state", v1.MigrationPreparingTarget, true, k8sv1.PodFailed),
+			table.Entry("in target ready state", v1.MigrationTargetReady, true, k8sv1.PodFailed),
+			table.Entry("in failed state", v1.MigrationFailed, true, k8sv1.PodFailed),
+			table.Entry("in failed state and pod does not exist", v1.MigrationFailed, false, k8sv1.PodFailed),
+		)
 	})
 })
 

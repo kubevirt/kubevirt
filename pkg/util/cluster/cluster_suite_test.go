@@ -3,11 +3,9 @@ package cluster_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestCluster(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Cluster Suite")
 }

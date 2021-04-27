@@ -181,17 +181,6 @@ func (_mr *_MockNetworkHandlerRecorder) SetRandomMac(arg0 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetRandomMac", arg0)
 }
 
-func (_m *MockNetworkHandler) GenerateRandomMac() (net.HardwareAddr, error) {
-	ret := _m.ctrl.Call(_m, "GenerateRandomMac")
-	ret0, _ := ret[0].(net.HardwareAddr)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockNetworkHandlerRecorder) GenerateRandomMac() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GenerateRandomMac")
-}
-
 func (_m *MockNetworkHandler) GetMacDetails(iface string) (net.HardwareAddr, error) {
 	ret := _m.ctrl.Call(_m, "GetMacDetails", iface)
 	ret0, _ := ret[0].(net.HardwareAddr)

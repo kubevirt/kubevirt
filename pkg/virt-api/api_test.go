@@ -38,7 +38,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
@@ -51,7 +50,6 @@ var _ = Describe("Virt-api", func() {
 	var backend *httptest.Server
 	var ctrl *gomock.Controller
 	var authorizorMock *rest.MockVirtApiAuthorizor
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		app = virtAPIApp{namespace: namespaceKubevirt}

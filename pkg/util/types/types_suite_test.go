@@ -22,14 +22,9 @@ package types
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestTypeUtils(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Type Utils Test Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Type Utils Test Suite")
 }

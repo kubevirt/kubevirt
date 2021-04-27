@@ -22,23 +22,19 @@ package middleware
 import (
 	"errors"
 
-	"github.com/go-kit/kit/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 
-	klog "kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 )
 
 var _ = Describe("Middleware", func() {
 
-	klog.Log.SetIOWriter(GinkgoWriter)
-
 	Describe("Call", func() {
 		Context("with precond.PreconditionError panic", func() {
 			It("returns application level PreconditionError", func() {
-				data, err := InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter))(
+				data, err := InternalErrorMiddleware()(
 					func(ctx context.Context, request interface{}) (interface{}, error) {
 						precond.MustNotBeEmpty("")
 						return nil, nil
@@ -50,7 +46,7 @@ var _ = Describe("Middleware", func() {
 		})
 		Context("with generic panic", func() {
 			It("returns application level InternalServerError", func() {
-				data, err := InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter))(
+				data, err := InternalErrorMiddleware()(
 					func(ctx context.Context, request interface{}) (interface{}, error) {
 						panic("generic one")
 					})(nil, nil)
@@ -63,7 +59,7 @@ var _ = Describe("Middleware", func() {
 			It("returns the normal endpoint results", func() {
 				d := "everything"
 				e := errors.New("is fine")
-				data, err := InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter))(
+				data, err := InternalErrorMiddleware()(
 					func(ctx context.Context, request interface{}) (interface{}, error) {
 						return d, e
 					})(nil, nil)

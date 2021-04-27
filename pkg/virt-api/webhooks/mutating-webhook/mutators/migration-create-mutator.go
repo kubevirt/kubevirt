@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -33,7 +33,7 @@ import (
 type MigrationCreateMutator struct {
 }
 
-func (mutator *MigrationCreateMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.MigrationGroupVersionResource.Group, webhooks.MigrationGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource.Resource)
 		return webhookutils.ToAdmissionResponseError(err)
@@ -49,6 +49,13 @@ func (mutator *MigrationCreateMutator) Mutate(ar *v1beta1.AdmissionReview) *v1be
 	err := json.Unmarshal(raw, &migration)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	// Add our selector label
+	if migration.Labels == nil {
+		migration.Labels = map[string]string{v1.MigrationSelectorLabel: migration.Spec.VMIName}
+	} else {
+		migration.Labels[v1.MigrationSelectorLabel] = migration.Spec.VMIName
 	}
 
 	// Add a finalizer
@@ -75,8 +82,8 @@ func (mutator *MigrationCreateMutator) Mutate(ar *v1beta1.AdmissionReview) *v1be
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	jsonPatchType := v1beta1.PatchTypeJSONPatch
-	return &v1beta1.AdmissionResponse{
+	jsonPatchType := admissionv1.PatchTypeJSONPatch
+	return &admissionv1.AdmissionResponse{
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,

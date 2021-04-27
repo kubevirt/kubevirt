@@ -6312,6 +6312,16 @@
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
      "operationId": "v1vmi-addvolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -6493,6 +6503,16 @@
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
      "operationId": "v1vmi-removevolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -6662,6 +6682,16 @@
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
      "operationId": "v1vm-addvolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -6750,6 +6780,16 @@
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
      "operationId": "v1vm-removevolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7062,6 +7102,16 @@
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
      "operationId": "v1alpha3vmi-addvolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7243,6 +7293,16 @@
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
      "operationId": "v1alpha3vmi-removevolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7412,6 +7472,16 @@
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
      "operationId": "v1alpha3vm-addvolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7500,6 +7570,16 @@
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
      "operationId": "v1alpha3vm-removevolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7782,6 +7862,45 @@
    }
   },
   "definitions": {
+   "github.com.openshift.api.operator.v1.GenerationStatus": {
+    "description": "GenerationStatus keeps track of the generation for a given resource so that decisions about forced updates can be made.",
+    "type": "object",
+    "required": [
+     "group",
+     "resource",
+     "namespace",
+     "name",
+     "lastGeneration",
+     "hash"
+    ],
+    "properties": {
+     "group": {
+      "description": "group is the group of the thing you're tracking",
+      "type": "string"
+     },
+     "hash": {
+      "description": "hash is an optional field set for resources without generation that are content sensitive like secrets and configmaps",
+      "type": "string"
+     },
+     "lastGeneration": {
+      "description": "lastGeneration is the last generation of the workload controller involved",
+      "type": "integer",
+      "format": "int64"
+     },
+     "name": {
+      "description": "name is the name of the thing you're tracking",
+      "type": "string"
+     },
+     "namespace": {
+      "description": "namespace is where the thing you're tracking is",
+      "type": "string"
+     },
+     "resource": {
+      "description": "resource is the resource type of the thing you're tracking",
+      "type": "string"
+     }
+    }
+   },
    "k8s.io.api.core.v1.Affinity": {
     "description": "Affinity is a group of affinity scheduling rules.",
     "type": "object",
@@ -8975,6 +9094,18 @@
      }
     }
    },
+   "v1.BlockSize": {
+    "description": "BlockSize provides the option to change the block size presented to the VM for a disk. Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "custom": {
+      "$ref": "#/definitions/v1.CustomBlockSize"
+     },
+     "matchVolume": {
+      "$ref": "#/definitions/v1.FeatureState"
+     }
+    }
+   },
    "v1.Bootloader": {
     "description": "Represents the firmware blob used to assist in the domain creation process. Used for setting the QEMU BIOS file path for the libvirt domain.",
     "type": "object",
@@ -9060,6 +9191,20 @@
      "policy": {
       "description": "Policy is the CPU feature attribute which can have the following attributes: force    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU. require  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it. optional - The feature will be supported by virtual CPU if and only if it is supported by host CPU. disable  - The feature will not be supported by virtual CPU. forbid   - Guest creation will fail if the feature is supported by host CPU. Defaults to require",
       "type": "string"
+     }
+    }
+   },
+   "v1.CertConfig": {
+    "description": "CertConfig contains the tunables for TLS certificates",
+    "type": "object",
+    "properties": {
+     "duration": {
+      "description": "The requested 'duration' (i.e. lifetime) of the Certificate.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "renewBefore": {
+      "description": "The amount of time before the currently issued certificate's \"notAfter\" time that we will begin to attempt to renew the certificate.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }
    },
@@ -9225,6 +9370,24 @@
      "path": {
       "description": "Path defines the path to disk file in the container",
       "type": "string"
+     }
+    }
+   },
+   "v1.CustomBlockSize": {
+    "description": "CustomBlockSize represents the desired logical and physical block size for a VM disk.",
+    "type": "object",
+    "required": [
+     "logical",
+     "physical"
+    ],
+    "properties": {
+     "logical": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "physical": {
+      "type": "integer",
+      "format": "int32"
      }
     }
    },
@@ -9409,7 +9572,7 @@
       "type": "boolean"
      },
      "blockMultiQueue": {
-      "description": "Whether or not to enable virtio multi-queue for block devices",
+      "description": "Whether or not to enable virtio multi-queue for block devices. Defaults to false.",
       "type": "boolean"
      },
      "disableHotplug": {
@@ -9485,13 +9648,17 @@
      "name"
     ],
     "properties": {
+     "blockSize": {
+      "description": "If specified, the virtual disk will be presented with the given block sizes.",
+      "$ref": "#/definitions/v1.BlockSize"
+     },
      "bootOrder": {
       "description": "BootOrder is an integer value \u003e 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.",
       "type": "integer",
       "format": "int32"
      },
      "cache": {
-      "description": "Cache specifies which kvm disk cache mode should be used.",
+      "description": "Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.",
       "type": "string"
      },
      "cdrom": {
@@ -9862,6 +10029,21 @@
      }
     }
    },
+   "v1.GuestAgentCommandInfo": {
+    "description": "List of commands that QEMU guest agent supports",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "enabled": {
+      "type": "boolean"
+     },
+     "name": {
+      "type": "string"
+     }
+    }
+   },
    "v1.HPETTimer": {
     "type": "object",
     "properties": {
@@ -10178,8 +10360,17 @@
      "migrations": {
       "$ref": "#/definitions/v1.MigrationConfiguration"
      },
+     "minCPUModel": {
+      "type": "string"
+     },
      "network": {
       "$ref": "#/definitions/v1.NetworkConfiguration"
+     },
+     "obsoleteCPUModels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "boolean"
+      }
      },
      "ovmfPath": {
       "type": "string"
@@ -10194,6 +10385,7 @@
       "$ref": "#/definitions/v1.SMBiosConfiguration"
      },
      "supportedGuestAgentVersions": {
+      "description": "deprecated",
       "type": "array",
       "items": {
        "type": "string"
@@ -10230,14 +10422,25 @@
    "v1.KubeVirtSelfSignConfiguration": {
     "type": "object",
     "properties": {
+     "ca": {
+      "description": "CA configuration CA certs are kept in the CA bundle as long as they are valid",
+      "$ref": "#/definitions/v1.CertConfig"
+     },
      "caOverlapInterval": {
+      "description": "Deprecated. Use CA.Duration and CA.RenewBefore instead",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "caRotateInterval": {
+      "description": "Deprecated. Use CA.Duration instead",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "certRotateInterval": {
+      "description": "Deprecated. Use Server.Duration instead",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "server": {
+      "description": "Server configuration Certs are rotated and discarded",
+      "$ref": "#/definitions/v1.CertConfig"
      }
     }
    },
@@ -10310,6 +10513,13 @@
       "items": {
        "$ref": "#/definitions/v1.KubeVirtCondition"
       }
+     },
+     "generations": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/github.com.openshift.api.operator.v1.GenerationStatus"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "observedDeploymentConfig": {
       "type": "string"
@@ -10630,6 +10840,10 @@
     "description": "Represents the stock pod network interface.",
     "type": "object",
     "properties": {
+     "vmIPv6NetworkCIDR": {
+      "description": "IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.",
+      "type": "string"
+     },
      "vmNetworkCIDR": {
       "description": "CIDR for vm network. Default 10.0.2.0/24 if not specified.",
       "type": "string"
@@ -11186,6 +11400,14 @@
      "os": {
       "description": "OS contains the guest operating system information",
       "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSInfo"
+     },
+     "supportedCommands": {
+      "description": "Return command list the guest agent supports",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.GuestAgentCommandInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "timezone": {
       "description": "Timezone is guest os current timezone",
@@ -12741,6 +12963,13 @@
      },
      "error": {
       "$ref": "#/definitions/v1alpha1.Error"
+     },
+     "indications": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "set"
      },
      "readyToUse": {
       "type": "boolean"

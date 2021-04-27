@@ -113,12 +113,12 @@ var _ = Describe("Disruptionbudget", func() {
 	Context("A VirtualMachineInstance given which does not want to live-migrate on evictions", func() {
 
 		It("should do nothing, if no pdb exists", func() {
-			addVirtualMachine(newVirtualMachine("testvm"))
+			addVirtualMachine(newVirtualMachine())
 			controller.Execute()
 		})
 
 		It("should remove the pdb, if it is added to the cache", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
 			pdbFeeder.Add(pdb)
@@ -132,7 +132,7 @@ var _ = Describe("Disruptionbudget", func() {
 	Context("A VirtualMachineInstance given which wants to live-migrate on evictions", func() {
 
 		It("should do nothing, if a pdb exists", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
@@ -142,7 +142,7 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 
 		It("should remove the pdb if the VMI disappears", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
@@ -157,7 +157,7 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 
 		It("should recreate the PDB if the VMI is recreated", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
@@ -180,7 +180,7 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 
 		It("should delete a PDB which belongs to an old VMI", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			pdb := newPodDisruptionBudget(vmi)
 			pdbFeeder.Add(pdb)
@@ -194,7 +194,7 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 
 		It("should not create a PDB for VMIs which are already marked for deletion", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			now := v13.Now()
 			vmi.DeletionTimestamp = &now
@@ -207,7 +207,7 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 
 		It("should remove the pdb if the VMI does not want to be migrated anymore", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
@@ -223,7 +223,7 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 
 		It("should add the pdb, if it does not exist", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 
@@ -233,7 +233,7 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 
 		It("should recreate the pdb, if it disappears", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
@@ -247,7 +247,7 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 
 		It("should recreate the pdb, if the pdb is orphaned", func() {
-			vmi := newVirtualMachine("testvm")
+			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
@@ -271,7 +271,7 @@ var _ = Describe("Disruptionbudget", func() {
 	})
 })
 
-func newVirtualMachine(name string) *v1.VirtualMachineInstance {
+func newVirtualMachine() *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMI("testvm")
 	vmi.Namespace = v12.NamespaceDefault
 	vmi.UID = "1234"

@@ -48,7 +48,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -73,8 +72,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	running := true
 	notRunning := false
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -310,18 +307,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			close(done)
 		}, 5)
 
-		It("should fail to connect to VNC if the VMI is paused", func(done Done) {
-
-			request.PathParameters()["name"] = "testvmi"
-			request.PathParameters()["namespace"] = "default"
-
-			expectVMI(true, true)
-
-			app.VNCRequestHandler(request, response)
-			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-			close(done)
-		}, 5)
-
 		It("should fail with no serial console at console connections", func(done Done) {
 
 			request.PathParameters()["name"] = "testvmi"
@@ -345,12 +330,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			close(done)
 		}, 5)
 
-		It("should fail to connect to the serial console if the VMI is paused", func(done Done) {
+		It("should fail to connect to the serial console if the VMI is Failed", func(done Done) {
 
 			request.PathParameters()["name"] = "testvmi"
 			request.PathParameters()["namespace"] = "default"
 
-			expectVMI(true, true)
+			expectVMI(false, false)
 
 			app.ConsoleRequestHandler(request, response)
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)

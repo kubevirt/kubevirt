@@ -36,6 +36,10 @@ var permanentDevicePluginPaths = map[string]string{
 	"vhost-net": "/dev/vhost-net",
 }
 
+type DeviceControllerInterface interface {
+	Initialized() bool
+}
+
 type DeviceController struct {
 	devicePlugins      map[string]ControlledDevice
 	devicePluginsMutex sync.Mutex
@@ -51,20 +55,20 @@ type ControlledDevice struct {
 	stopChan     chan struct{}
 }
 
-func getPermanentHostDevicePlugins(maxDevices int) map[string]ControlledDevice {
+func getPermanentHostDevicePlugins(maxDevices int, permissions string) map[string]ControlledDevice {
 	ret := map[string]ControlledDevice{}
 	for name, path := range permanentDevicePluginPaths {
 		ret[name] = ControlledDevice{
-			devicePlugin: NewGenericDevicePlugin(name, path, maxDevices, (name != "kvm")),
+			devicePlugin: NewGenericDevicePlugin(name, path, maxDevices, permissions, (name != "kvm")),
 			stopChan:     make(chan struct{}),
 		}
 	}
 	return ret
 }
 
-func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
+func NewDeviceController(host string, maxDevices int, permissions string, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
 	controller := &DeviceController{
-		devicePlugins: getPermanentHostDevicePlugins(maxDevices),
+		devicePlugins: getPermanentHostDevicePlugins(maxDevices, permissions),
 		host:          host,
 		maxDevices:    maxDevices,
 		backoff:       []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
@@ -74,7 +78,7 @@ func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.
 	return controller
 }
 
-func (c *DeviceController) nodeHasDevice(devicePath string) bool {
+func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	_, err := os.Stat(devicePath)
 	// Since this is a boolean question, any error means "no"
 	return (err == nil)
@@ -113,14 +117,14 @@ func (c *DeviceController) startDevicePlugin(controlledDev ControlledDevice) {
 func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]ControlledDevice, map[string]ControlledDevice) {
 	devicePluginsToRun := make(map[string]ControlledDevice)
 	devicePluginsToStop := make(map[string]ControlledDevice)
-	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
-		// generate a map of currently started device plugins
-		for resourceName, hostDevDP := range c.devicePlugins {
-			_, isPermanent := permanentDevicePluginPaths[resourceName]
-			if !isPermanent {
-				devicePluginsToStop[resourceName] = hostDevDP
-			}
+	// generate a map of currently started device plugins
+	for resourceName, hostDevDP := range c.devicePlugins {
+		_, isPermanent := permanentDevicePluginPaths[resourceName]
+		if !isPermanent {
+			devicePluginsToStop[resourceName] = hostDevDP
 		}
+	}
+	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
 		supportedPCIDeviceMap := make(map[string]string)
 		if len(hostDevs.PciHostDevices) != 0 {
 			for _, pciDev := range hostDevs.PciHostDevices {
@@ -218,8 +222,8 @@ func (c *DeviceController) refreshPermittedDevices() {
 	c.devicePluginsMutex.Unlock()
 
 	logger.Info("refreshed device plugins for permitted/forbidden host devices")
-	logger.Infof("enabled device-pluings for: %v", debugDevAdded)
-	logger.Infof("disabled device-pluings for: %v", debugDevRemoved)
+	logger.Infof("enabled device-plugins for: %v", debugDevAdded)
+	logger.Infof("disabled device-plugins for: %v", debugDevRemoved)
 }
 
 func (c *DeviceController) Run(stop chan struct{}) error {

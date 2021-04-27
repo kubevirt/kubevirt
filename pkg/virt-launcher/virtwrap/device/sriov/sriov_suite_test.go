@@ -22,17 +22,12 @@ package sriov_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestNetwork(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Network SRIOV Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Network SRIOV Suite")
 }
 
 func newSRIOVInterface(name string) v1.Interface {

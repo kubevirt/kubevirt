@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -78,10 +80,15 @@ func NewKubeVirtController(
 	operatorNamespace string,
 ) *KubeVirtController {
 
+	rl := workqueue.NewMaxOfRateLimiter(
+		workqueue.NewItemExponentialFailureRateLimiter(5*time.Second, 1000*time.Second),
+		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Every(5*time.Second), 1)},
+	)
+
 	c := KubeVirtController{
 		clientset:        clientset,
 		aggregatorClient: aggregatorClient,
-		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:            workqueue.NewRateLimitingQueue(rl),
 		kubeVirtInformer: informer,
 		recorder:         recorder,
 		stores:           stores,
@@ -509,7 +516,7 @@ func (c *KubeVirtController) deleteKubeVirt(obj interface{}) {
 	c.enqueueKubeVirt(obj)
 }
 
-func (c *KubeVirtController) updateKubeVirt(old, curr interface{}) {
+func (c *KubeVirtController) updateKubeVirt(_, curr interface{}) {
 	c.enqueueKubeVirt(curr)
 }
 
@@ -1087,7 +1094,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 	// If we still have cached objects around, more deletions need to take place.
 	if !c.stores.AllEmpty() {
-		strategy, pending, err := c.loadInstallStrategy(kv)
+		_, pending, err := c.loadInstallStrategy(kv)
 		if err != nil {
 			return err
 		}
@@ -1097,7 +1104,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 			return nil
 		}
 
-		err = apply.DeleteAll(kv, strategy, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations)
+		err = apply.DeleteAll(kv, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations)
 		if err != nil {
 			// deletion failed
 			util.UpdateConditionsDeletionFailed(kv, err)

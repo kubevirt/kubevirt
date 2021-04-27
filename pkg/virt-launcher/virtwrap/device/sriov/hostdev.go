@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"libvirt.org/libvirt-go"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -39,6 +41,8 @@ const (
 	AliasPrefix = "sriov-"
 
 	MaxConcurrentHotPlugDevicesEvents = 32
+
+	affectLiveAndConfigLibvirtFlags = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 )
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
@@ -94,7 +98,7 @@ func createHostDevice(iface v1.Interface, hostPCIAddress string) (*api.HostDevic
 }
 
 type deviceDetacher interface {
-	DetachDevice(xmlData string) error
+	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 }
 
 type eventRegistrar interface {
@@ -143,7 +147,7 @@ func detachHostDevices(dom deviceDetacher, hostDevices []api.HostDevice) error {
 		if err != nil {
 			return fmt.Errorf("failed to encode (xml) hostdev %v, err: %v", hostDev, err)
 		}
-		err = dom.DetachDevice(string(devXML))
+		err = dom.DetachDeviceFlags(string(devXML), affectLiveAndConfigLibvirtFlags)
 		if err != nil {
 			return fmt.Errorf("failed to detach hostdev %s, err: %v", devXML, err)
 		}
@@ -190,4 +194,75 @@ func deviceLookup(hostDevices []api.HostDevice, deviceAlias string) *api.HostDev
 		}
 	}
 	return nil
+}
+
+type deviceAttacher interface {
+	AttachDeviceFlags(xmlData string, flags libvirt.DomainDeviceModifyFlags) error
+}
+
+func AttachHostDevices(dom deviceAttacher, hostDevices []api.HostDevice) error {
+	var errs []error
+	for _, hostDev := range hostDevices {
+		if err := attachHostDevice(dom, hostDev); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		return buildAttachHostDevicesErrorMessage(errs)
+	}
+
+	return nil
+}
+
+func attachHostDevice(dom deviceAttacher, hostDev api.HostDevice) error {
+	devXML, err := xml.Marshal(hostDev)
+	if err != nil {
+		return fmt.Errorf("failed to encode (xml) host-device %v, err: %v", hostDev, err)
+	}
+	err = dom.AttachDeviceFlags(string(devXML), affectLiveAndConfigLibvirtFlags)
+	if err != nil {
+		return fmt.Errorf("failed to attach host-device %s, err: %v", devXML, err)
+	}
+	log.Log.Infof("Successfully hot-plug host-device: %s (%v)", hostDev.Alias.GetName(), hostDev.Source.Address)
+
+	return nil
+}
+
+func buildAttachHostDevicesErrorMessage(errors []error) error {
+	errorMessageBuilder := strings.Builder{}
+	for _, err := range errors {
+		errorMessageBuilder.WriteString(err.Error() + "\n")
+	}
+	return fmt.Errorf(errorMessageBuilder.String())
+}
+
+func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) ([]api.HostDevice, error) {
+	sriovDevices, err := CreateHostDevices(vmi)
+	if err != nil {
+		return nil, err
+	}
+	currentAttachedSRIOVHostDevices := FilterHostDevices(domainSpec)
+
+	sriovHostDevicesToAttach := DifferenceHostDevicesByAlias(sriovDevices, currentAttachedSRIOVHostDevices)
+
+	return sriovHostDevicesToAttach, nil
+}
+
+// DifferenceHostDevicesByAlias given two slices of host-devices, according to Alias.Name,
+// it returns a slice with host-devices that exists on the first slice and not exists on the second.
+func DifferenceHostDevicesByAlias(desiredHostDevices, actualHostDevices []api.HostDevice) []api.HostDevice {
+	actualHostDevicesByAlias := make(map[string]struct{}, len(actualHostDevices))
+	for _, hostDev := range actualHostDevices {
+		actualHostDevicesByAlias[hostDev.Alias.GetName()] = struct{}{}
+	}
+
+	var filteredSlice []api.HostDevice
+	for _, desiredHostDevice := range desiredHostDevices {
+		if _, exists := actualHostDevicesByAlias[desiredHostDevice.Alias.GetName()]; !exists {
+			filteredSlice = append(filteredSlice, desiredHostDevice)
+		}
+	}
+
+	return filteredSlice
 }

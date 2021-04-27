@@ -21,6 +21,7 @@ package util
 import (
 	"encoding/json"
 	"io"
+	"regexp"
 	"strings"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -127,6 +128,28 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 	// fix double quoted strings by removing unneeded single quotes...
 	s = strings.Replace(s, " '\"", " \"", -1)
 	s = strings.Replace(s, "\"'\n", "\"\n", -1)
+
+	// The current function is sometimes used on yaml templates, and manipulates them as json/yaml above.
+	// However, this only works for simple templates dealing with simple strings.
+	// For list values, we need template code to iterate over the slice, and that code is not valid yaml.
+	// To work around that, the variable name for the featureGates slice was treated as the first and only list item until now.
+	// Therefore, if we're currently handling a template, the featureGates section looks like:
+	//      featureGates:
+	//      - {{.FeatureGates}}
+	// however we want to treat the variable (".FeatureGates" here) as a slice and iterate over it (with a special case for empty list):
+	//      featureGates:{{if .FeatureGates}}
+	//      {{- range .FeatureGates}}
+	//      - {{.}}
+	//      {{- end}}{{else}} []{{end}}
+	// The replace call below will transform the former into the latter, keeping the variable name ($2) and intendation ($1)
+	featureGates, exists, err := unstructured.NestedStringSlice(r.Object, "spec", "configuration", "developerConfiguration", "featureGates")
+	if err == nil && exists && len(featureGates) == 1 && strings.HasPrefix(featureGates[0], `{{`) {
+		re := regexp.MustCompile(`(?m)featureGates:\n([ \t]+)- \{\{(.*)\}\}`)
+		s = re.ReplaceAllString(s, `featureGates:{{if $2}}
+$1{{- range $2}}
+$1- {{.}}
+$1{{- end}}{{else}} []{{end}}`)
+	}
 
 	yamlBytes = []byte(s)
 

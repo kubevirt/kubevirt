@@ -5,9 +5,12 @@ set -e
 DOCKER="${CONTAINER_RUNTIME:-docker}"
 
 export CLUSTER_NAME="kind-1.17"
-export KIND_NODE_IMAGE="kindest/node:v1.17.2"
 
-source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
+function set_kind_params() {
+    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.17.2}"
+    export KIND_VERSION="${KIND_VERSION:-0.7.0}"
+    export KUBECTL_PATH="${KUBECTL_PATH:-/kind/bin/kubectl}"
+}
 
 function up() {
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
@@ -49,3 +52,7 @@ function mount_disk() {
     $DOCKER exec $node bash -c "mkdir -p /mnt/local-storage/local/disk${idx}"
     $DOCKER exec $node bash -c "mount -o bind /var/local/kubevirt-storage/local-volume/disk${idx} /mnt/local-storage/local/disk${idx}"
 }
+
+set_kind_params
+
+source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh

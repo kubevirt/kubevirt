@@ -22,16 +22,15 @@ package webhooks
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
-	"k8s.io/api/admission/v1beta1"
-	corev1 "k8s.io/api/core/v1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 )
 
 // KubeVirtUpdateAdmitter validates KubeVirt updates
@@ -46,9 +45,9 @@ func NewKubeVirtUpdateAdmitter(client kubecli.KubevirtClient) *KubeVirtUpdateAdm
 	}
 }
 
-func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	// Get new and old KubeVirt from admission response
-	newKV, oldKV, err := getAdmissionReviewKubeVirt(ar)
+	newKV, _, err := getAdmissionReviewKubeVirt(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -57,43 +56,15 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1be
 		return resp
 	}
 
-	if reflect.DeepEqual(newKV.Spec.Workloads, oldKV.Spec.Workloads) {
-		return validating_webhooks.NewPassingAdmissionResponse()
-	}
+	var results []metav1.StatusCause
 
-	// reject update if it will move a virt-handler pod from a node that has
-	// a vmi running on it
-	causes, err := admitter.validateWorkloadPlacementUpdate()
-	if err != nil {
-		return webhookutils.ToAdmissionResponseError(err)
-	}
+	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
+	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 
-	if len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
-	}
-
-	return validating_webhooks.NewPassingAdmissionResponse()
+	return validating_webhooks.NewAdmissionResponse(results)
 }
 
-func (admitter *KubeVirtUpdateAdmitter) validateWorkloadPlacementUpdate() ([]metav1.StatusCause, error) {
-	vmis, err := admitter.Client.VirtualMachineInstance(corev1.NamespaceAll).List(&metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(vmis.Items) > 0 {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "can't update placement of workload pods while there are running vms",
-			},
-		}, nil
-	}
-
-	return []metav1.StatusCause{}, nil
-}
-
-func getAdmissionReviewKubeVirt(ar *v1beta1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
+func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, KubeVirtGroupVersionResource.Group, KubeVirtGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", KubeVirtGroupVersionResource)
 	}
@@ -106,15 +77,88 @@ func getAdmissionReviewKubeVirt(ar *v1beta1.AdmissionReview) (new *v1.KubeVirt, 
 		return nil, nil, err
 	}
 
-	if ar.Request.Operation == v1beta1.Update {
+	if ar.Request.Operation == admissionv1.Update {
 		raw := ar.Request.OldObject.Raw
 		oldKV := v1.KubeVirt{}
 		err = json.Unmarshal(raw, &oldKV)
 		if err != nil {
 			return nil, nil, err
 		}
+
 		return &newKV, &oldKV, nil
 	}
 
 	return &newKV, nil, nil
+}
+
+func validateCustomizeComponents(customization v1.CustomizeComponents) []metav1.StatusCause {
+	patches := customization.Patches
+	statuses := []metav1.StatusCause{}
+
+	for _, patch := range patches {
+		if json.Valid([]byte(patch.Patch)) {
+			continue
+		}
+
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("patch %q is not valid JSON", patch.Patch),
+		})
+	}
+
+	return statuses
+}
+
+func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1.StatusCause {
+	statuses := []metav1.StatusCause{}
+
+	if certConfig == nil {
+		return statuses
+	}
+
+	deprecatedApi := false
+	if certConfig.CARotateInterval != nil || certConfig.CertRotateInterval != nil || certConfig.CAOverlapInterval != nil {
+		deprecatedApi = true
+	}
+
+	currentApi := false
+	if certConfig.CA != nil || certConfig.Server != nil {
+		currentApi = true
+	}
+
+	if deprecatedApi && currentApi {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("caRotateInterval, certRotateInterval and caOverlapInterval are deprecated and conflict with CertConfig defined rotation parameters"),
+		})
+	}
+
+	caDuration := apply.GetCADuration(certConfig)
+	caRenewBefore := apply.GetCARenewBefore(certConfig)
+	certDuration := apply.GetCertDuration(certConfig)
+	certRenewBefore := apply.GetCertRenewBefore(certConfig)
+
+	if caDuration.Duration < caRenewBefore.Duration {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("CA RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)"),
+		})
+
+	}
+
+	if certDuration.Duration < certRenewBefore.Duration {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Cert RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.server.duration < spec.certificateRotationStrategy.selfSigned.server.renewBefore)"),
+		})
+	}
+
+	if certDuration.Duration > caDuration.Duration {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Certificate duration cannot exceed CA (spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)"),
+		})
+	}
+
+	return statuses
 }

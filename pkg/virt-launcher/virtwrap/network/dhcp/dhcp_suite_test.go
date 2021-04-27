@@ -3,14 +3,9 @@ package dhcp
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestNetwork(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "DHCP test Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "DHCP test Suite")
 }

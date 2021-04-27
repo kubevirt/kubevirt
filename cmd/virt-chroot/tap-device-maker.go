@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
@@ -10,7 +12,6 @@ import (
 )
 
 func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu int) error {
-	var err error = nil
 	tapDevice := &netlink.Tuntap{
 		LinkAttrs:  netlink.LinkAttrs{Name: name},
 		Mode:       unix.IFF_TAP,
@@ -28,7 +29,14 @@ func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu i
 	if queueNumber == 1 {
 		tapDevice.Flags = netlink.TUNTAP_DEFAULTS
 	}
-	if err := netlink.LinkAdd(tapDevice); err != nil {
+
+	// Device creation is retried due to https://bugzilla.redhat.com/1933627
+	// which has been observed on multiple occasions on CI runs.
+	const retryAttempts = 5
+	attempt, err := retry(retryAttempts, func() error {
+		return netlink.LinkAdd(tapDevice)
+	})
+	if err != nil {
 		return fmt.Errorf("failed to create tap device named %s. Reason: %v", name, err)
 	}
 
@@ -36,7 +44,9 @@ func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu i
 		return fmt.Errorf("failed to set MTU on tap device named %s. Reason: %v", name, err)
 	}
 
-	return err
+	fmt.Printf("Successfully created tap device %s, attempt %d\n", name, attempt)
+
+	return nil
 }
 
 func NewCreateTapCommand() *cobra.Command {
@@ -65,11 +75,24 @@ func NewCreateTapCommand() *cobra.Command {
 				return fmt.Errorf("could not parse tap device group: %v", err)
 			}
 
-			if err := createTapDevice(tapName, uint(uid), uint(gid), int(queueNumber), int(mtu)); err != nil {
-				return fmt.Errorf("failed to create tap device named %s. Reason: %v", tapName, err)
-			}
-
-			return nil
+			return createTapDevice(tapName, uint(uid), uint(gid), int(queueNumber), int(mtu))
 		},
 	}
+}
+
+func retry(retryAttempts uint, f func() error) (uint, error) {
+	var errorsString []string
+	for attemptID := uint(0); attemptID < retryAttempts; attemptID++ {
+		if err := f(); err != nil {
+			errorsString = append(errorsString, fmt.Sprintf("[%d]: %v", attemptID, err))
+			time.Sleep(time.Second)
+		} else {
+			if len(errorsString) > 0 {
+				fmt.Printf("warning: Tap device creation has been retried: %v", strings.Join(errorsString, "\n"))
+			}
+			return attemptID, nil
+		}
+	}
+
+	return retryAttempts, fmt.Errorf(strings.Join(errorsString, "\n"))
 }

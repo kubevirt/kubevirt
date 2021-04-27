@@ -26,7 +26,7 @@ import (
 	"regexp"
 	"strings"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,7 +81,7 @@ type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
 
-func (admitter *VMICreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
@@ -97,12 +97,15 @@ func (admitter *VMICreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, accountName)...)
 	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
 	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(k8sfield.NewPath("spec"), &vmi.Spec)...)
-
+	if webhooks.IsARM64() {
+		// Check if there is any unsupported setting if the arch is Arm64
+		causes = append(causes, webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	}
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
 }
@@ -184,7 +187,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 
-	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes, config)...)
+	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes)...)
 
 	if spec.DNSPolicy != "" {
 		causes = append(causes, validateDNSPolicy(&spec.DNSPolicy, field.Child("dnsPolicy"))...)
@@ -1517,7 +1520,7 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 	return causes
 }
 
-func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.AccessCredential, volumes []v1.Volume, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.AccessCredential, volumes []v1.Volume) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if len(accessCredentials) > arrayLenMax {
@@ -2127,6 +2130,52 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Message: err,
 				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
 			})
+		}
+
+		if disk.BlockSize != nil {
+			hasCustomBlockSize := disk.BlockSize.Custom != nil
+			hasVolumeMatchingEnabled := disk.BlockSize.MatchVolume != nil && (disk.BlockSize.MatchVolume.Enabled == nil || *disk.BlockSize.MatchVolume.Enabled)
+			if hasCustomBlockSize && hasVolumeMatchingEnabled {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "Block size matching can't be enabled together with a custom value",
+					Field:   field.Index(idx).Child("blockSize").String(),
+				})
+			} else if hasCustomBlockSize {
+				customSize := disk.BlockSize.Custom
+				if customSize.Logical > customSize.Physical {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Logical size %d must be the same or less than the physical size of %d", customSize.Logical, customSize.Physical),
+						Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
+					})
+				} else {
+					checkSize := func(size uint) (bool, string) {
+						if size < 512 {
+							return false, fmt.Sprintf("Provided size of %d is less than the supported minimum size of 512", size)
+						} else if size > 2097152 {
+							return false, fmt.Sprintf("Provided size of %d is greater than the supported maximum size of 2 MiB", size)
+						} else if size&(size-1) != 0 {
+							return false, fmt.Sprintf("Provided size of %d is not a power of 2", size)
+						}
+						return true, ""
+					}
+					if sizeOk, reason := checkSize(customSize.Logical); !sizeOk {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: reason,
+							Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
+						})
+					}
+					if sizeOk, reason := checkSize(customSize.Physical); !sizeOk {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: reason,
+							Field:   field.Index(idx).Child("blockSize").Child("custom").Child("physical").String(),
+						})
+					}
+				}
+			}
 		}
 	}
 

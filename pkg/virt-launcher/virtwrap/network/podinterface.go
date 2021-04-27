@@ -17,8 +17,6 @@
  *
  */
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-
 package network
 
 import (
@@ -47,10 +45,11 @@ var bridgeFakeIP = "169.254.75.1%d/32"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
-	preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error
+	preparePodNetworkInterfaces() error
 
-	loadCachedInterface(pid, name string) (bool, error)
-	setCachedInterface(pid, name string) error
+	loadCachedInterface() error
+	setCachedInterface() error
+	wasCachedInterfaceLoaded() bool
 
 	// virt-handler that executes phase1 of network configuration needs to
 	// pass details about discovered networking port into phase2 that is
@@ -59,17 +58,23 @@ type BindMechanism interface {
 	// ports are rewired, meaning, routes and IP addresses configured by
 	// CNI plugin may be gone. For this matter, we use a cached VIF file to
 	// pass discovered information between phases.
-	loadCachedVIF(pid, name string) (bool, error)
-	setCachedVIF(pid, name string) error
+	loadCachedVIF(pid string) error
+	setCachedVIF(pid string) error
 
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
 	decorateConfig() error
-	startDHCP(vmi *v1.VirtualMachineInstance) error
+	startDHCP() error
 }
 
 type podNICImpl struct {
 	cacheFactory cache.InterfaceCacheFactory
+}
+
+var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
+
+func setVifCacheFile(path string) {
+	vifCacheFile = path
 }
 
 func getVifFilePath(pid, name string) string {
@@ -77,7 +82,7 @@ func getVifFilePath(pid, name string) string {
 }
 
 func writeVifFile(buf []byte, pid, name string) error {
-	err := ioutil.WriteFile(getVifFilePath(pid, name), buf, 0644)
+	err := ioutil.WriteFile(getVifFilePath(pid, name), buf, 0600)
 	if err != nil {
 		return fmt.Errorf("error writing vif object: %v", err)
 	}
@@ -172,48 +177,40 @@ func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		return nil
 	}
 
-	bindMechanism, err := getPhase1Binding(vmi, iface, network, podInterfaceName, l.cacheFactory)
+	bindMechanism, err := getPhase1Binding(vmi, iface, network, podInterfaceName, l.cacheFactory, &pid)
 	if err != nil {
 		return err
 	}
 
-	pidStr := fmt.Sprintf("%d", pid)
-	isExist, err := bindMechanism.loadCachedInterface(pidStr, iface.Name)
-	if err != nil {
+	if err := bindMechanism.loadCachedInterface(); err != nil {
 		return err
 	}
 
+	doesExist := bindMechanism.wasCachedInterfaceLoaded()
 	// ignore the bindMechanism.loadCachedInterface for slirp and set the Pod interface cache
-	if !isExist || iface.Slirp != nil {
+	if !doesExist || iface.Slirp != nil {
 		err := setPodInterfaceCache(iface, podInterfaceName, vmi, l.cacheFactory)
 		if err != nil {
 			return err
 		}
 	}
-	if !isExist {
+	if !doesExist {
 		err = bindMechanism.discoverPodNetworkInterface()
 		if err != nil {
 			return err
 		}
 
-		queueNumber := uint32(0)
-		isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-		if isMultiqueue {
-			queueNumber = converter.CalculateNetworkQueues(vmi)
-		}
-		if err := bindMechanism.preparePodNetworkInterfaces(queueNumber, pid); err != nil {
+		if err := bindMechanism.preparePodNetworkInterfaces(); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
 			return createCriticalNetworkError(err)
 		}
 
-		err = bindMechanism.setCachedInterface(pidStr, iface.Name)
-		if err != nil {
+		if err := bindMechanism.setCachedInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
 			return createCriticalNetworkError(err)
 		}
 
-		err = bindMechanism.setCachedVIF(pidStr, iface.Name)
-		if err != nil {
+		if err := bindMechanism.setCachedVIF(getPIDString(&pid)); err != nil {
 			log.Log.Reason(err).Error("failed to save vif configuration")
 			return createCriticalNetworkError(err)
 		}
@@ -226,11 +223,11 @@ func createCriticalNetworkError(err error) *CriticalNetworkError {
 	return &CriticalNetworkError{fmt.Sprintf("Critical network error: %v", err)}
 }
 
-func ensureDHCP(vmi *v1.VirtualMachineInstance, bindMechanism BindMechanism, podInterfaceName string) error {
+func ensureDHCP(bindMechanism BindMechanism, podInterfaceName string) error {
 	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
-		if err := bindMechanism.startDHCP(vmi); err != nil {
+		if err := bindMechanism.startDHCP(); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}
 		newFile, err := os.Create(dhcpStartedFile)
@@ -251,27 +248,21 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		return nil
 	}
 
-	bindMechanism, err := getPhase2Binding(vmi, iface, network, domain, podInterfaceName, l.cacheFactory)
+	bindMechanism, err := getPhase2Binding(vmi, iface, network, domain, podInterfaceName, l.cacheFactory, nil)
 	if err != nil {
 		return err
 	}
 
-	pid := "self"
-
-	isExist, err := bindMechanism.loadCachedInterface(pid, iface.Name)
-	if err != nil {
+	if err := bindMechanism.loadCachedInterface(); err != nil {
 		log.Log.Reason(err).Critical("failed to load cached interface configuration")
 	}
-	if !isExist {
+	if !bindMechanism.wasCachedInterfaceLoaded() {
 		log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
 	}
 
-	isExist, err = bindMechanism.loadCachedVIF(pid, iface.Name)
-	if err != nil {
+	pid := "self"
+	if err = bindMechanism.loadCachedVIF(pid); err != nil {
 		log.Log.Reason(err).Critical("failed to load cached vif configuration")
-	}
-	if !isExist {
-		log.Log.Reason(err).Critical("cached vif configuration doesn't exist")
 	}
 
 	err = bindMechanism.decorateConfig()
@@ -279,8 +270,7 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
-	err = ensureDHCP(vmi, bindMechanism, podInterfaceName)
-	if err != nil {
+	if err := ensureDHCP(bindMechanism, podInterfaceName); err != nil {
 		log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for %s: %s", podInterfaceName, err)
 		panic(err)
 	}
@@ -292,11 +282,11 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 // should not require access to domain definition, hence we pass nil instead of
 // it. This means that any functions called under phase1 code path should not
 // use the domain set on the binding.
-func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, storeFactory cache.InterfaceCacheFactory) (BindMechanism, error) {
-	return getPhase2Binding(vmi, iface, network, nil, podInterfaceName, storeFactory)
+func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, storeFactory cache.InterfaceCacheFactory, launcherPID *int) (BindMechanism, error) {
+	return getPhase2Binding(vmi, iface, network, nil, podInterfaceName, storeFactory, launcherPID)
 }
 
-func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string, storeFactory cache.InterfaceCacheFactory) (BindMechanism, error) {
+func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string, storeFactory cache.InterfaceCacheFactory, launcherPID *int) (BindMechanism, error) {
 	retrieveMacAddress := func(iface *v1.Interface) (*net.HardwareAddr, error) {
 		if iface.MacAddress != "" {
 			macAddress, err := net.ParseMAC(iface.MacAddress)
@@ -319,13 +309,14 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		}
 
 		return &BridgeBindMechanism{iface: iface,
-			virtIface:           &api.Interface{},
 			vmi:                 vmi,
 			vif:                 vif,
 			domain:              domain,
 			podInterfaceName:    podInterfaceName,
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
 			storeFactory:        storeFactory,
+			launcherPID:         launcherPID,
+			queueCount:          calculateNetworkQueues(vmi),
 		}, nil
 	}
 	if iface.Masquerade != nil {
@@ -339,36 +330,35 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		}
 
 		return &MasqueradeBindMechanism{iface: iface,
-			virtIface:           &api.Interface{},
 			vmi:                 vmi,
 			vif:                 vif,
 			domain:              domain,
 			podInterfaceName:    podInterfaceName,
 			vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
-			vmIpv6NetworkCIDR:   "", // TODO add ipv6 cidr to PodNetwork schema
+			vmIPv6NetworkCIDR:   network.Pod.VMIPv6NetworkCIDR,
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
 			storeFactory:        storeFactory,
+			launcherPID:         launcherPID,
+			queueCount:          calculateNetworkQueues(vmi),
 		}, nil
 	}
 	if iface.Slirp != nil {
-		return &SlirpBindMechanism{vmi: vmi, iface: iface, domain: domain}, nil
+		return &SlirpBindMechanism{iface: iface, domain: domain}, nil
 	}
 	if iface.Macvtap != nil {
 		mac, err := retrieveMacAddress(iface)
 		if err != nil {
 			return nil, err
 		}
-		virtIface := &api.Interface{}
-		if mac != nil {
-			virtIface.MAC = &api.MAC{MAC: mac.String()}
-		}
+
 		return &MacvtapBindMechanism{
 			vmi:              vmi,
 			iface:            iface,
-			virtIface:        virtIface,
 			domain:           domain,
 			podInterfaceName: podInterfaceName,
+			mac:              mac,
 			storeFactory:     storeFactory,
+			launcherPID:      launcherPID,
 		}, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
@@ -385,6 +375,8 @@ type BridgeBindMechanism struct {
 	bridgeInterfaceName string
 	arpIgnore           bool
 	storeFactory        cache.InterfaceCacheFactory
+	launcherPID         *int
+	queueCount          uint32
 }
 
 func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
@@ -410,12 +402,7 @@ func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
 
 	if len(b.vif.MAC) == 0 {
 		// Get interface MAC address
-		mac, err := Handler.GetMacDetails(b.podInterfaceName)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get MAC for %s", b.podInterfaceName)
-			return err
-		}
-		b.vif.MAC = mac
+		b.vif.MAC = b.podNicLink.Attrs().HardwareAddr
 	}
 
 	if b.podNicLink.Attrs().MTU < 0 || b.podNicLink.Attrs().MTU > 65535 {
@@ -444,7 +431,7 @@ func (b *BridgeBindMechanism) getFakeBridgeIP() (string, error) {
 	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", b.iface.Name)
 }
 
-func (b *BridgeBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (b *BridgeBindMechanism) startDHCP() error {
 	if !b.vif.IPAMDisabled {
 		addr, err := b.getFakeBridgeIP()
 		if err != nil {
@@ -460,7 +447,7 @@ func (b *BridgeBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
+func (b *BridgeBindMechanism) preparePodNetworkInterfaces() error {
 	// Set interface link to down to change its MAC address
 	if err := Handler.LinkSetDown(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
@@ -492,7 +479,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, la
 		return err
 	}
 
-	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu), "0")
+	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -515,11 +502,13 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, la
 		return err
 	}
 
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
-	b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
-	b.virtIface.Target = &api.InterfaceTarget{
-		Device:  tapDeviceName,
-		Managed: "no",
+	b.virtIface = &api.Interface{
+		MAC: &api.MAC{MAC: b.vif.MAC.String()},
+		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
+		Target: &api.InterfaceTarget{
+			Device:  tapDeviceName,
+			Managed: "no",
+		},
 	}
 
 	return nil
@@ -538,44 +527,51 @@ func (b *BridgeBindMechanism) decorateConfig() error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
-	ifaceConfig, err := b.storeFactory.CacheForPID(pid).Read(name)
+func getPIDString(pid *int) string {
+	if pid != nil {
+		return fmt.Sprintf("%d", *pid)
+	}
+	return "self"
+}
+
+func (b *BridgeBindMechanism) loadCachedInterface() error {
+	ifaceConfig, err := b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
+
 	if os.IsNotExist(err) {
-		return false, nil
+		return nil
 	}
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	b.virtIface = ifaceConfig
-	return true, nil
+	return nil
 }
 
-func (b *BridgeBindMechanism) setCachedInterface(pid, name string) error {
-	err := b.storeFactory.CacheForPID(pid).Write(name, b.virtIface)
-	return err
+func (b *BridgeBindMechanism) setCachedInterface() error {
+	return b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
 }
 
-func (b *BridgeBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
-	buf, err := ioutil.ReadFile(getVifFilePath(pid, name))
+func (b *BridgeBindMechanism) wasCachedInterfaceLoaded() bool {
+	return b.virtIface != nil
+}
+
+func (b *BridgeBindMechanism) loadCachedVIF(pid string) error {
+	buf, err := ioutil.ReadFile(getVifFilePath(pid, b.iface.Name))
 	if err != nil {
-		return false, err
+		return err
 	}
 	err = json.Unmarshal(buf, &b.vif)
 	if err != nil {
-		return false, err
+		return err
 	}
 	b.vif.Gateway = b.vif.Gateway.To4()
-	return true, nil
+	return nil
 }
 
-func (b *BridgeBindMechanism) setCachedVIF(pid, name string) error {
-	buf, err := json.MarshalIndent(&b.vif, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling vif object: %v", err)
-	}
-	return writeVifFile(buf, pid, name)
+func (b *BridgeBindMechanism) setCachedVIF(pid string) error {
+	return setCachedVIF(*b.vif, pid, b.iface.Name)
 }
 
 func (b *BridgeBindMechanism) setInterfaceRoutes() error {
@@ -698,10 +694,12 @@ type MasqueradeBindMechanism struct {
 	podInterfaceName    string
 	bridgeInterfaceName string
 	vmNetworkCIDR       string
-	vmIpv6NetworkCIDR   string
+	vmIPv6NetworkCIDR   string
 	gatewayAddr         *netlink.Addr
 	gatewayIpv6Addr     *netlink.Addr
 	storeFactory        cache.InterfaceCacheFactory
+	launcherPID         *int
+	queueCount          uint32
 }
 
 func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
@@ -765,13 +763,13 @@ func configureVifV4Addresses(b *MasqueradeBindMechanism, err error) error {
 }
 
 func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
-	if b.vmIpv6NetworkCIDR == "" {
-		b.vmIpv6NetworkCIDR = api.DefaultVMIpv6CIDR
+	if b.vmIPv6NetworkCIDR == "" {
+		b.vmIPv6NetworkCIDR = api.DefaultVMIpv6CIDR
 	}
 
-	defaultGatewayIpv6, vmIpv6, err := Handler.GetHostAndGwAddressesFromCIDR(b.vmIpv6NetworkCIDR)
+	defaultGatewayIpv6, vmIpv6, err := Handler.GetHostAndGwAddressesFromCIDR(b.vmIPv6NetworkCIDR)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", b.vmIpv6NetworkCIDR)
+		log.Log.Reason(err).Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", b.vmIPv6NetworkCIDR)
 		return err
 	}
 
@@ -790,11 +788,11 @@ func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (b *MasqueradeBindMechanism) startDHCP() error {
 	return Handler.StartDHCP(b.vif, b.vif.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
 }
 
-func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
+func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces() error {
 	// Create an master bridge interface
 	bridgeNicName := fmt.Sprintf("%s-nic", b.bridgeInterfaceName)
 	bridgeNic := &netlink.Dummy{
@@ -820,7 +818,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
-	err = createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu), "0")
+	err = createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -845,13 +843,15 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 		}
 	}
 
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
+	b.virtIface = &api.Interface{
+		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
+		Target: &api.InterfaceTarget{
+			Device:  tapDeviceName,
+			Managed: "no",
+		},
+	}
 	if b.vif.MAC != nil {
 		b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
-	}
-	b.virtIface.Target = &api.InterfaceTarget{
-		Device:  tapDeviceName,
-		Managed: "no",
 	}
 
 	return nil
@@ -870,45 +870,44 @@ func (b *MasqueradeBindMechanism) decorateConfig() error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
-	ifaceConfig, err := b.storeFactory.CacheForPID(pid).Read(name)
+func (b *MasqueradeBindMechanism) loadCachedInterface() error {
+	ifaceConfig, err := b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
 	if os.IsNotExist(err) {
-		return false, nil
+		return nil
 	}
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	b.virtIface = ifaceConfig
-	return true, nil
+	return nil
 }
 
-func (b *MasqueradeBindMechanism) setCachedInterface(pid, name string) error {
-	err := b.storeFactory.CacheForPID(pid).Write(name, b.virtIface)
-	return err
+func (b *MasqueradeBindMechanism) setCachedInterface() error {
+	return b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
 }
 
-func (b *MasqueradeBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
-	buf, err := ioutil.ReadFile(getVifFilePath(pid, name))
+func (b *MasqueradeBindMechanism) wasCachedInterfaceLoaded() bool {
+	return b.virtIface != nil
+}
+
+func (b *MasqueradeBindMechanism) loadCachedVIF(pid string) error {
+	buf, err := ioutil.ReadFile(getVifFilePath(pid, b.iface.Name))
 	if err != nil {
-		return false, err
+		return err
 	}
 	err = json.Unmarshal(buf, &b.vif)
 	if err != nil {
-		return false, err
+		return err
 	}
 	b.vif.Gateway = b.vif.Gateway.To4()
 	b.vif.GatewayIpv6 = b.vif.GatewayIpv6.To16()
-	return true, nil
+	return nil
 }
 
-func (b *MasqueradeBindMechanism) setCachedVIF(pid, name string) error {
-	buf, err := json.MarshalIndent(&b.vif, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling vif object: %v", err)
-	}
-	return writeVifFile(buf, pid, name)
+func (b *MasqueradeBindMechanism) setCachedVIF(pid string) error {
+	return setCachedVIF(*b.vif, pid, b.iface.Name)
 }
 
 func (b *MasqueradeBindMechanism) createBridge() error {
@@ -1163,66 +1162,68 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 }
 
 type SlirpBindMechanism struct {
-	vmi       *v1.VirtualMachineInstance
-	iface     *v1.Interface
-	virtIface *api.Interface
-	domain    *api.Domain
+	iface  *v1.Interface
+	domain *api.Domain
 }
 
-func (s *SlirpBindMechanism) discoverPodNetworkInterface() error {
+func (b *SlirpBindMechanism) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (s *SlirpBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
+func (b *SlirpBindMechanism) preparePodNetworkInterfaces() error {
 	return nil
 }
 
-func (s *SlirpBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (b *SlirpBindMechanism) startDHCP() error {
 	return nil
 }
 
-func (s *SlirpBindMechanism) decorateConfig() error {
+func (b *SlirpBindMechanism) decorateConfig() error {
 	// remove slirp interface from domain spec devices interfaces
 	var foundIfaceModelType string
-	ifaces := s.domain.Spec.Devices.Interfaces
+	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Alias.GetName() == s.iface.Name {
-			s.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
+		if iface.Alias.GetName() == b.iface.Name {
+			b.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
 			foundIfaceModelType = iface.Model.Type
 			break
 		}
 	}
 
 	if foundIfaceModelType == "" {
-		return fmt.Errorf("failed to find interface %s in vmi spec", s.iface.Name)
+		return fmt.Errorf("failed to find interface %s in vmi spec", b.iface.Name)
 	}
 
-	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", foundIfaceModelType, s.iface.Name, s.iface.Name)
-	if s.iface.MacAddress != "" {
+	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", foundIfaceModelType, b.iface.Name, b.iface.Name)
+	if b.iface.MacAddress != "" {
 		// We assume address was already validated in API layer so just pass it to libvirt as-is.
-		qemuArg += fmt.Sprintf(",mac=%s", s.iface.MacAddress)
+		qemuArg += fmt.Sprintf(",mac=%s", b.iface.MacAddress)
 	}
 	// Add interface configuration to qemuArgs
-	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
-	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: qemuArg})
+	b.domain.Spec.QEMUCmd.QEMUArg = append(b.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
+	b.domain.Spec.QEMUCmd.QEMUArg = append(b.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: qemuArg})
 
 	return nil
 }
 
-func (s *SlirpBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
-	return true, nil
-}
-
-func (s *SlirpBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
-	return true, nil
-}
-
-func (b *SlirpBindMechanism) setCachedVIF(pid, name string) error {
+func (b *SlirpBindMechanism) loadCachedInterface() error {
 	return nil
 }
 
-func (s *SlirpBindMechanism) setCachedInterface(pid, name string) error {
+func (b *SlirpBindMechanism) loadCachedVIF(_ string) error {
 	return nil
+}
+
+func (b *SlirpBindMechanism) setCachedVIF(_ string) error {
+	return nil
+}
+
+func (b *SlirpBindMechanism) setCachedInterface() error {
+	return nil
+}
+
+func (b *SlirpBindMechanism) wasCachedInterfaceLoaded() bool {
+	return true
 }
 
 type MacvtapBindMechanism struct {
@@ -1232,7 +1233,9 @@ type MacvtapBindMechanism struct {
 	domain           *api.Domain
 	podInterfaceName string
 	podNicLink       netlink.Link
+	mac              *net.HardwareAddr
 	storeFactory     cache.InterfaceCacheFactory
+	launcherPID      *int
 }
 
 func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
@@ -1242,27 +1245,27 @@ func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
 		return err
 	}
 	b.podNicLink = link
-
-	if b.virtIface.MAC == nil {
-		// Get interface MAC address
-		mac, err := Handler.GetMacDetails(b.podInterfaceName)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get MAC for %s", b.podInterfaceName)
-			return err
-		}
-		b.virtIface.MAC = &api.MAC{MAC: mac.String()}
-	}
-
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
-	b.virtIface.Target = &api.InterfaceTarget{
-		Device:  b.podInterfaceName,
-		Managed: "no",
+	b.virtIface = &api.Interface{
+		MAC: &api.MAC{MAC: b.podIfaceMAC()},
+		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
+		Target: &api.InterfaceTarget{
+			Device:  b.podInterfaceName,
+			Managed: "no",
+		},
 	}
 
 	return nil
 }
 
-func (b *MacvtapBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
+func (b *MacvtapBindMechanism) podIfaceMAC() string {
+	if b.mac != nil {
+		return b.mac.String()
+	} else {
+		return b.podNicLink.Attrs().HardwareAddr.String()
+	}
+}
+
+func (b *MacvtapBindMechanism) preparePodNetworkInterfaces() error {
 	return nil
 }
 
@@ -1279,34 +1282,37 @@ func (b *MacvtapBindMechanism) decorateConfig() error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
-	ifaceConfig, err := b.storeFactory.CacheForPID(pid).Read(name)
+func (b *MacvtapBindMechanism) loadCachedInterface() error {
+	ifaceConfig, err := b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
 	if os.IsNotExist(err) {
-		return false, nil
+		return nil
 	}
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	b.virtIface = ifaceConfig
-	return true, nil
-}
-
-func (b *MacvtapBindMechanism) setCachedInterface(pid, name string) error {
-	err := b.storeFactory.CacheForPID(pid).Write(name, b.virtIface)
-	return err
-}
-
-func (b *MacvtapBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
-	return true, nil
-}
-
-func (b *MacvtapBindMechanism) setCachedVIF(pid, name string) error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (b *MacvtapBindMechanism) setCachedInterface() error {
+	return b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
+}
+
+func (b *MacvtapBindMechanism) wasCachedInterfaceLoaded() bool {
+	return b.virtIface != nil
+}
+
+func (b *MacvtapBindMechanism) loadCachedVIF(_ string) error {
+	return nil
+}
+
+func (b *MacvtapBindMechanism) setCachedVIF(_ string) error {
+	return nil
+}
+
+func (b *MacvtapBindMechanism) startDHCP() error {
 	// macvtap will connect to the host's subnet
 	return nil
 }
@@ -1321,4 +1327,25 @@ func createAndBindTapToBridge(deviceName string, bridgeIfaceName string, queueNu
 
 func generateTapDeviceName(podInterfaceName string) string {
 	return "tap" + podInterfaceName[3:]
+}
+
+func calculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
+	if isMultiqueue(vmi) {
+		return converter.CalculateNetworkQueues(vmi)
+	}
+	return 0
+}
+
+func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
+	return (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) &&
+		(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
+}
+
+func setCachedVIF(vif VIF, launcherPID string, ifaceName string) error {
+	buf, err := json.MarshalIndent(vif, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling vif object: %v", err)
+	}
+
+	return writeVifFile(buf, launcherPID, ifaceName)
 }

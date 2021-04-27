@@ -21,9 +21,13 @@ package sriov_test
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+
+	"libvirt.org/libvirt-go"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -253,7 +257,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c := newCallbackerStub(false, false)
 			c.sendEvent("non-sriov")
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 1)).To(HaveOccurred())
+			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(HaveOccurred())
 			Expect(len(c.EventChannel())).To(Equal(0))
 		})
 
@@ -264,7 +268,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c := newCallbackerStub(false, true)
 			c.sendEvent(api.UserAliasPrefix + hostDevice.Alias.GetName())
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 1)).To(Succeed())
+			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
 		})
 
 		It("succeeds detaching 2 sriov devices", func() {
@@ -275,8 +279,142 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c.sendEvent(api.UserAliasPrefix + hostDevice.Alias.GetName())
 			c.sendEvent(api.UserAliasPrefix + hostDevice2.Alias.GetName())
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 1)).To(Succeed())
+			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
 		})
+	})
+
+	Context("attachment", func() {
+		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias("net1")}
+
+		It("ignores nil list of devices", func() {
+			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, nil)).Should(Succeed())
+		})
+
+		It("ignores an empty list of devices", func() {
+			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, []api.HostDevice{})).Should(Succeed())
+		})
+
+		It("succeeds to attach device", func() {
+			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, []api.HostDevice{hostDevice})).Should(Succeed())
+		})
+
+		It("succeeds to attach more than one device", func() {
+			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias("net2")}
+
+			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, []api.HostDevice{hostDevice, hostDevice2})).Should(Succeed())
+		})
+
+		It("fails to attach device", func() {
+			obj := deviceAttacherStub{fail: true}
+			Expect(sriov.AttachHostDevices(obj, []api.HostDevice{hostDevice})).ShouldNot(Succeed())
+		})
+
+		It("error should contain at least the Alias of each device that failed to attach", func() {
+			obj := deviceAttacherStub{fail: true}
+			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias("net2")}
+			err := sriov.AttachHostDevices(obj, []api.HostDevice{hostDevice, hostDevice2})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(And(
+				ContainSubstring(hostDevice.Alias.GetName()),
+				ContainSubstring(hostDevice2.Alias.GetName())))
+		})
+	})
+
+	Context("difference", func() {
+		table.DescribeTable("should return the correct host-devices set comparing by host-devices's Alias.Name",
+			func(hostDevices, removeHostDevices, expectedHostDevices []api.HostDevice) {
+				Expect(sriov.DifferenceHostDevicesByAlias(hostDevices, removeHostDevices)).To(ConsistOf(expectedHostDevices))
+			},
+			table.Entry("empty set and zero elements to filter",
+				// slice A
+				[]api.HostDevice{},
+				// slice B
+				[]api.HostDevice{},
+				// expected
+				[]api.HostDevice{},
+			),
+			table.Entry("empty set and at least one element to filter",
+				// slice A
+				[]api.HostDevice{},
+				// slice B
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+				},
+				// expected
+				[]api.HostDevice{},
+			),
+			table.Entry("valid set and zero elements to filter",
+				// slice A
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+				// slice B
+				[]api.HostDevice{},
+				// expected
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+			),
+			table.Entry("valid set and at least one element to filter",
+				// slice A
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+				},
+				// slice B
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+				},
+				// expected
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+			),
+
+			table.Entry("valid set and a set that includes all elements from the first set",
+				// slice A
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+				},
+				// slice B
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+				// expected
+				[]api.HostDevice{},
+			),
+			table.Entry("valid set and larger set to to filter",
+				// slice A
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+				},
+				// slice B
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev7")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+				// expected
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+				},
+			),
+		)
 	})
 })
 
@@ -313,9 +451,20 @@ type deviceDetacherStub struct {
 	fail bool
 }
 
-func (d deviceDetacherStub) DetachDevice(data string) error {
+func (d deviceDetacherStub) DetachDeviceFlags(data string, flags libvirt.DomainDeviceModifyFlags) error {
 	if d.fail {
 		return fmt.Errorf("detach device error")
+	}
+	return nil
+}
+
+type deviceAttacherStub struct {
+	fail bool
+}
+
+func (d deviceAttacherStub) AttachDeviceFlags(data string, flags libvirt.DomainDeviceModifyFlags) error {
+	if d.fail {
+		return fmt.Errorf("attach device error")
 	}
 	return nil
 }

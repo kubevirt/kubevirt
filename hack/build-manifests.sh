@@ -38,7 +38,7 @@ mkdir -p "${TESTS_OUT_DIR}/tools"
 templator=${TESTS_OUT_DIR}/tools/manifest-templator
 
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     //:build-manifest-templator -- ${templator}
 
 # first process file includes only
@@ -96,6 +96,7 @@ for arg in $args; do
         --virt-controller-sha=${VIRT_CONTROLLER_SHA} \
         --virt-handler-sha=${VIRT_HANDLER_SHA} \
         --virt-launcher-sha=${VIRT_LAUNCHER_SHA} \
+        --feature-gates=${feature_gates} \
         >${outfile}
 
     if [ "$skipj2" = true ]; then
@@ -116,6 +117,7 @@ for arg in $args; do
         --package-name=${package_name} \
         --input-file=${infile} \
         --quay-repository=${QUAY_REPOSITORY} \
+        --feature-gates=${feature_gates} \
         >${template_outfile}
 done
 

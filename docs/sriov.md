@@ -284,6 +284,12 @@ all this to work. More details on usage can be found in
 and [SR-IOV operator](https://github.com/openshift/sriov-network-operator/blob/master/doc/quickstart.md)
 user documentation.
 
+> **NOTE:**  In cases where no VLAN is required on the VF, an explicit definition of `vlan: 0` needs to be set on the NAD.
+> If the VLAN field is missing, the VF VLAN will not be set and any existing setting on it will be left untouched.
+>
+> For more details please address the SR-IOV-CNI issue at: 
+> https://github.com/openshift/sriov-cni/issues/25#issue-816231435
+
 # External resources
 
 * [User guide section on SR-IOV](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=sriov)

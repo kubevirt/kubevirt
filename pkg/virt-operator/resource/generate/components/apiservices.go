@@ -2,20 +2,20 @@ package components
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
-func NewVirtAPIAPIServices(installNamespace string) []*v1beta1.APIService {
-	apiservices := []*v1beta1.APIService{}
+func NewVirtAPIAPIServices(installNamespace string) []*apiregv1.APIService {
+	apiservices := []*apiregv1.APIService{}
 
 	for _, version := range v1.SubresourceGroupVersions {
 		subresourceAggregatedApiName := version.Version + "." + version.Group
 
-		apiservices = append(apiservices, &v1beta1.APIService{
+		apiservices = append(apiservices, &apiregv1.APIService{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "apiregistration.k8s.io/v1beta1",
+				APIVersion: "apiregistration.k8s.io/v1",
 				Kind:       "APIService",
 			},
 			ObjectMeta: metav1.ObjectMeta{
@@ -28,8 +28,8 @@ func NewVirtAPIAPIServices(installNamespace string) []*v1beta1.APIService {
 					"certificates.kubevirt.io/secret": VirtApiCertSecretName,
 				},
 			},
-			Spec: v1beta1.APIServiceSpec{
-				Service: &v1beta1.ServiceReference{
+			Spec: apiregv1.APIServiceSpec{
+				Service: &apiregv1.ServiceReference{
 					Namespace: installNamespace,
 					Name:      VirtApiServiceName,
 				},

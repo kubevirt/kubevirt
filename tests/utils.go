@@ -208,9 +208,9 @@ const (
 	SecretLabel = "kubevirt.io/secret"
 )
 
-const (
+var (
 	// BlockDiskForTest contains name of the block PV and PVC
-	BlockDiskForTest = "block-disk-for-tests"
+	BlockDiskForTest string
 )
 
 const (
@@ -218,10 +218,11 @@ const (
 )
 
 const (
-	capNetAdmin k8sv1.Capability = "NET_ADMIN"
-	capNetRaw   k8sv1.Capability = "NET_RAW"
-	capSysNice  k8sv1.Capability = "SYS_NICE"
+	capNetRaw  k8sv1.Capability = "NET_RAW"
+	capSysNice k8sv1.Capability = "SYS_NICE"
 )
+
+const MigrationWaitTime = 240
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
@@ -693,7 +694,7 @@ func SynchronizedBeforeTestSetup() []byte {
 }
 
 func BeforeTestSuitSetup(_ []byte) {
-	rand.Seed(time.Now().Unix())
+	rand.Seed(int64(config.GinkgoConfig.ParallelNode))
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
@@ -707,6 +708,8 @@ func BeforeTestSuitSetup(_ []byte) {
 	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
 	HostPathFedora = filepath.Join(HostPathBase, "fedora-cloud")
+
+	BlockDiskForTest = fmt.Sprintf("block-disk-for-tests%v", worker)
 
 	// Wait for schedulable nodes
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -744,9 +747,14 @@ func AdjustKubeVirtResource() {
 
 	// Rotate very often during the tests to ensure that things are working
 	kv.Spec.CertificateRotationStrategy = v1.KubeVirtCertificateRotateStrategy{SelfSigned: &v1.KubeVirtSelfSignConfiguration{
-		CARotateInterval:   &metav1.Duration{Duration: 20 * time.Minute},
-		CertRotateInterval: &metav1.Duration{Duration: 14 * time.Minute},
-		CAOverlapInterval:  &metav1.Duration{Duration: 8 * time.Minute},
+		CA: &v1.CertConfig{
+			Duration:    &metav1.Duration{Duration: 20 * time.Minute},
+			RenewBefore: &metav1.Duration{Duration: 12 * time.Minute},
+		},
+		Server: &v1.CertConfig{
+			Duration:    &metav1.Duration{Duration: 14 * time.Minute},
+			RenewBefore: &metav1.Duration{Duration: 10 * time.Minute},
+		},
 	}}
 
 	// match default kubevirt-config testing resource
@@ -866,6 +874,74 @@ func EnsureKVMPresent() {
 		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
 			"Both KVM devices and vhost-net devices are required for testing, but are not present on cluster nodes")
 	}
+}
+
+func GetNodesWithKVM() []*k8sv1.Node {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+
+	nodes := make([]*k8sv1.Node, 0)
+	// cluster is not ready until all nodes are ready.
+	for _, pod := range virtHandlerPods.Items {
+		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+		if ok {
+			nodes = append(nodes, virtHandlerNode)
+		}
+	}
+	return nodes
+}
+
+func GetSupportedCPUFeatures(nodes k8sv1.NodeList) []string {
+	var featureDenyList = map[string]bool{
+		"svm": true,
+	}
+	featuresMap := make(map[string]bool)
+	for _, node := range nodes.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
+				feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+				if _, ok := featureDenyList[feature]; !ok {
+					featuresMap[feature] = true
+				}
+			}
+		}
+	}
+
+	features := make([]string, 0)
+	for feature := range featuresMap {
+		features = append(features, feature)
+	}
+	return features
+}
+
+func GetSupportedCPUModels(nodes k8sv1.NodeList) []string {
+	var cpuDenyList = map[string]bool{
+		"qemu64":     true,
+		"Opteron_G2": true,
+	}
+	cpuMap := make(map[string]bool)
+	for _, node := range nodes.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+				if _, ok := cpuDenyList[cpu]; !ok {
+					cpuMap[cpu] = true
+				}
+			}
+		}
+	}
+
+	cpus := make([]string, 0)
+	for model := range cpuMap {
+		cpus = append(cpus, model)
+	}
+	return cpus
 }
 
 func CreateConfigMap(name string, data map[string]string) {
@@ -1438,6 +1514,15 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
+	By("Waiting until the VirtualMachineInstance will start")
+	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+	return obj
+}
+
+func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
+	obj := RunVMI(vmi, timeout)
+	By("Waiting until the DataVolume is ready")
+	WaitForSuccessfulDataVolumeImport(dv, timeout)
 	By("Waiting until the VirtualMachineInstance will start")
 	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 	return obj
@@ -2205,6 +2290,18 @@ func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 	)
 }
 
+func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
+	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+	Expect(err).NotTo(HaveOccurred())
+
+	return libvmi.NewTestToolingFedora(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentBlacklistUserData(commands), false),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+	)
+}
+
 func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 		Name:     name,
@@ -2275,6 +2372,18 @@ func GetFedoraToolsGuestAgentUserData() string {
             sudo systemctl start qemu-guest-agent
             sudo systemctl enable qemu-guest-agent
 `
+}
+
+func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
+	return fmt.Sprintf(`#!/bin/bash
+            echo "fedora" |passwd fedora --stdin
+            sudo setenforce Permissive
+            sudo cp /home/fedora/qemu-guest-agent.service /lib/systemd/system/
+            echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
+            sudo systemctl daemon-reload
+            sudo systemctl start qemu-guest-agent
+            sudo systemctl enable qemu-guest-agent
+`, commands)
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
@@ -2733,6 +2842,10 @@ func WaitForDataVolumeReady(namespace, name string, seconds int) {
 	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.Succeeded)
 }
 
+func WaitForDataVolumeImportInProgress(namespace, name string, seconds int) {
+	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.ImportInProgress)
+}
+
 func WaitForDataVolumePhaseWFFC(namespace, name string, seconds int) {
 	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer)
 }
@@ -2749,6 +2862,9 @@ func waitForDataVolumePhase(namespace, name string, seconds int, phase ...cdiv1.
 	EventuallyWithOffset(2,
 		func() cdiv1.DataVolumePhase {
 			dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
+			if apierrors.IsNotFound(err) {
+				return cdiv1.PhaseUnset
+			}
 			ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
 			return dv.Status.Phase
@@ -3057,7 +3173,7 @@ func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, contain
 	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, pod, containerName, command)
 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
 	}
 
 	if len(stderr) > 0 {
@@ -3136,6 +3252,36 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
 	}
 	return stdout, err
+}
+
+func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
+	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, NamespaceTestDefault)
+	if err != nil {
+		return false, err
+	}
+
+	found := false
+	containerIdx := 0
+	for idx, container := range vmiPod.Spec.Containers {
+		if container.Name == "compute" {
+			containerIdx = idx
+			found = true
+		}
+	}
+	if !found {
+		return false, fmt.Errorf("could not find compute container for pod")
+	}
+
+	stdout, stderr, err := ExecuteCommandOnPodV2(
+		virtClient,
+		vmiPod,
+		vmiPod.Spec.Containers[containerIdx].Name,
+		[]string{"virsh", "--quiet", "domstate", vmi.Namespace + "_" + vmi.Name},
+	)
+	if err != nil {
+		return false, fmt.Errorf("could not get libvirt domstate (remotely on pod): %v: %s", err, stderr)
+	}
+	return strings.Contains(stdout, "paused"), nil
 }
 
 func LibvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
@@ -3791,10 +3937,7 @@ func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 
 // SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified
 func SkipIfVersionBelow(message string, expectedVersion string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	curVersion, err := cluster.GetKubernetesVersion()
 	Expect(err).NotTo(HaveOccurred())
 
 	if curVersion < expectedVersion {
@@ -3803,10 +3946,7 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 }
 
 func SkipIfVersionAboveOrEqual(message string, expectedVersion string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	curVersion, err := cluster.GetKubernetesVersion()
 	Expect(err).NotTo(HaveOccurred())
 
 	if curVersion >= expectedVersion {
@@ -3821,10 +3961,7 @@ func SkipIfOpenShift(message string) {
 }
 
 func SkipIfOpenShiftAndBelowOrEqualVersion(message string, version string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	curVersion, err := cluster.GetKubernetesVersion()
 	Expect(err).NotTo(HaveOccurred())
 
 	// version is above
@@ -3845,6 +3982,22 @@ func SkipIfOpenShift4(message string) {
 		PanicOnError(err)
 	} else if t && cluster.GetOpenShiftMajorVersion(virtClient) == cluster.OpenShift4Major {
 		Skip(message)
+	}
+}
+
+func SkipIfMigrationIsNotPossible() {
+	if !HasLiveMigration() {
+		Skip("LiveMigration feature gate is not enabled in kubevirt-config")
+	}
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	nodes := GetAllSchedulableNodes(virtClient)
+	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+
+	if len(nodes.Items) < 2 {
+		Skip("Migration tests require at least 2 nodes")
 	}
 }
 
@@ -3932,7 +4085,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 	return vm
 }
 
-func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
+func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
 	By("Stopping the VirtualMachineInstance")
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -3943,7 +4096,7 @@ func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 		updatedVM.Spec.Running = &running
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 		return err
-	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
@@ -3953,15 +4106,20 @@ func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 			return true
 		}
 		return false
-	}, 300*time.Second, 1*time.Second).Should(BeTrue(), "The vmi did not disappear")
+	}, timeout, 1*time.Second).Should(BeTrue(), "The vmi did not disappear")
 	By("VM has not the running condition")
 	Eventually(func() bool {
 		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
-	}, 300*time.Second, 1*time.Second).Should(BeFalse())
+	}, timeout, 1*time.Second).Should(BeFalse())
 	return updatedVM
 }
+
+func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
+	return StopVirtualMachineWithTimeout(vm, time.Second*300)
+}
+
 func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachineInstance")
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -4065,7 +4223,7 @@ func HasDataVolumeCRD() bool {
 	ext, err := extclient.NewForConfig(virtClient.Config())
 	PanicOnError(err)
 
-	_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "datavolumes.cdi.kubevirt.io", metav1.GetOptions{})
+	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "datavolumes.cdi.kubevirt.io", metav1.GetOptions{})
 
 	if err != nil {
 		return false
@@ -4096,7 +4254,7 @@ func GetCephStorageClass() (string, bool) {
 	Expect(err).ToNot(HaveOccurred())
 	for _, storageClass := range storageClassList.Items {
 		switch storageClass.Provisioner {
-		case "rook-ceph.rbd.csi.ceph.com", "csi-rbdplugin":
+		case "rook-ceph.rbd.csi.ceph.com", "csi-rbdplugin", "openshift-storage.rbd.csi.ceph.com":
 			return storageClass.Name, true
 		}
 	}
@@ -4407,7 +4565,6 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	By("Waiting for guest agent connection")
 	WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 12*60)
 }
 
@@ -4901,7 +5058,6 @@ func DetectLatestUpstreamOfficialTag() (string, error) {
 func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
 	case
-		capNetAdmin,
 		capSysNice:
 		return true
 	}

@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"runtime"
 	"time"
 
 	restful "github.com/emicklei/go-restful"
@@ -53,7 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 
 	storagev1 "k8s.io/api/storage/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 func newValidGetRequest() *http.Request {
@@ -85,17 +86,17 @@ var _ = Describe("Application", func() {
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
-		crdInformer, _ := testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+		crdInformer, _ := testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 		vmRestoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 
 		var qemuGid int64 = 107
 
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
-		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, recorder, virtClient, config)
+		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, recorder, virtClient)
 		app.nodeController = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
-		app.vmiController = NewVMIController(services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
+		app.vmiController = NewVMIController(services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, runtime.GOARCH),
 			vmiInformer,
 			podInformer,
 			pvcInformer,
@@ -105,7 +106,7 @@ var _ = Describe("Application", func() {
 		)
 		app.rsController = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, pvcInformer, recorder, virtClient)
-		app.migrationController = NewMigrationController(services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
+		app.migrationController = NewMigrationController(services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, runtime.GOARCH),
 			vmiInformer,
 			podInformer,
 			migrationInformer,

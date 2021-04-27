@@ -190,12 +190,12 @@ func (_mr *_MockDomainManagerRecorder) GetFilesystems() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetFilesystems")
 }
 
-func (_m *MockDomainManager) SetGuestTime(_param0 *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "SetGuestTime", _param0)
+func (_m *MockDomainManager) FinalizeVirtualMachineMigration(_param0 *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "FinalizeVirtualMachineMigration", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockDomainManagerRecorder) SetGuestTime(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetGuestTime", arg0)
+func (_mr *_MockDomainManagerRecorder) FinalizeVirtualMachineMigration(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0)
 }

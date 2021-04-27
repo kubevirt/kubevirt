@@ -97,6 +97,10 @@ func WatchdogFileExists(baseDir string, vmi *v1.VirtualMachineInstance) (bool, e
 }
 
 func WatchdogFileIsExpired(timeoutSeconds int, baseDir string, vmi *v1.VirtualMachineInstance) (bool, error) {
+	return watchdogFileIsExpired(timeoutSeconds, baseDir, vmi, time.Now())
+}
+
+func watchdogFileIsExpired(timeoutSeconds int, baseDir string, vmi *v1.VirtualMachineInstance, timeNow time.Time) (bool, error) {
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
@@ -116,7 +120,7 @@ func WatchdogFileIsExpired(timeoutSeconds int, baseDir string, vmi *v1.VirtualMa
 		return false, err
 	}
 
-	now := time.Now().UTC().Unix()
+	now := timeNow.UTC().Unix()
 
 	return isExpired(now, timeoutSeconds, stat), nil
 }
@@ -132,6 +136,10 @@ func isExpired(now int64, timeoutSeconds int, stat os.FileInfo) bool {
 }
 
 func GetExpiredDomains(timeoutSeconds int, virtShareDir string) ([]*api.Domain, error) {
+	return getExpiredDomains(timeoutSeconds, virtShareDir, time.Now())
+}
+
+func getExpiredDomains(timeoutSeconds int, virtShareDir string, timeNow time.Time) ([]*api.Domain, error) {
 
 	var domains []*api.Domain
 
@@ -146,7 +154,7 @@ func GetExpiredDomains(timeoutSeconds int, virtShareDir string) ([]*api.Domain, 
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now().UTC().Unix()
+	now := timeNow.UTC().Unix()
 	for _, file := range files {
 		if isExpired(now, timeoutSeconds, file) == true {
 			key := file.Name()

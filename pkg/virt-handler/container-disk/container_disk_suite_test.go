@@ -3,11 +3,9 @@ package container_disk_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestContainerDisk(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "ContainerDisk Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "ContainerDisk Suite")
 }

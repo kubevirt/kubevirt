@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -23,7 +24,7 @@ type FakePlugin struct {
 	Error      error
 }
 
-func (fp *FakePlugin) Start(stop chan struct{}) (err error) {
+func (fp *FakePlugin) Start(_ chan struct{}) (err error) {
 	atomic.AddInt32(&fp.Starts, 1)
 	return fp.Error
 }
@@ -52,18 +53,33 @@ var _ = Describe("Device Controller", func() {
 	var err error
 	var host string
 	var stop chan struct{}
+	var stop1 chan struct{}
+	var stop2 chan struct{}
 	var fakeConfigMap *virtconfig.ClusterConfig
+	var mockPCI *MockDeviceHandler
+	var ctrl *gomock.Controller
 
 	BeforeEach(func() {
-		permittedDevices := `{"pciHostDevices":[{"pciVendorSelector":"DEAD:BEEF","resourceName":"fake-device2","externalResourceProvider":"true"},{"pciVendorSelector":"DEAD:BEEG","resourceName":"fake-device1","externalResourceProvider":"true"}]}`
+		ctrl = gomock.NewController(GinkgoT())
+		mockPCI = NewMockDeviceHandler(ctrl)
+		Handler = mockPCI
+		mockPCI.EXPECT().GetDevicePCIID(gomock.Any(), gomock.Any()).Return("1234:5678", nil).AnyTimes()
+
+		permittedDevices := `{"pciHostDevices":[`
+		permittedDevices += `{"pciVendorSelector":"DEAD:BEE7","resourceName":"example.org/fake-device1","externalResourceProvider":true},`
+		permittedDevices += `{"pciVendorSelector":"DEAD:BEEF","resourceName":"example.org/fake-device2","externalResourceProvider":true}`
+		permittedDevices += `]}`
 		fakeConfigMap, _, _, _ = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
 			Data: map[string]string{virtconfig.PermittedHostDevicesKey: permittedDevices},
 		})
+		Expect(fakeConfigMap.GetPermittedHostDevices()).ToNot(BeNil())
 		workDir, err = ioutil.TempDir("", "kubevirt-test")
 		Expect(err).ToNot(HaveOccurred())
 
 		host = "master"
 		stop = make(chan struct{})
+		stop1 = make(chan struct{})
+		stop2 = make(chan struct{})
 	})
 
 	AfterEach(func() {
@@ -72,16 +88,16 @@ var _ = Describe("Device Controller", func() {
 
 	Context("Basic Tests", func() {
 		It("Should indicate if node has device", func() {
-			deviceController := NewDeviceController(host, 10, fakeConfigMap)
+			deviceController := NewDeviceController(host, 10, "rw", fakeConfigMap)
 			devicePath := path.Join(workDir, "fake-device")
-			res := deviceController.nodeHasDevice(devicePath)
+			res := deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeFalse())
 
 			fileObj, err := os.Create(devicePath)
 			Expect(err).ToNot(HaveOccurred())
 			fileObj.Close()
 
-			res = deviceController.nodeHasDevice(devicePath)
+			res = deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeTrue())
 		})
 	})
@@ -107,32 +123,32 @@ var _ = Describe("Device Controller", func() {
 			plugin2 = NewFakePlugin(deviceName2, devicePath2)
 		})
 
-		It("should restart the device plugin immediately without delays", func() {
-			deviceController := NewDeviceController(host, 10, fakeConfigMap)
+		It("should start the device plugin immediately without delays", func() {
+			deviceController := NewDeviceController(host, 10, "rw", fakeConfigMap)
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 10 * time.Second}
 			// New device controllers include the permanent device plugins, we don't want those
 			deviceController.devicePlugins = make(map[string]ControlledDevice)
 			deviceController.devicePlugins[deviceName2] = ControlledDevice{
 				devicePlugin: plugin2,
-				stopChan:     stop,
+				stopChan:     stop2,
 			}
 			go deviceController.Run(stop)
 			Eventually(func() int {
 				return int(atomic.LoadInt32(&plugin2.Starts))
-			}, 500*time.Millisecond).Should(BeNumerically(">=", 3))
+			}, 500*time.Millisecond).Should(BeNumerically(">=", 1))
 			Expect(deviceController.Initialized()).To(BeTrue())
 		})
 
 		It("should restart the device plugin with delays if it returns errors", func() {
 			plugin2 = NewFakePlugin("fake-device2", devicePath2)
 			plugin2.Error = fmt.Errorf("failing")
-			deviceController := NewDeviceController(host, 10, fakeConfigMap)
+			deviceController := NewDeviceController(host, 10, "rw", fakeConfigMap)
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 300 * time.Millisecond}
 			// New device controllers include the permanent device plugins, we don't want those
 			deviceController.devicePlugins = make(map[string]ControlledDevice)
 			deviceController.devicePlugins[deviceName2] = ControlledDevice{
 				devicePlugin: plugin2,
-				stopChan:     stop,
+				stopChan:     stop2,
 			}
 			go deviceController.Run(stop)
 			Consistently(func() int {
@@ -142,21 +158,21 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		It("Should not block on other plugins", func() {
-			deviceController := NewDeviceController(host, 10, fakeConfigMap)
+			deviceController := NewDeviceController(host, 10, "rw", fakeConfigMap)
 			// New device controllers include the permanent device plugins, we don't want those
 			deviceController.devicePlugins = make(map[string]ControlledDevice)
 			deviceController.devicePlugins[deviceName1] = ControlledDevice{
 				devicePlugin: plugin1,
-				stopChan:     stop,
+				stopChan:     stop1,
 			}
 			deviceController.devicePlugins[deviceName2] = ControlledDevice{
 				devicePlugin: plugin2,
-				stopChan:     stop,
+				stopChan:     stop2,
 			}
 			go deviceController.Run(stop)
 
-			Expect(deviceController.nodeHasDevice(devicePath1)).To(BeFalse())
-			Expect(deviceController.nodeHasDevice(devicePath2)).To(BeTrue())
+			Expect(deviceController.NodeHasDevice(devicePath1)).To(BeFalse())
+			Expect(deviceController.NodeHasDevice(devicePath2)).To(BeTrue())
 
 			Eventually(func() int {
 				return int(atomic.LoadInt32(&plugin1.Starts))
@@ -165,6 +181,29 @@ var _ = Describe("Device Controller", func() {
 			Eventually(func() int {
 				return int(atomic.LoadInt32(&plugin2.Starts))
 			}).Should(BeNumerically(">=", 1))
+		})
+
+		It("should remove all device plugins if permittedHostDevices is removed from the CR", func() {
+			emptyConfigMap, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
+			deviceController := NewDeviceController(host, 10, "rw", emptyConfigMap)
+			// New device controllers include the permanent device plugins, we don't want those
+			deviceController.devicePlugins = make(map[string]ControlledDevice)
+			deviceController.devicePlugins[deviceName1] = ControlledDevice{
+				devicePlugin: plugin1,
+				stopChan:     stop1,
+			}
+			deviceController.devicePlugins[deviceName2] = ControlledDevice{
+				devicePlugin: plugin2,
+				stopChan:     stop2,
+			}
+			go deviceController.Run(stop)
+
+			Eventually(func() bool {
+				_, exists1 := deviceController.devicePlugins[deviceName1]
+				_, exists2 := deviceController.devicePlugins[deviceName2]
+				return exists1 || exists2
+			}).Should(BeFalse())
 		})
 	})
 })

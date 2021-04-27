@@ -341,7 +341,7 @@ func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
 	all := GetAllApiServer("")
 	all = append(all, GetAllController("")...)
 	all = append(all, GetAllHandler("")...)
-	all = append(all, GetAllCluster("")...)
+	all = append(all, GetAllCluster()...)
 
 	for _, resource := range all {
 		switch resource.(type) {

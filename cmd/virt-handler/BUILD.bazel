@@ -21,8 +21,13 @@ go_library(
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
+        "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
+        "//pkg/virt-handler/migration-proxy:go_default_library",
+        "//pkg/virt-handler/node-labeller:go_default_library",
+        "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-handler/rest:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
@@ -37,6 +42,7 @@ go_library(
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/typed/core/v1:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
@@ -98,7 +104,7 @@ group_entry(
 group_entry(
     name = "root-group",
     gid = 0,
-    groupname = "qemu",
+    groupname = "root",
 )
 
 group_file(
@@ -127,16 +133,23 @@ container_image(
         ":virt_launcher.cil",
         "//:get-version",
     ],
-    tars = [
-        ":passwd-tar",
-        "//rpm:launcherbase_x86_64",
-    ],
+    tars = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": [
+            ":passwd-tar",
+            "//rpm:launcherbase_aarch64",
+        ],
+        "//conditions:default": [
+            ":passwd-tar",
+            "//rpm:launcherbase_x86_64",
+        ],
+    }),
 )
 
 container_image(
     name = "virt-handler-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     base = ":version-container",

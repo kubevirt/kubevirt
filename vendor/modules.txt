@@ -42,6 +42,8 @@ github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
 github.com/cyphar/filepath-securejoin
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
+# github.com/docker/go-units v0.4.0
+github.com/docker/go-units
 # github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c
 github.com/docker/spdystream
 github.com/docker/spdystream/spdy
@@ -241,6 +243,7 @@ github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
 # github.com/opencontainers/runc v1.0.0-rc92
+github.com/opencontainers/runc/libcontainer/cgroups
 github.com/opencontainers/runc/libcontainer/cgroups/devices
 github.com/opencontainers/runc/libcontainer/cgroups/fscommon
 github.com/opencontainers/runc/libcontainer/configs
@@ -250,6 +253,8 @@ github.com/opencontainers/runtime-spec/specs-go
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/pkg/pwalk
 # github.com/openshift/api v0.0.0 => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
+github.com/openshift/api/config/v1
+github.com/openshift/api/operator/v1
 github.com/openshift/api/security/v1
 # github.com/openshift/client-go v0.0.0 => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 github.com/openshift/client-go/security/clientset/versioned/scheme
@@ -257,6 +262,8 @@ github.com/openshift/client-go/security/clientset/versioned/typed/security/v1
 github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake
 # github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
 github.com/openshift/custom-resource-status/conditions/v1
+# github.com/openshift/library-go v0.0.0-20200821154433-215f00df72cc
+github.com/openshift/library-go/pkg/operator/resource/resourcemerge
 # github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
 github.com/operator-framework/go-appr/appregistry
 github.com/operator-framework/go-appr/appregistry/appr
@@ -492,8 +499,8 @@ gopkg.in/inf.v0
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.3.0
 gopkg.in/yaml.v2
-# k8s.io/api v0.20.2 => k8s.io/api v0.20.2
-k8s.io/api/admission/v1beta1
+# k8s.io/api v0.20.4 => k8s.io/api v0.20.2
+k8s.io/api/admission/v1
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apiserverinternal/v1alpha1
@@ -897,6 +904,7 @@ kubevirt.io/client-go/kubecli
 kubevirt.io/client-go/log
 kubevirt.io/client-go/precond
 kubevirt.io/client-go/subresources
+kubevirt.io/client-go/testutils
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
 # kubevirt.io/containerized-data-importer v1.31.0 => kubevirt.io/containerized-data-importer v1.31.0
@@ -912,7 +920,7 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/qe-tools v0.1.6
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# libvirt.org/libvirt-go v6.5.0+incompatible
+# libvirt.org/libvirt-go v6.6.0+incompatible
 libvirt.org/libvirt-go
 # mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157
 mvdan.cc/editorconfig

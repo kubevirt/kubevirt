@@ -20,11 +20,10 @@ package mutators
 
 import (
 	"encoding/json"
-	rt "runtime"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +31,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -46,8 +46,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vmBytes, err := json.Marshal(vm)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the VM")
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: k8smetav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
@@ -86,8 +86,10 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	It("should apply defaults on VM create", func() {
 		vmSpec, _ := getVMSpecMetaFromResponse()
-		if rt.GOARCH == "ppc64le" {
+		if webhooks.IsPPC64() {
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("pseries"))
+		} else if webhooks.IsARM64() {
+			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("virt"))
 		} else {
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
 		}

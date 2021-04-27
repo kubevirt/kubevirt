@@ -65,10 +65,10 @@ var _ = Describe("MigrationProxy", func() {
 
 				defer listener.Close()
 
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig)
-				defer sourceProxy.StopListening()
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig, "123")
+				defer sourceProxy.Stop()
 
-				err = sourceProxy.StartListening()
+				err = sourceProxy.Start()
 				Expect(err).ShouldNot(HaveOccurred())
 
 				numBytes := make(chan int)
@@ -107,14 +107,14 @@ var _ = Describe("MigrationProxy", func() {
 
 				defer libvirtdListener.Close()
 
-				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, tlsConfig, libvirtdSock)
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig)
-				defer targetProxy.StopListening()
-				defer sourceProxy.StopListening()
+				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, tlsConfig, libvirtdSock, "123")
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig, "123")
+				defer targetProxy.Stop()
+				defer sourceProxy.Stop()
 
-				err = targetProxy.StartListening()
+				err = targetProxy.Start()
 				Expect(err).ShouldNot(HaveOccurred())
-				err = sourceProxy.StartListening()
+				err = sourceProxy.Start()
 				Expect(err).ShouldNot(HaveOccurred())
 
 				numBytes := make(chan int)
@@ -197,6 +197,47 @@ var _ = Describe("MigrationProxy", func() {
 						msgWriter(sockFile, libvirtChan, "some libvirt message")
 					}
 				}
+			})
+
+			It("by ensuring no new listeners can be created after shutdown", func() {
+
+				key1 := "key1"
+				key2 := "key2"
+
+				directMigrationPort := "49152"
+				libvirtdSock := tmpDir + "/libvirtd-sock"
+				libvirtdListener, err := net.Listen("unix", libvirtdSock)
+				defer libvirtdListener.Close()
+				Expect(err).ShouldNot(HaveOccurred())
+				directSock := tmpDir + "/" + key1 + "-" + directMigrationPort
+				directListener, err := net.Listen("unix", directSock)
+				defer directListener.Close()
+
+				Expect(err).ShouldNot(HaveOccurred())
+
+				manager := NewMigrationProxyManager(tlsConfig, tlsConfig)
+				err = manager.StartTargetListener(key1, []string{libvirtdSock, directSock})
+				Expect(err).ShouldNot(HaveOccurred())
+				destSrcPortMap := manager.GetTargetListenerPorts(key1)
+				err = manager.StartSourceListener(key1, "127.0.0.1", destSrcPortMap, tmpDir)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				defer manager.StopTargetListener(key1)
+				defer manager.StopSourceListener(key1)
+
+				// now mark manager for shutdown
+				manager.InitiateGracefulShutdown()
+				count := manager.OpenListenerCount()
+				Expect(count).To(Equal(2))
+
+				err = manager.StartTargetListener(key2, []string{libvirtdSock, directSock})
+				Expect(err).Should(HaveOccurred())
+				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
+
+				err = manager.StartSourceListener(key2, "127.0.0.1", destSrcPortMap, tmpDir)
+				Expect(err).Should(HaveOccurred())
+				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
+
 			})
 		})
 	})

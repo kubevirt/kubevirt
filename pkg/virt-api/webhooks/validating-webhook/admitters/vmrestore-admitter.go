@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -55,13 +55,13 @@ func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kubev
 }
 
 // Admit validates an AdmissionReview
-func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if ar.Request.Resource.Group != snapshotv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinerestores" {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
-	if ar.Request.Operation == v1beta1.Create && !admitter.Config.SnapshotEnabled() {
+	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Snapshot/Restore feature gate not enabled"))
 	}
 
@@ -75,7 +75,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 	var causes []metav1.StatusCause
 
 	switch ar.Request.Operation {
-	case v1beta1.Create:
+	case admissionv1.Create:
 		var targetUID *types.UID
 		targetField := k8sfield.NewPath("spec", "target")
 
@@ -147,7 +147,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 
 		causes = append(causes, snapshotCauses...)
 
-	case v1beta1.Update:
+	case admissionv1.Update:
 		prevObj := &snapshotv1.VirtualMachineRestore{}
 		err = json.Unmarshal(ar.Request.OldObject.Raw, prevObj)
 		if err != nil {
@@ -171,7 +171,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{
+	reviewResponse := admissionv1.AdmissionResponse{
 		Allowed: true,
 	}
 	return &reviewResponse

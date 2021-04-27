@@ -20,7 +20,12 @@
 package apply
 
 import (
+	"bufio"
+	"bytes"
 	"reflect"
+
+	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
+	marshalutil "kubevirt.io/kubevirt/tools/util"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -30,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -37,19 +43,19 @@ type MockStore struct {
 	get interface{}
 }
 
-func (m *MockStore) Add(obj interface{}) error    { return nil }
-func (m *MockStore) Update(obj interface{}) error { return nil }
-func (m *MockStore) Delete(obj interface{}) error { return nil }
-func (m *MockStore) List() []interface{}          { return nil }
-func (m *MockStore) ListKeys() []string           { return nil }
-func (m *MockStore) Get(obj interface{}) (item interface{}, exists bool, err error) {
+func (m *MockStore) Add(_ interface{}) error    { return nil }
+func (m *MockStore) Update(_ interface{}) error { return nil }
+func (m *MockStore) Delete(_ interface{}) error { return nil }
+func (m *MockStore) List() []interface{}        { return nil }
+func (m *MockStore) ListKeys() []string         { return nil }
+func (m *MockStore) Get(_ interface{}) (item interface{}, exists bool, err error) {
 	item = m.get
 	if m.get != nil {
 		exists = true
 	}
 	return
 }
-func (m *MockStore) GetByKey(key string) (item interface{}, exists bool, err error) {
+func (m *MockStore) GetByKey(_ string) (item interface{}, exists bool, err error) {
 	return nil, false, nil
 }
 func (m *MockStore) Replace([]interface{}, string) error { return nil }
@@ -72,6 +78,39 @@ func getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
 			ImageTag:      version,
 		},
 	})
+}
+
+func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentConfig, stores util.Stores) *install.Strategy {
+	var b bytes.Buffer
+	writer := bufio.NewWriter(&b)
+
+	marshalutil.MarshallObject(resource, writer)
+	writer.Flush()
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "kubevirt-install-strategy-",
+			Namespace:    config.GetNamespace(),
+			Labels: map[string]string{
+				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyLabel: "",
+			},
+			Annotations: map[string]string{
+				v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+				v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+				v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+			},
+		},
+		Data: map[string]string{
+			"manifests": string(b.Bytes()),
+		},
+	}
+
+	stores.InstallStrategyConfigMapCache.Add(configMap)
+	targetStrategy, err := installstrategy.LoadInstallStrategyFromCache(stores, config)
+	Expect(err).ToNot(HaveOccurred())
+
+	return targetStrategy
 }
 
 var _ = Describe("Apply", func() {
@@ -163,9 +202,9 @@ var _ = Describe("Apply", func() {
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							corev1.NodeSelectorTerm{
+							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "required",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -175,10 +214,10 @@ var _ = Describe("Apply", func() {
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-						corev1.PreferredSchedulingTerm{
+						{
 							Preference: corev1.NodeSelectorTerm{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "preferred",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -190,14 +229,14 @@ var _ = Describe("Apply", func() {
 				},
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"required": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"preferred": "term"},
@@ -208,14 +247,14 @@ var _ = Describe("Apply", func() {
 				},
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"anti-required": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"anti-preferred": "term"},
@@ -230,9 +269,9 @@ var _ = Describe("Apply", func() {
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							corev1.NodeSelectorTerm{
+							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "required2",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -242,10 +281,10 @@ var _ = Describe("Apply", func() {
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-						corev1.PreferredSchedulingTerm{
+						{
 							Preference: corev1.NodeSelectorTerm{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "preferred2",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -257,14 +296,14 @@ var _ = Describe("Apply", func() {
 				},
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"required2": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"preferred2": "term"},
@@ -275,14 +314,14 @@ var _ = Describe("Apply", func() {
 				},
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"anti-required2": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"anti-preferred2": "term"},

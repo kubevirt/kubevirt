@@ -7,12 +7,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -33,6 +35,8 @@ var _ = Describe("Isolation", func() {
 		var podsDir string
 		var podUID string
 		var finished chan struct{} = nil
+		var ctrl *gomock.Controller
+		var cgroupParser *cgroup.MockParser
 
 		podUID = "pid-uid-1234"
 		vm := v1.NewMinimalVMIWithNS("default", "testvm")
@@ -72,45 +76,52 @@ var _ = Describe("Isolation", func() {
 				}
 			}()
 
+			ctrl = gomock.NewController(GinkgoT())
+			cgroupParser = cgroup.NewMockParser(ctrl)
+			cgroupParser.
+				EXPECT().
+				Parse(gomock.Eq(os.Getpid())).
+				Return(map[string]string{"devices": "/"}, nil).
+				AnyTimes()
 		})
 
 		It("Should detect the PID of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Pid()).To(Equal(os.Getpid()))
 		})
 
 		It("Should not detect any slice if there is no matching controller", func() {
-			_, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"not_existing_slice"}).Detect(vm)
+			_, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"not_existing_slice"}).Detect(vm)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("Should detect the 'devices' controller slice of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Slice()).To(HavePrefix("/"))
 		})
 
 		It("Should detect the PID namespace of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.PIDNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/pid", os.Getpid())))
 		})
 
 		It("Should detect the Mount root of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.MountRoot()).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
 		})
 
 		It("Should detect the Network namespace of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.NetNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/net", os.Getpid())))
 		})
 
 		It("Should detect the root mount info of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			mountInfo, err := result.MountInfoRoot()
 			Expect(err).ToNot(HaveOccurred())
@@ -138,7 +149,7 @@ var _ = Describe("Isolation", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(mounted).To(BeFalse())
 
-				result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+				result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
 				Expect(err).ToNot(HaveOccurred())
 				mountInfo, err := result.MountInfoRoot()
 				Expect(err).ToNot(HaveOccurred())
@@ -155,6 +166,8 @@ var _ = Describe("Isolation", func() {
 			if finished != nil {
 				<-finished
 			}
+
+			ctrl.Finish()
 		})
 	})
 })

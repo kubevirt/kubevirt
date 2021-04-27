@@ -25,6 +25,7 @@ func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 		"readyToUse":                        "+optional",
 		"error":                             "+optional",
 		"conditions":                        "+optional",
+		"indications":                       "+optional\n+listType=set",
 	}
 }
 

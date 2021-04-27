@@ -132,6 +132,7 @@ var Testdataexpected = `{
        "FlTimesSet": true, 
        "Name": "vda", 
        "NameSet": true, 
+       "Alias": "",
        "Path": "/var/lib/libvirt/images/f28-worker-0.qcow2", 
        "PathSet": true, 
        "Physical": 41385254912, 
@@ -170,7 +171,15 @@ var Testdataexpected = `{
      "SwapOut": 0,
      "SwapOutSet": false,
      "Unused": 0, 
-     "UnusedSet": false
+     "UnusedSet": false,
+     "MajorFault": 0,
+     "MajorFaultSet": false,
+     "MinorFault": 0,
+     "MinorFaultSet": false,
+     "Usable": 0,
+     "UsableSet": false,
+     "Total": 0,
+     "TotalSet": false
    }, 
    "Name": "testName", 
    "Net": [
@@ -232,7 +241,9 @@ var Testdataexpected = `{
        "WaitSet": true,
        "Wait": 1500
      }
-   ]
+   ],
+   "CPUMapSet": false,
+   "CPUMap": null
  }`
 
 func LoadStats() ([]libvirt.DomainStats, error) {
