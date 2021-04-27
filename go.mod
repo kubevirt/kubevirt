@@ -17,7 +17,7 @@ require (
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/imdario/mergo v0.3.11
 	github.com/kubevirt/cluster-network-addons-operator v0.51.0
-	github.com/kubevirt/vm-import-operator v0.3.3
+	github.com/kubevirt/vm-import-operator v0.3.4
 	github.com/onsi/ginkgo v1.16.1
 	github.com/onsi/gomega v1.11.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible

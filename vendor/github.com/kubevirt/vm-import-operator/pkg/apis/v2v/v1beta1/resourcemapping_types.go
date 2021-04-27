@@ -48,8 +48,8 @@ type OvirtMappings struct {
 // +k8s:openapi-gen=true
 type VmwareMappings struct {
 	// NetworkMappings defines the mapping of guest network interfaces to kubevirt networks
-	// NetworkMappings.Source.Name represents the `network` field of the GuestNicInfo in vCenter
-	// NetworkMappings.Source.ID represents the `macAddress` field of the network adapter
+	// NetworkMappings.Source.Name represents name of the vSphere network
+	// NetworkMappings.Source.ID represents the managed object id of the network or dvportgroup
 	// +optional
 	NetworkMappings *[]NetworkResourceMappingItem `json:"networkMappings,omitempty"`
 

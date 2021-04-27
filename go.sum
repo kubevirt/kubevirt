@@ -928,8 +928,8 @@ github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1/go.mod h1:dV5oB3U62KBdl
 github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17/go.mod h1:enH0BVV+4+DAgWdwSlMefG8bBzTfVMTr1lApzdLZ/cc=
 github.com/kubevirt/cluster-network-addons-operator v0.51.0 h1:uX/jKNNLi4pDAnMU/CQvfp2CWDvGLZF8kZExAeGB5s4=
 github.com/kubevirt/cluster-network-addons-operator v0.51.0/go.mod h1:FDgI0XZI5rQrd9OcVffJ+lJl1iplpCLX6u6qRGqgFu4=
-github.com/kubevirt/vm-import-operator v0.3.3 h1:kpi+Qzp/nm4Ab1uRhKgXtZEqanReDmvSA1xtzCEiyH0=
-github.com/kubevirt/vm-import-operator v0.3.3/go.mod h1:vMW9982ayVHdRBGqO9/ybzLeL5Yl6OBkhMiNgnKqjMI=
+github.com/kubevirt/vm-import-operator v0.3.4 h1:0MG/RhKvU5BSKXDhpzeV2+REuu6rTJfHm7++VTha3I8=
+github.com/kubevirt/vm-import-operator v0.3.4/go.mod h1:vMW9982ayVHdRBGqO9/ybzLeL5Yl6OBkhMiNgnKqjMI=
 github.com/kylelemons/godebug v0.0.0-20160406211939-eadb3ce320cb/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
