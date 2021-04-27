@@ -125,6 +125,12 @@ var _ = Describe("Isolation Detector", func() {
 			Expect(result.PIDNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/pid", os.Getpid())))
 		})
 
+		It("Should detect the Parent PID of the test suite", func() {
+			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.PPid()).To(Equal(os.Getppid()))
+		})
+
 		It("Should detect the Mount root of the test suite", func() {
 			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())

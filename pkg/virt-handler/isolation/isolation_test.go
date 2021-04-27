@@ -67,7 +67,7 @@ var _ = Describe("IsolationResult", func() {
 
 	Context("Container IsolationResult", func() {
 
-		isolationResult := NewIsolationResult(os.Getpid(), "", nil)
+		isolationResult := NewIsolationResult(os.Getpid(), os.Getppid(), "", nil)
 
 		It("Should have mounts", func() {
 			mounts, err := isolationResult.Mounts(nil)

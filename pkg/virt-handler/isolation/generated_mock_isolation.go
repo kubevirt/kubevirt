@@ -49,6 +49,16 @@ func (_mr *_MockIsolationResultRecorder) Pid() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Pid")
 }
 
+func (_m *MockIsolationResult) PPid() int {
+	ret := _m.ctrl.Call(_m, "PPid")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+func (_mr *_MockIsolationResultRecorder) PPid() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PPid")
+}
+
 func (_m *MockIsolationResult) PIDNamespace() string {
 	ret := _m.ctrl.Call(_m, "PIDNamespace")
 	ret0, _ := ret[0].(string)

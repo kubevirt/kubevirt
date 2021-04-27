@@ -86,6 +86,7 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
 	var pid int
+	var ppid int
 	var slice string
 	var err error
 	var controller []string
@@ -95,13 +96,18 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 		return nil, err
 	}
 
+	if ppid, err = getPPid(pid); err != nil {
+		log.Log.Object(vm).Reason(err).Errorf("Could not get owner PPid of socket %s", socket)
+		return nil, err
+	}
+
 	// Look up the cgroup slice based on the whitelisted controller
 	if controller, slice, err = s.getSlice(pid); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get cgroup slice for Pid %d", pid)
 		return nil, err
 	}
 
-	return NewIsolationResult(pid, slice, controller), nil
+	return NewIsolationResult(pid, ppid, slice, controller), nil
 }
 
 func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolationDetector {
@@ -196,6 +202,15 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	}
 
 	return int(ucreds.Pid), nil
+}
+
+func getPPid(pid int) (int, error) {
+	process, err := ps.FindProcess(pid)
+	if err != nil {
+		return -1, err
+	}
+
+	return process.PPid(), nil
 }
 
 func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, slice string, err error) {
