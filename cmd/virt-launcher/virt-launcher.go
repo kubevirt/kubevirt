@@ -218,24 +218,40 @@ func initializeDirs(virtShareDir string,
 	}
 }
 
+func detectDomainWithUUID(domainManager virtwrap.DomainManager) *api.Domain {
+	domains, err := domainManager.ListAllDomains()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to list domains when detecting UUID")
+		return nil
+	}
+	for _, domain := range domains {
+		if domain.Spec.UUID != "" {
+			return domain
+		}
+	}
+	return nil
+}
+
 func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
 
 	ticker := time.NewTicker(timeout).C
 	checkEarlyExit := time.NewTicker(time.Second * 2).C
+	domainCheckTicker := time.NewTicker(time.Second * 10).C
 	for {
 		select {
 		case <-ticker:
 			panic(fmt.Errorf("timed out waiting for domain to be defined"))
-		case e := <-events:
-			if e.Object != nil && e.Type == watch.Added {
-				domain := e.Object.(*api.Domain)
-				log.Log.Infof("Detected domain with UUID %s", domain.Spec.UUID)
+		case <-domainCheckTicker:
+			log.Log.V(3).Infof("Periodically checking for domain with UUID")
+			domain := detectDomainWithUUID(domainManager)
+			if domain != nil {
 				return domain
-			} else if e.Type == watch.Modified {
-				domain, ok := e.Object.(*api.Domain)
-				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
-					return nil
-				}
+			}
+		case <-events:
+			log.Log.V(3).Infof("Checking for domain with UUID due to incoming libvirt event")
+			domain := detectDomainWithUUID(domainManager)
+			if domain != nil {
+				return domain
 			}
 		case <-stop:
 			return nil
