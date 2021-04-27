@@ -213,6 +213,8 @@ var _ = Describe("Domain informer", func() {
 			list = append(list, api.NewMinimalDomain("testvmi1"))
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			domainManager.EXPECT().GetGuestOSInfo().Return(api.GuestOSInfo{})
+			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
@@ -238,6 +240,8 @@ var _ = Describe("Domain informer", func() {
 			list = append(list, api.NewMinimalDomain("testvmi1"))
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			domainManager.EXPECT().GetGuestOSInfo().Return(api.GuestOSInfo{})
+			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
 
 			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
 			Expect(err).ToNot(HaveOccurred())
@@ -266,6 +270,8 @@ var _ = Describe("Domain informer", func() {
 			list = append(list, domain)
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			domainManager.EXPECT().GetGuestOSInfo().Return(api.GuestOSInfo{})
+			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
@@ -284,12 +290,16 @@ var _ = Describe("Domain informer", func() {
 
 			domain := api.NewMinimalDomain("test")
 			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
+			domainManager.EXPECT().GetGuestOSInfo().Return(api.GuestOSInfo{})
+			domainManager.EXPECT().InterfacesStatus(domain.Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
 			// now prove if we make a change, like adding a label, that the resync
 			// will pick that change up automatically
 			newDomain := domain.DeepCopy()
 			newDomain.ObjectMeta.Labels = make(map[string]string)
 			newDomain.ObjectMeta.Labels["some-label"] = "some-value"
 			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{newDomain}, nil)
+			domainManager.EXPECT().GetGuestOSInfo().Return(api.GuestOSInfo{Name: "fedora"})
+			domainManager.EXPECT().InterfacesStatus(newDomain.Spec.Devices.Interfaces).Return([]api.InterfaceStatus{api.InterfaceStatus{Name: "ethx"}})
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
@@ -314,6 +324,8 @@ var _ = Describe("Domain informer", func() {
 
 			Expect(ok).To(BeTrue())
 			Expect(val).To(Equal("some-value"))
+			Expect(eventDomain.Status.OSInfo.Name).To(Equal("fedora"))
+			Expect(eventDomain.Status.Interfaces[0].Name).To(Equal("ethx"))
 		})
 
 		It("should detect expired legacy watchdog file.", func() {
@@ -436,6 +448,8 @@ var _ = Describe("Domain informer", func() {
 			list = append(list, domain)
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			domainManager.EXPECT().GetGuestOSInfo().Return(api.GuestOSInfo{})
+			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return([]api.InterfaceStatus{})
 
 			// This file doesn't have a unix sock server behind it
 			// verify list still completes regardless
