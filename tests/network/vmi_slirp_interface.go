@@ -139,12 +139,17 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		)
 		log.Log.Infof("%v", output)
 		Expect(err).To(HaveOccurred())
+	},
+		table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
+		table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
+	)
 
-		By("communicate with the outside world")
+	table.DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
+		vmi := *vmiRef
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
+			&expect.BSnd{S: "curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://google.com\n"},
 			&expect.BExp{R: "301"},
 		}, 180)).To(Succeed())
 	},

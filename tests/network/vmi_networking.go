@@ -737,10 +737,6 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				ipAddr := gatewayIPFromCIDR(networkCIDR)
 				Expect(libnet.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
 
-				By("Checking ping (IPv4) to google")
-				Expect(libnet.PingFromVMConsole(serverVMI, "8.8.8.8", "-c 5", "-w 15")).To(Succeed())
-				Expect(libnet.PingFromVMConsole(clientVMI, "google.com", "-c 5", "-w 15")).To(Succeed())
-
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
 			},
 				table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
@@ -748,6 +744,17 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				table.Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
 				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
 			)
+
+			It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
+				vmi := masqueradeVMI([]v1.Port{}, "")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
+
+				By("Checking ping (IPv4)")
+				Expect(libnet.PingFromVMConsole(vmi, "8.8.8.8", "-c 5", "-w 15")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmi, "google.com", "-c 5", "-w 15")).To(Succeed())
+			})
 
 			table.DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
@@ -778,14 +785,6 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				By("starting a http server")
 				tests.StartPythonHttpServer(serverVMI, tcpPort)
 
-				assert.XFail("https://github.com/kubevirt/kubevirt/issues/5113", func() {
-					By("Checking ping (IPv6) from vmi to cluster nodes gateway")
-					// Cluster nodes subnet (docker network gateway)
-					// Docker network subnet cidr definition:
-					// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
-					Expect(libnet.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
-				})
-
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
 				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
@@ -793,7 +792,22 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				table.Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
 				table.Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
 			)
-		})
+
+			It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
+				vmi, err := fedoraMasqueradeVMI([]v1.Port{}, "")
+				Expect(err).ToNot(HaveOccurred())
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
+
+				assert.XFail("https://github.com/kubevirt/kubevirt/issues/5113", func() {
+					By("Checking ping (IPv6) from vmi to cluster nodes gateway")
+					// Cluster nodes subnet (docker network gateway)
+					// Docker network subnet cidr definition:
+					// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
+					Expect(libnet.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
+				})
+			})
 
 		When("performing migration", func() {
 			var vmi *v1.VirtualMachineInstance
