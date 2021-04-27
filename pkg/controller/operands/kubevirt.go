@@ -390,13 +390,18 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtv1.C
 	return nil
 }
 
-type featureGateChecks map[string]bool
+func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) []string {
+	fgs := make([]string, 0, 2)
 
-func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) featureGateChecks {
-	return map[string]bool{
-		kvWithHostPassthroughCPU: featureGates.WithHostPassthroughCPU,
-		kvSRIOVLiveMigration:     featureGates.SRIOVLiveMigration,
+	if featureGates.WithHostPassthroughCPU {
+		fgs = append(fgs, kvWithHostPassthroughCPU)
 	}
+
+	if featureGates.SRIOVLiveMigration {
+		fgs = append(fgs, kvSRIOVLiveMigration)
+	}
+
+	return fgs
 }
 
 // ***********  KubeVirt Priority Class  ************
@@ -508,12 +513,7 @@ func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	checks := getFeatureGateChecks(fgs)
 	res := make([]string, 0, len(checks)+len(mandatoryKvFeatureGates))
 	res = append(res, mandatoryKvFeatureGates...)
-
-	for gate, check := range checks {
-		if check {
-			res = append(res, gate)
-		}
-	}
+	res = append(res, checks...)
 
 	return res
 }
