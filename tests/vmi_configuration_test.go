@@ -1469,6 +1469,50 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 		})
 
+		Context("with TSC timer", func() {
+			It("should set a TSC fequency and have the CPU flag avaliable in the guest", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Features: []v1.CPUFeature{
+						{
+							Name:   "invtsc",
+							Policy: "require",
+						},
+					},
+				}
+				By("Expecting the VirtualMachineInstance start")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+
+				By("Checking the TSC frequency on the VMI")
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.TopologyHints).ToNot(BeNil())
+				Expect(vmi.Status.TopologyHints.TSCFrequency).ToNot(BeNil())
+
+				By("Checking the TSC frequency on the Domain XML")
+				domainSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				timerFrequency := ""
+				for _, timer := range domainSpec.Clock.Timer {
+					if timer.Name == "tsc" {
+						timerFrequency = timer.Frequency
+					}
+				}
+				Expect(timerFrequency).ToNot(BeEmpty())
+
+				By("Expecting the VirtualMachineInstance console")
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+
+				By("Checking the CPU model under the guest OS")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo > /dev/null\n", "nonstop_tsc")},
+					&expect.BExp{R: fmt.Sprintf(console.PromptExpression)},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 10)).To(Succeed())
+			})
+		})
+
 		Context("with Clock and timezone", func() {
 
 			It("[sig-compute][test_id:5268]guest should see timezone", func() {
