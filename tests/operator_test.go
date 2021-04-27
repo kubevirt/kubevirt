@@ -958,7 +958,7 @@ spec:
 			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
 		},
 
-			table.Entry("deployments",
+			table.Entry("[QUARANTINE] deployments",
 
 				func() {
 
