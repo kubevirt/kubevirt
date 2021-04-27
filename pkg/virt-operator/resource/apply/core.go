@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -411,52 +412,58 @@ func (r *Reconciler) generateServicePatch(
 	return patchOps, deleteAndReplace, nil
 }
 
-func (r *Reconciler) createOrUpdateRbac() error {
-
+func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) error {
 	core := r.clientset.CoreV1()
+	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+	injectOperatorMetadata(r.kv, &sa.ObjectMeta, version, imageRegistry, id, true)
+
+	obj, exists, _ := r.stores.ServiceAccountCache.Get(sa)
+	if !exists {
+		// Create non existent
+		r.expectations.ServiceAccount.RaiseExpectations(r.kvKey, 1, 0)
+		_, err := core.ServiceAccounts(r.kv.Namespace).Create(context.Background(), sa, metav1.CreateOptions{})
+		if err != nil {
+			r.expectations.ServiceAccount.LowerExpectations(r.kvKey, 1, 0)
+			return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+		}
+		log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
+		return nil
+	}
+
+	cachedSa := obj.(*corev1.ServiceAccount)
+	modified := resourcemerge.BoolPtr(false)
+	resourcemerge.EnsureObjectMeta(modified, &cachedSa.ObjectMeta, sa.ObjectMeta)
+	// there was no change to metadata
+	if !*modified {
+		// Up to date
+		log.Log.V(4).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
+		return nil
+	}
+
+	// Patch Labels and Annotations
+	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&sa.ObjectMeta)
+	if err != nil {
+		return err
+	}
+
+	_, err = core.ServiceAccounts(r.kv.Namespace).Patch(context.Background(), sa.Name, types.JSONPatchType, generatePatchBytes(labelAnnotationPatch), metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch serviceaccount %+v: %v", sa, err)
+	}
+
+	log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName())
+
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateRbac() error {
 
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	// create/update ServiceAccounts
 	for _, sa := range r.targetStrategy.ServiceAccounts() {
-		var cachedSa *corev1.ServiceAccount
-
-		sa := sa.DeepCopy()
-		obj, exists, _ := r.stores.ServiceAccountCache.Get(sa)
-		if exists {
-			cachedSa = obj.(*corev1.ServiceAccount)
-		}
-
-		injectOperatorMetadata(r.kv, &sa.ObjectMeta, version, imageRegistry, id, true)
-		if !exists {
-			// Create non existent
-			r.expectations.ServiceAccount.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := core.ServiceAccounts(r.kv.Namespace).Create(context.Background(), sa, metav1.CreateOptions{})
-			if err != nil {
-				r.expectations.ServiceAccount.LowerExpectations(r.kvKey, 1, 0)
-				return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
-			}
-			log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
-		} else if !objectMatchesVersion(&cachedSa.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
-			// Patch if old version
-			var ops []string
-
-			// Patch Labels and Annotations
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&sa.ObjectMeta)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, labelAnnotationPatch...)
-
-			_, err = core.ServiceAccounts(r.kv.Namespace).Patch(context.Background(), sa.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to patch serviceaccount %+v: %v", sa, err)
-			}
-			log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName())
-
-		} else {
-			// Up to date
-			log.Log.V(4).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
+		if err := r.createOrUpdateServiceAccount(sa.DeepCopy()); err != nil {
+			return err
 		}
 	}
 

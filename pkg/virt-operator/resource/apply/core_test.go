@@ -20,7 +20,18 @@
 package apply
 
 import (
+	"encoding/json"
 	"strings"
+
+	jsonpatch "github.com/evanphx/json-patch"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/testing"
+
+	"github.com/golang/mock/gomock"
+	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -28,6 +39,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/fake"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
@@ -120,6 +132,120 @@ var _ = Describe("Apply", func() {
 			_, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
 			Expect(err).To(BeNil())
 			Expect(deleteAndReplace).To(BeTrue())
+		})
+	})
+
+	Context("should reconcile service account", func() {
+
+		newServiceAccount := func() *corev1.ServiceAccount {
+			return &corev1.ServiceAccount{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "ServiceAccount",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "namespace",
+					Name:      "name",
+				},
+			}
+		}
+
+		var clientset *kubecli.MockKubevirtClient
+		var ctrl *gomock.Controller
+		var coreclientset *fake.Clientset
+		var expectations *util.Expectations
+		var kv *v1.KubeVirt
+		var stores util.Stores
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
+			coreclientset = fake.NewSimpleClientset()
+
+			coreclientset.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				Expect(action).To(BeNil())
+				return true, nil, nil
+			})
+
+			stores = util.Stores{}
+			stores.ServiceAccountCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
+
+			expectations = &util.Expectations{}
+
+			clientset = kubecli.NewMockKubevirtClient(ctrl)
+			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+			clientset.EXPECT().CoreV1().Return(coreclientset.CoreV1()).AnyTimes()
+
+			kv = &v1.KubeVirt{}
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		It("should not patch ServiceAccount on sync when they are equal", func() {
+
+			pr := newServiceAccount()
+
+			version, imageRegistry, id := getTargetVersionRegistryID(kv)
+			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
+
+			stores.ServiceAccountCache.Add(pr)
+
+			r := &Reconciler{
+				kv:           kv,
+				stores:       stores,
+				clientset:    clientset,
+				expectations: expectations,
+			}
+
+			Expect(r.createOrUpdateServiceAccount(pr)).To(BeNil())
+		})
+
+		It("should patch ServiceAccount on sync when they are not equal", func() {
+			pr := newServiceAccount()
+			version, imageRegistry, id := getTargetVersionRegistryID(kv)
+			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
+
+			stores.ServiceAccountCache.Add(pr)
+
+			r := &Reconciler{
+				kv:           kv,
+				stores:       stores,
+				clientset:    clientset,
+				expectations: expectations,
+			}
+
+			requiredPR := pr.DeepCopy()
+			newAnnotation := map[string]string{
+				"something": "new",
+			}
+			requiredPR.ObjectMeta.Annotations = newAnnotation
+
+			patched := false
+			coreclientset.Fake.PrependReactor("patch", "serviceaccounts", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				a := action.(testing.PatchActionImpl)
+				patch, err := jsonpatch.DecodePatch(a.Patch)
+				Expect(err).ToNot(HaveOccurred())
+
+				patched = true
+
+				obj, err := json.Marshal(pr)
+				Expect(err).To(BeNil())
+
+				obj, err = patch.Apply(obj)
+				Expect(err).To(BeNil())
+
+				pr := &corev1.ServiceAccount{}
+				Expect(json.Unmarshal(obj, pr)).To(Succeed())
+				Expect(pr.ObjectMeta.Annotations).To(Equal(newAnnotation))
+
+				return true, pr, nil
+			})
+
+			Expect(r.createOrUpdateServiceAccount(requiredPR)).To(BeNil())
+			Expect(patched).To(BeTrue())
 		})
 	})
 
