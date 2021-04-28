@@ -18,3 +18,4 @@ virsh domcapabilities --machine q35 --arch x86_64 --virttype kvm > /var/lib/kube
 cp -r /usr/share/libvirt/cpu_map /var/lib/kubevirt-node-labeller
 
 virsh domcapabilities --machine q35 --arch x86_64 --virttype kvm | virsh hypervisor-cpu-baseline --features /dev/stdin --machine q35 --arch x86_64 --virttype kvm > /var/lib/kubevirt-node-labeller/supported_features.xml
+virsh capabilities > /var/lib/kubevirt-node-labeller/capabilities.xml
