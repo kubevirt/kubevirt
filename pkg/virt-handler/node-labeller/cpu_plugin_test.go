@@ -68,7 +68,7 @@ var _ = Describe("Node-labeller config", func() {
 			clusterConfig:           clusterConfig,
 			logger:                  log.DefaultLogger(),
 			volumePath:              "testdata",
-			domCapabilitiesFileName: "domcapabilities.xml",
+			domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		}
 	})
 
@@ -91,8 +91,8 @@ var _ = Describe("Node-labeller config", func() {
 
 	})
 
-	It("should return correct cpu models and features", func() {
-		err := nlController.loadHostCapabilities()
+	It("should return correct cpu models, features and tsc freqnency", func() {
+		err := nlController.loadDomCapabilities()
 		Expect(err).ToNot(HaveOccurred())
 
 		err = nlController.loadHostSupportedFeatures()
@@ -101,17 +101,24 @@ var _ = Describe("Node-labeller config", func() {
 		err = nlController.loadCPUInfo()
 		Expect(err).ToNot(HaveOccurred())
 
+		err = nlController.loadHostCapabilities()
+		Expect(err).ToNot(HaveOccurred())
+
 		cpuModels, cpuFeatures := nlController.getCPUInfo()
 
 		Expect(len(cpuModels)).To(Equal(3), "number of models must match")
 
 		Expect(len(cpuFeatures)).To(Equal(2), "number of features must match")
+		counter, err := nlController.capabilities.GetTSCCounter()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(counter).ToNot(BeNil())
+		Expect(counter.Frequency).To(BeNumerically("==", 4008012000))
 
 	})
 
 	It("No cpu model is usable", func() {
-		nlController.domCapabilitiesFileName = "domcapabilities_nothing_usable.xml"
-		err := nlController.loadHostCapabilities()
+		nlController.domCapabilitiesFileName = "virsh_domcapabilities_nothing_usable.xml"
+		err := nlController.loadDomCapabilities()
 		Expect(err).ToNot(HaveOccurred())
 
 		err = nlController.loadCPUInfo()

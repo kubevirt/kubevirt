@@ -1,6 +1,11 @@
 package api
 
-import "encoding/xml"
+import (
+	"encoding/xml"
+	"fmt"
+)
+
+type yesnobool bool
 
 type Capabilities struct {
 	XMLName xml.Name `xml:"capabilities"`
@@ -20,7 +25,27 @@ type HostCPU struct {
 }
 
 type Counter struct {
-	Name      string `xml:"name,attr"`
-	Frequency string `xml:"frequency,attr"`
-	Scaling   string `xml:"scaling,attr"`
+	Name      string    `xml:"name,attr"`
+	Frequency int64     `xml:"frequency,attr"`
+	Scaling   yesnobool `xml:"scaling,attr"`
+}
+
+func (c *Capabilities) GetTSCCounter() (*Counter, error) {
+	for _, c := range c.Host.CPU.Counter {
+		if c.Name == "tsc" {
+			return &c, nil
+		}
+	}
+	return nil, nil
+}
+
+func (b *yesnobool) UnmarshalXMLAttr(attr xml.Attr) error {
+	if attr.Value == "yes" {
+		*b = true
+		return nil
+	} else if attr.Value == "no" {
+		*b = false
+		return nil
+	}
+	return fmt.Errorf("value %v of %v is not (yes|no)", attr.Value, attr.Name)
 }

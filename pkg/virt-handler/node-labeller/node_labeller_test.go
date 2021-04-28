@@ -56,6 +56,7 @@ var _ = Describe("Node-labeller ", func() {
 	}
 
 	BeforeEach(func() {
+		var err error
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 
@@ -83,7 +84,8 @@ var _ = Describe("Node-labeller ", func() {
 
 		config, _, _, _ = testutils.NewFakeClusterConfigUsingKV(kv)
 
-		nlController, _ = NewNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault)
+		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata")
+		Expect(err).ToNot(HaveOccurred())
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
 

@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
@@ -68,8 +69,8 @@ func (n *NodeLabeller) getCPUInfo() ([]string, cpuFeatures) {
 	return cpus, features
 }
 
-//loadHostCapabilities loads info about cpu models, which can host emulate
-func (n *NodeLabeller) loadHostCapabilities() error {
+//loadDomCapabilities loads info about cpu models, which can host emulate
+func (n *NodeLabeller) loadDomCapabilities() error {
 	hostDomCapabilities, err := n.getDomCapabilities()
 	if err != nil {
 		return err
@@ -114,6 +115,16 @@ func (n *NodeLabeller) loadHostSupportedFeatures() error {
 	}
 
 	n.supportedFeatures = usableFeatures
+	return nil
+}
+
+func (n *NodeLabeller) loadHostCapabilities() error {
+	capsFile := filepath.Join(n.volumePath, "capabilities.xml")
+	n.capabilities = &api.Capabilities{}
+	err := n.getStructureFromXMLFile(capsFile, n.capabilities)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

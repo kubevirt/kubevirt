@@ -22,6 +22,7 @@ package nodelabeller
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -36,7 +37,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 //NodeLabeller struct holds informations needed to run node-labeller
@@ -54,9 +56,14 @@ type NodeLabeller struct {
 	cpuModelVendor          string
 	volumePath              string
 	domCapabilitiesFileName string
+	capabilities            *api.Capabilities
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath)
+
+}
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		clientset:               clientset,
 		host:                    host,
@@ -64,7 +71,7 @@ func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 		logger:                  log.DefaultLogger(),
 		clusterConfig:           clusterConfig,
 		queue:                   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		volumePath:              nodeLabellerVolumePath,
+		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 	}
 
@@ -127,6 +134,12 @@ func (n *NodeLabeller) loadAll() error {
 	err = n.loadHostSupportedFeatures()
 	if err != nil {
 		n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
+		return err
+	}
+
+	err = n.loadDomCapabilities()
+	if err != nil {
+		n.logger.Errorf("node-labeller could not load host dom capabilities: " + err.Error())
 		return err
 	}
 
@@ -237,6 +250,13 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 		newLabels[kubevirtv1.HypervLabel+key] = "true"
 	}
 
+	if c, err := n.capabilities.GetTSCCounter(); err == nil && c != nil {
+		newLabels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", c.Frequency)
+		newLabels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%v", c.Scaling)
+	} else if err != nil {
+		n.logger.Reason(err).Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
+	}
+
 	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
 
 	return newLabels
@@ -245,8 +265,8 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 // addNodeLabels adds labels and special annotation to node.
 // annotations are needed because we need to know which labels were set by kubevirt.
 func (n *NodeLabeller) addLabellerLabels(node *v1.Node, labels map[string]string) {
-	for label := range labels {
-		node.Labels[label] = "true"
+	for key, value := range labels {
+		node.Labels[key] = value
 	}
 }
 
@@ -258,6 +278,7 @@ func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 			strings.Contains(label, util.DeprecatedLabelNamespace+util.DeprecatedHyperPrefix) ||
 			strings.Contains(label, kubevirtv1.CPUFeatureLabel) ||
 			strings.Contains(label, kubevirtv1.CPUModelLabel) ||
+			strings.Contains(label, kubevirtv1.CPUTimerLabel) ||
 			strings.Contains(label, kubevirtv1.HypervLabel) {
 			delete(node.Labels, label)
 		}
