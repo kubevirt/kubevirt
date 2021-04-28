@@ -910,7 +910,7 @@ spec:
                     type: string
                 type: object
               permittedHostDevices:
-                description: PermittedHostDevices holds inforamtion about devices
+                description: PermittedHostDevices holds information about devices
                   allowed for passthrough
                 properties:
                   mediatedDevices:

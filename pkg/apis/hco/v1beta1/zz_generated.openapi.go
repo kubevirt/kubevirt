@@ -272,7 +272,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 					},
 					"permittedHostDevices": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
+							Description: "PermittedHostDevices holds information about devices allowed for passthrough",
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PermittedHostDevices"),
 						},
 					},
@@ -526,7 +526,7 @@ func schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
+				Description: "PermittedHostDevices holds information about devices allowed for passthrough",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"pciHostDevices": {

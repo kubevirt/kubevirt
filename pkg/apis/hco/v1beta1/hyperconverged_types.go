@@ -48,7 +48,7 @@ type HyperConvergedSpec struct {
 	// +optional
 	LiveMigrationConfig LiveMigrationConfigurations `json:"liveMigrationConfig,omitempty"`
 
-	// PermittedHostDevices holds inforamtion about devices allowed for passthrough
+	// PermittedHostDevices holds information about devices allowed for passthrough
 	// +optional
 	PermittedHostDevices *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
 
@@ -196,7 +196,7 @@ type HyperConvergedFeatureGates struct {
 	SRIOVLiveMigration bool `json:"sriovLiveMigration"`
 }
 
-// PermittedHostDevices holds inforamtion about devices allowed for passthrough
+// PermittedHostDevices holds information about devices allowed for passthrough
 // +k8s:openapi-gen=true
 type PermittedHostDevices struct {
 	// +listType=atomic

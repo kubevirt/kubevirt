@@ -123,7 +123,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | workloads | workloads HyperConvergedConfig influences the pod configuration (currently only placement) of components which need to be running on a node where virtualization workloads should be able to run. Changes to Workloads HyperConvergedConfig can be applied only without existing workload. | [HyperConvergedConfig](#hyperconvergedconfig) |  | false |
 | featureGates | featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. | [HyperConvergedFeatureGates](#hyperconvergedfeaturegates) | {"withHostPassthroughCPU": false, "sriovLiveMigration": false} | false |
 | liveMigrationConfig | Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster. | [LiveMigrationConfigurations](#livemigrationconfigurations) | {"bandwidthPerMigration": "64Mi", "completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150} | false |
-| permittedHostDevices | PermittedHostDevices holds inforamtion about devices allowed for passthrough | *[PermittedHostDevices](#permittedhostdevices) |  | false |
+| permittedHostDevices | PermittedHostDevices holds information about devices allowed for passthrough | *[PermittedHostDevices](#permittedhostdevices) |  | false |
 | certConfig | certConfig holds the rotation policy for internal, self-signed certificates | [HyperConvergedCertConfig](#hyperconvergedcertconfig) | {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}} | false |
 | resourceRequirements | ResourceRequirements describes the resource requirements for the operand workloads. | *[OperandResourceRequirements](#operandresourcerequirements) |  | false |
 | scratchSpaceStorageClass | Override the storage class used for scratch space during transfer operations. The scratch space storage class is determined in the following order: value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space | *string |  | false |
@@ -196,7 +196,7 @@ PciHostDevice represents a host PCI device allowed for passthrough
 
 ## PermittedHostDevices
 
-PermittedHostDevices holds inforamtion about devices allowed for passthrough
+PermittedHostDevices holds information about devices allowed for passthrough
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
