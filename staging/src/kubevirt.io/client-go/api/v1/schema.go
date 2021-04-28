@@ -263,6 +263,41 @@ type EFI struct {
 	SecureBoot *bool `json:"secureBoot,omitempty"`
 }
 
+// If set, the VM will be booted from the defined kernel / initrd.
+//
+// +k8s:openapi-gen=true
+type KernelBootContainer struct {
+	// Image that container initrd / kernel files.
+	Image string `json:"image"`
+	// ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
+	//+optional
+	ImagePullSecret string `json:"imagePullSecret,omitempty"`
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	// +optional
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// The fully-qualified path to the kernel image in the host OS
+	//+optional
+	KernelPath string `json:"kernelPath,omitempty"`
+	// the fully-qualified path to the ramdisk image in the host OS
+	//+optional
+	InitrdPath string `json:"initrdPath,omitempty"`
+}
+
+// Represents the firmware blob used to assist in the kernel boot process.
+// Used for setting the kernel, initrd and command line arguments
+//
+// +k8s:openapi-gen=true
+type KernelBoot struct {
+	// Arguments to be passed to the kernel at boot time
+	KernelArgs string `json:"kernelArgs,omitempty"`
+	// Container defines the container that containes kernel artifacts
+	Container *KernelBootContainer `json:"container,omitempty"`
+}
+
 //
 // +k8s:openapi-gen=true
 type ResourceRequirements struct {
@@ -371,6 +406,9 @@ type Firmware struct {
 	Bootloader *Bootloader `json:"bootloader,omitempty"`
 	// The system-serial-number in SMBIOS
 	Serial string `json:"serial,omitempty"`
+	// Settings to set the kernel for booting.
+	// +optional
+	KernelBoot *KernelBoot `json:"kernelBoot,omitempty"`
 }
 
 //
