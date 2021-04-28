@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 )
 
@@ -31,10 +32,53 @@ func NewCustomizer(customizations v1.CustomizeComponents) (*Customizer, error) {
 		return &Customizer{}, err
 	}
 
+	patches := customizations.Patches
+	flagPatches := flagsToPatches(customizations.Flags)
+	patches = append(patches, flagPatches...)
+
 	return &Customizer{
-		Patches: customizations.Patches,
+		Patches: patches,
 		hash:    hash,
 	}, nil
+}
+
+func flagsToPatches(flags *v1.Flags) []v1.CustomizeComponentsPatch {
+	patches := []v1.CustomizeComponentsPatch{}
+	if flags == nil {
+		return patches
+	}
+
+	patches = addFlagsPatch(components.VirtAPIName, "Deployment", flags.API, patches)
+	patches = addFlagsPatch(components.VirtControllerName, "Deployment", flags.Controller, patches)
+	patches = addFlagsPatch(components.VirtHandlerName, "DaemonSet", flags.Handler, patches)
+
+	return patches
+}
+
+func addFlagsPatch(name, resource string, flags map[string]string, patches []v1.CustomizeComponentsPatch) []v1.CustomizeComponentsPatch {
+	if len(flags) == 0 {
+		return patches
+	}
+
+	return append(patches, v1.CustomizeComponentsPatch{
+		ResourceName: name,
+		ResourceType: resource,
+		Patch:        fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q,"command":["%s","%s"]}]}}}}`, name, name, strings.Join(flagsToArray(flags), `","`)),
+		Type:         v1.StrategicMergePatchType,
+	})
+}
+
+func flagsToArray(flags map[string]string) []string {
+	farr := make([]string, 0)
+
+	for flag, v := range flags {
+		farr = append(farr, fmt.Sprintf("--%s", strings.ToLower(flag)))
+		if v != "" {
+			farr = append(farr, v)
+		}
+	}
+
+	return farr
 }
 
 func (c *Customizer) Hash() string {
