@@ -1446,7 +1446,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		} else {
 			pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
 				Name:      volume.Name,
-				MountPath: fmt.Sprintf("/pvc-%s", volume.Name),
+				MountPath: fmt.Sprintf("/%s", volume.Name),
 			})
 		}
 	}

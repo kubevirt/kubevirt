@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -82,6 +81,10 @@ var (
 
 	procMounts = func(pid int) ([]*procfs.MountInfo, error) {
 		return procfs.GetProcMounts(pid)
+	}
+
+	findMnt = func(device string) ([]byte, error) {
+		return exec.Command("/usr/bin/findmnt", "-S", device, "-o", "TARGET").CombinedOutput()
 	}
 )
 
@@ -556,6 +559,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	if isMounted, err := isMounted(targetPath); err != nil {
 		return fmt.Errorf("failed to determine if %s is already mounted: %v", targetPath, err)
 	} else if !isMounted {
+		log.DefaultLogger().Infof("%s is not mounted", targetPath)
 		if err := m.writePathToMountRecord(targetPath, vmi, record); err != nil {
 			return err
 		}
@@ -585,44 +589,34 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid
 }
 
 func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (string, error) {
-	diskPath := ""
-	if sourceUID != types.UID("") {
-		basepath := sourcePodBasePath(sourceUID)
-		err := filepath.Walk(basepath, func(filePath string, info os.FileInfo, err error) error {
-			if path.Base(filePath) == "disk.img" {
-				// Found disk image
-				diskPath = path.Dir(filePath)
-				return io.EOF
-			}
-			return nil
-		})
-		if err != nil && err != io.EOF {
-			return diskPath, err
-		}
+	iso := isolationDetector("/path")
+	isoRes, err := iso.DetectForSocket(vmi, socketPath(sourceUID))
+	if err != nil {
+		return "", err
 	}
-	if diskPath == "" {
-		// Unfortunately I cannot use this approach for all storage, for instance in ceph the mount.Root is / which is obviously
-		// not the path we want to mount. So we stick with try sourcePodBasePath first, then if not found try mountinfo.
-		iso := isolationDetector("/path")
-		isoRes, err := iso.DetectForSocket(vmi, socketPath(sourceUID))
-		if err != nil {
-			return "", err
-		}
-		mounts, err := procMounts(isoRes.Pid())
-		if err != nil {
-			return "", err
-		}
-		for _, mount := range mounts {
-			if mount.MountPoint == "/pvc" {
+	mounts, err := procMounts(isoRes.Pid())
+	if err != nil {
+		return "", err
+	}
+	for _, mount := range mounts {
+		if filepath.Base(mount.MountPoint) == volume {
+			if mount.Root == "/" {
+				target, err := findMnt(mount.Source)
+				if err != nil {
+					return "", err
+				}
+				split := strings.Split(string(target), "\n")
+				if len(split) > 0 {
+					log.DefaultLogger().Infof("Target: [%s]", split[1])
+					return split[1], nil
+				}
+			} else {
 				return mount.Root, nil
 			}
 		}
 	}
-	if diskPath == "" {
-		// Did not find the disk image file, return error
-		return diskPath, fmt.Errorf("Unable to find source disk image path for pod %s", sourceUID)
-	}
-	return diskPath, nil
+	// Did not find the disk image file, return error
+	return "", fmt.Errorf("unable to find source disk image path for pod %s", sourceUID)
 }
 
 // Unmount unmounts all hotplug disk that are no longer part of the VMI
