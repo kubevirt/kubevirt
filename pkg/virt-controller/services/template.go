@@ -1097,6 +1097,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	containersDisks := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
 	containers = append(containers, containersDisks...)
 
+	kernelBootContainer := containerdisk.GenerateKernelBootContainer(vmi, "container-disks", "virt-bin-share-dir")
+	if kernelBootContainer != nil {
+		log.Log.Object(vmi).Infof("kernel boot container generated")
+		containers = append(containers, *kernelBootContainer)
+	}
+
 	volumes = append(volumes,
 		k8sv1.Volume{
 			Name: "virt-bin-share-dir",
@@ -1206,7 +1212,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 
 	var initContainers []k8sv1.Container
 
-	if HaveContainerDiskVolume(vmi.Spec.Volumes) {
+	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.IsKernelBootDefinedProperly(vmi) {
 
 		initContainerVolumeMounts := []k8sv1.VolumeMount{
 			{

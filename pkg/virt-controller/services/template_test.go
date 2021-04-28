@@ -22,7 +22,10 @@ package services
 import (
 	"errors"
 	"runtime"
+	"strings"
 	"testing"
+
+	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	"github.com/golang/mock/gomock"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -2727,6 +2730,34 @@ var _ = Describe("Template", func() {
 				table.Entry("request and limit is increased to consist non-user ephemeral storage", true),
 			)
 
+		})
+
+		Context("with kernel boot", func() {
+			hasContainerWithName := func(containers []kubev1.Container, name string) bool {
+				for _, container := range containers {
+					if strings.Contains(container.Name, name) {
+						return true
+					}
+				}
+				return false
+			}
+
+			It("should define containers and volumes properly", func() {
+				vmi := utils.GetVMIKernelBoot()
+				vmi.ObjectMeta = metav1.ObjectMeta{
+					Name: "testvmi-kernel-boot", Namespace: "default", UID: "1234",
+				}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).To(BeNil())
+				Expect(pod).ToNot(BeNil())
+
+				containers := pod.Spec.Containers
+				Expect(containers).Should(HaveLen(2))
+
+				Expect(hasContainerWithName(containers, "kernel-boot")).To(BeTrue())
+				Expect(hasContainerWithName(pod.Spec.InitContainers, "container-disk-binary")).To(BeTrue())
+			})
 		})
 
 	})
