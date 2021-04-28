@@ -781,21 +781,16 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		if err != nil {
 			return nil, err
 		}
+		createFlags := getDomainCreateFlags(vmi)
+		err = dom.CreateWithFlags(createFlags)
+		if err != nil {
+			logger.Reason(err).
+				Errorf("Failed to start VirtualMachineInstance with flags %v.", createFlags)
+			return nil, err
+		}
+		logger.Info("Domain started.")
 		if vmi.ShouldStartPaused() {
-			err = dom.CreateWithFlags(libvirt.DOMAIN_START_PAUSED)
-			if err != nil {
-				logger.Reason(err).Error("Starting the VirtualMachineInstance in paused state failed.")
-				return nil, err
-			}
 			l.paused.add(vmi.UID)
-			logger.Info("Domain started in paused state.")
-		} else {
-			err = dom.Create()
-			if err != nil {
-				logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
-				return nil, err
-			}
-			logger.Info("Domain started.")
 		}
 	} else if cli.IsPaused(domState) && !l.paused.contains(vmi.UID) {
 		// TODO: if state change reason indicates a system error, we could try something smarter
@@ -1445,4 +1440,13 @@ func isDomainPaused(dom cli.VirDomain) (bool, error) {
 	}
 	return util.ConvState(status) == api.Paused &&
 		util.ConvReason(status, reason) == api.ReasonPausedUser, nil
+}
+
+func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFlags {
+	flags := libvirt.DOMAIN_NONE
+
+	if vmi.ShouldStartPaused() {
+		flags |= libvirt.DOMAIN_START_PAUSED
+	}
+	return flags
 }
