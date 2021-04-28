@@ -23,7 +23,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
-	"path"
+	"path/filepath"
 	"strings"
 
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
@@ -96,7 +96,7 @@ func (n *NodeLabeller) loadHostCapabilities() error {
 
 //loadHostSupportedFeatures loads supported features
 func (n *NodeLabeller) loadHostSupportedFeatures() error {
-	featuresFile := path.Join(nodeLabellerVolumePath + "supported_features.xml")
+	featuresFile := filepath.Join(n.volumePath, "supported_features.xml")
 
 	hostFeatures := SupportedHostFeature{}
 	err := n.getStructureFromXMLFile(featuresFile, &hostFeatures)
@@ -119,7 +119,7 @@ func (n *NodeLabeller) loadHostSupportedFeatures() error {
 
 //loadCPUInfo load info about all cpu models
 func (n *NodeLabeller) loadCPUInfo() error {
-	files, err := ioutil.ReadDir(path.Join(nodeLabellerVolumePath, "cpu_map"))
+	files, err := ioutil.ReadDir(filepath.Join(n.volumePath, "cpu_map"))
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (n *NodeLabeller) loadCPUInfo() error {
 }
 
 func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
-	domCapabilitiesFile := path.Join(nodeLabellerVolumePath + "virsh_domcapabilities.xml")
+	domCapabilitiesFile := filepath.Join(n.volumePath, n.domCapabilitiesFileName)
 	hostDomCapabilities := HostDomCapabilities{}
 	err := n.getStructureFromXMLFile(domCapabilitiesFile, &hostDomCapabilities)
 
@@ -156,7 +156,7 @@ func (n *NodeLabeller) loadFeatures(fileName string) (cpuFeatures, error) {
 		return nil, fmt.Errorf("file name can't be empty")
 	}
 
-	cpuFeaturepath := getPathCPUFeatures(fileName)
+	cpuFeaturepath := getPathCPUFeatures(n.volumePath, fileName)
 	features := FeatureModel{}
 	err := n.getStructureFromXMLFile(cpuFeaturepath, &features)
 	if err != nil {
@@ -171,8 +171,8 @@ func (n *NodeLabeller) loadFeatures(fileName string) (cpuFeatures, error) {
 }
 
 //getPathCPUFeatures creates path where folder with cpu models is
-func getPathCPUFeatures(name string) string {
-	return path.Join(nodeLabellerVolumePath, "cpu_map", name)
+func getPathCPUFeatures(volumePath string, name string) string {
+	return filepath.Join(volumePath, "cpu_map", name)
 }
 
 //GetStructureFromXMLFile load data from xml file and unmarshals them into given structure

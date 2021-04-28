@@ -41,27 +41,31 @@ import (
 
 //NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
-	clientset         kubecli.KubevirtClient
-	host              string
-	namespace         string
-	logger            *log.FilteredLogger
-	clusterConfig     *virtconfig.ClusterConfig
-	hypervFeatures    supportedFeatures
-	hostCapabilities  supportedFeatures
-	queue             workqueue.RateLimitingInterface
-	supportedFeatures []string
-	cpuInfo           cpuInfo
-	cpuModelVendor    string
+	clientset               kubecli.KubevirtClient
+	host                    string
+	namespace               string
+	logger                  *log.FilteredLogger
+	clusterConfig           *virtconfig.ClusterConfig
+	hypervFeatures          supportedFeatures
+	hostCapabilities        supportedFeatures
+	queue                   workqueue.RateLimitingInterface
+	supportedFeatures       []string
+	cpuInfo                 cpuInfo
+	cpuModelVendor          string
+	volumePath              string
+	domCapabilitiesFileName string
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
 	n := &NodeLabeller{
-		clientset:     clientset,
-		host:          host,
-		namespace:     namespace,
-		logger:        log.DefaultLogger(),
-		clusterConfig: clusterConfig,
-		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		clientset:               clientset,
+		host:                    host,
+		namespace:               namespace,
+		logger:                  log.DefaultLogger(),
+		clusterConfig:           clusterConfig,
+		queue:                   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		volumePath:              nodeLabellerVolumePath,
+		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 	}
 
 	err := n.loadAll()

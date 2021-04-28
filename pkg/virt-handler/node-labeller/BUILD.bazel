@@ -8,7 +8,6 @@ go_library(
         "kvm-caps-info-plugin_arm64.go",
         "model.go",
         "node_labeller.go",
-        "test-util.go",
     ],
     cgo = True,
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller",

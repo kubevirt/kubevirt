@@ -83,8 +83,6 @@ var _ = Describe("Node-labeller ", func() {
 
 		config, _, _, _ = testutils.NewFakeClusterConfigUsingKV(kv)
 
-		prepareFileDomCapabilities()
-
 		nlController, _ = NewNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault)
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
