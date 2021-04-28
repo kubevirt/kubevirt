@@ -762,7 +762,10 @@ func AdjustKubeVirtResource() {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 	}
 
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
+	if kv.Spec.Configuration.DeveloperConfiguration.FeatureGates == nil {
+		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{}
+	}
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 		virtconfig.CPUManager,
 		virtconfig.LiveMigrationGate,
 		virtconfig.IgnitionGate,
@@ -771,7 +774,7 @@ func AdjustKubeVirtResource() {
 		virtconfig.HostDiskGate,
 		virtconfig.VirtIOFSGate,
 		virtconfig.HotplugVolumesGate,
-	}
+	)
 	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
 
 	data, err := json.Marshal(kv.Spec)
