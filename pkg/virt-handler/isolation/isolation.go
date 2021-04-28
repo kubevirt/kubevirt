@@ -59,17 +59,17 @@ type IsolationResult interface {
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
 }
 
-type realIsolationResult struct {
+type RealIsolationResult struct {
 	pid        int
 	slice      string
 	controller []string
 }
 
 func NewIsolationResult(pid int, slice string, controller []string) IsolationResult {
-	return &realIsolationResult{pid: pid, slice: slice, controller: controller}
+	return &RealIsolationResult{pid: pid, slice: slice, controller: controller}
 }
 
-func (r *realIsolationResult) DoNetNS(f func() error) error {
+func (r *RealIsolationResult) DoNetNS(f func() error) error {
 	netns, err := ns.GetNS(r.NetNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to get launcher pod network namespace: %v", err)
@@ -79,20 +79,20 @@ func (r *realIsolationResult) DoNetNS(f func() error) error {
 	})
 }
 
-func (r *realIsolationResult) PIDNamespace() string {
+func (r *RealIsolationResult) PIDNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/pid", r.pid)
 }
 
-func (r *realIsolationResult) Slice() string {
+func (r *RealIsolationResult) Slice() string {
 	return r.slice
 }
 
-func (r *realIsolationResult) MountNamespace() string {
+func (r *RealIsolationResult) MountNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/mnt", r.pid)
 }
 
 // IsMounted checks if the given path is a mount point or not. Works with symlinks.
-func (r *realIsolationResult) IsMounted(mountPoint string) (isMounted bool, err error) {
+func (r *RealIsolationResult) IsMounted(mountPoint string) (isMounted bool, err error) {
 	mountPoint, err = filepath.Abs(mountPoint)
 	if err != nil {
 		return false, fmt.Errorf("failed to resolve %v to an absolute path: %v", mountPoint, err)
@@ -107,8 +107,21 @@ func (r *realIsolationResult) IsMounted(mountPoint string) (isMounted bool, err 
 	return mount.Mounted(mountPoint)
 }
 
+// AreMounted checks if given paths are mounted by calling IsMounted.
+// If error occurs, the first error is returned.
+func (r *RealIsolationResult) AreMounted(mountPoints ...string) (isMounted bool, err error) {
+	for _, mountPoint := range mountPoints {
+		isMounted, err = r.IsMounted(mountPoint)
+		if !isMounted || err != nil {
+			return
+		}
+	}
+
+	return true, nil
+}
+
 // IsBlockDevice checks if the given path is a block device or not.
-func (r *realIsolationResult) IsBlockDevice(path string) (bool, error) {
+func (r *RealIsolationResult) IsBlockDevice(path string) (bool, error) {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return false, fmt.Errorf("error checking for block device: %v", err)
@@ -119,30 +132,30 @@ func (r *realIsolationResult) IsBlockDevice(path string) (bool, error) {
 	return true, nil
 }
 
-func (r *realIsolationResult) NetNamespace() string {
+func (r *RealIsolationResult) NetNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/net", r.pid)
 }
 
-func (r *realIsolationResult) MountRoot() string {
+func (r *RealIsolationResult) MountRoot() string {
 	return fmt.Sprintf("/proc/%d/root", r.pid)
 }
 
-func (r *realIsolationResult) Pid() int {
+func (r *RealIsolationResult) Pid() int {
 	return r.pid
 }
 
-func (r *realIsolationResult) Controller() []string {
+func (r *RealIsolationResult) Controller() []string {
 	return r.controller
 }
 
-func NodeIsolationResult() *realIsolationResult {
-	return &realIsolationResult{
+func NodeIsolationResult() *RealIsolationResult {
+	return &RealIsolationResult{
 		pid: 1,
 	}
 }
 
 // Mounts returns mounts for the given process based on the supplied filter
-func (r *realIsolationResult) Mounts(filter mount.FilterFunc) ([]*mount.Info, error) {
+func (r *RealIsolationResult) Mounts(filter mount.FilterFunc) ([]*mount.Info, error) {
 	in, err := os.Open(fmt.Sprintf("/proc/%d/mountinfo", r.pid))
 	if err != nil {
 		return nil, fmt.Errorf("could not open file mountinfo for %d: %v", r.pid, err)

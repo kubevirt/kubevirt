@@ -55,7 +55,7 @@ var _ = Describe("ContainerDisk", func() {
 			mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
 			mountStateDir:          tmpDir,
 			suppressWarningTimeout: 1 * time.Minute,
-			pathGetter:             containerdisk.NewSocketPathGetter(""),
+			socketPathGetter:       containerdisk.NewSocketPathGetter(""),
 		}
 	})
 
@@ -74,7 +74,7 @@ var _ = Describe("ContainerDisk", func() {
 
 	Context("checking if containerDisks are ready", func() {
 		It("should return false and no error if we are still within the tolerated retry period", func() {
-			m.pathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+			m.socketPathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
 				return "", fmt.Errorf("not found")
 			}
 			ready, err := m.ContainerDisksReady(vmi, time.Now())
@@ -82,7 +82,7 @@ var _ = Describe("ContainerDisk", func() {
 			Expect(ready).To(BeFalse())
 		})
 		It("should return false and an error if we are outside the tolerated retry period", func() {
-			m.pathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+			m.socketPathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
 				return "", fmt.Errorf("not found")
 			}
 			ready, err := m.ContainerDisksReady(vmi, time.Now().Add(-2*time.Minute))
@@ -90,7 +90,7 @@ var _ = Describe("ContainerDisk", func() {
 			Expect(ready).To(BeFalse())
 		})
 		It("should return true and no error once everything is ready and we are within the tolerated retry period", func() {
-			m.pathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+			m.socketPathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
 				return "someting", nil
 			}
 			ready, err := m.ContainerDisksReady(vmi, time.Now())
@@ -98,7 +98,7 @@ var _ = Describe("ContainerDisk", func() {
 			Expect(ready).To(BeTrue())
 		})
 		It("should return true and no error once everything is ready when we are outside of the tolerated retry period", func() {
-			m.pathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+			m.socketPathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
 				return "someting", nil
 			}
 			ready, err := m.ContainerDisksReady(vmi, time.Now().Add(-2*time.Minute))

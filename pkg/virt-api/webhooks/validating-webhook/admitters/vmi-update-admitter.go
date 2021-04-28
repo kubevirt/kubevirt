@@ -82,7 +82,7 @@ func admitHotplug(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Di
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "number of disks does not equal the number of volumes",
+				Message: fmt.Sprintf("number of disks (%d) does not equal the number of volumes (%d)", len(newDisks), len(newVolumes)),
 			},
 		})
 	}

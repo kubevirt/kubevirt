@@ -53,6 +53,16 @@ func (_mr *_MockMounterRecorder) Mount(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Mount", arg0, arg1)
 }
 
+func (_m *MockMounter) MountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bool) error {
+	ret := _m.ctrl.Call(_m, "MountKernelArtifacts", vmi, verify)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockMounterRecorder) MountKernelArtifacts(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MountKernelArtifacts", arg0, arg1)
+}
+
 func (_m *MockMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "Unmount", vmi)
 	ret0, _ := ret[0].(error)
@@ -61,4 +71,14 @@ func (_m *MockMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 
 func (_mr *_MockMounterRecorder) Unmount(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unmount", arg0)
+}
+
+func (_m *MockMounter) UnmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "UnmountKernelArtifacts", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockMounterRecorder) UnmountKernelArtifacts(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnmountKernelArtifacts", arg0)
 }
