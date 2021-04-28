@@ -69,3 +69,21 @@ func ResourceNameToEnvVar(prefix string, resourceName string) string {
 	varName = strings.Replace(varName, ".", "_", -1)
 	return fmt.Sprintf("%s_%s", prefix, varName)
 }
+
+// Checks if kernel boot is defined in a valid way
+func IsKernelBootDefinedProperly(vmi *v1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+
+	vmiFirmware := vmi.Spec.Domain.Firmware
+	if (vmiFirmware == nil) || (vmiFirmware.KernelBoot == nil) || (vmiFirmware.KernelBoot.Container == nil) {
+		return false
+	}
+
+	if c := vmiFirmware.KernelBoot.Container; (c.KernelPath == "") && (c.InitrdPath == "") {
+		return false
+	}
+
+	return true
+}
