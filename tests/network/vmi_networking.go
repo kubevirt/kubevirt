@@ -158,6 +158,13 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 			inboundVMIWithCustomMacAddress = tests.WaitUntilVMIReady(inboundVMIWithCustomMacAddress, libnet.WithIPv6(console.LoginToCirros))
 
 			tests.StartTCPServer(inboundVMI, testPort)
+
+			// Wait for inboundVMI to contain a reported interface with assigned IP address
+			waitForPrimaryAddress(inboundVMI)
+
+			// Re-fetch inboundVMI
+			inboundVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(inboundVMI.Name, &metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		table.DescribeTable("should be able to reach", func(destination string) {
@@ -1072,6 +1079,19 @@ sockfd = None`})
 		})
 	})
 })
+
+func waitForPrimaryAddress(vmi *v1.VirtualMachineInstance) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() bool {
+		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+		return len(vmi.Status.Interfaces) > 0 && vmi.Status.Interfaces[0].IP != ""
+	}, 30*time.Second, 5*time.Second).Should(BeTrue())
+}
 
 func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
