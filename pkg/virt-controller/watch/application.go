@@ -42,6 +42,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"kubevirt.io/kubevirt/pkg/healthz"
 
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
@@ -460,10 +462,28 @@ func (vca *VirtControllerApp) initCommon() {
 		runtime.GOARCH,
 	)
 
-	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.persistentVolumeClaimInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
+	vca.vmiController = NewVMIController(
+		vca.templateService,
+		vca.vmiInformer,
+		vca.kvPodInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.vmiRecorder,
+		vca.clientSet,
+		vca.dataVolumeInformer,
+		topology.NewTopologyHinter(vca.nodeInformer.GetStore()),
+	)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.migrationInformer, vca.nodeInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
+	vca.migrationController = NewMigrationController(
+		vca.templateService,
+		vca.vmiInformer,
+		vca.kvPodInformer,
+		vca.migrationInformer,
+		vca.nodeInformer,
+		vca.vmiRecorder,
+		vca.clientSet,
+		vca.clusterConfig,
+	)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

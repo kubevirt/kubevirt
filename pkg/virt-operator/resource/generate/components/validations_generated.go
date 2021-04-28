@@ -7881,6 +7881,12 @@ var CRDsValidation map[string]string = map[string]string{
           description: A brief CamelCase message indicating details about why the
             VMI is in this state. e.g. 'NodeUnresponsive'
           type: string
+        topologyHints:
+          properties:
+            tscFrequency:
+              format: int64
+              type: integer
+          type: object
         volumeStatus:
           description: VolumeStatus contains the statuses of all the volumes
           items:
