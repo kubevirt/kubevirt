@@ -16,7 +16,6 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/net"
 	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -81,19 +80,19 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	})
 
 	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), generateBatchJobSpec(host, port, tests.NewHelloWorldJob), metav1.CreateOptions{})
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJob(host, port), metav1.CreateOptions{})
 		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobUDP := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), generateBatchJobSpec(host, port, tests.NewHelloWorldJobUDP), metav1.CreateOptions{})
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobUDP(host, port), metav1.CreateOptions{})
 		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobHttp := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), generateBatchJobSpec(host, port, tests.NewHelloWorldJobHTTP), metav1.CreateOptions{})
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobHTTP(host, port), metav1.CreateOptions{})
 		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		return job
 	}
@@ -919,14 +918,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 })
-
-func generateBatchJobSpec(host string, port string, clientBuilder func(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job) *batchv1.Job {
-	if net.IsIPv6String(host) {
-		// TODO - remove this if condition code once https://github.com/kubevirt/kubevirt/issues/4428 is fixed
-		return clientBuilder(host, port, fmt.Sprintf("ping -w 20 %s;", host))
-	}
-	return clientBuilder(host, port)
-}
 
 func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
 	for _, address := range nodeAddresses {
