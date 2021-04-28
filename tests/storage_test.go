@@ -475,7 +475,7 @@ var _ = Describe("Storage", func() {
 				},
 					table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", nil),
 					table.Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv4Protocol),
-					table.Entry("[QUARANTINE][owner:@sig-storage]with Ephemeral PVC from NFS using ipv6 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv6Protocol),
+					table.Entry("[QUARANTINE][sig-storage]with Ephemeral PVC from NFS using ipv6 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv6Protocol),
 				)
 			})
 
@@ -891,7 +891,7 @@ var _ = Describe("Storage", func() {
 			})
 
 			// Not a candidate for NFS because local volumes are used in test
-			It("[owner:@sig-storage][test_id:1015] should be successfully started", func() {
+			It("[sig-storage][test_id:1015] should be successfully started", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi = tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
