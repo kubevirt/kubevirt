@@ -38,7 +38,8 @@ import (
 const (
 	nodeLabellerVolumePath = "/var/lib/kubevirt-node-labeller"
 
-	VirtAPIName = "virt-api"
+	VirtAPIName        = "virt-api"
+	VirtControllerName = "virt-controller"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -305,8 +306,8 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 }
 
 func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
-	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-controller"})
-	deploymentName := "virt-controller"
+	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{VirtControllerName})
+	deploymentName := VirtControllerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
 	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, productName, productVersion, pullPolicy, podAntiAffinity, env)
@@ -324,7 +325,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
-		"virt-controller",
+		VirtControllerName,
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
 		"--port",
