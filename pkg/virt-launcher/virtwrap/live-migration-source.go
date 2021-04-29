@@ -462,7 +462,7 @@ func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64, domSpec *api.Doma
 		return false
 	}
 
-	if elapsed > m.acceptableCompletionTime {
+	if elapsed/int64(time.Second) > m.acceptableCompletionTime {
 		return true
 	}
 
@@ -480,11 +480,11 @@ func (m *migrationMonitor) shouldTriggerPostCopy(elapsed int64, domSpec *api.Dom
 func (m *migrationMonitor) isMigrationProgressing(domainSpec *api.DomainSpec) bool {
 	logger := log.Log.Object(m.vmi)
 
-	now := time.Now().UTC().Unix()
+	now := time.Now().UTC().UnixNano()
 
 	// check if the migration is progressing
 	progressDelay := now - m.lastProgressUpdate
-	if m.progressTimeout != 0 && progressDelay > m.progressTimeout {
+	if m.progressTimeout != 0 && progressDelay/int64(time.Second) > m.progressTimeout {
 		logger.Warningf("Live migration stuck for %d sec", progressDelay)
 		return false
 	}
@@ -544,7 +544,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflight
 	logger := log.Log.Object(m.vmi)
 
 	// Migration is running
-	now := time.Now().UTC().Unix()
+	now := time.Now().UTC().UnixNano()
 	elapsed := now - m.start
 
 	if (m.progressWatermark == 0) ||
@@ -637,7 +637,7 @@ func (m *migrationMonitor) startMonitor() {
 	var completedJobInfo *libvirt.DomainJobInfo
 	vmi := m.vmi
 
-	m.start = time.Now().UTC().Unix()
+	m.start = time.Now().UTC().UnixNano()
 	m.lastProgressUpdate = m.start
 
 	logger := log.Log.Object(vmi)

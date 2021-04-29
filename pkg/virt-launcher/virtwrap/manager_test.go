@@ -1143,7 +1143,6 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			gomock.InOrder(
-				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
 				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
 				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
 			)
@@ -1219,7 +1218,6 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			gomock.InOrder(
-				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
 				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
 				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
 			)
