@@ -427,6 +427,8 @@ type CDIConfigSpec struct {
 	FilesystemOverhead *FilesystemOverhead `json:"filesystemOverhead,omitempty"`
 	// Preallocation controls whether storage for DataVolumes should be allocated in advance.
 	Preallocation *bool `json:"preallocation,omitempty"`
+	// InsecureRegistries is a list of TLS disabled registries
+	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource

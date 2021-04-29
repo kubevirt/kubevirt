@@ -179,6 +179,11 @@ func (in *CDIConfigSpec) DeepCopyInto(out *CDIConfigSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.InsecureRegistries != nil {
+		in, out := &in.InsecureRegistries, &out.InsecureRegistries
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

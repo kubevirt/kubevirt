@@ -256,6 +256,10 @@ const (
 // DataVolumeCloneSourceSubresource is the subresource checked for permission to clone
 const DataVolumeCloneSourceSubresource = "source"
 
+// this has to be here otherwise informer-gen doesn't recognize it
+// see https://github.com/kubernetes/code-generator/issues/59
+// +genclient:nonNamespaced
+
 //StorageProfile provides a CDI specific recommendation for storage parameters
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -459,6 +463,8 @@ type CDIConfigSpec struct {
 	FilesystemOverhead *FilesystemOverhead `json:"filesystemOverhead,omitempty"`
 	// Preallocation controls whether storage for DataVolumes should be allocated in advance.
 	Preallocation *bool `json:"preallocation,omitempty"`
+	// InsecureRegistries is a list of TLS disabled registries
+	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource

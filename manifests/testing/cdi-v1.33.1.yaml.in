@@ -117,6 +117,11 @@ spec:
                         description: "TrustedCAProxy is the name of a ConfigMap in the cdi namespace that contains a user-provided trusted certificate authority (CA) bundle. The TrustedCAProxy field is consumed by the import controller that is resposible for coping it to a config map named trusted-ca-proxy-bundle-cm in the cdi namespace. Here is an example of the ConfigMap (in yaml): \n apiVersion: v1 kind: ConfigMap metadata:   name: trusted-ca-proxy-bundle-cm   namespace: cdi data:   ca.pem: |     -----BEGIN CERTIFICATE----- \t   ... <base64 encoded cert> ... \t   -----END CERTIFICATE-----"
                         type: string
                     type: object
+                  insecureRegistries:
+                    description: InsecureRegistries is a list of TLS disabled registries
+                    items:
+                      type: string
+                    type: array
                   podResourceRequirements:
                     description: ResourceRequirements describes the compute resource requirements.
                     properties:
@@ -1048,6 +1053,11 @@ spec:
                         description: "TrustedCAProxy is the name of a ConfigMap in the cdi namespace that contains a user-provided trusted certificate authority (CA) bundle. The TrustedCAProxy field is consumed by the import controller that is resposible for coping it to a config map named trusted-ca-proxy-bundle-cm in the cdi namespace. Here is an example of the ConfigMap (in yaml): \n apiVersion: v1 kind: ConfigMap metadata:   name: trusted-ca-proxy-bundle-cm   namespace: cdi data:   ca.pem: |     -----BEGIN CERTIFICATE----- \t   ... <base64 encoded cert> ... \t   -----END CERTIFICATE-----"
                         type: string
                     type: object
+                  insecureRegistries:
+                    description: InsecureRegistries is a list of TLS disabled registries
+                    items:
+                      type: string
+                    type: array
                   podResourceRequirements:
                     description: ResourceRequirements describes the compute resource requirements.
                     properties:
@@ -2204,24 +2214,24 @@ spec:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
-          value: v1.31.0
+          value: v1.33.1
         - name: CONTROLLER_IMAGE
-          value: quay.io/kubevirt/cdi-controller:v1.31.0
+          value: quay.io/kubevirt/cdi-controller:v1.33.1
         - name: IMPORTER_IMAGE
-          value: quay.io/kubevirt/cdi-importer:v1.31.0
+          value: quay.io/kubevirt/cdi-importer:v1.33.1
         - name: CLONER_IMAGE
-          value: quay.io/kubevirt/cdi-cloner:v1.31.0
+          value: quay.io/kubevirt/cdi-cloner:v1.33.1
         - name: APISERVER_IMAGE
-          value: quay.io/kubevirt/cdi-apiserver:v1.31.0
+          value: quay.io/kubevirt/cdi-apiserver:v1.33.1
         - name: UPLOAD_SERVER_IMAGE
-          value: quay.io/kubevirt/cdi-uploadserver:v1.31.0
+          value: quay.io/kubevirt/cdi-uploadserver:v1.33.1
         - name: UPLOAD_PROXY_IMAGE
-          value: quay.io/kubevirt/cdi-uploadproxy:v1.31.0
+          value: quay.io/kubevirt/cdi-uploadproxy:v1.33.1
         - name: VERBOSITY
           value: "1"
         - name: PULL_POLICY
           value: IfNotPresent
-        image: quay.io/kubevirt/cdi-operator:v1.31.0
+        image: quay.io/kubevirt/cdi-operator:v1.33.1
         imagePullPolicy: IfNotPresent
         name: cdi-operator
         ports:
