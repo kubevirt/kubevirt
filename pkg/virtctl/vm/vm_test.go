@@ -71,13 +71,6 @@ var _ = Describe("VirtualMachine", func() {
 		})
 	})
 
-	Context("With missing input parameters", func() {
-		It("should fail", func() {
-			cmd := tests.NewRepeatableVirtctlCommand("rename")
-			Expect(cmd()).NotTo(BeNil())
-		})
-	})
-
 	Context("should patch VM", func() {
 		It("with spec:running:true", func() {
 			vm := kubecli.NewMinimalVM(vmName)
@@ -192,28 +185,6 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().ForceRestart(vm.Name, 0).Return(nil).Times(1)
 
 			cmd := tests.NewVirtctlCommand("restart", vmName, "--force", "--grace-period=0")
-			Expect(cmd.Execute()).To(BeNil())
-		})
-	})
-
-	Context("rename", func() {
-		// All validations are done server-side
-		It("should initiate rename api call", func() {
-			vm := kubecli.NewMinimalVM(vmName)
-
-			kubecli.MockKubevirtClientInstance.
-				EXPECT().
-				VirtualMachine(k8smetav1.NamespaceDefault).
-				Return(vmInterface).
-				Times(1)
-
-			vmInterface.
-				EXPECT().
-				Rename(vm.Name, &v1.RenameOptions{NewName: vm.Name + "new"}).
-				Return(nil).
-				Times(1)
-
-			cmd := tests.NewVirtctlCommand("rename", vm.Name, vm.Name+"new")
 			Expect(cmd.Execute()).To(BeNil())
 		})
 	})

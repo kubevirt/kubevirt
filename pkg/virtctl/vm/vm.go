@@ -42,7 +42,6 @@ const (
 	COMMAND_STOP         = "stop"
 	COMMAND_RESTART      = "restart"
 	COMMAND_MIGRATE      = "migrate"
-	COMMAND_RENAME       = "rename"
 	COMMAND_GUESTOSINFO  = "guestosinfo"
 	COMMAND_USERLIST     = "userlist"
 	COMMAND_FSLIST       = "fslist"
@@ -115,21 +114,6 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("migrate", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
-
-func NewRenameCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "rename [vm_name] [new_vm_name]",
-		Short:   "Rename a stopped virtual machine.",
-		Example: usage(COMMAND_RENAME),
-		Args:    templates.ExactArgs("rename", 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_RENAME, clientConfig: clientConfig}
 			return c.Run(args)
 		},
 	}
@@ -249,12 +233,6 @@ type Command struct {
 }
 
 func usage(cmd string) string {
-	if cmd == COMMAND_RENAME {
-		usage := "	# rename a virtual machine called 'myvm' to 'notmyvm'\n"
-		usage += fmt.Sprintf("	{{ProgramName}} %s myvm notmyvm", cmd)
-		return usage
-	}
-
 	if cmd == COMMAND_USERLIST || cmd == COMMAND_FSLIST || cmd == COMMAND_GUESTOSINFO {
 		usage := fmt.Sprintf("  # %s a virtual machine instance called 'myvm':\n", strings.Title(cmd))
 		usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
@@ -376,11 +354,6 @@ func (o *Command) Run(args []string) error {
 		err = virtClient.VirtualMachine(namespace).Migrate(vmiName)
 		if err != nil {
 			return fmt.Errorf("Error migrating VirtualMachine %v", err)
-		}
-	case COMMAND_RENAME:
-		err = virtClient.VirtualMachine(namespace).Rename(vmiName, &v1.RenameOptions{NewName: args[1]})
-		if err != nil {
-			return fmt.Errorf("Error renaming VirtualMachine %v", err)
 		}
 	case COMMAND_GUESTOSINFO:
 		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(vmiName)
