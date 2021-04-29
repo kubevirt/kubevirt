@@ -495,7 +495,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		// Create a tcp server for each direct connection proxy
 		for _, port := range migrationPortsRange {
 			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
-			migrationProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key))
+			migrationProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key), string(vmi.UID))
 			defer migrationProxy.StopListening()
 			err := migrationProxy.StartListening()
 			if err != nil {
@@ -505,7 +505,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 
 		//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
-		libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, LibvirtLocalConnectionPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+		libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, LibvirtLocalConnectionPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)), string(vmi.UID))
 		defer libvirtConnectionProxy.StopListening()
 		err := libvirtConnectionProxy.StartListening()
 		if err != nil {
@@ -1019,7 +1019,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 		curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
 		unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
-		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil)
+		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
 
 		err := migrationProxy.StartListening()
 		if err != nil {
