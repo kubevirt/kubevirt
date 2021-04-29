@@ -16,9 +16,13 @@ import (
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const (
+	VirtHandlerName = "virt-handler"
+)
+
 func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
 
-	deploymentName := "virt-handler"
+	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
 	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, pullPolicy, nil, env)
@@ -33,9 +37,9 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "virt-handler",
+			Name:      VirtHandlerName,
 			Labels: map[string]string{
-				virtv1.AppLabel: "virt-handler",
+				virtv1.AppLabel: VirtHandlerName,
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{
@@ -44,7 +48,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"kubevirt.io": "virt-handler",
+					"kubevirt.io": VirtHandlerName,
 				},
 			},
 			Template: *podTemplateSpec,
@@ -100,7 +104,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 
 	container := &pod.Containers[0]
 	container.Command = []string{
-		"virt-handler",
+		VirtHandlerName,
 		"--port",
 		"8443",
 		"--hostname-override",
