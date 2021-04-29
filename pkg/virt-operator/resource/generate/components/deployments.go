@@ -40,6 +40,7 @@ const (
 
 	VirtAPIName        = "virt-api"
 	VirtControllerName = "virt-controller"
+	VirtOperatorName   = "virt-operator"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -388,8 +389,8 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
 	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
 
-	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-operator"})
-	name := "virt-operator"
+	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{VirtOperatorName})
+	name := VirtOperatorName
 	version = AddVersionSeparatorPrefix(version)
 	image := fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, name, version)
 
@@ -437,7 +438,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 							Image:           image,
 							ImagePullPolicy: pullPolicy,
 							Command: []string{
-								"virt-operator",
+								VirtOperatorName,
 								"--port",
 								"8443",
 								"-v",
