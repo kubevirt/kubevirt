@@ -518,12 +518,6 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		return false, err
 	}
 
-	// create/update config maps
-	err = r.createOrUpdateConfigMaps()
-	if err != nil {
-		return false, err
-	}
-
 	// create/update serviceMonitor
 	err = r.createOrUpdateServiceMonitors()
 	if err != nil {

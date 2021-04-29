@@ -503,145 +503,112 @@ func (r *Reconciler) createOrUpdateRbac() error {
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateConfigMaps() error {
-	core := r.clientset.CoreV1()
-	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-
-	for _, cm := range r.targetStrategy.ConfigMaps() {
-
-		if cm.Name == components.KubeVirtCASecretName {
+func findRequiredCAConfigMap(configmaps []*corev1.ConfigMap) *corev1.ConfigMap {
+	for _, cm := range configmaps {
+		if cm.Name != components.KubeVirtCASecretName {
 			continue
 		}
 
-		var cachedCM *corev1.ConfigMap
-
-		cm := cm.DeepCopy()
-		obj, exists, _ := r.stores.ConfigMapCache.Get(cm)
-		if exists {
-			cachedCM = obj.(*corev1.ConfigMap)
-		}
-
-		injectOperatorMetadata(r.kv, &cm.ObjectMeta, version, imageRegistry, id, true)
-		if !exists {
-			// Create non existent
-			r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := core.ConfigMaps(cm.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
-			if err != nil {
-				r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
-				return fmt.Errorf("unable to create config map %+v: %v", cm, err)
-			}
-			log.Log.V(2).Infof("config map %v created", cm.GetName())
-
-		} else if !objectMatchesVersion(&cachedCM.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
-			// Patch if old version
-			var ops []string
-
-			// Add Labels and Annotations Patches
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&cm.ObjectMeta)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, labelAnnotationPatch...)
-
-			// Add Spec Patch
-			newSpec, err := json.Marshal(cm.Data)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-
-			_, err = core.ConfigMaps(cm.Namespace).Patch(context.Background(), cm.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to patch config map %+v: %v", cm, err)
-			}
-			log.Log.V(2).Infof("config map %v updated", cm.GetName())
-
-		} else {
-			log.Log.V(4).Infof("config map %v is up-to-date", cm.GetName())
-		}
+		return cm.DeepCopy()
 	}
 
 	return nil
 }
 
+func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue workqueue.RateLimitingInterface, caCert *tls.Certificate, overlapInterval *metav1.Duration) (bool, error) {
+	updateBundle := false
+	bundle, certCount, err := components.MergeCABundle(caCert, []byte(existing.Data[components.CABundleKey]), overlapInterval.Duration)
+	if err != nil {
+		return updateBundle, err
+	}
+
+	// ensure that we remove the old CA after the overlap period
+	if certCount > 1 {
+		queue.AddAfter(key, overlapInterval.Duration)
+	}
+
+	required.Data = map[string]string{components.CABundleKey: string(bundle)}
+	if !reflect.DeepEqual(required.Data, existing.Data) {
+		updateBundle = true
+	}
+
+	return updateBundle, nil
+}
+
 func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimitingInterface, caCert *tls.Certificate, overlapInterval *metav1.Duration) (caBundle []byte, err error) {
+	configMap := findRequiredCAConfigMap(r.targetStrategy.ConfigMaps())
+	if configMap == nil {
+		return nil, nil
+	}
 
-	for _, configMap := range r.targetStrategy.ConfigMaps() {
+	log.DefaultLogger().V(4).Infof("checking ca config map %v", configMap.Name)
 
-		if configMap.Name != components.KubeVirtCASecretName {
-			continue
+	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+	injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
+
+	obj, exists, _ := r.stores.ConfigMapCache.Get(configMap)
+
+	if !exists {
+		configMap.Data = map[string]string{components.CABundleKey: string(cert.EncodeCertPEM(caCert.Leaf))}
+
+		r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
+		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
+		if err != nil {
+			r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
+			return nil, fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
 		}
 
-		var cachedConfigMap *corev1.ConfigMap
-		configMap = configMap.DeepCopy()
-
-		log.DefaultLogger().V(4).Infof("checking ca config map %v", configMap.Name)
-
-		version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-		obj, exists, _ := r.stores.ConfigMapCache.Get(configMap)
-
-		updateBundle := false
-		if exists {
-			cachedConfigMap = obj.(*corev1.ConfigMap)
-
-			bundle, certCount, err := components.MergeCABundle(caCert, []byte(cachedConfigMap.Data[components.CABundleKey]), overlapInterval.Duration)
-			if err != nil {
-				return nil, err
-			}
-
-			// ensure that we remove the old CA after the overlap period
-			if certCount > 1 {
-				queue.AddAfter(r.kvKey, overlapInterval.Duration)
-			}
-
-			configMap.Data = map[string]string{components.CABundleKey: string(bundle)}
-
-			if !reflect.DeepEqual(configMap.Data, cachedConfigMap.Data) {
-				updateBundle = true
-			}
-		} else {
-			configMap.Data = map[string]string{components.CABundleKey: string(cert.EncodeCertPEM(caCert.Leaf))}
-		}
-
-		injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
-		if !exists {
-			r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
-			if err != nil {
-				r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
-				return nil, fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
-			}
-		} else {
-			if !objectMatchesVersion(&cachedConfigMap.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) || updateBundle {
-				// Patch if old version
-				var ops []string
-
-				// Add Labels and Annotations Patches
-				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&configMap.ObjectMeta)
-				if err != nil {
-					return nil, err
-				}
-				ops = append(ops, labelAnnotationPatch...)
-
-				// Add Spec Patch
-				data, err := json.Marshal(configMap.Data)
-				if err != nil {
-					return nil, err
-				}
-				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/data", "value": %s }`, string(data)))
-
-				_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(context.Background(), configMap.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
-				if err != nil {
-					return nil, fmt.Errorf("unable to patch configMap %+v: %v", configMap, err)
-				}
-				log.Log.V(2).Infof("configMap %v updated", configMap.GetName())
-			} else {
-				log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
-			}
-		}
 		return []byte(configMap.Data[components.CABundleKey]), nil
 	}
-	return nil, nil
+
+	existing := obj.(*corev1.ConfigMap)
+	updateBundle, err := shouldUpdateBundle(configMap, existing, r.kvKey, queue, caCert, overlapInterval)
+	if err != nil {
+		return nil, err
+	}
+
+	modified := resourcemerge.BoolPtr(false)
+	resourcemerge.EnsureObjectMeta(modified, &existing.DeepCopy().ObjectMeta, configMap.ObjectMeta)
+
+	if !*modified && !updateBundle {
+		log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
+		return []byte(configMap.Data[components.CABundleKey]), nil
+	}
+
+	ops, err := createConfigMapPatch(configMap)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(context.Background(), configMap.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to patch configMap %+v: %v", configMap, err)
+	}
+
+	log.Log.V(2).Infof("configMap %v updated", configMap.GetName())
+
+	return []byte(configMap.Data[components.CABundleKey]), nil
+}
+
+func createConfigMapPatch(configMap *corev1.ConfigMap) ([]string, error) {
+	// Patch if old version
+	var ops []string
+
+	// Add Labels and Annotations Patches
+	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&configMap.ObjectMeta)
+	if err != nil {
+		return ops, err
+	}
+	ops = append(ops, labelAnnotationPatch...)
+
+	// Add Spec Patch
+	data, err := json.Marshal(configMap.Data)
+	if err != nil {
+		return ops, err
+	}
+	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/data", "value": %s }`, string(data)))
+
+	return ops, nil
 }
 
 func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.RateLimitingInterface, duration *metav1.Duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
