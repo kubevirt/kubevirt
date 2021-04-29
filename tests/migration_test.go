@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/tools/vms-generator/utils"
+
 	"fmt"
 	"time"
 
@@ -1829,7 +1831,16 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	Context("with sata disks", func() {
 
-		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI", func() {
+		addKernelBootContainer := func(vmi *v1.VirtualMachineInstance) {
+			kernelBootFirmware := utils.GetVMIKernelBoot().Spec.Domain.Firmware
+			if vmiFirmware := vmi.Spec.Domain.Firmware; vmiFirmware == nil {
+				vmiFirmware = kernelBootFirmware
+			} else {
+				vmiFirmware.KernelBoot = kernelBootFirmware.KernelBoot
+			}
+		}
+
+		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot", func() {
 			configMapName := "configmap-" + rand.String(5)
 			secretName := "secret-" + rand.String(5)
 			downwardAPIName := "downwardapi-" + rand.String(5)
@@ -1853,6 +1864,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			tests.AddConfigMapDisk(vmi, configMapName, configMapName)
 			tests.AddSecretDisk(vmi, secretName, secretName)
 			tests.AddServiceAccountDisk(vmi, "default")
+			addKernelBootContainer(vmi)
 
 			// In case there are no existing labels add labels to add some data to the downwardAPI disk
 			if vmi.ObjectMeta.Labels == nil {
