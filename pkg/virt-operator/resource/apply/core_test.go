@@ -49,17 +49,6 @@ var _ = Describe("Apply", func() {
 	Context("Services", func() {
 
 		It("should patch if ClusterIp == \"\" during update", func() {
-
-			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "somenamespace",
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageRegistry: "someregistery",
-					ImageTag:      "v1",
-				},
-			}
-
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
 			cachedService.Spec.ClusterIP = "10.10.10.10"
@@ -68,27 +57,12 @@ var _ = Describe("Apply", func() {
 			service.Spec.Type = corev1.ServiceTypeClusterIP
 			service.Spec.ClusterIP = ""
 
-			r := &Reconciler{
-				kv: kv,
-			}
-
-			ops, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
+			ops, err := generateServicePatch(cachedService, service)
 			Expect(err).To(BeNil())
-			Expect(deleteAndReplace).To(BeFalse())
 			Expect(ops).ToNot(Equal(""))
 		})
 
 		It("should replace if ClusterIp != \"\" during update and ip changes", func() {
-
-			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "somenamespace",
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageRegistry: "someregistery",
-					ImageTag:      "v1",
-				},
-			}
 
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
@@ -98,39 +72,18 @@ var _ = Describe("Apply", func() {
 			service.Spec.Type = corev1.ServiceTypeClusterIP
 			service.Spec.ClusterIP = "10.10.10.11"
 
-			r := &Reconciler{
-				kv: kv,
-			}
-
-			_, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
-			Expect(err).To(BeNil())
+			deleteAndReplace := hasImmutableFieldChanged(service, cachedService)
 			Expect(deleteAndReplace).To(BeTrue())
 		})
 
 		It("should replace if not a ClusterIP service", func() {
-
-			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "somenamespace",
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageRegistry: "someregistery",
-					ImageTag:      "v1",
-				},
-			}
-
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeNodePort
 
 			service := &corev1.Service{}
 			service.Spec.Type = corev1.ServiceTypeNodePort
 
-			r := &Reconciler{
-				kv: kv,
-			}
-
-			_, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
-			Expect(err).To(BeNil())
+			deleteAndReplace := hasImmutableFieldChanged(service, cachedService)
 			Expect(deleteAndReplace).To(BeTrue())
 		})
 	})
@@ -253,33 +206,28 @@ var _ = Describe("Apply", func() {
 
 		config := getConfig("fake-registry", "v9.9.9")
 
-		table.DescribeTable("with either patch or complete replacement",
+		table.DescribeTable("with either patch",
 			func(cachedService *corev1.Service,
 				targetService *corev1.Service,
 				expectLabelsAnnotationsPatch bool,
-				expectSpecPatch bool,
-				expectDelete bool) {
+				expectSpecPatch bool) {
 
-				kv := &v1.KubeVirt{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "test-install",
-						Namespace:  "default",
-						Generation: int64(1),
-					},
-					Spec: v1.KubeVirtSpec{
-						ImageTag:      config.GetKubeVirtVersion(),
-						ImageRegistry: config.GetImageRegistry(),
-					},
-				}
-				config.SetTargetDeploymentConfig(kv)
+				// kv := &v1.KubeVirt{
+				// 	ObjectMeta: metav1.ObjectMeta{
+				// 		Name:       "test-install",
+				// 		Namespace:  "default",
+				// 		Generation: int64(1),
+				// 	},
+				// 	Spec: v1.KubeVirtSpec{
+				// 		ImageTag:      config.GetKubeVirtVersion(),
+				// 		ImageRegistry: config.GetImageRegistry(),
+				// 	},
+				// }
+				// config.SetTargetDeploymentConfig(kv)
 
-				r := &Reconciler{
-					kv: kv,
-				}
-
-				ops, shouldDeleteAndReplace, err := r.generateServicePatch(cachedService, targetService)
+				Expect(hasImmutableFieldChanged(targetService, cachedService)).To(BeFalse())
+				ops, err := generateServicePatch(cachedService, targetService)
 				Expect(err).To(BeNil())
-				Expect(shouldDeleteAndReplace).To(Equal(expectDelete))
 
 				hasSubstring := func(ops []string, substring string) bool {
 					for _, op := range ops {
@@ -303,74 +251,6 @@ var _ = Describe("Apply", func() {
 					Expect(len(ops)).To(Equal(0))
 				}
 			},
-			table.Entry("should delete and recreate service if of mixed 'type'.",
-				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							v1.KubeVirtGenerationAnnotation: "1",
-						},
-					},
-					Spec: corev1.ServiceSpec{
-						Type: corev1.ServiceTypeClusterIP,
-					},
-				},
-				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							v1.KubeVirtGenerationAnnotation: "1",
-						},
-					},
-					Spec: corev1.ServiceSpec{
-						Type: corev1.ServiceTypeNodePort,
-					},
-				},
-				false, false, true),
-			table.Entry("should delete and recreate service if not of type ClusterIP.",
-				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							v1.KubeVirtGenerationAnnotation: "1",
-						},
-					},
-					Spec: corev1.ServiceSpec{
-						Type: corev1.ServiceTypeNodePort,
-					},
-				},
-				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							v1.KubeVirtGenerationAnnotation: "1",
-						},
-					},
-					Spec: corev1.ServiceSpec{
-						Type: corev1.ServiceTypeNodePort,
-					},
-				},
-				false, false, true),
-			table.Entry("should delete and recreate service if ClusterIP changes (clusterIP is not mutable)",
-				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							v1.KubeVirtGenerationAnnotation: "1",
-						},
-					},
-					Spec: corev1.ServiceSpec{
-						ClusterIP: "2.2.2.2",
-						Type:      corev1.ServiceTypeClusterIP,
-					},
-				},
-				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							v1.KubeVirtGenerationAnnotation: "1",
-						},
-					},
-					Spec: corev1.ServiceSpec{
-						ClusterIP: "1.1.1.1",
-						Type:      corev1.ServiceTypeClusterIP,
-					},
-				},
-				false, false, true),
 			table.Entry("should do nothing if cached service has ClusterIP set and target does not (clusterIP is dynamically assigned when empty)",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
@@ -405,7 +285,7 @@ var _ = Describe("Apply", func() {
 						Type: corev1.ServiceTypeClusterIP,
 					},
 				},
-				false, false, false),
+				false, false),
 			table.Entry("should update labels, annotations on update",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
@@ -465,7 +345,7 @@ var _ = Describe("Apply", func() {
 						Type: corev1.ServiceTypeClusterIP,
 					},
 				},
-				true, false, false),
+				true, false),
 			table.Entry("no-op with identical specs",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
@@ -543,7 +423,7 @@ var _ = Describe("Apply", func() {
 						Type: corev1.ServiceTypeClusterIP,
 					},
 				},
-				false, false, false),
+				false, false),
 			table.Entry("should patch spec when selectors differ",
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
@@ -619,7 +499,81 @@ var _ = Describe("Apply", func() {
 						Type: corev1.ServiceTypeClusterIP,
 					},
 				},
-				true, true, false),
+				true, true),
+		)
+
+		table.DescribeTable("complete replacement",
+			func(cachedService *corev1.Service,
+				targetService *corev1.Service) {
+
+				shouldDeleteAndReplace := hasImmutableFieldChanged(targetService, cachedService)
+				Expect(shouldDeleteAndReplace).To(BeTrue())
+			},
+			table.Entry("should delete and recreate service if of mixed 'type'.",
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.KubeVirtGenerationAnnotation: "1",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.KubeVirtGenerationAnnotation: "1",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+					},
+				}),
+			table.Entry("should delete and recreate service if not of type ClusterIP.",
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.KubeVirtGenerationAnnotation: "1",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.KubeVirtGenerationAnnotation: "1",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+					},
+				}),
+			table.Entry("should delete and recreate service if ClusterIP changes (clusterIP is not mutable)",
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.KubeVirtGenerationAnnotation: "1",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						ClusterIP: "2.2.2.2",
+						Type:      corev1.ServiceTypeClusterIP,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.KubeVirtGenerationAnnotation: "1",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						ClusterIP: "1.1.1.1",
+						Type:      corev1.ServiceTypeClusterIP,
+					},
+				}),
 		)
 	})
 })

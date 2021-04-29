@@ -893,29 +893,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewOperatorWebhookService(NAMESPACE))
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
+
 		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
-		apiDeployment.ObjectMeta.Annotations = map[string]string{
-			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
-		}
 		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-		apiDeploymentPdb.ObjectMeta.Annotations = map[string]string{
-			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
-		}
-
 		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
-		controller.ObjectMeta.Annotations = map[string]string{
-			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
-		}
-
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
-		controllerPdb.ObjectMeta.Annotations = map[string]string{
-			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
-		}
-
 		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
-		handler.ObjectMeta.Annotations = map[string]string{
-			v1.KubeVirtCustomizeComponentAnnotationHash: c.Hash(),
-		}
 
 		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
@@ -935,24 +918,24 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		// webhooks and apiservice
 		validatingWebhook := components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace())
-		validatingWebhook.ObjectMeta.Annotations[v1.KubeVirtCustomizeComponentAnnotationHash] = c.Hash()
 		for i := range validatingWebhook.Webhooks {
 			validatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 		all = append(all, validatingWebhook)
+
 		mutatingWebhook := components.NewVirtAPIMutatingWebhookConfiguration(config.GetNamespace())
-		mutatingWebhook.ObjectMeta.Annotations[v1.KubeVirtCustomizeComponentAnnotationHash] = c.Hash()
 		for i := range mutatingWebhook.Webhooks {
 			mutatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 		all = append(all, mutatingWebhook)
+
 		apiServices := components.NewVirtAPIAPIServices(config.GetNamespace())
 		for _, apiService := range apiServices {
 			apiService.Spec.CABundle = caBundle
 			all = append(all, apiService)
 		}
+
 		validatingWebhook = components.NewOpertorValidatingWebhookConfiguration(NAMESPACE)
-		validatingWebhook.ObjectMeta.Annotations[v1.KubeVirtCustomizeComponentAnnotationHash] = c.Hash()
 		for i := range validatingWebhook.Webhooks {
 			validatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
