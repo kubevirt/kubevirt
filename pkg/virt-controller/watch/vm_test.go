@@ -151,6 +151,8 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv2",
 				},
 			})
+
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
 			addVirtualMachine(vm)
 
 			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
@@ -159,8 +161,6 @@ var _ = Describe("VirtualMachine", func() {
 
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": "", "my": "label"}, map[string]string{"my": "annotation"}, &createCount)
-
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 			Expect(createCount).To(Equal(1))
@@ -619,12 +619,12 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv2",
 				},
 			})
+
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
 			addVirtualMachine(vm)
 
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
-
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 			Expect(createCount).To(Equal(2))
@@ -687,12 +687,14 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dv)
 
+				vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
 				addVirtualMachine(vm)
 
 				createCount := 0
 				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
-
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+				if fail {
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+				}
 
 				controller.cloneAuthFunc = func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 					if dv.Spec.Source.PVC.Namespace != "" {
@@ -1086,12 +1088,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"test": "test"}
 			annotations := map[string]string{"test": "test"}
 
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
 				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1101,12 +1103,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"kubevirt.io/ignitiondata": "test"}
 			annotations := map[string]string{"kubevirt.io/ignitiondata": "test"}
 
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
 				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1116,20 +1118,20 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}
 			annotations := map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}
 
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
 				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
 
 		Context("VM printableStatus", func() {
 
-			table.DescribeTable("should set a Stopped status when VMI doesn't exist", func(running bool, runStrategy v1.VirtualMachineRunStrategy) {
-				vm, _ := DefaultVirtualMachine(running)
+			table.DescribeTable("should set a Stopped status when VMI doesn't exist", func(runStrategy v1.VirtualMachineRunStrategy) {
+				vm, _ := DefaultVirtualMachine(false)
 
 				if runStrategy != v1.RunStrategyUnknown {
 					vm.Spec.RunStrategy = &runStrategy
@@ -1146,18 +1148,17 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			},
 
-				table.Entry("running: false", false, v1.RunStrategyUnknown),
-				table.Entry("runStrategy: Halted", false, v1.RunStrategyHalted),
-				table.Entry("running: Manual", false, v1.RunStrategyManual),
+				table.Entry("running: false", v1.RunStrategyUnknown),
+				table.Entry("runStrategy: Halted", v1.RunStrategyHalted),
+				table.Entry("running: Manual", v1.RunStrategyManual),
 			)
 
-			table.DescribeTable("should set a Stopped status when VMI has stopped", func(phase v1.VirtualMachineInstancePhase, deletionTimestamp bool) {
+			table.DescribeTable("should set a Stopped status when VMI has stopped", func(phase v1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time) {
 				vm, vmi := DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = phase
-				if deletionTimestamp {
-					vmi.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-				}
+				vmi.ObjectMeta.DeletionTimestamp = deletionTimestamp
+
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
@@ -1170,14 +1171,14 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			},
 
-				table.Entry("in Succeeded state", v1.Succeeded, false),
-				table.Entry("in Succeeded state with a deletionTimestamp", v1.Succeeded, true),
-				table.Entry("in Failed state", v1.Failed, false),
-				table.Entry("in Failed state with a deletionTimestamp", v1.Failed, true),
+				table.Entry("in Succeeded state", v1.Succeeded, nil),
+				table.Entry("in Succeeded state with a deletionTimestamp", v1.Succeeded, &metav1.Time{Time: time.Now()}),
+				table.Entry("in Failed state", v1.Failed, nil),
+				table.Entry("in Failed state with a deletionTimestamp", v1.Failed, &metav1.Time{Time: time.Now()}),
 			)
 
-			table.DescribeTable("should set a Provisioning status when VMI doesn't exist", func(running bool, runStrategy v1.VirtualMachineRunStrategy) {
-				vm, vmi := DefaultVirtualMachine(running)
+			table.DescribeTable("should set a Provisioning status when VMI doesn't exist", func(runStrategy v1.VirtualMachineRunStrategy) {
+				vm, vmi := DefaultVirtualMachine(true)
 
 				if runStrategy != v1.RunStrategyUnknown {
 					vm.Spec.RunStrategy = &runStrategy
@@ -1196,9 +1197,9 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			},
 
-				table.Entry("running: true", true, v1.RunStrategyUnknown),
-				table.Entry("runStrategy: Always", true, v1.RunStrategyAlways),
-				table.Entry("runStrategy: RerunOnFailure", true, v1.RunStrategyRerunOnFailure),
+				table.Entry("running: true", v1.RunStrategyUnknown),
+				table.Entry("runStrategy: Always", v1.RunStrategyAlways),
+				table.Entry("runStrategy: RerunOnFailure", v1.RunStrategyRerunOnFailure),
 			)
 
 			It("should set a Provisioning status when VMI doesn't exist but started manually", func() {
