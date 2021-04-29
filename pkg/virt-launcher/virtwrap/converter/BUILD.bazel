@@ -21,6 +21,7 @@ go_library(
         "//pkg/util:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
+        "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
