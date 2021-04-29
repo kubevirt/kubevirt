@@ -125,6 +125,27 @@ const (
 	kvSRIOVLiveMigration     = "SRIOVLiveMigration"
 )
 
+// CPU Plugin default values
+var (
+	hardcodedObsoleteCPUModels = []string{
+		"486",
+		"pentium",
+		"pentium2",
+		"pentium3",
+		"pentiumpro",
+		"coreduo",
+		"n270",
+		"core2duo",
+		"Conroe",
+		"athlon",
+		"phenom",
+		"qemu64",
+		"qemu32",
+		"kvm64",
+		"kvm32",
+	}
+)
+
 // ************  KubeVirt Handler  **************
 type kubevirtHandler genericOperand
 
@@ -265,16 +286,21 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 }
 
 func getObsoleteCPUConfig(hcObsoleteCPUConf *hcov1beta1.HyperConvergedObsoleteCPUs) (map[string]bool, string) {
+	obsoleteCPUModels := make(map[string]bool)
+	for _, cpu := range hardcodedObsoleteCPUModels {
+		obsoleteCPUModels[cpu] = true
+	}
+	minCPUModel := ""
+
 	if hcObsoleteCPUConf != nil {
-		obsoleteCPUModels := make(map[string]bool)
 		for _, cpu := range hcObsoleteCPUConf.CPUModels {
 			obsoleteCPUModels[cpu] = true
 		}
 
-		return obsoleteCPUModels, hcObsoleteCPUConf.MinCPUModel
+		minCPUModel = hcObsoleteCPUConf.MinCPUModel
 	}
 
-	return nil, ""
+	return obsoleteCPUModels, minCPUModel
 }
 
 func toKvPermittedHostDevices(permittedDevices *hcov1beta1.PermittedHostDevices) *kubevirtv1.PermittedHostDevices {

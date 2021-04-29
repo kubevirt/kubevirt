@@ -861,11 +861,10 @@ const (
 	imsCmName        = "v2v-vmware"
 	liveMigrationKey = "migrations"
 	vddkInitImakeKey = "vddk-init-image"
-	cpuPluginCmName  = "cpu-plugin-configmap"
 )
 
 func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (bool, error) {
-	kvConfigMmodified, err := r.migrateKvConfigurations(req)
+	kvConfigModified, err := r.migrateKvConfigurations(req)
 	if err != nil {
 		return false, err
 	}
@@ -880,12 +879,7 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 		return false, err
 	}
 
-	cpuPluginConfigModified, err := r.migrateCPUPluginConfigurations(req)
-	if err != nil {
-		return false, err
-	}
-
-	return kvConfigMmodified || cdiConfigModified || imsConfigModified || cpuPluginConfigModified, nil
+	return kvConfigModified || cdiConfigModified || imsConfigModified, nil
 }
 
 func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest) (bool, error) {
@@ -977,19 +971,6 @@ func (r *ReconcileHyperConverged) removeConfigMap(req *common.HcoRequest, cm *co
 	req.StatusDirty = true
 
 	return nil
-}
-
-func (r ReconcileHyperConverged) migrateCPUPluginConfigurations(req *common.HcoRequest) (bool, error) {
-	cm, err := r.getCm(cpuPluginCmName, req)
-	if err != nil {
-		return false, err
-	} else if cm == nil {
-		return false, nil
-	}
-
-	modified := adoptOldCPUPluginConfigs(req, cm)
-
-	return modified, nil
 }
 
 func (r *ReconcileHyperConverged) getCm(cmName string, req *common.HcoRequest) (*corev1.ConfigMap, error) {
@@ -1110,45 +1091,6 @@ func kvConfigMapToHyperConvergedCr(req *common.HcoRequest, hcoLiveMigrationConfi
 	if hcoLiveMigrationConfig.ProgressTimeout != nil {
 		req.Instance.Spec.LiveMigrationConfig.ProgressTimeout = hcoLiveMigrationConfig.ProgressTimeout
 	}
-}
-
-// Read the CPU Plugin configuration from the config map, and move them to the HyperConverged CR
-//
-// In case of wrong foramt of the configmap, the HCO ignores this error (but print it to the log) in order to prevent
-// an infinite loop (returning error will cause the same error again and again, and the only way to stop the loop
-// is to manually fix or delete the wrong configMap).
-func adoptOldCPUPluginConfigs(req *common.HcoRequest, cm *corev1.ConfigMap) bool {
-	if req.Instance.Spec.ObsoleteCPUs != nil {
-		return false
-	}
-
-	cupPluginConfStr, ok := cm.Data["cpu-plugin-configmap"]
-	if !ok {
-		return false
-	}
-
-	cupPluginConf := &struct {
-		ObsoleteCPUs []string `json:"obsoleteCPUs,omitempty"`
-		MinCPU       string   `json:"minCPU,omitempty"`
-	}{}
-
-	err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(cupPluginConfStr), 1024).Decode(cupPluginConf)
-	if err != nil {
-		req.Logger.Error(err, "Failed to read the CPU Plugin ConfigMap, and its content was ignored.")
-		return false
-	}
-
-	obsoleteCPUs := &hcov1beta1.HyperConvergedObsoleteCPUs{
-		CPUModels:   cupPluginConf.ObsoleteCPUs,
-		MinCPUModel: cupPluginConf.MinCPU,
-	}
-
-	req.Logger.Info("updating the HyperConverged CR from the CPU Plugin configMap")
-	req.Instance.Spec.ObsoleteCPUs = obsoleteCPUs
-
-	req.Dirty = true
-
-	return true
 }
 
 // getHyperConvergedNamespacedName returns the name/namespace of the HyperConverged resource

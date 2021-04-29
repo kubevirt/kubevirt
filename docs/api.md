@@ -107,8 +107,8 @@ HyperConvergedObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU mo
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| minCPUModel | MinCPUModel is the Minimum CPU model that is used for basic CPU features; e.g. Penryn or Haswell | string |  | false |
-| cpuModels | CPUModels is a list of obsolete CPU models. When the node-labeller obtains the list of obsolete CPU models, it eliminates those CPU models and creates labels for valid CPU models. | []string |  | false |
+| minCPUModel | MinCPUModel is the Minimum CPU model that is used for basic CPU features; e.g. Penryn or Haswell. The default value for this field is nil, but in KubeVirt, the default value is \"Penryn\", if nothing else is set. Use this field to override KubeVirt default value. | string |  | false |
+| cpuModels | CPUModels is a list of obsolete CPU models. When the node-labeller obtains the list of obsolete CPU models, it eliminates those CPU models and creates labels for valid CPU models. The default values for this field is nil, however, HCO uses opinionated values, and adding values to this list will add them to the opinionated values. | []string |  | false |
 
 [Back to TOC](#table-of-contents)
 

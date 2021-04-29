@@ -207,14 +207,14 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedObsoleteCPUs(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"minCPUModel": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MinCPUModel is the Minimum CPU model that is used for basic CPU features; e.g. Penryn or Haswell",
+							Description: "MinCPUModel is the Minimum CPU model that is used for basic CPU features; e.g. Penryn or Haswell. The default value for this field is nil, but in KubeVirt, the default value is \"Penryn\", if nothing else is set. Use this field to override KubeVirt default value.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"cpuModels": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CPUModels is a list of obsolete CPU models. When the node-labeller obtains the list of obsolete CPU models, it eliminates those CPU models and creates labels for valid CPU models.",
+							Description: "CPUModels is a list of obsolete CPU models. When the node-labeller obtains the list of obsolete CPU models, it eliminates those CPU models and creates labels for valid CPU models. The default values for this field is nil, however, HCO uses opinionated values, and adding values to this list will add them to the opinionated values.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

@@ -2485,78 +2485,6 @@ progressTimeout: 300`,
 				})
 			})
 
-			Context("Positive Tests - CPU Plugin Config", func() {
-				It("Should adopt CPU plugin configuration from the configMap, if missing in HCO", func() {
-					resources := append(expected.toArray(), &corev1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      cpuPluginCmName,
-							Namespace: namespace,
-						},
-						Data: map[string]string{
-							"cpu-plugin-configmap": `obsoleteCPUs: 
-  - "486"
-  - "pentium"
-  - "pentium2"
-  - "pentium3"
-  - "pentiumpro"
-minCPU: "Penryn"`,
-						},
-					})
-					cl := commonTestUtils.InitClient(resources)
-
-					r := initReconciler(cl)
-					req := commonTestUtils.NewReq(expected.hco)
-
-					modified, err := r.migrateBeforeUpgrade(req)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(modified).To(BeTrue())
-
-					Expect(req.Instance.Spec.ObsoleteCPUs).ShouldNot(BeNil())
-					Expect(req.Instance.Spec.ObsoleteCPUs.MinCPUModel).Should(Equal("Penryn"))
-					Expect(req.Instance.Spec.ObsoleteCPUs.CPUModels).Should(HaveLen(5))
-					Expect(req.Instance.Spec.ObsoleteCPUs.CPUModels).Should(ContainElements("486", "pentium", "pentium2", "pentium3", "pentiumpro"))
-				})
-
-				It("Should ignore KV configuration from the configMap, if if HCO contains the ObsoleteCPUs object", func() {
-					expected.hco.Spec.ObsoleteCPUs = &hcov1beta1.HyperConvergedObsoleteCPUs{
-						MinCPUModel: "Haswell",
-						CPUModels:   []string{"some", "other", "CPUs"},
-					}
-					resources := append(expected.toArray(), &corev1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      kvCmName,
-							Namespace: namespace,
-							Labels: map[string]string{
-								hcoutil.AppLabel: expected.hco.Name,
-							},
-						},
-						Data: map[string]string{
-							"cpu-plugin-configmap": `obsoleteCPUs: 
-  - "486"
-  - "pentium"
-  - "pentium2"
-  - "pentium3"
-  - "pentiumpro"
-minCPU: "Penryn"`,
-						},
-					})
-
-					cl := commonTestUtils.InitClient(resources)
-
-					r := initReconciler(cl)
-					req := commonTestUtils.NewReq(expected.hco)
-
-					modified, err := r.migrateBeforeUpgrade(req)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(modified).To(BeFalse())
-
-					Expect(req.Instance.Spec.ObsoleteCPUs).ShouldNot(BeNil())
-					Expect(req.Instance.Spec.ObsoleteCPUs.MinCPUModel).Should(Equal("Haswell"))
-					Expect(req.Instance.Spec.ObsoleteCPUs.CPUModels).Should(HaveLen(3))
-					Expect(req.Instance.Spec.ObsoleteCPUs.CPUModels).Should(ContainElements("some", "other", "CPUs"))
-				})
-			})
-
 			Context("Test Errors - KV Config", func() {
 				It("Should return error if failed to read KV CM", func() {
 					resources := append(expected.toArray(), &corev1.ConfigMap{
@@ -2746,56 +2674,6 @@ minCPU: "Penryn"`,
 						},
 					}
 					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
-				})
-			})
-
-			Context("Test Errors - CPU Plugin Config", func() {
-				It("Should return error if failed to read CPU Plugin CM", func() {
-					resources := append(expected.toArray(), &corev1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      cpuPluginCmName,
-							Namespace: namespace,
-							Labels: map[string]string{
-								hcoutil.AppLabel: expected.hco.Name,
-							},
-						},
-					})
-					cl := commonTestUtils.InitClient(resources)
-					fakeError := fmt.Errorf("fake read error")
-					cl.InitiateGetErrors(func(key client.ObjectKey) error {
-						if key.Name == cpuPluginCmName {
-							return fakeError
-						}
-						return nil
-					})
-
-					r := initReconciler(cl)
-					req := commonTestUtils.NewReq(expected.hco)
-
-					modified, err := r.migrateBeforeUpgrade(req)
-					Expect(err).To(HaveOccurred())
-					Expect(err).Should(Equal(fakeError))
-					Expect(modified).Should(BeFalse())
-				})
-
-				It("Should gnore and not modify the CR if the format of the MC is wrong", func() {
-					resources := append(expected.toArray(), &corev1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      cpuPluginCmName,
-							Namespace: namespace,
-						},
-						Data: map[string]string{
-							"cpu-plugin-configmap": `wrong yaml format`,
-						},
-					})
-					cl := commonTestUtils.InitClient(resources)
-
-					r := initReconciler(cl)
-					req := commonTestUtils.NewReq(expected.hco)
-
-					modified, err := r.migrateBeforeUpgrade(req)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(modified).Should(BeFalse())
 				})
 			})
 		})
