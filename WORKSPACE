@@ -200,6 +200,7 @@ http_archive(
     strip_prefix = "bazeldnf-0.1.0",
     urls = [
         "https://github.com/rmohr/bazeldnf/archive/v0.1.0.tar.gz",
+        "https://storage.googleapis.com/builddeps/f6c9293d36914755c8fc808a2145edddcde2a26525afde1b9356bd63968b2d94",
     ],
 )
 
@@ -1027,6 +1028,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/c/curl-minimal-7.69.1-8.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/c/curl-minimal-7.69.1-8.fc32.aarch64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/c/curl-minimal-7.69.1-8.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/2079033b266c0d9eb662d89d7884643879271675a1536c2cc08377af02d7acfc",
     ],
 )
 
@@ -1037,6 +1039,7 @@ rpm(
         "https://download-cc-rdu01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/c/curl-minimal-7.69.1-8.fc32.ppc64le.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/c/curl-minimal-7.69.1-8.fc32.ppc64le.rpm",
         "https://dl.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/c/curl-minimal-7.69.1-8.fc32.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/e0e3e0e32b322d16ff79e5f31ea863cdf79b4ec0166a40842394fad9a2f33770",
     ],
 )
 
@@ -1048,6 +1051,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/c/curl-minimal-7.69.1-8.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/c/curl-minimal-7.69.1-8.fc32.x86_64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/c/curl-minimal-7.69.1-8.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/86af7207a8beae934caa17a8308618c909ad10d7cfe9eb8f97281d4291a57fe4",
     ],
 )
 
@@ -1639,6 +1643,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/f/fedora-gpg-keys-32-13.noarch.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/f/fedora-gpg-keys-32-13.noarch.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/f/fedora-gpg-keys-32-13.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/22f0cc59f3d312291a54df89e1d0e4615c4c51575c11eb7e736705f1927e148f",
     ],
 )
 
@@ -1649,6 +1654,7 @@ rpm(
         "https://download-cc-rdu01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/f/fedora-gpg-keys-32-13.noarch.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/f/fedora-gpg-keys-32-13.noarch.rpm",
         "https://dl.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/f/fedora-gpg-keys-32-13.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/22f0cc59f3d312291a54df89e1d0e4615c4c51575c11eb7e736705f1927e148f",
     ],
 )
 
@@ -1660,6 +1666,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/f/fedora-gpg-keys-32-13.noarch.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/f/fedora-gpg-keys-32-13.noarch.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/f/fedora-gpg-keys-32-13.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/22f0cc59f3d312291a54df89e1d0e4615c4c51575c11eb7e736705f1927e148f",
     ],
 )
 
@@ -1779,6 +1786,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/f/fedora-repos-32-13.noarch.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/f/fedora-repos-32-13.noarch.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/f/fedora-repos-32-13.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/d2a2c4166d673deaf4ef60c943aba4296880350b6a670318d504d33c36f55b72",
     ],
 )
 
@@ -1789,6 +1797,7 @@ rpm(
         "https://download-cc-rdu01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/f/fedora-repos-32-13.noarch.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/f/fedora-repos-32-13.noarch.rpm",
         "https://dl.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/f/fedora-repos-32-13.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/d2a2c4166d673deaf4ef60c943aba4296880350b6a670318d504d33c36f55b72",
     ],
 )
 
@@ -1800,6 +1809,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/f/fedora-repos-32-13.noarch.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/f/fedora-repos-32-13.noarch.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/f/fedora-repos-32-13.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/d2a2c4166d673deaf4ef60c943aba4296880350b6a670318d504d33c36f55b72",
     ],
 )
 
@@ -2641,6 +2651,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/h/hwdata-0.346-1.fc32.noarch.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/h/hwdata-0.346-1.fc32.noarch.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/h/hwdata-0.346-1.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/8dddb6667a6120b6e7f9d272e72b1bbd929df5b335d11880d9c455f261e8f97b",
     ],
 )
 
@@ -2651,6 +2662,7 @@ rpm(
         "https://download-cc-rdu01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/h/hwdata-0.346-1.fc32.noarch.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/h/hwdata-0.346-1.fc32.noarch.rpm",
         "https://dl.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/h/hwdata-0.346-1.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/8dddb6667a6120b6e7f9d272e72b1bbd929df5b335d11880d9c455f261e8f97b",
     ],
 )
 
@@ -2662,6 +2674,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/h/hwdata-0.346-1.fc32.noarch.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/h/hwdata-0.346-1.fc32.noarch.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/h/hwdata-0.346-1.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/8dddb6667a6120b6e7f9d272e72b1bbd929df5b335d11880d9c455f261e8f97b",
     ],
 )
 
@@ -3562,6 +3575,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/l/libcurl-minimal-7.69.1-8.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/libcurl-minimal-7.69.1-8.fc32.aarch64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/l/libcurl-minimal-7.69.1-8.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3952a03162c1f1954b169055b12022aa49f1a5c3a11e7363743544bad6f155b2",
     ],
 )
 
@@ -3572,6 +3586,7 @@ rpm(
         "https://download-cc-rdu01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/l/libcurl-minimal-7.69.1-8.fc32.ppc64le.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/l/libcurl-minimal-7.69.1-8.fc32.ppc64le.rpm",
         "https://dl.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/l/libcurl-minimal-7.69.1-8.fc32.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/fbc014c8f9aad927b2e077a7f9e8c93a6e313b3328571ca238ff7e1cf7672b05",
     ],
 )
 
@@ -3583,6 +3598,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/l/libcurl-minimal-7.69.1-8.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/l/libcurl-minimal-7.69.1-8.fc32.x86_64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libcurl-minimal-7.69.1-8.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/2d92df47bd26d6619bbcc7e1a0b88abb74a8bc841f064a7a0817b091510311d5",
     ],
 )
 
@@ -4627,22 +4643,13 @@ rpm(
 rpm(
     name = "librados2-2__14.2.19-1.fc32.aarch64",
     sha256 = "26263038f74702e5953c7b7d55e7014d5abe04d0c10e0fe402ac9cbee86e6704",
-    urls = [
-        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.19-1.fc32.aarch64.rpm",
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.19-1.fc32.aarch64.rpm",
-        "https://mirror.dst.ca/fedora/updates/32/Everything/aarch64/Packages/l/librados2-14.2.19-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.19-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/26263038f74702e5953c7b7d55e7014d5abe04d0c10e0fe402ac9cbee86e6704",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/26263038f74702e5953c7b7d55e7014d5abe04d0c10e0fe402ac9cbee86e6704"],
 )
 
 rpm(
     name = "librados2-2__14.2.19-1.fc32.x86_64",
     sha256 = "48db23b80f3f6a67f8c23c28afb328bdbfdfd34c7f55c954aad4e3393f8c64ec",
     urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.19-1.fc32.x86_64.rpm",
-        "https://ftp.acc.umu.se/mirror/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.19-1.fc32.x86_64.rpm",
-        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.19-1.fc32.x86_64.rpm",
         "https://ftp.icm.edu.pl/pub/Linux/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.19-1.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/48db23b80f3f6a67f8c23c28afb328bdbfdfd34c7f55c954aad4e3393f8c64ec",
     ],
@@ -4651,22 +4658,13 @@ rpm(
 rpm(
     name = "librbd1-2__14.2.19-1.fc32.aarch64",
     sha256 = "08129be72048180d3b01e8648042dc58c66bf7964cbf937b2091bd2c532dfe8a",
-    urls = [
-        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.19-1.fc32.aarch64.rpm",
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.19-1.fc32.aarch64.rpm",
-        "https://mirror.dst.ca/fedora/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.19-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.19-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/08129be72048180d3b01e8648042dc58c66bf7964cbf937b2091bd2c532dfe8a",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/08129be72048180d3b01e8648042dc58c66bf7964cbf937b2091bd2c532dfe8a"],
 )
 
 rpm(
     name = "librbd1-2__14.2.19-1.fc32.x86_64",
     sha256 = "d4e463edc54435be16d587c717195106b85d4733c235ea4b2c4bb5ad7132cc1e",
     urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.19-1.fc32.x86_64.rpm",
-        "https://ftp.acc.umu.se/mirror/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.19-1.fc32.x86_64.rpm",
-        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.19-1.fc32.x86_64.rpm",
         "https://ftp.icm.edu.pl/pub/Linux/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.19-1.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/d4e463edc54435be16d587c717195106b85d4733c235ea4b2c4bb5ad7132cc1e",
     ],
@@ -6373,23 +6371,14 @@ rpm(
 rpm(
     name = "nginx-1__1.18.0-1.fc32.aarch64",
     sha256 = "7b7af1ab63b72128d187626a7f18f704f2fa5bd31f5b00c598543c7595ccc04f",
-    urls = [
-        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-1.18.0-1.fc32.aarch64.rpm",
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-1.18.0-1.fc32.aarch64.rpm",
-        "https://mirror.dst.ca/fedora/updates/32/Everything/aarch64/Packages/n/nginx-1.18.0-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-1.18.0-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/7b7af1ab63b72128d187626a7f18f704f2fa5bd31f5b00c598543c7595ccc04f",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/7b7af1ab63b72128d187626a7f18f704f2fa5bd31f5b00c598543c7595ccc04f"],
 )
 
 rpm(
     name = "nginx-1__1.18.0-1.fc32.ppc64le",
     sha256 = "2f707111d2d0db5e29b3a767cb020a97d7e533f874778675bdabebc4b7e95de1",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-1.18.0-1.fc32.ppc64le.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-1.18.0-1.fc32.ppc64le.rpm",
         "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-1.18.0-1.fc32.ppc64le.rpm",
-        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-1.18.0-1.fc32.ppc64le.rpm",
         "https://storage.googleapis.com/builddeps/2f707111d2d0db5e29b3a767cb020a97d7e533f874778675bdabebc4b7e95de1",
     ],
 )
@@ -6397,13 +6386,7 @@ rpm(
 rpm(
     name = "nginx-1__1.18.0-1.fc32.x86_64",
     sha256 = "b31bb2d93bffcd0429aeda63d55906b3db7d3621cea21513f8d57a1b0abbd408",
-    urls = [
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-1.18.0-1.fc32.x86_64.rpm",
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-1.18.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/b31bb2d93bffcd0429aeda63d55906b3db7d3621cea21513f8d57a1b0abbd408",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/b31bb2d93bffcd0429aeda63d55906b3db7d3621cea21513f8d57a1b0abbd408"],
 )
 
 rpm(
@@ -6412,8 +6395,6 @@ rpm(
     urls = [
         "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
         "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://mirrors.tuna.tsinghua.edu.cn/fedora/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://mirror.sjtu.edu.cn/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
         "https://storage.googleapis.com/builddeps/7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
     ],
 )
@@ -6422,10 +6403,7 @@ rpm(
     name = "nginx-filesystem-1__1.18.0-1.fc32.ppc64le",
     sha256 = "7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
         "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
         "https://storage.googleapis.com/builddeps/7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
     ],
 )
@@ -6433,13 +6411,7 @@ rpm(
 rpm(
     name = "nginx-filesystem-1__1.18.0-1.fc32.x86_64",
     sha256 = "7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
-    urls = [
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://ftp.plusline.net/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221"],
 )
 
 rpm(
@@ -6545,6 +6517,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-3.63.0-1.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-3.63.0-1.fc32.aarch64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-3.63.0-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/a5018c85d2dda87e5275d39490cc69a7301285130956f12681d6c4ce801becba",
     ],
 )
 
@@ -6556,6 +6529,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.63.0-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.63.0-1.fc32.x86_64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.63.0-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/797c89c5bd18505619fdfb01e13975f7a2e0d444ec88a1b0dc80d3da07cbc260",
     ],
 )
 
@@ -6567,6 +6541,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-3.63.0-1.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-3.63.0-1.fc32.aarch64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-3.63.0-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/a5864c487a0a36b1a7c93f10d3ff6fb5b66aabcac9bd087766b9ab55cd9b0860",
     ],
 )
 
@@ -6578,6 +6553,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.63.0-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.63.0-1.fc32.x86_64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.63.0-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/976a6847e36946eb3ac0818f4966bf21593bd50c4deb2f441c327f074825b8ec",
     ],
 )
 
@@ -6589,6 +6565,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.aarch64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/cda6221d538a54b23dee0d07cc4ed6c6a839668455de21fdf95321139820b9bb",
     ],
 )
 
@@ -6600,6 +6577,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.x86_64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ed9bdd613258449852c149e21d3f4150f67a955f13012f72635df524b32d4c6e",
     ],
 )
 
@@ -6611,6 +6589,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-sysinit-3.63.0-1.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-sysinit-3.63.0-1.fc32.aarch64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-sysinit-3.63.0-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/75f448e098820f56357ea5605b392ea03930ef767b4310df2fc582e0f1c4cee7",
     ],
 )
 
@@ -6622,6 +6601,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.63.0-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.63.0-1.fc32.x86_64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.63.0-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/5e0ee504c9657839809c5a785bf5631e07d4964677d801fef66ade5b33c14b33",
     ],
 )
 
@@ -6633,6 +6613,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-util-3.63.0-1.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-util-3.63.0-1.fc32.aarch64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-util-3.63.0-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/0d77c3d40d1573fa1533710f23f6b826e1ff66dfb405ab3f8b982cbfef5e3f71",
     ],
 )
 
@@ -6644,6 +6625,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.63.0-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.63.0-1.fc32.x86_64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.63.0-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/8123dfcdb3fef14272939e131b5bebb7fa3a4ff02a0d28f19fbbbfd1a7a9b9a7",
     ],
 )
 
@@ -8627,6 +8609,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-3.8.9-1.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-3.8.9-1.fc32.aarch64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-3.8.9-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/ce187933cf3cedd08892233a9ed90af4736e7fccb042dbe259bee59d93a42e33",
     ],
 )
 
@@ -8638,6 +8621,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.9-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.9-1.fc32.x86_64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.9-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/64fc3a5306a7a568372de15984875e0a6863fe85c110f235cd5fcc920dcb97e8",
     ],
 )
 
@@ -8649,6 +8633,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.9-1.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.9-1.fc32.aarch64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.9-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/bb370faa22e155a3fb498800fb5a158a1dca359c9fa9191b905ef2125848593f",
     ],
 )
 
@@ -8660,6 +8645,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.9-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.9-1.fc32.x86_64.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.9-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d622b1fe20cd91a7e23942852713ba1e425c1ed01e61f82e5c3b400151fa5f80",
     ],
 )
 
