@@ -413,6 +413,9 @@ func generateServicePatch(
 	// set these values in the case they are empty
 	service.Spec.ClusterIP = cachedService.Spec.ClusterIP
 	service.Spec.Type = cachedService.Spec.Type
+	if service.Spec.SessionAffinity == "" {
+		service.Spec.SessionAffinity = cachedService.Spec.SessionAffinity
+	}
 
 	// If the Specs don't equal each other, replace it
 	if !equality.Semantic.DeepEqual(cachedService.Spec, service.Spec) {
