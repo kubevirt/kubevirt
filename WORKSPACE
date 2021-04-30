@@ -4641,32 +4641,46 @@ rpm(
 )
 
 rpm(
-    name = "librados2-2__14.2.19-1.fc32.aarch64",
-    sha256 = "26263038f74702e5953c7b7d55e7014d5abe04d0c10e0fe402ac9cbee86e6704",
-    urls = ["https://storage.googleapis.com/builddeps/26263038f74702e5953c7b7d55e7014d5abe04d0c10e0fe402ac9cbee86e6704"],
-)
-
-rpm(
-    name = "librados2-2__14.2.19-1.fc32.x86_64",
-    sha256 = "48db23b80f3f6a67f8c23c28afb328bdbfdfd34c7f55c954aad4e3393f8c64ec",
+    name = "librados2-2__14.2.20-1.fc32.aarch64",
+    sha256 = "9e5416ea8d0041b484fc1efbe89ff171af83ba839ea68ba9513ae9aa121d404d",
     urls = [
-        "https://ftp.icm.edu.pl/pub/Linux/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.19-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/48db23b80f3f6a67f8c23c28afb328bdbfdfd34c7f55c954aad4e3393f8c64ec",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.20-1.fc32.aarch64.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.20-1.fc32.aarch64.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.20-1.fc32.aarch64.rpm",
+        "https://mirror.netsite.dk/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.20-1.fc32.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "librbd1-2__14.2.19-1.fc32.aarch64",
-    sha256 = "08129be72048180d3b01e8648042dc58c66bf7964cbf937b2091bd2c532dfe8a",
-    urls = ["https://storage.googleapis.com/builddeps/08129be72048180d3b01e8648042dc58c66bf7964cbf937b2091bd2c532dfe8a"],
+    name = "librados2-2__14.2.20-1.fc32.x86_64",
+    sha256 = "8ab581213b9d1cb02b37ec77c70fd5d08e89ad2d8c216d5255739128d944758d",
+    urls = [
+        "https://ftp.lysator.liu.se/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.20-1.fc32.x86_64.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.20-1.fc32.x86_64.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.20-1.fc32.x86_64.rpm",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.20-1.fc32.x86_64.rpm",
+    ],
 )
 
 rpm(
-    name = "librbd1-2__14.2.19-1.fc32.x86_64",
-    sha256 = "d4e463edc54435be16d587c717195106b85d4733c235ea4b2c4bb5ad7132cc1e",
+    name = "librbd1-2__14.2.20-1.fc32.aarch64",
+    sha256 = "6099c564c766ee0211e659dce4604102a48996b4198218ff91bd7bc580b2818d",
     urls = [
-        "https://ftp.icm.edu.pl/pub/Linux/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.19-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/d4e463edc54435be16d587c717195106b85d4733c235ea4b2c4bb5ad7132cc1e",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.20-1.fc32.aarch64.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.20-1.fc32.aarch64.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.20-1.fc32.aarch64.rpm",
+        "https://mirror.netsite.dk/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.20-1.fc32.aarch64.rpm",
+    ],
+)
+
+rpm(
+    name = "librbd1-2__14.2.20-1.fc32.x86_64",
+    sha256 = "c2129e0d7b785934783442c299d5e9693eca6cc525be0ab04346007046af197e",
+    urls = [
+        "https://ftp.lysator.liu.se/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.20-1.fc32.x86_64.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.20-1.fc32.x86_64.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.20-1.fc32.x86_64.rpm",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.20-1.fc32.x86_64.rpm",
     ],
 )
 
@@ -6369,49 +6383,69 @@ rpm(
 )
 
 rpm(
-    name = "nginx-1__1.18.0-1.fc32.aarch64",
-    sha256 = "7b7af1ab63b72128d187626a7f18f704f2fa5bd31f5b00c598543c7595ccc04f",
-    urls = ["https://storage.googleapis.com/builddeps/7b7af1ab63b72128d187626a7f18f704f2fa5bd31f5b00c598543c7595ccc04f"],
-)
-
-rpm(
-    name = "nginx-1__1.18.0-1.fc32.ppc64le",
-    sha256 = "2f707111d2d0db5e29b3a767cb020a97d7e533f874778675bdabebc4b7e95de1",
+    name = "nginx-1__1.20.0-2.fc32.aarch64",
+    sha256 = "dc5d325af1c543017603d7359057578793b755b444d6babce3214e3290e6a12b",
     urls = [
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-1.18.0-1.fc32.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/2f707111d2d0db5e29b3a767cb020a97d7e533f874778675bdabebc4b7e95de1",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-1.20.0-2.fc32.aarch64.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-1.20.0-2.fc32.aarch64.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-1.20.0-2.fc32.aarch64.rpm",
+        "https://mirror.netsite.dk/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-1.20.0-2.fc32.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "nginx-1__1.18.0-1.fc32.x86_64",
-    sha256 = "b31bb2d93bffcd0429aeda63d55906b3db7d3621cea21513f8d57a1b0abbd408",
-    urls = ["https://storage.googleapis.com/builddeps/b31bb2d93bffcd0429aeda63d55906b3db7d3621cea21513f8d57a1b0abbd408"],
-)
-
-rpm(
-    name = "nginx-filesystem-1__1.18.0-1.fc32.aarch64",
-    sha256 = "7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
+    name = "nginx-1__1.20.0-2.fc32.ppc64le",
+    sha256 = "eddd9ae6827c089c47e95cfdeac6c0b4bb9eb29e3d001d9ad246989b201b913c",
     urls = [
-        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
+        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-1.20.0-2.fc32.ppc64le.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-1.20.0-2.fc32.ppc64le.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-1.20.0-2.fc32.ppc64le.rpm",
+        "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-1.20.0-2.fc32.ppc64le.rpm",
     ],
 )
 
 rpm(
-    name = "nginx-filesystem-1__1.18.0-1.fc32.ppc64le",
-    sha256 = "7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
+    name = "nginx-1__1.20.0-2.fc32.x86_64",
+    sha256 = "e372048f4c81be8f67d1d93b92a4fec4e8a76786336c0c022472d92f21d6474d",
     urls = [
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-filesystem-1.18.0-1.fc32.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
+        "https://ftp.lysator.liu.se/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-1.20.0-2.fc32.x86_64.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-1.20.0-2.fc32.x86_64.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-1.20.0-2.fc32.x86_64.rpm",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-1.20.0-2.fc32.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "nginx-filesystem-1__1.18.0-1.fc32.x86_64",
-    sha256 = "7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221",
-    urls = ["https://storage.googleapis.com/builddeps/7bf90b5aecb556664c3e8e16d88804b756ebc67350ee0f5b6d86d8187cb35221"],
+    name = "nginx-filesystem-1__1.20.0-2.fc32.aarch64",
+    sha256 = "5681c48f58996de37de65fd46b0f90146e33ffbba039b708d55a770196cc7028",
+    urls = [
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+        "https://mirror.netsite.dk/fedora/linux/updates/32/Everything/aarch64/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+    ],
+)
+
+rpm(
+    name = "nginx-filesystem-1__1.20.0-2.fc32.ppc64le",
+    sha256 = "5681c48f58996de37de65fd46b0f90146e33ffbba039b708d55a770196cc7028",
+    urls = [
+        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+        "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+    ],
+)
+
+rpm(
+    name = "nginx-filesystem-1__1.20.0-2.fc32.x86_64",
+    sha256 = "5681c48f58996de37de65fd46b0f90146e33ffbba039b708d55a770196cc7028",
+    urls = [
+        "https://ftp.lysator.liu.se/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/x86_64/Packages/n/nginx-filesystem-1.20.0-2.fc32.noarch.rpm",
+    ],
 )
 
 rpm(
