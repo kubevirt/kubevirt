@@ -294,6 +294,16 @@ func (_mr *_MockVirDomainRecorder) Create() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create")
 }
 
+func (_m *MockVirDomain) CreateWithFlags(flags libvirt_go.DomainCreateFlags) error {
+	ret := _m.ctrl.Call(_m, "CreateWithFlags", flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) CreateWithFlags(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateWithFlags", arg0)
+}
+
 func (_m *MockVirDomain) Suspend() error {
 	ret := _m.ctrl.Call(_m, "Suspend")
 	ret0, _ := ret[0].(error)

@@ -135,6 +135,20 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
 
+		It("[test_id:6095]should start in paused state if start strategy set to paused", func() {
+			strategy := v1.StartStrategyPaused
+			vmi.Spec.StartStrategy = &strategy
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(BeNil(), "Create VMI successfully")
+			tests.WaitForSuccessfulVMIStart(vmi)
+			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+
+			By("Unpausing VMI")
+			command := tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
+			Expect(command()).To(Succeed())
+			tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+		})
+
 		It("[test_id:1621]should attach virt-launcher to it", func() {
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Create VMI successfully")

@@ -139,6 +139,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCpuPinning(field, spec)...)
 	causes = append(causes, validateCPUIsolatorThread(field, spec)...)
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
+	causes = append(causes, validateStartStrategy(field, spec)...)
 
 	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
 	if maxNumberOfInterfacesExceeded {
@@ -1008,6 +1009,28 @@ func validateRequestLimitOrCoresProvidedOnDedicatedCPUPlacement(field *k8sfield.
 			),
 			Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
 		})
+	}
+	return causes
+}
+
+func validateStartStrategy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.StartStrategy != nil {
+		if *spec.StartStrategy != v1.StartStrategyPaused {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("startStrategy").String(), *spec.StartStrategy),
+				Field:   field.Child("startStrategy").String(),
+			})
+		} else if spec.LivenessProbe != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("either %s or %s should be provided.Pausing VMI with LivenessProbe is not supported",
+					field.Child("startStrategy").String(),
+					field.Child("livenessProbe").String(),
+				),
+				Field: field.Child("startStrategy").String(),
+			})
+		}
 	}
 	return causes
 }
