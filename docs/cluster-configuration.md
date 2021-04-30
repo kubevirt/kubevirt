@@ -5,6 +5,19 @@ The HyperConverged Cluster allows modifying the KubeVirt cluster configuration b
 
 The HyperConverged Cluster operator copies the cluster configuration values to the other operand's CRs.
 
+The Hyperconverged Cluster Operator configures kubevirt and its supporting operators in an opinionated way and overwrites its operands when there is an unexpected change to them.
+Users are expected to not modify the operands directly. The HyperConverged custom resource is the source of truth for the configuration.
+
+To make it more visible and clear for end users, the Hyperconverged Cluster Operator will count the number of these revert actions in a metric named kubevirt_hco_out_of_band_modifications_count.
+According to the value of that metric in the last 10 minutes, an alert named KubevirtHyperconvergedClusterOperatorCRModification will be eventually fired:
+```
+Labels
+    alertname=KubevirtHyperconvergedClusterOperatorCRModification
+    component_name=kubevirt-kubevirt-hyperconverged
+    severity=warning
+```
+The alert is supposed to resolve after 10 minutes if there isn't a manual intervention to operands in the last 10 minutes.
+
 ***Note***: The cluster configurations are supported only in API version `v1beta1` or higher.
 ## Infra and Workloads Configuration
 Some configurations are done separately to Infra and Workloads. The CR's Spec object contains the `infra` and the 
