@@ -240,7 +240,9 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 	return []string{ipv6, ipv4}, nil
 }
 
-func (l *podNIC) PlugPhase1() error {
+// SetupNetworkInfrastructure creates and configures networking infrastructure
+// in the virt-launcher pod. Requires NET_ADMIN capability.
+func (l *podNIC) SetupNetworkInfrastructure() error {
 
 	// There is nothing to plug for SR-IOV devices
 	if l.iface.SRIOV != nil {
@@ -305,7 +307,10 @@ func ensureDHCP(bindMechanism BindMechanism, podInterfaceName string) error {
 	return nil
 }
 
-func (l *podNIC) PlugPhase2(domain *api.Domain) error {
+// UnpriviligedSetup generates the domail XML document required by libvirt
+// and starts dynamic IP address assignment protocols in the launcher's net ns
+// (dhcp). No network capabilities are required.
+func (l *podNIC) UnpriviligedSetup(domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
 
 	// There is nothing to plug for SR-IOV devices
