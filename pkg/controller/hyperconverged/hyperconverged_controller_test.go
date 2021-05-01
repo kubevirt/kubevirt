@@ -781,10 +781,10 @@ var _ = Describe("HyperconvergedController", func() {
 
 		Context("Upgrade Mode", func() {
 			const (
-				oldVersion          = "1.3.0"
-				newVersion          = "1.4.0" // TODO: avoid hard-coding values
-				oldComponentVersion = "1.4.0"
-				newComponentVersion = "1.4.3"
+				oldVersion          = "1.4.0"
+				newVersion          = "1.5.0" // TODO: avoid hard-coding values
+				oldComponentVersion = "1.5.0"
+				newComponentVersion = "1.5.3"
 			)
 
 			// this is used for version label and the tests below

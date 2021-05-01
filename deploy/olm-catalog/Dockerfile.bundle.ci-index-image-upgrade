@@ -1,5 +1,6 @@
 FROM quay.io/fedora/fedora:33-x86_64 AS builder
-ARG INITIAL_VERSION=1.4.0
+ARG INITIAL_VERSION=1.5.0
+ARG INITIAL_VERSION_SED="1\.5\.0"
 ARG TARGET_VERSION=100.0.0
 ARG PACKAGE_NAME=community-kubevirt-hyperconverged
 ARG CSV_FILE=/manifests/kubevirt-hyperconverged-operator.v${TARGET_VERSION}.clusterserviceversion.yaml
@@ -8,8 +9,8 @@ ARG OLM_SKIP_RANGE="<${TARGET_VERSION}"
 COPY ${PACKAGE_NAME}/${INITIAL_VERSION}/manifests/ /manifests/
 COPY ${PACKAGE_NAME}/${INITIAL_VERSION}/metadata /metadata/
 RUN mv /manifests/kubevirt-hyperconverged-operator.v${INITIAL_VERSION}.clusterserviceversion.yaml ${CSV_FILE} && \
-    sed -i "s/${INITIAL_VERSION}/${TARGET_VERSION}/g" ${CSV_FILE} && \
-    sed -i "s/${INITIAL_VERSION}/${TARGET_VERSION}/g" /metadata/annotations.yaml && \
+    sed -i "s/${INITIAL_VERSION_SED}/${TARGET_VERSION}/g" ${CSV_FILE} && \
+    sed -i "s/${INITIAL_VERSION_SED}/${TARGET_VERSION}/g" /metadata/annotations.yaml && \
     sed -i "/olm.skipRange:/d" ${CSV_FILE} && \
     sed -i "s/^  annotations:.*$/  annotations:\n    olm.skipRange: \"${OLM_SKIP_RANGE}\"/g" ${CSV_FILE}
 

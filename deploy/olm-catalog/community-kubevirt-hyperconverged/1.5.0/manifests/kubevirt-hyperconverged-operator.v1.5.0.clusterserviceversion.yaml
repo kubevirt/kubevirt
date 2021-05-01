@@ -8,8 +8,8 @@ metadata:
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: "false"
-    containerImage: +IMAGE_TO_REPLACE+
-    createdAt: "2020-10-23 08:58:25"
+    containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
+    createdAt: "2021-04-29 10:32:06"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -18,7 +18,7 @@ metadata:
     operators.operatorframework.io/internal-objects: '["v2vvmwares.v2v.kubevirt.io","ovirtproviders.v2v.kubevirt.io","networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.nodemaintenance.kubevirt.io","vmimportconfigs.v2v.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
-  name: kubevirt-hyperconverged-operator.v1.4.0
+  name: kubevirt-hyperconverged-operator.v1.5.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -1783,7 +1783,7 @@ spec:
           app.kubernetes.io/component: deployment
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.4.0
+          app.kubernetes.io/version: 1.5.0
           name: hyperconverged-cluster-operator
         name: hco-operator
         spec:
@@ -1799,7 +1799,7 @@ spec:
                 app.kubernetes.io/component: deployment
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.4.0
+                app.kubernetes.io/version: 1.5.0
                 name: hyperconverged-cluster-operator
             spec:
               containers:
@@ -1812,7 +1812,7 @@ spec:
                   value: OPERATOR
                 - name: KVM_EMULATION
                 - name: OPERATOR_IMAGE
-                  value: +IMAGE_TO_REPLACE+
+                  value: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
                 - name: OPERATOR_NAME
                   value: hyperconverged-cluster-operator
                 - name: OPERATOR_NAMESPACE
@@ -1835,7 +1835,7 @@ spec:
                     Product: None
                 - name: MACHINETYPE
                 - name: HCO_KV_IO_VERSION
-                  value: 1.4.0
+                  value: 1.5.0
                 - name: KUBEVIRT_VERSION
                   value: v0.40.0-rc.2
                 - name: CDI_VERSION
@@ -1850,7 +1850,7 @@ spec:
                   value: v0.7.2
                 - name: VM_IMPORT_VERSION
                   value: v0.3.4
-                image: +IMAGE_TO_REPLACE+
+                image: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -1875,7 +1875,7 @@ spec:
           app.kubernetes.io/component: deployment
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.4.0
+          app.kubernetes.io/version: 1.5.0
           name: hyperconverged-cluster-webhook
         name: hco-webhook
         spec:
@@ -1891,7 +1891,7 @@ spec:
                 app.kubernetes.io/component: deployment
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.4.0
+                app.kubernetes.io/version: 1.5.0
                 name: hyperconverged-cluster-webhook
             spec:
               containers:
@@ -1903,7 +1903,7 @@ spec:
                 - name: APP
                   value: WEBHOOK
                 - name: OPERATOR_IMAGE
-                  value: +WEBHOOK_IMAGE_TO_REPLACE+
+                  value: quay.io/kubevirt/hyperconverged-cluster-webhook:1.5.0-unstable
                 - name: OPERATOR_NAME
                   value: hyperconverged-cluster-webhook
                 - name: OPERATOR_NAMESPACE
@@ -1913,7 +1913,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                image: +WEBHOOK_IMAGE_TO_REPLACE+
+                image: quay.io/kubevirt/hyperconverged-cluster-webhook:1.5.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -1938,7 +1938,7 @@ spec:
           app.kubernetes.io/component: network
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.4.0
+          app.kubernetes.io/version: 1.5.0
         name: cluster-network-addons-operator
         spec:
           replicas: 1
@@ -1953,7 +1953,7 @@ spec:
                 app.kubernetes.io/component: network
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.4.0
+                app.kubernetes.io/version: 1.5.0
                 name: cluster-network-addons-operator
             spec:
               containers:
@@ -2004,7 +2004,7 @@ spec:
           app.kubernetes.io/component: compute
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.4.0
+          app.kubernetes.io/version: 1.5.0
         name: virt-operator
         spec:
           replicas: 2
@@ -2021,7 +2021,7 @@ spec:
                 app.kubernetes.io/component: compute
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.4.0
+                app.kubernetes.io/version: 1.5.0
                 kubevirt.io: virt-operator
                 prometheus.kubevirt.io: ""
               name: virt-operator
@@ -2100,7 +2100,7 @@ spec:
           app.kubernetes.io/component: schedule
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.4.0
+          app.kubernetes.io/version: 1.5.0
         name: ssp-operator
         spec:
           replicas: 1
@@ -2114,7 +2114,7 @@ spec:
                 app.kubernetes.io/component: schedule
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.4.0
+                app.kubernetes.io/version: 1.5.0
                 control-plane: ssp-operator
             spec:
               containers:
@@ -2150,7 +2150,7 @@ spec:
           app.kubernetes.io/component: storage
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.4.0
+          app.kubernetes.io/version: 1.5.0
         name: cdi-operator
         spec:
           replicas: 1
@@ -2165,7 +2165,7 @@ spec:
                 app.kubernetes.io/component: storage
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.4.0
+                app.kubernetes.io/version: 1.5.0
                 name: cdi-operator
                 operator.cdi.kubevirt.io: ""
             spec:
@@ -2211,7 +2211,7 @@ spec:
           app.kubernetes.io/component: network
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.4.0
+          app.kubernetes.io/version: 1.5.0
         name: node-maintenance-operator
         spec:
           replicas: 1
@@ -2225,7 +2225,7 @@ spec:
                 app.kubernetes.io/component: network
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.4.0
+                app.kubernetes.io/version: 1.5.0
                 name: node-maintenance-operator
             spec:
               affinity:
@@ -2259,7 +2259,7 @@ spec:
           app.kubernetes.io/component: storage
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.4.0
+          app.kubernetes.io/version: 1.5.0
         name: hostpath-provisioner-operator
         spec:
           replicas: 1
@@ -2274,7 +2274,7 @@ spec:
                 app.kubernetes.io/component: storage
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.4.0
+                app.kubernetes.io/version: 1.5.0
                 name: hostpath-provisioner-operator
                 operator.hostpath-provisioner.kubevirt.io: ""
             spec:
@@ -2303,7 +2303,7 @@ spec:
           app.kubernetes.io/component: import
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.4.0
+          app.kubernetes.io/version: 1.5.0
         name: vm-import-operator
         spec:
           replicas: 1
@@ -2318,7 +2318,7 @@ spec:
                 app.kubernetes.io/component: import
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.4.0
+                app.kubernetes.io/version: 1.5.0
                 name: vm-import-operator
                 operator.v2v.kubevirt.io: ""
             spec:
@@ -2578,9 +2578,9 @@ spec:
     name: hostpath-provisioner
   - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:74d53f8cd3906587a83dec04e747285c81c09b78515eb0bc5cf5c26ddcec9437
     name: hostpath-provisioner-operator
-  - image: +IMAGE_TO_REPLACE+
+  - image: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
     name: hyperconverged-cluster-operator
-  - image: +WEBHOOK_IMAGE_TO_REPLACE+
+  - image: quay.io/kubevirt/hyperconverged-cluster-webhook:1.5.0-unstable
     name: hyperconverged-cluster-webhook
   - image: quay.io/kubevirt/kubemacpool@sha256:07b60ba92f8b955e93256f01eda696839ab2e084ca096736e8a773209b616854
     name: kubemacpool
@@ -2622,12 +2622,12 @@ spec:
     name: vm-import-operator
   - image: quay.io/kubevirt/vm-import-virtv2v@sha256:595793a0178d13553ad5f43268988de5fa98bfd764a4fb5f40922a2a372010b8
     name: vm-import-virtv2v
-  replaces: kubevirt-hyperconverged-operator.v1.3.0
+  replaces: kubevirt-hyperconverged-operator.v1.4.0
   selector:
     matchLabels:
       alm-owner-kubevirt: kubevirt-hyperconverged
       operated-by: kubevirt-hyperconverged
-  version: 1.4.0
+  version: 1.5.0
   webhookdefinitions:
   - admissionReviewVersions:
     - v1beta1
