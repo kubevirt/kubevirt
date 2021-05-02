@@ -3,7 +3,7 @@ name: Build and Push Images
 on:
   push:
     branches:
-      - master
+      - main
       - release-1*
     paths-ignore:
       - 'docs/**'

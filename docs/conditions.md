@@ -16,7 +16,7 @@ doesn't help us observe the application's health. This is where the HCO and
 component operators will use conditions on their CRs to reflect the health of
 the underlying application.  Component operators store conditions that are
 watched by the HCO and the HCO will store conditions that reflect the
-[worst state](https://github.com/kubevirt/hyperconverged-cluster-operator/blob/master/docs/conditions.md#hco-conditions) of all component operator conditions.
+[worst state](https://github.com/kubevirt/hyperconverged-cluster-operator/blob/main/docs/conditions.md#hco-conditions) of all component operator conditions.
 
 ## Outlook Model
 There's a long running [discussion](https://github.com/kubernetes/kubernetes/issues/7856) in the Kubernetes

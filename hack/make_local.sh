@@ -17,7 +17,7 @@ mkdir -p "${LOCAL_DIR}"
 
 # don't deploy operator, webhook and the HCO CR.
 sed "s/\(^.*\/hco.cr.yaml$\)/### \1/" deploy/deploy.sh > _local/deploy.sh
-sed -i "s|-f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy|-f deploy|g" _local/deploy.sh
+sed -i "s|-f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/deploy|-f deploy|g" _local/deploy.sh
 
 chmod +x _local/deploy.sh
 

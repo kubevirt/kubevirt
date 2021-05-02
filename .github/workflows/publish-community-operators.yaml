@@ -20,7 +20,7 @@ jobs:
           then
             TARGET_BRANCH=release-${TAGGED_MINOR_VERSION}
           else
-            TARGET_BRANCH=master
+            TARGET_BRANCH=main
           fi
           echo "TARGET_BRANCH=${TARGET_BRANCH}" >> $GITHUB_ENV
           echo "TAGGED_VERSION=${TAGGED_VERSION}" >> $GITHUB_ENV
@@ -34,4 +34,4 @@ jobs:
           export TAGGED_VERSION=${{ env.TAGGED_VERSION }}
           export TARGET_BRANCH=${{ env.TARGET_BRANCH }}
           export HCO_BOT_TOKEN=${{ secrets.HCO_BOT_TOKEN }}
-          curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/automation/publisher/publisher.sh | bash
+          curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/automation/publisher/publisher.sh | bash

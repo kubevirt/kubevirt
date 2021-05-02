@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v2
         if: ${{ env.NEW_PR }}
         with:
-          ref: master
+          ref: main
 
       - uses: actions/setup-go@v2
         if: ${{ env.NEW_PR }}

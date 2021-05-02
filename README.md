@@ -1,6 +1,6 @@
-[![Build Status](https://travis-ci.com/kubevirt/hyperconverged-cluster-operator.svg?branch=master)](https://travis-ci.com/kubevirt/hyperconverged-cluster-operator)
+[![Build Status](https://travis-ci.com/kubevirt/hyperconverged-cluster-operator.svg?branch=main)](https://travis-ci.com/kubevirt/hyperconverged-cluster-operator)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubevirt/hyperconverged-cluster-operator)](https://goreportcard.com/report/github.com/kubevirt/hyperconverged-cluster-operator)
-[![Coverage Status](https://coveralls.io/repos/github/kubevirt/hyperconverged-cluster-operator/badge.svg?branch=master&service=github)](https://coveralls.io/github/kubevirt/hyperconverged-cluster-operator?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/kubevirt/hyperconverged-cluster-operator/badge.svg?branch=main&service=github)](https://coveralls.io/github/kubevirt/hyperconverged-cluster-operator?branch=main)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kubevirt_hyperconverged-cluster-operator&metric=alert_status)](https://sonarcloud.io/dashboard?id=kubevirt_hyperconverged-cluster-operator)
 
 # Hyperconverged Cluster Operator
@@ -21,7 +21,7 @@ Use it to obtain an opinionated deployment of KubeVirt and its helper operators.
 ## Installing HCO using kustomize (Openshift OLM Only)
 To install the default community HyperConverged Cluster Operator, along with its underlying components, run:
 ```bash
-$ curl -L https://api.github.com/repos/kubevirt/hyperconverged-cluster-operator/tarball/master | \
+$ curl -L https://api.github.com/repos/kubevirt/hyperconverged-cluster-operator/tarball/main | \
 tar --strip-components=1 -xvzf - kubevirt-hyperconverged-cluster-operator-*/deploy/kustomize
 
 $ ./deploy/kustomize/deploy_kustomize.sh
@@ -35,8 +35,8 @@ For more explanation and advanced options for HCO deployment using kustomize, re
 Hyperconverged Cluster Operator is publishing the latest bundle to [quay.io/kubevirt](https://quay.io/repository/kubevirt) 
 before publishing tagged, stable releases to [OperatorHub.io](https://operatorhub.io).  
 The latest bundle is `quay.io/kubevirt/hyperconverged-cluster-bundle:1.5.0-unstable`. It is built and pushed on every merge to 
-master branch, and contains the most up-to-date manifests, which are pointing to the most recent application images: `hyperconverged-cluster-operator` 
-and `hyperconverged-cluster-webhook`, which are built together with the bundle from the current code at the master branch.  
+main branch, and contains the most up-to-date manifests, which are pointing to the most recent application images: `hyperconverged-cluster-operator` 
+and `hyperconverged-cluster-webhook`, which are built together with the bundle from the current code at the main branch.  
 The unreleased bundle can be consumed on a cluster by creating a CatalogSource pointing to the index image that contains 
 that bundle: `quay.io/kubevirt/hyperconverged-cluster-index:1.5.0-unstable`.
 
@@ -89,7 +89,7 @@ in the [Cluster Configuration](docs/cluster-configuration.md) doc.
 Run the following script to apply the HCO operator:
 
 ```bash
-$ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/deploy.sh | bash
+$ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/deploy/deploy.sh | bash
 ```
 
 ## Developer Workflow
