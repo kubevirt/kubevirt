@@ -8,10 +8,10 @@ resources:
 - sriovdp-config.yaml
 images:
   - name: nfvpe/sriov-device-plugin
-    newName: nfvpe/sriov-device-plugin
+    newName: quay.io/kubevirtci/sriov-device-plugin
     newTag: v3.3
   - name: nfvpe/sriov-cni
-    newName: nfvpe/sriov-cni
+    newName: quay.io/kubevirtci/sriov-cni
     newTag: v2.6
 patchesJson6902:
 - target:
