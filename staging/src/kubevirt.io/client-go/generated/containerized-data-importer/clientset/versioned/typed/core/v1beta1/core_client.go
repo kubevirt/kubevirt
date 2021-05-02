@@ -55,8 +55,8 @@ func (c *CdiV1beta1Client) ObjectTransfers() ObjectTransferInterface {
 	return newObjectTransfers(c)
 }
 
-func (c *CdiV1beta1Client) StorageProfiles(namespace string) StorageProfileInterface {
-	return newStorageProfiles(c, namespace)
+func (c *CdiV1beta1Client) StorageProfiles() StorageProfileInterface {
+	return newStorageProfiles(c)
 }
 
 // NewForConfig creates a new CdiV1beta1Client for the given config.

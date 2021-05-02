@@ -29,6 +29,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed
 	github.com/gorilla/websocket v1.4.2
+	github.com/imdario/mergo v0.3.9
 	github.com/insomniacslk/dhcp v0.0.0-20201112113307-4de412bc85d8
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
@@ -69,7 +70,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
-	kubevirt.io/containerized-data-importer v1.31.0
+	kubevirt.io/containerized-data-importer v1.34.0
 	kubevirt.io/controller-lifecycle-operator-sdk v0.1.2
 	kubevirt.io/qe-tools v0.1.6
 	libvirt.org/libvirt-go v7.0.0+incompatible
@@ -114,7 +115,7 @@ replace (
 
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
 
-	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.31.0
+	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.34.0
 )
 
 go 1.13
