@@ -50,7 +50,7 @@ function create_index_image() {
   fi
 
   # shellcheck disable=SC2086
-  ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u docker
+  ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u docker --mode semver
   docker push "${INDEX_IMAGE_NAME}"
 }
 

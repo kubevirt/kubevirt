@@ -30,15 +30,13 @@ jobs:
           PACKAGE_DIR="./deploy/olm-catalog/community-kubevirt-hyperconverged"
           CSV_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==$((RELEASE_DELTA+1))" | cut -d '/' -f 5)
           echo "CSV_VERSION=${CSV_VERSION}" >> $GITHUB_ENV
-      - name: set tag for master
-        if: ${{ github.ref == 'refs/heads/master' }}
+          echo "PACKAGE_DIR=${PACKAGE_DIR}" >> $GITHUB_ENV
+      - name: set unstable tag
+        # This workflow always pushes unstable tags, both from main and release branches.
         run: |
           echo "IMAGE_TAG=${CSV_VERSION}-unstable" >> $GITHUB_ENV
           echo "UNSTABLE=UNSTABLE" >> $GITHUB_ENV
 
-      - name: set tag for releases
-        if: ${{ github.ref != 'refs/heads/master' }}
-        run: echo "IMAGE_TAG=${CSV_VERSION}" >> $GITHUB_ENV
       - name: Build Applications Images
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
@@ -55,10 +53,13 @@ jobs:
       - name: Build Manifests with unique CSV semver
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          PACKAGE_DIR: ${{ env.PACKAGE_DIR }}
+          CSV_VERSION: ${{ env.CSV_VERSION }}
         run: |
           export HCO_OPERATOR_IMAGE=$(tools/digester/digester --image="quay.io/kubevirt/hyperconverged-cluster-operator:${IMAGE_TAG}")
           export HCO_WEBHOOK_IMAGE=$(tools/digester/digester --image="quay.io/kubevirt/hyperconverged-cluster-webhook:${IMAGE_TAG}")
           ./hack/build-manifests.sh UNIQUE
+          sed -i "/^ \+replaces:/d" ${PACKAGE_DIR}/${CSV_VERSION}/manifests/kubevirt-hyperconverged-operator.v${CSV_VERSION}.clusterserviceversion.yaml
       - name: Get opm client
         run: |
           wget https://github.com/operator-framework/operator-registry/releases/download/v1.15.1/linux-amd64-opm
