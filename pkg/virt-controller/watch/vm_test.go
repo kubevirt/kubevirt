@@ -152,7 +152,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
 			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
@@ -620,7 +620,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
 			createCount := 0
@@ -687,7 +687,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dv)
 
-				vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
+				vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
 				addVirtualMachine(vm)
 
 				createCount := 0
@@ -1258,6 +1258,37 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				controller.Execute()
+			})
+
+			It("should set a Provisioning status when DataVolumes are created before the VMI is created", func() {
+				vm, _ := DefaultVirtualMachine(true)
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "test1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				})
+
+				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "dv1",
+					},
+				})
+
+				addVirtualMachine(vm)
+
+				createCount := 0
+				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					objVM := obj.(*v1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+				})
+
+				controller.Execute()
+				Expect(createCount).To(Equal(1))
 			})
 
 			table.DescribeTable("should set a Starting status when VMI is done Provisioning", func(phase v1.VirtualMachineInstancePhase) {

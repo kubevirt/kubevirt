@@ -617,6 +617,23 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	}
 }
 
+// isDataVolumeCreationExpected determines whether a DataVolume is expected to be created for this VM.
+func (c *VMController) isDataVolumeCreationExpected(vm *virtv1.VirtualMachine) bool {
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching vmKey: %v", err)
+		return false
+	}
+
+	expectations, exists, _ := c.dataVolumeExpectations.GetExpectations(vmKey)
+	if !exists || expectations == nil {
+		return false
+	}
+
+	adds, _ := expectations.GetExpectations()
+	return adds > 0
+}
+
 // isVMIStartExpected determines whether a VMI is expected to be started for this VM.
 func (c *VMController) isVMIStartExpected(vm *virtv1.VirtualMachine) bool {
 	vmKey, err := controller.KeyFunc(vm)
@@ -1280,13 +1297,13 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 		return vmi.IsFinal()
 	}
 
-	return !c.isVMIStartExpected(vm)
+	return !c.isVMIStartExpected(vm) && !c.isDataVolumeCreationExpected(vm)
 }
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	if vmi == nil {
-		return c.isVMIStartExpected(vm)
+		return c.isVMIStartExpected(vm) || c.isDataVolumeCreationExpected(vm)
 	}
 
 	hasProvisioningCondition := controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
