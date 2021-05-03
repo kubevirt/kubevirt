@@ -108,6 +108,7 @@ var _ = Describe("Manager", func() {
 			SMBios:           &cmdv1.SMBios{},
 			HotplugVolumes:   hotplugVolumes,
 			PermanentVolumes: permanentVolumes,
+			DiskIoTune:       &cmdv1.DiskIoTune{},
 		}
 		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -426,6 +427,7 @@ var _ = Describe("Manager", func() {
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{
 				VirtualMachineSMBios: &cmdv1.SMBios{},
 				PreallocatedVolumes:  []string{"permvolume1"},
+				DiskIoTune:           &cmdv1.DiskIoTune{},
 			})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
@@ -555,7 +557,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().AttachDevice(strings.ToLower(string(attachBytes)))
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain2), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, nil, "/usr/share/OVMF")
-			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}, DiskIoTune: &cmdv1.DiskIoTune{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -665,7 +667,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().DetachDevice(strings.ToLower(string(detachBytes)))
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, nil, "/usr/share/OVMF")
-			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}, DiskIoTune: &cmdv1.DiskIoTune{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -744,7 +746,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, nil, "/usr/share/OVMF")
-			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}, DiskIoTune: &cmdv1.DiskIoTune{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -845,7 +847,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain2), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, nil, "/usr/share/OVMF")
-			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}, DiskIoTune: &cmdv1.DiskIoTune{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})

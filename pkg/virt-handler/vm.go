@@ -30,6 +30,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -2414,6 +2415,49 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 	}
 
+	// Find iotune configurations
+	iotuneConf := &cmdv1.DiskIoTune{}
+	for _, v := range vmi.Spec.Volumes {
+		var name string
+		source := v.VolumeSource
+		if source.PersistentVolumeClaim != nil || source.DataVolume != nil {
+			if source.PersistentVolumeClaim != nil {
+				name = source.PersistentVolumeClaim.ClaimName
+			} else {
+				name = source.DataVolume.Name
+			}
+
+			pvc, err := d.clientset.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			if err != nil {
+				continue
+			}
+
+			annotations := pvc.ObjectMeta.Annotations
+			for key, value := range annotations {
+				annValue, _ := strconv.ParseUint(value, 10, 64)
+
+				if strings.Contains(key, "iotune.kubevirt.io/total-bytes-sec") {
+					iotuneConf.TotalBytesSec = annValue
+				}
+				if strings.Contains(key, "iotune.kubevirt.io/total-iops-sec") {
+					iotuneConf.TotalIopsSec = annValue
+				}
+				if strings.Contains(key, "iotune.kubevirt.io/read-bytes-sec") {
+					iotuneConf.ReadBytesSec = annValue
+				}
+				if strings.Contains(key, "iotune.kubevirt.io/write-bytes-sec") {
+					iotuneConf.WriteBytesSec = annValue
+				}
+				if strings.Contains(key, "iotune.kubevirt.io/read-iops-sec") {
+					iotuneConf.ReadIopsSec = annValue
+				}
+				if strings.Contains(key, "iotune.kubevirt.io/write-iops-sec") {
+					iotuneConf.WriteIopsSec = annValue
+				}
+			}
+		}
+	}
+
 	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
 	if err != nil {
 		return err
@@ -2468,6 +2512,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		},
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
+		DiskIoTune:            iotuneConf,
 	}
 
 	err = client.SyncVirtualMachine(vmi, options)

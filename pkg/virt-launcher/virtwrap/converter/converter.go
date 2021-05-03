@@ -106,6 +106,7 @@ type ConverterContext struct {
 	MemBalloonStatsPeriod uint
 	UseVirtioTransitional bool
 	VolumesDiscardIgnore  []string
+	DiskIoTune            *cmdv1.DiskIoTune
 }
 
 func contains(volumes []string, name string) bool {
@@ -531,7 +532,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 	}
 
 	if source.HostDisk != nil {
-		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk)
+		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, c.DiskIoTune)
 	}
 
 	if source.PersistentVolumeClaim != nil {
@@ -626,36 +627,36 @@ func GetHotplugBlockDeviceVolumePath(volumeName string) string {
 
 func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockPVC[name] {
-		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore, c.DiskIoTune)
 	}
-	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore, c.DiskIoTune)
 }
 
 // Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk converts a Hotplugged PVC to an api disk
 func Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockPVC[name] {
-		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore, c.DiskIoTune)
 	}
-	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore, c.DiskIoTune)
 }
 
 func Convert_v1_DataVolume_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
-		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore, c.DiskIoTune)
 	}
-	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore, c.DiskIoTune)
 }
 
 // Convert_v1_Hotplug_DataVolume_To_api_Disk converts a Hotplugged DataVolume to an api disk
 func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
-		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore, c.DiskIoTune)
 	}
-	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore, c.DiskIoTune)
 }
 
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
-func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
+func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string, iotune *cmdv1.DiskIoTune) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
@@ -663,22 +664,38 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
+
+	disk.Iotune.TotalBytesSec = iotune.TotalBytesSec
+	disk.Iotune.TotalIopsSec = iotune.TotalIopsSec
+	disk.Iotune.ReadBytesSec = iotune.ReadBytesSec
+	disk.Iotune.WriteBytesSec = iotune.WriteBytesSec
+	disk.Iotune.ReadIopsSec = iotune.ReadIopsSec
+	disk.Iotune.WriteIopsSec = iotune.WriteIopsSec
+
 	return nil
 }
 
 // Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
-func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
+func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string, iotune *cmdv1.DiskIoTune) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
+
+	disk.Iotune.TotalBytesSec = iotune.TotalBytesSec
+	disk.Iotune.TotalIopsSec = iotune.TotalIopsSec
+	disk.Iotune.ReadBytesSec = iotune.ReadBytesSec
+	disk.Iotune.WriteBytesSec = iotune.WriteBytesSec
+	disk.Iotune.ReadIopsSec = iotune.ReadIopsSec
+	disk.Iotune.WriteIopsSec = iotune.WriteIopsSec
+
 	disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
 	return nil
 }
 
-func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
+func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string, iotune *cmdv1.DiskIoTune) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
@@ -686,11 +703,19 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
+
+	disk.Iotune.TotalBytesSec = iotune.TotalBytesSec
+	disk.Iotune.TotalIopsSec = iotune.TotalIopsSec
+	disk.Iotune.ReadBytesSec = iotune.ReadBytesSec
+	disk.Iotune.WriteBytesSec = iotune.WriteBytesSec
+	disk.Iotune.ReadIopsSec = iotune.ReadIopsSec
+	disk.Iotune.WriteIopsSec = iotune.WriteIopsSec
+
 	return nil
 }
 
 // Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk takes a block device source and builds the domain Disk representation
-func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
+func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string, iotune *cmdv1.DiskIoTune) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
@@ -698,14 +723,30 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
+
+	disk.Iotune.TotalBytesSec = iotune.TotalBytesSec
+	disk.Iotune.TotalIopsSec = iotune.TotalIopsSec
+	disk.Iotune.ReadBytesSec = iotune.ReadBytesSec
+	disk.Iotune.WriteBytesSec = iotune.WriteBytesSec
+	disk.Iotune.ReadIopsSec = iotune.ReadIopsSec
+	disk.Iotune.WriteIopsSec = iotune.WriteIopsSec
+
 	return nil
 }
 
-func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk) error {
+func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk, iotune *cmdv1.DiskIoTune) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
+
+	disk.Iotune.TotalBytesSec = iotune.TotalBytesSec
+	disk.Iotune.TotalIopsSec = iotune.TotalIopsSec
+	disk.Iotune.ReadBytesSec = iotune.ReadBytesSec
+	disk.Iotune.WriteBytesSec = iotune.WriteBytesSec
+	disk.Iotune.ReadIopsSec = iotune.ReadIopsSec
+	disk.Iotune.WriteIopsSec = iotune.WriteIopsSec
+
 	return nil
 }
 
@@ -793,7 +834,7 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	}
 
 	backingDisk := &api.Disk{Driver: &api.DiskDriver{}}
-	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c.VolumesDiscardIgnore)
+	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c.VolumesDiscardIgnore, c.DiskIoTune)
 	if err != nil {
 		return err
 	}

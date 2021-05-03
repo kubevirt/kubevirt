@@ -700,6 +700,8 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		c.MemBalloonStatsPeriod = uint(options.MemBalloonStatsPeriod)
 		// Add preallocated and thick-provisioned volumes for which we need to avoid the discard=unmap option
 		c.VolumesDiscardIgnore = options.PreallocatedVolumes
+		// Disk iotune configuration
+		c.DiskIoTune = options.DiskIoTune
 	}
 
 	if !isMigrationTarget {

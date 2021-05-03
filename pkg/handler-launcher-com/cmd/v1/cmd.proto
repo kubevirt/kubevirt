@@ -35,10 +35,20 @@ message SMBios {
   string family = 5;
 }
 
+message DiskIoTune {
+    uint64 totalBytesSec = 1;
+	uint64 totalIopsSec  = 2;
+	uint64 readBytesSec  = 3;
+	uint64 writeBytesSec = 4;
+	uint64 readIopsSec   = 5;
+	uint64 writeIopsSec  = 6;
+}
+
 message VirtualMachineOptions {
   SMBios VirtualMachineSMBios = 1;
   uint32 MemBalloonStatsPeriod = 2;
   repeated string PreallocatedVolumes = 3;
+  DiskIoTune DiskIoTune = 4;
 }
 
 message VMIRequest {
