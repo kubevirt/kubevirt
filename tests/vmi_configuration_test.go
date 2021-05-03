@@ -1507,6 +1507,40 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 		})
 
+		Context("with volumes, disks and filesystem defined", func() {
+
+			var vmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = tests.NewRandomVMI()
+			})
+
+			It("should reject disk with missing volume", func() {
+				const diskName = "testdisk"
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: diskName,
+				})
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred())
+				const expectedErrMessage = "denied the request: spec.domain.devices.disks[0].Name '" + diskName + "' not found."
+				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+			})
+
+			It("should reject volume with missing disk / file system", func() {
+				const volumeName = "testvolume"
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: volumeName,
+					VolumeSource: v1.VolumeSource{
+						CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: " "},
+					},
+				})
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred())
+				const expectedErrMessage = "denied the request: spec.domain.volumes[0].name '" + volumeName + "' not found."
+				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+			})
+
+		})
 	})
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec", func() {
