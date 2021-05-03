@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -44,6 +45,10 @@ func (wh *WebhookHandler) Init(logger logr.Logger, cli client.Client, namespace 
 func (wh WebhookHandler) ValidateCreate(hc *v1beta1.HyperConverged) error {
 	wh.logger.Info("Validating create", "name", hc.Name, "namespace:", hc.Namespace)
 
+	if err := wh.validateCertConfig(hc); err != nil {
+		return err
+	}
+
 	if hc.Namespace != wh.namespace {
 		return fmt.Errorf("invalid namespace for v1beta1.HyperConverged - please use the %s namespace", wh.namespace)
 	}
@@ -74,6 +79,10 @@ func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exist
 	if reflect.DeepEqual(exists.Spec, requested.Spec) &&
 		reflect.DeepEqual(exists.Annotations, requested.Annotations) {
 		return nil
+	}
+
+	if err := wh.validateCertConfig(requested); err != nil {
+		return err
 	}
 
 	kv, err := operands.NewKubeVirt(requested)
@@ -245,4 +254,34 @@ func (wh WebhookHandler) HandleMutatingNsDelete(ns *corev1.Namespace, dryRun boo
 	}
 	wh.logger.Info("HCO CR still exists, forbid namespace deletion")
 	return false, nil
+}
+
+func (wh WebhookHandler) validateCertConfig(hc *v1beta1.HyperConverged) error {
+	minimalDuration := metav1.Duration{Duration: 60 * time.Minute}
+
+	ccValues := make(map[string]time.Duration)
+	ccValues["spec.certConfig.ca.duration"] = hc.Spec.CertConfig.CA.Duration.Duration
+	ccValues["spec.certConfig.ca.renewBefore"] = hc.Spec.CertConfig.CA.RenewBefore.Duration
+	ccValues["spec.certConfig.server.duration"] = hc.Spec.CertConfig.Server.Duration.Duration
+	ccValues["spec.certConfig.server.renewBefore"] = hc.Spec.CertConfig.Server.RenewBefore.Duration
+
+	for key, value := range ccValues {
+		if value < minimalDuration.Duration {
+			return fmt.Errorf("%v: value is too small", key)
+		}
+	}
+
+	if hc.Spec.CertConfig.CA.Duration.Duration < hc.Spec.CertConfig.CA.RenewBefore.Duration {
+		return errors.New("spec.certConfig.ca: duration is smaller than renewBefore")
+	}
+
+	if hc.Spec.CertConfig.Server.Duration.Duration < hc.Spec.CertConfig.Server.RenewBefore.Duration {
+		return errors.New("spec.certConfig.server: duration is smaller than renewBefore")
+	}
+
+	if hc.Spec.CertConfig.CA.Duration.Duration < hc.Spec.CertConfig.Server.Duration.Duration {
+		return errors.New("spec.certConfig: ca.duration is smaller server.duration")
+	}
+
+	return nil
 }

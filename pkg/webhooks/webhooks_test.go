@@ -42,12 +42,7 @@ const (
 )
 
 var (
-	logger                            = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("hyperconverged-resource")
-	bandwidthPerMigration             = "64Mi"
-	completionTimeoutPerGiB           = int64(100)
-	parallelMigrationsPerCluster      = uint32(100)
-	parallelOutboundMigrationsPerNode = uint32(100)
-	progressTimeout                   = int64(100)
+	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("hyperconverged-resource")
 )
 
 func TestWebhook(t *testing.T) {
@@ -119,21 +114,7 @@ var _ = Describe("webhooks handler", func() {
 		var cr *v1beta1.HyperConverged
 		BeforeEach(func() {
 			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(BeNil())
-			cr = &v1beta1.HyperConverged{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      util.HyperConvergedName,
-					Namespace: HcoValidNamespace,
-				},
-				Spec: v1beta1.HyperConvergedSpec{
-					LiveMigrationConfig: v1beta1.LiveMigrationConfigurations{
-						BandwidthPerMigration:             &bandwidthPerMigration,
-						CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-						ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
-						ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
-						ProgressTimeout:                   &progressTimeout,
-					},
-				},
-			}
+			cr = commonTestUtils.NewHco()
 		})
 
 		cli := fake.NewClientBuilder().WithScheme(s).Build()
@@ -193,19 +174,12 @@ var _ = Describe("webhooks handler", func() {
 		var hco *v1beta1.HyperConverged
 
 		BeforeEach(func() {
-			hco = &v1beta1.HyperConverged{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      util.HyperConvergedName,
-					Namespace: HcoValidNamespace,
-				},
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
+			hco = commonTestUtils.NewHco()
+			hco.Spec.Infra = v1beta1.HyperConvergedConfig{
+				NodePlacement: newHyperConvergedConfig(),
+			}
+			hco.Spec.Workloads = v1beta1.HyperConvergedConfig{
+				NodePlacement: newHyperConvergedConfig(),
 			}
 		})
 
@@ -447,15 +421,12 @@ var _ = Describe("webhooks handler", func() {
 				wh := &WebhookHandler{}
 				wh.Init(logger, cli, HcoValidNamespace, false)
 
-				newHco := &v1beta1.HyperConverged{
-					Spec: v1beta1.HyperConvergedSpec{
-						Infra: v1beta1.HyperConvergedConfig{
-							NodePlacement: newHyperConvergedConfig(),
-						},
-						Workloads: v1beta1.HyperConvergedConfig{
-							NodePlacement: newHyperConvergedConfig(),
-						},
-					},
+				newHco := commonTestUtils.NewHco()
+				newHco.Spec.Infra = v1beta1.HyperConvergedConfig{
+					NodePlacement: newHyperConvergedConfig(),
+				}
+				newHco.Spec.Workloads = v1beta1.HyperConvergedConfig{
+					NodePlacement: newHyperConvergedConfig(),
 				}
 
 				err = wh.ValidateUpdate(newHco, hco)
@@ -464,16 +435,14 @@ var _ = Describe("webhooks handler", func() {
 			})
 
 			It("should return error in plain-k8s if dry-run update of VMImport CR returns error", func() {
-				hco := &v1beta1.HyperConverged{
-					Spec: v1beta1.HyperConvergedSpec{
-						Infra: v1beta1.HyperConvergedConfig{
-							NodePlacement: newHyperConvergedConfig(),
-						},
-						Workloads: v1beta1.HyperConvergedConfig{
-							NodePlacement: newHyperConvergedConfig(),
-						},
-					},
+				hco := commonTestUtils.NewHco()
+				hco.Spec.Infra = v1beta1.HyperConvergedConfig{
+					NodePlacement: newHyperConvergedConfig(),
 				}
+				hco.Spec.Workloads = v1beta1.HyperConvergedConfig{
+					NodePlacement: newHyperConvergedConfig(),
+				}
+
 				cli := getFakeClient(hco)
 				cli.InitiateUpdateErrors(getUpdateError(vmImportUpdateFailure))
 
@@ -495,21 +464,7 @@ var _ = Describe("webhooks handler", func() {
 			var hco *v1beta1.HyperConverged
 
 			BeforeEach(func() {
-				hco = &v1beta1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      util.HyperConvergedName,
-						Namespace: HcoValidNamespace,
-					},
-					Spec: v1beta1.HyperConvergedSpec{
-						LiveMigrationConfig: v1beta1.LiveMigrationConfigurations{
-							BandwidthPerMigration:             &bandwidthPerMigration,
-							CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-							ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
-							ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
-							ProgressTimeout:                   &progressTimeout,
-						},
-					},
-				}
+				hco = commonTestUtils.NewHco()
 			})
 
 			It("should ignore if there is no change in live migration", func() {
@@ -567,6 +522,208 @@ var _ = Describe("webhooks handler", func() {
 				Expect(err.Error()).Should(ContainSubstring("failed to parse the LiveMigrationConfig.bandwidthPerMigration field"))
 			})
 		})
+
+		Context("Check CertRotation", func() {
+			var hco *v1beta1.HyperConverged
+
+			BeforeEach(func() {
+				hco = commonTestUtils.NewHco()
+			})
+
+			It("should ignore if there is no change in cert config", func() {
+				cli := getFakeClient(hco)
+
+				// Deleting KV here, in order to make sure the that the webhook does not find differences,
+				// and so it exits with no error before finding that KV is not there.
+				// Later we'll check that there is no error from the webhook, and that will prove that
+				// the comparison works.
+				kv := operands.NewKubeVirtWithNameOnly(hco)
+				Expect(cli.Delete(context.TODO(), kv)).ToNot(HaveOccurred())
+
+				wh := &WebhookHandler{}
+				wh.Init(logger, cli, HcoValidNamespace, true)
+
+				newHco := &v1beta1.HyperConverged{}
+				hco.DeepCopyInto(newHco)
+
+				err := wh.ValidateUpdate(newHco, hco)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should allow updating of cert config", func() {
+				cli := getFakeClient(hco)
+
+				wh := &WebhookHandler{}
+				wh.Init(logger, cli, HcoValidNamespace, true)
+
+				newHco := &v1beta1.HyperConverged{}
+				hco.DeepCopyInto(newHco)
+
+				// change something in the CertConfig fields
+				newHco.Spec.CertConfig.CA.Duration.Duration = hco.Spec.CertConfig.CA.Duration.Duration * 2
+				newHco.Spec.CertConfig.CA.RenewBefore.Duration = hco.Spec.CertConfig.CA.RenewBefore.Duration * 2
+				newHco.Spec.CertConfig.Server.Duration.Duration = hco.Spec.CertConfig.Server.Duration.Duration * 2
+				newHco.Spec.CertConfig.Server.RenewBefore.Duration = hco.Spec.CertConfig.Server.RenewBefore.Duration * 2
+
+				err := wh.ValidateUpdate(newHco, hco)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			DescribeTable("should fail if cert config is wrong",
+				func(newHco v1beta1.HyperConverged, errorMsg string) {
+					cli := getFakeClient(hco)
+
+					wh := &WebhookHandler{}
+					wh.Init(logger, cli, HcoValidNamespace, true)
+
+					err := wh.ValidateUpdate(&newHco, hco)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).Should(ContainSubstring(errorMsg))
+				},
+				Entry("certConfig.ca.duration is too short",
+					v1beta1.HyperConverged{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      util.HyperConvergedName,
+							Namespace: HcoValidNamespace,
+						},
+						Spec: v1beta1.HyperConvergedSpec{
+							CertConfig: v1beta1.HyperConvergedCertConfig{
+								CA: v1beta1.CertRotateConfigCA{
+									Duration:    metav1.Duration{Duration: 30 * time.Minute},
+									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+								},
+								Server: v1beta1.CertRotateConfigServer{
+									Duration:    metav1.Duration{Duration: 24 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+								},
+							},
+						},
+					},
+					"spec.certConfig.ca.duration: value is too small"),
+				Entry("certConfig.ca.renewBefore is too short",
+					v1beta1.HyperConverged{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      util.HyperConvergedName,
+							Namespace: HcoValidNamespace,
+						},
+						Spec: v1beta1.HyperConvergedSpec{
+							CertConfig: v1beta1.HyperConvergedCertConfig{
+								CA: v1beta1.CertRotateConfigCA{
+									Duration:    metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+								},
+								Server: v1beta1.CertRotateConfigServer{
+									Duration:    metav1.Duration{Duration: 24 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+								},
+							},
+						},
+					},
+					"spec.certConfig.ca.renewBefore: value is too small"),
+				Entry("certConfig.server.duration is too short",
+					v1beta1.HyperConverged{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      util.HyperConvergedName,
+							Namespace: HcoValidNamespace,
+						},
+						Spec: v1beta1.HyperConvergedSpec{
+							CertConfig: v1beta1.HyperConvergedCertConfig{
+								CA: v1beta1.CertRotateConfigCA{
+									Duration:    metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+								},
+								Server: v1beta1.CertRotateConfigServer{
+									Duration:    metav1.Duration{Duration: 30 * time.Minute},
+									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+								},
+							},
+						},
+					},
+					"spec.certConfig.server.duration: value is too small"),
+				Entry("certConfig.server.renewBefore is too short",
+					v1beta1.HyperConverged{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      util.HyperConvergedName,
+							Namespace: HcoValidNamespace,
+						},
+						Spec: v1beta1.HyperConvergedSpec{
+							CertConfig: v1beta1.HyperConvergedCertConfig{
+								CA: v1beta1.CertRotateConfigCA{
+									Duration:    metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+								},
+								Server: v1beta1.CertRotateConfigServer{
+									Duration:    metav1.Duration{Duration: 24 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+								},
+							},
+						},
+					},
+					"spec.certConfig.server.renewBefore: value is too small"),
+				Entry("ca: duration is smaller than renewBefore",
+					v1beta1.HyperConverged{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      util.HyperConvergedName,
+							Namespace: HcoValidNamespace,
+						},
+						Spec: v1beta1.HyperConvergedSpec{
+							CertConfig: v1beta1.HyperConvergedCertConfig{
+								CA: v1beta1.CertRotateConfigCA{
+									Duration:    metav1.Duration{Duration: 23 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+								},
+								Server: v1beta1.CertRotateConfigServer{
+									Duration:    metav1.Duration{Duration: 24 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+								},
+							},
+						},
+					},
+					"spec.certConfig.ca: duration is smaller than renewBefore"),
+				Entry("server: duration is smaller than renewBefore",
+					v1beta1.HyperConverged{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      util.HyperConvergedName,
+							Namespace: HcoValidNamespace,
+						},
+						Spec: v1beta1.HyperConvergedSpec{
+							CertConfig: v1beta1.HyperConvergedCertConfig{
+								CA: v1beta1.CertRotateConfigCA{
+									Duration:    metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+								},
+								Server: v1beta1.CertRotateConfigServer{
+									Duration:    metav1.Duration{Duration: 11 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+								},
+							},
+						},
+					},
+					"spec.certConfig.server: duration is smaller than renewBefore"),
+				Entry("ca.duration is smaller server.duration",
+					v1beta1.HyperConverged{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      util.HyperConvergedName,
+							Namespace: HcoValidNamespace,
+						},
+						Spec: v1beta1.HyperConvergedSpec{
+							CertConfig: v1beta1.HyperConvergedCertConfig{
+								CA: v1beta1.CertRotateConfigCA{
+									Duration:    metav1.Duration{Duration: 48 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+								},
+								Server: v1beta1.CertRotateConfigServer{
+									Duration:    metav1.Duration{Duration: 96 * time.Hour},
+									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+								},
+							},
+						},
+					},
+					"spec.certConfig: ca.duration is smaller server.duration"),
+			)
+
+		})
+
 	})
 
 	Context("validate delete validation webhook", func() {
@@ -712,12 +869,7 @@ var _ = Describe("webhooks handler", func() {
 		var hco *v1beta1.HyperConverged
 		BeforeEach(func() {
 			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(BeNil())
-			hco = &v1beta1.HyperConverged{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      util.HyperConvergedName,
-					Namespace: HcoValidNamespace,
-				},
-			}
+			hco = commonTestUtils.NewHco()
 		})
 
 		DescribeTable("should accept if annotation is valid",
