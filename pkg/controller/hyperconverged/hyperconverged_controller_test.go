@@ -362,6 +362,7 @@ var _ = Describe("HyperconvergedController", func() {
 				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				existingResource, err := operands.NewKubeVirt(hco, namespace)
+				existingResource.Kind = kubevirtv1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 				Expect(err).ToNot(HaveOccurred())
 
 				// now, modify KV's node placement
@@ -385,7 +386,7 @@ var _ = Describe("HyperconvergedController", func() {
 				rq := request
 				rq.NamespacedName = ph
 
-				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Name)
+				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
 				Expect(err).To(BeNil())
 
 				// Do the reconcile
@@ -410,7 +411,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
 				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
 
-				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Name)
+				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
 				Expect(err).To(BeNil())
 				Expect(counterValueAfter).To(Equal(counterValueBefore + 1))
 
@@ -421,6 +422,7 @@ var _ = Describe("HyperconvergedController", func() {
 				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				existingResource, err := operands.NewKubeVirt(hco, namespace)
+				existingResource.Kind = kubevirtv1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 				Expect(err).ToNot(HaveOccurred())
 
 				// now, modify KV's node placement
@@ -438,7 +440,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 				r := initReconciler(cl)
 
-				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Name)
+				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
 				Expect(err).To(BeNil())
 
 				// Do the reconcile triggered by HCO
@@ -463,7 +465,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
 				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
 
-				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Name)
+				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
 				Expect(err).To(BeNil())
 				Expect(counterValueAfter).To(Equal(counterValueBefore))
 

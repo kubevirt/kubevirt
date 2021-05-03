@@ -160,7 +160,7 @@ func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 		if err != nil {
 			return false, false, err
 		}
-		return true, false, nil
+		return true, !req.HCOTriggered, nil
 	}
 
 	return false, false, nil

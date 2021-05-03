@@ -4,6 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	"strings"
 )
 
 // HcoMetrics wrapper for all hco metrics
@@ -30,13 +31,17 @@ func (hm *hcoMetrics) init() {
 }
 
 // IncOverwrittenModifications increments counter by 1
-func (hm *hcoMetrics) IncOverwrittenModifications(componentName string) {
-	hm.overwrittenModifications.With(prometheus.Labels{"component_name": componentName}).Inc()
+func (hm *hcoMetrics) IncOverwrittenModifications(kind, name string) {
+	hm.overwrittenModifications.With(getLabelsForObj(kind, name)).Inc()
 }
 
 // GetOverwrittenModificationsCount returns current value of counter. If error is not nil then value is undefined
-func (hm *hcoMetrics) GetOverwrittenModificationsCount(componentName string) (float64, error) {
+func (hm *hcoMetrics) GetOverwrittenModificationsCount(kind, name string) (float64, error) {
 	var m = &dto.Metric{}
-	err := hm.overwrittenModifications.With(prometheus.Labels{"component_name": componentName}).Write(m)
+	err := hm.overwrittenModifications.With(getLabelsForObj(kind, name)).Write(m)
 	return m.Counter.GetValue(), err
+}
+
+func getLabelsForObj(kind string, name string) prometheus.Labels {
+	return prometheus.Labels{"component_name": strings.ToLower(kind + "/" + name)}
 }

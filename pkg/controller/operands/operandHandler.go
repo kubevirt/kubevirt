@@ -119,7 +119,7 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", res.Type, res.Name))
 			} else {
 				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", res.Type, res.Name))
-				metrics.HcoMetrics.IncOverwrittenModifications(res.Name)
+				metrics.HcoMetrics.IncOverwrittenModifications(res.Type, res.Name)
 			}
 		}
 
