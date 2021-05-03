@@ -19,7 +19,7 @@ DO=eval
 export JOB_TYPE=prow
 endif
 
-sanity: generate-doc
+sanity: generate-doc validate-no-offensive-lang
 	go version
 	go fmt ./...
 	go mod tidy -v
@@ -193,6 +193,9 @@ local:
 deploy_cr:
 	./hack/deploy_only_cr.sh
 
+validate-no-offensive-lang:
+	./hack/validate-no-offensive-lang.sh
+
 .PHONY: start \
 		clean \
 		build \
@@ -230,4 +233,5 @@ deploy_cr:
 		local \
 		deploy_cr \
 		build-docgen \
-		generate-doc
+		generate-doc \
+		validate-no-offensive-lang
