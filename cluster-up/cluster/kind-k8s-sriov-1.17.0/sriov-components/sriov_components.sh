@@ -107,7 +107,7 @@ function sriov_components::wait_allocatable_resource() {
 
 function sriov_components::deploy_multus() {
   echo 'Deploying Multus'
-  _kubectl apply -f "$MULTUS_MANIFEST"
+  sed "s#nfvpe/multus#quay.io/kubevirtci/multus#" "$MULTUS_MANIFEST" | _kubectl apply -f -
 
   return 0
 }

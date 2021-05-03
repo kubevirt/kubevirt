@@ -1,5 +1,5 @@
---- kube-calico.yaml	2020-10-26 09:43:25.494348951 +0200
-+++ manifests/kube-calico.yaml	2020-06-08 18:22:46.909259279 +0300
+--- kube-calico.yaml.in	2021-03-18 09:52:16.000000000 +0200
++++ kube-calico.yaml	2021-04-18 16:21:40.000000000 +0300
 @@ -14,7 +14,7 @@
    # Configure the MTU to use for workload interfaces and the
    # tunnels.  For IPIP, set to your network MTU - 20; for VXLAN
@@ -19,3 +19,48 @@
            "policy": {
                "type": "k8s"
            },
+@@ -557,7 +560,7 @@
+         # It can be deleted if this is a fresh installation, or if you have already
+         # upgraded to use calico-ipam.
+         - name: upgrade-ipam
+-          image: calico/cni:v3.14.1
++          image: quay.io/kubevirtci/calico_cni:v3.14.1
+           command: ["/opt/cni/bin/calico-ipam", "-upgrade"]
+           env:
+             - name: KUBERNETES_NODE_NAME
+@@ -579,7 +582,7 @@
+         # This container installs the CNI binaries
+         # and CNI network config file on each node.
+         - name: install-cni
+-          image: calico/cni:v3.14.1
++          image: quay.io/kubevirtci/calico_cni:v3.14.1
+           command: ["/install-cni.sh"]
+           env:
+             # Name of the CNI config file to create.
+@@ -615,7 +618,7 @@
+         # Adds a Flex Volume Driver that creates a per-pod Unix Domain Socket to allow Dikastes
+         # to communicate with Felix over the Policy Sync API.
+         - name: flexvol-driver
+-          image: calico/pod2daemon-flexvol:v3.14.1
++          image: quay.io/kubevirtci/calico_pod2daemon-flexvol:v3.14.1
+           volumeMounts:
+           - name: flexvol-driver-host
+             mountPath: /host/driver
+@@ -626,7 +629,7 @@
+         # container programs network policy and routes on each
+         # host.
+         - name: calico-node
+-          image: calico/node:v3.14.1
++          image: quay.io/kubevirtci/calico_node:v3.14.1
+           env:
+             # Use Kubernetes API as the backing datastore.
+             - name: DATASTORE_TYPE
+@@ -809,7 +812,7 @@
+       priorityClassName: system-cluster-critical
+       containers:
+         - name: calico-kube-controllers
+-          image: calico/kube-controllers:v3.14.1
++          image: quay.io/kubevirtci/calico_kube-controllers:v3.14.1
+           env:
+             # Choose which controllers to run.
+             - name: ENABLED_CONTROLLERS
