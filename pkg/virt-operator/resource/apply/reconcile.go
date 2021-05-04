@@ -214,15 +214,7 @@ func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 }
 
 func generatePatchBytes(ops []string) []byte {
-	opsStr := "["
-	for idx, entry := range ops {
-		sep := ", "
-		if len(ops)-1 == idx {
-			sep = "]"
-		}
-		opsStr = fmt.Sprintf("%s%s%s", opsStr, entry, sep)
-	}
-	return []byte(opsStr)
+	return controller.GeneratePatchBytes(ops)
 }
 
 func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) ([]string, error) {

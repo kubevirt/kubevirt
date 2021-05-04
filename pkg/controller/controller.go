@@ -289,3 +289,15 @@ func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.Sha
 
 	return running
 }
+
+func GeneratePatchBytes(ops []string) []byte {
+	opsStr := "["
+	for idx, entry := range ops {
+		sep := ", "
+		if len(ops)-1 == idx {
+			sep = "]"
+		}
+		opsStr = fmt.Sprintf("%s%s%s", opsStr, entry, sep)
+	}
+	return []byte(opsStr)
+}

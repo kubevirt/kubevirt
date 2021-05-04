@@ -157,6 +157,49 @@ func ensureSelectorLabelPresent(migration *virtv1.VirtualMachineInstanceMigratio
 	}
 }
 
+func (c *MigrationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
+	var ops []string
+
+	if !reflect.DeepEqual(origVMI.Status.MigrationState, newVMI.Status.MigrationState) {
+		newState, err := json.Marshal(newVMI.Status.MigrationState)
+		if err != nil {
+			return err
+		}
+		if origVMI.Status.MigrationState == nil {
+			ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/status/migrationState", "value": %s }`, string(newState)))
+
+		} else {
+			oldState, err := json.Marshal(origVMI.Status.MigrationState)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/status/migrationState", "value": %s }`, string(oldState)))
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/status/migrationState", "value": %s }`, string(newState)))
+		}
+	}
+
+	if !reflect.DeepEqual(origVMI.Labels, newVMI.Labels) {
+		newLabels, err := json.Marshal(newVMI.Labels)
+		if err != nil {
+			return err
+		}
+		oldLabels, err := json.Marshal(origVMI.Labels)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s }`, string(oldLabels)))
+		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabels)))
+	}
+
+	if len(ops) > 0 {
+		_, err := c.clientset.VirtualMachineInstance(origVMI.Namespace).Patch(origVMI.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *MigrationController) execute(key string) error {
 	var vmi *virtv1.VirtualMachineInstance
 	var targetPods []*k8sv1.Pod
@@ -449,17 +492,7 @@ func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.V
 	vmiCopy.Status.MigrationState.Failed = true
 	vmiCopy.Status.MigrationState.Completed = true
 
-	newStatus, err := json.Marshal(vmiCopy.Status)
-	if err != nil {
-		return err
-	}
-	oldStatus, err := json.Marshal(vmi.Status)
-	if err != nil {
-		return err
-	}
-	test := fmt.Sprintf(`{ "op": "test", "path": "/status", "value": %s }`, string(oldStatus))
-	patch := fmt.Sprintf(`{ "op": "replace", "path": "/status", "value": %s }`, string(newStatus))
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
+	err := c.patchVMI(vmi, vmiCopy)
 	if err != nil {
 		return err
 	}
@@ -470,6 +503,11 @@ func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.V
 }
 
 func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID {
+		// already handed off
+		return nil
+	}
 
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
@@ -483,15 +521,12 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 	// the vmi and prepare the local environment for the migration
 	vmiCopy.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] = pod.Spec.NodeName
 
-	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||
-		!reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
-		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
-		if err != nil {
-			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
-			return err
-		}
-		c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
+	err := c.patchVMI(vmi, vmiCopy)
+	if err != nil {
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
+		return err
 	}
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
 	return nil
 }
 
