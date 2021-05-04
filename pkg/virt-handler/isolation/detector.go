@@ -159,6 +159,57 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 	return nil
 }
 
+// AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
+// virt-launcher pod on the given VMI according to its spec.
+// Only VMI's with VFIO devices (e.g: SRIOV, GPU) require QEMU process MEMLOCK adjustment.
+func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance) error {
+	if !util.IsVFIOVMI(vmi) {
+		return nil
+	}
+
+	isolationResult, err := podIsoDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+
+	processes, err := ps.Processes()
+	if err != nil {
+		return fmt.Errorf("failed to get all processes: %v", err)
+	}
+	qemuProcess, err := findIsolatedQemuProcess(processes, isolationResult.PPid())
+	if err != nil {
+		return err
+	}
+	qemuProcessPid := qemuProcess.Pid()
+
+	memlockSize, err := getMemlockSize(vmi)
+	if err != nil {
+		return err
+	}
+
+	if err := setProcessMemoryLockRLimit(qemuProcessPid, memlockSize); err != nil {
+		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessPid, memlockSize, err)
+	}
+	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %d Max:%d",
+		qemuProcess, memlockSize, memlockSize)
+
+	return nil
+}
+
+var qemuProcessExecutables = []string{"qemu-system", "qemu-kvm"}
+
+// findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
+func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error) {
+	processes = childProcesses(processes, pid)
+	for _, exec := range qemuProcessExecutables {
+		if qemuProcess := lookupProcessByExecutable(processes, exec); qemuProcess != nil {
+			return qemuProcess, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
+}
+
 // setProcessMemoryLockRLimit Adjusts process MEMLOCK
 // soft-limit (current) and hard-limit (max) to the given size.
 func setProcessMemoryLockRLimit(pid int, size int64) error {

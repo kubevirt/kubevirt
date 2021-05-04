@@ -28,8 +28,11 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/mitchellh/go-ps"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
@@ -153,5 +156,42 @@ var _ = Describe("getMemlockSize", func() {
 		Expect(err).ToNot(HaveOccurred())
 		// 1Gb (static part for vfio VMs) + 256Mb (estimated overhead) + 8 Mb (VM)
 		Expect(int(bytes)).To(Equal(1264389000))
+	})
+})
+
+var _ = Describe("findIsolatedQemuProcess", func() {
+	const virtLauncherPid = 1
+	virtLauncherProc := ProcessStub{pid: virtLauncherPid, ppid: 0, binary: "virt-launcher"}
+	virtLauncherForkedProc := ProcessStub{pid: 26, ppid: 1, binary: "virt-launcher --no-fork true"}
+	libvirtdProc := ProcessStub{pid: 226, ppid: 26, binary: "libvirtd"}
+	virtLauncherProcesses := []ps.Process{
+		virtLauncherProc,
+		virtLauncherForkedProc,
+		libvirtdProc}
+
+	qemuKvmProc := ProcessStub{pid: 101, ppid: 1, binary: "qemu-kvm"}
+	qemuSystemProc := ProcessStub{pid: 101, ppid: 1, binary: "qemu-system"}
+
+	table.DescribeTable("should return QEMU process",
+		func(processes []ps.Process, pid int, expectedProcess ps.Process) {
+			proc, err := findIsolatedQemuProcess(processes, pid)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(proc).To(Equal(expectedProcess))
+		},
+		table.Entry("when qemu-kvm binary running",
+			append(virtLauncherProcesses, qemuKvmProc),
+			virtLauncherPid,
+			qemuKvmProc,
+		),
+		table.Entry("when qemu-system binary running",
+			append(virtLauncherProcesses, qemuSystemProc),
+			virtLauncherPid,
+			qemuSystemProc,
+		),
+	)
+	It("should fail when no QEMU process exists", func() {
+		proc, err := findIsolatedQemuProcess(virtLauncherProcesses, virtLauncherPid)
+		Expect(err).To(HaveOccurred())
+		Expect(proc).To(BeNil())
 	})
 })

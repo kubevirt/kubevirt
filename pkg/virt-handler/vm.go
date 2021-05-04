@@ -2652,13 +2652,18 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 }
 
 func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInstance) error {
+	const errorMessage = "failed to finalize migration"
 	client, err := d.getVerifiedLauncherClient(vmi)
 	if err != nil {
 		return err
 	}
-	err = client.FinalizeVirtualMachineMigration(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("failed to finalize migration")
+
+	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi); err != nil {
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), errorMessage)
+	}
+
+	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return err
 	}
 
