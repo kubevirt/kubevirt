@@ -40,6 +40,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -52,6 +53,9 @@ const (
 	vmiAppSelector               = "istio-vmi-app"
 	svcDeclaredTestPort          = 1500
 	svcUndeclaredTestPort        = 1501
+	// Istio uses certain ports for it's own purposes, this port server to verify that traffic is not routed
+	// into the VMI for these ports. https://istio.io/latest/docs/ops/deployment/requirements/
+	istioRestrictedPort = network.EnvoyTunnelPort
 )
 
 var _ = SIGDescribe("[Serial] Istio", func() {
@@ -59,6 +63,13 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 		err        error
 		vmi        *v1.VirtualMachineInstance
 		virtClient kubecli.KubevirtClient
+		vmiPorts   []v1.Port
+		// Istio Envoy treats traffic differently for ports declared and undeclared in an associated k8s service.
+		// Having both, declared and undeclared ports specified for VMIs with explicit ports allows to test both cases.
+		explicitPorts = []v1.Port{
+			{Port: svcDeclaredTestPort},
+			{Port: svcUndeclaredTestPort},
+		}
 	)
 	BeforeEach(func() {
 		if !istioServiceMeshDeployed() {
@@ -66,7 +77,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 		}
 	})
 
-	Context("Virtual Machine with masquerade interface and explicitly specified ports", func() {
+	Context("Virtual Machine with masquerade interface", func() {
 		createJobCheckingVMIReachability := func(serverVMI *v1.VirtualMachineInstance, targetPort int) (*batchv1.Job, error) {
 			By("Starting HTTP Server")
 			tests.StartHTTPServer(vmi, targetPort)
@@ -89,45 +100,67 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			virtClient, err = kubecli.GetKubevirtClient()
 			tests.PanicOnError(err)
 
+			By("Create NetworkAttachmentDefinition")
+			nad := generateIstioCNINetworkAttachmentDefinition()
+			_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(tests.NamespaceTestDefault).Create(context.TODO(), nad, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			By("Creating k8s service for the VMI")
+			service := newService()
+			_, err = virtClient.CoreV1().Services(tests.NamespaceTestDefault).Create(context.Background(), service, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+		JustBeforeEach(func() {
 			// Enable sidecar injection by setting the namespace label
 			Expect(libnet.AddLabelToNamespace(virtClient, tests.NamespaceTestDefault, tests.IstioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
 			defer func() {
 				Expect(libnet.RemoveLabelFromNamespace(virtClient, tests.NamespaceTestDefault, tests.IstioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
 			}()
 
-			By("Create NetworkAttachmentDefinition")
-			nad := generateIstioCNINetworkAttachmentDefinition()
-			_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(tests.NamespaceTestDefault).Create(context.TODO(), nad, metav1.CreateOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-
 			By("Creating VMI")
-			ports := []v1.Port{
-				{Port: svcDeclaredTestPort},
-				{Port: svcUndeclaredTestPort},
-			}
-			vmi = newVMIWithIstioSidecar(ports)
+			vmi = newVMIWithIstioSidecar(vmiPorts)
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			By("Creating k8s service")
-			service := newService()
-			_, err = virtClient.CoreV1().Services(tests.NamespaceTestDefault).Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Waiting for VMI to be ready")
 			tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 		})
 		Describe("Inbound traffic", func() {
-			table.DescribeTable("request to VMI", func(port int) {
-				job, err := createJobCheckingVMIReachability(vmi, port)
-				Expect(err).ShouldNot(HaveOccurred())
-
+			checkVMIReachability := func(vmi *v1.VirtualMachineInstance, targetPort int) error {
+				job, err := createJobCheckingVMIReachability(vmi, targetPort)
+				if err != nil {
+					return err
+				}
 				By("Waiting for the job to succeed")
-				Expect(tests.WaitForJobToSucceed(job, 480*time.Second)).To(Succeed())
-			},
-				table.Entry("should reach VMI HTTP server on service declared port", svcDeclaredTestPort),
-				table.Entry("should reach VMI HTTP server on service undeclared port", svcUndeclaredTestPort),
-			)
+				return tests.WaitForJobToSucceed(job, 480*time.Second)
+			}
+
+			Context("With VMI having explicit ports specified", func() {
+				BeforeEach(func() {
+					vmiPorts = explicitPorts
+				})
+				table.DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
+					Expect(checkVMIReachability(vmi, targetPort)).To(Succeed())
+				},
+					table.Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
+					table.Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
+				)
+			})
+			Context("With VMI having no explicit ports specified", func() {
+				BeforeEach(func() {
+					vmiPorts = []v1.Port{}
+				})
+				table.DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
+					Expect(checkVMIReachability(vmi, targetPort)).To(Succeed())
+				},
+					table.Entry("on service declared port on VMI with no explicit ports", svcDeclaredTestPort),
+					table.Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
+				)
+				It("Should not be able to reach service running on Istio restricted port", func() {
+					Expect(checkVMIReachability(vmi, istioRestrictedPort)).NotTo(Succeed())
+				})
+			})
+
 			Context("With PeerAuthentication enforcing mTLS", func() {
 				BeforeEach(func() {
 					peerAuthenticationRes := schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}
@@ -135,19 +168,35 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					_, err = virtClient.DynamicClient().Resource(peerAuthenticationRes).Namespace(tests.NamespaceTestDefault).Create(context.Background(), peerAuthentication, metav1.CreateOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 				})
-				table.DescribeTable("request to VMI", func(port int) {
-					job, err := createJobCheckingVMIReachability(vmi, port)
-					Expect(err).ShouldNot(HaveOccurred())
-
-					By("Waiting for the job to fail")
-					Expect(tests.WaitForJobToSucceed(job, 480*time.Second)).NotTo(Succeed())
-				},
-					table.Entry("client outside mesh should not reach VMI HTTP server on service declared port", svcDeclaredTestPort),
-					table.Entry("client outside mesh should not reach VMI HTTP server on service undeclared port", svcUndeclaredTestPort),
-				)
+				Context("With VMI having explicit ports specified", func() {
+					BeforeEach(func() {
+						vmiPorts = explicitPorts
+					})
+					table.DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
+						Expect(checkVMIReachability(vmi, targetPort)).NotTo(Succeed())
+					},
+						table.Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
+						table.Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
+					)
+				})
+				Context("With VMI having no explicit ports specified", func() {
+					BeforeEach(func() {
+						vmiPorts = []v1.Port{}
+					})
+					table.DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
+						Expect(checkVMIReachability(vmi, targetPort)).NotTo(Succeed())
+					},
+						table.Entry("on service declared port on VMI with no explicit ports", svcDeclaredTestPort),
+						table.Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
+					)
+				})
 			})
 		})
 		Describe("Outbound traffic", func() {
+			const (
+				externalServiceCheckTimeout  = 5 * time.Second
+				externalServiceCheckInterval = 1 * time.Second
+			)
 			var (
 				serverVMIAddress string
 				serverVMI        *v1.VirtualMachineInstance
@@ -180,20 +229,44 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				serverVMIAddress = serverVMI.Status.Interfaces[0].IP
 			})
 
-			// Istio envoy may intercept the request, we need to check the header response, not just the
-			// return code of curl, because if envoy proxy forbids a request, it responds with 502 Bad Gateway code
-			It("Should be able to reach http server outside of mesh", func() {
-				err = console.SafeExpectBatch(vmi, []expect.Batcher{
+			checkHTTPServiceReturnCode := func(serverAddress string, port int, returnCode string) error {
+				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: curlCommand(serverVMIAddress, testPort)},
-					&expect.BExp{R: generateExpectedHTTPReturnCodeRegex("200")},
+					&expect.BSnd{S: curlCommand(serverAddress, port)},
+					&expect.BExp{R: returnCode},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 60)
-				Expect(err).ToNot(HaveOccurred())
+			}
+
+			Context("VMI with explicit ports", func() {
+				BeforeEach(func() {
+					vmiPorts = explicitPorts
+				})
+				It("Should be able to reach http server outside of mesh", func() {
+					Expect(
+						checkHTTPServiceReturnCode(serverVMIAddress, testPort, generateExpectedHTTPReturnCodeRegex("200")),
+					).ToNot(HaveOccurred())
+				})
 			})
+			Context("VMI with no explicit ports", func() {
+				BeforeEach(func() {
+					vmiPorts = []v1.Port{}
+				})
+				It("Should be able to reach http server outside of mesh", func() {
+					Expect(
+						checkHTTPServiceReturnCode(serverVMIAddress, testPort, generateExpectedHTTPReturnCodeRegex("200")),
+					).ToNot(HaveOccurred())
+				})
+			})
+
 			Context("With Sidecar allowing only registered external services", func() {
+				// Istio Envoy will intercept the request because of the OutboundTrafficPolicy set to REGISTRY_ONLY.
+				// Envoy responds with 502 Bad Gateway return code.
+				// After Sidecar with OutboundTrafficPolicy is created, it may take a while for the Envoy proxy
+				// to sync with the change, first request may still get through, hence the Eventually used for assertions.
+
 				BeforeEach(func() {
 					sidecarRes := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "sidecars"}
 					registryOnlySidecar := generateRegistryOnlySidecar()
@@ -201,21 +274,25 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					Expect(err).ShouldNot(HaveOccurred())
 				})
 
-				// Istio Envoy will intercept the request because of the OutboundTrafficPolicy set to REGISTRY_ONLY.
-				// Envoy responds with 502 Bad Gateway return code.
-				// After Sidecar with OutboundTrafficPolicy is created, it may take a while for the Envoy proxy
-				// to sync with the change, first request may still get through, hence the Eventually.
-				It("Should not be able to reach http server outside of mesh", func() {
-					Eventually(func() error {
-						return console.SafeExpectBatch(vmi, []expect.Batcher{
-							&expect.BSnd{S: "\n"},
-							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: curlCommand(serverVMIAddress, testPort)},
-							&expect.BExp{R: generateExpectedHTTPReturnCodeRegex("5..")},
-							&expect.BSnd{S: "echo $?\n"},
-							&expect.BExp{R: console.RetValue("0")},
-						}, 60)
-					}, 90*time.Second, 10*time.Second)
+				Context("VMI with explicit ports", func() {
+					BeforeEach(func() {
+						vmiPorts = explicitPorts
+					})
+					It("Should not be able to reach http service outside of mesh", func() {
+						Eventually(func() error {
+							return checkHTTPServiceReturnCode(serverVMIAddress, testPort, generateExpectedHTTPReturnCodeRegex("5.."))
+						}, externalServiceCheckTimeout, externalServiceCheckInterval)
+					})
+				})
+				Context("VMI with no explicit ports", func() {
+					BeforeEach(func() {
+						vmiPorts = []v1.Port{}
+					})
+					It("Should not be able to reach http service outside of mesh", func() {
+						Eventually(func() error {
+							return checkHTTPServiceReturnCode(serverVMIAddress, testPort, generateExpectedHTTPReturnCodeRegex("5.."))
+						}, externalServiceCheckTimeout, externalServiceCheckInterval)
+					})
 				})
 			})
 		})
