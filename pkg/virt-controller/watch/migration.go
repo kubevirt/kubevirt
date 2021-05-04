@@ -474,6 +474,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 		c.podExpectations.CreationObserved(key)
 		return fmt.Errorf("failed to create vmi migration target pod: %v", err)
 	}
+	log.Log.Object(vmi).Infof("Created migration target pod %s/%s with uuid %s for migration %s with uuid %s", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID))
 	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created migration target pod %s", pod.Name)
 	return nil
 }
@@ -496,7 +497,7 @@ func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.V
 	if err != nil {
 		return err
 	}
-	log.Log.Object(vmi).Infof("Marked Migration failed on vmi due to target pod disappearing before migration kicked off.")
+	log.Log.Object(vmi).Infof("Marked Migration %s/%s failed on vmi due to target pod disappearing before migration kicked off.", migration.Namespace, migration.Name)
 	c.recorder.Event(vmi, k8sv1.EventTypeWarning, FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: target pod is down", string(migration.UID)))
 
 	return nil
@@ -526,6 +527,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 		return err
 	}
+	log.Log.Object(vmi).Infof("Handed off migration %s/%s to target virt-handler.", migration.Namespace, migration.Name)
 	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
 	return nil
 }
@@ -552,6 +554,7 @@ func (c *MigrationController) handleSignalMigrationAbort(migration *virtv1.Virtu
 			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, msg)
 			return fmt.Errorf(msg)
 		}
+		log.Log.Object(vmi).Infof("Signaled migration %s/%s to be aborted.", migration.Namespace, migration.Name)
 		c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
 	}
 
@@ -638,9 +641,9 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			return c.handleTargetPodCreation(key, migration, vmi)
 		}
 	case virtv1.MigrationScheduled:
-		// once target pod is scheduled, alert the VMI of the migration by
+		// once target pod is running, then alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
-		if podExists && !podIsDown(pod) {
+		if podExists && isPodReady(pod) {
 			return c.handleTargetPodHandoff(migration, vmi, pod)
 		}
 	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady, virtv1.MigrationFailed:
