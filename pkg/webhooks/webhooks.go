@@ -280,7 +280,7 @@ func (wh WebhookHandler) validateCertConfig(hc *v1beta1.HyperConverged) error {
 	}
 
 	if hc.Spec.CertConfig.CA.Duration.Duration < hc.Spec.CertConfig.Server.Duration.Duration {
-		return errors.New("spec.certConfig: ca.duration is smaller server.duration")
+		return errors.New("spec.certConfig: ca.duration is smaller than server.duration")
 	}
 
 	return nil

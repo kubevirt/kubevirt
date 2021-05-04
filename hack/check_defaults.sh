@@ -52,9 +52,9 @@ LMPATHS=(
 
 echo "Check that certConfig defaults are behaving as expected"
 
-${KUBECTL_BINARY} patch hco -n "${INSTALLED_NAMESPACE}" --type=json kubevirt-hyperconverged -p '[{ "op": "replace", "path": /spec, "value": {} }]'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
 for JPATH in "${CERTCONFIGPATHS[@]}"; do
-    ${KUBECTL_BINARY} patch hco -n "${INSTALLED_NAMESPACE}" --type='json' kubevirt-hyperconverged -p '[{ "op": "remove", "path": '"${JPATH}"' }]'
+    ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type='json' kubevirt-hyperconverged -p '[{ \"op\": \"remove\", \"path\": '\"${JPATH}\"' }]'"
     CERTCONFIG=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.certConfig}')
     if [[ $CERTCONFIGDEFAULTS != $CERTCONFIG ]]; then
         echo "Failed checking CR defaults for certConfig"
@@ -65,9 +65,9 @@ done
 
 echo "Check that featureGates defaults are behaving as expected"
 
-${KUBECTL_BINARY} patch hco -n "${INSTALLED_NAMESPACE}" --type=json kubevirt-hyperconverged -p '[{ "op": "replace", "path": /spec, "value": {} }]'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
 for JPATH in "${FGPATHS[@]}"; do
-    ${KUBECTL_BINARY} patch hco -n "${INSTALLED_NAMESPACE}" --type='json' kubevirt-hyperconverged -p '[{ "op": "remove", "path": '"${JPATH}"' }]'
+    ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type='json' kubevirt-hyperconverged -p '[{ \"op\": \"remove\", \"path\": '\"${JPATH}\"' }]'"
     FG=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.featureGates}')
     if [[ $FGDEFAULTS != $FG ]]; then
         echo "Failed checking CR defaults for featureGates"
@@ -78,9 +78,9 @@ done
 
 echo "Check that featureGates defaults are behaving as expected"
 
-${KUBECTL_BINARY} patch hco -n "${INSTALLED_NAMESPACE}" --type=json kubevirt-hyperconverged -p '[{ "op": "replace", "path": /spec, "value": {} }]'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
 for JPATH in "${LMPATHS[@]}"; do
-    ${KUBECTL_BINARY} patch hco -n "${INSTALLED_NAMESPACE}" --type='json' kubevirt-hyperconverged -p '[{ "op": "remove", "path": '"${JPATH}"' }]'
+    ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type='json' kubevirt-hyperconverged -p '[{ \"op\": \"remove\", \"path\": '\"${JPATH}\"' }]'"
     LM=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.liveMigrationConfig}')
     if [[ $LMDEFAULTS != $LM ]]; then
         echo "Failed checking CR defaults for liveMigrationConfig"

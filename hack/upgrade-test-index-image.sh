@@ -31,7 +31,7 @@
 # and performs various validations against the upgraded version.
 
 
-MAX_STEPS=15
+MAX_STEPS=17
 CUR_STEP=1
 RELEASE_DELTA="${RELEASE_DELTA:-1}"
 HCO_DEPLOYMENT_NAME=hco-operator

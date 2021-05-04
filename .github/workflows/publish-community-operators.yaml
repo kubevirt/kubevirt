@@ -29,6 +29,42 @@ jobs:
         with:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 2
+      - name: Get latest version on ${{ env.TARGET_BRANCH }} branch
+        run: |
+          PACKAGE_DIR="./deploy/olm-catalog/community-kubevirt-hyperconverged"
+          CSV_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==1" | cut -d '/' -f 5)
+          echo "CSV_VERSION=${CSV_VERSION}" >> $GITHUB_ENV
+          echo "PACKAGE_DIR=${PACKAGE_DIR}" >> $GITHUB_ENV
+      - name: Build Applications Images
+        env:
+          IMAGE_TAG: ${{ env.CSV_VERSION }}
+        run: |
+          IMAGE_TAG=${CSV_VERSION} make container-build
+      - name: Push Application Images
+        env:
+          IMAGE_TAG: ${{ env.CSV_VERSION }}
+        run: |
+          IMAGE_TAG=${IMAGE_TAG} make container-push
+      - name: Build Digester
+        run: |
+          (cd tools/digester && go build .)
+      - name: Build Manifests for version ${{ env.CSV_VERSION }}
+        env:
+          PACKAGE_DIR: ${{ env.PACKAGE_DIR }}
+          CSV_VERSION: ${{ env.CSV_VERSION }}
+        run: |
+          export HCO_OPERATOR_IMAGE=$(tools/digester/digester --image="quay.io/kubevirt/hyperconverged-cluster-operator:${CSV_VERSION}")
+          export HCO_WEBHOOK_IMAGE=$(tools/digester/digester --image="quay.io/kubevirt/hyperconverged-cluster-webhook:${CSV_VERSION}")
+          ./hack/build-manifests.sh
+          sed -i "/^ \+replaces:/d" ${PACKAGE_DIR}/${CSV_VERSION}/manifests/kubevirt-hyperconverged-operator.v${CSV_VERSION}.clusterserviceversion.yaml
+      - name: Get opm client
+        run: |
+          wget https://github.com/operator-framework/operator-registry/releases/download/v1.15.1/linux-amd64-opm
+          chmod +x linux-amd64-opm
+      - name: Build and Push the Index Image
+        run: |
+          export OPM=$(pwd)/linux-amd64-opm
+          ./hack/build-index-image.sh ${{ env.CSV_VERSION }}
       - name: Run Publisher script
         run: |
           export TAGGED_VERSION=${{ env.TAGGED_VERSION }}

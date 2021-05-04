@@ -700,7 +700,7 @@ var _ = Describe("webhooks handler", func() {
 						},
 					},
 					"spec.certConfig.server: duration is smaller than renewBefore"),
-				Entry("ca.duration is smaller server.duration",
+				Entry("ca.duration is smaller than server.duration",
 					v1beta1.HyperConverged{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      util.HyperConvergedName,
@@ -719,7 +719,7 @@ var _ = Describe("webhooks handler", func() {
 							},
 						},
 					},
-					"spec.certConfig: ca.duration is smaller server.duration"),
+					"spec.certConfig: ca.duration is smaller than server.duration"),
 			)
 
 		})

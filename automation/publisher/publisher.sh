@@ -22,9 +22,6 @@ function main() {
     exit 1
   fi
 
-  # Publish only if the images of the operator and the webhook are up-to-date in quay.io/kubevirt
-  compare_git_digests
-
   cp -r ${PACKAGE_DIR}/${BASE_TAGGED_VERSION} ../hco_bundle
 
   cd ..
@@ -102,41 +99,5 @@ function get_pr_body() {
    sed -r "1s/^/Release Kubevirt HCO v$1\n/" pull_request_template.md
    rm -f pull_request_template.md
 }
-
-function compare_git_digests() {
-  # check that the last commit was only updating manifests and digests
-  DIFFS=$(git diff ^HEAD~1 --name-only -- \
-    :^deploy/olm-catalog :^deploy/images.* :^deploy/operator.yaml :^deploy/index-image)
-  if [ ${DIFFS} ]
-  then
-    echo "ERROR: the last commit has changes other than manifests and digests. Aborting job..."
-    exit 1
-  fi
-
-  PREVIOUS_GIT_SHA=$(git describe "$(git log -n 1 --skip 1 --pretty=format:'%H')" --no-match  --always --abbrev=40)
-  OPERATOR_IMAGE_GIT_SHA=$(get_image_git_sha operator)
-  WEBHOOK_IMAGE_GIT_SHA=$(get_image_git_sha webhook)
-
-  compare_digests ${OPERATOR_IMAGE_GIT_SHA} Operator
-  compare_digests ${WEBHOOK_IMAGE_GIT_SHA} Webhook
-
-}
-
-function get_image_git_sha() {
-  TYPE=$1
-  SHA=$(skopeo inspect docker://quay.io/kubevirt/hyperconverged-cluster-${TYPE}:${TAGGED_VERSION} | jq '.Labels."multi.GIT_SHA"' | tr -d '"')
-  echo ${SHA:(-40)}
-}
-
-function compare_digests() {
-  if [ "${PREVIOUS_GIT_SHA}" != "$1" ]
-  then
-    echo "ERROR: HCO $2 image git SHA digest does not match to current git SHA digest."
-    echo "Expected: ${PREVIOUS_GIT_SHA}, Found: $1"
-    exit 1
-  fi
-}
-
-
 
 main
