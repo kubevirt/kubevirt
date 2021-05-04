@@ -539,12 +539,13 @@ var _ = Describe("Migration watcher", func() {
 	})
 	Context("Migration object ", func() {
 
-		It("should hand pod over to target virt-handler", func() {
+		table.DescribeTable("should hand pod over to target virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Status.NodeName = "node02"
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
-			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			pod.Spec.NodeName = "node01"
+			pod.Status.ContainerStatuses = containerStatus
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -556,14 +557,51 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
-		})
+		},
+			table.Entry("with running compute container and no infra container",
+				[]k8sv1.ContainerStatus{{
+					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+				}},
+			),
+			table.Entry("with running compute container and no ready istio-proxy container",
+				[]k8sv1.ContainerStatus{{
+					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+				}, {Name: "istio-proxy", Ready: false}},
+			),
+		)
+
+		table.DescribeTable("should not hand pod over to target virt-handler if pod is not ready and running", func(containerStatus []k8sv1.ContainerStatus) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			pod.Spec.NodeName = "node01"
+			pod.Status.ContainerStatuses = containerStatus
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(pod)
+
+			controller.Execute()
+		},
+			table.Entry("with not ready infra container and not ready compute container",
+				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}, {Name: "kubevirt-infra", Ready: false}},
+			),
+			table.Entry("with not ready compute container and no infra container",
+				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}},
+			),
+		)
+
 		It("should hand pod over to target virt-handler with migration config", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Status.NodeName = "node02"
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
 
-			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			pod.Spec.NodeName = "node01"
+			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+			}}
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -583,8 +621,11 @@ var _ = Describe("Migration watcher", func() {
 				MigrationUID: "1111-2222-3333-4444",
 			}
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
-			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			pod.Spec.NodeName = "node01"
+			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+			}}
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -602,7 +643,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Status.NodeName = "node02"
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
-			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			pod.Spec.NodeName = "node01"
 
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
