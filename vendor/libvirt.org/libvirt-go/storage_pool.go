@@ -48,7 +48,7 @@ const (
 	STORAGE_POOL_INACCESSIBLE = StoragePoolState(C.VIR_STORAGE_POOL_INACCESSIBLE) // Running,but not accessible
 )
 
-type StoragePoolBuildFlags int
+type StoragePoolBuildFlags uint
 
 const (
 	STORAGE_POOL_BUILD_NEW          = StoragePoolBuildFlags(C.VIR_STORAGE_POOL_BUILD_NEW)          // Regular build from scratch
@@ -58,7 +58,7 @@ const (
 	STORAGE_POOL_BUILD_OVERWRITE    = StoragePoolBuildFlags(C.VIR_STORAGE_POOL_BUILD_OVERWRITE)    // Overwrite data
 )
 
-type StoragePoolCreateFlags int
+type StoragePoolCreateFlags uint
 
 const (
 	STORAGE_POOL_CREATE_NORMAL                  = StoragePoolCreateFlags(C.VIR_STORAGE_POOL_CREATE_NORMAL)
@@ -67,7 +67,7 @@ const (
 	STORAGE_POOL_CREATE_WITH_BUILD_NO_OVERWRITE = StoragePoolCreateFlags(C.VIR_STORAGE_POOL_CREATE_WITH_BUILD_NO_OVERWRITE)
 )
 
-type StoragePoolDeleteFlags int
+type StoragePoolDeleteFlags uint
 
 const (
 	STORAGE_POOL_DELETE_NORMAL = StoragePoolDeleteFlags(C.VIR_STORAGE_POOL_DELETE_NORMAL)

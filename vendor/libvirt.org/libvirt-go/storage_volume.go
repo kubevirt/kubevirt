@@ -37,14 +37,14 @@ import (
 	"unsafe"
 )
 
-type StorageVolCreateFlags int
+type StorageVolCreateFlags uint
 
 const (
 	STORAGE_VOL_CREATE_PREALLOC_METADATA = StorageVolCreateFlags(C.VIR_STORAGE_VOL_CREATE_PREALLOC_METADATA)
 	STORAGE_VOL_CREATE_REFLINK           = StorageVolCreateFlags(C.VIR_STORAGE_VOL_CREATE_REFLINK)
 )
 
-type StorageVolDeleteFlags int
+type StorageVolDeleteFlags uint
 
 const (
 	STORAGE_VOL_DELETE_NORMAL         = StorageVolDeleteFlags(C.VIR_STORAGE_VOL_DELETE_NORMAL)         // Delete metadata only (fast)
@@ -52,7 +52,7 @@ const (
 	STORAGE_VOL_DELETE_WITH_SNAPSHOTS = StorageVolDeleteFlags(C.VIR_STORAGE_VOL_DELETE_WITH_SNAPSHOTS) // Force removal of volume, even if in use
 )
 
-type StorageVolResizeFlags int
+type StorageVolResizeFlags uint
 
 const (
 	STORAGE_VOL_RESIZE_ALLOCATE = StorageVolResizeFlags(C.VIR_STORAGE_VOL_RESIZE_ALLOCATE) // force allocation of new size
@@ -86,26 +86,26 @@ const (
 	STORAGE_VOL_WIPE_ALG_TRIM       = StorageVolWipeAlgorithm(C.VIR_STORAGE_VOL_WIPE_ALG_TRIM)       // Trim the underlying storage
 )
 
-type StorageXMLFlags int
+type StorageXMLFlags uint
 
 const (
 	STORAGE_XML_INACTIVE = StorageXMLFlags(C.VIR_STORAGE_XML_INACTIVE)
 )
 
-type StorageVolInfoFlags int
+type StorageVolInfoFlags uint
 
 const (
 	STORAGE_VOL_USE_ALLOCATION = StorageVolInfoFlags(C.VIR_STORAGE_VOL_USE_ALLOCATION)
 	STORAGE_VOL_GET_PHYSICAL   = StorageVolInfoFlags(C.VIR_STORAGE_VOL_GET_PHYSICAL)
 )
 
-type StorageVolUploadFlags int
+type StorageVolUploadFlags uint
 
 const (
 	STORAGE_VOL_UPLOAD_SPARSE_STREAM = StorageVolUploadFlags(C.VIR_STORAGE_VOL_UPLOAD_SPARSE_STREAM)
 )
 
-type StorageVolDownloadFlags int
+type StorageVolDownloadFlags uint
 
 const (
 	STORAGE_VOL_DOWNLOAD_SPARSE_STREAM = StorageVolDownloadFlags(C.VIR_STORAGE_VOL_DOWNLOAD_SPARSE_STREAM)

@@ -38,14 +38,15 @@ import (
 	"unsafe"
 )
 
-type DomainCheckpointCreateFlags int
+type DomainCheckpointCreateFlags uint
 
 const (
-	DOMAIN_CHECKPOINT_CREATE_REDEFINE = DomainCheckpointCreateFlags(C.VIR_DOMAIN_CHECKPOINT_CREATE_REDEFINE)
-	DOMAIN_CHECKPOINT_CREATE_QUIESCE  = DomainCheckpointCreateFlags(C.VIR_DOMAIN_CHECKPOINT_CREATE_QUIESCE)
+	DOMAIN_CHECKPOINT_CREATE_REDEFINE          = DomainCheckpointCreateFlags(C.VIR_DOMAIN_CHECKPOINT_CREATE_REDEFINE)
+	DOMAIN_CHECKPOINT_CREATE_QUIESCE           = DomainCheckpointCreateFlags(C.VIR_DOMAIN_CHECKPOINT_CREATE_QUIESCE)
+	DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE = DomainCheckpointCreateFlags(C.VIR_DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE)
 )
 
-type DomainCheckpointListFlags int
+type DomainCheckpointListFlags uint
 
 const (
 	DOMAIN_CHECKPOINT_LIST_ROOTS       = DomainCheckpointListFlags(C.VIR_DOMAIN_CHECKPOINT_LIST_ROOTS)
@@ -55,7 +56,7 @@ const (
 	DOMAIN_CHECKPOINT_LIST_TOPOLOGICAL = DomainCheckpointListFlags(C.VIR_DOMAIN_CHECKPOINT_LIST_TOPOLOGICAL)
 )
 
-type DomainCheckpointDeleteFlags int
+type DomainCheckpointDeleteFlags uint
 
 const (
 	DOMAIN_CHECKPOINT_DELETE_CHILDREN      = DomainCheckpointDeleteFlags(C.VIR_DOMAIN_CHECKPOINT_DELETE_CHILDREN)
@@ -63,7 +64,7 @@ const (
 	DOMAIN_CHECKPOINT_DELETE_CHILDREN_ONLY = DomainCheckpointDeleteFlags(C.VIR_DOMAIN_CHECKPOINT_DELETE_CHILDREN_ONLY)
 )
 
-type DomainCheckpointXMLFlags int
+type DomainCheckpointXMLFlags uint
 
 const (
 	DOMAIN_CHECKPOINT_XML_SECURE    = DomainCheckpointXMLFlags(C.VIR_DOMAIN_CHECKPOINT_XML_SECURE)
