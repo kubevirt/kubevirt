@@ -257,7 +257,7 @@ func (wh WebhookHandler) HandleMutatingNsDelete(ns *corev1.Namespace, dryRun boo
 }
 
 func (wh WebhookHandler) validateCertConfig(hc *v1beta1.HyperConverged) error {
-	minimalDuration := metav1.Duration{Duration: 60 * time.Minute}
+	minimalDuration := metav1.Duration{Duration: 10 * time.Minute}
 
 	ccValues := make(map[string]time.Duration)
 	ccValues["spec.certConfig.ca.duration"] = hc.Spec.CertConfig.CA.Duration.Duration

@@ -589,7 +589,7 @@ var _ = Describe("webhooks handler", func() {
 						Spec: v1beta1.HyperConvergedSpec{
 							CertConfig: v1beta1.HyperConvergedCertConfig{
 								CA: v1beta1.CertRotateConfigCA{
-									Duration:    metav1.Duration{Duration: 30 * time.Minute},
+									Duration:    metav1.Duration{Duration: 8 * time.Minute},
 									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
 								},
 								Server: v1beta1.CertRotateConfigServer{
@@ -610,7 +610,7 @@ var _ = Describe("webhooks handler", func() {
 							CertConfig: v1beta1.HyperConvergedCertConfig{
 								CA: v1beta1.CertRotateConfigCA{
 									Duration:    metav1.Duration{Duration: 48 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+									RenewBefore: metav1.Duration{Duration: 8 * time.Minute},
 								},
 								Server: v1beta1.CertRotateConfigServer{
 									Duration:    metav1.Duration{Duration: 24 * time.Hour},
@@ -633,7 +633,7 @@ var _ = Describe("webhooks handler", func() {
 									RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
 								},
 								Server: v1beta1.CertRotateConfigServer{
-									Duration:    metav1.Duration{Duration: 30 * time.Minute},
+									Duration:    metav1.Duration{Duration: 8 * time.Minute},
 									RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
 								},
 							},
@@ -654,7 +654,7 @@ var _ = Describe("webhooks handler", func() {
 								},
 								Server: v1beta1.CertRotateConfigServer{
 									Duration:    metav1.Duration{Duration: 24 * time.Hour},
-									RenewBefore: metav1.Duration{Duration: 30 * time.Minute},
+									RenewBefore: metav1.Duration{Duration: 8 * time.Minute},
 								},
 							},
 						},
