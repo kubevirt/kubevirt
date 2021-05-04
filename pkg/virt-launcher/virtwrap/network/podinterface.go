@@ -47,7 +47,8 @@ var bridgeFakeIP = "169.254.75.1%d/32"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
-	preparePodNetworkInterface() (api.Interface, error)
+	preparePodNetworkInterface() error
+	generateDomainIfaceSpec() api.Interface
 
 	// virt-handler that executes phase1 of network configuration needs to
 	// pass details about discovered networking port into phase2 that is
@@ -267,8 +268,7 @@ func (l *podNIC) PlugPhase1() error {
 			return err
 		}
 
-		domainIface, err := bindMechanism.preparePodNetworkInterface()
-		if err != nil {
+		if err := bindMechanism.preparePodNetworkInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
 			return errors.CreateCriticalNetworkError(err)
 		}
@@ -278,6 +278,7 @@ func (l *podNIC) PlugPhase1() error {
 			return errors.CreateCriticalNetworkError(err)
 		}
 
+		domainIface := bindMechanism.generateDomainIfaceSpec()
 		if err := l.setCachedInterface(&domainIface); err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
 			return errors.CreateCriticalNetworkError(err)
@@ -439,6 +440,7 @@ type BridgeBindMechanism struct {
 	launcherPID         *int
 	queueCount          uint32
 	handler             netdriver.NetworkHandler
+	tapDeviceName       string
 }
 
 func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
@@ -509,14 +511,14 @@ func (b *BridgeBindMechanism) startDHCP() error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) preparePodNetworkInterface() (api.Interface, error) {
+func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
 	// Set interface link to down to change its MAC address
 	if err := b.handler.LinkSetDown(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
-		return api.Interface{}, err
+		return err
 	}
 
-	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
+	b.tapDeviceName = generateTapDeviceName(b.podInterfaceName)
 
 	if !b.vif.IPAMDisabled {
 		// Remove IP from POD interface
@@ -524,54 +526,58 @@ func (b *BridgeBindMechanism) preparePodNetworkInterface() (api.Interface, error
 
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podInterfaceName)
-			return api.Interface{}, err
+			return err
 		}
 
 		if err := b.switchPodInterfaceWithDummy(); err != nil {
 			log.Log.Reason(err).Error("failed to switch pod interface with a dummy")
-			return api.Interface{}, err
+			return err
 		}
 	}
 
 	if _, err := b.handler.SetRandomMac(b.podInterfaceName); err != nil {
-		return api.Interface{}, err
+		return err
 	}
 
 	if err := b.createBridge(); err != nil {
-		return api.Interface{}, err
+		return err
 	}
 
-	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), netdriver.LibvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), netdriver.LibvirtUserAndGroupId)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
-		return api.Interface{}, err
+		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
+		return err
 	}
 
 	if b.arpIgnore {
 		if err := b.handler.ConfigureIpv4ArpIgnore(); err != nil {
 			log.Log.Reason(err).Errorf("failed to set arp_ignore=1 on interface %s", b.bridgeInterfaceName)
-			return api.Interface{}, err
+			return err
 		}
 	}
 
 	if err := b.handler.LinkSetUp(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
-		return api.Interface{}, err
+		return err
 	}
 
 	if err := b.handler.LinkSetLearningOff(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to disable mac learning for interface: %s", b.podInterfaceName)
-		return api.Interface{}, err
+		return err
 	}
 
+	return nil
+}
+
+func (b *BridgeBindMechanism) generateDomainIfaceSpec() api.Interface {
 	return api.Interface{
 		MAC: &api.MAC{MAC: b.vif.MAC.String()},
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
 		Target: &api.InterfaceTarget{
-			Device:  tapDeviceName,
+			Device:  b.tapDeviceName,
 			Managed: "no",
 		},
-	}, nil
+	}
 }
 
 func (b *BridgeBindMechanism) decorateConfig(domainIface api.Interface) error {
@@ -847,7 +853,7 @@ func (b *MasqueradeBindMechanism) startDHCP() error {
 	return b.handler.StartDHCP(b.vif, b.vif.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
 }
 
-func (b *MasqueradeBindMechanism) preparePodNetworkInterface() (api.Interface, error) {
+func (b *MasqueradeBindMechanism) preparePodNetworkInterface() error {
 	// Create an master bridge interface
 	bridgeNicName := fmt.Sprintf("%s-nic", b.bridgeInterfaceName)
 	bridgeNic := &netlink.Dummy{
@@ -859,57 +865,60 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterface() (api.Interface, e
 	err := b.handler.LinkAdd(bridgeNic)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create an interface: %s", bridgeNic.Name)
-		return api.Interface{}, err
+		return err
 	}
 
 	err = b.handler.LinkSetUp(bridgeNic)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeNic.Name)
-		return api.Interface{}, err
+		return err
 	}
 
 	if err := b.createBridge(); err != nil {
-		return api.Interface{}, err
+		return err
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
 	err = createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), netdriver.LibvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
-		return api.Interface{}, err
+		return err
 	}
 
 	err = b.createNatRules(iptables.ProtocolIPv4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
-		return api.Interface{}, err
+		return err
 	}
 
 	ipv6Enabled, err := b.handler.IsIpv6Enabled(b.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", b.podInterfaceName)
-		return api.Interface{}, err
+		return err
 	}
 	if ipv6Enabled {
 		err = b.createNatRules(iptables.ProtocolIPv6)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
-			return api.Interface{}, err
+			return err
 		}
 	}
 
+	return nil
+}
+
+func (b *MasqueradeBindMechanism) generateDomainIfaceSpec() api.Interface {
 	domainIface := api.Interface{
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
 		Target: &api.InterfaceTarget{
-			Device:  tapDeviceName,
+			Device:  generateTapDeviceName(b.podInterfaceName),
 			Managed: "no",
 		},
 	}
 	if b.vif.MAC != nil {
 		domainIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
 	}
-
-	return domainIface, nil
+	return domainIface
 }
 
 func (b *MasqueradeBindMechanism) decorateConfig(domainIface api.Interface) error {
@@ -1203,8 +1212,12 @@ func (b *SlirpBindMechanism) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (b *SlirpBindMechanism) preparePodNetworkInterface() (api.Interface, error) {
-	return api.Interface{}, nil
+func (b *SlirpBindMechanism) preparePodNetworkInterface() error {
+	return nil
+}
+
+func (b *SlirpBindMechanism) generateDomainIfaceSpec() api.Interface {
+	return api.Interface{}
 }
 
 func (b *SlirpBindMechanism) startDHCP() error {
@@ -1282,7 +1295,11 @@ func (b *MacvtapBindMechanism) podIfaceMAC() string {
 	}
 }
 
-func (b *MacvtapBindMechanism) preparePodNetworkInterface() (api.Interface, error) {
+func (b *MacvtapBindMechanism) preparePodNetworkInterface() error {
+	return nil
+}
+
+func (b *MacvtapBindMechanism) generateDomainIfaceSpec() api.Interface {
 	return api.Interface{
 		MAC: &api.MAC{MAC: b.podIfaceMAC()},
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
@@ -1290,7 +1307,7 @@ func (b *MacvtapBindMechanism) preparePodNetworkInterface() (api.Interface, erro
 			Device:  b.podInterfaceName,
 			Managed: "no",
 		},
-	}, nil
+	}
 }
 
 func (b *MacvtapBindMechanism) decorateConfig(domainIface api.Interface) error {
