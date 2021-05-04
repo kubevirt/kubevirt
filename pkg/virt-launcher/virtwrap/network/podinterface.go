@@ -278,8 +278,7 @@ func (l *podNIC) PlugPhase1() error {
 			return errors.CreateCriticalNetworkError(err)
 		}
 
-		domainIface := bindMechanism.generateDomainIfaceSpec()
-		if err := l.setCachedInterface(&domainIface); err != nil {
+		if err := l.storeCachedDomainIface(bindMechanism.generateDomainIfaceSpec()); err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
 			return errors.CreateCriticalNetworkError(err)
 		}
@@ -614,8 +613,8 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 	return ifaceConfig, nil
 }
 
-func (l *podNIC) setCachedInterface(domainIface *api.Interface) error {
-	return l.cacheFactory.CacheForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, domainIface)
+func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
+	return l.cacheFactory.CacheForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
 }
 
 func (b *BridgeBindMechanism) loadCachedVIF(pid string) error {
