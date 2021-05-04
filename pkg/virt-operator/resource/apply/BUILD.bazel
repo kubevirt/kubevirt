@@ -36,6 +36,7 @@ go_library(
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/imdario/mergo:go_default_library",
+        "//vendor/github.com/openshift/api/operator/v1:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
         "//vendor/github.com/openshift/library-go/pkg/operator/resource/resourcemerge:go_default_library",
         "//vendor/k8s.io/api/admissionregistration/v1:go_default_library",
