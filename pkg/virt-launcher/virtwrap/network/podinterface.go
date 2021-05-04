@@ -542,8 +542,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
 		return err
 	}
 
-	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), netdriver.LibvirtUserAndGroupId)
-	if err != nil {
+	if err := b.createAndBindTapToBridge(); err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
 		return err
 	}
@@ -590,6 +589,17 @@ func (b *BridgeBindMechanism) decorateConfig(domainIface api.Interface) error {
 		}
 	}
 	return nil
+}
+
+func (b BridgeBindMechanism) createAndBindTapToBridge() error {
+	return createAndBindTapToBridge(
+		b.handler,
+		b.tapDeviceName,
+		b.bridgeInterfaceName,
+		b.queueCount,
+		*b.launcherPID,
+		int(b.vif.Mtu),
+		netdriver.LibvirtUserAndGroupId)
 }
 
 func getPIDString(pid *int) string {
@@ -878,8 +888,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterface() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
-	err = createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), netdriver.LibvirtUserAndGroupId)
-	if err != nil {
+	if err := b.createAndBindTapToBridge(); err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
 	}
@@ -931,6 +940,17 @@ func (b *MasqueradeBindMechanism) decorateConfig(domainIface api.Interface) erro
 		}
 	}
 	return nil
+}
+
+func (b MasqueradeBindMechanism) createAndBindTapToBridge() error {
+	return createAndBindTapToBridge(
+		b.handler,
+		generateTapDeviceName(b.podInterfaceName),
+		b.bridgeInterfaceName,
+		b.queueCount,
+		*b.launcherPID,
+		int(b.vif.Mtu),
+		netdriver.LibvirtUserAndGroupId)
 }
 
 func (b *MasqueradeBindMechanism) loadCachedVIF(pid string) error {
