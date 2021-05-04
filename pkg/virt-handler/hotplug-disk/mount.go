@@ -606,6 +606,11 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 		}
 		for _, mount := range mounts {
 			if mount.MountPoint == "/pvc" {
+				for _, prefix := range m.stripPaths() {
+					if strings.HasPrefix(mount.Root, prefix) {
+						return strings.TrimPrefix(mount.Root, prefix), nil
+					}
+				}
 				return mount.Root, nil
 			}
 		}
@@ -615,6 +620,15 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 		return diskPath, fmt.Errorf("Unable to find source disk image path for pod %s", sourceUID)
 	}
 	return diskPath, nil
+}
+
+func (m *volumeMounter) stripPaths() []string {
+	res := make([]string, 0)
+	// In CRC, and possibly Open Shift, the mount info returns the readonly version of the hostpath path
+	// and we need to strip it so we can return the R/W version so we can attach it to the VM.
+	res = append(res, "/ostree/deploy/rhcos")
+	// TODO: Determine if we need some env variables or something to increase this list.
+	return res
 }
 
 // Unmount unmounts all hotplug disk that are no longer part of the VMI

@@ -677,7 +677,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		Expect(err.Error()).To(ContainSubstring("mount detection error"))
 	})
 
-	It("getSourcePodFile should return the mountinfo value", func() {
+	table.DescribeTable("getSourcePodFile should return the mountinfo value", func(root, expectedRes string) {
 		expectedPath := filepath.Join(tempDir, "ghfjk", "volumes")
 		err = os.MkdirAll(expectedPath, 0755)
 		sourcePodBasePath = func(podUID types.UID) string {
@@ -692,7 +692,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 			Expect(pid).To(Equal(1))
 			res := make([]*procfs.MountInfo, 0)
 			res = append(res, &procfs.MountInfo{
-				Root:       "/test/result",
+				Root:       root,
 				MountPoint: "/pvc",
 			})
 			return res, nil
@@ -701,8 +701,10 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		Expect(err).ToNot(HaveOccurred())
 		res, err := m.getSourcePodFilePath("ghfjk", vmi, "")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal("/test/result"))
-	})
+		Expect(res).To(Equal(expectedRes))
+	}, table.Entry("normal mount info", "/test/result", "/test/result"),
+		table.Entry("ostree normal mount info", "/ostree/deploy/rhcos/test/result", "/test/result"),
+	)
 
 	It("should properly mount and unmount filesystem", func() {
 		sourcePodUID := "ghfjk"

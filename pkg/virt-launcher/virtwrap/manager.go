@@ -882,7 +882,7 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	// Before attempting to attach, ensure we can open the file
 	file, err := os.OpenFile(filename, os.O_RDWR, 0600)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	if err := file.Close(); err != nil {
 		return false, fmt.Errorf("Unable to close file: %s", file.Name())
