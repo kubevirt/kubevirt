@@ -229,15 +229,11 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				if err != nil {
 					return fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
 				}
-				mountInfo, err := res.MountInfoRoot()
-				if err != nil {
-					return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
-				}
-				rootPath, err := nodeRes.FullPath(mountInfo)
+				mountPoint, err := isolation.ParentPathForRootMount(nodeRes, res)
 				if err != nil {
 					return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
 				}
-				sourceFile, err := containerdisk.GetImage(rootPath, volume.ContainerDisk.Path)
+				sourceFile, err := containerdisk.GetImage(mountPoint, volume.ContainerDisk.Path)
 				if err != nil {
 					return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
 				}
