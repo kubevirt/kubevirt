@@ -581,7 +581,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
-			//Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
+			Expect(causes[0].Field).To(Equal("fake.domain.volumes[0].name"))
 		})
 		It("should reject multiple disks referencing same volume", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
