@@ -186,6 +186,15 @@ func (l *podNIC) PlugPhase1() error {
 		return err
 	}
 
+	if l.vmiSpecIface.Slirp != nil {
+		log.Log.Reason(err).Infof("Configuring ping group range")
+		err := l.handler.ConfigurePingGroupRange()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure ping group range")
+			return err
+		}
+	}
+
 	if l.infraConfigurator == nil {
 		return nil
 	}
