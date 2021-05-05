@@ -39,6 +39,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
@@ -50,37 +51,11 @@ const (
 	LibvirtUserAndGroupId       = "0"
 )
 
-type VIF struct {
-	Name         string
-	IP           netlink.Addr
-	IPv6         netlink.Addr
-	MAC          net.HardwareAddr
-	Gateway      net.IP
-	GatewayIpv6  net.IP
-	Routes       *[]netlink.Route
-	Mtu          uint16
-	IPAMDisabled bool
-}
-
 type CriticalNetworkError struct {
 	Msg string
 }
 
 func (e *CriticalNetworkError) Error() string { return e.Msg }
-
-func (vif VIF) String() string {
-	return fmt.Sprintf(
-		"VIF: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t}",
-		vif.Name,
-		vif.IP.IP,
-		vif.IP.Mask,
-		vif.IPv6,
-		vif.MAC,
-		vif.Gateway,
-		vif.Mtu,
-		vif.IPAMDisabled,
-	)
-}
 
 type NetworkHandler interface {
 	LinkByName(name string) (netlink.Link, error)
@@ -99,7 +74,7 @@ type NetworkHandler interface {
 	SetRandomMac(iface string) (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
-	StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error
+	StartDHCP(nic *cache.VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error
 	HasNatIptables(proto iptables.Protocol) bool
 	IsIpv6Enabled(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
@@ -362,7 +337,7 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 	return currentMac, nil
 }
 
-func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
+func (h *NetworkUtilsHandler) StartDHCP(nic *cache.VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
 	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod()
 	if err != nil {
@@ -472,7 +447,7 @@ var DHCPServer = dhcp.SingleClientDHCPServer
 var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
 
 // filter out irrelevant routes
-func FilterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
+func FilterPodNetworkRoutes(routes []netlink.Route, nic *cache.VIF) (filteredRoutes []netlink.Route) {
 	for _, route := range routes {
 		// don't create empty static routes
 		if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {

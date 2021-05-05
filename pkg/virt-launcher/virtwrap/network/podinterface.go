@@ -367,7 +367,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 		if err != nil {
 			return nil, err
 		}
-		vif := &netdriver.VIF{Name: l.podInterfaceName}
+		vif := &cache.VIF{Name: l.podInterfaceName}
 		if mac != nil {
 			vif.MAC = *mac
 		}
@@ -389,7 +389,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 		if err != nil {
 			return nil, err
 		}
-		vif := &netdriver.VIF{Name: l.podInterfaceName}
+		vif := &cache.VIF{Name: l.podInterfaceName}
 		if mac != nil {
 			vif.MAC = *mac
 		}
@@ -433,7 +433,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 
 type BridgeBindMechanism struct {
 	vmi                 *v1.VirtualMachineInstance
-	vif                 *netdriver.VIF
+	vif                 *cache.VIF
 	iface               *v1.Interface
 	virtIface           *api.Interface
 	podNicLink          netlink.Link
@@ -754,7 +754,7 @@ func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
 
 type MasqueradeBindMechanism struct {
 	vmi                 *v1.VirtualMachineInstance
-	vif                 *netdriver.VIF
+	vif                 *cache.VIF
 	iface               *v1.Interface
 	virtIface           *api.Interface
 	podNicLink          netlink.Link
@@ -1411,7 +1411,7 @@ func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
 		(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
 }
 
-func setCachedVIF(vif netdriver.VIF, launcherPID string, ifaceName string) error {
+func setCachedVIF(vif cache.VIF, launcherPID string, ifaceName string) error {
 	buf, err := json.MarshalIndent(vif, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling vif object: %v", err)

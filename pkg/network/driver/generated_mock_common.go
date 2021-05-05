@@ -11,6 +11,7 @@ import (
 	netlink "github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	cache "kubevirt.io/kubevirt/pkg/network/cache"
 )
 
 // Mock of NetworkHandler interface
@@ -202,7 +203,7 @@ func (_mr *_MockNetworkHandlerRecorder) LinkSetMaster(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetMaster", arg0, arg1)
 }
 
-func (_m *MockNetworkHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
+func (_m *MockNetworkHandler) StartDHCP(nic *cache.VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
 	ret := _m.ctrl.Call(_m, "StartDHCP", nic, serverAddr, bridgeInterfaceName, dhcpOptions, filterByMAC)
 	ret0, _ := ret[0].(error)
 	return ret0

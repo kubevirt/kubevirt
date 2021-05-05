@@ -60,9 +60,9 @@ var _ = Describe("Pod Network", func() {
 	var bridgeTest *netlink.Bridge
 	var masqueradeBridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
-	var testNic *netdriver.VIF
+	var testNic *cache.VIF
 	var tmpDir string
-	var masqueradeTestNic *netdriver.VIF
+	var masqueradeTestNic *cache.VIF
 	var masqueradeDummyName string
 	var masqueradeDummy *netlink.Dummy
 	var masqueradeGwStr string
@@ -139,7 +139,7 @@ var _ = Describe("Pod Network", func() {
 
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		tapDeviceName = "tap0"
-		testNic = &netdriver.VIF{Name: primaryPodInterfaceName,
+		testNic = &cache.VIF{Name: primaryPodInterfaceName,
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Mtu:     uint16(mtu),
@@ -160,7 +160,7 @@ var _ = Describe("Pod Network", func() {
 		masqueradeVmIpv6 = masqueradeIpv6VmAddr.IP.String()
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
 		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName, MTU: mtu}}
-		masqueradeTestNic = &netdriver.VIF{Name: primaryPodInterfaceName,
+		masqueradeTestNic = &cache.VIF{Name: primaryPodInterfaceName,
 			IP:          *masqueradeVmAddr,
 			IPv6:        *masqueradeIpv6VmAddr,
 			MAC:         fakeMac,
