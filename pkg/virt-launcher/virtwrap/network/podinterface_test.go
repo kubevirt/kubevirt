@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -355,7 +356,7 @@ var _ = Describe("Pod Network", func() {
 			err := podnic.PlugPhase1()
 			Expect(err).To(HaveOccurred(), "SetupPhase1 should return an error")
 
-			_, ok := err.(*netdriver.CriticalNetworkError)
+			_, ok := err.(*neterrors.CriticalNetworkError)
 			Expect(ok).To(BeTrue(), "SetupPhase1 should return an error of type CriticalNetworkError")
 		})
 		It("should return an error if the MTU is out or range", func() {

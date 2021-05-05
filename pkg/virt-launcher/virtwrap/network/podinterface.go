@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/precond"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
@@ -271,25 +272,21 @@ func (l *podNIC) PlugPhase1() error {
 
 		if err := bindMechanism.preparePodNetworkInterfaces(); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
-			return createCriticalNetworkError(err)
+			return errors.CreateCriticalNetworkError(err)
 		}
 
 		if err := bindMechanism.setCachedVIF(getPIDString(l.launcherPID)); err != nil {
 			log.Log.Reason(err).Error("failed to save vif configuration")
-			return createCriticalNetworkError(err)
+			return errors.CreateCriticalNetworkError(err)
 		}
 
 		if err := bindMechanism.setCachedInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
-			return createCriticalNetworkError(err)
+			return errors.CreateCriticalNetworkError(err)
 		}
 	}
 
 	return nil
-}
-
-func createCriticalNetworkError(err error) *netdriver.CriticalNetworkError {
-	return &netdriver.CriticalNetworkError{Msg: fmt.Sprintf("Critical network error: %v", err)}
 }
 
 func ensureDHCP(bindMechanism BindMechanism, podInterfaceName string) error {

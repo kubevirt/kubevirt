@@ -51,12 +51,6 @@ const (
 	LibvirtUserAndGroupId       = "0"
 )
 
-type CriticalNetworkError struct {
-	Msg string
-}
-
-func (e *CriticalNetworkError) Error() string { return e.Msg }
-
 type NetworkHandler interface {
 	LinkByName(name string) (netlink.Link, error)
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
