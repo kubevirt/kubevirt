@@ -37,7 +37,7 @@ import (
 	"unsafe"
 )
 
-type StreamFlags int
+type StreamFlags uint
 
 const (
 	STREAM_NONBLOCK = StreamFlags(C.VIR_STREAM_NONBLOCK)
@@ -137,7 +137,7 @@ func (v *Stream) RecvFlags(p []byte, flags StreamRecvFlagsValues) (int, error) {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamRecvHole
-func (v *Stream) RecvHole(flags uint) (int64, error) {
+func (v *Stream) RecvHole(flags uint32) (int64, error) {
 	if C.LIBVIR_VERSION_NUMBER < 3004000 {
 		return 0, makeNotImplementedError("virStreamSparseRecvHole")
 	}

@@ -387,6 +387,9 @@ const (
 
 	// no domain's hostname found
 	ERR_NO_HOSTNAME = ErrorNumber(C.VIR_ERR_NO_HOSTNAME)
+
+	// checkpoint is inconsistent
+	ERR_CHECKPOINT_INCONSISTENT = ErrorNumber(C.VIR_ERR_CHECKPOINT_INCONSISTENT)
 )
 
 type ErrorDomain int

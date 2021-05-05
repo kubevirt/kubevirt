@@ -91,5 +91,11 @@ typedef struct _virDomainCheckpoint *virDomainCheckpointPtr;
 # define VIR_DOMAIN_CHECKPOINT_XML_SIZE (1 << 2)
 #endif
 
+/* 6.10.0 */
+
+#ifndef VIR_DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE
+# define VIR_DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE (1 << 2)
+#endif
+
 
 #endif /* LIBVIRT_GO_DOMAIN_CHECKPOINT_COMPAT_H__ */

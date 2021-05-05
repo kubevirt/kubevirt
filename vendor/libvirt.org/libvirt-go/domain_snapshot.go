@@ -38,7 +38,7 @@ import (
 	"unsafe"
 )
 
-type DomainSnapshotCreateFlags int
+type DomainSnapshotCreateFlags uint
 
 const (
 	DOMAIN_SNAPSHOT_CREATE_REDEFINE    = DomainSnapshotCreateFlags(C.VIR_DOMAIN_SNAPSHOT_CREATE_REDEFINE)
@@ -53,7 +53,7 @@ const (
 	DOMAIN_SNAPSHOT_CREATE_VALIDATE    = DomainSnapshotCreateFlags(C.VIR_DOMAIN_SNAPSHOT_CREATE_VALIDATE)
 )
 
-type DomainSnapshotListFlags int
+type DomainSnapshotListFlags uint
 
 const (
 	DOMAIN_SNAPSHOT_LIST_ROOTS       = DomainSnapshotListFlags(C.VIR_DOMAIN_SNAPSHOT_LIST_ROOTS)
@@ -70,7 +70,7 @@ const (
 	DOMAIN_SNAPSHOT_LIST_TOPOLOGICAL = DomainSnapshotListFlags(C.VIR_DOMAIN_SNAPSHOT_LIST_TOPOLOGICAL)
 )
 
-type DomainSnapshotRevertFlags int
+type DomainSnapshotRevertFlags uint
 
 const (
 	DOMAIN_SNAPSHOT_REVERT_RUNNING = DomainSnapshotRevertFlags(C.VIR_DOMAIN_SNAPSHOT_REVERT_RUNNING)
@@ -78,7 +78,7 @@ const (
 	DOMAIN_SNAPSHOT_REVERT_FORCE   = DomainSnapshotRevertFlags(C.VIR_DOMAIN_SNAPSHOT_REVERT_FORCE)
 )
 
-type DomainSnapshotDeleteFlags int
+type DomainSnapshotDeleteFlags uint
 
 const (
 	DOMAIN_SNAPSHOT_DELETE_CHILDREN      = DomainSnapshotDeleteFlags(C.VIR_DOMAIN_SNAPSHOT_DELETE_CHILDREN)
@@ -86,7 +86,7 @@ const (
 	DOMAIN_SNAPSHOT_DELETE_CHILDREN_ONLY = DomainSnapshotDeleteFlags(C.VIR_DOMAIN_SNAPSHOT_DELETE_CHILDREN_ONLY)
 )
 
-type DomainSnapshotXMLFlags int
+type DomainSnapshotXMLFlags uint
 
 const (
 	DOMAIN_SNAPSHOT_XML_SECURE = DomainSnapshotXMLFlags(C.VIR_DOMAIN_SNAPSHOT_XML_SECURE)
