@@ -25,7 +25,7 @@ func NewVirtAPIAPIServices(installNamespace string) []*apiregv1.APIService {
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 				Annotations: map[string]string{
-					"certificates.kubevirt.io/secret": VirtApiCertSecretName,
+					certificatesSecretAnnotationKey: VirtApiCertSecretName,
 				},
 			},
 			Spec: apiregv1.APIServiceSpec{

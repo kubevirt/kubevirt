@@ -13,6 +13,8 @@ import (
 var sideEffectNone = admissionregistrationv1.SideEffectClassNone
 var sideEffectNoneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
 
+const certificatesSecretAnnotationKey = "certificates.kubevirt.io/secret"
+
 func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -63,7 +65,7 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 				virtv1.AppLabel: KubeVirtOperatorValidatingWebhookName,
 			},
 			Annotations: map[string]string{
-				"certificates.kubevirt.io/secret": "kubevirt-operator-certs",
+				certificatesSecretAnnotationKey: "kubevirt-operator-certs",
 			},
 		},
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{
@@ -135,7 +137,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 			Annotations: map[string]string{
-				"certificates.kubevirt.io/secret": VirtApiCertSecretName,
+				certificatesSecretAnnotationKey: VirtApiCertSecretName,
 			},
 		},
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
@@ -242,7 +244,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 			Annotations: map[string]string{
-				"certificates.kubevirt.io/secret": VirtApiCertSecretName,
+				certificatesSecretAnnotationKey: VirtApiCertSecretName,
 			},
 		},
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{

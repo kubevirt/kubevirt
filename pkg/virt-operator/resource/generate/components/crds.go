@@ -37,6 +37,10 @@ import (
 
 const (
 	KUBEVIRT_PROMETHEUS_RULE_NAME = "prometheus-kubevirt-rules"
+
+	creationTimestampJSONPath = ".metadata.creationTimestamp"
+	errorMessageJSONPath      = ".status.error.message"
+	prometheusLabelKey        = "prometheus.kubevirt.io"
 )
 
 var (
@@ -153,7 +157,7 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
 		},
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
-		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 		{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
 		{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
@@ -190,7 +194,7 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
 		},
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
-		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
 		{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1}}, &extv1.CustomResourceSubresources{
 		Status: &extv1.CustomResourceSubresourceStatus{}})
@@ -258,7 +262,7 @@ func NewReplicaSetCrd() (*extv1.CustomResourceDefinition, error) {
 				Description: "Number of managed and not final or deleted VirtualMachineInstances"},
 			{Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
 				Description: "Number of managed VirtualMachineInstances which are ready to receive traffic"},
-			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+			{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		}, &extv1.CustomResourceSubresources{
 			Scale: &extv1.CustomResourceSubresourceScale{
 				SpecReplicasPath:   ".spec.replicas",
@@ -343,7 +347,7 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
 		},
 	}
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
-		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 	}, &extv1.CustomResourceSubresources{
 		Status: &extv1.CustomResourceSubresourceStatus{},
@@ -387,7 +391,7 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
 		{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
 		{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
-		{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
 	})
 	if err != nil {
 		return nil, err
@@ -426,7 +430,7 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
 		{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
-		{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
 	})
 	if err != nil {
 		return nil, err
@@ -467,7 +471,7 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "TargetName", Type: "string", JSONPath: ".spec.target.name"},
 		{Name: "Complete", Type: "boolean", JSONPath: ".status.complete"},
 		{Name: "RestoreTime", Type: "date", JSONPath: ".status.restoreTime"},
-		{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
 	})
 	if err != nil {
 		return nil, err
@@ -490,14 +494,14 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
 			Labels: map[string]string{
 				"openshift.io/cluster-monitoring": "",
-				"prometheus.kubevirt.io":          "",
+				prometheusLabelKey:                "",
 				"k8s-app":                         "kubevirt",
 			},
 		},
 		Spec: promv1.ServiceMonitorSpec{
 			Selector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"prometheus.kubevirt.io": "",
+					prometheusLabelKey: "",
 				},
 			},
 			NamespaceSelector: promv1.NamespaceSelector{
@@ -533,8 +537,8 @@ func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *promv1.
 			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"prometheus.kubevirt.io": "",
-				"k8s-app":                "kubevirt",
+				prometheusLabelKey: "",
+				"k8s-app":          "kubevirt",
 			},
 		},
 		Spec: *NewPrometheusRuleSpec(namespace, workloadUpdatesEnabled),

@@ -28,6 +28,8 @@ const (
 	VirtApiCertSecretName           = "kubevirt-virt-api-certs"
 	VirtControllerCertSecretName    = "kubevirt-controller-certs"
 	CABundleKey                     = "ca-bundle"
+	localPodDNStemplateString       = "%s.%s.pod.cluster.local"
+	caClusterLocal                  = "cluster.local"
 )
 
 type CertificateCreationCallback func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *rsa.PrivateKey)
@@ -44,10 +46,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			VirtOperatorServiceName+"."+secret.Namespace+".pod.cluster.local",
+			fmt.Sprintf(localPodDNStemplateString, VirtOperatorServiceName, secret.Namespace),
 			VirtOperatorServiceName,
 			secret.Namespace,
-			"cluster.local",
+			caClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -61,10 +63,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			VirtApiServiceName+"."+secret.Namespace+".pod.cluster.local",
+			fmt.Sprintf(localPodDNStemplateString, VirtApiServiceName, secret.Namespace),
 			VirtApiServiceName,
 			secret.Namespace,
-			"cluster.local",
+			caClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -78,10 +80,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 		}
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			VirtControllerServiceName+"."+secret.Namespace+".pod.cluster.local",
+			fmt.Sprintf(localPodDNStemplateString, VirtControllerServiceName, secret.Namespace),
 			VirtControllerServiceName,
 			secret.Namespace,
-			"cluster.local",
+			caClusterLocal,
 			nil,
 			nil,
 			duration,
@@ -98,7 +100,7 @@ var populationStrategy = map[string]CertificateCreationCallback{
 			"kubevirt.io:system:node:virt-handler",
 			VirtHandlerServiceName,
 			secret.Namespace,
-			"cluster.local",
+			caClusterLocal,
 			nil,
 			nil,
 			duration,
