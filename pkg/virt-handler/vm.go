@@ -207,7 +207,6 @@ func NewController(
 
 	c.launcherClients = make(map[types.UID]*launcherClientInfo)
 	c.phase1NetworkSetupCache = make(map[types.UID]int)
-	c.podInterfaceCache = make(map[string]*netcache.PodCacheInterface)
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -258,11 +257,6 @@ type VirtualMachineController struct {
 	// prevents cycling an unncessary posix thread.
 	phase1NetworkSetupCache     map[types.UID]int
 	phase1NetworkSetupCacheLock sync.Mutex
-
-	// key is the file path, value is the contents.
-	// if key exists, then don't read directly from file.
-	podInterfaceCache     map[string]*netcache.PodCacheInterface
-	podInterfaceCacheLock sync.Mutex
 
 	domainNotifyPipes           map[string]string
 	networkCacheStoreFactory    netcache.InterfaceCacheFactory
@@ -472,15 +466,6 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 	delete(d.phase1NetworkSetupCache, vmi.UID)
 	d.phase1NetworkSetupCacheLock.Unlock()
 
-	// Clean Pod interface cache from map and files
-	d.podInterfaceCacheLock.Lock()
-	for key := range d.podInterfaceCache {
-		if strings.Contains(key, string(vmi.UID)) {
-			delete(d.podInterfaceCache, key)
-		}
-	}
-	d.podInterfaceCacheLock.Unlock()
-
 	err := d.networkCacheStoreFactory.CacheForVMI(vmi).Remove()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
@@ -537,28 +522,6 @@ func domainMigrated(domain *api.Domain) bool {
 		return true
 	}
 	return false
-}
-
-func (d *VirtualMachineController) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*netcache.PodCacheInterface, error) {
-	cacheKey := fmt.Sprintf("%s/%s", vmi.UID, ifaceName)
-
-	// Once the Interface files are set on the handler, they don't change
-	// If already present in the map, don't read again
-	d.podInterfaceCacheLock.Lock()
-	result, exists := d.podInterfaceCache[cacheKey]
-	d.podInterfaceCacheLock.Unlock()
-
-	if exists {
-		return result, nil
-	}
-	//FIXME error handling?
-	result, _ = d.networkCacheStoreFactory.CacheForVMI(vmi).Read(ifaceName)
-
-	d.podInterfaceCacheLock.Lock()
-	d.podInterfaceCache[cacheKey] = result
-	d.podInterfaceCacheLock.Unlock()
-
-	return result, nil
 }
 
 func canUpdateToMounted(currentPhase v1.VolumePhase) bool {
@@ -874,7 +837,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			for _, network := range vmi.Spec.Networks {
 				if network.NetworkSource.Pod != nil {
-					podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
+					podIface, err := d.networkCacheStoreFactory.CacheForVMI(vmi).Read(network.Name)
 					if err != nil {
 						return err
 					}
@@ -937,7 +900,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 
 					// If it is a Combination of Masquerade+Pod network, check IP from file cache
 					if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil && existingNetworksByName[domainInterface.Alias.GetName()].NetworkSource.Pod != nil {
-						iface, err := d.getPodInterfacefromFileCache(vmi, domainInterface.Alias.GetName())
+						iface, err := d.networkCacheStoreFactory.CacheForVMI(vmi).Read(domainInterface.Alias.GetName())
 						if err != nil {
 							return err
 						}
