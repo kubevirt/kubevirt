@@ -1475,6 +1475,21 @@ type KubeVirtSpec struct {
 type CustomizeComponents struct {
 	// +listType=atomic
 	Patches []CustomizeComponentsPatch `json:"patches,omitempty"`
+
+	// Configure the value used for deployment and daemonset resources
+	Flags *Flags `json:"flags,omitempty"`
+}
+
+// Flags will create a patch that will replace all flags for the container's
+// command field. The only flags that will be used are those define. There are no
+// guarantees around forward/backward compatibility.  If set incorrectly this will
+// cause the resource when rolled out to error until flags are updated.
+//
+// +k8s:openapi-gen=true
+type Flags struct {
+	API        map[string]string `json:"api,omitempty"`
+	Controller map[string]string `json:"controller,omitempty"`
+	Handler    map[string]string `json:"handler,omitempty"`
 }
 
 // +k8s:openapi-gen=true

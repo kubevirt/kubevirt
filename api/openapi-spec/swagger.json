@@ -9394,6 +9394,10 @@
    "v1.CustomizeComponents": {
     "type": "object",
     "properties": {
+     "flags": {
+      "description": "Configure the value used for deployment and daemonset resources",
+      "$ref": "#/definitions/v1.Flags"
+     },
      "patches": {
       "type": "array",
       "items": {
@@ -9997,6 +10001,30 @@
      "uuid": {
       "description": "UUID reported by the vmi bios. Defaults to a random generated uid.",
       "type": "string"
+     }
+    }
+   },
+   "v1.Flags": {
+    "description": "Flags will create a patch that will replace all flags for the container's command field. The only flags that will be used are those define. There are no guarantees around forward/backward compatibility.  If set incorrectly this will cause the resource when rolled out to error until flags are updated.",
+    "type": "object",
+    "properties": {
+     "api": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
+     },
+     "controller": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
+     },
+     "handler": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
      }
     }
    },
