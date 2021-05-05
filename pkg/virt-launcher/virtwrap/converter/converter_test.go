@@ -1995,7 +1995,7 @@ var _ = Describe("Converter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::80-:80,hostfwd=udp::80-:80", iface.Name)))
 		})
-		It("Should create network configuration for slirp device", func() {
+		XIt("Should create network configuration for slirp device", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name := "otherName"
 			iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
@@ -2009,7 +2009,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(Equal(nil))
 			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
 		})
-		It("Should create two network configuration for slirp device", func() {
+		XIt("Should create two network configuration for slirp device", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
@@ -2031,7 +2031,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(Equal(nil))
 			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(4))
 		})
-		It("Should create two network configuration one for slirp device and one for bridge device", func() {
+		XIt("Should create two network configuration one for slirp device and one for bridge device", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
