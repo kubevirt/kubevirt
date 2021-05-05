@@ -114,7 +114,10 @@ type virtAPIApp struct {
 	externallyManaged   bool
 }
 
-var _ service.Service = &virtAPIApp{}
+var (
+	_                service.Service = &virtAPIApp{}
+	apiHealthVersion                 = new(healthz.KubeApiHealthzVersion)
+)
 
 func NewVirtApi() VirtApi {
 
@@ -278,7 +281,7 @@ func (app *virtAPIApp) composeSubresources() {
 				response.WriteAsJson(virtversion.Get())
 			}).Operation(version.Version + "Version"))
 		subws.Route(subws.GET(rest.SubResourcePath("healthz")).
-			To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig)).
+			To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
 			Operation(version.Version+"CheckHealth").
@@ -464,7 +467,7 @@ func (app *virtAPIApp) composeSubresources() {
 		Doc("Get KubeVirt API root paths").
 		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
 		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
-	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig)).Doc("Health endpoint"))
+	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
 
 	for _, version := range v1.SubresourceGroupVersions {
 		// K8s needs the ability to query info about a specific API group
@@ -735,6 +738,12 @@ func (app *virtAPIApp) Run() {
 	authConfigMapInformer := kubeInformerFactory.ApiAuthConfigMap()
 	kubevirtCAConfigInformer := kubeInformerFactory.KubeVirtCAConfigMap()
 	kubeVirtInformer := kubeInformerFactory.KubeVirt()
+
+	// Wire up health check trigger
+	configMapInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		apiHealthVersion.Clear()
+		cache.DefaultWatchErrorHandler(r, err)
+	})
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)

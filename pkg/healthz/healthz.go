@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
 	restful "github.com/emicklei/go-restful"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -32,32 +33,75 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig) func(_ *restful.Request, response *restful.Response) {
+type KubeApiHealthzVersion struct {
+	version interface{}
+	sync.RWMutex
+}
+
+func (h *KubeApiHealthzVersion) Update(body interface{}) {
+	h.Lock()
+	defer h.Unlock()
+	h.version = body
+}
+
+func (h *KubeApiHealthzVersion) Clear() {
+	h.Lock()
+	defer h.Unlock()
+	h.version = nil
+}
+
+func (h *KubeApiHealthzVersion) GetVersion() (v interface{}) {
+	h.RLock()
+	defer h.RUnlock()
+	v = h.version
+	return
+}
+
+/*
+   This check is primarily to determine whether a controller can reach the Kubernetes API.
+   We can reflect this based on other connections we depend on (informers and their error handling),
+   rather than testing the kubernetes API every time the healthcheck endpoint is called. This
+   should avoid a lot of unnecessary calls to the API while informers are healthy.
+
+   Note that It is possible for the contents of a KubeApiHealthzVersion to be out of date if the
+   Kubernetes API version changes without an informer disconnect, or if informer doesn't call
+   KubeApiHealthzVersion.Clear() when it encounters an error.
+*/
+
+func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, hVersion *KubeApiHealthzVersion) func(_ *restful.Request, response *restful.Response) {
 	return func(_ *restful.Request, response *restful.Response) {
 		res := map[string]interface{}{}
-		cli, err := kubecli.GetKubevirtClient()
-		if err != nil {
-			unhealthy(err, clusterConfig, response)
-			return
+		var version = hVersion.GetVersion()
+
+		if version == nil {
+			cli, err := kubecli.GetKubevirtClient()
+			if err != nil {
+				unhealthy(err, clusterConfig, response)
+				return
+			}
+
+			body, err := cli.CoreV1().RESTClient().Get().AbsPath("/version").Do(context.Background()).Raw()
+			if err != nil {
+				unhealthy(err, clusterConfig, response)
+				return
+			}
+
+			err = json.Unmarshal(body, &version)
+			if err != nil {
+				unhealthy(err, clusterConfig, response)
+				return
+			}
+
+			hVersion.Update(version)
 		}
 
-		body, err := cli.CoreV1().RESTClient().Get().AbsPath("/version").Do(context.Background()).Raw()
-		if err != nil {
-			unhealthy(err, clusterConfig, response)
-			return
-		}
-		var version interface{}
-		err = json.Unmarshal(body, &version)
-		if err != nil {
-			unhealthy(err, clusterConfig, response)
-			return
-		}
 		res["apiserver"] = map[string]interface{}{"connectivity": "ok", "version": version}
 		res["config-resource-version"] = clusterConfig.GetResourceVersion()
 		response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
 		return
 	}
 }
+
 func unhealthy(err error, clusterConfig *virtconfig.ClusterConfig, response *restful.Response) {
 	res := map[string]interface{}{}
 	res["apiserver"] = map[string]interface{}{"connectivity": "failed", "error": fmt.Sprintf("%v", err)}
