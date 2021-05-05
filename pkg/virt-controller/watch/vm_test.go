@@ -903,6 +903,49 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 		})
 
+		It("should detect that a DataVolume already exists and adopt it", func() {
+			vm, _ := DefaultVirtualMachine(false)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dv1",
+					Namespace: vm.Namespace,
+				},
+			})
+
+			addVirtualMachine(vm)
+
+			dv := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			dv.Status.Phase = cdiv1.Succeeded
+
+			orphanDV := dv.DeepCopy()
+			orphanDV.ObjectMeta.OwnerReferences = nil
+			dataVolumeInformer.GetStore().Add(orphanDV)
+
+			cdiClient.Fake.PrependReactor("patch", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				patch, ok := action.(testing.PatchAction)
+				Expect(ok).To(BeTrue())
+				Expect(patch.GetName()).To(Equal(dv.Name))
+				Expect(patch.GetNamespace()).To(Equal(dv.Namespace))
+				Expect(string(patch.GetPatch())).To(ContainSubstring(string(vm.UID)))
+				Expect(string(patch.GetPatch())).To(ContainSubstring("ownerReferences"))
+				return true, dv, nil
+			})
+
+			vmInterface.EXPECT().Get(vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Return(vm, nil)
+
+			controller.Execute()
+		})
+
 		It("should detect that it has nothing to do beside updating the status", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 
