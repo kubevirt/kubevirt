@@ -427,6 +427,40 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 	return ready, nil
 }
 
+// areDataVolumesReady determines whether all DataVolumes specified for a VM
+// have been successfully provisioned and/or claimed, and are ready for consumption.
+// Note that DataVolumes in WaitForFirstConsumer phase are not regarded as ready.
+func (c *VMController) areDataVolumesReady(vm *virtv1.VirtualMachine) bool {
+	for _, template := range vm.Spec.DataVolumeTemplates {
+		dvKey := fmt.Sprintf("%s/%s", vm.Namespace, template.Name)
+		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
+			return false
+		}
+		if !exists {
+			return false
+		}
+
+		dv := dvObj.(*cdiv1.DataVolume)
+
+		if !v1.IsControlledBy(dv, vm) {
+			// If the DataVolume had just been adopted by this controller in the current reconcile cycle,
+			// this will not be detected here since the dataVolumeInformer cache isn't likely
+			// to be updated with the new ownerReference just yet. Once the cache is updated,
+			// another reconcile cycle will be triggered in which the adoption will be detected
+			// and the Provisioning status can potentially be removed (assuming all other DVs are ready).
+			return false
+		}
+
+		if dv.Status.Phase != cdiv1.Succeeded {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if len(vm.Status.VolumeRequests) == 0 {
 		return nil
@@ -615,23 +649,6 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	default:
 		return fmt.Errorf("unknown runstrategy: %s", runStrategy)
 	}
-}
-
-// isDataVolumeCreationExpected determines whether a DataVolume is expected to be created for this VM.
-func (c *VMController) isDataVolumeCreationExpected(vm *virtv1.VirtualMachine) bool {
-	vmKey, err := controller.KeyFunc(vm)
-	if err != nil {
-		log.Log.Object(vm).Errorf("Error fetching vmKey: %v", err)
-		return false
-	}
-
-	expectations, exists, _ := c.dataVolumeExpectations.GetExpectations(vmKey)
-	if !exists || expectations == nil {
-		return false
-	}
-
-	adds, _ := expectations.GetExpectations()
-	return adds > 0
 }
 
 // isVMIStartExpected determines whether a VMI is expected to be started for this VM.
@@ -1274,11 +1291,11 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusTerminating, c.isVirtualMachineStatusTerminating},
 		{virtv1.VirtualMachineStatusStopping, c.isVirtualMachineStatusStopping},
 		{virtv1.VirtualMachineStatusMigrating, c.isVirtualMachineStatusMigrating},
-		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
 		{virtv1.VirtualMachineStatusPaused, c.isVirtualMachineStatusPaused},
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
+		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
 	}
 
 	for _, status := range statuses {
@@ -1297,31 +1314,21 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 		return vmi.IsFinal()
 	}
 
-	return !c.isVMIStartExpected(vm) && !c.isDataVolumeCreationExpected(vm)
+	return !c.isVMIStartExpected(vm)
 }
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	if vmi == nil {
-		return c.isVMIStartExpected(vm) || c.isDataVolumeCreationExpected(vm)
-	}
-
-	hasProvisioningCondition := controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
-		virtv1.VirtualMachineInstanceProvisioning, k8score.ConditionTrue)
-
-	return (vmi.IsUnprocessed() || hasProvisioningCondition)
+	return !c.areDataVolumesReady(vm)
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
 func (c *VMController) isVirtualMachineStatusStarting(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	if vmi == nil {
-		return false
+		return c.isVMIStartExpected(vm)
 	}
 
-	hasProvisioningCondition := controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
-		virtv1.VirtualMachineInstanceProvisioning, k8score.ConditionTrue)
-
-	return (vmi.IsScheduling() || vmi.IsScheduled()) && !hasProvisioningCondition
+	return vmi.IsUnprocessed() || vmi.IsScheduling() || vmi.IsScheduled()
 }
 
 // isVirtualMachineStatusRunning determines whether the VM status field should be set to "Running".
@@ -1342,25 +1349,24 @@ func (c *VMController) isVirtualMachineStatusPaused(vm *virtv1.VirtualMachine, v
 		return false
 	}
 
-	isRunningPhase := vmi.Status.Phase == virtv1.Running
 	hasPausedCondition := controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
 		virtv1.VirtualMachineInstancePaused, k8score.ConditionTrue)
 
-	return isRunningPhase && hasPausedCondition
+	return vmi.IsRunning() && hasPausedCondition
 }
 
-// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Paused".
+// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Stopping".
 func (c *VMController) isVirtualMachineStatusStopping(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return vmi != nil && !vmi.IsFinal() &&
 		(vmi.IsMarkedForDeletion() || c.isVMIStopExpected(vm))
 }
 
-// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Paused".
+// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Terminating".
 func (c *VMController) isVirtualMachineStatusTerminating(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return vm.ObjectMeta.DeletionTimestamp != nil
 }
 
-// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Paused".
+// isVirtualMachineStatusPaused determines whether the VM status field should be set to "Migrating".
 func (c *VMController) isVirtualMachineStatusMigrating(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return vmi != nil && migrations.IsMigrating(vmi)
 }
