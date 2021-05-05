@@ -1133,31 +1133,27 @@ type VirtualMachinePrintableStatus string
 
 // A list of statuses defined for virtual machines
 const (
-	// VirtualMachineStatusStopped indicates that a VirtualMachineInstance does not exist and is not expected to.
+	// VirtualMachineStatusStopped indicates that the virtual machine is currently stopped and isn't expected to start.
 	VirtualMachineStatusStopped VirtualMachinePrintableStatus = "Stopped"
-	// VirtualMachineStatusProvisioning indicates that a VirtualMachineInstance exists,
-	// but associated cluster resources (e.g., DataVolumes) are still being prepared.
+	// VirtualMachineStatusProvisioning indicates that cluster resources associated with the virtual machine
+	// (e.g., DataVolumes) are being provisioned and prepared.
 	VirtualMachineStatusProvisioning VirtualMachinePrintableStatus = "Provisioning"
-	// VirtualMachineStatusStarting indicates that a VirtualMachineInstance exists,
-	//associated cluster resources have been acquired, and the guest virtual machine is being prepared for running.
+	// VirtualMachineStatusStarting indicates that the virtual machine is being prepared for running.
 	VirtualMachineStatusStarting VirtualMachinePrintableStatus = "Starting"
-	// VirtualMachineStatusRunning indicates that a VirtualMachineInstance exists,
-	// and the guest virtual machine is in running state.
+	// VirtualMachineStatusRunning indicates that the virtual machine is running.
 	VirtualMachineStatusRunning VirtualMachinePrintableStatus = "Running"
-	// VirtualMachineStatusPaused indicates that a VirtualMachineInstance exists,
-	// and the guest virtual machine is in paused state.
+	// VirtualMachineStatusPaused indicates that the virtual machine is paused.
 	VirtualMachineStatusPaused VirtualMachinePrintableStatus = "Paused"
-	// VirtualMachineStatusStopping indicates that a VirtualMachineInstance exists,
-	// with a non-null deletionTimestamp.
+	// VirtualMachineStatusStopping indicates that the virtual machine is in the process of being stopped.
 	VirtualMachineStatusStopping VirtualMachinePrintableStatus = "Stopping"
-	// VirtualMachineStatusTerminating indicates that the VirtualMachine has a non-null deletionTimestamp
-	// and its associated resources (VirtualMachineInstance, volumes, …) are in the process of tear down.
+	// VirtualMachineStatusTerminating indicates that the virtual machine is in the process of deletion,
+	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
 	VirtualMachineStatusTerminating VirtualMachinePrintableStatus = "Terminating"
-	// VirtualMachineStatusMigrating indicates that a VirtualMachineInstance exists,
-	// and is in the process of being migrated to another host.
+	// VirtualMachineStatusMigrating indicates that the virtual machine is in the process of being migrated
+	// to another host.
 	VirtualMachineStatusMigrating VirtualMachinePrintableStatus = "Migrating"
-	// VirtualMachineStatusUnknown indicates that for some reason the state of the VirtualMachine could not be obtained,
-	// typically due to an error in communicating with the host of the VirtualMachineInstance.
+	// VirtualMachineStatusUnknown indicates that the state of the virtual machine could not be obtained,
+	// typically due to an error in communicating with the host on which it's running.
 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
 )
 
