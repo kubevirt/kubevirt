@@ -382,6 +382,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(primaryPodInterfaceName).Return(fakeMac, nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
+			mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
 
 			podnic := createDefaultPodNIC(vm)
 			podnic.launcherPID = &pid
@@ -428,9 +429,10 @@ var _ = Describe("Pod Network", func() {
 					podnic.launcherPID = &pid
 					driver, err := podnic.getPhase1Binding()
 					Expect(err).ToNot(HaveOccurred())
-					bridge, ok := driver.(*BridgeBindMechanism)
+					bridgeBinding, ok := driver.(*BridgeBindMechanism)
 					Expect(ok).To(BeTrue())
-					Expect(bridge.dhcpConfig.MAC.String()).To(Equal("de:ad:00:00:be:af"))
+					bridgeBinding.ipamEnabled = true
+					Expect(driver.generateDhcpConfig().MAC.String()).To(Equal("de:ad:00:00:be:af"))
 				})
 			})
 		})
@@ -667,8 +669,7 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			masq.dhcpConfig.Gateway = masqueradeGwAddr.IP.To4()
-			masq.dhcpConfig.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
+			masq.dhcpConfig = driver.generateDhcpConfig()
 			mockNetwork.EXPECT().StartDHCP(masq.dhcpConfig, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
 
 			Expect(masq.startDHCP()).To(Succeed())
@@ -685,9 +686,7 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			masq.dhcpConfig.Gateway = masqueradeGwAddr.IP.To4()
-			masq.dhcpConfig.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
-
+			masq.dhcpConfig = driver.generateDhcpConfig()
 			err = fmt.Errorf("failed to start DHCP server")
 			mockNetwork.EXPECT().StartDHCP(masq.dhcpConfig, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(err)
 
@@ -707,6 +706,7 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
+			bridge.dhcpConfig = driver.generateDhcpConfig()
 			mockNetwork.EXPECT().StartDHCP(bridge.dhcpConfig, gomock.Any(), api.DefaultBridgeName, nil, true).Return(nil)
 
 			Expect(bridge.startDHCP()).To(Succeed())
@@ -723,6 +723,8 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
+			bridge.dhcpConfig = driver.generateDhcpConfig()
+			bridge.dhcpConfig.IPAMDisabled = false
 			err = fmt.Errorf("failed to start DHCP server")
 			mockNetwork.EXPECT().StartDHCP(bridge.dhcpConfig, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
 
@@ -740,6 +742,7 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
+			bridge.dhcpConfig = driver.generateDhcpConfig()
 			bridge.dhcpConfig.IPAMDisabled = true
 			err = fmt.Errorf("failed to start DHCP server")
 			mockNetwork.EXPECT().StartDHCP(bridge.dhcpConfig, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
@@ -786,6 +789,7 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
+			bridge.dhcpConfig = driver.generateDhcpConfig()
 			Expect(bridge.setCachedDhcpConfig()).ToNot(HaveOccurred())
 			Expect(bridge.loadCachedDhcpConfig()).ToNot(HaveOccurred())
 		})
@@ -836,6 +840,7 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
+			masq.dhcpConfig = driver.generateDhcpConfig()
 			Expect(masq.setCachedDhcpConfig()).ToNot(HaveOccurred())
 			Expect(masq.loadCachedDhcpConfig()).ToNot(HaveOccurred())
 		})
