@@ -871,11 +871,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 		},
 			table.Entry(", not ready and in running state", k8sv1.PodRunning, false),
+			table.Entry(", ready and in running state", k8sv1.PodRunning, true),
+		)
+
+		table.DescribeTable("keep the vmi in pending state if a pod exists", func(phase k8sv1.PodPhase, isReady bool) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			pod := NewPodForVirtualMachine(vmi, phase)
+			pod.Status.ContainerStatuses[0].Ready = isReady
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+
+			controller.Execute()
+		},
 			table.Entry(", not ready and in unknown state", k8sv1.PodUnknown, false),
 			table.Entry(", not ready and in succeeded state", k8sv1.PodSucceeded, false),
 			table.Entry(", not ready and in failed state", k8sv1.PodFailed, false),
 			table.Entry(", not ready and in pending state", k8sv1.PodPending, false),
-			table.Entry(", ready and in running state", k8sv1.PodRunning, true),
 			table.Entry(", ready and in unknown state", k8sv1.PodUnknown, true),
 			table.Entry(", ready and in succeeded state", k8sv1.PodSucceeded, true),
 			table.Entry(", ready and in failed state", k8sv1.PodFailed, true),

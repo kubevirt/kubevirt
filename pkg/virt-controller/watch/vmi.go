@@ -359,7 +359,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	switch {
 	case vmi.IsUnprocessed():
-		if vmiPodExists {
+		if vmiPodExists && pod.Status.Phase == k8sv1.PodRunning {
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		} else if vmi.DeletionTimestamp != nil || hasFailedDataVolume {
 			vmiCopy.Status.Phase = virtv1.Failed
