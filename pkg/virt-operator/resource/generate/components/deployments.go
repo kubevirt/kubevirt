@@ -40,7 +40,11 @@ const (
 
 	VirtAPIName        = "virt-api"
 	VirtControllerName = "virt-controller"
-	VirtOperatorName   = "virt-operator"
+	VirtOperatorName   = "virt-operator"	
+	PrometheusUrl	   = "prometheus.kubevirt.io"
+	KubeVirtUrl	   = "kubevirt.io"
+	KubernetesUrl	   = "kubernetes.io/hostname"
+	PortCmdLineOption  = "--port"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -54,12 +58,12 @@ func NewPrometheusService(namespace string) *corev1.Service {
 			Name:      "kubevirt-prometheus-metrics",
 			Labels: map[string]string{
 				virtv1.AppLabel:          "",
-				"prometheus.kubevirt.io": "",
+				PrometheusUrl: "",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"prometheus.kubevirt.io": "",
+				PrometheusUrl: "",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -117,7 +121,7 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				virtv1.AppLabel:          podName,
-				"prometheus.kubevirt.io": "",
+				PrometheusUrl: "",
 			},
 			Annotations: map[string]string{
 				"scheduler.alpha.kubernetes.io/critical-pod": "",
@@ -198,7 +202,7 @@ func newBaseDeployment(deploymentName string, imageName string, namespace string
 			Replicas: int32Ptr(2),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"kubevirt.io": deploymentName,
+					KubeVirtUrl: deploymentName,
 				},
 			},
 			Template: *podTemplateSpec,
@@ -241,7 +245,7 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 }
 
 func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
-	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{VirtAPIName})
+	podAntiAffinity := newPodAntiAffinity(KubeVirtUrl, KubernetesUrl, metav1.LabelSelectorOpIn, []string{VirtAPIName})
 	deploymentName := VirtAPIName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
@@ -261,7 +265,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
 		VirtAPIName,
-		"--port",
+		PortCmdLineOption,
 		"8443",
 		"--console-server-port",
 		"8186",
@@ -307,7 +311,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 }
 
 func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
-	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{VirtControllerName})
+	podAntiAffinity := newPodAntiAffinity(KubeVirtUrl, KubernetesUrl, metav1.LabelSelectorOpIn, []string{VirtControllerName})
 	deploymentName := VirtControllerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
@@ -329,7 +333,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		VirtControllerName,
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
-		"--port",
+		PortCmdLineOption,
 		"8443",
 		"-v",
 		verbosity,
@@ -389,7 +393,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
 	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
 
-	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{VirtOperatorName})
+	podAntiAffinity := newPodAntiAffinity(KubeVirtUrl, KubernetesUrl, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
 	name := VirtOperatorName
 	version = AddVersionSeparatorPrefix(version)
 	image := fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, name, version)
@@ -439,7 +443,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 							ImagePullPolicy: pullPolicy,
 							Command: []string{
 								VirtOperatorName,
-								"--port",
+								PortCmdLineOption,
 								"8443",
 								"-v",
 								verbosity,
