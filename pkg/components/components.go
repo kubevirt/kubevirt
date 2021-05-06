@@ -178,9 +178,9 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 									Scheme: corev1.URISchemeHTTP,
 								},
 							},
-							InitialDelaySeconds: 5,
+							InitialDelaySeconds: 10,
 							PeriodSeconds:       5,
-							FailureThreshold:    1,
+							FailureThreshold:    3,
 						},
 						Env: append([]corev1.EnvVar{
 							{
@@ -354,9 +354,9 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 									Scheme: corev1.URISchemeHTTP,
 								},
 							},
-							InitialDelaySeconds: 5,
+							InitialDelaySeconds: 10,
 							PeriodSeconds:       5,
-							FailureThreshold:    1,
+							FailureThreshold:    3,
 						},
 						Env: append([]corev1.EnvVar{
 							{

@@ -1853,12 +1853,12 @@ spec:
                 image: +IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
-                  failureThreshold: 1
+                  failureThreshold: 3
                   httpGet:
                     path: /livez
                     port: 6060
                     scheme: HTTP
-                  initialDelaySeconds: 5
+                  initialDelaySeconds: 10
                   periodSeconds: 5
                 name: hyperconverged-cluster-operator
                 readinessProbe:
@@ -1916,12 +1916,12 @@ spec:
                 image: +WEBHOOK_IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
-                  failureThreshold: 1
+                  failureThreshold: 3
                   httpGet:
                     path: /livez
                     port: 6060
                     scheme: HTTP
-                  initialDelaySeconds: 5
+                  initialDelaySeconds: 10
                   periodSeconds: 5
                 name: hyperconverged-cluster-webhook
                 readinessProbe:
