@@ -780,6 +780,17 @@ virConnectOpenAuthWrapper(const char *name,
     return ret;
 }
 
+virConnectPtr
+virConnectOpenAuthDefaultWrapper(const char *name,
+                                 unsigned int flags,
+                                 virErrorPtr err)
+{
+    virConnectPtr ret = virConnectOpenAuth(name, virConnectAuthPtrDefault, flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+    return ret;
+}
 
 virConnectPtr
 virConnectOpenReadOnlyWrapper(const char *name,
@@ -1794,6 +1805,24 @@ virConnectSetIdentityWrapper(virConnectPtr conn,
     return ret;
 #endif
 }
+
+virNodeDevicePtr
+virNodeDeviceDefineXMLWrapper(virConnectPtr conn,
+                              const char *xmlDesc,
+                              unsigned int flags,
+                              virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 7003000
+    assert(0); // Caller should have checked version
+#else
+    virNodeDevicePtr ret = virNodeDeviceDefineXML(conn, xmlDesc, flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
 
 ////////////////////////////////////////////////
 */

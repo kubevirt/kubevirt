@@ -390,6 +390,9 @@ const (
 
 	// checkpoint is inconsistent
 	ERR_CHECKPOINT_INCONSISTENT = ErrorNumber(C.VIR_ERR_CHECKPOINT_INCONSISTENT)
+
+	// more than one matching domain found
+	ERR_MULTIPLE_DOMAINS = ErrorNumber(C.VIR_ERR_MULTIPLE_DOMAINS)
 )
 
 type ErrorDomain int

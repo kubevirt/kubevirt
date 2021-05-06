@@ -51,5 +51,12 @@ typedef void (*virConnectNodeDeviceEventGenericCallback)(virConnectPtr conn,
                                                          void *opaque);
 #endif
 
+#ifndef VIR_NODE_DEVICE_EVENT_DEFINED
+#define VIR_NODE_DEVICE_EVENT_DEFINED 1
+#endif
+
+#ifndef VIR_NODE_DEVICE_EVENT_UNDEFINED
+#define VIR_NODE_DEVICE_EVENT_UNDEFINED 1
+#endif
 
 #endif /* LIBVIRT_GO_NODE_DEVICE_COMPAT_H__ */

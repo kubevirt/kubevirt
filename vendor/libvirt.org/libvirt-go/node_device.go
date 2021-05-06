@@ -47,8 +47,10 @@ const (
 type NodeDeviceEventLifecycleType int
 
 const (
-	NODE_DEVICE_EVENT_CREATED = NodeDeviceEventLifecycleType(C.VIR_NODE_DEVICE_EVENT_CREATED)
-	NODE_DEVICE_EVENT_DELETED = NodeDeviceEventLifecycleType(C.VIR_NODE_DEVICE_EVENT_DELETED)
+	NODE_DEVICE_EVENT_CREATED   = NodeDeviceEventLifecycleType(C.VIR_NODE_DEVICE_EVENT_CREATED)
+	NODE_DEVICE_EVENT_DELETED   = NodeDeviceEventLifecycleType(C.VIR_NODE_DEVICE_EVENT_DELETED)
+	NODE_DEVICE_EVENT_DEFINED   = NodeDeviceEventLifecycleType(C.VIR_NODE_DEVICE_EVENT_DEFINED)
+	NODE_DEVICE_EVENT_UNDEFINED = NodeDeviceEventLifecycleType(C.VIR_NODE_DEVICE_EVENT_UNDEFINED)
 )
 
 type NodeDevice struct {
@@ -189,4 +191,30 @@ func (p *NodeDevice) ListCaps() ([]string, error) {
 		C.free(unsafe.Pointer(names[k]))
 	}
 	return goNames, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-nodedev.html#virNodeDeviceCreate
+func (p *NodeDevice) Create(flags uint32) error {
+	if C.LIBVIR_VERSION_NUMBER < 7003000 {
+		return makeNotImplementedError("virNodeDeviceCreate")
+	}
+	var err C.virError
+	result := C.virNodeDeviceCreateWrapper(p.ptr, C.uint(flags), &err)
+	if result == -1 {
+		return makeError(&err)
+	}
+	return nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-nodedev.html#virNodeDeviceUndefine
+func (p *NodeDevice) Undefine(flags uint32) error {
+	if C.LIBVIR_VERSION_NUMBER < 7003000 {
+		return makeNotImplementedError("virNodeDeviceUndefine")
+	}
+	var err C.virError
+	result := C.virNodeDeviceUndefineWrapper(p.ptr, C.uint(flags), &err)
+	if result == -1 {
+		return makeError(&err)
+	}
+	return nil
 }

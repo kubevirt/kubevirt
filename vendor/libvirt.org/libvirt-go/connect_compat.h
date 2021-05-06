@@ -282,5 +282,15 @@ typedef struct _virNWFilterBinding *virNWFilterBindingPtr;
 #endif
 
 
+/* 7.3.0 */
+
+#ifndef VIR_CONNECT_LIST_NODE_DEVICES_INACTIVE
+#define VIR_CONNECT_LIST_NODE_DEVICES_INACTIVE (1 << 30)
+#endif
+
+#ifndef VIR_CONNECT_LIST_NODE_DEVICES_ACTIVE
+#define VIR_CONNECT_LIST_NODE_DEVICES_ACTIVE (1U << 31)
+#endif
+
 
 #endif /* LIBVIRT_GO_CONNECT_COMPAT_H__ */

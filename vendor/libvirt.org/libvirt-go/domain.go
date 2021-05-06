@@ -717,9 +717,10 @@ const (
 type DomainNumatuneMemMode int
 
 const (
-	DOMAIN_NUMATUNE_MEM_STRICT     = DomainNumatuneMemMode(C.VIR_DOMAIN_NUMATUNE_MEM_STRICT)
-	DOMAIN_NUMATUNE_MEM_PREFERRED  = DomainNumatuneMemMode(C.VIR_DOMAIN_NUMATUNE_MEM_PREFERRED)
-	DOMAIN_NUMATUNE_MEM_INTERLEAVE = DomainNumatuneMemMode(C.VIR_DOMAIN_NUMATUNE_MEM_INTERLEAVE)
+	DOMAIN_NUMATUNE_MEM_STRICT      = DomainNumatuneMemMode(C.VIR_DOMAIN_NUMATUNE_MEM_STRICT)
+	DOMAIN_NUMATUNE_MEM_PREFERRED   = DomainNumatuneMemMode(C.VIR_DOMAIN_NUMATUNE_MEM_PREFERRED)
+	DOMAIN_NUMATUNE_MEM_INTERLEAVE  = DomainNumatuneMemMode(C.VIR_DOMAIN_NUMATUNE_MEM_INTERLEAVE)
+	DOMAIN_NUMATUNE_MEM_RESTRICTIVE = DomainNumatuneMemMode(C.VIR_DOMAIN_NUMATUNE_MEM_RESTRICTIVE)
 )
 
 type DomainOpenGraphicsFlags uint
@@ -779,6 +780,7 @@ const (
 	DOMAIN_STATS_PERF      = DomainStatsTypes(C.VIR_DOMAIN_STATS_PERF)
 	DOMAIN_STATS_IOTHREAD  = DomainStatsTypes(C.VIR_DOMAIN_STATS_IOTHREAD)
 	DOMAIN_STATS_MEMORY    = DomainStatsTypes(C.VIR_DOMAIN_STATS_MEMORY)
+	DOMAIN_STATS_DIRTYRATE = DomainStatsTypes(C.VIR_DOMAIN_STATS_DIRTYRATE)
 )
 
 type DomainCoreDumpFlags uint
@@ -954,6 +956,21 @@ type DomainAuthorizedSSHKeysFlags uint
 const (
 	DOMAIN_AUTHORIZED_SSH_KEYS_SET_APPEND = DomainAuthorizedSSHKeysFlags(C.VIR_DOMAIN_AUTHORIZED_SSH_KEYS_SET_APPEND)
 	DOMAIN_AUTHORIZED_SSH_KEYS_SET_REMOVE = DomainAuthorizedSSHKeysFlags(C.VIR_DOMAIN_AUTHORIZED_SSH_KEYS_SET_REMOVE)
+)
+
+type DomainMessageType uint
+
+const (
+	DOMAIN_MESSAGE_DEPRECATION = DomainMessageType(C.VIR_DOMAIN_MESSAGE_DEPRECATION)
+	DOMAIN_MESSAGE_TAINTING    = DomainMessageType(C.VIR_DOMAIN_MESSAGE_TAINTING)
+)
+
+type DomainDirtyRateStatus uint
+
+const (
+	DOMAIN_DIRTYRATE_UNSTARTED = DomainDirtyRateStatus(C.VIR_DOMAIN_DIRTYRATE_UNSTARTED)
+	DOMAIN_DIRTYRATE_MEASURING = DomainDirtyRateStatus(C.VIR_DOMAIN_DIRTYRATE_MEASURING)
+	DOMAIN_DIRTYRATE_MEASURED  = DomainDirtyRateStatus(C.VIR_DOMAIN_DIRTYRATE_MEASURED)
 )
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainFree
@@ -5492,4 +5509,42 @@ func (d *Domain) AuthorizedSSHKeysSet(user string, keys []string, flags DomainAu
 
 	return nil
 
+}
+
+func (d *Domain) GetMessages(flags DomainMessageType) ([]string, error) {
+	if C.LIBVIR_VERSION_NUMBER < 7001000 {
+		return []string{}, makeNotImplementedError("virDomainGetMessages")
+	}
+
+	var cmsgs **C.char
+	var err C.virError
+	ret := C.virDomainGetMessagesWrapper(d.ptr, &cmsgs, C.uint(flags), &err)
+	if ret == -1 {
+		return []string{}, makeError(&err)
+	}
+
+	msgs := make([]string, int(ret))
+	for i := 0; i < int(ret); i++ {
+		cmodel := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(cmsgs)) + (unsafe.Sizeof(*cmsgs) * uintptr(i))))
+
+		defer C.free(unsafe.Pointer(cmodel))
+		msgs[i] = C.GoString(cmodel)
+	}
+	defer C.free(unsafe.Pointer(cmsgs))
+
+	return msgs, nil
+}
+
+func (d *Domain) StartDirtyRateCalc(secs int, flags uint) error {
+	if C.LIBVIR_VERSION_NUMBER < 7002000 {
+		return makeNotImplementedError("virDomainStartDirtyRateCalc")
+	}
+
+	var err C.virError
+	ret := C.virDomainStartDirtyRateCalcWrapper(d.ptr, C.int(secs), C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
+
+	return nil
 }

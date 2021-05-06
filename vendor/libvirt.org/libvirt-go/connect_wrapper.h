@@ -332,6 +332,11 @@ virConnectOpenAuthWrapper(const char *name,
                           virErrorPtr err);
 
 virConnectPtr
+virConnectOpenAuthDefaultWrapper(const char *name,
+                                 unsigned int flags,
+                                 virErrorPtr err);
+
+virConnectPtr
 virConnectOpenReadOnlyWrapper(const char *name,
                               virErrorPtr err);
 
@@ -737,5 +742,11 @@ virConnectSetIdentityWrapper(virConnectPtr conn,
 			     int nparams,
 			     unsigned int flags,
 			     virErrorPtr err);
+
+virNodeDevicePtr
+virNodeDeviceDefineXMLWrapper(virConnectPtr conn,
+                              const char *xmlDesc,
+                              unsigned int flags,
+                              virErrorPtr err);
 
 #endif /* LIBVIRT_GO_CONNECT_WRAPPER_H__ */

@@ -99,7 +99,7 @@ This can be easily done using polkit config files
 
 (Replace 'berrange' with your UNIX user name).
 
-One of the integration tests also requires that libvirtd is
+Two of the integration tests also requires that libvirtd is
 listening for TCP connections on localhost, with sasl auth
 This can be setup by editing /etc/libvirt/libvirtd.conf to
 set
@@ -113,6 +113,11 @@ set
 
 and then start libvirtd with the --listen flag (this can
 be set in /etc/sysconfig/libvirtd to make it persistent).
+
+sasl authentication must be configured_ to use either ``digest-md5`` or
+``scram-sha-1``, and the needed sasl modules must be installed on the system.
+
+.. _configured: https://libvirt.org/auth.html#ACL_server_sasl
 
 Then create a sasl user
 
