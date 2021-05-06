@@ -1065,8 +1065,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			var wffcPod *k8sv1.Pod
 
 			BeforeEach(func() {
-				tests.SkipNFSTestIfRunnigOnKindInfra()
-
 				quantity, err := resource.ParseQuantity("5Gi")
 				Expect(err).ToNot(HaveOccurred())
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)

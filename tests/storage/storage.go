@@ -82,8 +82,6 @@ var _ = SIGDescribe("Storage", func() {
 		})
 
 		initNFS := func(targetImage string) *k8sv1.Pod {
-			tests.SkipNFSTestIfRunnigOnKindInfra()
-
 			// Prepare a NFS backed PV
 			By("Starting an NFS POD")
 			nfsPod := storageframework.RenderNFSServer("nfsserver", targetImage)
@@ -154,7 +152,6 @@ var _ = SIGDescribe("Storage", func() {
 					}
 				})
 				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily, imageOwnedByQEMU bool) {
-					tests.SkipPVCTestIfRunnigOnKindInfra()
 					if family == k8sv1.IPv6Protocol {
 						libnet.SkipWhenNotDualStackCluster(virtClient)
 					}
@@ -189,8 +186,6 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				vmi = newVMI(tests.DiskAlpineHostPath)
 
 				num := 3
@@ -308,8 +303,6 @@ var _ = SIGDescribe("Storage", func() {
 			}, 120)
 
 			It("should be successfully started and virtiofs could be accessed", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				pvcName := fmt.Sprintf("disk-%s", pvc)
 				vmi := tests.NewRandomVMIWithPVCFS(pvcName)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
@@ -361,8 +354,6 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 			It("should be successfully started and virtiofs could be accessed", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -454,7 +445,6 @@ var _ = SIGDescribe("Storage", func() {
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
-					tests.SkipPVCTestIfRunnigOnKindInfra()
 					if family == k8sv1.IPv6Protocol {
 						libnet.SkipWhenNotDualStackCluster(virtClient)
 					}
@@ -481,8 +471,6 @@ var _ = SIGDescribe("Storage", func() {
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3137]should not persist data", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				vmi = tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
@@ -547,8 +535,6 @@ var _ = SIGDescribe("Storage", func() {
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3138]should start vmi multiple times", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				vmi = tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 
@@ -892,7 +878,6 @@ var _ = SIGDescribe("Storage", func() {
 
 			// Not a candidate for NFS because local volumes are used in test
 			It("[test_id:1015]should be successfully started", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi = tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
