@@ -115,7 +115,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
+			It("[QUARANTINE][test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
