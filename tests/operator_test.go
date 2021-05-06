@@ -1053,6 +1053,35 @@ spec:
 					return pdb.Spec.Selector.MatchLabels["kubevirt.io"] != "dne"
 				}),
 		)
+
+		It("checking updating service is reverted to original state", func() {
+			service, err := virtClient.CoreV1().Services(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			originalPort := service.Spec.Ports[0].Port
+			service.Spec.Ports[0].Port = 123
+
+			By("Update service with undesired port")
+			service, err = virtClient.CoreV1().Services(originalKv.Namespace).Update(context.Background(), service, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Ports[0].Port).To(Equal(int32(123)))
+
+			By("Test that the port is revered to the original")
+			Eventually(func() bool {
+				service, err := virtClient.CoreV1().Services(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return service.Spec.Ports[0].Port == originalPort
+			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for service to revert to original state")
+
+			By("Test that the revert of the service stays consistent")
+			Consistently(func() int32 {
+				service, err = virtClient.CoreV1().Services(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return service.Spec.Ports[0].Port
+			}, 20*time.Second, 5*time.Second).Should(Equal(originalPort))
+		})
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {
