@@ -431,6 +431,18 @@ func (CustomizeComponentsPatch) SwaggerDoc() map[string]string {
 	}
 }
 
+func (GenerationStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "GenerationStatus keeps track of the generation for a given resource so that decisions about forced updates can be made.\n\n+k8s:openapi-gen=true",
+		"group":          "group is the group of the thing you're tracking",
+		"resource":       "resource is the resource type of the thing you're tracking",
+		"namespace":      "namespace is where the thing you're tracking is\n+optional",
+		"name":           "name is the name of the thing you're tracking",
+		"lastGeneration": "lastGeneration is the last generation of the workload controller involved",
+		"hash":           "hash is an optional field set for resources without generation that are content sensitive like secrets and configmaps\n+optional",
+	}
+}
+
 func (KubeVirtStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "KubeVirtStatus represents information pertaining to a KubeVirt deployment.\n\n+k8s:openapi-gen=true",
