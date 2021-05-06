@@ -357,7 +357,7 @@ func (m *VirtualMachineControllerRefManager) AdoptDataVolume(dataVolume *cdiv1.D
 		`{"metadata":{"ownerReferences":[{"apiVersion":"%s","kind":"%s","name":"%s","uid":"%s","controller":true,"blockOwnerDeletion":true}],"uid":"%s"}}`,
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind,
 		m.Controller.GetName(), m.Controller.GetUID(), dataVolume.UID)
-	return m.virtualMachineControl.PatchVirtualMachine(dataVolume.Namespace, dataVolume.Name, []byte(addControllerPatch))
+	return m.virtualMachineControl.PatchDataVolume(dataVolume.Namespace, dataVolume.Name, []byte(addControllerPatch))
 }
 
 // ReleaseDataVolume sends a patch to free the dataVolume from the control of the controller.
