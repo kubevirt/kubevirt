@@ -1577,16 +1577,30 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	return overhead
 }
 
+// We need to add this overhead due to potential issues when using exec probes.
+// In certain situations depending on things like node size and kernel versions
+// the exec probe can cause a significant memory overhead that results in the pod getting OOM killed.
+// To prevent this, we add this overhead until we have a better way of doing exec probes.
+// The virtProbeTotalAdditionalOverhead is added for the virt-probe binary we use for probing and
+// only added once, while the virtProbeOverhead is the general memory consumption of virt-probe
+// that we add per added probe.
+var virtProbeTotalAdditionalOverhead = resource.MustParse("100Mi")
+var virtProbeOverhead = resource.MustParse("10Mi")
+
 func addProbeOverheads(vmi *v1.VirtualMachineInstance, to *resource.Quantity) {
-	addProbeOverhead(vmi.Spec.LivenessProbe, to)
-	addProbeOverhead(vmi.Spec.ReadinessProbe, to)
+	hasLiveness := addProbeOverhead(vmi.Spec.LivenessProbe, to)
+	hasReadiness := addProbeOverhead(vmi.Spec.ReadinessProbe, to)
+	if hasLiveness || hasReadiness {
+		to.Add(virtProbeTotalAdditionalOverhead)
+	}
 }
 
-func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) {
-	virtProbeOverhead := resource.MustParse("10Mi")
+func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) bool {
 	if probe != nil && probe.Exec != nil {
 		to.Add(virtProbeOverhead)
+		return true
 	}
+	return false
 }
 
 func updateProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
