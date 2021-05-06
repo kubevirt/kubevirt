@@ -54,6 +54,7 @@ const (
 type NetworkHandler interface {
 	LinkByName(name string) (netlink.Link, error)
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
+	ReadIPAddressesFromLink(interfaceName string) (string, string, error)
 	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
 	AddrDel(link netlink.Link, addr *netlink.Addr) error
 	AddrAdd(link netlink.Link, addr *netlink.Addr) error
@@ -255,6 +256,39 @@ func composeNftablesLoad(proto iptables.Protocol) *exec.Cmd {
 	fnName := fmt.Sprintf("ipv%s-nat", ipVersion)
 	// #nosec g204 no risk to use Sprintf as  argument as it uses two static strings (fname limited to ipv4-nat or ipv6-nat)
 	return exec.Command("nft", "-f", fmt.Sprintf("/etc/nftables/%s.nft", fnName))
+}
+
+func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (string, string, error) {
+	link, err := h.LinkByName(interfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", interfaceName)
+		return "", "", err
+	}
+
+	// get IP address
+	addrList, err := h.AddrList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a address for interface: %s", interfaceName)
+		return "", "", err
+	}
+
+	// no ip assigned. ipam disabled
+	if len(addrList) == 0 {
+		return "", "", nil
+	}
+
+	var ipv4, ipv6 string
+	for _, addr := range addrList {
+		if addr.IP.IsGlobalUnicast() {
+			if netutils.IsIPv6(addr.IP) && ipv6 == "" {
+				ipv6 = addr.IP.String()
+			} else if !netutils.IsIPv6(addr.IP) && ipv4 == "" {
+				ipv4 = addr.IP.String()
+			}
+		}
+	}
+
+	return ipv4, ipv6, nil
 }
 
 func (h *NetworkUtilsHandler) GetHostAndGwAddressesFromCIDR(s string) (string, string, error) {

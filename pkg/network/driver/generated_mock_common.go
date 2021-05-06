@@ -57,6 +57,18 @@ func (_mr *_MockNetworkHandlerRecorder) AddrList(arg0, arg1 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddrList", arg0, arg1)
 }
 
+func (_m *MockNetworkHandler) ReadIPAddressesFromLink(interfaceName string) (string, string, error) {
+	ret := _m.ctrl.Call(_m, "ReadIPAddressesFromLink", interfaceName)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ReadIPAddressesFromLink(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadIPAddressesFromLink", arg0)
+}
+
 func (_m *MockNetworkHandler) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
 	ret := _m.ctrl.Call(_m, "RouteList", link, family)
 	ret0, _ := ret[0].([]netlink.Route)
