@@ -772,6 +772,17 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 	vmi.Spec = vm.Spec.Template.Spec
 
+	if len(vm.Status.StateChangeRequests) != 0 {
+		stateChange := vm.Status.StateChangeRequests[0]
+		if stateChange.Action == virtv1.StartRequest {
+			_, paused := stateChange.Data["paused"]
+			if paused {
+				strategy := virtv1.StartStrategyPaused
+				vmi.Spec.StartStrategy = &strategy
+			}
+		}
+	}
+
 	setupStableFirmwareUUID(vm, vmi)
 
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them

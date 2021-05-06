@@ -1323,6 +1323,16 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Start(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Start", arg0)
 }
 
+func (_m *MockVirtualMachineInterface) StartPaused(name string) error {
+	ret := _m.ctrl.Call(_m, "StartPaused", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) StartPaused(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartPaused", arg0)
+}
+
 func (_m *MockVirtualMachineInterface) Stop(name string) error {
 	ret := _m.ctrl.Call(_m, "Stop", name)
 	ret0, _ := ret[0].(error)
