@@ -40,7 +40,7 @@ of distribution.
 
 # Cadence and Timeline
 Both a new release branch and initial release candidate are cut on the **first
-day of each month.**
+business day of each month.**
 
 If no blocker issues are discovered the release candidate is **promoted to a full
 release after 5 business days.**
