@@ -417,7 +417,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				controller.Execute()
 			},
 			table.Entry("fail if pod in failed state", k8sv1.PodFailed, nil, v1.Failed),
-			table.Entry("fail if pod in succeded state", k8sv1.PodSucceeded, nil, v1.Failed),
+			table.Entry("do nothing if pod succeed", k8sv1.PodSucceeded, nil, v1.Pending),
 			//The PodReasonUnschedulable is a transient condition. It can clear up if more resources are added to the cluster
 			table.Entry("do nothing if pod Pending Unschedulable",
 				k8sv1.PodPending,
