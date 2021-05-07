@@ -1154,7 +1154,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+			b.handler.GetNFTIPString(proto), "saddr", b.getSrcAddressesToSnat(proto),
 			"counter", "snat", "to", b.getGatewayByProtocol(proto))
 		if err != nil {
 			return err
@@ -1188,15 +1188,6 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 				"dport",
 				strconv.Itoa(int(port.Port)),
 				"counter", "dnat", "to", b.getDhcpConfigIpByProtocol(proto))
-			if err != nil {
-				return err
-			}
-			err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
-				b.handler.GetNFTIPString(proto), "saddr", getEnvoyLoopbackAddress(),
-				strings.ToLower(port.Protocol),
-				"dport",
-				strconv.Itoa(int(port.Port)),
-				"counter", "snat", "to", b.getGatewayByProtocol(proto))
 			if err != nil {
 				return err
 			}
@@ -1234,6 +1225,14 @@ func (b *MasqueradeBindMechanism) getDhcpConfigIpByProtocol(proto iptables.Proto
 	} else {
 		return b.dhcpConfig.IPv6.IP.String()
 	}
+}
+
+func (b *MasqueradeBindMechanism) getSrcAddressesToSnat(proto iptables.Protocol) string {
+	addresses := []string{getLoopbackAdrress(proto)}
+	if hasIstioSidecarInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
+		addresses = append(addresses, getEnvoyLoopbackAddress())
+	}
+	return fmt.Sprintf("{ %s }", strings.Join(addresses, ", "))
 }
 
 func hasIstioSidecarInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {

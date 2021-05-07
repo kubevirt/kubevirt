@@ -536,7 +536,7 @@ var _ = Describe("Pod Network", func() {
 						"tcp",
 						"dport",
 						"80",
-						GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+						GetNFTIPString(proto), "saddr", "{ "+getLoopbackAdrress(proto)+" }",
 						"counter", "snat", "to", GetMasqueradeGwIp(proto)).Return(nil).AnyTimes()
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
 						"KUBEVIRT_PREINBOUND",
