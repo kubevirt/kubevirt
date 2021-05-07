@@ -170,6 +170,10 @@ func (n *NodeLabeller) run() error {
 
 	node := originalNode.DeepCopy()
 
+	if skipNode(node) {
+		return nil
+	}
+
 	//prepare new labels
 	newLabels := n.prepareLabels(cpuModels, cpuFeatures)
 	//remove old labeller labels
@@ -180,6 +184,11 @@ func (n *NodeLabeller) run() error {
 	err = n.patchNode(originalNode, node)
 
 	return err
+}
+
+func skipNode(node *v1.Node) bool {
+	_, exists := node.Annotations[kubevirtv1.LabellerSkipNodeAnnotation]
+	return exists
 }
 
 func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {

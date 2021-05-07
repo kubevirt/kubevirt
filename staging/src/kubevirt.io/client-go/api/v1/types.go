@@ -667,9 +667,10 @@ const (
 	HypervLabel = "hyperv.node.kubevirt.io/"
 	// This label represents vendor of cpu model on the node
 	CPUModelVendorLabel = "cpu-vendor.node.kubevirt.io/"
-
-	VirtualMachineLabel        = AppLabel + "/vm"
-	MemfdMemoryBackend  string = "kubevirt.io/memfd"
+	//
+	LabellerSkipNodeAnnotation        = "node-labeller.kubevirt.io/skip-node"
+	VirtualMachineLabel               = AppLabel + "/vm"
+	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 )
