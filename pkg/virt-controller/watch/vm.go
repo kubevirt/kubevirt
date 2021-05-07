@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/pborman/uuid"
@@ -284,16 +283,6 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
-	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMIs. Don't update the status
-	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
-	if vm.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(vm, v1.FinalizerOrphanDependents) {
-		err = c.orphan(cm, vmi)
-		if err != nil {
-			return err
-		}
-		return c.orphanDataVolumes(cm, dataVolumes)
-	}
-
 	if createErr != nil {
 		logger.Reason(err).Error("Creating the VirtualMachine failed.")
 	}
@@ -332,50 +321,6 @@ func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1
 		dataVolumes = append(dataVolumes, obj.(*cdiv1.DataVolume))
 	}
 	return dataVolumes, nil
-}
-
-// orphan removes the owner reference of all VMIs which are owned by the controller instance.
-// Workaround for https://github.com/kubernetes/kubernetes/issues/56348 to make no-cascading deletes possible
-// We don't have to remove the finalizer. This part of the gc is not affected by the mentioned bug
-// TODO +pkotas unify with replicasets. This function can be the same
-func (c *VMController) orphan(cm *controller.VirtualMachineControllerRefManager, vmi *virtv1.VirtualMachineInstance) error {
-	if vmi == nil {
-		return nil
-	}
-
-	err := cm.ReleaseVirtualMachine(vmi)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *VMController) orphanDataVolumes(cm *controller.VirtualMachineControllerRefManager, dataVolumes []*cdiv1.DataVolume) error {
-
-	if len(dataVolumes) == 0 {
-		return nil
-	}
-
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(dataVolumes))
-	wg.Add(len(dataVolumes))
-
-	for _, dataVolume := range dataVolumes {
-		go func(dataVolume *cdiv1.DataVolume) {
-			defer wg.Done()
-			err := cm.ReleaseDataVolume(dataVolume)
-			if err != nil {
-				errChan <- err
-			}
-		}(dataVolume)
-	}
-	wg.Wait()
-	select {
-	case err := <-errChan:
-		return err
-	default:
-	}
-	return nil
 }
 
 func createDataVolumeManifest(dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) *cdiv1.DataVolume {

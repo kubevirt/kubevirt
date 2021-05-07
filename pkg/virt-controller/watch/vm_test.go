@@ -872,22 +872,6 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
-		It("should detect that it is orphan deleted and remove the owner reference on the remaining VirtualMachineInstance", func() {
-			vm, vmi := DefaultVirtualMachine(true)
-
-			// Mark it as orphan deleted
-			now := metav1.Now()
-			vm.ObjectMeta.DeletionTimestamp = &now
-			vm.ObjectMeta.Finalizers = []string{metav1.FinalizerOrphanDependents}
-
-			addVirtualMachine(vm)
-			vmiFeeder.Add(vmi)
-
-			vmiInterface.EXPECT().Patch(vmi.ObjectMeta.Name, gomock.Any(), gomock.Any())
-
-			controller.Execute()
-		})
-
 		It("should detect that a VirtualMachineInstance already exists and adopt it", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vmi.OwnerReferences = []metav1.OwnerReference{}

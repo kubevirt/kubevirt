@@ -223,11 +223,6 @@ func (c *VMIReplicaSet) execute(key string) error {
 			scaleErr = c.cleanFinishedVmis(rs, finishedVmis)
 		}
 	}
-	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMIs. Don't update the status
-	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
-	if rs.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(rs, metav1.FinalizerOrphanDependents) {
-		return c.orphan(cm, activeVmis)
-	}
 
 	if scaleErr != nil {
 		logger.Reason(err).Error("Scaling the replicaset failed.")
@@ -239,33 +234,6 @@ func (c *VMIReplicaSet) execute(key string) error {
 	}
 
 	return scaleErr
-}
-
-// orphan removes the owner reference of all VMIs which are owned by the controller instance.
-// Workaround for https://github.com/kubernetes/kubernetes/issues/56348 to make no-cascading deletes possible
-// We don't have to remove the finalizer. This part of the gc is not affected by the mentioned bug
-func (c *VMIReplicaSet) orphan(cm *controller.VirtualMachineControllerRefManager, vmis []*virtv1.VirtualMachineInstance) error {
-
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(vmis))
-	wg.Add(len(vmis))
-
-	for _, vmi := range vmis {
-		go func(vmi *virtv1.VirtualMachineInstance) {
-			defer wg.Done()
-			err := cm.ReleaseVirtualMachine(vmi)
-			if err != nil {
-				errChan <- err
-			}
-		}(vmi)
-	}
-	wg.Wait()
-	select {
-	case err := <-errChan:
-		return err
-	default:
-	}
-	return nil
 }
 
 func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance) error {
