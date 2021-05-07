@@ -36,9 +36,11 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
+	"kubevirt.io/kubevirt/pkg/network/cache"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 )
 
 var bridgeFakeIP = "169.254.75.1%d/32"
@@ -73,11 +75,11 @@ type podNIC struct {
 	launcherPID      *int
 	iface            *v1.Interface
 	network          *v1.Network
-	handler          NetworkHandler
+	handler          netdriver.NetworkHandler
 	cacheFactory     cache.InterfaceCacheFactory
 }
 
-func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
+func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
 	if network.Pod == nil && network.Multus == nil {
 		return nil, fmt.Errorf("Network not implemented")
 	}
@@ -270,25 +272,21 @@ func (l *podNIC) PlugPhase1() error {
 
 		if err := bindMechanism.preparePodNetworkInterfaces(); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
-			return createCriticalNetworkError(err)
+			return errors.CreateCriticalNetworkError(err)
 		}
 
 		if err := bindMechanism.setCachedVIF(getPIDString(l.launcherPID)); err != nil {
 			log.Log.Reason(err).Error("failed to save vif configuration")
-			return createCriticalNetworkError(err)
+			return errors.CreateCriticalNetworkError(err)
 		}
 
 		if err := bindMechanism.setCachedInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
-			return createCriticalNetworkError(err)
+			return errors.CreateCriticalNetworkError(err)
 		}
 	}
 
 	return nil
-}
-
-func createCriticalNetworkError(err error) *CriticalNetworkError {
-	return &CriticalNetworkError{fmt.Sprintf("Critical network error: %v", err)}
 }
 
 func ensureDHCP(bindMechanism BindMechanism, podInterfaceName string) error {
@@ -366,7 +364,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 		if err != nil {
 			return nil, err
 		}
-		vif := &VIF{Name: l.podInterfaceName}
+		vif := &cache.VIF{Name: l.podInterfaceName}
 		if mac != nil {
 			vif.MAC = *mac
 		}
@@ -388,7 +386,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 		if err != nil {
 			return nil, err
 		}
-		vif := &VIF{Name: l.podInterfaceName}
+		vif := &cache.VIF{Name: l.podInterfaceName}
 		if mac != nil {
 			vif.MAC = *mac
 		}
@@ -432,7 +430,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 
 type BridgeBindMechanism struct {
 	vmi                 *v1.VirtualMachineInstance
-	vif                 *VIF
+	vif                 *cache.VIF
 	iface               *v1.Interface
 	virtIface           *api.Interface
 	podNicLink          netlink.Link
@@ -443,7 +441,7 @@ type BridgeBindMechanism struct {
 	cacheFactory        cache.InterfaceCacheFactory
 	launcherPID         *int
 	queueCount          uint32
-	handler             NetworkHandler
+	handler             netdriver.NetworkHandler
 }
 
 func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
@@ -546,7 +544,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), netdriver.LibvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -652,7 +650,7 @@ func (b *BridgeBindMechanism) setInterfaceRoutes() error {
 	}
 	b.vif.Gateway = routes[0].Gw
 	if len(routes) > 1 {
-		dhcpRoutes := filterPodNetworkRoutes(routes, b.vif)
+		dhcpRoutes := netdriver.FilterPodNetworkRoutes(routes, b.vif)
 		b.vif.Routes = &dhcpRoutes
 	}
 	return nil
@@ -753,7 +751,7 @@ func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
 
 type MasqueradeBindMechanism struct {
 	vmi                 *v1.VirtualMachineInstance
-	vif                 *VIF
+	vif                 *cache.VIF
 	iface               *v1.Interface
 	virtIface           *api.Interface
 	podNicLink          netlink.Link
@@ -767,7 +765,7 @@ type MasqueradeBindMechanism struct {
 	cacheFactory        cache.InterfaceCacheFactory
 	launcherPID         *int
 	queueCount          uint32
-	handler             NetworkHandler
+	handler             netdriver.NetworkHandler
 }
 
 func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
@@ -886,7 +884,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
-	err = createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), libvirtUserAndGroupId)
+	err = createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.vif.Mtu), netdriver.LibvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -1304,7 +1302,7 @@ type MacvtapBindMechanism struct {
 	mac              *net.HardwareAddr
 	cacheFactory     cache.InterfaceCacheFactory
 	launcherPID      *int
-	handler          NetworkHandler
+	handler          netdriver.NetworkHandler
 }
 
 func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
@@ -1386,7 +1384,7 @@ func (b *MacvtapBindMechanism) startDHCP() error {
 	return nil
 }
 
-func createAndBindTapToBridge(handler NetworkHandler, deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
+func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
 	err := handler.CreateTapDevice(deviceName, queueNumber, launcherPID, mtu, tapOwner)
 	if err != nil {
 		return err
@@ -1410,7 +1408,7 @@ func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
 		(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
 }
 
-func setCachedVIF(vif VIF, launcherPID string, ifaceName string) error {
+func setCachedVIF(vif cache.VIF, launcherPID string, ifaceName string) error {
 	buf, err := json.MarshalIndent(vif, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling vif object: %v", err)

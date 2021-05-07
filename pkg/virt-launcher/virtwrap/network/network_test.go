@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache/fake"
+	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )

@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package driver
 
 import (
 	"fmt"
@@ -29,6 +29,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
+
+	"kubevirt.io/kubevirt/pkg/network/cache"
 )
 
 var _ = Describe("Common Methods", func() {
@@ -96,11 +98,11 @@ var _ = Describe("VIF", func() {
 	})
 })
 
-func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu uint16) *VIF {
+func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu uint16) *cache.VIF {
 	addr, _ := netlink.ParseAddr(ipv4cidr)
 	mac, _ := net.ParseMAC(macStr)
 	gw := net.ParseIP(ipv4gateway)
-	vif := &VIF{
+	vif := &cache.VIF{
 		Name:    vifName,
 		IP:      *addr,
 		MAC:     mac,

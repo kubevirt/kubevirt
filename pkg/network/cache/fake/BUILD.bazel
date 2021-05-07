@@ -3,11 +3,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["infocache.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache/fake",
+    importpath = "kubevirt.io/kubevirt/pkg/network/cache/fake",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/network/cache:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
-        "//pkg/virt-launcher/virtwrap/network/cache:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],

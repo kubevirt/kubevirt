@@ -6,12 +6,13 @@ go_library(
         "infocache.go",
         "types.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache",
+    importpath = "kubevirt.io/kubevirt/pkg/network/cache",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
     ],
 )
 

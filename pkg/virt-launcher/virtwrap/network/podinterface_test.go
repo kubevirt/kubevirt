@@ -30,10 +30,6 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache/fake"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -42,11 +38,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/network/cache/fake"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Pod Network", func() {
-	var mockNetwork *MockNetworkHandler
+	var mockNetwork *netdriver.MockNetworkHandler
 	var ctrl *gomock.Controller
 	var dummySwap *netlink.Dummy
 	var primaryPodInterface *netlink.GenericLink
@@ -61,9 +61,9 @@ var _ = Describe("Pod Network", func() {
 	var bridgeTest *netlink.Bridge
 	var masqueradeBridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
-	var testNic *VIF
+	var testNic *cache.VIF
 	var tmpDir string
-	var masqueradeTestNic *VIF
+	var masqueradeTestNic *cache.VIF
 	var masqueradeDummyName string
 	var masqueradeDummy *netlink.Dummy
 	var masqueradeGwStr string
@@ -104,7 +104,7 @@ var _ = Describe("Pod Network", func() {
 		setVifCacheFile(tmpDir + "/cache-vif-%s.json")
 
 		ctrl = gomock.NewController(GinkgoT())
-		mockNetwork = NewMockNetworkHandler(ctrl)
+		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
 		testMac := "12:34:56:78:9A:BC"
 		updateTestMac := "AF:B3:1F:78:2A:CA"
 		mtu = 1410
@@ -122,7 +122,7 @@ var _ = Describe("Pod Network", func() {
 		routeList = []netlink.Route{routeAddr}
 		pid = os.Getpid()
 		tapDeviceName = "tap0"
-		libvirtUser = libvirtUserAndGroupId
+		libvirtUser = netdriver.LibvirtUserAndGroupId
 
 		// Create a bridge
 		bridgeTest = &netlink.Bridge{
@@ -140,7 +140,7 @@ var _ = Describe("Pod Network", func() {
 
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		tapDeviceName = "tap0"
-		testNic = &VIF{Name: primaryPodInterfaceName,
+		testNic = &cache.VIF{Name: primaryPodInterfaceName,
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Mtu:     uint16(mtu),
@@ -161,7 +161,7 @@ var _ = Describe("Pod Network", func() {
 		masqueradeVmIpv6 = masqueradeIpv6VmAddr.IP.String()
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
 		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName, MTU: mtu}}
-		masqueradeTestNic = &VIF{Name: primaryPodInterfaceName,
+		masqueradeTestNic = &cache.VIF{Name: primaryPodInterfaceName,
 			IP:          *masqueradeVmAddr,
 			IPv6:        *masqueradeIpv6VmAddr,
 			MAC:         fakeMac,
@@ -356,7 +356,7 @@ var _ = Describe("Pod Network", func() {
 			err := podnic.PlugPhase1()
 			Expect(err).To(HaveOccurred(), "SetupPhase1 should return an error")
 
-			_, ok := err.(*CriticalNetworkError)
+			_, ok := err.(*neterrors.CriticalNetworkError)
 			Expect(ok).To(BeTrue(), "SetupPhase1 should return an error of type CriticalNetworkError")
 		})
 		It("should return an error if the MTU is out or range", func() {
@@ -394,7 +394,7 @@ var _ = Describe("Pod Network", func() {
 
 			It("should remove empty routes, and routes matching nic, leaving others intact", func() {
 				expectedRouteList := []netlink.Route{defRoute, gwRoute, staticRoute}
-				Expect(filterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
+				Expect(netdriver.FilterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
 			})
 		})
 		It("phase2 should panic if DHCP startup fails", func() {

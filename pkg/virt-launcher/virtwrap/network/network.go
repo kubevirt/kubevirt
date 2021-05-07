@@ -23,19 +23,20 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/network/cache"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 )
 
 const primaryPodInterfaceName = "eth0"
 
 type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
-	handler      NetworkHandler
+	handler      netdriver.NetworkHandler
 	cacheFactory cache.InterfaceCacheFactory
 }
 
-func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler NetworkHandler, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
+func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
 	return &VMNetworkConfigurator{
 		vmi:          vmi,
 		handler:      handler,
@@ -44,7 +45,7 @@ func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance,
 }
 
 func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
-	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &NetworkUtilsHandler{}, cacheFactory)
+	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheFactory)
 }
 
 func (v VMNetworkConfigurator) getNICs() ([]podNIC, error) {

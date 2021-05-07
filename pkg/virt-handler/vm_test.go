@@ -31,10 +31,11 @@ import (
 	"sync"
 	"time"
 
+	netcache "kubevirt.io/kubevirt/pkg/network/cache"
+	fakenetcache "kubevirt.io/kubevirt/pkg/network/cache/fake"
+	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
-	cache2 "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
-	networkingfake "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache/fake"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -67,7 +68,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -199,7 +199,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			migrationProxy,
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
-		controller.networkCacheStoreFactory = networkingfake.NewFakeInMemoryNetworkCacheFactory()
+		controller.networkCacheStoreFactory = fakenetcache.NewFakeInMemoryNetworkCacheFactory()
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
 
 		vmiTestUUID = uuid.NewUUID()
@@ -1107,7 +1107,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(&network.CriticalNetworkError{Msg: "Critical SetupPodNetworkPhase1 error"}).Times(1)
+			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(&neterrors.CriticalNetworkError{Msg: "Critical SetupPodNetworkPhase1 error"}).Times(1)
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
 				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
@@ -2264,7 +2264,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 
-			podCacheInterface := &cache2.PodCacheInterface{
+			podCacheInterface := &netcache.PodCacheInterface{
 				Iface: &v1.Interface{
 					Name: interfaceName,
 				},
@@ -2321,7 +2321,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			podCacheInterface := &cache2.PodCacheInterface{
+			podCacheInterface := &netcache.PodCacheInterface{
 				Iface: &v1.Interface{
 					Name: interfaceName,
 				},

@@ -6,9 +6,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
-
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
