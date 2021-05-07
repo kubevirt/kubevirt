@@ -2062,49 +2062,6 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		}, 60)
 
-		Context("when the monitor namespace does not exist", func() {
-			It("should not create ServiceMonitor resources", func() {
-
-				kvTestData := KubeVirtTestData{}
-				kvTestData.BeforeTest()
-				defer kvTestData.AfterTest()
-
-				kv := &v1.KubeVirt{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "test-install",
-						Namespace:  NAMESPACE,
-						Finalizers: []string{util.KubeVirtFinalizer},
-					},
-				}
-				kubecontroller.SetLatestApiVersionAnnotation(kv)
-				kvTestData.addKubeVirt(kv)
-
-				// install strategy config
-				resource, _ := install.NewInstallStrategyConfigMap(kvTestData.defaultConfig, false, NAMESPACE)
-				resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
-				kvTestData.addResource(resource, kvTestData.defaultConfig, nil)
-
-				job, err := kvTestData.controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
-				Expect(err).ToNot(HaveOccurred())
-
-				job.Status.CompletionTime = now()
-				kvTestData.addInstallStrategyJob(job)
-
-				// ensure completed jobs are garbage collected once install strategy
-				// is loaded
-				kvTestData.deleteFromCache = false
-				kvTestData.shouldExpectJobDeletion()
-				kvTestData.shouldExpectKubeVirtUpdateStatus(1)
-				kvTestData.shouldExpectCreations()
-
-				kvTestData.controller.Execute()
-
-				Expect(len(kvTestData.controller.stores.RoleCache.List())).To(Equal(2))
-				Expect(len(kvTestData.controller.stores.RoleBindingCache.List())).To(Equal(2))
-				Expect(len(kvTestData.controller.stores.ServiceMonitorCache.List())).To(Equal(0))
-			}, 30)
-		})
-
 		It("should pause rollback until api server is rolled over.", func(done Done) {
 			defer close(done)
 			defer GinkgoRecover()
@@ -2568,6 +2525,49 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Deleted]).To(Equal(2))
 		}, 60)
+	})
+
+	Context("when the monitor namespace does not exist", func() {
+		It("should not create ServiceMonitor resources", func() {
+
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+			}
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+
+			// install strategy config
+			resource, _ := install.NewInstallStrategyConfigMap(kvTestData.defaultConfig, false, NAMESPACE)
+			resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
+			kvTestData.addResource(resource, kvTestData.defaultConfig, nil)
+
+			job, err := kvTestData.controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+			Expect(err).ToNot(HaveOccurred())
+
+			job.Status.CompletionTime = now()
+			kvTestData.addInstallStrategyJob(job)
+
+			// ensure completed jobs are garbage collected once install strategy
+			// is loaded
+			kvTestData.deleteFromCache = false
+			kvTestData.shouldExpectJobDeletion()
+			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectCreations()
+
+			kvTestData.controller.Execute()
+
+			Expect(len(kvTestData.controller.stores.RoleCache.List())).To(Equal(2))
+			Expect(len(kvTestData.controller.stores.RoleBindingCache.List())).To(Equal(2))
+			Expect(len(kvTestData.controller.stores.ServiceMonitorCache.List())).To(Equal(0))
+		}, 30)
 	})
 
 	Context("On install strategy dump", func() {
