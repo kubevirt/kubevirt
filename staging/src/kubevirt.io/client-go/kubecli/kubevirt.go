@@ -210,7 +210,6 @@ type VirtualMachineInterface interface {
 	Start(name string) error
 	Stop(name string) error
 	Migrate(name string) error
-	Rename(name string, options *v1.RenameOptions) error
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 }

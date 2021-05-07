@@ -24,11 +24,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authorization/v1"
-	k8svalidation "k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -105,11 +103,6 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes = validateStateChangeRequests(ar.Request, &vm)
-	if len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
-	}
-
 	causes, err = admitter.validateVolumeRequests(&vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -133,12 +126,7 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := validateStateChangeRequests(ar.Request, vm)
-	if len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
-	}
-
-	causes, err = admitter.validateVolumeRequests(vm)
+	causes, err := admitter.validateVolumeRequests(vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	} else if len(causes) > 0 {
@@ -445,83 +433,6 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 
 }
 
-func validateStateChangeRequests(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
-	// Only rename request is validated
-	renameRequest := getRenameRequest(vm)
-
-	// Prevent creation of VM with rename request
-	if ar.Operation == admissionv1.Create {
-		if renameRequest != nil {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Creating a VM with a rename request is not allowed",
-				Field:   k8sfield.NewPath("Status", "stateChangeRequests").String(),
-			}}
-		}
-	} else if ar.Operation == admissionv1.Update {
-		existingVM := &v1.VirtualMachine{}
-		err := json.Unmarshal(ar.OldObject.Raw, existingVM)
-
-		if err != nil {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeUnexpectedServerResponse,
-				Message: "Could not fetch old VM",
-			}}
-		}
-
-		if getRenameRequest(existingVM) != nil {
-			if webhooks.IsKubeVirtServiceAccount(ar.UserInfo.Username) {
-				if !reflect.DeepEqual(existingVM.Spec, vm.Spec) {
-					return []metav1.StatusCause{{
-						Type:    metav1.CauseTypeFieldValueNotSupported,
-						Message: fmt.Sprint("Cannot update VM spec until rename process completes"),
-						Field:   k8sfield.NewPath("spec").String(),
-					}}
-
-				}
-			} else {
-				return []metav1.StatusCause{{
-					Type:    metav1.CauseTypeFieldValueNotSupported,
-					Message: fmt.Sprint("Modifying a VM during a rename process is restricted to Kubevirt core components"),
-				}}
-			}
-		}
-	}
-
-	if renameRequest == nil {
-		return nil
-	}
-
-	// Reject rename requests if the VM is running
-	if vm.Status.Created {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Cannot rename a running VM",
-			Field:   k8sfield.NewPath("spec", "running").String(),
-		}}
-	}
-
-	newName, hasNewName := renameRequest.Data["newName"]
-	if !hasNewName {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "New name not provided",
-			Field:   k8sfield.NewPath("status", "stateChangeRequests").String(),
-		}}
-	}
-
-	nameErrs := k8svalidation.NameIsDNSSubdomain(newName, false)
-	if len(nameErrs) > 0 {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("The VM's new name is not valid: %s", strings.Join(nameErrs, "; ")),
-			Field:   k8sfield.NewPath("status", "stateChangeRequests").String(),
-		}}
-	}
-
-	return nil
-}
-
 func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
 	if ar.Operation != admissionv1.Update || vm.Status.SnapshotInProgress == nil {
 		return nil
@@ -543,14 +454,5 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 		}}
 	}
 
-	return nil
-}
-
-func getRenameRequest(vm *v1.VirtualMachine) *v1.VirtualMachineStateChangeRequest {
-	for _, req := range vm.Status.StateChangeRequests {
-		if req.Action == v1.RenameRequest {
-			return &req
-		}
-	}
 	return nil
 }

@@ -502,12 +502,6 @@ func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
 	}
 }
 
-func (RenameOptions) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "Options for a rename operation",
-	}
-}
-
 func (AddVolumeOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "AddVolumeOptions is provided when dynamically hot plugging a volume and disk\n+k8s:openapi-gen=true",

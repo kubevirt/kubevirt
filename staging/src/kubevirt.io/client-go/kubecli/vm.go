@@ -196,18 +196,6 @@ func (v *vm) Migrate(name string) error {
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
-func (v *vm) Rename(name string, options *v1.RenameOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "rename")
-
-	optsJson, err := json.Marshal(options)
-
-	if err != nil {
-		return err
-	}
-
-	return v.restClient.Put().RequestURI(uri).Body([]byte(optsJson)).Do(context.Background()).Error()
-}
-
 func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addvolume")
 

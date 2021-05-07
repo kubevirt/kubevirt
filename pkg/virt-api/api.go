@@ -298,16 +298,6 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.VirtualMachineInstanceGuestAgentInfo{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestAgentInfo{}))
 
-		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("rename")).
-			To(subresourceApp.RenameVMRequestHandler).
-			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation(version.Version+"Rename").
-			Doc("Rename a stopped VirtualMachine object.").
-			Returns(http.StatusOK, "OK", "").
-			Returns(http.StatusAccepted, "Accepted", "").
-			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
-			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
-
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("userlist")).
 			To(subresourceApp.UserList).
 			Consumes(restful.MIME_JSON).
@@ -410,10 +400,6 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/guestosinfo",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachines/rename",
 						Namespaced: true,
 					},
 					{

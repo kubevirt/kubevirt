@@ -1118,9 +1118,8 @@ type StateChangeRequestAction string
 
 // These are the currently defined state change requests
 const (
-	StartRequest  StateChangeRequestAction = "Start"
-	StopRequest   StateChangeRequestAction = "Stop"
-	RenameRequest                          = "Rename"
+	StartRequest StateChangeRequestAction = "Start"
+	StopRequest  StateChangeRequestAction = "Stop"
 )
 
 // VirtualMachineStatus represents the status returned by the
@@ -1209,9 +1208,6 @@ const (
 	// VirtualMachinePaused is added in a virtual machine when its vmi
 	// signals with its own condition that it is paused.
 	VirtualMachinePaused VirtualMachineConditionType = "Paused"
-
-	// This condition indicates that the VM was renamed
-	RenameConditionType VirtualMachineConditionType = "RenameOperation"
 )
 
 //
@@ -1682,13 +1678,6 @@ type VirtualMachineInstanceFileSystem struct {
 	FileSystemType string `json:"fileSystemType"`
 	UsedBytes      int    `json:"usedBytes"`
 	TotalBytes     int    `json:"totalBytes"`
-}
-
-// Options for a rename operation
-type RenameOptions struct {
-	metav1.TypeMeta `json:",inline"`
-	NewName         string  `json:"newName"`
-	OldName         *string `json:"oldName,omitempty"`
 }
 
 // AddVolumeOptions is provided when dynamically hot plugging a volume and disk
