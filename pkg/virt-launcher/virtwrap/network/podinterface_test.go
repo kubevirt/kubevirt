@@ -199,7 +199,6 @@ var _ = Describe("Pod Network", func() {
 	queueNumber = uint32(0)
 
 	TestPodInterfaceIPBinding := func(vm *v1.VirtualMachineInstance, domain *api.Domain) {
-
 		//For Bridge tests
 		mockNetwork.EXPECT().LinkSetName(primaryPodInterface, newPodInterfaceName).Return(nil)
 		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
@@ -306,11 +305,8 @@ var _ = Describe("Pod Network", func() {
 		err := driver.discoverPodNetworkInterface()
 		Expect(err).ToNot(HaveOccurred())
 
-		err = driver.preparePodNetworkInterfaces()
-		Expect(err).ToNot(HaveOccurred())
-
-		err = driver.decorateConfig()
-		Expect(err).ToNot(HaveOccurred())
+		Expect(driver.preparePodNetworkInterface()).To(Succeed())
+		Expect(driver.decorateConfig(driver.generateDomainIfaceSpec())).To(Succeed())
 	}
 
 	Context("on successful setup", func() {
