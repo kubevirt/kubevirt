@@ -959,7 +959,7 @@ spec:
 			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
 		},
 
-			table.Entry("[QUARANTINE] deployments",
+			table.Entry("[QUARANTINE] [test_id:6254] deployments",
 
 				func() {
 
@@ -997,7 +997,7 @@ spec:
 					return true
 				}),
 
-			table.Entry("customresourcedefinitions",
+			table.Entry("[test_id:6255] customresourcedefinitions",
 				func() {
 					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1027,7 +1027,7 @@ spec:
 
 					return true
 				}),
-			table.Entry("poddisruptionbudgets",
+			table.Entry("[test_id:6256] poddisruptionbudgets",
 				func() {
 					pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -2155,30 +2155,30 @@ spec:
 			}
 		})
 
-		It("should accept valid cert rotation parameters", func() {
+		It("[test_id:6257]should accept valid cert rotation parameters", func() {
 			kv := copyOriginalKv()
 			patchKvCertConfig(kv.Name, certConfig)
 		})
 
-		It("should reject combining deprecated and new cert rotation parameters", func() {
+		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
 			kv := copyOriginalKv()
 			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
-		It("should reject CA expires before rotation", func() {
+		It("[test_id:6259]should reject CA expires before rotation", func() {
 			kv := copyOriginalKv()
 			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
-		It("should reject Cert expires before rotation", func() {
+		It("[test_id:6260]should reject Cert expires before rotation", func() {
 			kv := copyOriginalKv()
 			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
-		It("should reject Cert rotates after CA expires", func() {
+		It("[test_id:6261]should reject Cert rotates after CA expires", func() {
 			kv := copyOriginalKv()
 			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
 			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}

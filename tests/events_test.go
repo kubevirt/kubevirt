@@ -188,7 +188,7 @@ var _ = Describe("[Serial] K8s IO events", func() {
 		}, 30*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
 		removePVwithFaultyDisk()
 	})
-	It("Should catch the IO error event", func() {
+	It("[test_id:6225]Should catch the IO error event", func() {
 		createVMIwithFaultyPVC(ns)
 		tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 120)
 		Eventually(func() bool {
