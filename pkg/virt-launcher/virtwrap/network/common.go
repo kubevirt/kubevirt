@@ -26,6 +26,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
+	"time"
 
 	"github.com/coreos/go-iptables/iptables"
 	lmf "github.com/subgraph/libmacouflage"
@@ -411,11 +413,14 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32
 	if err != nil {
 		return err
 	}
-	if err := tapDeviceSELinuxCmdExecutor.Execute(); err != nil {
+
+	const retryAttempts = 5
+	attempt, err := retry(tapDeviceSELinuxCmdExecutor.Execute, retryAttempts, time.Second)
+	if err != nil {
 		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
 	}
 
-	log.Log.Infof("Created tap device: %s in PID: %d", tapName, launcherPID)
+	log.Log.Infof("Created tap device: %s in PID: %d (attempt: %d)", tapName, launcherPID, attempt)
 	return nil
 }
 
@@ -487,4 +492,19 @@ func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []
 		filteredRoutes = append(filteredRoutes, route)
 	}
 	return
+}
+
+func retry(f func() error, attempts uint, backoffTime time.Duration) (uint, error) {
+	var errorsString []string
+
+	for attemptID := uint(0); attemptID < attempts; attemptID++ {
+		err := f()
+		if err == nil {
+			return attemptID, nil
+		}
+		errorsString = append(errorsString, fmt.Sprintf("[%d]: %v", attemptID, err))
+		time.Sleep(backoffTime)
+	}
+
+	return attempts, fmt.Errorf(strings.Join(errorsString, "\n"))
 }

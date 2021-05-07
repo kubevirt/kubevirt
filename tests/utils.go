@@ -748,12 +748,12 @@ func AdjustKubeVirtResource() {
 	// Rotate very often during the tests to ensure that things are working
 	kv.Spec.CertificateRotationStrategy = v1.KubeVirtCertificateRotateStrategy{SelfSigned: &v1.KubeVirtSelfSignConfiguration{
 		CA: &v1.CertConfig{
-			Duration:    &metav1.Duration{Duration: 20 * time.Minute},
-			RenewBefore: &metav1.Duration{Duration: 12 * time.Minute},
+			Duration:    &metav1.Duration{Duration: 20 * time.Hour},
+			RenewBefore: &metav1.Duration{Duration: 12 * time.Hour},
 		},
 		Server: &v1.CertConfig{
-			Duration:    &metav1.Duration{Duration: 14 * time.Minute},
-			RenewBefore: &metav1.Duration{Duration: 10 * time.Minute},
+			Duration:    &metav1.Duration{Duration: 14 * time.Hour},
+			RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
 		},
 	}}
 
