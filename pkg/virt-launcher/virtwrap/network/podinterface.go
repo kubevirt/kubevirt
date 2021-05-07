@@ -1138,54 +1138,6 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) getGatewayByProtocol(proto iptables.Protocol) string {
-	if proto == iptables.ProtocolIPv4 {
-		return b.gatewayAddr.IP.String()
-	} else {
-		return b.gatewayIpv6Addr.IP.String()
-	}
-}
-
-func (b *MasqueradeBindMechanism) getVifIpByProtocol(proto iptables.Protocol) string {
-	if proto == iptables.ProtocolIPv4 {
-		return b.vif.IP.IP.String()
-	} else {
-		return b.vif.IPv6.IP.String()
-	}
-}
-
-func (b *MasqueradeBindMechanism) skipForwardingForReservedPorts(proto iptables.Protocol) error {
-	chainWhereDnatIsPerformed := "output"
-	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
-	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
-		err := b.handler.NftablesAppendRule(proto, "nat", chain,
-			"tcp", "dport", portsUsedByLiveMigration(),
-			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
-			"counter", "return")
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func getLoopbackAdrress(proto iptables.Protocol) string {
-	if proto == iptables.ProtocolIPv4 {
-		return "127.0.0.1"
-	} else {
-		return "::1"
-	}
-}
-
-func portsUsedByLiveMigration() string {
-	ports := []string{
-		fmt.Sprint(LibvirtLocalConnectionPort),
-		fmt.Sprint(LibvirtDirectMigrationPort),
-		fmt.Sprint(LibvirtBlockMigrationPort),
-	}
-	return fmt.Sprintf("{ %s }", strings.Join(ports, ", "))
-}
-
 func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Protocol) error {
 	err := b.handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
@@ -1260,6 +1212,54 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 	}
 
 	return nil
+}
+
+func (b *MasqueradeBindMechanism) skipForwardingForReservedPorts(proto iptables.Protocol) error {
+	chainWhereDnatIsPerformed := "output"
+	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
+	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
+		err := b.handler.NftablesAppendRule(proto, "nat", chain,
+			"tcp", "dport", portsUsedByLiveMigration(),
+			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+			"counter", "return")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *MasqueradeBindMechanism) getGatewayByProtocol(proto iptables.Protocol) string {
+	if proto == iptables.ProtocolIPv4 {
+		return b.gatewayAddr.IP.String()
+	} else {
+		return b.gatewayIpv6Addr.IP.String()
+	}
+}
+
+func (b *MasqueradeBindMechanism) getVifIpByProtocol(proto iptables.Protocol) string {
+	if proto == iptables.ProtocolIPv4 {
+		return b.vif.IP.IP.String()
+	} else {
+		return b.vif.IPv6.IP.String()
+	}
+}
+
+func getLoopbackAdrress(proto iptables.Protocol) string {
+	if proto == iptables.ProtocolIPv4 {
+		return "127.0.0.1"
+	} else {
+		return "::1"
+	}
+}
+
+func portsUsedByLiveMigration() string {
+	ports := []string{
+		fmt.Sprint(LibvirtLocalConnectionPort),
+		fmt.Sprint(LibvirtDirectMigrationPort),
+		fmt.Sprint(LibvirtBlockMigrationPort),
+	}
+	return fmt.Sprintf("{ %s }", strings.Join(ports, ", "))
 }
 
 type SlirpBindMechanism struct {
