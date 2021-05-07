@@ -42,7 +42,6 @@ const (
 	VirtControllerName = "virt-controller"
 	VirtOperatorName   = "virt-operator"	
 	PrometheusAppLabel	   = "prometheus.kubevirt.io"
-	KubeVirtAppLabel	   = "kubevirt.io"
 	KubernetesHostnameLabel	   = "kubernetes.io/hostname"
 )
 
@@ -201,7 +200,7 @@ func newBaseDeployment(deploymentName string, imageName string, namespace string
 			Replicas: int32Ptr(2),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					KubeVirtAppLabel: deploymentName,
+					virtv1.AppLabel: deploymentName,
 				},
 			},
 			Template: *podTemplateSpec,
@@ -244,7 +243,7 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 }
 
 func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
-	podAntiAffinity := newPodAntiAffinity(KubeVirtAppLabel, KubernetesHostnameLabel, metav1.LabelSelectorOpIn, []string{VirtAPIName})
+	podAntiAffinity := newPodAntiAffinity(virtv1.AppLabel, KubernetesHostnameLabel, metav1.LabelSelectorOpIn, []string{VirtAPIName})
 	deploymentName := VirtAPIName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
@@ -310,7 +309,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 }
 
 func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, productName string, productVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
-	podAntiAffinity := newPodAntiAffinity(KubeVirtAppLabel, KubernetesHostnameLabel, metav1.LabelSelectorOpIn, []string{VirtControllerName})
+	podAntiAffinity := newPodAntiAffinity(virtv1.AppLabel, KubernetesHostnameLabel, metav1.LabelSelectorOpIn, []string{VirtControllerName})
 	deploymentName := VirtControllerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
@@ -392,7 +391,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
 	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
 
-	podAntiAffinity := newPodAntiAffinity(KubeVirtAppLabel, KubernetesHostnameLabel, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
+	podAntiAffinity := newPodAntiAffinity(virtv1.AppLabel, KubernetesHostnameLabel, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
 	name := VirtOperatorName
 	version = AddVersionSeparatorPrefix(version)
 	image := fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, name, version)
