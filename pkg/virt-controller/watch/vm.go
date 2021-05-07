@@ -49,8 +49,8 @@ type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool
 
 // Repeating info / error messages
 const (
-	stoppingVmiMsg                        = "Stopping VMI"
-	startingVmiMsg                        = "Starting VMI"
+	stoppingVmMsg                         = "Stopping VM"
+	startingVmMsg                         = "Starting VM"
 	failedExtractVmkeyFromVmErrMsg        = "Failed to extract vmKey from VirtualMachine."
 	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
@@ -493,16 +493,18 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				if stateChange.Action == virtv1.StopRequest &&
 					stateChange.UID != nil &&
 					*stateChange.UID == vmi.UID {
-					log.Log.Object(vm).V(4).Info("VMI should be restarted")
 					forceRestart = true
+					log.Log.Object(vm).Infof("processing forced restart request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 				}
 			}
 
 			if forceRestart || vmi.IsFinal() {
+				log.Log.Object(vm).Infof("%s with VMI in phase %s and VM runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
+
 				// The VirtualMachineInstance can fail or be finished. The job of this controller
 				// is keep the VirtualMachineInstance running, therefore it restarts it.
 				// restarting VirtualMachineInstance by stopping it and letting it start in next step
-				log.Log.Object(vm).V(4).Info(stoppingVmiMsg)
+				log.Log.Object(vm).V(4).Info(stoppingVmMsg)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
@@ -514,7 +516,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			return nil
 		}
 
-		log.Log.Object(vm).V(4).Info(startingVmiMsg)
+		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
 		err := c.startVMI(vm)
 		if err != nil {
 			return err
@@ -532,7 +534,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				if stateChange.Action == virtv1.StopRequest &&
 					stateChange.UID != nil &&
 					*stateChange.UID == vmi.UID {
-					log.Log.Object(vm).V(4).Info("VMI should be stopped")
+					log.Log.Object(vm).Infof("processing stop request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 					forceStop = true
 				}
 			}
@@ -540,7 +542,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			if forceStop || vmi.Status.Phase == virtv1.Failed {
 				// For RerunOnFailure, this controller should only restart the VirtualMachineInstance
 				// if it failed.
-				log.Log.Object(vm).V(4).Info(stoppingVmiMsg)
+				log.Log.Object(vm).Infof("%s with VMI in phase %s and VM runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
@@ -552,7 +554,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			return nil
 		}
 
-		log.Log.Object(vm).V(4).Info(startingVmiMsg)
+		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
 		err := c.startVMI(vm)
 		if err != nil {
 			return err
@@ -569,12 +571,11 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				if stateChange.Action == virtv1.StopRequest &&
 					stateChange.UID != nil &&
 					*stateChange.UID == vmi.UID {
-					log.Log.Object(vm).V(4).Info("VMI should be stopped")
 					forceStop = true
 				}
 			}
 			if forceStop {
-				log.Log.Object(vm).V(4).Info(stoppingVmiMsg)
+				log.Log.Object(vm).Infof("%s with VMI in phase %s due to stop request and VM runStrategy: %s", vmi.Status.Phase, stoppingVmMsg, runStrategy)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
@@ -588,12 +589,11 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			if len(vm.Status.StateChangeRequests) != 0 {
 				stateChange := vm.Status.StateChangeRequests[0]
 				if stateChange.Action == virtv1.StartRequest {
-					log.Log.Object(vm).V(4).Info("VMI should be started")
+					log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
 					forceStart = true
 				}
 			}
 			if forceStart {
-				log.Log.Object(vm).V(4).Info(startingVmiMsg)
 				err := c.startVMI(vm)
 				if err != nil {
 					return err
@@ -604,10 +604,10 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 
 	case virtv1.RunStrategyHalted:
 		// For this runStrategy, no VMI should be running under any circumstances.
-		log.Log.Object(vm).V(4).Info("VMI should be deleted")
 		if vmi == nil {
 			return nil
 		}
+		log.Log.Object(vm).Infof("%s with VMI in phase %s due to runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
 		err := c.stopVMI(vm, vmi)
 		return err
 	default:
@@ -634,6 +634,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
 		return err
 	}
+	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 
 	return nil
@@ -665,7 +666,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	}
 
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
-	log.Log.Object(vm).Info("Dispatching delete event")
+	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s/%s with phase %s", vmi.Namespace, vmi.Name, vmi.Status.Phase)
 
 	return nil
 }
