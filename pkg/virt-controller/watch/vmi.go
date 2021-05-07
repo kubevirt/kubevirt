@@ -381,7 +381,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 						// Remove PodScheduling condition from the VM
 						conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 					}
-					if isPodDownOrGoingDown(pod) {
+					if isPodFailedOrGoingDown(pod) {
 						vmiCopy.Status.Phase = virtv1.Failed
 					}
 				}
@@ -664,6 +664,10 @@ func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
 	return podIsDown(pod) || isComputeContainerDown(pod) || pod.DeletionTimestamp != nil
 }
 
+func isPodFailedOrGoingDown(pod *k8sv1.Pod) bool {
+	return isPodFailed(pod) || isComputeContainerFailed(pod) || pod.DeletionTimestamp != nil
+}
+
 func isComputeContainerDown(pod *k8sv1.Pod) bool {
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		if containerStatus.Name == "compute" {
@@ -673,8 +677,21 @@ func isComputeContainerDown(pod *k8sv1.Pod) bool {
 	return false
 }
 
+func isComputeContainerFailed(pod *k8sv1.Pod) bool {
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "compute" {
+			return containerStatus.State.Terminated != nil && containerStatus.State.Terminated.ExitCode != 0
+		}
+	}
+	return false
+}
+
 func podIsDown(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
+}
+
+func isPodFailed(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodFailed
 }
 
 func podExists(pod *k8sv1.Pod) bool {
