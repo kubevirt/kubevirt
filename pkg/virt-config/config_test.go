@@ -3,6 +3,7 @@ package virtconfig_test
 import (
 	"encoding/json"
 	"strings"
+	"sync"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -346,11 +347,16 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	It("verifies that SetConfigModifiedCallback works as expected ", func() {
+		lock := &sync.Mutex{}
 		var callbackSet1, callbackSet2 bool
 		callback1 := func() {
+			lock.Lock()
+			defer lock.Unlock()
 			callbackSet1 = true
 		}
 		callback2 := func() {
+			lock.Lock()
+			defer lock.Unlock()
 			callbackSet2 = true
 		}
 		KV := &v1.KubeVirt{
@@ -383,6 +389,8 @@ var _ = Describe("ConfigMap", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer, KV)
 		Expect(clusterConfig.GetVirtLauncherVerbosity()).To(Equal(uint(6)))
 		Eventually(func() bool {
+			lock.Lock()
+			defer lock.Unlock()
 			return callbackSet1 && callbackSet2
 		}).Should(BeTrue())
 	})

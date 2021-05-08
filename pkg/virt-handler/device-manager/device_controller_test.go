@@ -62,8 +62,8 @@ var _ = Describe("Device Controller", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockPCI = NewMockDeviceHandler(ctrl)
-		Handler = mockPCI
 		mockPCI.EXPECT().GetDevicePCIID(gomock.Any(), gomock.Any()).Return("1234:5678", nil).AnyTimes()
+		Handler = mockPCI
 
 		permittedDevices := `{"pciHostDevices":[`
 		permittedDevices += `{"pciVendorSelector":"DEAD:BEE7","resourceName":"example.org/fake-device1","externalResourceProvider":true},`
@@ -83,7 +83,9 @@ var _ = Describe("Device Controller", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(workDir)
+		defer os.RemoveAll(workDir)
+
+		ctrl.Finish()
 	})
 
 	Context("Basic Tests", func() {
@@ -200,6 +202,8 @@ var _ = Describe("Device Controller", func() {
 			go deviceController.Run(stop)
 
 			Eventually(func() bool {
+				deviceController.devicePluginsMutex.Lock()
+				defer deviceController.devicePluginsMutex.Unlock()
 				_, exists1 := deviceController.devicePlugins[deviceName1]
 				_, exists2 := deviceController.devicePlugins[deviceName2]
 				return exists1 || exists2
