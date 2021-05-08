@@ -22,6 +22,7 @@ package virtconfig
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -65,22 +66,37 @@ const (
 
 type ConfigModifiedFn func()
 
-// NewClusterConfig represents the `kubevirt-config` config map. It can be used to live-update
-// values if the config changes. The config update works like this:
-// 1. Check if the config exists. If it does not exist, return the default config
-// 2. Check if the config got updated. If so, try to parse and return it
-// 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
+// NewClusterConfig is a wrapper of NewClusterConfigWithCPUArch with default cpuArch.
 func NewClusterConfig(configMapInformer cache.SharedIndexInformer,
 	crdInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
 	namespace string) *ClusterConfig {
+	return NewClusterConfigWithCPUArch(
+		configMapInformer,
+		crdInformer,
+		kubeVirtInformer,
+		namespace,
+		runtime.GOARCH,
+	)
+}
 
-	defaultConfig := defaultClusterConfig()
+// NewClusterConfigWithCPUArch represents the `kubevirt-config` config map. It can be used to live-update
+// values if the config changes. The config update works like this:
+// 1. Check if the config exists. If it does not exist, return the default config
+// 2. Check if the config got updated. If so, try to parse and return it
+// 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
+func NewClusterConfigWithCPUArch(configMapInformer cache.SharedIndexInformer,
+	crdInformer cache.SharedIndexInformer,
+	kubeVirtInformer cache.SharedIndexInformer,
+	namespace, cpuArch string) *ClusterConfig {
+
+	defaultConfig := defaultClusterConfig(cpuArch)
 
 	c := &ClusterConfig{
 		configMapInformer: configMapInformer,
 		crdInformer:       crdInformer,
 		kubeVirtInformer:  kubeVirtInformer,
+		cpuArch:           cpuArch,
 		lock:              &sync.Mutex{},
 		namespace:         namespace,
 		lastValidConfig:   defaultConfig,
@@ -158,7 +174,7 @@ func (c *ClusterConfig) crdUpdated(_, cur interface{}) {
 	c.crdAddedDeleted(cur)
 }
 
-func defaultClusterConfig() *v1.KubeVirtConfiguration {
+func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	parallelOutboundMigrationsPerNodeDefault := ParallelOutboundMigrationsPerNodeDefault
 	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
 	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
@@ -169,7 +185,6 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
-	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
 	defaultMemBalloonStatsPeriod := DefaultMemBalloonStatsPeriod
@@ -179,6 +194,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 		Product:      SmbiosConfigDefaultProduct,
 	}
 	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
+	DefaultOVMFPath, DefaultMachineType, emulatedMachinesDefault := getCPUArchSpecificDefault(cpuArch)
 
 	return &v1.KubeVirtConfiguration{
 		ImagePullPolicy: DefaultImagePullPolicy,
@@ -229,6 +245,7 @@ type ClusterConfig struct {
 	crdInformer                      cache.SharedIndexInformer
 	kubeVirtInformer                 cache.SharedIndexInformer
 	namespace                        string
+	cpuArch                          string
 	lock                             *sync.Mutex
 	lastValidConfig                  *v1.KubeVirtConfiguration
 	defaultConfig                    *v1.KubeVirtConfiguration
@@ -463,6 +480,25 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 	return nil
 }
 
+// getCPUArchSpecificDefault get arch specific default config
+func getCPUArchSpecificDefault(cpuArch string) (string, string, []string) {
+	if cpuArch == "" {
+		cpuArch = runtime.GOARCH
+	}
+	// get arch specific default config
+	switch cpuArch {
+	case "arm64":
+		emulatedMachinesDefault := strings.Split(DefaultAARCH64EmulatedMachines, ",")
+		return DefaultAARCH64OVMFPath, DefaultAARCH64MachineType, emulatedMachinesDefault
+	case "ppc64le":
+		emulatedMachinesDefault := strings.Split(DefaultPPC64LEEmulatedMachines, ",")
+		return DefaultARCHOVMFPath, DefaultPPC64LEMachineType, emulatedMachinesDefault
+	default:
+		emulatedMachinesDefault := strings.Split(DefaultAMD64EmulatedMachines, ",")
+		return DefaultARCHOVMFPath, DefaultAMD64MachineType, emulatedMachinesDefault
+	}
+}
+
 // getConfig returns the latest valid parsed config map result, or updates it
 // if a newer version is available.
 // XXX Rework this, to happen mostly in informer callbacks.
@@ -502,13 +538,14 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 		return c.lastValidConfig
 	}
 
-	config = defaultClusterConfig()
+	config = defaultClusterConfig(c.cpuArch)
 	var err error
 	if useConfigMap {
 		err = setConfigFromConfigMap(config, configMap)
 	} else {
 		err = setConfigFromKubeVirt(config, kv)
 	}
+
 	if err != nil {
 		c.lastInvalidConfigResourceVersion = resourceVersion
 		log.DefaultLogger().Reason(err).Errorf("Invalid cluster config using '%s' resource version '%s', falling back to last good resource version '%s'", resourceType, resourceVersion, c.lastValidConfigResourceVersion)

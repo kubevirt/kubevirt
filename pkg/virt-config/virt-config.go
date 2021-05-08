@@ -24,8 +24,6 @@ package virtconfig
 */
 
 import (
-	"runtime"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -73,54 +71,30 @@ const (
 	DefaultVirtOperatorLogVerbosity                 = 2
 )
 
-type DefaultArch struct {
-	Architecture string
-}
-
-func NewDefaultArch(arch string) *DefaultArch {
-	return &DefaultArch{Architecture: arch}
-}
-
-func (d *DefaultArch) IsARM64() bool {
-	if d.Architecture == "arm64" {
+func IsAMD64(arch string) bool {
+	if arch == "amd64" {
 		return true
 	}
 	return false
 }
 
-func (d *DefaultArch) IsPPC64() bool {
-	if d.Architecture == "ppc64le" {
+func IsARM64(arch string) bool {
+	if arch == "arm64" {
 		return true
 	}
 	return false
 }
 
-// GetDefaultMachinesForArch set default machine type and supported emulated machines based on architecture
-func (d *DefaultArch) GetDefaultMachinesForArch() (string, string) {
-	if d.IsPPC64() {
-		return DefaultPPC64LEMachineType, DefaultPPC64LEEmulatedMachines
+func IsPPC64(arch string) bool {
+	if arch == "ppc64le" {
+		return true
 	}
-	if d.IsARM64() {
-		return DefaultAARCH64MachineType, DefaultAARCH64EmulatedMachines
-	}
-	return DefaultAMD64MachineType, DefaultAMD64EmulatedMachines
+	return false
 }
-
-var DefaultMachineType, DefaultEmulatedMachines = NewDefaultArch(runtime.GOARCH).GetDefaultMachinesForArch()
 
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
 	return *c.GetConfig().MemBalloonStatsPeriod
 }
-
-//GetDefaultOVMFPathForArch set default EFI bootloader Path based on architecture
-func (d *DefaultArch) GetDefaultOVMFPathForArch() string {
-	if d.IsARM64() {
-		return DefaultAARCH64OVMFPath
-	}
-	return DefaultARCHOVMFPath
-}
-
-var DefaultOVMFPath = NewDefaultArch(runtime.GOARCH).GetDefaultOVMFPathForArch()
 
 func (c *ClusterConfig) IsUseEmulation() bool {
 	return c.GetConfig().DeveloperConfiguration.UseEmulation
