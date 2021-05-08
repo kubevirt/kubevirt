@@ -53,6 +53,7 @@ import (
 const (
 	virtOperatorJobAppLabel    = "virt-operator-strategy-dumper"
 	installStrategyKeyTemplate = "%s-%d"
+	defaultAddDelay            = 5 * time.Second
 )
 
 type KubeVirtController struct {
@@ -444,7 +445,7 @@ func (c *KubeVirtController) genericAddHandler(obj interface{}, expecter *contro
 		if expecter != nil {
 			expecter.CreationObserved(controllerKey)
 		}
-		c.queue.Add(controllerKey)
+		c.queue.AddAfter(controllerKey, defaultAddDelay)
 	}
 }
 
@@ -466,7 +467,7 @@ func (c *KubeVirtController) genericUpdateHandler(old, cur interface{}, expecter
 
 	key, err := c.getKubeVirtKey()
 	if key != "" && err == nil {
-		c.queue.Add(key)
+		c.queue.AddAfter(key, defaultAddDelay)
 	}
 	return
 }
@@ -504,7 +505,7 @@ func (c *KubeVirtController) genericDeleteHandler(obj interface{}, expecter *con
 		if expecter != nil {
 			expecter.DeletionObserved(key, k)
 		}
-		c.queue.Add(key)
+		c.queue.AddAfter(key, defaultAddDelay)
 	}
 }
 
@@ -527,7 +528,7 @@ func (c *KubeVirtController) enqueueKubeVirt(obj interface{}) {
 	if err != nil {
 		logger.Object(kv).Reason(err).Error("Failed to extract key from KubeVirt.")
 	}
-	c.queue.Add(key)
+	c.queue.AddAfter(key, defaultAddDelay)
 }
 
 func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {

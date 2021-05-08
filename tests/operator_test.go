@@ -47,6 +47,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"k8s.io/utils/pointer"
@@ -1764,10 +1765,23 @@ spec:
 		})
 
 		It("[test_id:4613]should remove owner references on non-namespaces resources when updating a resource", func() {
+			By("getting existing resource to reference")
+			cm, err := virtClient.CoreV1().ConfigMaps(originalKv.Namespace).Get(context.Background(), "kubevirt-ca", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			ownerRef := []metav1.OwnerReference{
+				*metav1.NewControllerRef(&k8sv1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: cm.Name,
+						UID:  cm.UID,
+					},
+				}, schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap", Group: ""}),
+			}
+
 			By("adding an owner reference")
 			origCRD, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			crd := origCRD.DeepCopy()
-			crd.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(&v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", UID: "a185f8c3-3f38-4b89-a8cc-80f3731f7ff9"}}, v1.KubeVirtGroupVersionKind)}
+			crd.OwnerReferences = ownerRef
 			patch := patchCRD(origCRD, crd)
 			_, err = virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), "virtualmachineinstances.kubevirt.io", types.MergePatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1782,12 +1796,13 @@ spec:
 			patch = patchCRD(origCRD, crd)
 			_, err = virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), "virtualmachineinstances.kubevirt.io", types.MergePatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
 			By("waiting until the owner reference disappears again")
 			Eventually(func() []metav1.OwnerReference {
 				crd, err = virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return crd.OwnerReferences
-			}, 10*time.Second, 1*time.Second).Should(BeEmpty())
+			}, 20*time.Second, 1*time.Second).Should(BeEmpty())
 			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
 		})
 

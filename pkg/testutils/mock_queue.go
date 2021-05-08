@@ -58,6 +58,11 @@ func (q *MockWorkQueue) AddRateLimited(item interface{}) {
 func (q *MockWorkQueue) AddAfter(item interface{}, duration time.Duration) {
 	q.RateLimitingInterface.AddAfter(item, duration)
 	atomic.AddInt32(&q.addAfterEnque, 1)
+	q.wgLock.Lock()
+	defer q.wgLock.Unlock()
+	if q.addWG != nil {
+		q.addWG.Done()
+	}
 }
 
 func (q *MockWorkQueue) GetRateLimitedEnqueueCount() int {
