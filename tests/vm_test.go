@@ -197,9 +197,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Deleting the DataVolume")
 					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 				}(dv)
-				Eventually(func() (*corev1.PersistentVolumeClaim, error) {
-					return virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-				}).Should(Not(BeNil()), 30)
+				Eventually(func() error {
+					_, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					return err
+				}, 30*time.Second, 1*time.Second).Should(BeNil())
 
 				vmi := tests.NewRandomVMI()
 
