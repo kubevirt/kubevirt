@@ -1307,6 +1307,53 @@ var _ = Describe("VirtualMachine", func() {
 				})
 			})
 
+			Context("VM with PersistentVolumeClaims", func() {
+				var vm *v1.VirtualMachine
+
+				BeforeEach(func() {
+					vm, _ = DefaultVirtualMachine(false)
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "test1",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "pvc1",
+							},
+						},
+					})
+
+					addVirtualMachine(vm)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*v1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+					})
+				})
+
+				It("Should set a Provisioning status when PersistentVolumeClaim doesn't exist", func() {
+					controller.Execute()
+				})
+
+				table.DescribeTable("Should set a Provisioning status when PersistentVolumeClaim exists but unready", func(pvcPhase k8sv1.PersistentVolumeClaimPhase) {
+					pvc := k8sv1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "pvc1",
+							Namespace: vm.Namespace,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: pvcPhase,
+						},
+					}
+					pvcInformer.GetStore().Add(pvc)
+
+					controller.Execute()
+				},
+
+					table.Entry("PersistentVolumeClaim is in Pending phase", k8sv1.ClaimPending),
+					table.Entry("PersistentVolumeClaim is in Lost phase", k8sv1.ClaimLost),
+				)
+
+			})
+
 			It("should set a Running status when VMI is running but not paused", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 

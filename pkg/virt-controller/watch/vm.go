@@ -455,6 +455,33 @@ func (c *VMController) areDataVolumesReady(vm *virtv1.VirtualMachine) bool {
 	return true
 }
 
+// arePVCVolumesReady determines whether all PersistentVolumeClaims specified for a VM
+// have been successfully provisioned, and are ready for consumption.
+func (c *VMController) arePVCVolumesReady(vm *virtv1.VirtualMachine) bool {
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.PersistentVolumeClaim == nil {
+			continue
+		}
+
+		pvcKey := fmt.Sprintf("%s/%s", vm.Namespace, volume.PersistentVolumeClaim.ClaimName)
+		pvcObj, exists, err := c.pvcInformer.GetStore().GetByKey(pvcKey)
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error fetching PersistentVolumeClaim %s: %v", pvcKey, err)
+			return false
+		}
+		if !exists {
+			return false
+		}
+
+		pvc := pvcObj.(*k8score.PersistentVolumeClaim)
+		if pvc.Status.Phase != k8score.ClaimBound {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if len(vm.Status.VolumeRequests) == 0 {
 		return nil
@@ -1313,7 +1340,7 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return !c.areDataVolumesReady(vm)
+	return !c.areDataVolumesReady(vm) || !c.arePVCVolumesReady(vm)
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
