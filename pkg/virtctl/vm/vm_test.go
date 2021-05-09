@@ -139,6 +139,26 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cmd.Execute()).To(BeNil())
 			})
 		})
+		Context("With --paused flag", func() {
+			It("should start paused if --paused true", func() {
+				vm := kubecli.NewMinimalVM(vmName)
+
+				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+				vmInterface.EXPECT().StartPaused(vm.Name).Return(nil).Times(1)
+
+				cmd := tests.NewVirtctlCommand("start", vmName, "--paused")
+				Expect(cmd.Execute()).To(BeNil())
+			})
+			It("should start if --paused false", func() {
+				vm := kubecli.NewMinimalVM(vmName)
+
+				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+				vmInterface.EXPECT().Start(vm.Name).Return(nil).Times(1)
+
+				cmd := tests.NewVirtctlCommand("start", vmName, "--paused=false")
+				Expect(cmd.Execute()).To(BeNil())
+			})
+		})
 
 	})
 

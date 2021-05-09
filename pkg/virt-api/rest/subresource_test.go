@@ -1576,6 +1576,153 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 	})
 
+	Context("Subresource api - start/stop paused start strategy", func() {
+		BeforeEach(func() {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+		})
+		It("should patch startStrategy: Paused on start", func(done Done) {
+			body := map[string]bool{
+				"paused": true,
+			}
+			bytesRepresentation, _ := json.Marshal(body)
+			request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+
+			vm := v1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "testvm",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineSpec{
+					Running:  &notRunning,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{},
+				},
+			}
+			vmi := v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{},
+			}
+			vmi.ObjectMeta.SetUID(uuid.NewUUID())
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.StartVMRequestHandler(request, response)
+
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			close(done)
+		})
+
+		table.DescribeTable("should patch status on start for VM with RunStrategy",
+			func(runStrategy v1.VirtualMachineRunStrategy) {
+				vm := newVirtualMachineWithRunStrategy(runStrategy)
+				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+				body := map[string]bool{
+					"paused": true,
+				}
+				bytesRepresentation, _ := json.Marshal(body)
+				request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+
+				vmi := newVirtualMachineInstanceInPhase(v1.Succeeded)
+
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+					),
+				)
+
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm/status"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+
+				app.StartVMRequestHandler(request, response)
+
+				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			},
+			table.Entry("Manual RunStrategy", v1.RunStrategyManual),
+			table.Entry("RerunOnFailure RunStrategy", v1.RunStrategyRerunOnFailure),
+		)
+
+		table.DescribeTable("should patch remove startStrategy on stop",
+			func(runStrategy v1.VirtualMachineRunStrategy) {
+				vm := newVirtualMachineWithRunStrategy(runStrategy)
+				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+				strategy := v1.StartStrategyPaused
+				vm.Spec.Template.Spec.StartStrategy = &strategy
+
+				vmi := newVirtualMachineInstanceInPhase(v1.Running)
+
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+					),
+				)
+
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+
+				app.StopVMRequestHandler(request, response)
+
+				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			},
+			table.Entry("Always RunStrategy", v1.RunStrategyAlways),
+			table.Entry("RerunOnFailure RunStrategy", v1.RunStrategyRerunOnFailure),
+		)
+	})
+
 	AfterEach(func() {
 		server.Close()
 		backend.Close()
