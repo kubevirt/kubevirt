@@ -1271,33 +1271,6 @@ var _ = Describe("VirtualMachine", func() {
 					table.Entry("DataVolume is in WaitForFirstConsumer phase", cdiv1.WaitForFirstConsumer),
 				)
 
-				It("Should set a Provisioning status when DataVolume is ready but not owned by VM", func() {
-					addVirtualMachine(vm)
-
-					dv := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
-					dv.Status.Phase = cdiv1.Succeeded
-
-					orphanDV := dv.DeepCopy()
-					orphanDV.ObjectMeta.OwnerReferences = nil
-					dataVolumeInformer.GetStore().Add(orphanDV)
-
-					// This is called by the CanAdopt() function just before adopting the DV
-					vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Times(1).Return(vm, nil)
-
-					cdiClient.Fake.PrependReactor("patch", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-						return true, dv, nil
-					})
-
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
-					})
-
-					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Return(vmi, nil)
-
-					controller.Execute()
-				})
-
 				It("Should set a Provisioning status when one DataVolume is ready and another isn't", func() {
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "test2",

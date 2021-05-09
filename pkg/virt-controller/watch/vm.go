@@ -428,11 +428,15 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 }
 
 // areDataVolumesReady determines whether all DataVolumes specified for a VM
-// have been successfully provisioned and/or claimed, and are ready for consumption.
+// have been successfully provisioned, and are ready for consumption.
 // Note that DataVolumes in WaitForFirstConsumer phase are not regarded as ready.
 func (c *VMController) areDataVolumesReady(vm *virtv1.VirtualMachine) bool {
-	for _, template := range vm.Spec.DataVolumeTemplates {
-		dvKey := fmt.Sprintf("%s/%s", vm.Namespace, template.Name)
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.DataVolume == nil {
+			continue
+		}
+
+		dvKey := fmt.Sprintf("%s/%s", vm.Namespace, volume.DataVolume.Name)
 		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
 		if err != nil {
 			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
@@ -443,16 +447,6 @@ func (c *VMController) areDataVolumesReady(vm *virtv1.VirtualMachine) bool {
 		}
 
 		dv := dvObj.(*cdiv1.DataVolume)
-
-		if !v1.IsControlledBy(dv, vm) {
-			// If the DataVolume had just been adopted by this controller in the current reconcile cycle,
-			// this will not be detected here since the dataVolumeInformer cache isn't likely
-			// to be updated with the new ownerReference just yet. Once the cache is updated,
-			// another reconcile cycle will be triggered in which the adoption will be detected
-			// and the Provisioning status can potentially be removed (assuming all other DVs are ready).
-			return false
-		}
-
 		if dv.Status.Phase != cdiv1.Succeeded {
 			return false
 		}
@@ -1291,10 +1285,10 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusTerminating, c.isVirtualMachineStatusTerminating},
 		{virtv1.VirtualMachineStatusStopping, c.isVirtualMachineStatusStopping},
 		{virtv1.VirtualMachineStatusMigrating, c.isVirtualMachineStatusMigrating},
-		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
-		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
 		{virtv1.VirtualMachineStatusPaused, c.isVirtualMachineStatusPaused},
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
+		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
+		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
 		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
 	}
 
