@@ -1287,10 +1287,6 @@ func (b *SlirpBindMechanism) setCachedDhcpConfig() error {
 	return nil
 }
 
-func (b *SlirpBindMechanism) wasCachedInterfaceLoaded() bool {
-	return true
-}
-
 type MacvtapBindMechanism struct {
 	vmi              *v1.VirtualMachineInstance
 	iface            *v1.Interface
