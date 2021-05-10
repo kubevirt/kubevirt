@@ -1082,6 +1082,11 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 		return err
 	}
 
+	err = b.skipForwardingForReservedPortsUsingIptables(protocol)
+	if err != nil {
+		return err
+	}
+
 	if len(b.iface.Ports) == 0 {
 		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
 			"-j",
@@ -1138,6 +1143,22 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 	return nil
 }
 
+func (b *MasqueradeBindMechanism) skipForwardingForReservedPortsUsingIptables(protocol iptables.Protocol) error {
+	chainWhereDnatIsPerformed := "OUTPUT"
+	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
+	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
+		err := b.handler.IptablesAppendRule(protocol, "nat", chain,
+			"-p", "tcp", "--match", "multiport",
+			"--dports", fmt.Sprintf("%s", strings.Join(portsUsedByLiveMigration(), ",")),
+			"--source", getLoopbackAdrress(protocol),
+			"-j", "RETURN")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Protocol) error {
 	err := b.handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
@@ -1164,7 +1185,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 		return err
 	}
 
-	err = b.skipForwardingForReservedPorts(proto)
+	err = b.skipForwardingForReservedPortsUsingNftables(proto)
 	if err != nil {
 		return err
 	}
@@ -1214,12 +1235,12 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) skipForwardingForReservedPorts(proto iptables.Protocol) error {
+func (b *MasqueradeBindMechanism) skipForwardingForReservedPortsUsingNftables(proto iptables.Protocol) error {
 	chainWhereDnatIsPerformed := "output"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
 		err := b.handler.NftablesAppendRule(proto, "nat", chain,
-			"tcp", "dport", portsUsedByLiveMigration(),
+			"tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(portsUsedByLiveMigration(), ", ")),
 			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
 			"counter", "return")
 		if err != nil {
@@ -1253,13 +1274,12 @@ func getLoopbackAdrress(proto iptables.Protocol) string {
 	}
 }
 
-func portsUsedByLiveMigration() string {
-	ports := []string{
+func portsUsedByLiveMigration() []string {
+	return []string{
 		fmt.Sprint(LibvirtLocalConnectionPort),
 		fmt.Sprint(LibvirtDirectMigrationPort),
 		fmt.Sprint(LibvirtBlockMigrationPort),
 	}
-	return fmt.Sprintf("{ %s }", strings.Join(ports, ", "))
 }
 
 type SlirpBindMechanism struct {
