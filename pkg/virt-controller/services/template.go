@@ -1212,7 +1212,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 
 	var initContainers []k8sv1.Container
 
-	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.IsKernelBootDefinedProperly(vmi) {
+	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi) {
 
 		initContainerVolumeMounts := []k8sv1.VolumeMount{
 			{

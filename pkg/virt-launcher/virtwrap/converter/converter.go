@@ -1154,7 +1154,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, api.Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
 		}
 
-		if util.IsKernelBootDefinedProperly(vmi) {
+		if util.HasKernelBootContainerImage(vmi) {
 			kb := vmi.Spec.Domain.Firmware.KernelBoot
 
 			log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")

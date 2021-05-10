@@ -375,7 +375,7 @@ func (m *mounter) MountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 
 	log.Log.Object(vmi).Infof("mounting kernel artifacts")
 
-	if !util.IsKernelBootDefinedProperly(vmi) {
+	if !util.HasKernelBootContainerImage(vmi) {
 		log.Log.Object(vmi).Infof("kernel boot not defined - nothing to mount")
 		return nil
 	}
@@ -485,7 +485,7 @@ func (m *mounter) MountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 }
 
 func (m *mounter) UnmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
-	if !util.IsKernelBootDefinedProperly(vmi) {
+	if !util.HasKernelBootContainerImage(vmi) {
 		return nil
 	}
 

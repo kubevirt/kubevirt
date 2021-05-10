@@ -15,8 +15,6 @@ spec:
           initrdPath: /boot/initramfs-virt
           kernelPath: /boot/vmlinuz-virt
         kernelArgs: console=ttyS0
-    machine:
-      type: ""
     resources:
       requests:
         memory: 1Gi

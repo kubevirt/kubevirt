@@ -214,11 +214,7 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, bi
 }
 
 func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) *kubev1.Container {
-	if !util.IsKernelBootDefinedProperly(vmi) {
-		if f := vmi.Spec.Domain.Firmware; f != nil && f.KernelBoot != nil && f.KernelBoot.Container != nil &&
-			f.KernelBoot.Container.InitrdPath == "" && f.KernelBoot.Container.KernelPath == "" {
-			log.Log.Object(vmi).Warning("Kernel boot container does not contain kernel path nor initrd path - ignoring kernel-boot configuration")
-		}
+	if !util.HasKernelBootContainerImage(vmi) {
 		return nil
 	}
 

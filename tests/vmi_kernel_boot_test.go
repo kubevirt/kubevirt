@@ -43,8 +43,30 @@ var _ = Describe("VMI with external kernel boot", func() {
 		It("ensure successful boot", func() {
 			vmi := utils.GetVMIKernelBoot()
 			obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(obj)
+		})
+	})
+
+	Context("with illegal definition ensure rejection of", func() {
+
+		It("VMI defined without an image", func() {
+			vmi := utils.GetVMIKernelBoot()
+			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
+			kernelBoot.Container.Image = ""
+			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with an image"))
+		})
+
+		It("VMI defined with image but without initrd & kernel paths", func() {
+			vmi := utils.GetVMIKernelBoot()
+			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
+			kernelBoot.Container.KernelPath = ""
+			kernelBoot.Container.InitrdPath = ""
+			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with at least one of the following: kernelPath, initrdPath"))
 		})
 	})
 })
