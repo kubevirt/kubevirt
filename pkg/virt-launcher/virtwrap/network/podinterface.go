@@ -535,7 +535,7 @@ func (b *BridgeBindMechanism) decorateConfig(domainIface api.Interface) error {
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {
 			ifaces[i].MTU = domainIface.MTU
-			ifaces[i].MAC = &api.MAC{MAC: b.dhcpConfig.MAC.String()}
+			ifaces[i].MAC = domainIface.MAC
 			ifaces[i].Target = domainIface.Target
 			break
 		}
