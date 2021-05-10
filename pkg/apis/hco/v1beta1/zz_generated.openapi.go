@@ -446,20 +446,30 @@ func schema_pkg_apis_hco_v1beta1_MediatedHostDevice(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"mdevNameSelector": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "name of a mediated device type required to identify a mediated device on a host",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"resourceName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "name by which a device is advertised and being requested",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"externalResourceProvider": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "indicates that this resource is being provided by an external device plugin",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HCO enforces the existence of several MediatedHostDevice objects. Set disabled field to true instead of remove these objects.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -473,7 +483,7 @@ func schema_pkg_apis_hco_v1beta1_OperandResourceRequirements(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ResourceRequirements is a list of resource requirements for the operand workloads pods",
+				Description: "OperandResourceRequirements is a list of resource requirements for the operand workloads pods",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"storageWorkloads": {
@@ -497,26 +507,36 @@ func schema_pkg_apis_hco_v1beta1_PciHostDevice(ref common.ReferenceCallback) com
 				Description: "PciHostDevice represents a host PCI device allowed for passthrough",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"pciVendorSelector": {
+					"pciDeviceSelector": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "a combination of a vendor_id:product_id required to identify a PCI device on a host.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"resourceName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "name by which a device is advertised and being requested",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"externalResourceProvider": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "indicates that this resource is being provided by an external device plugin",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HCO enforces the existence of several PciHostDevice objects. Set disabled field to true instead of remove these objects.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
-				Required: []string{"pciVendorSelector", "resourceName"},
+				Required: []string{"pciDeviceSelector", "resourceName"},
 			},
 		},
 	}
@@ -532,7 +552,10 @@ func schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref common.ReferenceCallba
 					"pciHostDevices": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
+								"x-kubernetes-list-map-keys": []interface{}{
+									"pciDeviceSelector",
+								},
+								"x-kubernetes-list-type": "map",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -549,7 +572,10 @@ func schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref common.ReferenceCallba
 					"mediatedDevices": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
+								"x-kubernetes-list-map-keys": []interface{}{
+									"mdevNameSelector",
+								},
+								"x-kubernetes-list-type": "map",
 							},
 						},
 						SchemaProps: spec.SchemaProps{

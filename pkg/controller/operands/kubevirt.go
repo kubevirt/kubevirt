@@ -316,12 +316,14 @@ func toKvPermittedHostDevices(permittedDevices *hcov1beta1.PermittedHostDevices)
 
 func toKvPciHostDevices(hcoPciHostdevices []hcov1beta1.PciHostDevice) []kubevirtv1.PciHostDevice {
 	if len(hcoPciHostdevices) > 0 {
-		pciHostDevices := make([]kubevirtv1.PciHostDevice, len(hcoPciHostdevices))
-		for i, hcoPciHostDevice := range hcoPciHostdevices {
-			pciHostDevices[i] = kubevirtv1.PciHostDevice{
-				PCIVendorSelector:        hcoPciHostDevice.PCIVendorSelector,
-				ResourceName:             hcoPciHostDevice.ResourceName,
-				ExternalResourceProvider: hcoPciHostDevice.ExternalResourceProvider,
+		pciHostDevices := make([]kubevirtv1.PciHostDevice, 0, len(hcoPciHostdevices))
+		for _, hcoPciHostDevice := range hcoPciHostdevices {
+			if !hcoPciHostDevice.Disabled {
+				pciHostDevices = append(pciHostDevices, kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        hcoPciHostDevice.PCIDeviceSelector,
+					ResourceName:             hcoPciHostDevice.ResourceName,
+					ExternalResourceProvider: hcoPciHostDevice.ExternalResourceProvider,
+				})
 			}
 		}
 
@@ -332,12 +334,14 @@ func toKvPciHostDevices(hcoPciHostdevices []hcov1beta1.PciHostDevice) []kubevirt
 
 func toKvMediatedDevices(hcoMediatedDevices []hcov1beta1.MediatedHostDevice) []kubevirtv1.MediatedHostDevice {
 	if len(hcoMediatedDevices) > 0 {
-		mediatedDevices := make([]kubevirtv1.MediatedHostDevice, len(hcoMediatedDevices))
-		for i, hcoMediatedHostDevice := range hcoMediatedDevices {
-			mediatedDevices[i] = kubevirtv1.MediatedHostDevice{
-				MDEVNameSelector:         hcoMediatedHostDevice.MDEVNameSelector,
-				ResourceName:             hcoMediatedHostDevice.ResourceName,
-				ExternalResourceProvider: hcoMediatedHostDevice.ExternalResourceProvider,
+		mediatedDevices := make([]kubevirtv1.MediatedHostDevice, 0, len(hcoMediatedDevices))
+		for _, hcoMediatedHostDevice := range hcoMediatedDevices {
+			if !hcoMediatedHostDevice.Disabled {
+				mediatedDevices = append(mediatedDevices, kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         hcoMediatedHostDevice.MDEVNameSelector,
+					ResourceName:             hcoMediatedHostDevice.ResourceName,
+					ExternalResourceProvider: hcoMediatedHostDevice.ExternalResourceProvider,
+				})
 			}
 		}
 

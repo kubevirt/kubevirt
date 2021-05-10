@@ -349,7 +349,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 				PermittedHostDevices: &PermittedHostDevices{
 					PciHostDevices: []PciHostDevice{
 						{
-							PCIVendorSelector:        "PCIVendorSelector",
+							PCIDeviceSelector:        "PCIDeviceSelector",
 							ResourceName:             "ResourceName",
 							ExternalResourceProvider: true,
 						},

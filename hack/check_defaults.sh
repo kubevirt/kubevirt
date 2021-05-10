@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -x
 #
 # This file is part of the KubeVirt project
 #
@@ -18,9 +18,14 @@
 #
 # This script checks the defaulting mechanism
 
+echo "Read the CR's spec before starting the test"
+${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o json | jq '.spec'
+
 CERTCONFIGDEFAULTS='{"ca":{"duration":"48h0m0s","renewBefore":"24h0m0s"},"server":{"duration":"24h0m0s","renewBefore":"12h0m0s"}}'
 FGDEFAULTS='{"sriovLiveMigration":false,"withHostPassthroughCPU":false}'
 LMDEFAULTS='{"bandwidthPerMigration":"64Mi","completionTimeoutPerGiB":800,"parallelMigrationsPerCluster":5,"parallelOutboundMigrationsPerNode":2,"progressTimeout":150}'
+PERMITTED_HOST_DEVICES_DEFAULT1='{"pciDeviceSelector":"10DE:1DB6","resourceName":"nvidia.com/GV100GL_Tesla_V100"}'
+PERMITTED_HOST_DEVICES_DEFAULT2='{"pciDeviceSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}'
 
 CERTCONFIGPATHS=(
     "/spec/certConfig/ca/duration"
@@ -50,13 +55,21 @@ LMPATHS=(
     "/spec"
 )
 
+PERMITTED_HOST_DEVICES_PATHS=(
+    "/spec/permittedHostDevices/pciHostDevices/0"
+    "/spec/permittedHostDevices/pciHostDevices/1"
+    "/spec/permittedHostDevices/pciHostDevices"
+    "/spec/permittedHostDevices"
+    "/spec"
+)
+
 echo "Check that certConfig defaults are behaving as expected"
 
 ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
 for JPATH in "${CERTCONFIGPATHS[@]}"; do
     ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type='json' kubevirt-hyperconverged -p '[{ \"op\": \"remove\", \"path\": '\"${JPATH}\"' }]'"
     CERTCONFIG=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.certConfig}')
-    if [[ $CERTCONFIGDEFAULTS != $CERTCONFIG ]]; then
+    if [[ "${CERTCONFIGDEFAULTS}" != "${CERTCONFIG}" ]]; then
         echo "Failed checking CR defaults for certConfig"
         exit 1
     fi
@@ -88,3 +101,52 @@ for JPATH in "${LMPATHS[@]}"; do
     fi
     sleep 2
 done
+
+echo "Check that permittedHostDevices defaults are behaving as expected"
+
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
+for JPATH in "${PERMITTED_HOST_DEVICES_PATHS[@]}"; do
+    ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type='json' kubevirt-hyperconverged -p '[{ \"op\": \"remove\", \"path\": '\"${JPATH}\"' }]'"
+    PHD=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.permittedHostDevices}')
+    if ! echo "${PHD}" | grep "${PERMITTED_HOST_DEVICES_DEFAULT1}"; then
+        echo "Failed checking CR defaults for permittedHostDevices"
+        exit 1
+    fi
+
+    if ! echo "${PHD}" | grep "${PERMITTED_HOST_DEVICES_DEFAULT2}"; then
+        echo "Failed checking CR defaults for permittedHostDevices"
+        exit 1
+    fi
+    sleep 2
+done
+
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
+JPATH="/spec/permittedHostDevices/pciHostDevices/-"
+OBJ='{"pciDeviceSelector":"new_one","resourceName":"new_one"}'
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"add\", \"path\": \"${JPATH}\", \"value\": ${OBJ}}]'"
+PHD=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.permittedHostDevices}')
+if ! echo "${PHD}" | grep "${PERMITTED_HOST_DEVICES_DEFAULT1}"; then
+    echo "Failed checking CR defaults for permittedHostDevices"
+    exit 1
+fi
+
+if ! echo "${PHD}" | grep "${PERMITTED_HOST_DEVICES_DEFAULT2}"; then
+    echo "Failed checking CR defaults for permittedHostDevices"
+    exit 1
+fi
+
+if ! echo "${PHD}" | grep "${OBJ}"; then
+    echo "Failed checking CR defaults for permittedHostDevices"
+    exit 1
+fi
+sleep 2
+
+JPATH="/spec/permittedHostDevices/pciHostDevices/0/disabled"
+OBJ='{"pciDeviceSelector":"new_one","resourceName":"new_one"}'
+
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"add\", \"path\": \"${JPATH}\", \"value\": true}]'"
+PHD=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.permittedHostDevices.pciHostDevices[0]}')
+if [[ "${PHD}" != '{"disabled":true,"pciDeviceSelector":"10DE:1DB6","resourceName":"nvidia.com/GV100GL_Tesla_V100"}' ]]; then
+    echo "Failed checking CR defaults for permittedHostDevices"
+    exit 1
+fi

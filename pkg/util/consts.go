@@ -17,6 +17,7 @@ const (
 	VMImportEnvV           = "VM_IMPORT_VERSION"
 	HcoValidatingWebhook   = "validate-hco.kubevirt.io"
 	HcoMutatingWebhookNS   = "mutate-ns-hco.kubevirt.io"
+	HcoDefaulterWebhookNS  = "defaulter-hco.kubevirt.io"
 	AppLabel               = "app"
 	UndefinedNamespace     = ""
 	OpenshiftNamespace     = "openshift"
@@ -50,6 +51,7 @@ const (
 	LivenessEndpointName        = "/livez"
 	HCOWebhookPath              = "/validate-hco-kubevirt-io-v1beta1-hyperconverged"
 	HCONSWebhookPath            = "/mutate-ns-hco-kubevirt-io"
+	DefaulterWebhookPath        = "/mutate-hco-kubevirt-io-v1beta1-hyperconverged"
 	WebhookPort                 = 4343
 )
 

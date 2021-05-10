@@ -166,15 +166,16 @@ MediatedHostDevice represents a host mediated device allowed for passthrough
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| mdevNameSelector |  | string |  | true |
-| resourceName |  | string |  | true |
-| externalResourceProvider |  | bool |  | false |
+| mdevNameSelector | name of a mediated device type required to identify a mediated device on a host | string |  | true |
+| resourceName | name by which a device is advertised and being requested | string |  | true |
+| externalResourceProvider | indicates that this resource is being provided by an external device plugin | bool |  | false |
+| disabled | HCO enforces the existence of several MediatedHostDevice objects. Set disabled field to true instead of remove these objects. | bool |  | false |
 
 [Back to TOC](#table-of-contents)
 
 ## OperandResourceRequirements
 
-ResourceRequirements is a list of resource requirements for the operand workloads pods
+OperandResourceRequirements is a list of resource requirements for the operand workloads pods
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
@@ -188,9 +189,10 @@ PciHostDevice represents a host PCI device allowed for passthrough
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| pciVendorSelector |  | string |  | true |
-| resourceName |  | string |  | true |
-| externalResourceProvider |  | bool |  | false |
+| pciDeviceSelector | a combination of a vendor_id:product_id required to identify a PCI device on a host. | string |  | true |
+| resourceName | name by which a device is advertised and being requested | string |  | true |
+| externalResourceProvider | indicates that this resource is being provided by an external device plugin | bool |  | false |
+| disabled | HCO enforces the existence of several PciHostDevice objects. Set disabled field to true instead of remove these objects. | bool |  | false |
 
 [Back to TOC](#table-of-contents)
 

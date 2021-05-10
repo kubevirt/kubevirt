@@ -167,6 +167,50 @@ var _ = Describe("webhooks handler", func() {
 			err := wh.ValidateCreate(cr)
 			Expect(err).To(HaveOccurred())
 		})
+
+		Context("test permitted host devices validation", func() {
+			It("should allow unique PCI Host Device", func() {
+				cr.Spec.PermittedHostDevices = &v1beta1.PermittedHostDevices{
+					PciHostDevices: []v1beta1.PciHostDevice{
+						{
+							PCIDeviceSelector: "111",
+							ResourceName:      "name",
+						},
+						{
+							PCIDeviceSelector: "222",
+							ResourceName:      "name",
+						},
+						{
+							PCIDeviceSelector: "333",
+							ResourceName:      "name",
+						},
+					},
+				}
+				err := wh.ValidateCreate(cr)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should allow unique Mediate Host Device", func() {
+				cr.Spec.PermittedHostDevices = &v1beta1.PermittedHostDevices{
+					MediatedDevices: []v1beta1.MediatedHostDevice{
+						{
+							MDEVNameSelector: "111",
+							ResourceName:     "name",
+						},
+						{
+							MDEVNameSelector: "222",
+							ResourceName:     "name",
+						},
+						{
+							MDEVNameSelector: "333",
+							ResourceName:     "name",
+						},
+					},
+				}
+				err := wh.ValidateCreate(cr)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
 	})
 
 	Context("validate update validation webhook", func() {
@@ -408,6 +452,61 @@ var _ = Describe("webhooks handler", func() {
 			hco.DeepCopyInto(newHco)
 
 			Expect(wh.ValidateUpdate(newHco, hco)).ToNot(HaveOccurred())
+
+		})
+
+		Context("test permitted host devices update validation", func() {
+			It("should allow unique PCI Host Device", func() {
+				cli := getFakeClient(hco)
+				wh := &WebhookHandler{}
+				wh.Init(logger, cli, HcoValidNamespace, true)
+
+				newHco := &v1beta1.HyperConverged{}
+				hco.DeepCopyInto(newHco)
+				newHco.Spec.PermittedHostDevices = &v1beta1.PermittedHostDevices{
+					PciHostDevices: []v1beta1.PciHostDevice{
+						{
+							PCIDeviceSelector: "111",
+							ResourceName:      "name",
+						},
+						{
+							PCIDeviceSelector: "222",
+							ResourceName:      "name",
+						},
+						{
+							PCIDeviceSelector: "333",
+							ResourceName:      "name",
+						},
+					},
+				}
+				Expect(wh.ValidateUpdate(newHco, hco)).ToNot(HaveOccurred())
+			})
+
+			It("should allow unique Mediate Host Device", func() {
+				cli := getFakeClient(hco)
+				wh := &WebhookHandler{}
+				wh.Init(logger, cli, HcoValidNamespace, true)
+
+				newHco := &v1beta1.HyperConverged{}
+				hco.DeepCopyInto(newHco)
+				newHco.Spec.PermittedHostDevices = &v1beta1.PermittedHostDevices{
+					MediatedDevices: []v1beta1.MediatedHostDevice{
+						{
+							MDEVNameSelector: "111",
+							ResourceName:     "name",
+						},
+						{
+							MDEVNameSelector: "222",
+							ResourceName:     "name",
+						},
+						{
+							MDEVNameSelector: "333",
+							ResourceName:     "name",
+						},
+					},
+				}
+				Expect(wh.ValidateUpdate(newHco, hco)).ToNot(HaveOccurred())
+			})
 		})
 
 		Context("plain-k8s tests", func() {

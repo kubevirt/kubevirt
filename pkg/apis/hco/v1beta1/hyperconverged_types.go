@@ -199,29 +199,47 @@ type HyperConvergedFeatureGates struct {
 // PermittedHostDevices holds information about devices allowed for passthrough
 // +k8s:openapi-gen=true
 type PermittedHostDevices struct {
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=pciDeviceSelector
 	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=mdevNameSelector
 	MediatedDevices []MediatedHostDevice `json:"mediatedDevices,omitempty"`
 }
 
 // PciHostDevice represents a host PCI device allowed for passthrough
 // +k8s:openapi-gen=true
 type PciHostDevice struct {
-	PCIVendorSelector        string `json:"pciVendorSelector"`
-	ResourceName             string `json:"resourceName"`
-	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
+	// a combination of a vendor_id:product_id required to identify a PCI device on a host.
+	PCIDeviceSelector string `json:"pciDeviceSelector"`
+	// name by which a device is advertised and being requested
+	ResourceName string `json:"resourceName"`
+	// indicates that this resource is being provided by an external device plugin
+	// +optional
+	ExternalResourceProvider bool `json:"externalResourceProvider,omitempty"`
+	// HCO enforces the existence of several PciHostDevice objects. Set disabled field to true instead of remove
+	// these objects.
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 // MediatedHostDevice represents a host mediated device allowed for passthrough
 // +k8s:openapi-gen=true
 type MediatedHostDevice struct {
-	MDEVNameSelector         string `json:"mdevNameSelector"`
-	ResourceName             string `json:"resourceName"`
-	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
+	// name of a mediated device type required to identify a mediated device on a host
+	MDEVNameSelector string `json:"mdevNameSelector"`
+	// name by which a device is advertised and being requested
+	ResourceName string `json:"resourceName"`
+	// indicates that this resource is being provided by an external device plugin
+	// +optional
+	ExternalResourceProvider bool `json:"externalResourceProvider,omitempty"`
+	// HCO enforces the existence of several MediatedHostDevice objects. Set disabled field to true instead of remove
+	// these objects.
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
 }
 
-// ResourceRequirements is a list of resource requirements for the operand workloads pods
+// OperandResourceRequirements is a list of resource requirements for the operand workloads pods
 // +k8s:openapi-gen=true
 type OperandResourceRequirements struct {
 	// StorageWorkloads defines the resources requirements for storage workloads. It will propagate to the CDI custom

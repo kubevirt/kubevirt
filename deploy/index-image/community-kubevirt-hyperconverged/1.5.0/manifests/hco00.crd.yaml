@@ -923,35 +923,61 @@ spec:
                       description: MediatedHostDevice represents a host mediated device
                         allowed for passthrough
                       properties:
+                        disabled:
+                          description: HCO enforces the existence of several MediatedHostDevice
+                            objects. Set disabled field to true instead of remove
+                            these objects.
+                          type: boolean
                         externalResourceProvider:
+                          description: indicates that this resource is being provided
+                            by an external device plugin
                           type: boolean
                         mdevNameSelector:
+                          description: name of a mediated device type required to
+                            identify a mediated device on a host
                           type: string
                         resourceName:
+                          description: name by which a device is advertised and being
+                            requested
                           type: string
                       required:
                       - mdevNameSelector
                       - resourceName
                       type: object
                     type: array
-                    x-kubernetes-list-type: atomic
+                    x-kubernetes-list-map-keys:
+                    - mdevNameSelector
+                    x-kubernetes-list-type: map
                   pciHostDevices:
                     items:
                       description: PciHostDevice represents a host PCI device allowed
                         for passthrough
                       properties:
-                        externalResourceProvider:
+                        disabled:
+                          description: HCO enforces the existence of several PciHostDevice
+                            objects. Set disabled field to true instead of remove
+                            these objects.
                           type: boolean
-                        pciVendorSelector:
+                        externalResourceProvider:
+                          description: indicates that this resource is being provided
+                            by an external device plugin
+                          type: boolean
+                        pciDeviceSelector:
+                          description: a combination of a vendor_id:product_id required
+                            to identify a PCI device on a host.
                           type: string
                         resourceName:
+                          description: name by which a device is advertised and being
+                            requested
                           type: string
                       required:
-                      - pciVendorSelector
+                      - pciDeviceSelector
                       - resourceName
                       type: object
                     type: array
-                    x-kubernetes-list-type: atomic
+                    x-kubernetes-list-map-keys:
+                    - pciDeviceSelector
+                    x-kubernetes-list-type: map
                 type: object
               resourceRequirements:
                 description: ResourceRequirements describes the resource requirements
