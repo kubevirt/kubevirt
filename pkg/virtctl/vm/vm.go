@@ -190,7 +190,7 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:     "removevolume VMI",
 		Short:   "remove a volume from a running VM",
-		Example: usage(COMMAND_REMOVEVOLUME),
+		Example: usageRemoveVolume(),
 		Args:    templates.ExactArgs("removevolume", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_REMOVEVOLUME, clientConfig: clientConfig}
@@ -253,6 +253,16 @@ func usageAddVolume() string {
 
   #Dynamically attach a volume to a running VM and persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --persist
+  `
+	return usage
+}
+
+func usageRemoveVolume() string {
+	usage := `  #Remove volume that was dynamically attached to a running VM.
+  {{ProgramName}} removevolume fedora-dv --volume-name=example-dv
+
+  #Remove volume dynamically attached to a running VM and persisting it in the VM spec.
+  {{ProgramName}} removevolume fedora-dv --volume-name=example-dv --persist
   `
 	return usage
 }
