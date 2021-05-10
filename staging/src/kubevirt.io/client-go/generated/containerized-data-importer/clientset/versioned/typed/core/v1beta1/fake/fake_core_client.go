@@ -45,8 +45,8 @@ func (c *FakeCdiV1beta1) ObjectTransfers() v1beta1.ObjectTransferInterface {
 	return &FakeObjectTransfers{c}
 }
 
-func (c *FakeCdiV1beta1) StorageProfiles(namespace string) v1beta1.StorageProfileInterface {
-	return &FakeStorageProfiles{c, namespace}
+func (c *FakeCdiV1beta1) StorageProfiles() v1beta1.StorageProfileInterface {
+	return &FakeStorageProfiles{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

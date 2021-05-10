@@ -45,7 +45,11 @@ type DataVolumeSpec struct {
 	//Source is the src of the data for the requested DataVolume
 	Source DataVolumeSource `json:"source"`
 	//PVC is the PVC specification
-	PVC *corev1.PersistentVolumeClaimSpec `json:"pvc"`
+	PVC *corev1.PersistentVolumeClaimSpec `json:"pvc,omitempty"`
+	// Storage is the requested storage specification
+	Storage *StorageSpec `json:"storage,omitempty"`
+	//PriorityClassName for Importer, Cloner and Uploader pod
+	PriorityClassName string `json:"priorityClassName,omitempty"`
 	//DataVolumeContentType options: "kubevirt", "archive"
 	// +kubebuilder:validation:Enum="kubevirt";"archive"
 	ContentType DataVolumeContentType `json:"contentType,omitempty"`
@@ -55,6 +59,46 @@ type DataVolumeSpec struct {
 	FinalCheckpoint bool `json:"finalCheckpoint,omitempty"`
 	// Preallocation controls whether storage for DataVolumes should be allocated in advance.
 	Preallocation *bool `json:"preallocation,omitempty"`
+}
+
+// StorageSpec defines the Storage type specification
+type StorageSpec struct {
+	// AccessModes contains the desired access modes the volume should have.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+	// +optional
+	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+	// A label query over volumes to consider for binding.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+	// Resources represents the minimum resources the volume should have.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// VolumeName is the binding reference to the PersistentVolume backing this claim.
+	// +optional
+	VolumeName string `json:"volumeName,omitempty"`
+	// Name of the StorageClass required by the claim.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+	// +optional
+	StorageClassName *string `json:"storageClassName,omitempty"`
+	// volumeMode defines what type of volume is required by the claim.
+	// Value of Filesystem is implied when not included in claim spec.
+	// +optional
+	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode,omitempty"`
+	// This field can be used to specify either:
+	// * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot - Beta)
+	// * An existing PVC (PersistentVolumeClaim)
+	// * An existing custom resource/object that implements data population (Alpha)
+	// In order to use VolumeSnapshot object types, the appropriate feature gate
+	// must be enabled (VolumeSnapshotDataSource or AnyVolumeDataSource)
+	// If the provisioner or an external controller can support the specified data source,
+	// it will create a new volume based on the contents of the specified data source.
+	// If the specified data source is not supported, the volume will
+	// not be created and the failure will be reported as an event.
+	// In the future, we plan to support more data source types and the behavior
+	// of the provisioner may change.
+	// +optional
+	DataSource *corev1.TypedLocalObjectReference `json:"dataSource,omitempty"`
 }
 
 // DataVolumeCheckpoint defines a stage in a warm migration.
@@ -227,6 +271,12 @@ const (
 	// SmartClonePVCInProgress represents a data volume with a current phase of SmartClonePVCInProgress
 	SmartClonePVCInProgress DataVolumePhase = "SmartClonePVCInProgress"
 
+	// ExpansionInProgress is the state when a PVC is expanded
+	ExpansionInProgress DataVolumePhase = "ExpansionInProgress"
+
+	// NamespaceTransferInProgress is the state when a PVC is transferred
+	NamespaceTransferInProgress DataVolumePhase = "NamespaceTransferInProgress"
+
 	// UploadScheduled represents a data volume with a current phase of UploadScheduled
 	UploadScheduled DataVolumePhase = "UploadScheduled"
 
@@ -255,6 +305,10 @@ const (
 
 // DataVolumeCloneSourceSubresource is the subresource checked for permission to clone
 const DataVolumeCloneSourceSubresource = "source"
+
+// this has to be here otherwise informer-gen doesn't recognize it
+// see https://github.com/kubernetes/code-generator/issues/59
+// +genclient:nonNamespaced
 
 //StorageProfile provides a CDI specific recommendation for storage parameters
 // +genclient
@@ -459,6 +513,8 @@ type CDIConfigSpec struct {
 	FilesystemOverhead *FilesystemOverhead `json:"filesystemOverhead,omitempty"`
 	// Preallocation controls whether storage for DataVolumes should be allocated in advance.
 	Preallocation *bool `json:"preallocation,omitempty"`
+	// InsecureRegistries is a list of TLS disabled registries
+	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource

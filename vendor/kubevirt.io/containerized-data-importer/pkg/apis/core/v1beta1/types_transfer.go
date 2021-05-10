@@ -39,6 +39,7 @@ type ObjectTransfer struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec ObjectTransferSpec `json:"spec"`
+
 	// +optional
 	Status ObjectTransferStatus `json:"status"`
 }
@@ -53,6 +54,8 @@ type TransferSource struct {
 	Namespace string `json:"namespace"`
 
 	Name string `json:"name"`
+
+	RequiredAnnotations map[string]string `json:"requiredAnnotations,omitempty"`
 }
 
 // TransferTarget is the target of an ObjectTransfer
