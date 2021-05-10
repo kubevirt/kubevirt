@@ -752,6 +752,50 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err.Error()).To(Equal(fmt.Sprintf(`Error stopping VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is not running`, newVM.Name)))
 			})
 
+			It("[test_id:6310]should start a VirtualMachineInstance in paused state", func() {
+				By("getting a VM")
+				newVM := newVirtualMachine(false)
+
+				By("Invoking virtctl start")
+				startCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", newVM.Namespace, newVM.Name, "--paused")
+				Expect(startCommand()).To(Succeed())
+
+				By("Getting the status of the VM")
+				Eventually(func() bool {
+					newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*newVM.Spec.Template.Spec.StartStrategy).To(Equal(v1.StartStrategyPaused))
+					return newVM.Status.Ready
+				}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("Getting the running VirtualMachineInstance")
+				Eventually(func() bool {
+					vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*vmi.Spec.StartStrategy).To(Equal(v1.StartStrategyPaused))
+					tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+					return vmi.Status.Phase == v1.Running
+				}, 240*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("Invoking virtctl stop")
+				stopCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", newVM.Namespace, newVM.Name)
+				Expect(stopCommand()).To(Succeed())
+
+				By("Ensuring VM is not running")
+				Eventually(func() bool {
+					newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(newVM.Spec.Template.Spec.StartStrategy).To(BeNil())
+					return !newVM.Status.Ready && !newVM.Status.Created
+				}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("Ensuring the VirtualMachineInstance is removed")
+				Eventually(func() error {
+					_, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+					return err
+				}, 240*time.Second, 1*time.Second).Should(HaveOccurred())
+			})
+
 			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
 
 				By("getting a VM with high TerminationGracePeriod")
@@ -1166,6 +1210,49 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						}
 						return len(newVM.Status.StateChangeRequests) == 0
 					}, 30*time.Second, time.Second).Should(BeTrue())
+				})
+
+				It("[test_id:6311]should start in paused state", func() {
+					By("creating a VM with RunStrategyManual")
+					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
+
+					By("Invoking virtctl start")
+					startCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name, "--paused")
+					Expect(startCommand()).To(Succeed())
+
+					By("Getting the status of the VM")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("Getting the running VirtualMachineInstance")
+					Eventually(func() bool {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(*vmi.Spec.StartStrategy).To(Equal(v1.StartStrategyPaused))
+						tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+						return vmi.Status.Phase == v1.Running
+					}, 240*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("Invoking virtctl stop")
+					stopCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					Expect(stopCommand()).To(Succeed())
+
+					By("Ensuring VM is not running")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(virtualMachine.Spec.Template.Spec.StartStrategy).To(BeNil())
+						return !virtualMachine.Status.Ready && !virtualMachine.Status.Created
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("Ensuring the VirtualMachineInstance is removed")
+					Eventually(func() error {
+						_, err = virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+						return err
+					}, 240*time.Second, 1*time.Second).Should(HaveOccurred())
 				})
 
 				It("[test_id:2035] should restart", func() {
