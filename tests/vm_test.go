@@ -36,7 +36,6 @@ import (
 	"github.com/pborman/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,125 +116,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
-		})
-		Context("with a PVC from a Datavolume", func() {
-			var storageClass *storagev1.StorageClass
-			BeforeEach(func() {
-				// ensure that we always use a storage class which binds immediately,
-				// otherwise we will never see a PVC appear for the datavolume
-				bindMode := storagev1.VolumeBindingImmediate
-				storageClass = &storagev1.StorageClass{
-					ObjectMeta: k8smetav1.ObjectMeta{
-						GenerateName: "fake",
-					},
-					Provisioner:       "afakeone",
-					VolumeBindingMode: &bindMode,
-				}
-				storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			})
-			AfterEach(func() {
-				if storageClass != nil && storageClass.Name != "" {
-					err := virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}
-			})
-
-			It("[sig-storage][test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
-
-				dv := tests.NewRandomDataVolumeWithHttpImportInStorageClass(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce)
-				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
-
-				defer func(dv *cdiv1.DataVolume) {
-					By("Deleting the DataVolume")
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
-				}(dv)
-
-				Eventually(func() (*corev1.PersistentVolumeClaim, error) {
-					return virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-				}, 30).Should(Not(BeNil()))
-
-				vmi := tests.NewRandomVMI()
-
-				diskName := "disk0"
-				bus := "virtio"
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: diskName,
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: bus,
-						},
-					},
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: diskName,
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: dv.ObjectMeta.Name,
-						},
-					},
-				})
-
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-
-				vm := tests.NewRandomVirtualMachine(vmi, true)
-				dvt := &v1.DataVolumeTemplateSpec{
-					ObjectMeta: dv.ObjectMeta,
-					Spec:       dv.Spec,
-				}
-				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
-				_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
-				Expect(err).ToNot(HaveOccurred())
-			})
-			It("[Serial][test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
-				dv := tests.NewRandomDataVolumeWithHttpImportInStorageClass(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce)
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).To(BeNil())
-
-				defer func(dv *cdiv1.DataVolume) {
-					By("Deleting the DataVolume")
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
-				}(dv)
-				Eventually(func() error {
-					_, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-					return err
-				}, 30*time.Second, 1*time.Second).Should(BeNil())
-
-				vmi := tests.NewRandomVMI()
-
-				diskName := "disk0"
-				bus := "virtio"
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: diskName,
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: bus,
-						},
-					},
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: diskName,
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: dv.ObjectMeta.Name,
-						},
-					},
-				})
-
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-
-				vm := tests.NewRandomVirtualMachine(vmi, true)
-				_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
-				Expect(err).ShouldNot(HaveOccurred())
-
-				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					return vm.Status.Created
-				}, 30*time.Second, 1*time.Second).Should(Equal(false))
-			})
 		})
 	})
 
