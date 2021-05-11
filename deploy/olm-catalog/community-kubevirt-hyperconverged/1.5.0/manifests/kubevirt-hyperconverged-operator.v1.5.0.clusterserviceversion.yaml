@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
-    createdAt: "2021-05-07 09:38:48"
+    createdAt: "2021-05-10 14:30:01"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -1853,12 +1853,12 @@ spec:
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
-                  failureThreshold: 3
+                  failureThreshold: 1
                   httpGet:
                     path: /livez
                     port: 6060
                     scheme: HTTP
-                  initialDelaySeconds: 10
+                  initialDelaySeconds: 30
                   periodSeconds: 5
                 name: hyperconverged-cluster-operator
                 readinessProbe:
@@ -1916,12 +1916,12 @@ spec:
                 image: quay.io/kubevirt/hyperconverged-cluster-webhook:1.5.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
-                  failureThreshold: 3
+                  failureThreshold: 1
                   httpGet:
                     path: /livez
                     port: 6060
                     scheme: HTTP
-                  initialDelaySeconds: 10
+                  initialDelaySeconds: 30
                   periodSeconds: 5
                 name: hyperconverged-cluster-webhook
                 readinessProbe:

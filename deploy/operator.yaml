@@ -74,12 +74,12 @@ spec:
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 1
           httpGet:
             path: /livez
             port: 6060
             scheme: HTTP
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           periodSeconds: 5
         name: hyperconverged-cluster-operator
         readinessProbe:
@@ -139,12 +139,12 @@ spec:
         image: quay.io/kubevirt/hyperconverged-cluster-webhook:1.5.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 1
           httpGet:
             path: /livez
             port: 6060
             scheme: HTTP
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           periodSeconds: 5
         name: hyperconverged-cluster-webhook
         readinessProbe:
