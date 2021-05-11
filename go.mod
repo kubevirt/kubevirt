@@ -39,9 +39,9 @@ require (
 	golang.org/x/tools v0.1.0
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.20.2
-	k8s.io/apiextensions-apiserver v0.20.2
-	k8s.io/apimachinery v0.20.2
+	k8s.io/api v0.20.6
+	k8s.io/apiextensions-apiserver v0.20.6
+	k8s.io/apimachinery v0.20.6
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
 	kubevirt.io/client-go v0.40.0-rc.2
@@ -49,7 +49,7 @@ require (
 	kubevirt.io/controller-lifecycle-operator-sdk v0.1.3-0.20210112105647-bbf16167410b
 	kubevirt.io/kubevirt v0.40.0-rc.2
 	kubevirt.io/qe-tools v0.1.7
-	kubevirt.io/ssp-operator v0.2.0-rc.1
+	kubevirt.io/ssp-operator v0.2.0
 	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/controller-tools v0.5.0
 )

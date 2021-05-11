@@ -2160,15 +2160,14 @@ kubevirt.io/controller-lifecycle-operator-sdk v0.1.2 h1:oFucZCV1JrjkLWy838kpozgP
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.2/go.mod h1:M+UuZsp90mmKUVGb5zXDZtIIY1noY5pJk9i2YCQwSnk=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.3-0.20210112105647-bbf16167410b h1:8JEGhjEuI6qfYk2l2a82PJl6XNWolFm88+yFpOLCRw8=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.3-0.20210112105647-bbf16167410b/go.mod h1:dlEFdrw5MFYMvBA64LlthxkTkTVldvYgtHju2CEIUfQ=
-kubevirt.io/cpu-nfd-plugin v0.1.1/go.mod h1:4H0Zo8BEreXyuPEIJpaNAkUMbsPqeq7nFBYsRI9IIJc=
 kubevirt.io/kubevirt v0.40.0-rc.2 h1:ciU9N6ZLTWZuF3VkdHbkurLPZyxrNE5N7E9W+vF770A=
 kubevirt.io/kubevirt v0.40.0-rc.2/go.mod h1:ict4gmDJ/mOHvI8/pF3LIsOUMmJqaEo0/CHsbLLDj8w=
 kubevirt.io/qe-tools v0.1.6 h1:S6z9CATmgV2/z9CWetij++Rhu7l/Z4ObZqerLdNMo0Y=
 kubevirt.io/qe-tools v0.1.6/go.mod h1:PJyH/YXC4W0AmxfheDmXWMbLNsMSboVGXKpMAwfKzVE=
 kubevirt.io/qe-tools v0.1.7 h1:7fdEwwqKKiLa5wlrrTboqpjX7MMzR7CMZfyzZIQ1iUw=
 kubevirt.io/qe-tools v0.1.7/go.mod h1:O1EynUeGswOi4Embakmv+SsGwr+U3ILHgit9pptK2qk=
-kubevirt.io/ssp-operator v0.2.0-rc.1 h1:ZY3se62/DabZyO2TzeGHhL+NE9Bx/BN0Fc0D3jfN0/8=
-kubevirt.io/ssp-operator v0.2.0-rc.1/go.mod h1:uPWYc1HGXhwGZk/qBfU1sd1k+z8TKTVmTOwjiML+jOU=
+kubevirt.io/ssp-operator v0.2.0 h1:JI45HuicMtuyUvTxGrkvk+tY5LguCx59ZjRQ5a/kaqU=
+kubevirt.io/ssp-operator v0.2.0/go.mod h1:W/pwBRblN1FsbDcJjo5P5vucPiXB7/yuiyz4GDp/TGs=
 libvirt.org/libvirt-go v6.5.0+incompatible/go.mod h1:CPoljLoiC2aEw+62g1rZXl2oXAJaNsrq4YCSmJOELek=
 libvirt.org/libvirt-go-xml v6.6.0+incompatible/go.mod h1:FL+H1+hKNWDdkKQGGS4sGCZJ3pGWcjt6VbxZvPlQJkY=
 mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157/go.mod h1:Ge4atmRUYqueGppvJ7JNrtqpqokoJEFxYbP0Z+WeKS8=

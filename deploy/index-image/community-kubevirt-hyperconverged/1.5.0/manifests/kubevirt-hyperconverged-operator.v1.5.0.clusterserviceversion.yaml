@@ -1843,7 +1843,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.51.0
                 - name: SSP_VERSION
-                  value: v0.2.0-rc.1
+                  value: v0.2.0
                 - name: NMO_VERSION
                   value: v0.7.0
                 - name: HPPO_VERSION
@@ -2131,8 +2131,8 @@ spec:
                 - name: NODE_LABELLER_IMAGE
                 - name: CPU_PLUGIN_IMAGE
                 - name: OPERATOR_VERSION
-                  value: v0.2.0-rc.1
-                image: quay.io/kubevirt/ssp-operator@sha256:ae5244fc5851b54877851ca6481e549bee750997ae7d3c94e1344230e6831600
+                  value: v0.2.0
+                image: quay.io/kubevirt/ssp-operator@sha256:0365761dca84061674306bbea6ed579df1de71d95014a3d193d19b5e80b94ff5
                 name: manager
                 ports:
                 - containerPort: 9443
@@ -2572,8 +2572,6 @@ spec:
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:a90902cf3e5154424148bf3ba3c1bf90316cc77a54042cf6584fe8aedbe6daec
     name: cni-default-plugins
-  - image: quay.io/kubevirt/cpu-nfd-plugin@sha256:20225a3d7569295fa7607e069bdc75b3235bc2218dbe52c4302ec4e2e55df8b9
-    name: cpu-nfd-plugin
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:93085fb9d68e5e58b5886f4efc779307d345257165da958e4df8ee0c8994a765
     name: hostpath-provisioner
   - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:74d53f8cd3906587a83dec04e747285c81c09b78515eb0bc5cf5c26ddcec9437
@@ -2590,19 +2588,15 @@ spec:
     name: kubevirt-v2v-conversion
   - image: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
     name: kubevirt-vmware
-  - image: quay.io/kubevirt/kvm-info-nfd-plugin@sha256:c74083d42f9503007712dea435289e5f10a846433df2d3af4358463adb3fc9ff
-    name: kvm-info-nfd-plugin
   - image: quay.io/kubevirt/macvtap-cni@sha256:f20d5e56f8b8c1ab7e5a64e536b66f65aa688b2d1dc0b37e3c26c2af2b481266
     name: macvtap-cni
-  - image: quay.io/kubevirt/node-labeller@sha256:45391da5e8ecdd393830650061f8d68248a3b2961d60f42a04e4e0c58a7d3a3b
-    name: node-labeller
   - image: quay.io/kubevirt/node-maintenance-operator@sha256:71bb8de714dc0de0616050d66405ccb58841930fc1562a61399e1b964a0b678a
     name: node-maintenance-operator
   - image: quay.io/kubevirt/ovs-cni-marker@sha256:dca0d0432eacb1e97ea49c755df1c232159fe4267e7f872222ef0ef77e3d8915
     name: ovs-cni-marker
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:9ea002a51fd6cd706064a13e4eb79618e286f31be291ea4485de92675f26daa1
     name: ovs-cni-plugin
-  - image: quay.io/kubevirt/ssp-operator@sha256:ae5244fc5851b54877851ca6481e549bee750997ae7d3c94e1344230e6831600
+  - image: quay.io/kubevirt/ssp-operator@sha256:0365761dca84061674306bbea6ed579df1de71d95014a3d193d19b5e80b94ff5
     name: ssp-operator
   - image: quay.io/kubevirt/virt-api@sha256:9beee8b716423c6cc10c176cd31b49cdcf14408b5c6830e9dbea0e2aad322cd7
     name: virt-api

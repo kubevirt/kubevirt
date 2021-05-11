@@ -445,7 +445,7 @@ gopkg.in/tomb.v1
 gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 gopkg.in/yaml.v3
-# k8s.io/api v0.20.2 => k8s.io/api v0.20.2
+# k8s.io/api v0.20.6 => k8s.io/api v0.20.2
 ## explicit
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -492,7 +492,7 @@ k8s.io/api/scheduling/v1beta1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.20.2 => k8s.io/apiextensions-apiserver v0.20.2
+# k8s.io/apiextensions-apiserver v0.20.6 => k8s.io/apiextensions-apiserver v0.20.2
 ## explicit
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
@@ -501,7 +501,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.20.2 => k8s.io/apimachinery v0.20.2
+# k8s.io/apimachinery v0.20.6 => k8s.io/apimachinery v0.20.2
 ## explicit
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -855,7 +855,7 @@ kubevirt.io/kubevirt/tools/vms-generator/utils
 ## explicit
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# kubevirt.io/ssp-operator v0.2.0-rc.1
+# kubevirt.io/ssp-operator v0.2.0
 ## explicit
 kubevirt.io/ssp-operator/api/v1beta1
 # sigs.k8s.io/controller-runtime v0.8.3
