@@ -1438,6 +1438,11 @@ var CRDsValidation map[string]string = map[string]string{
               resource:
                 description: resource is the resource type of the thing you're tracking
                 type: string
+            required:
+            - group
+            - lastGeneration
+            - name
+            - resource
             type: object
           type: array
           x-kubernetes-list-type: atomic

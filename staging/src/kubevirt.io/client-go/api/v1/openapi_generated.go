@@ -439,6 +439,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Flags":                                                      schema_kubevirtio_client_go_api_v1_Flags(ref),
 		"kubevirt.io/client-go/api/v1.FloppyTarget":                                               schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
 		"kubevirt.io/client-go/api/v1.GPU":                                                        schema_kubevirtio_client_go_api_v1_GPU(ref),
+		"kubevirt.io/client-go/api/v1.GenerationStatus":                                           schema_kubevirtio_client_go_api_v1_GenerationStatus(ref),
 		"kubevirt.io/client-go/api/v1.GuestAgentCommandInfo":                                      schema_kubevirtio_client_go_api_v1_GuestAgentCommandInfo(ref),
 		"kubevirt.io/client-go/api/v1.HPETTimer":                                                  schema_kubevirtio_client_go_api_v1_HPETTimer(ref),
 		"kubevirt.io/client-go/api/v1.HostDevice":                                                 schema_kubevirtio_client_go_api_v1_HostDevice(ref),
@@ -20616,6 +20617,62 @@ func schema_kubevirtio_client_go_api_v1_GPU(ref common.ReferenceCallback) common
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_GenerationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GenerationStatus keeps track of the generation for a given resource so that decisions about forced updates can be made.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "group is the group of the thing you're tracking",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource is the resource type of the thing you're tracking",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "namespace is where the thing you're tracking is",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the thing you're tracking",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "lastGeneration is the last generation of the workload controller involved",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"hash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "hash is an optional field set for resources without generation that are content sensitive like secrets and configmaps",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"group", "resource", "name", "lastGeneration"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_GuestAgentCommandInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21627,7 +21684,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/openshift/api/operator/v1.GenerationStatus"),
+										Ref: ref("kubevirt.io/client-go/api/v1.GenerationStatus"),
 									},
 								},
 							},
@@ -21637,7 +21694,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/openshift/api/operator/v1.GenerationStatus", "kubevirt.io/client-go/api/v1.KubeVirtCondition"},
+			"kubevirt.io/client-go/api/v1.GenerationStatus", "kubevirt.io/client-go/api/v1.KubeVirtCondition"},
 	}
 }
 

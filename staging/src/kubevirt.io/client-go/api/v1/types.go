@@ -38,8 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	operatorsv1 "github.com/openshift/api/operator/v1"
-
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 )
 
@@ -1513,6 +1511,26 @@ const (
 	KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist KubeVirtUninstallStrategy = "BlockUninstallIfWorkloadsExist"
 )
 
+// GenerationStatus keeps track of the generation for a given resource so that decisions about forced updates can be made.
+//
+// +k8s:openapi-gen=true
+type GenerationStatus struct {
+	// group is the group of the thing you're tracking
+	Group string `json:"group"`
+	// resource is the resource type of the thing you're tracking
+	Resource string `json:"resource"`
+	// namespace is where the thing you're tracking is
+	// +optional
+	Namespace string `json:"namespace,omitempty" optional:"true"`
+	// name is the name of the thing you're tracking
+	Name string `json:"name"`
+	// lastGeneration is the last generation of the workload controller involved
+	LastGeneration int64 `json:"lastGeneration"`
+	// hash is an optional field set for resources without generation that are content sensitive like secrets and configmaps
+	// +optional
+	Hash string `json:"hash,omitempty" optional:"true"`
+}
+
 // KubeVirtStatus represents information pertaining to a KubeVirt deployment.
 //
 // +k8s:openapi-gen=true
@@ -1530,7 +1548,7 @@ type KubeVirtStatus struct {
 	ObservedDeploymentID                    string              `json:"observedDeploymentID,omitempty" optional:"true"`
 	OutdatedVirtualMachineInstanceWorkloads *int                `json:"outdatedVirtualMachineInstanceWorkloads,omitempty" optional:"true"`
 	// +listType=atomic
-	Generations []operatorsv1.GenerationStatus `json:"generations,omitempty" optional:"true"`
+	Generations []GenerationStatus `json:"generations,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
