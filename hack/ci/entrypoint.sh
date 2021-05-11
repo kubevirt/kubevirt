@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+gcsweb_base_url="https://gcsweb.ci.kubevirt.io/gcs/kubevirt-prow"
+
 function test_kubevirt_release() {
     release="$(get_release_tag_for_xy "$1")"
     export DOCKER_TAG="$release"
@@ -29,7 +31,7 @@ function deploy_release() {
     curl -L "${tagged_release_url}/kubevirt-operator.yaml" | oc create -f -
     curl -L "${tagged_release_url}/kubevirt-cr.yaml" | oc create -f -
 
-    testing_infra_url="https://gcsweb.apps.ovirt.org/gcs/kubevirt-prow/devel/release/kubevirt/kubevirt/${release}/manifests/testing/"
+    testing_infra_url="$gcsweb_base_url/devel/release/kubevirt/kubevirt/${release}/manifests/testing/"
     for testinfra_file in $(curl -L "${testing_infra_url}" | grep -oE 'https://[^"]*\.yaml'); do
         curl -L ${testinfra_file} | oc create -f -
     done
@@ -73,13 +75,13 @@ function get_release_tag_for_kubevirt_nightly() {
 }
 
 function get_release_url_for_kubevirt_nightly() {
-    release_base_url="https://gcsweb.apps.ovirt.org/gcs/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt"
+    release_base_url="$gcsweb_base_url/devel/nightly/release/kubevirt/kubevirt"
     release_date="$1"
     echo "${release_base_url}/${release_date}"
 }
 
 function get_latest_release_date_for_kubevirt_nightly() {
-    release_base_url="https://gcsweb.apps.ovirt.org/gcs/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt"
+    release_base_url="$gcsweb_base_url/devel/nightly/release/kubevirt/kubevirt"
     release_date=$(curl -L "${release_base_url}/latest")
     echo "${release_date}"
 }
