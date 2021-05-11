@@ -59,9 +59,6 @@ go_library(
             "//vendor/github.com/coreos/go-systemd/v22/dbus:go_default_library",
             "//vendor/golang.org/x/sys/unix:go_default_library",
         ],
-        "@io_bazel_rules_go//go/platform:nacl": [
-            "//vendor/golang.org/x/sys/unix:go_default_library",
-        ],
         "@io_bazel_rules_go//go/platform:netbsd": [
             "//vendor/golang.org/x/sys/unix:go_default_library",
         ],

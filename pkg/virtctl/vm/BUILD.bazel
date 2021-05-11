@@ -22,7 +22,6 @@ go_test(
         "vm_suite_test.go",
         "vm_test.go",
     ],
-    embed = [":go_default_library"],
     deps = [
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake:go_default_library",

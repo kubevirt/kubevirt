@@ -154,9 +154,9 @@ go_test(
         "vnc_test.go",
         "windows_test.go",
     ],
-    embed = [":go_default_library"],
     visibility = ["//visibility:public"],
     deps = [
+        ":go_default_library",
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/cloud-init:go_default_library",
