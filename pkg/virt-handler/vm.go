@@ -845,7 +845,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	}
 
 	vmi := origVMI.DeepCopy()
-	oldStatus := vmi.DeepCopy().Status
+	oldStatus := *vmi.Status.DeepCopy()
 
 	vmi = d.setMigrationProgressStatus(vmi, domain)
 
@@ -1219,7 +1219,8 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 }
 
 func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
-	if reason == api.ReasonPausedUser {
+	switch reason {
+	case api.ReasonPausedUser:
 		log.Log.Object(vmi).V(3).Info("Adding paused condition")
 		now := metav1.NewTime(time.Now())
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
@@ -1230,6 +1231,19 @@ func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateCh
 			Reason:             "PausedByUser",
 			Message:            "VMI was paused by user",
 		})
+	case api.ReasonPausedIOError:
+		log.Log.Object(vmi).V(3).Info("Adding paused condition")
+		now := metav1.NewTime(time.Now())
+		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			Type:               v1.VirtualMachineInstancePaused,
+			Status:             k8sv1.ConditionTrue,
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+			Reason:             "PausedIOError",
+			Message:            "VMI was paused, IO error",
+		})
+	default:
+		log.Log.Object(vmi).V(3).Infof("Domain is paused for unknown reason, %s", reason)
 	}
 }
 
