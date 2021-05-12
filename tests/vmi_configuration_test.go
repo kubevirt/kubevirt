@@ -368,7 +368,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}, 60)).To(Succeed(), "should report number of sockets")
 			})
 
-			It("[test_id:1663]should report 4 vCPUs under guest OS", func() {
+			It("[QUARANTINE][test_id:1663]should report 4 vCPUs under guest OS", func() {
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Threads: 2,
 					Sockets: 2,
