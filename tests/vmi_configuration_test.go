@@ -1704,6 +1704,17 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 		})
 
+		It("should allow creating VM defined with Machine with an empty Type", func() {
+			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Machine = &v1.Machine{Type: ""}
+			tests.RunVMIAndExpectLaunch(vmi, 30)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
+		})
+
 		It("[Serial][test_id:3126]should set machine type from kubevirt-config", func() {
 			kv := tests.GetCurrentKv(virtClient)
 
