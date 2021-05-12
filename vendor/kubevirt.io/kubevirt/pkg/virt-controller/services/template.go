@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -78,6 +77,7 @@ const LibvirtStartupDelay = 10
 const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
 const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
 const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
+const IntelVendorName = "Intel"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
@@ -89,6 +89,8 @@ const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
 const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
 const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
 
+const ENV_VAR_POD_NAME = "POD_NAME"
+
 // extensive log verbosity threshold after which libvirt debug logs will be enabled
 const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
@@ -99,6 +101,9 @@ type TemplateService interface {
 	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	GetLauncherImage() string
+	GetCpuArch() string
+	IsPPC64() bool
+	IsARM64() bool
 }
 
 type templateService struct {
@@ -113,6 +118,7 @@ type templateService struct {
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
 	launcherSubGid             int64
+	cpuArch                    string
 }
 
 type PvcNotFoundError error
@@ -203,6 +209,11 @@ func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) map[string]string {
 			nodeSelectors[NFD_KVM_INFO_PREFIX+hv.Label] = "true"
 		}
 	}
+
+	if vmi.Spec.Domain.Features.Hyperv.EVMCS != nil {
+		nodeSelectors[v1.CPUModelVendorLabel+IntelVendorName] = "true"
+	}
+
 	return nodeSelectors
 }
 
@@ -357,6 +368,28 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	return t.renderLaunchManifest(vmi, false)
 }
 
+func (t *templateService) GetCpuArch() string {
+	return t.getCpuArch()
+}
+
+func (t *templateService) getCpuArch() string {
+	return t.cpuArch
+}
+
+func (t *templateService) IsPPC64() bool {
+	if t.cpuArch == "ppc64le" {
+		return true
+	}
+	return false
+}
+
+func (t *templateService) IsARM64() bool {
+	if t.cpuArch == "arm64" {
+		return true
+	}
+	return false
+}
+
 func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, tempPod bool) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -371,7 +404,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
-	if runtime.GOARCH == "ppc64le" {
+	if t.IsPPC64() {
 		privileged = true
 	}
 
@@ -737,7 +770,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
-	memoryOverhead := getMemoryOverhead(vmi)
+	memoryOverhead := getMemoryOverhead(vmi, t.cpuArch)
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
@@ -1030,6 +1063,15 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRTIOFSD_DEBUG_LOGS, Value: "1"})
 	}
 
+	compute.Env = append(compute.Env, k8sv1.EnvVar{
+		Name: ENV_VAR_POD_NAME,
+		ValueFrom: &k8sv1.EnvVarSource{
+			FieldRef: &k8sv1.ObjectFieldSelector{
+				FieldPath: "metadata.name",
+			},
+		},
+	})
+
 	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
 	// for adding the requested resources to the pod will add them to the first container of the list
 	containers := []k8sv1.Container{compute}
@@ -1085,7 +1127,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			nodeSelector[cpuFeatureLable] = "true"
 		}
 	}
-
 	if t.clusterConfig.HypervStrictCheckEnabled() {
 		hvNodeSelectors := getHypervNodeSelectors(vmi)
 		for k, v := range hvNodeSelectors {
@@ -1255,7 +1296,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	return &pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, _ *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
@@ -1388,11 +1429,6 @@ func getVirtiofsCapabilities() []k8sv1.Capability {
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []k8sv1.Capability {
 	capabilities := []k8sv1.Capability{}
 
-	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
-		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
-		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
-		capabilities = append(capabilities, CAP_NET_ADMIN)
-	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	capabilities = append(capabilities, CAP_SYS_NICE)
 
@@ -1448,7 +1484,7 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 //
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
-func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+func getMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
@@ -1495,6 +1531,13 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 	// Add video RAM overhead
 	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
 		overhead.Add(resource.MustParse("16Mi"))
+	}
+
+	// When use uefi boot on aarch64 with edk2 package, qemu will create 2 pflash(64Mi each, 128Mi in total)
+	// it should be considered for memory overhead
+	// Additional information can be found here: https://github.com/qemu/qemu/blob/master/hw/arm/virt.c#L120
+	if cpuArch == "arm64" {
+		overhead.Add(resource.MustParse("128Mi"))
 	}
 
 	// Additional overhead of 1G for VFIO devices. VFIO requires all guest RAM to be locked
@@ -1592,7 +1635,8 @@ func NewTemplateService(launcherImage string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
-	launcherSubGid int64) TemplateService {
+	launcherSubGid int64,
+	cpuArch string) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
@@ -1607,6 +1651,7 @@ func NewTemplateService(launcherImage string,
 		virtClient:                 virtClient,
 		clusterConfig:              clusterConfig,
 		launcherSubGid:             launcherSubGid,
+		cpuArch:                    cpuArch,
 	}
 	return &svc
 }

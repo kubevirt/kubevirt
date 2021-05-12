@@ -107,7 +107,7 @@ func NewClusterConfig(configMapInformer cache.SharedIndexInformer,
 	return c
 }
 
-func (c *ClusterConfig) configAddedDeleted(obj interface{}) {
+func (c *ClusterConfig) configAddedDeleted(_ interface{}) {
 	go c.GetConfig()
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -118,7 +118,7 @@ func (c *ClusterConfig) configAddedDeleted(obj interface{}) {
 	}
 }
 
-func (c *ClusterConfig) configUpdated(old, cur interface{}) {
+func (c *ClusterConfig) configUpdated(_, _ interface{}) {
 	go c.GetConfig()
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -154,7 +154,7 @@ func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	}
 }
 
-func (c *ClusterConfig) crdUpdated(old, cur interface{}) {
+func (c *ClusterConfig) crdUpdated(_, cur interface{}) {
 	c.crdAddedDeleted(cur)
 }
 

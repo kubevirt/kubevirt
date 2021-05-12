@@ -42,10 +42,12 @@ const (
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultAMD64MachineType                         = "q35"
 	DefaultPPC64LEMachineType                       = "pseries"
+	DefaultAARCH64MachineType                       = "virt"
 	DefaultCPURequest                               = "100m"
 	DefaultMemoryOvercommit                         = 100
 	DefaultAMD64EmulatedMachines                    = "q35*,pc-q35*"
 	DefaultPPC64LEEmulatedMachines                  = "pseries*"
+	DefaultAARCH64EmulatedMachines                  = "virt*"
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultNodeSelectors                            = ""
 	DefaultNetworkInterface                         = "bridge"
@@ -58,8 +60,9 @@ const (
 	SmbiosConfigDefaultProduct                      = "None"
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
 	DefaultSELinuxLauncherType                      = "virt_launcher.process"
-	SupportedGuestAgentVersions                     = "2.*,3.*,4.*"
-	DefaultOVMFPath                                 = "/usr/share/OVMF"
+	SupportedGuestAgentVersions                     = "2.*,3.*,4.*,5.*"
+	DefaultARCHOVMFPath                             = "/usr/share/OVMF"
+	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
 	DefaultVirtAPILogVerbosity                      = 2
@@ -69,19 +72,54 @@ const (
 	DefaultVirtOperatorLogVerbosity                 = 2
 )
 
-// Set default machine type and supported emulated machines based on architecture
-func getDefaultMachinesForArch() (string, string) {
-	if runtime.GOARCH == "ppc64le" {
+type DefaultArch struct {
+	Architecture string
+}
+
+func NewDefaultArch(arch string) *DefaultArch {
+	return &DefaultArch{Architecture: arch}
+}
+
+func (d *DefaultArch) IsARM64() bool {
+	if d.Architecture == "arm64" {
+		return true
+	}
+	return false
+}
+
+func (d *DefaultArch) IsPPC64() bool {
+	if d.Architecture == "ppc64le" {
+		return true
+	}
+	return false
+}
+
+// GetDefaultMachinesForArch set default machine type and supported emulated machines based on architecture
+func (d *DefaultArch) GetDefaultMachinesForArch() (string, string) {
+	if d.IsPPC64() {
 		return DefaultPPC64LEMachineType, DefaultPPC64LEEmulatedMachines
+	}
+	if d.IsARM64() {
+		return DefaultAARCH64MachineType, DefaultAARCH64EmulatedMachines
 	}
 	return DefaultAMD64MachineType, DefaultAMD64EmulatedMachines
 }
 
-var DefaultMachineType, DefaultEmulatedMachines = getDefaultMachinesForArch()
+var DefaultMachineType, DefaultEmulatedMachines = NewDefaultArch(runtime.GOARCH).GetDefaultMachinesForArch()
 
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
 	return *c.GetConfig().MemBalloonStatsPeriod
 }
+
+//GetDefaultOVMFPathForArch set default EFI bootloader Path based on architecture
+func (d *DefaultArch) GetDefaultOVMFPathForArch() string {
+	if d.IsARM64() {
+		return DefaultAARCH64OVMFPath
+	}
+	return DefaultARCHOVMFPath
+}
+
+var DefaultOVMFPath = NewDefaultArch(runtime.GOARCH).GetDefaultOVMFPathForArch()
 
 func (c *ClusterConfig) IsUseEmulation() bool {
 	return c.GetConfig().DeveloperConfiguration.UseEmulation

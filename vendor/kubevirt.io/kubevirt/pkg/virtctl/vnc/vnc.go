@@ -155,6 +155,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		defer fd.Close()
 
 		glog.V(2).Infof("VNC Client connected in %v", time.Now().Sub(start))
+		templates.PrintWarningForPausedVMI(virtCli, vmi, namespace)
 
 		// write to FD <- pipeOutReader
 		go func() {

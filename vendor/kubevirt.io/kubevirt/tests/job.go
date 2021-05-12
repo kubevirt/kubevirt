@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -111,8 +110,8 @@ func NewJob(name string, cmd, args []string, retry, ttlAfterFinished int32, time
 // NewHelloWorldJob takes a DNS entry or an IP and a port which it will use to create a job
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
-func NewHelloWorldJob(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
-	check := fmt.Sprintf(`set -x; %sx="$(head -n 1 < <(nc %s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, strings.Join(checkConnectivityCmdPrefixes, ";"), host, port)
+func NewHelloWorldJob(host string, port string) *batchv1.Job {
+	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)
 	return newHelloWorldJob(check)
 }
 
@@ -121,11 +120,10 @@ func NewHelloWorldJob(host string, port string, checkConnectivityCmdPrefixes ...
 // Note that in case of UDP, the server will not see the connection unless something is sent over it
 // However, netcat does not work well with UDP and closes before the answer arrives, we make netcat wait until
 // the defined timeout is expired to prevent this from happening.
-func NewHelloWorldJobUDP(host, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
+func NewHelloWorldJobUDP(host, port string) *batchv1.Job {
 	timeout := 5
 	check := fmt.Sprintf(`set -x
-%s
-x=$(cat <(echo) <(sleep %[2]d) | nc -u %s %s -i %[2]d -w %[2]d | head -n 1)
+x=$(cat <(echo) <(sleep %[1]d) | nc -u %s %s -i %[1]d -w %[1]d | head -n 1)
 echo "$x"
 if [ "$x" = "Hello UDP World!" ]; then
   echo "succeeded"
@@ -134,7 +132,7 @@ else
   echo "failed"
   exit 1
 fi`,
-		strings.Join(checkConnectivityCmdPrefixes, ";"), timeout, host, port)
+		timeout, host, port)
 
 	return newHelloWorldJob(check)
 }
@@ -142,8 +140,8 @@ fi`,
 // NewHelloWorldJobHTTP gets an IP address and a port, which it uses to create a pod.
 // This pod tries to contact the host on the provided port, over HTTP.
 // On success - it expects to receive "Hello World!".
-func NewHelloWorldJobHTTP(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
-	check := fmt.Sprintf(`set -x; %sx="$(head -n 1 < <(curl --http0.9 %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, strings.Join(checkConnectivityCmdPrefixes, ";"), FormatIPForURL(host), port)
+func NewHelloWorldJobHTTP(host string, port string) *batchv1.Job {
+	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl --http0.9 %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, FormatIPForURL(host), port)
 	return newHelloWorldJob(check)
 }
 

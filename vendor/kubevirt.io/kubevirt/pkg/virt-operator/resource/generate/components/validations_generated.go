@@ -266,12 +266,35 @@ var CRDsValidation map[string]string = map[string]string{
           properties:
             selfSigned:
               properties:
+                ca:
+                  description: CA configuration CA certs are kept in the CA bundle as long as they are valid
+                  properties:
+                    duration:
+                      description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                      type: string
+                    renewBefore:
+                      description: The amount of time before the currently issued certificate's "notAfter" time that we will begin to attempt to renew the certificate.
+                      type: string
+                  type: object
                 caOverlapInterval:
+                  description: Deprecated. Use CA.Duration and CA.RenewBefore instead
                   type: string
                 caRotateInterval:
+                  description: Deprecated. Use CA.Duration instead
                   type: string
                 certRotateInterval:
+                  description: Deprecated. Use Server.Duration instead
                   type: string
+                server:
+                  description: Server configuration Certs are rotated and discarded
+                  properties:
+                    duration:
+                      description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                      type: string
+                    renewBefore:
+                      description: The amount of time before the currently issued certificate's "notAfter" time that we will begin to attempt to renew the certificate.
+                      type: string
+                  type: object
               type: object
           type: object
         configuration:
@@ -436,6 +459,7 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
               type: object
             supportedGuestAgentVersions:
+              description: deprecated
               items:
                 type: string
               type: array
@@ -1310,6 +1334,11 @@ var CRDsValidation map[string]string = map[string]string{
               resource:
                 description: resource is the resource type of the thing you're tracking
                 type: string
+            required:
+            - group
+            - lastGeneration
+            - name
+            - resource
             type: object
           type: array
           x-kubernetes-list-type: atomic
@@ -2212,6 +2241,28 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                           items:
                             properties:
+                              blockSize:
+                                description: If specified, the virtual disk will be presented with the given block sizes.
+                                properties:
+                                  custom:
+                                    description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                    properties:
+                                      logical:
+                                        type: integer
+                                      physical:
+                                        type: integer
+                                    required:
+                                    - logical
+                                    - physical
+                                    type: object
+                                  matchVolume:
+                                    description: Represents if a feature is enabled or disabled.
+                                    properties:
+                                      enabled:
+                                        description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                        type: boolean
+                                    type: object
+                                type: object
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
@@ -2807,6 +2858,9 @@ var CRDsValidation map[string]string = map[string]string{
                       pod:
                         description: Represents the stock pod network interface.
                         properties:
+                          vmIPv6NetworkCIDR:
+                            description: IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.
+                            type: string
                           vmNetworkCIDR:
                             description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                             type: string
@@ -2901,6 +2955,9 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 schedulerName:
                   description: If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.
+                  type: string
+                startStrategy:
+                  description: StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
                   type: string
                 subdomain:
                   description: If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.
@@ -3274,6 +3331,28 @@ var CRDsValidation map[string]string = map[string]string{
                   disk:
                     description: Disk represents the hotplug disk that will be plugged into the running VMI
                     properties:
+                      blockSize:
+                        description: If specified, the virtual disk will be presented with the given block sizes.
+                        properties:
+                          custom:
+                            description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                            properties:
+                              logical:
+                                type: integer
+                              physical:
+                                type: integer
+                            required:
+                            - logical
+                            - physical
+                            type: object
+                          matchVolume:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                type: boolean
+                            type: object
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
@@ -4017,6 +4096,28 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                   items:
                     properties:
+                      blockSize:
+                        description: If specified, the virtual disk will be presented with the given block sizes.
+                        properties:
+                          custom:
+                            description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                            properties:
+                              logical:
+                                type: integer
+                              physical:
+                                type: integer
+                            required:
+                            - logical
+                            - physical
+                            type: object
+                          matchVolume:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                type: boolean
+                            type: object
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
@@ -4612,6 +4713,9 @@ var CRDsValidation map[string]string = map[string]string{
               pod:
                 description: Represents the stock pod network interface.
                 properties:
+                  vmIPv6NetworkCIDR:
+                    description: IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.
+                    type: string
                   vmNetworkCIDR:
                     description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                     type: string
@@ -4706,6 +4810,9 @@ var CRDsValidation map[string]string = map[string]string{
           type: object
         schedulerName:
           description: If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.
+          type: string
+        startStrategy:
+          description: StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
           type: string
         subdomain:
           description: If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.
@@ -5419,6 +5526,28 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                   items:
                     properties:
+                      blockSize:
+                        description: If specified, the virtual disk will be presented with the given block sizes.
+                        properties:
+                          custom:
+                            description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                            properties:
+                              logical:
+                                type: integer
+                              physical:
+                                type: integer
+                            required:
+                            - logical
+                            - physical
+                            type: object
+                          matchVolume:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                type: boolean
+                            type: object
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
@@ -6596,6 +6725,28 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                           items:
                             properties:
+                              blockSize:
+                                description: If specified, the virtual disk will be presented with the given block sizes.
+                                properties:
+                                  custom:
+                                    description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                    properties:
+                                      logical:
+                                        type: integer
+                                      physical:
+                                        type: integer
+                                    required:
+                                    - logical
+                                    - physical
+                                    type: object
+                                  matchVolume:
+                                    description: Represents if a feature is enabled or disabled.
+                                    properties:
+                                      enabled:
+                                        description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                        type: boolean
+                                    type: object
+                                type: object
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
@@ -7191,6 +7342,9 @@ var CRDsValidation map[string]string = map[string]string{
                       pod:
                         description: Represents the stock pod network interface.
                         properties:
+                          vmIPv6NetworkCIDR:
+                            description: IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.
+                            type: string
                           vmNetworkCIDR:
                             description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                             type: string
@@ -7285,6 +7439,9 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 schedulerName:
                   description: If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.
+                  type: string
+                startStrategy:
+                  description: StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
                   type: string
                 subdomain:
                   description: If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.
@@ -7811,6 +7968,12 @@ var CRDsValidation map[string]string = map[string]string{
               format: date-time
               type: string
           type: object
+        indications:
+          items:
+            description: Indication is a way to indicate the state of the vm when taking the snapshot
+            type: string
+          type: array
+          x-kubernetes-list-type: set
         readyToUse:
           type: boolean
         sourceUID:
@@ -8711,6 +8874,28 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                                       items:
                                         properties:
+                                          blockSize:
+                                            description: If specified, the virtual disk will be presented with the given block sizes.
+                                            properties:
+                                              custom:
+                                                description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                                properties:
+                                                  logical:
+                                                    type: integer
+                                                  physical:
+                                                    type: integer
+                                                required:
+                                                - logical
+                                                - physical
+                                                type: object
+                                              matchVolume:
+                                                description: Represents if a feature is enabled or disabled.
+                                                properties:
+                                                  enabled:
+                                                    description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                                    type: boolean
+                                                type: object
+                                            type: object
                                           bootOrder:
                                             description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                             type: integer
@@ -9306,6 +9491,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod:
                                     description: Represents the stock pod network interface.
                                     properties:
+                                      vmIPv6NetworkCIDR:
+                                        description: IPv6 CIDR for the vm network. Defaults to fd10:0:2::/120 if not specified.
+                                        type: string
                                       vmNetworkCIDR:
                                         description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                                         type: string
@@ -9400,6 +9588,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type: object
                             schedulerName:
                               description: If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.
+                              type: string
+                            startStrategy:
+                              description: StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
                               type: string
                             subdomain:
                               description: If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.
@@ -9773,6 +9964,28 @@ var CRDsValidation map[string]string = map[string]string{
                               disk:
                                 description: Disk represents the hotplug disk that will be plugged into the running VMI
                                 properties:
+                                  blockSize:
+                                    description: If specified, the virtual disk will be presented with the given block sizes.
+                                    properties:
+                                      custom:
+                                        description: CustomBlockSize represents the desired logical and physical block size for a VM disk.
+                                        properties:
+                                          logical:
+                                            type: integer
+                                          physical:
+                                            type: integer
+                                        required:
+                                        - logical
+                                        - physical
+                                        type: object
+                                      matchVolume:
+                                        description: Represents if a feature is enabled or disabled.
+                                        properties:
+                                          enabled:
+                                            description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                            type: boolean
+                                        type: object
+                                    type: object
                                   bootOrder:
                                     description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                     type: integer

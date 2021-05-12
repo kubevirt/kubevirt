@@ -290,6 +290,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.AddVolumeOptions":                                      schema_kubevirtio_client_go_api_v1_AddVolumeOptions(ref),
 		"kubevirt.io/client-go/api/v1.AuthorizedKeysFile":                                    schema_kubevirtio_client_go_api_v1_AuthorizedKeysFile(ref),
 		"kubevirt.io/client-go/api/v1.BIOS":                                                  schema_kubevirtio_client_go_api_v1_BIOS(ref),
+		"kubevirt.io/client-go/api/v1.BlockSize":                                             schema_kubevirtio_client_go_api_v1_BlockSize(ref),
 		"kubevirt.io/client-go/api/v1.Bootloader":                                            schema_kubevirtio_client_go_api_v1_Bootloader(ref),
 		"kubevirt.io/client-go/api/v1.CDRomTarget":                                           schema_kubevirtio_client_go_api_v1_CDRomTarget(ref),
 		"kubevirt.io/client-go/api/v1.CPU":                                                   schema_kubevirtio_client_go_api_v1_CPU(ref),
@@ -305,6 +306,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation":    schema_kubevirtio_client_go_api_v1_ConfigDriveSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                                 schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ContainerDiskSource":                                   schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
+		"kubevirt.io/client-go/api/v1.CustomBlockSize":                                       schema_kubevirtio_client_go_api_v1_CustomBlockSize(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponents":                                   schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponentsPatch":                              schema_kubevirtio_client_go_api_v1_CustomizeComponentsPatch(ref),
 		"kubevirt.io/client-go/api/v1.DHCPOptions":                                           schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
@@ -334,6 +336,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Firmware":                                              schema_kubevirtio_client_go_api_v1_Firmware(ref),
 		"kubevirt.io/client-go/api/v1.FloppyTarget":                                          schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
 		"kubevirt.io/client-go/api/v1.GPU":                                                   schema_kubevirtio_client_go_api_v1_GPU(ref),
+		"kubevirt.io/client-go/api/v1.GenerationStatus":                                      schema_kubevirtio_client_go_api_v1_GenerationStatus(ref),
+		"kubevirt.io/client-go/api/v1.GuestAgentCommandInfo":                                 schema_kubevirtio_client_go_api_v1_GuestAgentCommandInfo(ref),
 		"kubevirt.io/client-go/api/v1.HPETTimer":                                             schema_kubevirtio_client_go_api_v1_HPETTimer(ref),
 		"kubevirt.io/client-go/api/v1.HostDevice":                                            schema_kubevirtio_client_go_api_v1_HostDevice(ref),
 		"kubevirt.io/client-go/api/v1.HostDisk":                                              schema_kubevirtio_client_go_api_v1_HostDisk(ref),
@@ -13854,6 +13858,31 @@ func schema_kubevirtio_client_go_api_v1_BIOS(ref common.ReferenceCallback) commo
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_BlockSize(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BlockSize provides the option to change the block size presented to the VM for a disk. Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"custom": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.CustomBlockSize"),
+						},
+					},
+					"matchVolume": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.FeatureState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.CustomBlockSize", "kubevirt.io/client-go/api/v1.FeatureState"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_Bootloader(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -14375,6 +14404,32 @@ func schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref common.Reference
 					},
 				},
 				Required: []string{"image"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_CustomBlockSize(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CustomBlockSize represents the desired logical and physical block size for a VM disk.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"logical": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"physical": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+				Required: []string{"logical", "physical"},
 			},
 		},
 	}
@@ -14933,12 +14988,18 @@ func schema_kubevirtio_client_go_api_v1_Disk(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"blockSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the virtual disk will be presented with the given block sizes.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.BlockSize"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.CDRomTarget", "kubevirt.io/client-go/api/v1.DiskTarget", "kubevirt.io/client-go/api/v1.FloppyTarget", "kubevirt.io/client-go/api/v1.LunTarget"},
+			"kubevirt.io/client-go/api/v1.BlockSize", "kubevirt.io/client-go/api/v1.CDRomTarget", "kubevirt.io/client-go/api/v1.DiskTarget", "kubevirt.io/client-go/api/v1.FloppyTarget", "kubevirt.io/client-go/api/v1.LunTarget"},
 	}
 }
 
@@ -15572,6 +15633,88 @@ func schema_kubevirtio_client_go_api_v1_GPU(ref common.ReferenceCallback) common
 					},
 				},
 				Required: []string{"name", "deviceName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_GenerationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GenerationStatus keeps track of the generation for a given resource so that decisions about forced updates can be made.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "group is the group of the thing you're tracking",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource is the resource type of the thing you're tracking",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "namespace is where the thing you're tracking is",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the thing you're tracking",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "lastGeneration is the last generation of the workload controller involved",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"hash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "hash is an optional field set for resources without generation that are content sensitive like secrets and configmaps",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"group", "resource", "name", "lastGeneration"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_GuestAgentCommandInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "List of commands that QEMU guest agent supports",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"name"},
 			},
 		},
 	}
@@ -16220,7 +16363,8 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 					},
 					"supportedGuestAgentVersions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "deprecated",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -16561,7 +16705,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/openshift/api/operator/v1.GenerationStatus"),
+										Ref: ref("kubevirt.io/client-go/api/v1.GenerationStatus"),
 									},
 								},
 							},
@@ -16571,7 +16715,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/openshift/api/operator/v1.GenerationStatus", "kubevirt.io/client-go/api/v1.KubeVirtCondition"},
+			"kubevirt.io/client-go/api/v1.GenerationStatus", "kubevirt.io/client-go/api/v1.KubeVirtCondition"},
 	}
 }
 
@@ -18119,6 +18263,24 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceGuestAgentInfo(ref
 							Format:      "",
 						},
 					},
+					"supportedCommands": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Return command list the guest agent supports",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.GuestAgentCommandInfo"),
+									},
+								},
+							},
+						},
+					},
 					"hostname": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Hostname represents FQDN of a guest",
@@ -18162,7 +18324,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceGuestAgentInfo(ref
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineInstanceFileSystemInfo", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSUser"},
+			"kubevirt.io/client-go/api/v1.GuestAgentCommandInfo", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceFileSystemInfo", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSUser"},
 	}
 }
 
@@ -19134,6 +19296,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 					"evictionStrategy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"startStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -20629,6 +20798,24 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"indications": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},

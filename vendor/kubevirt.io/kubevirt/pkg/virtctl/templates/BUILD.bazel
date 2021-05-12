@@ -5,5 +5,11 @@ go_library(
     srcs = ["templates.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/templates",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/spf13/cobra:go_default_library"],
+    deps = [
+        "//pkg/controller:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/github.com/spf13/cobra:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
 )

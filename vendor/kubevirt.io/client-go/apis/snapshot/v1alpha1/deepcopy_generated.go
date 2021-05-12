@@ -487,6 +487,11 @@ func (in *VirtualMachineSnapshotStatus) DeepCopyInto(out *VirtualMachineSnapshot
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Indications != nil {
+		in, out := &in.Indications, &out.Indications
+		*out = make([]Indication, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

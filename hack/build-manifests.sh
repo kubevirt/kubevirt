@@ -47,15 +47,6 @@ PROJECT_ROOT="$(readlink -e $(dirname "${BASH_SOURCE[0]}")/../)"
 source "${PROJECT_ROOT}"/hack/config
 source "${PROJECT_ROOT}"/deploy/images.env
 
-# TODO: Remove this once kubevirt v0.41.0 will available
-# pinning to kubevirt 20210419_285ddf078
-KUBEVIRT_OPERATOR_IMAGE="quay.io/kubevirt/virt-operator@sha256:84545a13b25c9078a18436bcb5ae413932bff2a5af3f0cb9515e748321324deb"
-KUBEVIRT_API_IMAGE="quay.io/kubevirt/virt-api@sha256:0e0ae908962d132d6190e7e956d19b7a93d90b2e9fad32729c49dc39852a0899"
-KUBEVIRT_CONTROLLER_IMAGE="quay.io/kubevirt/virt-controller@sha256:5c90e370bf0019c4bfea3d470861b560602cf3e78fdf620c16041ce6fdeab553"
-KUBEVIRT_LAUNCHER_IMAGE="quay.io/kubevirt/virt-launcher@sha256:78d51f754c32b61b3169cc825f012132efd03f848785821e163a35ab46038d11"
-KUBEVIRT_HANDLER_IMAGE="quay.io/kubevirt/virt-handler@sha256:e98aa5277d6a0160a7498299d29e3d1908129420ec8130e6cc235139df453dce"
-# TODO: Remove till here once kubevirt v0.41.0 will available
-
 HCO_OPERATOR_IMAGE=${HCO_OPERATOR_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:${CSV_VERSION}-unstable}
 HCO_WEBHOOK_IMAGE=${HCO_WEBHOOK_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-webhook:${CSV_VERSION}-unstable}
 DIGEST_LIST="${DIGEST_LIST},${HCO_OPERATOR_IMAGE}|hyperconverged-cluster-operator,${HCO_WEBHOOK_IMAGE}|hyperconverged-cluster-webhook"
