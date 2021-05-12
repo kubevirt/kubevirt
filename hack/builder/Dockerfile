@@ -49,7 +49,7 @@ RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
 ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
     JAVA_HOME=/usr/lib/jvm/java-11
 
-ENV GIMME_GO_VERSION=1.13.14
+ENV GIMME_GO_VERSION=1.16.4
 
 RUN mkdir -p /gimme && curl -sL \
     https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
@@ -85,7 +85,7 @@ RUN set -x && \
     source /etc/profile.d/gimme.sh && \
     git clone https://github.com/kubernetes/test-infra.git && \
     cd /test-infra && \
-    git checkout fd0699b906b0593a33ba2bddd3b1ae8822f42dd8 && \
+    git checkout 70dce7fdb341bc9579aead519b85c21abf7c162c && \
     cd /test-infra/robots/pr-creator && \
     go install && \
     cd /test-infra/robots/issue-creator && \
@@ -98,7 +98,7 @@ RUN set -x && \
 
 RUN pip3 install --upgrade j2cli operator-courier==2.1.11
 
-ENV SONOBUOY_VERSION=0.19.0
+ENV SONOBUOY_VERSION=0.50.0
 RUN set -x && \
     wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
     tar xvf sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
