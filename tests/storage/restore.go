@@ -740,6 +740,18 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 				))
 
+				Eventually(func() error {
+					return libnet.WithIPv6(console.LoginToCirros)(vmi)
+				}, 360, 10).Should(Succeed())
+
+				b := append([]expect.Batcher{
+					&expect.BSnd{S: "cat /var/run/resize.rootfs | grep resized\n"},
+					&expect.BExp{R: "resized successfully"},
+				})
+				Eventually(func() error {
+					return console.SafeExpectBatch(vmi, b, 10)
+				}, 60, 20).Should(Succeed())
+
 				doRestore("", true)
 
 			})
