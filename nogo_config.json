@@ -110,6 +110,7 @@
   "unsafeptr": {
     "exclude_files": {
       "vendor/": "vendor doesn't pass vet",
+      "rules_go_work-.*/": "necessary due to https://github.com/bazelbuild/rules_go/issues/2513",
       "external/": "externaldoesn't pass vet"
     }
   },

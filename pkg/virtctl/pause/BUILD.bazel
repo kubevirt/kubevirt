@@ -22,8 +22,8 @@ go_test(
         "pause_suite_test.go",
         "pause_test.go",
     ],
-    embed = [":go_default_library"],
     deps = [
+        ":go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
