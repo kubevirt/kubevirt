@@ -1,6 +1,6 @@
 module github.com/kubevirt/hyperconverged-cluster-operator
 
-go 1.15
+go 1.16
 
 require (
 	cloud.google.com/go v0.72.0 // indirect

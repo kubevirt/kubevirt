@@ -4,7 +4,7 @@ set -ex
 
 # Get golang
 docker login --username "$(cat "${QUAY_USER}")" --password-stdin quay.io < "${QUAY_PASSWORD}"
-wget -q https://dl.google.com/go/go1.15.11.linux-amd64.tar.gz
+wget -q https://dl.google.com/go/go1.16.4.linux-amd64.tar.gz
 tar -C /usr/local -xf go*.tar.gz
 export PATH=/usr/local/go/bin:$PATH
 
