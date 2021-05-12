@@ -1751,10 +1751,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					By("Waiting for VMI to disappear")
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 				},
-					table.Entry("[QUARANTINE][sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-					table.Entry("[QUARANTINE][sig-storage][sig-compute][test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
+					table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
+					table.Entry("[sig-storage][sig-compute][test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
 				)
-				It("[QUARANTINE][sig-compute][test_id:3241]should be able to cancel a migration right after posting it", func() {
+				It("[sig-compute][test_id:3241]should be able to cancel a migration right after posting it", func() {
 					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
