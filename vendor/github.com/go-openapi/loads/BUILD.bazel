@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "doc.go",
+        "loaders.go",
+        "options.go",
         "spec.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/loads",

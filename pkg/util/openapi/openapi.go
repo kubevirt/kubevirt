@@ -41,13 +41,17 @@ func addInfoToSwaggerObject(swo *spec.Swagger) {
 			Title:       "KubeVirt API",
 			Description: "This is KubeVirt API an add-on for Kubernetes.",
 			Contact: &spec.ContactInfo{
-				Name:  "kubevirt-dev",
-				Email: "kubevirt-dev@googlegroups.com",
-				URL:   "https://github.com/kubevirt/kubevirt",
+				ContactInfoProps: spec.ContactInfoProps{
+					Name:  "kubevirt-dev",
+					Email: "kubevirt-dev@googlegroups.com",
+					URL:   "https://github.com/kubevirt/kubevirt",
+				},
 			},
 			License: &spec.License{
-				Name: "Apache 2.0",
-				URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+				LicenseProps: spec.LicenseProps{
+					Name: "Apache 2.0",
+					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+				},
 			},
 		},
 	}
@@ -80,13 +84,17 @@ func createConfig() *common.Config {
 				Title:       "KubeVirt API",
 				Description: "This is KubeVirt API an add-on for Kubernetes.",
 				Contact: &spec.ContactInfo{
-					Name:  "kubevirt-dev",
-					Email: "kubevirt-dev@googlegroups.com",
-					URL:   "https://github.com/kubevirt/kubevirt",
+					ContactInfoProps: spec.ContactInfoProps{
+						Name:  "kubevirt-dev",
+						Email: "kubevirt-dev@googlegroups.com",
+						URL:   "https://github.com/kubevirt/kubevirt",
+					},
 				},
 				License: &spec.License{
-					Name: "Apache 2.0",
-					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+					LicenseProps: spec.LicenseProps{
+						Name: "Apache 2.0",
+						URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+					},
 				},
 			},
 		},
@@ -275,8 +283,8 @@ func (v *Validator) Validate(gvk schema.GroupVersionKind, obj map[string]interfa
 		}
 	}
 
-	if _, exists := obj["spec"]; !exists {
-		errs = append(errs, errors.Required("spec", "body"))
+	if value, exists := obj["spec"]; !exists {
+		errs = append(errs, errors.Required("spec", "body", value))
 	}
 
 	errs = append(errs, v.ValidateSpec(gvk, obj)...)
