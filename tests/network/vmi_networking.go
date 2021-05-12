@@ -65,7 +65,12 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 	var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
 	var outboundVMI *v1.VirtualMachineInstance
 
-	const testPort = 1500
+	const (
+		testPort                   = 1500
+		LibvirtLocalConnectionPort = 22222
+		LibvirtDirectMigrationPort = 49152
+		LibvirtBlockMigrationPort  = 49153
+	)
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -671,6 +676,14 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 			return nil
 		}
 
+		portsUsedByLiveMigration := func() []v1.Port {
+			return []v1.Port{
+				{Port: LibvirtLocalConnectionPort},
+				{Port: LibvirtDirectMigrationPort},
+				{Port: LibvirtBlockMigrationPort},
+			}
+		}
+
 		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
 
 			verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
@@ -695,7 +708,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				return nil
 			}
 
-			table.DescribeTable("ipv4", func(ports []v1.Port, networkCIDR string) {
+			table.DescribeTable("ipv4", func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				var clientVMI *v1.VirtualMachineInstance
 				var serverVMI *v1.VirtualMachineInstance
 
@@ -714,7 +727,6 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
 				By("starting a tcp server")
-				tcpPort := 8080
 				tests.StartTCPServer(serverVMI, tcpPort)
 
 				if networkCIDR == "" {
@@ -731,12 +743,13 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
 			},
-				table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, ""),
-				table.Entry("without a specific port number [IPv4]", []v1.Port{}, ""),
-				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, "10.10.10.0/24"),
+				table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
+				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtLocalConnectionPort, ""),
+				table.Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
+				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
 			)
 
-			table.DescribeTable("IPv6", func(ports []v1.Port, networkCIDR string) {
+			table.DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 				var serverVMI *v1.VirtualMachineInstance
 				var clientVMI *v1.VirtualMachineInstance
@@ -763,7 +776,6 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
 				By("starting a http server")
-				tcpPort := 8080
 				tests.StartPythonHttpServer(serverVMI, tcpPort)
 
 				assert.XFail("https://github.com/kubevirt/kubevirt/issues/5113", func() {
@@ -776,9 +788,10 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
-				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, ""),
-				table.Entry("without a specific port number [IPv6]", []v1.Port{}, ""),
-				table.Entry("with custom CIDR [IPv6]", []v1.Port{}, "fd10:10:10::/120"),
+				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
+				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtLocalConnectionPort, ""),
+				table.Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
+				table.Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
 			)
 		})
 
@@ -837,7 +850,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				}
 			})
 
-			table.DescribeTable("[Conformance] preserves connectivity", func(ipFamily k8sv1.IPFamily) {
+			table.DescribeTable("[Conformance] preserves connectivity", func(ipFamily k8sv1.IPFamily, ports []v1.Port) {
 				if ipFamily == k8sv1.IPv6Protocol {
 					libnet.SkipWhenNotDualStackCluster(virtClient)
 				}
@@ -847,10 +860,10 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 
 				By("Create VMI")
 				if ipFamily == k8sv1.IPv4Protocol {
-					vmi = masqueradeVMI([]v1.Port{}, "")
+					vmi = masqueradeVMI(ports, "")
 					loginMethod = console.LoginToCirros
 				} else {
-					vmi, err = fedoraMasqueradeVMI([]v1.Port{}, "")
+					vmi, err = fedoraMasqueradeVMI(ports, "")
 					Expect(err).ToNot(HaveOccurred(), "Error creating fedora masquerade vmi")
 					loginMethod = console.LoginToFedora
 				}
@@ -902,8 +915,9 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				}
 				Expect(ping(podIP)).To(Succeed())
 			},
-				table.Entry("IPv4", k8sv1.IPv4Protocol),
-				table.Entry("IPv6", k8sv1.IPv6Protocol),
+				table.Entry("IPv4", k8sv1.IPv4Protocol, []v1.Port{}),
+				table.Entry("IPv4 with explicit ports used by live migration", k8sv1.IPv4Protocol, portsUsedByLiveMigration()),
+				table.Entry("IPv6", k8sv1.IPv6Protocol, []v1.Port{}),
 			)
 		})
 
