@@ -3038,6 +3038,56 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	Context("with volume", func() {
+		It("should accept a single downwardmetrics volume", func() {
+			enableFeatureGate(virtconfig.DownwardMetricsFeatureGate)
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testDownwardMetrics",
+				VolumeSource: v1.VolumeSource{
+					DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(BeEmpty())
+		})
+		It("should reject downwardMetrics volumes if the feature gate is not enabled", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testDownwardMetrics",
+				VolumeSource: v1.VolumeSource{
+					DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("downwardMetrics disks are not allowed: DownwardMetrics feature gate is not enabled."))
+		})
+		It("should reject downwardMetrics volumes if more than one exist", func() {
+			enableFeatureGate(virtconfig.DownwardMetricsFeatureGate)
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes,
+				v1.Volume{
+					Name: "testDownwardMetrics",
+					VolumeSource: v1.VolumeSource{
+						DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
+					},
+				},
+				v1.Volume{
+					Name: "testDownwardMetrics1",
+					VolumeSource: v1.VolumeSource{
+						DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
+					},
+				},
+			)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("fake must have max one downwardMetric volume set"))
+		})
 		It("should reject hostDisk volumes if the feature gate is not enabled", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 

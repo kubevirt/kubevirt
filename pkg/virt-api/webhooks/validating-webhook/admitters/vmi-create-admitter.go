@@ -1906,6 +1906,14 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			}
 		}
 
+		if volume.DownwardMetrics != nil && !config.DownwardMetricsEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "downwardMetrics disks are not allowed: DownwardMetrics feature gate is not enabled.",
+				Field:   field.Index(idx).String(),
+			})
+		}
+
 		// validate HostDisk data
 		if hostDisk := volume.HostDisk; hostDisk != nil {
 			if !config.HostDiskEnabled() {
