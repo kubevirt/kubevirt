@@ -821,7 +821,7 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 	for _, volume := range vmi.Spec.Volumes {
 		// Check both DVs and PVCs
 		if volume.VolumeSource.DataVolume != nil || volume.VolumeSource.PersistentVolumeClaim != nil {
-			volumeReady, volumeWffc, err := c.volumeReadyToUse(vmi.Namespace, volume, dataVolumes)
+			volumeReady, volumeWffc, err := c.volumeReadyToAttachToNode(vmi.Namespace, volume, dataVolumes)
 			if err != nil {
 				// Keep existing behavior of missing PVC = ready. This in turn triggers template render, which sets conditions and events, and fails appropriately
 				if _, ok := err.(services.PvcNotFoundError); ok {
@@ -1346,7 +1346,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
 		var err error
-		ready, wffc, err := c.volumeReadyToUse(vmi.Namespace, *volume, dataVolumes)
+		ready, wffc, err := c.volumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes)
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("Error determining volume status %v", err), PVCNotReadyReason}
 		}
@@ -1366,7 +1366,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		}
 		readyHotplugVolumes = append(readyHotplugVolumes, volume)
 	}
-	logger.Infof("Ready volumes: %d", len(readyHotplugVolumes))
+	logger.Infof("Ready to attach to node volumes: %d", len(readyHotplugVolumes))
 	for _, volume := range readyHotplugVolumes {
 		logger.Infof("volume: %s", volume.Name)
 	}
@@ -1467,7 +1467,7 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 	return nil
 }
 
-func (c *VMIController) volumeReadyToUse(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume) (bool, bool, error) {
+func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume) (bool, bool, error) {
 	name := ""
 	if volume.DataVolume != nil {
 		name = volume.DataVolume.Name
