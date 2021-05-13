@@ -2,6 +2,7 @@ name: Auto-Bump Component's Versions
 on:
   schedule:
     - cron:  '0 5 * * *'
+  workflow_dispatch:
 jobs:
   build:
     name: HCO Release Bump Job

@@ -2,6 +2,7 @@ name: Auto-Update Image Digests
 on:
   schedule:
     - cron:  '0 4/4 * * *'
+  workflow_dispatch:
 jobs:
   build:
     name: HCO Update Image Digests Job
