@@ -1227,13 +1227,6 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 }
 
 func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructured) error) {
-	// Scale down KubeVirt
-	err, replicasApi := DoScaleDeployment(flags.KubeVirtInstallNamespace, "virt-api", 0)
-	PanicOnError(err)
-	err, replicasController := DoScaleDeployment(flags.KubeVirtInstallNamespace, "virt-controller", 0)
-	PanicOnError(err)
-	daemonInstances, selector, _, err := DoScaleVirtHandler(flags.KubeVirtInstallNamespace, "virt-handler", map[string]string{"kubevirt.io": "scaletozero"})
-	PanicOnError(err)
 	// Deploy / delete test infrastructure / dependencies
 	manifests := GetListOfManifests(flags.PathToTestingInfrastrucureManifests)
 	for _, manifest := range manifests {
@@ -1243,39 +1236,6 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 			PanicOnError(err)
 		}
 	}
-	// Scale KubeVirt back
-	err, _ = DoScaleDeployment(flags.KubeVirtInstallNamespace, "virt-api", replicasApi)
-	PanicOnError(err)
-	err, _ = DoScaleDeployment(flags.KubeVirtInstallNamespace, "virt-controller", replicasController)
-	PanicOnError(err)
-	_, _, newGeneration, err := DoScaleVirtHandler(flags.KubeVirtInstallNamespace, "virt-handler", selector)
-	PanicOnError(err)
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	Eventually(func() int32 {
-		d, err := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return d.Status.ReadyReplicas
-	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasApi), "virt-api is not ready")
-
-	Eventually(func() int32 {
-		d, err := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return d.Status.ReadyReplicas
-	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasController), "virt-controller is not ready")
-
-	Eventually(func() int64 {
-		d, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return d.Status.ObservedGeneration
-	}, 1*time.Minute, 2*time.Second).Should(Equal(newGeneration), "virt-handler did not bump the generation")
-
-	Eventually(func() int32 {
-		d, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return d.Status.NumberAvailable
-	}, 1*time.Minute, 2*time.Second).Should(Equal(daemonInstances), "virt-handler is not ready")
 
 	WaitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
 }
