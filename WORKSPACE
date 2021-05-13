@@ -8756,24 +8756,6 @@ rpm(
 )
 
 rpm(
-    name = "qemu-kvm-15__5.2.0-15.fc32.aarch64",
-    sha256 = "aeba0c475bd87481829575055f58c91f669b35448e7c7793ca83db000e87cd67",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-aarch64/02142033-qemu-kvm/qemu-kvm-5.2.0-15.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/aeba0c475bd87481829575055f58c91f669b35448e7c7793ca83db000e87cd67",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-15__5.2.0-15.fc32.x86_64",
-    sha256 = "d13a7b9808c7ae59722bab3ff9816c5f41dd8ae56577dd49bdf39322ca052122",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/02142033-qemu-kvm/qemu-kvm-5.2.0-15.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/d13a7b9808c7ae59722bab3ff9816c5f41dd8ae56577dd49bdf39322ca052122",
-    ],
-)
-
-rpm(
     name = "qemu-kvm-block-curl-15__5.2.0-15.fc32.aarch64",
     sha256 = "f2379b07ef3d79342a7996371f404a398c4a2e78f3b8e6719d8127c111417c81",
     urls = [
