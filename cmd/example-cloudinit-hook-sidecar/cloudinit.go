@@ -47,7 +47,7 @@ func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*ho
 			hooksV1alpha2.Version,
 		},
 		HookPoints: []*hooksInfo.HookPoint{
-			&hooksInfo.HookPoint{
+			{
 				Name:     hooksInfo.PreCloudInitIsoHookPointName,
 				Priority: 0,
 			},

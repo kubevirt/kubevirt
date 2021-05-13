@@ -147,13 +147,13 @@ func enableNetworkInterfaceMultiqueue(spec *v1.VirtualMachineInstanceSpec, enabl
 
 func setDefaultNetworkAndInterface(spec *v1.VirtualMachineInstanceSpec, bindingMethod v1.InterfaceBindingMethod, networkSource v1.NetworkSource) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Interfaces = []v1.Interface{
-		v1.Interface{
+		{
 			Name:                   defaultInterfaceName,
 			InterfaceBindingMethod: bindingMethod,
 			Model:                  EthernetAdaptorModelToEnableMultiqueue},
 	}
 	spec.Networks = []v1.Network{
-		v1.Network{
+		{
 			Name:          defaultInterfaceName,
 			NetworkSource: networkSource},
 	}
@@ -419,14 +419,14 @@ func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 func GetVMISlirp() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiSlirp)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testSlirp", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+	vm.Spec.Networks = []v1.Network{{Name: "testSlirp", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 	initFedora(&vm.Spec)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
 
 	slirp := &v1.InterfaceSlirp{}
-	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
+	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
 
 	return vm
 }
@@ -434,15 +434,15 @@ func GetVMISlirp() *v1.VirtualMachineInstance {
 func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiMasquerade)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+	vm.Spec.Networks = []v1.Network{{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vm.Spec)
 	userData := "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable --now nginx"
 	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
 	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, userData, networkData)
 
 	masquerade := &v1.InterfaceMasquerade{}
-	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testmasquerade", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: masquerade}}}
+	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testmasquerade", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: masquerade}}}
 
 	return vm
 }
@@ -996,7 +996,7 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiGPU)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	GPUs := []v1.GPU{
-		v1.GPU{
+		{
 			Name:       "gpu1",
 			DeviceName: "nvidia.com/GP102GL_Tesla_P40",
 		},
@@ -1011,11 +1011,11 @@ func GetVMIMacvtap() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiMacvtap)
 	macvtapNetworkName := "macvtap"
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vmi.Spec.Networks = []v1.Network{v1.Network{Name: macvtapNetworkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "macvtapnetwork"}}}}
+	vmi.Spec.Networks = []v1.Network{{Name: macvtapNetworkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "macvtapnetwork"}}}}
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable --now nginx")
 
 	macvtap := &v1.InterfaceMacvtap{}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: macvtap}}}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: macvtap}}}
 	return vmi
 }

@@ -57,7 +57,7 @@ func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*ho
 			s.Version,
 		},
 		HookPoints: []*hooksInfo.HookPoint{
-			&hooksInfo.HookPoint{
+			{
 				Name:     hooksInfo.OnDefineDomainHookPointName,
 				Priority: 0,
 			},
