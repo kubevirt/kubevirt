@@ -58,6 +58,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/util/cluster"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -2307,6 +2308,70 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
+	})
+
+	Context("With Huge Pages", func() {
+		var hugepagesVmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		})
+
+		table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
+			hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
+			v, err := cluster.GetKubernetesVersion()
+			Expect(err).ShouldNot(HaveOccurred())
+			if strings.Contains(v, "1.16") {
+				hugepagesVmi.Annotations = map[string]string{
+					v1.MemfdMemoryBackend: "false",
+				}
+				log.DefaultLogger().Object(hugepagesVmi).Infof("Fall back to use hugepages source file. Libvirt in the 1.16 provider version doesn't support memfd as memory backend")
+			}
+
+			count := 0
+			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+			requestedMemory := resource.MustParse(memory)
+			hugepagesVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = requestedMemory
+
+			for _, node := range nodes.Items {
+				// Cmp returns -1, 0, or 1 for less than, equal to, or greater than
+				if v, ok := node.Status.Capacity[hugepageType]; ok && v.Cmp(requestedMemory) == 1 {
+					count += 1
+				}
+			}
+
+			if count < 2 {
+				Skip(fmt.Sprintf("Not enough nodes with hugepages %s capacity. Need 2, found %d.", hugepageType, count))
+			}
+
+			hugepagesVmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{PageSize: hugepageSize},
+			}
+
+			By("Starting hugepages VMI")
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(hugepagesVmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(hugepagesVmi)
+
+			By("starting the migration")
+			migration := tests.NewRandomMigration(hugepagesVmi.Name, hugepagesVmi.Namespace)
+			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			// check VMI, confirm migration state
+			tests.ConfirmVMIPostMigration(virtClient, hugepagesVmi, migrationUID)
+
+			// delete VMI
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(hugepagesVmi.Namespace).Delete(hugepagesVmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+			By("Waiting for VMI to disappear")
+			tests.WaitForVirtualMachineToDisappearWithTimeout(hugepagesVmi, 240)
+		},
+			table.Entry("hugepages-2Mi", "2Mi", "64Mi"),
+			table.Entry("hugepages-1Gi", "1Gi", "1Gi"),
+		)
 	})
 })
 
