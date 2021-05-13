@@ -575,18 +575,6 @@ rpm(
 )
 
 rpm(
-    name = "alsa-lib-0__1.2.3.2-1.fc32.x86_64",
-    sha256 = "d43af5355572121b48f033650311099260bec4a2c2622103a8031725c71aa813",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/a/alsa-lib-1.2.3.2-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/a/alsa-lib-1.2.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/a/alsa-lib-1.2.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/a/alsa-lib-1.2.3.2-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/d43af5355572121b48f033650311099260bec4a2c2622103a8031725c71aa813",
-    ],
-)
-
-rpm(
     name = "alternatives-0__1.11-6.fc32.aarch64",
     sha256 = "10d828cc7803aca9b59e3bb9b52e0af45a2828250f1eab7f0fc08cdb981f191d",
     urls = [
@@ -846,30 +834,6 @@ rpm(
         "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/c/ca-certificates-2020.2.41-1.1.fc32.noarch.rpm",
         "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/c/ca-certificates-2020.2.41-1.1.fc32.noarch.rpm",
         "https://storage.googleapis.com/builddeps/0a87bedd7687620ce85224027c0cfebc603b92962f67db432eb5a7b00d405cde",
-    ],
-)
-
-rpm(
-    name = "cairo-0__1.16.0-8.fc32.x86_64",
-    sha256 = "5722f37e14a7642b42b068e22aebf2d5167ec09e8459c8a12bd5e53f89796d43",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/c/cairo-1.16.0-8.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/c/cairo-1.16.0-8.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/c/cairo-1.16.0-8.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/c/cairo-1.16.0-8.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/5722f37e14a7642b42b068e22aebf2d5167ec09e8459c8a12bd5e53f89796d43",
-    ],
-)
-
-rpm(
-    name = "cdparanoia-libs-0__10.2-31.fc32.x86_64",
-    sha256 = "a43a5fac13f3fa150d4a26e812223b9e765ff7e31e0c17b2beb690fe667a74ab",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/c/cdparanoia-libs-10.2-31.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/c/cdparanoia-libs-10.2-31.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/c/cdparanoia-libs-10.2-31.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/c/cdparanoia-libs-10.2-31.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a43a5fac13f3fa150d4a26e812223b9e765ff7e31e0c17b2beb690fe667a74ab",
     ],
 )
 
@@ -1252,18 +1216,6 @@ rpm(
         "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/d/dbus-common-1.12.20-1.fc32.noarch.rpm",
         "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/d/dbus-common-1.12.20-1.fc32.noarch.rpm",
         "https://storage.googleapis.com/builddeps/0edabb437c55618b1c31ace707e827075eb4ef633d82ffde82f57ff45f0931a3",
-    ],
-)
-
-rpm(
-    name = "dejavu-sans-fonts-0__2.37-8.fc32.x86_64",
-    sha256 = "f22e2fb4cbe5ffe60879f3801db3b4afe7898bdeaf16246aab76520c613dfb36",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/d/dejavu-sans-fonts-2.37-8.fc32.noarch.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/d/dejavu-sans-fonts-2.37-8.fc32.noarch.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/d/dejavu-sans-fonts-2.37-8.fc32.noarch.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/d/dejavu-sans-fonts-2.37-8.fc32.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/f22e2fb4cbe5ffe60879f3801db3b4afe7898bdeaf16246aab76520c613dfb36",
     ],
 )
 
@@ -1895,54 +1847,6 @@ rpm(
 )
 
 rpm(
-    name = "fontconfig-0__2.13.92-9.fc32.x86_64",
-    sha256 = "5a8e8fc2734100b61fbb7065d1b9629e7cd0c0f3601632ae8c85a4421e8838b3",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/f/fontconfig-2.13.92-9.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/f/fontconfig-2.13.92-9.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/f/fontconfig-2.13.92-9.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/f/fontconfig-2.13.92-9.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/5a8e8fc2734100b61fbb7065d1b9629e7cd0c0f3601632ae8c85a4421e8838b3",
-    ],
-)
-
-rpm(
-    name = "fonts-filesystem-0__2.0.3-1.fc32.x86_64",
-    sha256 = "879ba2533610771dbf3fa103fdbde878edf255b771b53aa8a170009d01446012",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/f/fonts-filesystem-2.0.3-1.fc32.noarch.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/f/fonts-filesystem-2.0.3-1.fc32.noarch.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/f/fonts-filesystem-2.0.3-1.fc32.noarch.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/f/fonts-filesystem-2.0.3-1.fc32.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/879ba2533610771dbf3fa103fdbde878edf255b771b53aa8a170009d01446012",
-    ],
-)
-
-rpm(
-    name = "freetype-0__2.10.4-1.fc32.x86_64",
-    sha256 = "c885b78a6304db062cb135ba2803b4ee97f371d139b1758d1da06edf2fd1457b",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/f/freetype-2.10.4-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/f/freetype-2.10.4-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/f/freetype-2.10.4-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/f/freetype-2.10.4-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/c885b78a6304db062cb135ba2803b4ee97f371d139b1758d1da06edf2fd1457b",
-    ],
-)
-
-rpm(
-    name = "fribidi-0__1.0.9-1.fc32.x86_64",
-    sha256 = "488ca8e6d4c79948c317b57fcb2dfbf1bab334804813bd0a415edf311f724b29",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/f/fribidi-1.0.9-1.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/f/fribidi-1.0.9-1.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/f/fribidi-1.0.9-1.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/f/fribidi-1.0.9-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/488ca8e6d4c79948c317b57fcb2dfbf1bab334804813bd0a415edf311f724b29",
-    ],
-)
-
-rpm(
     name = "fuse-libs-0__2.9.9-9.fc32.aarch64",
     sha256 = "5cc385c1ca3df73a1dd7865159628a6b0ce186f8679c6bc95dda0b4791e4a9fc",
     urls = [
@@ -2261,54 +2165,6 @@ rpm(
 )
 
 rpm(
-    name = "glusterfs-0__7.9-1.fc32.x86_64",
-    sha256 = "6ce9b3afd7c13ec7c37021e66107ea67aa190bd52803b6bf7545b61ddde5e9d9",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-7.9-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-7.9-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-7.9-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-7.9-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/6ce9b3afd7c13ec7c37021e66107ea67aa190bd52803b6bf7545b61ddde5e9d9",
-    ],
-)
-
-rpm(
-    name = "glusterfs-api-0__7.9-1.fc32.x86_64",
-    sha256 = "15fbf267ce6453f58c2e922f638c209c4646220c55eb20d1fe8263b87a0a6eee",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-api-7.9-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-api-7.9-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-api-7.9-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-api-7.9-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/15fbf267ce6453f58c2e922f638c209c4646220c55eb20d1fe8263b87a0a6eee",
-    ],
-)
-
-rpm(
-    name = "glusterfs-client-xlators-0__7.9-1.fc32.x86_64",
-    sha256 = "313b75a2d920f100319163dbbfd88fb863ec8ac732d4c386f52b973e14359aa1",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-client-xlators-7.9-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-client-xlators-7.9-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-client-xlators-7.9-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-client-xlators-7.9-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/313b75a2d920f100319163dbbfd88fb863ec8ac732d4c386f52b973e14359aa1",
-    ],
-)
-
-rpm(
-    name = "glusterfs-libs-0__7.9-1.fc32.x86_64",
-    sha256 = "0c25b4580dae9021962c7a814be1fe1c6d0bd39ffe0c1296e17d9655e5d2a727",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-libs-7.9-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-libs-7.9-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-libs-7.9-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/glusterfs-libs-7.9-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/0c25b4580dae9021962c7a814be1fe1c6d0bd39ffe0c1296e17d9655e5d2a727",
-    ],
-)
-
-rpm(
     name = "gmp-1__6.1.2-13.fc32.aarch64",
     sha256 = "5b7a135c35562e64344cc9f1ca37a5239649152cc055e14e7bf9bf84843eccab",
     urls = [
@@ -2451,30 +2307,6 @@ rpm(
 )
 
 rpm(
-    name = "graphene-0__1.10.4-1.fc32.x86_64",
-    sha256 = "e81acdcf95d91644c70bce3d1b1af6dbe15768a9801a47469cf7e5e162c35678",
-    urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/g/graphene-1.10.4-1.fc32.x86_64.rpm",
-        "https://ftp.acc.umu.se/mirror/fedora/linux/updates/32/Everything/x86_64/Packages/g/graphene-1.10.4-1.fc32.x86_64.rpm",
-        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/g/graphene-1.10.4-1.fc32.x86_64.rpm",
-        "https://ftp.icm.edu.pl/pub/Linux/fedora/linux/updates/32/Everything/x86_64/Packages/g/graphene-1.10.4-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/e81acdcf95d91644c70bce3d1b1af6dbe15768a9801a47469cf7e5e162c35678",
-    ],
-)
-
-rpm(
-    name = "graphite2-0__1.3.14-1.fc32.x86_64",
-    sha256 = "08731b385dda9a5636ce6ab7a9f0e795e7664d5359207c78ba505d981441fe2b",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/graphite2-1.3.14-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/g/graphite2-1.3.14-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/graphite2-1.3.14-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/graphite2-1.3.14-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/08731b385dda9a5636ce6ab7a9f0e795e7664d5359207c78ba505d981441fe2b",
-    ],
-)
-
-rpm(
     name = "grep-0__3.3-4.fc32.aarch64",
     sha256 = "f148b87e6bf64242dad504997f730c11706e5c0da52b036b8faebb5807d252d9",
     urls = [
@@ -2547,30 +2379,6 @@ rpm(
 )
 
 rpm(
-    name = "gstreamer1-0__1.16.2-2.fc32.x86_64",
-    sha256 = "3cf5d0e1c6dd09b4b047f13bdafd7413d8e4c4f586fa5de932f3410c5cbcf82e",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/g/gstreamer1-1.16.2-2.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/g/gstreamer1-1.16.2-2.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/g/gstreamer1-1.16.2-2.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/g/gstreamer1-1.16.2-2.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/3cf5d0e1c6dd09b4b047f13bdafd7413d8e4c4f586fa5de932f3410c5cbcf82e",
-    ],
-)
-
-rpm(
-    name = "gstreamer1-plugins-base-0__1.16.2-3.fc32.x86_64",
-    sha256 = "72b497a0b2f6f85a11b74ec1d7c010f48496f272cf7bace5addf39f3f2cf15a0",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/gstreamer1-plugins-base-1.16.2-3.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/g/gstreamer1-plugins-base-1.16.2-3.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/gstreamer1-plugins-base-1.16.2-3.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/gstreamer1-plugins-base-1.16.2-3.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/72b497a0b2f6f85a11b74ec1d7c010f48496f272cf7bace5addf39f3f2cf15a0",
-    ],
-)
-
-rpm(
     name = "gzip-0__1.10-2.fc32.aarch64",
     sha256 = "50b7b06e94253cb4eacc1bfb68f8343b73cbd6dae427f8ad81367f7b8ebf58a8",
     urls = [
@@ -2603,18 +2411,6 @@ rpm(
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/g/gzip-1.10-2.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/g/gzip-1.10-2.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/53f1e8570b175e8b58895646df6d8068a7e1f3cb1bafdde714ddd038bcf91e85",
-    ],
-)
-
-rpm(
-    name = "harfbuzz-0__2.6.4-3.fc32.x86_64",
-    sha256 = "48756e87aba1d8757243a9d8cf4649e8ab9b129adb3cc13c2b8d425c58bb0cb5",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/h/harfbuzz-2.6.4-3.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/h/harfbuzz-2.6.4-3.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/h/harfbuzz-2.6.4-3.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/h/harfbuzz-2.6.4-3.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/48756e87aba1d8757243a9d8cf4649e8ab9b129adb3cc13c2b8d425c58bb0cb5",
     ],
 )
 
@@ -2798,18 +2594,6 @@ rpm(
         "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/i/ipxe-roms-qemu-20190125-4.git36a4c85f.fc32.noarch.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/i/ipxe-roms-qemu-20190125-4.git36a4c85f.fc32.noarch.rpm",
         "https://storage.googleapis.com/builddeps/6e298c78b9ccc125b0fdfdda4c39a993aaacd1accc62a23df9f30e46c17b64a9",
-    ],
-)
-
-rpm(
-    name = "iso-codes-0__4.4-2.fc32.x86_64",
-    sha256 = "7080e23ec4ff5c0cacfa3476daa3c5c4f837b53d3806613f6ffcf1a352a480e2",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/i/iso-codes-4.4-2.fc32.noarch.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/i/iso-codes-4.4-2.fc32.noarch.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/i/iso-codes-4.4-2.fc32.noarch.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/i/iso-codes-4.4-2.fc32.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/7080e23ec4ff5c0cacfa3476daa3c5c4f837b53d3806613f6ffcf1a352a480e2",
     ],
 )
 
@@ -2999,150 +2783,6 @@ rpm(
         "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/k/krb5-libs-1.18.2-29.fc32.x86_64.rpm",
         "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/k/krb5-libs-1.18.2-29.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/f1ad00906636a2e01b4e978233a9e4a622f4c42f9bc4ec0dd0e294ba75351394",
-    ],
-)
-
-rpm(
-    name = "langpacks-core-font-en-0__3.0-3.fc32.x86_64",
-    sha256 = "6923881ce751e903ea2a2e8a58733aad24b33d042b0954fb5c9159360be6d389",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/langpacks-core-font-en-3.0-3.fc32.noarch.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/langpacks-core-font-en-3.0-3.fc32.noarch.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/langpacks-core-font-en-3.0-3.fc32.noarch.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/langpacks-core-font-en-3.0-3.fc32.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/6923881ce751e903ea2a2e8a58733aad24b33d042b0954fb5c9159360be6d389",
-    ],
-)
-
-rpm(
-    name = "libX11-0__1.6.12-1.fc32.x86_64",
-    sha256 = "4f1bc9a0e25664e27144999368545c5c105e9c30b39111b186680a6a99ceb26b",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-1.6.12-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-1.6.12-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-1.6.12-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-1.6.12-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/4f1bc9a0e25664e27144999368545c5c105e9c30b39111b186680a6a99ceb26b",
-    ],
-)
-
-rpm(
-    name = "libX11-common-0__1.6.12-1.fc32.x86_64",
-    sha256 = "84c7f17faabea48121ac787bfce0edcad0e86e55f43351431ba408332f54f21f",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-common-1.6.12-1.fc32.noarch.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-common-1.6.12-1.fc32.noarch.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-common-1.6.12-1.fc32.noarch.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-common-1.6.12-1.fc32.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/84c7f17faabea48121ac787bfce0edcad0e86e55f43351431ba408332f54f21f",
-    ],
-)
-
-rpm(
-    name = "libX11-xcb-0__1.6.12-1.fc32.x86_64",
-    sha256 = "1e6f4865567365909ab15a9cb6c5926f983808dfddc98d9078f38a818c17d40d",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-xcb-1.6.12-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-xcb-1.6.12-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-xcb-1.6.12-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libX11-xcb-1.6.12-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/1e6f4865567365909ab15a9cb6c5926f983808dfddc98d9078f38a818c17d40d",
-    ],
-)
-
-rpm(
-    name = "libXau-0__1.0.9-3.fc32.x86_64",
-    sha256 = "0f002cc5ef09532fb9ef309c6e24ab064cb1babda1514a1258e214fe9fe60ab1",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXau-1.0.9-3.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXau-1.0.9-3.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXau-1.0.9-3.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXau-1.0.9-3.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/0f002cc5ef09532fb9ef309c6e24ab064cb1babda1514a1258e214fe9fe60ab1",
-    ],
-)
-
-rpm(
-    name = "libXdamage-0__1.1.5-2.fc32.x86_64",
-    sha256 = "6d6a67c5991730234401595ea915e275413da0c17dc6ea89a4a602428119e36b",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXdamage-1.1.5-2.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXdamage-1.1.5-2.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXdamage-1.1.5-2.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXdamage-1.1.5-2.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/6d6a67c5991730234401595ea915e275413da0c17dc6ea89a4a602428119e36b",
-    ],
-)
-
-rpm(
-    name = "libXext-0__1.3.4-3.fc32.x86_64",
-    sha256 = "2ba020fbb3c5aa9079b6e49903e1525ddd0722135a5fc7ce92e7dea2140102da",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXext-1.3.4-3.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXext-1.3.4-3.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXext-1.3.4-3.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXext-1.3.4-3.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/2ba020fbb3c5aa9079b6e49903e1525ddd0722135a5fc7ce92e7dea2140102da",
-    ],
-)
-
-rpm(
-    name = "libXfixes-0__5.0.3-11.fc32.x86_64",
-    sha256 = "ee57347efdda4eaffdcfca30cb04d3089ab36d270a570ae8132dacdce766f2c4",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXfixes-5.0.3-11.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXfixes-5.0.3-11.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXfixes-5.0.3-11.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXfixes-5.0.3-11.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/ee57347efdda4eaffdcfca30cb04d3089ab36d270a570ae8132dacdce766f2c4",
-    ],
-)
-
-rpm(
-    name = "libXft-0__2.3.3-3.fc32.x86_64",
-    sha256 = "e958dcf75c7b5d76dc02fea8fe27e4b41292900d15d6584ec8127469e9c9cc45",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXft-2.3.3-3.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXft-2.3.3-3.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXft-2.3.3-3.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXft-2.3.3-3.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/e958dcf75c7b5d76dc02fea8fe27e4b41292900d15d6584ec8127469e9c9cc45",
-    ],
-)
-
-rpm(
-    name = "libXrender-0__0.9.10-11.fc32.x86_64",
-    sha256 = "656bbeddecee15f2b638da3c5cdfbcf0ec7bff14ea1eb8179b30b6b389ffa4db",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXrender-0.9.10-11.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXrender-0.9.10-11.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXrender-0.9.10-11.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXrender-0.9.10-11.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/656bbeddecee15f2b638da3c5cdfbcf0ec7bff14ea1eb8179b30b6b389ffa4db",
-    ],
-)
-
-rpm(
-    name = "libXv-0__1.0.11-11.fc32.x86_64",
-    sha256 = "28009ee073a5cd0c6182d7ce20fc4ef160f028cd9e34cfd53e91500ebcdb8a08",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXv-1.0.11-11.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXv-1.0.11-11.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXv-1.0.11-11.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXv-1.0.11-11.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/28009ee073a5cd0c6182d7ce20fc4ef160f028cd9e34cfd53e91500ebcdb8a08",
-    ],
-)
-
-rpm(
-    name = "libXxf86vm-0__1.1.4-13.fc32.x86_64",
-    sha256 = "3b4f270b0fdd0250306f15ee8b98ba4add4eb81c2ec4bc392b037d3d74745bb8",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXxf86vm-1.1.4-13.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXxf86vm-1.1.4-13.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXxf86vm-1.1.4-13.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libXxf86vm-1.1.4-13.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/3b4f270b0fdd0250306f15ee8b98ba4add4eb81c2ec4bc392b037d3d74745bb8",
     ],
 )
 
@@ -3491,18 +3131,6 @@ rpm(
 )
 
 rpm(
-    name = "libdatrie-0__0.2.9-11.fc32.x86_64",
-    sha256 = "adad80ffa96cb9335f9dd466f673fb74513c651033bbab24af17c382f7dcddcc",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libdatrie-0.2.9-11.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libdatrie-0.2.9-11.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libdatrie-0.2.9-11.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libdatrie-0.2.9-11.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/adad80ffa96cb9335f9dd466f673fb74513c651033bbab24af17c382f7dcddcc",
-    ],
-)
-
-rpm(
     name = "libdb-0__5.3.28-40.fc32.aarch64",
     sha256 = "7bfb33bfa3c3a952c54cb61b7f7c7047c1fd91e8e334f53f54faea6f34e6c0bb",
     urls = [
@@ -3558,42 +3186,6 @@ rpm(
         "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libdb-utils-5.3.28-40.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libdb-utils-5.3.28-40.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/431d836b2be015212d8c15b4290d5ce5bb45282cbf3fc52696f632d84ce34dfe",
-    ],
-)
-
-rpm(
-    name = "libdrm-0__2.4.102-1.fc32.x86_64",
-    sha256 = "ce3a4ebb0d63bd38268a9ce982b50c8ec67aea6928579943d133e1f9e0a99189",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libdrm-2.4.102-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libdrm-2.4.102-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libdrm-2.4.102-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libdrm-2.4.102-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/ce3a4ebb0d63bd38268a9ce982b50c8ec67aea6928579943d133e1f9e0a99189",
-    ],
-)
-
-rpm(
-    name = "libedit-0__3.1-32.20191231cvs.fc32.x86_64",
-    sha256 = "9a12db30090023c60e3d7bcd5b07142cdc6d84c77e25ddb1cf41a4c490e52f09",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libedit-3.1-32.20191231cvs.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libedit-3.1-32.20191231cvs.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libedit-3.1-32.20191231cvs.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libedit-3.1-32.20191231cvs.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9a12db30090023c60e3d7bcd5b07142cdc6d84c77e25ddb1cf41a4c490e52f09",
-    ],
-)
-
-rpm(
-    name = "libepoxy-0__1.5.4-2.fc32.x86_64",
-    sha256 = "76c22bfdaab3fe575abe813cbb9a1c3816d8cf50d3c25c9280d07031403ccf30",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libepoxy-1.5.4-2.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libepoxy-1.5.4-2.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libepoxy-1.5.4-2.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libepoxy-1.5.4-2.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/76c22bfdaab3fe575abe813cbb9a1c3816d8cf50d3c25c9280d07031403ccf30",
     ],
 )
 
@@ -3793,54 +3385,6 @@ rpm(
 )
 
 rpm(
-    name = "libglvnd-1__1.3.2-1.fc32.x86_64",
-    sha256 = "cc5896d567a39e9ddcf8621f4746e5992795224f1dfe69af17aff9619dbadb1f",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-1.3.2-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/cc5896d567a39e9ddcf8621f4746e5992795224f1dfe69af17aff9619dbadb1f",
-    ],
-)
-
-rpm(
-    name = "libglvnd-egl-1__1.3.2-1.fc32.x86_64",
-    sha256 = "9e27b2c2ee45d5602c2b31495edc20f475ee9c985a3910d936a4eb6c7a6204f0",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-egl-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-egl-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-egl-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-egl-1.3.2-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9e27b2c2ee45d5602c2b31495edc20f475ee9c985a3910d936a4eb6c7a6204f0",
-    ],
-)
-
-rpm(
-    name = "libglvnd-gles-1__1.3.2-1.fc32.x86_64",
-    sha256 = "1f829a8f335326a49c008febcb984ef2d7d791b16b356419a0d409a8d2ab15f1",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-gles-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-gles-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-gles-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-gles-1.3.2-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/1f829a8f335326a49c008febcb984ef2d7d791b16b356419a0d409a8d2ab15f1",
-    ],
-)
-
-rpm(
-    name = "libglvnd-glx-1__1.3.2-1.fc32.x86_64",
-    sha256 = "d145c5bf5cb40f8c7736fd51931b1bdd192e6c1bf5ba3673f9fdf3311868c37f",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-glx-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-glx-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-glx-1.3.2-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libglvnd-glx-1.3.2-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/d145c5bf5cb40f8c7736fd51931b1bdd192e6c1bf5ba3673f9fdf3311868c37f",
-    ],
-)
-
-rpm(
     name = "libgomp-0__10.3.1-1.fc32.aarch64",
     sha256 = "8394b5dbae892e4b95085bdd17ab95387e3434a99dfb7a113ef4ad51cf0553e4",
     urls = [
@@ -3967,41 +3511,6 @@ rpm(
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libidn2-2.3.0-2.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libidn2-2.3.0-2.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/20787251df57a108bbf9c40e30f041b71ac36c8a10900fb699e574ee7e259bf2",
-    ],
-)
-
-rpm(
-    name = "libiscsi-0__1.18.0-9.fc32.aarch64",
-    sha256 = "e2bf6b8f70b9ef185beb7125dfc1d85e07e182b40ac7f08ab2957071fe7bb87d",
-    urls = [
-        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/releases/32/Everything/aarch64/os/Packages/l/libiscsi-1.18.0-9.fc32.aarch64.rpm",
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/releases/32/Everything/aarch64/os/Packages/l/libiscsi-1.18.0-9.fc32.aarch64.rpm",
-        "https://mirrors.tuna.tsinghua.edu.cn/fedora/releases/32/Everything/aarch64/os/Packages/l/libiscsi-1.18.0-9.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/e2bf6b8f70b9ef185beb7125dfc1d85e07e182b40ac7f08ab2957071fe7bb87d",
-    ],
-)
-
-rpm(
-    name = "libiscsi-0__1.18.0-9.fc32.x86_64",
-    sha256 = "022eee58fbb40ae59cbe7752df8d99c578603fc12de5407d2b78fd3ba88d8166",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libiscsi-1.18.0-9.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libiscsi-1.18.0-9.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libiscsi-1.18.0-9.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libiscsi-1.18.0-9.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/022eee58fbb40ae59cbe7752df8d99c578603fc12de5407d2b78fd3ba88d8166",
-    ],
-)
-
-rpm(
-    name = "libjpeg-turbo-0__2.0.4-3.fc32.x86_64",
-    sha256 = "37c8e4091216342f58b83acf030f94cb776e95d2f0f86b548e33e2c4cba341eb",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libjpeg-turbo-2.0.4-3.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libjpeg-turbo-2.0.4-3.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libjpeg-turbo-2.0.4-3.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libjpeg-turbo-2.0.4-3.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/37c8e4091216342f58b83acf030f94cb776e95d2f0f86b548e33e2c4cba341eb",
     ],
 )
 
@@ -4277,18 +3786,6 @@ rpm(
 )
 
 rpm(
-    name = "libogg-2__1.3.4-2.fc32.x86_64",
-    sha256 = "ce5bbbe570b841c67066a03f9426cad43eefdd20431b80f0760ce418f031c6cc",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libogg-1.3.4-2.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libogg-1.3.4-2.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libogg-1.3.4-2.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libogg-1.3.4-2.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/ce5bbbe570b841c67066a03f9426cad43eefdd20431b80f0760ce418f031c6cc",
-    ],
-)
-
-rpm(
     name = "libpcap-14__1.10.0-1.fc32.aarch64",
     sha256 = "54290c3171279c693a8f49d40f4bac2111af55421da74293bd1fa07b0ba7d396",
     urls = [
@@ -4321,18 +3818,6 @@ rpm(
         "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libpcap-1.10.0-1.fc32.x86_64.rpm",
         "https://ftp.icm.edu.pl/pub/Linux/fedora/linux/updates/32/Everything/x86_64/Packages/l/libpcap-1.10.0-1.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/f5fd842fae691bfc41dd107db33bc0457508a5e1c82ebc277e5fe10d64c9659e",
-    ],
-)
-
-rpm(
-    name = "libpciaccess-0__0.16-2.fc32.x86_64",
-    sha256 = "4630ea4b3e4c439f2d3bc4cf33e71388e65cd5394338c86fa1074c6f7fa0d801",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libpciaccess-0.16-2.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libpciaccess-0.16-2.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libpciaccess-0.16-2.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libpciaccess-0.16-2.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/4630ea4b3e4c439f2d3bc4cf33e71388e65cd5394338c86fa1074c6f7fa0d801",
     ],
 )
 
@@ -4427,54 +3912,6 @@ rpm(
         "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libpwquality-1.4.4-1.fc32.x86_64.rpm",
         "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libpwquality-1.4.4-1.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/583e4f689dc478f68942fa650e2b495db63bd29d13b3e075a3effcccf29260da",
-    ],
-)
-
-rpm(
-    name = "librados2-2__14.2.20-1.fc32.aarch64",
-    sha256 = "9e5416ea8d0041b484fc1efbe89ff171af83ba839ea68ba9513ae9aa121d404d",
-    urls = [
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.20-1.fc32.aarch64.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.20-1.fc32.aarch64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.20-1.fc32.aarch64.rpm",
-        "https://mirror.netsite.dk/fedora/linux/updates/32/Everything/aarch64/Packages/l/librados2-14.2.20-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/9e5416ea8d0041b484fc1efbe89ff171af83ba839ea68ba9513ae9aa121d404d",
-    ],
-)
-
-rpm(
-    name = "librados2-2__14.2.20-1.fc32.x86_64",
-    sha256 = "8ab581213b9d1cb02b37ec77c70fd5d08e89ad2d8c216d5255739128d944758d",
-    urls = [
-        "https://ftp.lysator.liu.se/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.20-1.fc32.x86_64.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.20-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.20-1.fc32.x86_64.rpm",
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/x86_64/Packages/l/librados2-14.2.20-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/8ab581213b9d1cb02b37ec77c70fd5d08e89ad2d8c216d5255739128d944758d",
-    ],
-)
-
-rpm(
-    name = "librbd1-2__14.2.20-1.fc32.aarch64",
-    sha256 = "6099c564c766ee0211e659dce4604102a48996b4198218ff91bd7bc580b2818d",
-    urls = [
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.20-1.fc32.aarch64.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.20-1.fc32.aarch64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.20-1.fc32.aarch64.rpm",
-        "https://mirror.netsite.dk/fedora/linux/updates/32/Everything/aarch64/Packages/l/librbd1-14.2.20-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/6099c564c766ee0211e659dce4604102a48996b4198218ff91bd7bc580b2818d",
-    ],
-)
-
-rpm(
-    name = "librbd1-2__14.2.20-1.fc32.x86_64",
-    sha256 = "c2129e0d7b785934783442c299d5e9693eca6cc525be0ab04346007046af197e",
-    urls = [
-        "https://ftp.lysator.liu.se/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.20-1.fc32.x86_64.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.20-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.20-1.fc32.x86_64.rpm",
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/x86_64/Packages/l/librbd1-14.2.20-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/c2129e0d7b785934783442c299d5e9693eca6cc525be0ab04346007046af197e",
     ],
 )
 
@@ -4961,30 +4398,6 @@ rpm(
 )
 
 rpm(
-    name = "libthai-0__0.1.28-4.fc32.x86_64",
-    sha256 = "6b9e2f0a21bafd58b7e62cac2e494ff15bdf83f1bd308238d9ec49440f1ecc06",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libthai-0.1.28-4.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libthai-0.1.28-4.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libthai-0.1.28-4.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libthai-0.1.28-4.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/6b9e2f0a21bafd58b7e62cac2e494ff15bdf83f1bd308238d9ec49440f1ecc06",
-    ],
-)
-
-rpm(
-    name = "libtheora-1__1.1.1-25.fc32.x86_64",
-    sha256 = "74193a7d5cc52fe6f77cf9282d70ea046eec8e3e40a331f956f721d3a71ceae9",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libtheora-1.1.1-25.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libtheora-1.1.1-25.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libtheora-1.1.1-25.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libtheora-1.1.1-25.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/74193a7d5cc52fe6f77cf9282d70ea046eec8e3e40a331f956f721d3a71ceae9",
-    ],
-)
-
-rpm(
     name = "libtirpc-0__1.2.6-1.rc4.fc32.aarch64",
     sha256 = "4dae321b67e99ce300240104e698b1ebee8ad7c8e18f1f9b649d5dea8d05a0f2",
     urls = [
@@ -5388,78 +4801,6 @@ rpm(
 )
 
 rpm(
-    name = "libvisual-1__0.4.0-28.fc32.x86_64",
-    sha256 = "65dbb4bc09a7228504b946cc1444c9f50e6eb7b654264df00dc991deb38dbcdb",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvisual-0.4.0-28.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvisual-0.4.0-28.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvisual-0.4.0-28.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvisual-0.4.0-28.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/65dbb4bc09a7228504b946cc1444c9f50e6eb7b654264df00dc991deb38dbcdb",
-    ],
-)
-
-rpm(
-    name = "libvorbis-1__1.3.6-6.fc32.x86_64",
-    sha256 = "b6b2622496fa2f49b720bcd63990e83130d656b801b8d1039b95a52e0752731f",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvorbis-1.3.6-6.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvorbis-1.3.6-6.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvorbis-1.3.6-6.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvorbis-1.3.6-6.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/b6b2622496fa2f49b720bcd63990e83130d656b801b8d1039b95a52e0752731f",
-    ],
-)
-
-rpm(
-    name = "libwayland-client-0__1.18.0-1.fc32.x86_64",
-    sha256 = "94834f7101758c47f3b13209d4330dec69febb15504a3f254aa2618eefcbf1e0",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-client-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-client-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-client-1.18.0-1.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-client-1.18.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/94834f7101758c47f3b13209d4330dec69febb15504a3f254aa2618eefcbf1e0",
-    ],
-)
-
-rpm(
-    name = "libwayland-cursor-0__1.18.0-1.fc32.x86_64",
-    sha256 = "9a923d0eab654a5de3e8dbb4e0480d7e8e85b8b003585e98897569d21dc9d2ab",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-cursor-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-cursor-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-cursor-1.18.0-1.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-cursor-1.18.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9a923d0eab654a5de3e8dbb4e0480d7e8e85b8b003585e98897569d21dc9d2ab",
-    ],
-)
-
-rpm(
-    name = "libwayland-egl-0__1.18.0-1.fc32.x86_64",
-    sha256 = "f13e026e9ccfe312611fecea525d11726676052a1af91c7dd98261c1494cf2de",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-egl-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-egl-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-egl-1.18.0-1.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-egl-1.18.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/f13e026e9ccfe312611fecea525d11726676052a1af91c7dd98261c1494cf2de",
-    ],
-)
-
-rpm(
-    name = "libwayland-server-0__1.18.0-1.fc32.x86_64",
-    sha256 = "29dc93dd98ad04291c586bb372e7277b1abb404c9db70e7e233a1e8b82bba153",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-server-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-server-1.18.0-1.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-server-1.18.0-1.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwayland-server-1.18.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/29dc93dd98ad04291c586bb372e7277b1abb404c9db70e7e233a1e8b82bba153",
-    ],
-)
-
-rpm(
     name = "libwsman1-0__2.6.8-12.fc32.aarch64",
     sha256 = "00c47d07358e79269feafa053c2c19095eeb9d936a3ec5e541ca115f889c8756",
     urls = [
@@ -5480,18 +4821,6 @@ rpm(
         "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwsman1-2.6.8-12.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libwsman1-2.6.8-12.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/01e436bc768c2aa1e3ecac82ab5d3f9efc3d9b49b1879202182054abfcf8a618",
-    ],
-)
-
-rpm(
-    name = "libxcb-0__1.13.1-4.fc32.x86_64",
-    sha256 = "a067d65415265d19aa2d0adcbd9234029eda8245a8c58262b3ced83edc6ddf38",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libxcb-1.13.1-4.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libxcb-1.13.1-4.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libxcb-1.13.1-4.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libxcb-1.13.1-4.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a067d65415265d19aa2d0adcbd9234029eda8245a8c58262b3ced83edc6ddf38",
     ],
 )
 
@@ -5588,18 +4917,6 @@ rpm(
 )
 
 rpm(
-    name = "libxshmfence-0__1.3-6.fc32.x86_64",
-    sha256 = "f0e4157fcaa6a93aae86142d4fc566d33cbb210458eeb57e1efabde160bd31e0",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libxshmfence-1.3-6.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libxshmfence-1.3-6.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libxshmfence-1.3-6.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libxshmfence-1.3-6.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/f0e4157fcaa6a93aae86142d4fc566d33cbb210458eeb57e1efabde160bd31e0",
-    ],
-)
-
-rpm(
     name = "libzstd-0__1.4.9-1.fc32.aarch64",
     sha256 = "0c974d2ea735aa5132fc6e412a4b0f5979e428f4d9bc491771003c885107f4f7",
     urls = [
@@ -5660,18 +4977,6 @@ rpm(
 )
 
 rpm(
-    name = "llvm-libs-0__10.0.1-4.fc32.x86_64",
-    sha256 = "2553c52dfcf5b6b8edabb89bfd3af8c4a7cecb81169a48cd7af9460ea20e108f",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/llvm-libs-10.0.1-4.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/llvm-libs-10.0.1-4.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/llvm-libs-10.0.1-4.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/llvm-libs-10.0.1-4.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/2553c52dfcf5b6b8edabb89bfd3af8c4a7cecb81169a48cd7af9460ea20e108f",
-    ],
-)
-
-rpm(
     name = "lsof-0__4.93.2-3.fc32.aarch64",
     sha256 = "fb5b3b970d2f0b638d46cb8a0b283369a07a0c653a3d11fca4e0f1ba3be56b0f",
     urls = [
@@ -5704,29 +5009,6 @@ rpm(
         "https://mirror.dogado.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/lsof-4.93.2-3.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/lsof-4.93.2-3.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/465b7317f0a979c92d76713fbe61761ee3e2afd1a59c01c6d3c6323767e1a115",
-    ],
-)
-
-rpm(
-    name = "lttng-ust-0__2.11.0-4.fc32.aarch64",
-    sha256 = "f75bf108361f787d37a264d0fe8dda3e0ca13c1f10731b6e6141c34d2c9215f6",
-    urls = [
-        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/releases/32/Everything/aarch64/os/Packages/l/lttng-ust-2.11.0-4.fc32.aarch64.rpm",
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/releases/32/Everything/aarch64/os/Packages/l/lttng-ust-2.11.0-4.fc32.aarch64.rpm",
-        "https://mirrors.tuna.tsinghua.edu.cn/fedora/releases/32/Everything/aarch64/os/Packages/l/lttng-ust-2.11.0-4.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/f75bf108361f787d37a264d0fe8dda3e0ca13c1f10731b6e6141c34d2c9215f6",
-    ],
-)
-
-rpm(
-    name = "lttng-ust-0__2.11.0-4.fc32.x86_64",
-    sha256 = "57e332e2a794bc5fa36a45327a46145c553012d9f502e1821c9ffd74514c9bde",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/lttng-ust-2.11.0-4.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/lttng-ust-2.11.0-4.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/lttng-ust-2.11.0-4.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/lttng-ust-2.11.0-4.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/57e332e2a794bc5fa36a45327a46145c553012d9f502e1821c9ffd74514c9bde",
     ],
 )
 
@@ -5832,78 +5114,6 @@ rpm(
         "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/lzop-1.04-3.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/lzop-1.04-3.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/dd0aec170afc0e2113845e9d107a58d72b234414b548880e3154be49ffbaf64a",
-    ],
-)
-
-rpm(
-    name = "mesa-dri-drivers-0__20.2.3-1.fc32.x86_64",
-    sha256 = "b8b27ae4f693072199a30d571a3055785fdd681996b67494249a087af6b30b01",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-dri-drivers-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-dri-drivers-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-dri-drivers-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-dri-drivers-20.2.3-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/b8b27ae4f693072199a30d571a3055785fdd681996b67494249a087af6b30b01",
-    ],
-)
-
-rpm(
-    name = "mesa-filesystem-0__20.2.3-1.fc32.x86_64",
-    sha256 = "b189c84faa0ee7f1c5ab5404914113b138475c46d5a068afc9bb431944aea1ea",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-filesystem-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-filesystem-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-filesystem-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-filesystem-20.2.3-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/b189c84faa0ee7f1c5ab5404914113b138475c46d5a068afc9bb431944aea1ea",
-    ],
-)
-
-rpm(
-    name = "mesa-libEGL-0__20.2.3-1.fc32.x86_64",
-    sha256 = "89e5cb4f6a5a413a01211cd3fa9acf0661113a2c77a1ab5ab86a052b9a361215",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libEGL-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libEGL-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libEGL-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libEGL-20.2.3-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/89e5cb4f6a5a413a01211cd3fa9acf0661113a2c77a1ab5ab86a052b9a361215",
-    ],
-)
-
-rpm(
-    name = "mesa-libGL-0__20.2.3-1.fc32.x86_64",
-    sha256 = "791b549e19e7e004fb3af9353d95bd1283444c572d6f81416614b528c6207577",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libGL-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libGL-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libGL-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libGL-20.2.3-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/791b549e19e7e004fb3af9353d95bd1283444c572d6f81416614b528c6207577",
-    ],
-)
-
-rpm(
-    name = "mesa-libgbm-0__20.2.3-1.fc32.x86_64",
-    sha256 = "b73a5c920123fb6ce9f8ca37e2878d8c27459a499997e2e9dd44323e090fb739",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libgbm-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libgbm-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libgbm-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libgbm-20.2.3-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/b73a5c920123fb6ce9f8ca37e2878d8c27459a499997e2e9dd44323e090fb739",
-    ],
-)
-
-rpm(
-    name = "mesa-libglapi-0__20.2.3-1.fc32.x86_64",
-    sha256 = "3d6a0c966d75c45ae3a158cd2a356a2ea10c746638d3a551dccf0da2c08517be",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libglapi-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libglapi-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libglapi-20.2.3-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/m/mesa-libglapi-20.2.3-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/3d6a0c966d75c45ae3a158cd2a356a2ea10c746638d3a551dccf0da2c08517be",
     ],
 )
 
@@ -6273,150 +5483,6 @@ rpm(
 )
 
 rpm(
-    name = "nspr-0__4.30.0-1.fc32.aarch64",
-    sha256 = "3ed4006aa44bf116b769d0ed9208846770dbf330f7a623ae7196e70a63742e82",
-    urls = [
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.30.0-1.fc32.aarch64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.30.0-1.fc32.aarch64.rpm",
-        "https://ftp.upjs.sk/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.30.0-1.fc32.aarch64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/aarch64/Packages/n/nspr-4.30.0-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/3ed4006aa44bf116b769d0ed9208846770dbf330f7a623ae7196e70a63742e82",
-    ],
-)
-
-rpm(
-    name = "nspr-0__4.30.0-1.fc32.x86_64",
-    sha256 = "09af61a142b2186e8eed1db28100713dbceb11bf7379e3347f1a1f8718e86bb1",
-    urls = [
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.30.0-1.fc32.x86_64.rpm",
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.30.0-1.fc32.x86_64.rpm",
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.30.0-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nspr-4.30.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/09af61a142b2186e8eed1db28100713dbceb11bf7379e3347f1a1f8718e86bb1",
-    ],
-)
-
-rpm(
-    name = "nss-0__3.63.0-1.fc32.aarch64",
-    sha256 = "a5018c85d2dda87e5275d39490cc69a7301285130956f12681d6c4ce801becba",
-    urls = [
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-3.63.0-1.fc32.aarch64.rpm",
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-3.63.0-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-3.63.0-1.fc32.aarch64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-3.63.0-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/a5018c85d2dda87e5275d39490cc69a7301285130956f12681d6c4ce801becba",
-    ],
-)
-
-rpm(
-    name = "nss-0__3.63.0-1.fc32.x86_64",
-    sha256 = "797c89c5bd18505619fdfb01e13975f7a2e0d444ec88a1b0dc80d3da07cbc260",
-    urls = [
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.63.0-1.fc32.x86_64.rpm",
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.63.0-1.fc32.x86_64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.63.0-1.fc32.x86_64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.63.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/797c89c5bd18505619fdfb01e13975f7a2e0d444ec88a1b0dc80d3da07cbc260",
-    ],
-)
-
-rpm(
-    name = "nss-softokn-0__3.63.0-1.fc32.aarch64",
-    sha256 = "a5864c487a0a36b1a7c93f10d3ff6fb5b66aabcac9bd087766b9ab55cd9b0860",
-    urls = [
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-3.63.0-1.fc32.aarch64.rpm",
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-3.63.0-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-3.63.0-1.fc32.aarch64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-3.63.0-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/a5864c487a0a36b1a7c93f10d3ff6fb5b66aabcac9bd087766b9ab55cd9b0860",
-    ],
-)
-
-rpm(
-    name = "nss-softokn-0__3.63.0-1.fc32.x86_64",
-    sha256 = "976a6847e36946eb3ac0818f4966bf21593bd50c4deb2f441c327f074825b8ec",
-    urls = [
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.63.0-1.fc32.x86_64.rpm",
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.63.0-1.fc32.x86_64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.63.0-1.fc32.x86_64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.63.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/976a6847e36946eb3ac0818f4966bf21593bd50c4deb2f441c327f074825b8ec",
-    ],
-)
-
-rpm(
-    name = "nss-softokn-freebl-0__3.63.0-1.fc32.aarch64",
-    sha256 = "cda6221d538a54b23dee0d07cc4ed6c6a839668455de21fdf95321139820b9bb",
-    urls = [
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.aarch64.rpm",
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.aarch64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/cda6221d538a54b23dee0d07cc4ed6c6a839668455de21fdf95321139820b9bb",
-    ],
-)
-
-rpm(
-    name = "nss-softokn-freebl-0__3.63.0-1.fc32.x86_64",
-    sha256 = "ed9bdd613258449852c149e21d3f4150f67a955f13012f72635df524b32d4c6e",
-    urls = [
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.x86_64.rpm",
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.x86_64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.x86_64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.63.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/ed9bdd613258449852c149e21d3f4150f67a955f13012f72635df524b32d4c6e",
-    ],
-)
-
-rpm(
-    name = "nss-sysinit-0__3.63.0-1.fc32.aarch64",
-    sha256 = "75f448e098820f56357ea5605b392ea03930ef767b4310df2fc582e0f1c4cee7",
-    urls = [
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-sysinit-3.63.0-1.fc32.aarch64.rpm",
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-sysinit-3.63.0-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-sysinit-3.63.0-1.fc32.aarch64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-sysinit-3.63.0-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/75f448e098820f56357ea5605b392ea03930ef767b4310df2fc582e0f1c4cee7",
-    ],
-)
-
-rpm(
-    name = "nss-sysinit-0__3.63.0-1.fc32.x86_64",
-    sha256 = "5e0ee504c9657839809c5a785bf5631e07d4964677d801fef66ade5b33c14b33",
-    urls = [
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.63.0-1.fc32.x86_64.rpm",
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.63.0-1.fc32.x86_64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.63.0-1.fc32.x86_64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.63.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/5e0ee504c9657839809c5a785bf5631e07d4964677d801fef66ade5b33c14b33",
-    ],
-)
-
-rpm(
-    name = "nss-util-0__3.63.0-1.fc32.aarch64",
-    sha256 = "0d77c3d40d1573fa1533710f23f6b826e1ff66dfb405ab3f8b982cbfef5e3f71",
-    urls = [
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-util-3.63.0-1.fc32.aarch64.rpm",
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-util-3.63.0-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-util-3.63.0-1.fc32.aarch64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/aarch64/Packages/n/nss-util-3.63.0-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/0d77c3d40d1573fa1533710f23f6b826e1ff66dfb405ab3f8b982cbfef5e3f71",
-    ],
-)
-
-rpm(
-    name = "nss-util-0__3.63.0-1.fc32.x86_64",
-    sha256 = "8123dfcdb3fef14272939e131b5bebb7fa3a4ff02a0d28f19fbbbfd1a7a9b9a7",
-    urls = [
-        "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.63.0-1.fc32.x86_64.rpm",
-        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.63.0-1.fc32.x86_64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.63.0-1.fc32.x86_64.rpm",
-        "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.63.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/8123dfcdb3fef14272939e131b5bebb7fa3a4ff02a0d28f19fbbbfd1a7a9b9a7",
-    ],
-)
-
-rpm(
     name = "numactl-libs-0__2.0.12-4.fc32.aarch64",
     sha256 = "0868dc649de9822dedec8886b90b0abb5e99300d6af5e70f280280d8f738ab8a",
     urls = [
@@ -6559,30 +5625,6 @@ rpm(
 )
 
 rpm(
-    name = "opus-0__1.3.1-3.fc32.x86_64",
-    sha256 = "fe9c792920ecdecbbc9cb37bcb870a8dc87ea5e046997c2149ebb9d621f56889",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/o/opus-1.3.1-3.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/o/opus-1.3.1-3.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/o/opus-1.3.1-3.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/o/opus-1.3.1-3.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/fe9c792920ecdecbbc9cb37bcb870a8dc87ea5e046997c2149ebb9d621f56889",
-    ],
-)
-
-rpm(
-    name = "orc-0__0.4.31-2.fc32.x86_64",
-    sha256 = "fb6f26c0f7a3a559b79e8afe1f5c8cbe9df2ee1c440d34868e6e252e7a8401c2",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/o/orc-0.4.31-2.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/o/orc-0.4.31-2.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/o/orc-0.4.31-2.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/o/orc-0.4.31-2.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/fb6f26c0f7a3a559b79e8afe1f5c8cbe9df2ee1c440d34868e6e252e7a8401c2",
-    ],
-)
-
-rpm(
     name = "p11-kit-0__0.23.22-2.fc32.aarch64",
     sha256 = "815bc333fcf31fc6f24d09b128929e55c8b7c9128bd41a72fc48251f241a3bc9",
     urls = [
@@ -6687,18 +5729,6 @@ rpm(
         "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/pam-1.3.1-30.fc32.x86_64.rpm",
         "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/p/pam-1.3.1-30.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/b4c15f65d7d7a33d673da78088490ff384eb04006b2a460e049c72dbb0ee0691",
-    ],
-)
-
-rpm(
-    name = "pango-0__1.44.7-2.fc32.x86_64",
-    sha256 = "de94c1578d3efd87e474f48f7d86f55f07cbf5ef84be49bfa84c603ea4733ac8",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/p/pango-1.44.7-2.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/p/pango-1.44.7-2.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/p/pango-1.44.7-2.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/p/pango-1.44.7-2.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/de94c1578d3efd87e474f48f7d86f55f07cbf5ef84be49bfa84c603ea4733ac8",
     ],
 )
 
@@ -8756,87 +7786,6 @@ rpm(
 )
 
 rpm(
-    name = "qemu-kvm-block-curl-15__5.2.0-15.fc32.aarch64",
-    sha256 = "f2379b07ef3d79342a7996371f404a398c4a2e78f3b8e6719d8127c111417c81",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-aarch64/02142033-qemu-kvm/qemu-kvm-block-curl-5.2.0-15.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/f2379b07ef3d79342a7996371f404a398c4a2e78f3b8e6719d8127c111417c81",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-block-curl-15__5.2.0-15.fc32.x86_64",
-    sha256 = "9fd8642b52052c1c76d6f7b49f4c5b23f0e5f8e2c4861a20946ecfd5181b9359",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/02142033-qemu-kvm/qemu-kvm-block-curl-5.2.0-15.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9fd8642b52052c1c76d6f7b49f4c5b23f0e5f8e2c4861a20946ecfd5181b9359",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-block-gluster-15__5.2.0-15.fc32.x86_64",
-    sha256 = "c4112d1c898e80d11c5abffc32557998ebe9cc4912d8712bf06c9dc2765952d9",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/02142033-qemu-kvm/qemu-kvm-block-gluster-5.2.0-15.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/c4112d1c898e80d11c5abffc32557998ebe9cc4912d8712bf06c9dc2765952d9",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-block-iscsi-15__5.2.0-15.fc32.aarch64",
-    sha256 = "c10bd25ee2d3c1af3411f47b202b3f27f4aa5182a2f86ecd39772faa2525b700",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-aarch64/02142033-qemu-kvm/qemu-kvm-block-iscsi-5.2.0-15.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/c10bd25ee2d3c1af3411f47b202b3f27f4aa5182a2f86ecd39772faa2525b700",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-block-iscsi-15__5.2.0-15.fc32.x86_64",
-    sha256 = "210a14ed48c536254a01cdd7a1b6197e45ed873c5362eefbb791e39f79700b11",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/02142033-qemu-kvm/qemu-kvm-block-iscsi-5.2.0-15.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/210a14ed48c536254a01cdd7a1b6197e45ed873c5362eefbb791e39f79700b11",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-block-rbd-15__5.2.0-15.fc32.aarch64",
-    sha256 = "678471f14c4332f902ebc06da0939523c95cccb860d2efe8f06f4311bdbc44de",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-aarch64/02142033-qemu-kvm/qemu-kvm-block-rbd-5.2.0-15.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/678471f14c4332f902ebc06da0939523c95cccb860d2efe8f06f4311bdbc44de",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-block-rbd-15__5.2.0-15.fc32.x86_64",
-    sha256 = "a2422acc981f4778809c91c5506a7c290e77ec46407fb0335b17ba190692eacd",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/02142033-qemu-kvm/qemu-kvm-block-rbd-5.2.0-15.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a2422acc981f4778809c91c5506a7c290e77ec46407fb0335b17ba190692eacd",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-block-ssh-15__5.2.0-15.fc32.aarch64",
-    sha256 = "c2bc1d86b64bc24fe441256f123618966cd816ee56d302d69d4be405cd25eff8",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-aarch64/02142033-qemu-kvm/qemu-kvm-block-ssh-5.2.0-15.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/c2bc1d86b64bc24fe441256f123618966cd816ee56d302d69d4be405cd25eff8",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-block-ssh-15__5.2.0-15.fc32.x86_64",
-    sha256 = "649253c31d09e9264aa8d453153796f3381c22ababfb6e8e53ecc80e01f8be8b",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/02142033-qemu-kvm/qemu-kvm-block-ssh-5.2.0-15.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/649253c31d09e9264aa8d453153796f3381c22ababfb6e8e53ecc80e01f8be8b",
-    ],
-)
-
-rpm(
     name = "qemu-kvm-common-15__5.2.0-15.fc32.aarch64",
     sha256 = "c1fbbdcd522caa14f739ded634e605d6e046cd56d58e0daa8f662f9fed0ff50a",
     urls = [
@@ -8869,24 +7818,6 @@ rpm(
     urls = [
         "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/02142033-qemu-kvm/qemu-kvm-core-5.2.0-15.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/a926bb3f328a4ff72f0d8367328c785fc3a1827001f668e8599bdea6f4df1bb8",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-ui-opengl-15__5.2.0-15.fc32.x86_64",
-    sha256 = "d4d8f22373bb83575f484cb2e1e28fecf2c829bef00bae2f246f68d566d75036",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/02142033-qemu-kvm/qemu-kvm-ui-opengl-5.2.0-15.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/d4d8f22373bb83575f484cb2e1e28fecf2c829bef00bae2f246f68d566d75036",
-    ],
-)
-
-rpm(
-    name = "qemu-kvm-ui-spice-15__5.2.0-15.fc32.x86_64",
-    sha256 = "ff9206be699c8d4ce699588178809bf09ffe2d8642c84feb60b91eb0c7f462b2",
-    urls = [
-        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/02142033-qemu-kvm/qemu-kvm-ui-spice-5.2.0-15.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/ff9206be699c8d4ce699588178809bf09ffe2d8642c84feb60b91eb0c7f462b2",
     ],
 )
 
@@ -9388,18 +8319,6 @@ rpm(
         "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/s/snappy-1.1.8-2.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/s/snappy-1.1.8-2.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/186a33671176e2cd2a6d036bc6cc45fa6e331a28f022c495019c3f26ef2ee383",
-    ],
-)
-
-rpm(
-    name = "spice-server-0__0.14.3-1.fc32.x86_64",
-    sha256 = "4f8be162f46533c87bd62a6293d49f80ae273a257029653413c4c0c12fe656fe",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/s/spice-server-0.14.3-1.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/s/spice-server-0.14.3-1.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/s/spice-server-0.14.3-1.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/s/spice-server-0.14.3-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/4f8be162f46533c87bd62a6293d49f80ae273a257029653413c4c0c12fe656fe",
     ],
 )
 
@@ -9943,18 +8862,6 @@ rpm(
         "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/x/xkeyboard-config-2.29-1.fc32.noarch.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/x/xkeyboard-config-2.29-1.fc32.noarch.rpm",
         "https://storage.googleapis.com/builddeps/ec12fef82d73314e3e4cb6e962f8de27e78989fa104dde0599a4480a53817647",
-    ],
-)
-
-rpm(
-    name = "xml-common-0__0.6.3-54.fc32.x86_64",
-    sha256 = "e2d176040423fe41e45d14a89ca079415ff811f932431c2cbee22faa476f5e47",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/x/xml-common-0.6.3-54.fc32.noarch.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/x/xml-common-0.6.3-54.fc32.noarch.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/x/xml-common-0.6.3-54.fc32.noarch.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/x/xml-common-0.6.3-54.fc32.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/e2d176040423fe41e45d14a89ca079415ff811f932431c2cbee22faa476f5e47",
     ],
 )
 

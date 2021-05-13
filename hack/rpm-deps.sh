@@ -87,13 +87,6 @@ bazel run \
     libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
     libvirt-client-${LIBVIRT_VERSION} \
     qemu-kvm-core-${QEMU_VERSION} \
-    qemu-kvm-block-curl-${QEMU_VERSION} \
-    qemu-kvm-block-gluster-${QEMU_VERSION} \
-    qemu-kvm-block-iscsi-${QEMU_VERSION} \
-    qemu-kvm-block-rbd-${QEMU_VERSION} \
-    qemu-kvm-block-ssh-${QEMU_VERSION} \
-    qemu-kvm-ui-opengl-${QEMU_VERSION} \
-    qemu-kvm-ui-spice-${QEMU_VERSION} \
     seabios-${SEABIOS_VERSION} \
     genisoimage \
     selinux-policy selinux-policy-targeted \
@@ -111,10 +104,6 @@ bazel run \
     libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
     libvirt-client-${LIBVIRT_VERSION} \
     qemu-kvm-core-${QEMU_VERSION} \
-    qemu-kvm-block-curl-${QEMU_VERSION} \
-    qemu-kvm-block-iscsi-${QEMU_VERSION} \
-    qemu-kvm-block-rbd-${QEMU_VERSION} \
-    qemu-kvm-block-ssh-${QEMU_VERSION} \
     genisoimage \
     selinux-policy selinux-policy-targeted \
     nftables \
