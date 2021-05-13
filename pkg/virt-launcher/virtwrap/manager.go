@@ -650,13 +650,11 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	diskInfo := make(map[string]*containerdisk.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
-			isBlockPVC := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
-				isBlockPVC = isHotplugBlockDeviceVolume(volume.Name)
+				isBlockPVCMap[volume.Name] = isHotplugBlockDeviceVolume(volume.Name)
 			} else {
-				isBlockPVC, _ = isBlockDeviceVolume(volume.Name)
+				isBlockPVCMap[volume.Name], _ = isBlockDeviceVolume(volume.Name)
 			}
-			isBlockPVCMap[volume.Name] = isBlockPVC
 		} else if volume.VolumeSource.ContainerDisk != nil {
 			image, err := containerdisk.GetDiskTargetPartFromLauncherView(i)
 			if err != nil {
@@ -668,13 +666,11 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			}
 			diskInfo[volume.Name] = info
 		} else if volume.VolumeSource.DataVolume != nil {
-			isBlockDV := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
-				isBlockDV = isHotplugBlockDeviceVolume(volume.Name)
+				isBlockDVMap[volume.Name] = isHotplugBlockDeviceVolume(volume.Name)
 			} else {
-				isBlockDV, _ = isBlockDeviceVolume(volume.Name)
+				isBlockDVMap[volume.Name], _ = isBlockDeviceVolume(volume.Name)
 			}
-			isBlockDVMap[volume.Name] = isBlockDV
 		}
 	}
 
