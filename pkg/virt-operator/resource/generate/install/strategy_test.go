@@ -61,7 +61,7 @@ var _ = Describe("Install Strategy", func() {
 
 	Context("should generate", func() {
 		It("install strategy convertable back to objects", func() {
-			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
+			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
 			Expect(err).NotTo(HaveOccurred())
 
 			data := string(dumpInstallStrategyToBytes(strategy))
@@ -80,7 +80,7 @@ var _ = Describe("Install Strategy", func() {
 
 		})
 		It("latest install strategy with lossless byte conversion.", func() {
-			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
+			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			strategyStr := string(dumpInstallStrategyToBytes(strategy))
@@ -227,7 +227,7 @@ var _ = Describe("Install Strategy", func() {
 			// for backwards compatibility
 			stores := util.Stores{}
 			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
-			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
+			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
 			Expect(err).ToNot(HaveOccurred())
 			data := string(dumpInstallStrategyToBytes(strategy))
 
@@ -252,7 +252,7 @@ var _ = Describe("Install Strategy", func() {
 		It("a gzip+base64 encoded install strategy.", func() {
 			stores := util.Stores{}
 			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
-			configMap, err := NewInstallStrategyConfigMap(config, true, namespace)
+			configMap, err := NewInstallStrategyConfigMap(config, "openshift-monitoring", namespace)
 			Expect(err).ToNot(HaveOccurred())
 			stores.InstallStrategyConfigMapCache.Add(configMap)
 			_, err = LoadInstallStrategyFromCache(stores, config)

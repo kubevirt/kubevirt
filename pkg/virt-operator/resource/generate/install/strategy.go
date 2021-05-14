@@ -221,8 +221,8 @@ func decodeManifests(strategy []byte) (string, error) {
 	return decodedStrategy.String(), nil
 }
 
-func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*corev1.ConfigMap, error) {
-	strategy, err := GenerateCurrentInstallStrategy(config, addMonitorServiceResources, operatorNamespace)
+func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, monitorNamespace string, operatorNamespace string) (*corev1.ConfigMap, error) {
+	strategy, err := GenerateCurrentInstallStrategy(config, monitorNamespace, operatorNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -254,6 +254,19 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 	return configMap, nil
 }
 
+func getMonitorNamespace(clientset kubecli.KubevirtClient, config *operatorutil.KubeVirtDeploymentConfig) (namespace string, err error) {
+	for _, ns := range config.GetMonitorNamespaces() {
+		exists, err := isNamespaceExist(clientset, ns)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return ns, nil
+		}
+	}
+	return "", nil
+}
+
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
 
 	config, err := util.GetConfigFromEnv()
@@ -261,13 +274,12 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 		return err
 	}
 
-	monitorNamespace := config.GetMonitorNamespace()
-	addMonitorServiceResources, err := isNamespaceExist(clientset, monitorNamespace)
+	monitorNamespace, err := getMonitorNamespace(clientset, config)
 	if err != nil {
 		return err
 	}
 
-	configMap, err := NewInstallStrategyConfigMap(config, addMonitorServiceResources, operatorNamespace)
+	configMap, err := NewInstallStrategyConfigMap(config, monitorNamespace, operatorNamespace)
 	if err != nil {
 		return err
 	}
@@ -351,7 +363,7 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
 	return b.Bytes()
 }
 
-func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*Strategy, error) {
+func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, monitorNamespace string, operatorNamespace string) (*Strategy, error) {
 
 	strategy := &Strategy{}
 
@@ -375,8 +387,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)
 
-	monitorNamespace := config.GetMonitorNamespace()
-	if addMonitorServiceResources {
+	if monitorNamespace != "" {
 
 		workloadUpdatesEnabled := config.WorkloadUpdatesEnabled()
 
