@@ -275,11 +275,6 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 			vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
 			Expect(err).ToNot(HaveOccurred())
 		}
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex)),
-			"VMI should not have a specified phase yet")
-
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
 		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Pending)),
 			"VMI should be in the Pending phase")
 
@@ -332,11 +327,6 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 			return false
 		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
-
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex)),
-			"VMI should not have a specified phase yet")
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
