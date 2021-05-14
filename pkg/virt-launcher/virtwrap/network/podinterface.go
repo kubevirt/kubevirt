@@ -960,7 +960,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 		return err
 	}
 
-	err = b.skipForwardingForReservedPortsUsingIptables(protocol)
+	err = b.skipForwardingForPortsUsingIptables(protocol, portsUsedByLiveMigration())
 	if err != nil {
 		return err
 	}
@@ -1042,13 +1042,13 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) skipForwardingForReservedPortsUsingIptables(protocol iptables.Protocol) error {
+func (b *MasqueradeBindMechanism) skipForwardingForPortsUsingIptables(protocol iptables.Protocol, ports []string) error {
 	chainWhereDnatIsPerformed := "OUTPUT"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
 		err := b.handler.IptablesAppendRule(protocol, "nat", chain,
 			"-p", "tcp", "--match", "multiport",
-			"--dports", fmt.Sprintf("%s", strings.Join(portsUsedByLiveMigration(), ",")),
+			"--dports", fmt.Sprintf("%s", strings.Join(ports, ",")),
 			"--source", getLoopbackAdrress(protocol),
 			"-j", "RETURN")
 		if err != nil {
@@ -1084,7 +1084,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 		return err
 	}
 
-	err = b.skipForwardingForReservedPortsUsingNftables(proto)
+	err = b.skipForwardingForPortsUsingNftables(proto, portsUsedByLiveMigration())
 	if err != nil {
 		return err
 	}
@@ -1157,12 +1157,12 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) skipForwardingForReservedPortsUsingNftables(proto iptables.Protocol) error {
+func (b *MasqueradeBindMechanism) skipForwardingForPortsUsingNftables(proto iptables.Protocol, ports []string) error {
 	chainWhereDnatIsPerformed := "output"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
 		err := b.handler.NftablesAppendRule(proto, "nat", chain,
-			"tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(portsUsedByLiveMigration(), ", ")),
+			"tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(ports, ", ")),
 			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
 			"counter", "return")
 		if err != nil {
