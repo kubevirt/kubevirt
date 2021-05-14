@@ -22,7 +22,6 @@ package network
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"runtime"
@@ -62,9 +61,9 @@ var _ = Describe("Pod Network", func() {
 	var bridgeTest *netlink.Bridge
 	var masqueradeBridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
-	var testNic *cache.VIF
+	var testNic *cache.DhcpConfig
 	var tmpDir string
-	var masqueradeTestNic *cache.VIF
+	var masqueradeTestNic *cache.DhcpConfig
 	var masqueradeDummyName string
 	var masqueradeDummy *netlink.Dummy
 	var masqueradeGwStr string
@@ -101,8 +100,6 @@ var _ = Describe("Pod Network", func() {
 	}
 	BeforeEach(func() {
 		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
-		tmpDir, _ := ioutil.TempDir("", "networktest")
-		setVifCacheFile(tmpDir + "/cache-vif-%s.json")
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
@@ -141,7 +138,7 @@ var _ = Describe("Pod Network", func() {
 
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		tapDeviceName = "tap0"
-		testNic = &cache.VIF{Name: primaryPodInterfaceName,
+		testNic = &cache.DhcpConfig{Name: primaryPodInterfaceName,
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Mtu:     uint16(mtu),
@@ -162,7 +159,7 @@ var _ = Describe("Pod Network", func() {
 		masqueradeVmIpv6 = masqueradeIpv6VmAddr.IP.String()
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
 		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName, MTU: mtu}}
-		masqueradeTestNic = &cache.VIF{Name: primaryPodInterfaceName,
+		masqueradeTestNic = &cache.DhcpConfig{Name: primaryPodInterfaceName,
 			IP:          *masqueradeVmAddr,
 			IPv6:        *masqueradeIpv6VmAddr,
 			MAC:         fakeMac,
@@ -322,7 +319,7 @@ var _ = Describe("Pod Network", func() {
 	}
 
 	Context("on successful setup", func() {
-		It("should define a new VIF bind to a bridge", func() {
+		It("should define a new DhcpConfig bind to a bridge", func() {
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 			domain := NewDomainWithBridgeInterface()
@@ -427,7 +424,7 @@ var _ = Describe("Pod Network", func() {
 					Expect(err).ToNot(HaveOccurred())
 					bridge, ok := driver.(*BridgeBindMechanism)
 					Expect(ok).To(BeTrue())
-					Expect(bridge.vif.MAC.String()).To(Equal("de:ad:00:00:be:af"))
+					Expect(bridge.dhcpConfig.MAC.String()).To(Equal("de:ad:00:00:be:af"))
 				})
 			})
 		})
@@ -458,7 +455,7 @@ var _ = Describe("Pod Network", func() {
 			})
 		})
 		Context("Masquerade Plug", func() {
-			It("should define a new VIF bind to a bridge and create a default nat rule using iptables", func() {
+			It("should define a new DhcpConfig bind to a bridge and create a default nat rule using iptables", func() {
 
 				// forward all the traffic
 				for _, proto := range ipProtocols() {
@@ -474,7 +471,7 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
-			It("should define a new VIF bind to a bridge and create a specific nat rule using iptables", func() {
+			It("should define a new DhcpConfig bind to a bridge and create a specific nat rule using iptables", func() {
 				// Forward a specific port
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
@@ -512,7 +509,7 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
-			It("should define a new VIF bind to a bridge and create a default nat rule using nftables", func() {
+			It("should define a new DhcpConfig bind to a bridge and create a default nat rule using nftables", func() {
 				// forward all the traffic
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().NftablesLoad(proto).Return(nil)
@@ -526,7 +523,7 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
-			It("should define a new VIF bind to a bridge and create a specific nat rule using nftables", func() {
+			It("should define a new DhcpConfig bind to a bridge and create a specific nat rule using nftables", func() {
 				// Forward a specific port
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
@@ -664,9 +661,9 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			masq.vif.Gateway = masqueradeGwAddr.IP.To4()
-			masq.vif.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
-			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
+			masq.dhcpConfig.Gateway = masqueradeGwAddr.IP.To4()
+			masq.dhcpConfig.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
+			mockNetwork.EXPECT().StartDHCP(masq.dhcpConfig, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
 
 			Expect(masq.startDHCP()).To(Succeed())
 		})
@@ -682,11 +679,11 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			masq.vif.Gateway = masqueradeGwAddr.IP.To4()
-			masq.vif.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
+			masq.dhcpConfig.Gateway = masqueradeGwAddr.IP.To4()
+			masq.dhcpConfig.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
 
 			err = fmt.Errorf("failed to start DHCP server")
-			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(err)
+			mockNetwork.EXPECT().StartDHCP(masq.dhcpConfig, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(err)
 
 			Expect(masq.startDHCP()).To(HaveOccurred())
 		})
@@ -704,7 +701,7 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil, true).Return(nil)
+			mockNetwork.EXPECT().StartDHCP(bridge.dhcpConfig, gomock.Any(), api.DefaultBridgeName, nil, true).Return(nil)
 
 			Expect(bridge.startDHCP()).To(Succeed())
 		})
@@ -721,7 +718,7 @@ var _ = Describe("Pod Network", func() {
 			Expect(ok).To(BeTrue())
 
 			err = fmt.Errorf("failed to start DHCP server")
-			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
+			mockNetwork.EXPECT().StartDHCP(bridge.dhcpConfig, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
 
 			Expect(bridge.startDHCP()).To(HaveOccurred())
 		})
@@ -737,9 +734,9 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			bridge.vif.IPAMDisabled = true
+			bridge.dhcpConfig.IPAMDisabled = true
 			err = fmt.Errorf("failed to start DHCP server")
-			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
+			mockNetwork.EXPECT().StartDHCP(bridge.dhcpConfig, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
 
 			Expect(bridge.startDHCP()).To(Succeed())
 		})
@@ -760,7 +757,7 @@ var _ = Describe("Pod Network", func() {
 		// slirp never fails to start DHCP because it doesn't need it at all
 	})
 
-	Context("Bridge loadCachedVIF", func() {
+	Context("Bridge loadCachedDhcpConfig", func() {
 		It("should fail when nothing to load", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
@@ -771,7 +768,7 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			Expect(bridge.loadCachedVIF(fmt.Sprintf("%d", pid))).To(HaveOccurred())
+			Expect(bridge.loadCachedDhcpConfig()).To(HaveOccurred())
 		})
 		It("should succeed when cache file present", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -783,13 +780,12 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			pidStr := fmt.Sprintf("%d", pid)
-			Expect(bridge.setCachedVIF(pidStr)).ToNot(HaveOccurred())
-			Expect(bridge.loadCachedVIF(pidStr)).ToNot(HaveOccurred())
+			Expect(bridge.setCachedDhcpConfig()).ToNot(HaveOccurred())
+			Expect(bridge.loadCachedDhcpConfig()).ToNot(HaveOccurred())
 		})
 	})
 
-	Context("Slirp loadCachedVIF", func() {
+	Context("Slirp loadCachedDhcpConfig", func() {
 		It("should succeed", func() {
 			vmi := newVMISlirpInterface("testnamespace", "testVmName")
 
@@ -801,17 +797,17 @@ var _ = Describe("Pod Network", func() {
 			Expect(ok).To(BeTrue())
 
 			// it doesn't fail regardless, whether called without setCachedVIF...
-			Expect(slirp.loadCachedVIF(fmt.Sprintf("%d", pid))).NotTo(HaveOccurred())
+			Expect(slirp.loadCachedDhcpConfig()).NotTo(HaveOccurred())
 
 			// ...or after it
-			err = slirp.setCachedVIF(fmt.Sprintf("%d", pid))
+			err = slirp.setCachedDhcpConfig()
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(slirp.loadCachedVIF(fmt.Sprintf("%d", pid))).NotTo(HaveOccurred())
+			Expect(slirp.loadCachedDhcpConfig()).NotTo(HaveOccurred())
 		})
 	})
 
-	Context("Masquerade loadCachedVIF", func() {
+	Context("Masquerade loadCachedDhcpConfig", func() {
 		It("should fail when nothing to load", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
@@ -822,7 +818,7 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			Expect(masq.loadCachedVIF(fmt.Sprintf("%d", pid))).To(HaveOccurred())
+			Expect(masq.loadCachedDhcpConfig()).To(HaveOccurred())
 		})
 		It("should succeed when cache file present", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -834,9 +830,8 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			pidStr := fmt.Sprintf("%d", pid)
-			Expect(masq.setCachedVIF(pidStr)).ToNot(HaveOccurred())
-			Expect(masq.loadCachedVIF(pidStr)).ToNot(HaveOccurred())
+			Expect(masq.setCachedDhcpConfig()).ToNot(HaveOccurred())
+			Expect(masq.loadCachedDhcpConfig()).ToNot(HaveOccurred())
 		})
 	})
 

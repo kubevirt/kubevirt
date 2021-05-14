@@ -15,7 +15,7 @@ type PodCacheInterface struct {
 	PodIPs []string      `json:"podIPs,omitempty"`
 }
 
-type VIF struct {
+type DhcpConfig struct {
 	Name         string
 	IP           netlink.Addr
 	IPv6         netlink.Addr
@@ -27,9 +27,9 @@ type VIF struct {
 	IPAMDisabled bool
 }
 
-func (vif VIF) String() string {
+func (vif DhcpConfig) String() string {
 	return fmt.Sprintf(
-		"VIF: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t}",
+		"DhcpConfig: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t}",
 		vif.Name,
 		vif.IP.IP,
 		vif.IP.Mask,
