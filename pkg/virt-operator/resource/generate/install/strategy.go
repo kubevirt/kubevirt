@@ -33,6 +33,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	secv1 "github.com/openshift/api/security/v1"
+	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -254,14 +255,16 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 	return configMap, nil
 }
 
-func getMonitorNamespace(clientset kubecli.KubevirtClient, config *operatorutil.KubeVirtDeploymentConfig) (namespace string, err error) {
+func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorutil.KubeVirtDeploymentConfig) (namespace string, err error) {
 	for _, ns := range config.GetMonitorNamespaces() {
-		exists, err := isNamespaceExist(clientset, ns)
-		if err != nil {
+		if nsExists, err := isNamespaceExist(clientset, ns); nsExists {
+			if saExists, err := isServiceAccountExist(clientset, ns, config.GetMonitorServiceAccount()); saExists {
+				return ns, nil
+			} else if err != nil {
+				return "", err
+			}
+		} else if err != nil {
 			return "", err
-		}
-		if exists {
-			return ns, nil
 		}
 	}
 	return "", nil
@@ -274,7 +277,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 		return err
 	}
 
-	monitorNamespace, err := getMonitorNamespace(clientset, config)
+	monitorNamespace, err := getMonitorNamespace(clientset.CoreV1(), config)
 	if err != nil {
 		return err
 	}
@@ -391,7 +394,6 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 		workloadUpdatesEnabled := config.WorkloadUpdatesEnabled()
 
-		// TODO: we should check that monitor SA exists in the monitor namespace
 		monitorServiceAccount := config.GetMonitorServiceAccount()
 		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
 		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), monitorNamespace, true))
@@ -705,8 +707,21 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 	return strategy, nil
 }
 
-func isNamespaceExist(clientset kubecli.KubevirtClient, ns string) (bool, error) {
-	_, err := clientset.CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
+func isNamespaceExist(clientset k8coresv1.CoreV1Interface, ns string) (bool, error) {
+	_, err := clientset.Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
+	if err == nil {
+		return true, nil
+	}
+
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+
+	return false, err
+}
+
+func isServiceAccountExist(clientset k8coresv1.CoreV1Interface, ns string, serviceAccount string) (bool, error) {
+	_, err := clientset.ServiceAccounts(ns).Get(context.Background(), serviceAccount, metav1.GetOptions{})
 	if err == nil {
 		return true, nil
 	}

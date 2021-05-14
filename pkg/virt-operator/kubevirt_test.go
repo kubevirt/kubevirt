@@ -270,6 +270,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 		if action.GetVerb() == "get" && action.GetResource().Resource == "mutatingwebhookconfigurations" {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "mutatingwebhookconfigurations"}, "whatever")
 		}
+		if action.GetVerb() == "get" && action.GetResource().Resource == "serviceaccounts" {
+			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "serviceaccounts"}, "whatever")
+		}
 		if action.GetVerb() != "get" || action.GetResource().Resource != "namespaces" {
 			Expect(action).To(BeNil())
 		}
