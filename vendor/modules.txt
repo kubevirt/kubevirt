@@ -37,6 +37,8 @@ github.com/coreos/go-iptables/iptables
 github.com/coreos/go-semver/semver
 # github.com/coreos/go-systemd/v22 v22.1.0
 github.com/coreos/go-systemd/v22/dbus
+# github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
+github.com/coreos/pkg/dlopen
 # github.com/coreos/prometheus-operator v0.35.0
 github.com/coreos/prometheus-operator/pkg/apis/monitoring
 github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
