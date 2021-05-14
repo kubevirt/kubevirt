@@ -850,9 +850,6 @@ type ChannelSource struct {
 //END Channel --------------------
 
 //BEGIN Video -------------------
-/*
-<graphics autoport="yes" defaultMode="secure" listen="0" passwd="*****" passwdValidTo="1970-01-01T00:00:01" port="-1" tlsPort="-1" type="spice" />
-*/
 
 type Video struct {
 	Model VideoModel `xml:"model"`
