@@ -1,6 +1,8 @@
 **Reviewer Checklist**
 <!-- Check [Expectations from a PR](/CONTRIBUTING.md#expectations-from-a-pr) for the details -->
 
+> Reviewers are supposed to review the PR for every aspect below one by one. To check an item means the PR is either "OK" or "Not Applicable" in terms of that item. All items are supposed to be checked before merging a PR. 
+
 - [ ] PR Message
 - [ ] Commit Messages
 - [ ] How to test
