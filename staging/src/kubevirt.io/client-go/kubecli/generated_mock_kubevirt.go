@@ -1343,16 +1343,6 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Migrate(arg0 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0)
 }
 
-func (_m *MockVirtualMachineInterface) Rename(name string, options *v117.RenameOptions) error {
-	ret := _m.ctrl.Call(_m, "Rename", name, options)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirtualMachineInterfaceRecorder) Rename(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Rename", arg0, arg1)
-}
-
 func (_m *MockVirtualMachineInterface) AddVolume(name string, addVolumeOptions *v117.AddVolumeOptions) error {
 	ret := _m.ctrl.Call(_m, "AddVolume", name, addVolumeOptions)
 	ret0, _ := ret[0].(error)
