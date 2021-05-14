@@ -26,8 +26,6 @@ import (
 	"strconv"
 	"strings"
 
-	netutils "k8s.io/utils/net"
-
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
@@ -146,7 +144,7 @@ func isSecondaryMultusNetwork(net v1.Network) bool {
 func (l *podNIC) setPodInterfaceCache() error {
 	ifCache := &cache.PodCacheInterface{Iface: l.iface}
 
-	ipv4, ipv6, err := l.readIPAddressesFromLink()
+	ipv4, ipv6, err := l.handler.ReadIPAddressesFromLink(l.podInterfaceName)
 	if err != nil {
 		return err
 	}
@@ -173,39 +171,6 @@ func (l *podNIC) setPodInterfaceCache() error {
 	}
 
 	return nil
-}
-
-func (l *podNIC) readIPAddressesFromLink() (string, string, error) {
-	link, err := l.handler.LinkByName(l.podInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", l.podInterfaceName)
-		return "", "", err
-	}
-
-	// get IP address
-	addrList, err := l.handler.AddrList(link, netlink.FAMILY_ALL)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a address for interface: %s", l.podInterfaceName)
-		return "", "", err
-	}
-
-	// no ip assigned. ipam disabled
-	if len(addrList) == 0 {
-		return "", "", nil
-	}
-
-	var ipv4, ipv6 string
-	for _, addr := range addrList {
-		if addr.IP.IsGlobalUnicast() {
-			if netutils.IsIPv6(addr.IP) && ipv6 == "" {
-				ipv6 = addr.IP.String()
-			} else if !netutils.IsIPv6(addr.IP) && ipv4 == "" {
-				ipv4 = addr.IP.String()
-			}
-		}
-	}
-
-	return ipv4, ipv6, nil
 }
 
 // sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
@@ -1154,23 +1119,29 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+			b.handler.GetNFTIPString(proto), "saddr", b.getSrcAddressesToSnat(proto),
 			"counter", "snat", "to", b.getGatewayByProtocol(proto))
 		if err != nil {
 			return err
 		}
 
-		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
-			strings.ToLower(port.Protocol),
-			"dport",
-			strconv.Itoa(int(port.Port)),
-			"counter", "dnat", "to", b.getDhcpConfigIpByProtocol(proto))
+		if !hasIstioSidecarInjectionEnabled(b.vmi) {
+			err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+				strings.ToLower(port.Protocol),
+				"dport",
+				strconv.Itoa(int(port.Port)),
+				"counter", "dnat", "to", b.getDhcpConfigIpByProtocol(proto))
+			if err != nil {
+				return err
+			}
+		}
+
+		addressesToDnat, err := b.getDstAddressesToDnat(proto)
 		if err != nil {
 			return err
 		}
-
 		err = b.handler.NftablesAppendRule(proto, "nat", "output",
-			b.handler.GetNFTIPString(proto), "daddr", getLoopbackAdrress(proto),
+			b.handler.GetNFTIPString(proto), "daddr", addressesToDnat,
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
@@ -1212,6 +1183,37 @@ func (b *MasqueradeBindMechanism) getDhcpConfigIpByProtocol(proto iptables.Proto
 	} else {
 		return b.dhcpConfig.IPv6.IP.String()
 	}
+}
+
+func (b *MasqueradeBindMechanism) getSrcAddressesToSnat(proto iptables.Protocol) string {
+	addresses := []string{getLoopbackAdrress(proto)}
+	if hasIstioSidecarInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
+		addresses = append(addresses, getEnvoyLoopbackAddress())
+	}
+	return fmt.Sprintf("{ %s }", strings.Join(addresses, ", "))
+}
+
+func (b *MasqueradeBindMechanism) getDstAddressesToDnat(proto iptables.Protocol) (string, error) {
+	addresses := []string{getLoopbackAdrress(proto)}
+	if hasIstioSidecarInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
+		ipv4, _, err := b.handler.ReadIPAddressesFromLink(b.podInterfaceName)
+		if err != nil {
+			return "", err
+		}
+		addresses = append(addresses, ipv4)
+	}
+	return fmt.Sprintf("{ %s }", strings.Join(addresses, ", ")), nil
+}
+
+func hasIstioSidecarInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {
+	if val, ok := vmi.GetAnnotations()["sidecar.istio.io/inject"]; ok {
+		return strings.ToLower(val) == "true"
+	}
+	return false
+}
+
+func getEnvoyLoopbackAddress() string {
+	return "127.0.0.6"
 }
 
 func getLoopbackAdrress(proto iptables.Protocol) string {

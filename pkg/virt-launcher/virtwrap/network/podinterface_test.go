@@ -224,6 +224,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().ConfigureIpv4ArpIgnore().Return(nil)
 
 		// For masquerade tests
+		mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterface.Name).Return(GetMasqueradeVmIp(iptables.ProtocolIPv4), GetMasqueradeVmIp(iptables.ProtocolIPv6), nil)
 		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
 		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeGwStr).Return(masqueradeGwAddr, nil)
@@ -335,6 +336,7 @@ var _ = Describe("Pod Network", func() {
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
+			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return("", "", nil)
 			mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 			mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
@@ -371,6 +373,7 @@ var _ = Describe("Pod Network", func() {
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
+			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return("", "", nil)
 			mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil).Times(2)
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
@@ -536,7 +539,7 @@ var _ = Describe("Pod Network", func() {
 						"tcp",
 						"dport",
 						"80",
-						GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+						GetNFTIPString(proto), "saddr", "{ "+getLoopbackAdrress(proto)+" }",
 						"counter", "snat", "to", GetMasqueradeGwIp(proto)).Return(nil).AnyTimes()
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
 						"KUBEVIRT_PREINBOUND",
@@ -546,7 +549,7 @@ var _ = Describe("Pod Network", func() {
 						"counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
 						"output",
-						GetNFTIPString(proto), "daddr", getLoopbackAdrress(proto),
+						GetNFTIPString(proto), "daddr", "{ "+getLoopbackAdrress(proto)+" }",
 						"tcp",
 						"dport",
 						"80",
@@ -845,6 +848,7 @@ var _ = Describe("Pod Network", func() {
 		addrList := []netlink.Addr{fakeAddr1, fakeAddr2}
 
 		iface := &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
+		mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr1.IP.String(), fakeAddr2.IP.String(), nil)
 		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
 		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
