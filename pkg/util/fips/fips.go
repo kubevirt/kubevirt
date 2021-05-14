@@ -27,7 +27,6 @@ import "C"
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"regexp"
 
@@ -35,6 +34,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/sysctl"
 )
+
+var libPaths = []string{"/lib64", "/usr/lib64", "/lib", "/usr/lib"}
 
 func isSysctlFipsEnabled() (bool, error) {
 	sys := sysctl.New()
@@ -51,7 +52,7 @@ func findCryptoLibsInDir(dir string) []string {
 		return []string{}
 	}
 
-	entries, err := ioutil.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return []string{}
 	}
@@ -60,7 +61,7 @@ func findCryptoLibsInDir(dir string) []string {
 	validLibName := regexp.MustCompile(`^libcrypto.*\.so($|\..*)`)
 
 	for i := range entries {
-		if !entries[i].IsDir() && entries[i].Mode().IsRegular() {
+		if !entries[i].IsDir() && entries[i].Type().IsRegular() {
 			if validLibName.MatchString(entries[i].Name()) {
 				libs = append(libs, entries[i].Name())
 			}
@@ -70,7 +71,6 @@ func findCryptoLibsInDir(dir string) []string {
 }
 
 func findCryptoLibs() ([]string, error) {
-	libPaths := []string{"/lib64", "/usr/lib64", "/lib", "/usr/lib"}
 	libCryptoPaths := []string{}
 
 	for i := range libPaths {

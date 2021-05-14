@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/fips"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
@@ -215,6 +216,10 @@ func Execute() {
 	app.readyChan = make(chan bool, 1)
 
 	log.InitializeLogging("virt-controller")
+
+	if ok, _ := fips.IsFipsEnabled(); ok {
+		log.Log.Infof("container is running in FIPS mode")
+	}
 
 	app.clientSet, err = kubecli.GetKubevirtClient()
 

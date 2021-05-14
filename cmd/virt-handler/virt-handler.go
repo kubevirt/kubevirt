@@ -65,6 +65,7 @@ import (
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/fips"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
@@ -171,6 +172,10 @@ func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 }
 
 func (app *virtHandlerApp) Run() {
+	if ok, _ := fips.IsFipsEnabled(); ok {
+		log.Log.Infof("container is running in FIPS mode")
+	}
+
 	// HostOverride should default to os.Hostname(), to make sure we handle errors ensure it here.
 	if app.HostOverride == "" {
 		defaultHostName, err := os.Hostname()
@@ -186,11 +191,10 @@ func (app *virtHandlerApp) Run() {
 
 	logger := log.Log
 	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
-	var err error
 
 	// Copy container-disk binary
 	targetFile := filepath.Join(app.VirtLibDir, "/init/usr/bin/container-disk")
-	err = os.MkdirAll(filepath.Dir(targetFile), os.ModePerm)
+	err := os.MkdirAll(filepath.Dir(targetFile), os.ModePerm)
 	if err != nil {
 		panic(err)
 	}

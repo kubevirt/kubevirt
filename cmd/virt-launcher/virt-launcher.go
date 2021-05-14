@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/util/fips"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -350,6 +351,10 @@ func main() {
 	pflag.Parse()
 
 	log.InitializeLogging("virt-launcher")
+
+	if ok, _ := fips.IsFipsEnabled(); ok {
+		log.Log.Infof("container is running in FIPS mode")
+	}
 
 	// check if virt-launcher verbosity should be changed
 	if verbosityStr, ok := os.LookupEnv("VIRT_LAUNCHER_LOG_VERBOSITY"); ok {

@@ -12,6 +12,7 @@ go_library(
         "//pkg/rest/filter:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/fips:go_default_library",
         "//pkg/util/openapi:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-api/rest:go_default_library",

@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
+	"kubevirt.io/kubevirt/pkg/util/fips"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -135,6 +136,10 @@ func Execute() {
 	// apply any passthrough environment to this operator as well
 	for k, v := range util.GetPassthroughEnv() {
 		os.Setenv(k, v)
+	}
+
+	if ok, _ := fips.IsFipsEnabled(); ok {
+		log.Log.Infof("container is running in FIPS mode")
 	}
 
 	config, err := kubecli.GetConfig()
