@@ -391,6 +391,8 @@ type BridgeBindMechanism struct {
 	queueCount          uint32
 	handler             netdriver.NetworkHandler
 	tapDeviceName       string
+	podIfaceIP          netlink.Addr
+	ipamEnabled         bool
 }
 
 func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
@@ -409,9 +411,12 @@ func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
 	}
 	if len(addrList) == 0 {
 		b.dhcpConfig.IPAMDisabled = true
+		b.ipamEnabled = false
 	} else {
 		b.dhcpConfig.IP = addrList[0]
 		b.dhcpConfig.IPAMDisabled = false
+		b.podIfaceIP = addrList[0]
+		b.ipamEnabled = true
 	}
 
 	if len(b.dhcpConfig.MAC) == 0 {
@@ -470,9 +475,9 @@ func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
 
 	b.tapDeviceName = generateTapDeviceName(b.podInterfaceName)
 
-	if !b.dhcpConfig.IPAMDisabled {
+	if b.ipamEnabled {
 		// Remove IP from POD interface
-		err := b.handler.AddrDel(b.podNicLink, &b.dhcpConfig.IP)
+		err := b.handler.AddrDel(b.podNicLink, &b.podIfaceIP)
 
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podInterfaceName)
@@ -493,7 +498,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
 		return err
 	}
 
-	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.dhcpConfig.Mtu), netdriver.LibvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
 		return err
@@ -683,7 +688,7 @@ func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
 	// Replace original pod interface IP address to the dummy
 	// Since the dummy is not connected to anything, it should not affect networking
 	// Replace will add if ip doesn't exist or modify the ip
-	err = b.handler.AddrReplace(dummy, &b.dhcpConfig.IP)
+	err = b.handler.AddrReplace(dummy, &b.podIfaceIP)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", originalPodInterfaceName)
 		return err
