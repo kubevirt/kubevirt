@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/util/fips"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -357,6 +358,13 @@ func main() {
 
 	log.InitializeLogging("virt-launcher")
 
+	fipsEnabled, err := fips.IsFipsEnabled()
+	if fipsEnabled {
+		log.Log.Infof("virt-launcher is running in FIPS mode")
+	} else {
+		log.Log.Infof("virt-launcher is not running in FIPS mode. %v", err)
+	}
+
 	// check if virt-launcher verbosity should be changed
 	if verbosityStr, ok := os.LookupEnv("VIRT_LAUNCHER_LOG_VERBOSITY"); ok {
 		if verbosity, err := strconv.Atoi(verbosityStr); err == nil {
@@ -378,7 +386,7 @@ func main() {
 
 	// Block until all requested hookSidecars are ready
 	hookManager := hooks.GetManager()
-	err := hookManager.Collect(*hookSidecars, *qemuTimeout)
+	err = hookManager.Collect(*hookSidecars, *qemuTimeout)
 	if err != nil {
 		panic(err)
 	}

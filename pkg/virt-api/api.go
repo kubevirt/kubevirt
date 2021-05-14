@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/fips"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	webhooksutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
@@ -132,6 +133,13 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
+	fipsEnabled, err := fips.IsFipsEnabled()
+	if fipsEnabled {
+		log.Log.Infof("virt-api is running in FIPS mode")
+	} else {
+		log.Log.Infof("virt-api is not running in FIPS mode. %v", err)
+	}
+
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)

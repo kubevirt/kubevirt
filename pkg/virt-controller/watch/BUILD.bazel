@@ -20,6 +20,7 @@ go_library(
         "//pkg/healthz:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/fips:go_default_library",
         "//pkg/util/lookup:go_default_library",
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/status:go_default_library",
