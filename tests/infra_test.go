@@ -1101,6 +1101,16 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					Expect(key).ToNot(Equal(v1.CPUFeatureLabel+"apic"), "Node can't contain label with apic feature (it is feature of default min cpu)")
 				}
 			})
+
+			It("should expose tsc frequency and tsc scalability", func() {
+				node := nodesWithKVM[0]
+				Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-frequency"))
+				Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-scalable"))
+				Expect(node.Labels["cpu-timer.node.kubevirt.io/tsc-scalable"]).To(Or(Equal("true"), Equal("false")))
+				val, err := strconv.ParseInt(node.Labels["cpu-timer.node.kubevirt.io/tsc-frequency"], 10, 64)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(val).To(BeNumerically(">", 0))
+			})
 		})
 
 		Context("advanced labelling", func() {
