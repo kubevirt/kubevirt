@@ -10,13 +10,15 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
+const noSrvCertMessage = "No server certificate, server is not yet ready to receive traffic"
+
 func SetupPromTLS(certManager certificate.Manager) *tls.Config {
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
 			if cert == nil {
-				return nil, fmt.Errorf("No server certificate, server is not yet ready to receive traffic")
+				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 			return cert, nil
 		},
@@ -44,14 +46,14 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
 			if cert == nil {
-				return nil, fmt.Errorf("No server certificate, server is not yet ready to receive traffic")
+				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 			return cert, nil
 		},
 		GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
 			cert := certManager.Current()
 			if cert == nil {
-				return nil, fmt.Errorf("No server certificate, server is not yet ready to receive traffic")
+				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 
 			clientCAPool, err := caManager.GetCurrent()
@@ -83,7 +85,7 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
 			if cert == nil {
-				return nil, fmt.Errorf("No server certificate, server is not yet ready to receive traffic")
+				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 			return cert, nil
 		},
@@ -98,7 +100,7 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 			}
 			cert := certManager.Current()
 			if cert == nil {
-				return nil, fmt.Errorf("No server certificate, server is not yet ready to receive traffic")
+				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 
 			config = &tls.Config{
@@ -157,7 +159,7 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
 			if cert == nil {
-				return nil, fmt.Errorf("No server certificate, server is not yet ready to receive traffic")
+				return nil, fmt.Errorf(noSrvCertMessage)
 			}
 			return cert, nil
 		},
