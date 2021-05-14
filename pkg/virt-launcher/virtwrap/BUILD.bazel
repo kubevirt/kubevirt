@@ -61,6 +61,7 @@ go_test(
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
