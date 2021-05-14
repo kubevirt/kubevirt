@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/precond"
 	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -54,16 +55,6 @@ type BindMechanism interface {
 	generateDomainIfaceSpec() api.Interface
 	generateDhcpConfig() *cache.DhcpConfig
 
-	// virt-handler that executes phase1 of network configuration needs to
-	// pass details about discovered networking port into phase2 that is
-	// executed by virt-launcher. Virt-launcher cannot discover some of
-	// these details itself because at this point phase1 is complete and
-	// ports are rewired, meaning, routes and IP addresses configured by
-	// CNI plugin may be gone. For this matter, we use a cached DhcpConfig file to
-	// pass discovered information between phases.
-	loadCachedDhcpConfig() error
-	setCachedDhcpConfig() error
-
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
 	decorateConfig(domainIface api.Interface) error
@@ -78,6 +69,7 @@ type podNIC struct {
 	network          *v1.Network
 	handler          netdriver.NetworkHandler
 	cacheFactory     cache.InterfaceCacheFactory
+	dhcpConfigurator *dhcpconfigurator.Configurator
 }
 
 func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
@@ -94,6 +86,10 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 	if err != nil {
 		return nil, err
 	}
+	var dhcpConfigurator dhcpconfigurator.Configurator
+	if correspondingNetworkIface.Bridge != nil || correspondingNetworkIface.Masquerade != nil {
+		dhcpConfigurator = dhcpconfigurator.NewConfigurator(cacheFactory, getPIDString(launcherPID))
+	}
 	return &podNIC{
 		cacheFactory:     cacheFactory,
 		handler:          handler,
@@ -102,6 +98,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		podInterfaceName: podInterfaceName,
 		iface:            correspondingNetworkIface,
 		launcherPID:      launcherPID,
+		dhcpConfigurator: &dhcpConfigurator,
 	}, nil
 }
 
@@ -226,9 +223,12 @@ func (l *podNIC) PlugPhase1() error {
 			return errors.CreateCriticalNetworkError(err)
 		}
 
-		if err := bindMechanism.setCachedDhcpConfig(); err != nil {
-			log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
-			return errors.CreateCriticalNetworkError(err)
+		if l.dhcpConfigurator != nil {
+			dhcpConfig := bindMechanism.generateDhcpConfig()
+			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
+				log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
+				return errors.CreateCriticalNetworkError(err)
+			}
 		}
 
 		if err := l.storeCachedDomainIface(bindMechanism.generateDomainIfaceSpec()); err != nil {
@@ -277,17 +277,19 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return err
 	}
 
-	if err = bindMechanism.loadCachedDhcpConfig(); err != nil {
-		log.Log.Reason(err).Critical("failed to load cached vif configuration")
-	}
-
 	if err := bindMechanism.decorateConfig(*domainIface); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
-	if err := ensureDHCP(bindMechanism, l.podInterfaceName); err != nil {
-		log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for %s: %s", l.podInterfaceName, err)
-		panic(err)
+	if l.dhcpConfigurator != nil {
+		dhcpConfig, err := l.dhcpConfigurator.ImportConfiguration(l.podInterfaceName)
+		if err != nil || dhcpConfig == nil {
+			log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
+		}
+		if err := ensureDHCP(bindMechanism, l.podInterfaceName); err != nil {
+			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
+			panic(err)
+		}
 	}
 
 	return nil
@@ -576,20 +578,6 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 
 func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
-}
-
-func (b *BridgeBindMechanism) loadCachedDhcpConfig() error {
-	dhcpConfig, err := b.cacheFactory.CacheDhcpConfigForPid(getPIDString(b.launcherPID)).Read(b.iface.Name)
-	if err != nil {
-		return err
-	}
-	b.dhcpConfig = dhcpConfig
-	b.dhcpConfig.Gateway = b.dhcpConfig.Gateway.To4()
-	return nil
-}
-
-func (b *BridgeBindMechanism) setCachedDhcpConfig() error {
-	return b.cacheFactory.CacheDhcpConfigForPid(getPIDString(b.launcherPID)).Write(b.iface.Name, b.dhcpConfig)
 }
 
 func (b *BridgeBindMechanism) learnInterfaceRoutes() error {
@@ -908,21 +896,6 @@ func (b *MasqueradeBindMechanism) decorateConfig(domainIface api.Interface) erro
 		}
 	}
 	return nil
-}
-
-func (b *MasqueradeBindMechanism) loadCachedDhcpConfig() error {
-	dhcpConfig, err := b.cacheFactory.CacheDhcpConfigForPid(getPIDString(b.launcherPID)).Read(b.iface.Name)
-	if err != nil {
-		return err
-	}
-	b.dhcpConfig = dhcpConfig
-	b.dhcpConfig.Gateway = b.dhcpConfig.Gateway.To4()
-	b.dhcpConfig.GatewayIpv6 = b.dhcpConfig.GatewayIpv6.To16()
-	return nil
-}
-
-func (b *MasqueradeBindMechanism) setCachedDhcpConfig() error {
-	return b.cacheFactory.CacheDhcpConfigForPid(getPIDString(b.launcherPID)).Write(b.iface.Name, b.dhcpConfig)
 }
 
 func (b *MasqueradeBindMechanism) createBridge() error {
@@ -1316,14 +1289,6 @@ func (b *SlirpBindMechanism) decorateConfig(api.Interface) error {
 	return nil
 }
 
-func (b *SlirpBindMechanism) loadCachedDhcpConfig() error {
-	return nil
-}
-
-func (b *SlirpBindMechanism) setCachedDhcpConfig() error {
-	return nil
-}
-
 func (b *SlirpBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
 	return nil
 }
@@ -1384,14 +1349,6 @@ func (b *MacvtapBindMechanism) decorateConfig(domainIface api.Interface) error {
 			break
 		}
 	}
-	return nil
-}
-
-func (b *MacvtapBindMechanism) loadCachedDhcpConfig() error {
-	return nil
-}
-
-func (b *MacvtapBindMechanism) setCachedDhcpConfig() error {
 	return nil
 }
 
