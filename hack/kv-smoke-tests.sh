@@ -3,6 +3,7 @@
 set -euxo pipefail
 
 INSTALLED_NAMESPACE=${INSTALLED_NAMESPACE:-"kubevirt-hyperconverged"}
+OUTPUT_DIR=${ARTIFACT_DIR:-"$(pwd)/_out"}
 
 source hack/common.sh
 source cluster/kubevirtci.sh
@@ -220,7 +221,7 @@ ${TESTS_BINARY} \
     -cdi-namespace="$INSTALLED_NAMESPACE" \
     -config=hack/test-config.json \
     -installed-namespace="$INSTALLED_NAMESPACE" \
-    -junit-output="$(pwd)/_out/junit_kv_smoke_tests.xml" \
+    -junit-output="${OUTPUT_DIR}/junit_kv_smoke_tests.xml" \
     -kubeconfig="$KUBECONFIG" \
     -ginkgo.focus='(rfe_id:1177)|(rfe_id:273)|(rfe_id:151)' \
     -ginkgo.noColor \
