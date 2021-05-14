@@ -352,6 +352,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 			launcherPID:         l.launcherPID,
 			queueCount:          calculateNetworkQueues(l.vmi),
 			handler:             l.handler,
+			mac:                 mac,
 		}, nil
 	}
 	if l.iface.Slirp != nil {
@@ -713,6 +714,9 @@ type MasqueradeBindMechanism struct {
 	launcherPID         *int
 	queueCount          uint32
 	handler             netdriver.NetworkHandler
+	podIfaceIPv4Addr    netlink.Addr
+	podIfaceIPv6Addr    netlink.Addr
+	mac                 *net.HardwareAddr
 }
 
 func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
@@ -754,24 +758,15 @@ func configureDhcpConfigV4Addresses(b *MasqueradeBindMechanism, err error) error
 		b.vmNetworkCIDR = api.DefaultVMCIDR
 	}
 
-	defaultGateway, vm, err := b.handler.GetHostAndGwAddressesFromCIDR(b.vmNetworkCIDR)
+	gatewayAddr, vmAddr, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv4)
 	if err != nil {
-		log.Log.Errorf("failed to get gw and vm available addresses from CIDR %s", b.vmNetworkCIDR)
 		return err
 	}
 
-	gatewayAddr, err := b.handler.ParseAddr(defaultGateway)
-	if err != nil {
-		return fmt.Errorf("failed to parse gateway ip address %s", defaultGateway)
-	}
 	b.dhcpConfig.Gateway = gatewayAddr.IP.To4()
-	b.gatewayAddr = gatewayAddr
-
-	vmAddr, err := b.handler.ParseAddr(vm)
-	if err != nil {
-		return fmt.Errorf("failed to parse vm ip address %s", vm)
-	}
 	b.dhcpConfig.IP = *vmAddr
+	b.gatewayAddr = gatewayAddr
+	b.podIfaceIPv4Addr = *vmAddr
 	return nil
 }
 
@@ -780,25 +775,38 @@ func configureDhcpConfigV6Addresses(b *MasqueradeBindMechanism, err error) error
 		b.vmIPv6NetworkCIDR = api.DefaultVMIpv6CIDR
 	}
 
-	defaultGatewayIpv6, vmIpv6, err := b.handler.GetHostAndGwAddressesFromCIDR(b.vmIPv6NetworkCIDR)
+	gatewayAddr, vmAddr, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv6)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", b.vmIPv6NetworkCIDR)
 		return err
 	}
 
-	gatewayIpv6Addr, err := b.handler.ParseAddr(defaultGatewayIpv6)
-	if err != nil {
-		return fmt.Errorf("failed to parse gateway ipv6 address %s err %v", gatewayIpv6Addr, err)
-	}
-	b.dhcpConfig.GatewayIpv6 = gatewayIpv6Addr.IP.To16()
-	b.gatewayIpv6Addr = gatewayIpv6Addr
-
-	vmAddr, err := b.handler.ParseAddr(vmIpv6)
-	if err != nil {
-		return fmt.Errorf("failed to parse vm ipv6 address %s err %v", vmIpv6, err)
-	}
+	b.dhcpConfig.GatewayIpv6 = gatewayAddr.IP.To16()
 	b.dhcpConfig.IPv6 = *vmAddr
+	b.gatewayIpv6Addr = gatewayAddr
+	b.podIfaceIPv6Addr = *vmAddr
 	return nil
+}
+
+func (b *MasqueradeBindMechanism) generateGatewayAndVmIPAddrs(protocol iptables.Protocol) (*netlink.Addr, *netlink.Addr, error) {
+	cidrToConfigure := b.vmNetworkCIDR
+	if protocol == iptables.ProtocolIPv6 {
+		cidrToConfigure = b.vmIPv6NetworkCIDR
+	}
+
+	vmIP, gatewayIP, err := b.handler.GetHostAndGwAddressesFromCIDR(cidrToConfigure)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get gw and vm available addresses from CIDR %s", cidrToConfigure)
+		return nil, nil, err
+	}
+	gatewayAddr, err := b.handler.ParseAddr(gatewayIP)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse gateway address %s err %v", gatewayAddr, err)
+	}
+	vmAddr, err := b.handler.ParseAddr(vmIP)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse vm address %s err %v", vmAddr, err)
+	}
+	return gatewayAddr, vmAddr, nil
 }
 
 func (b *MasqueradeBindMechanism) startDHCP() error {
@@ -811,7 +819,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterface() error {
 	bridgeNic := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: bridgeNicName,
-			MTU:  int(b.dhcpConfig.Mtu),
+			MTU:  b.podNicLink.Attrs().MTU,
 		},
 	}
 	err := b.handler.LinkAdd(bridgeNic)
@@ -831,7 +839,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterface() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
-	err = createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, int(b.dhcpConfig.Mtu), netdriver.LibvirtUserAndGroupId)
+	err = createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -867,8 +875,8 @@ func (b *MasqueradeBindMechanism) generateDomainIfaceSpec() api.Interface {
 			Managed: "no",
 		},
 	}
-	if b.dhcpConfig.MAC != nil {
-		domainIface.MAC = &api.MAC{MAC: b.dhcpConfig.MAC.String()}
+	if b.mac != nil {
+		domainIface.MAC = &api.MAC{MAC: b.mac.String()}
 	}
 	return domainIface
 }
@@ -918,7 +926,7 @@ func (b *MasqueradeBindMechanism) createBridge() error {
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         b.bridgeInterfaceName,
-			MTU:          int(b.dhcpConfig.Mtu),
+			MTU:          b.podNicLink.Attrs().MTU,
 			HardwareAddr: mac,
 		},
 	}
@@ -991,7 +999,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 		return err
 	}
 
-	err = b.handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-s", b.getDhcpConfigIpByProtocol(protocol), "-j", "MASQUERADE")
+	err = b.handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-s", b.geVmIfaceIpByProtocol(protocol), "-j", "MASQUERADE")
 	if err != nil {
 		return err
 	}
@@ -1015,7 +1023,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
 			"-j",
 			"DNAT",
-			"--to-destination", b.getDhcpConfigIpByProtocol(protocol))
+			"--to-destination", b.geVmIfaceIpByProtocol(protocol))
 
 		return err
 	}
@@ -1045,7 +1053,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 			strconv.Itoa(int(port.Port)),
 			"-j",
 			"DNAT",
-			"--to-destination", b.getDhcpConfigIpByProtocol(protocol))
+			"--to-destination", b.geVmIfaceIpByProtocol(protocol))
 		if err != nil {
 			return err
 		}
@@ -1058,7 +1066,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 			"--destination", getLoopbackAdrress(protocol),
 			"-j",
 			"DNAT",
-			"--to-destination", b.getDhcpConfigIpByProtocol(protocol))
+			"--to-destination", b.geVmIfaceIpByProtocol(protocol))
 		if err != nil {
 			return err
 		}
@@ -1094,7 +1102,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 		return err
 	}
 
-	err = b.handler.NftablesAppendRule(proto, "nat", "postrouting", b.handler.GetNFTIPString(proto), "saddr", b.getDhcpConfigIpByProtocol(proto), "counter", "masquerade")
+	err = b.handler.NftablesAppendRule(proto, "nat", "postrouting", b.handler.GetNFTIPString(proto), "saddr", b.geVmIfaceIpByProtocol(proto), "counter", "masquerade")
 	if err != nil {
 		return err
 	}
@@ -1116,7 +1124,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 
 	if len(b.iface.Ports) == 0 {
 		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
-			"counter", "dnat", "to", b.getDhcpConfigIpByProtocol(proto))
+			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
 
 		return err
 	}
@@ -1141,7 +1149,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 				strings.ToLower(port.Protocol),
 				"dport",
 				strconv.Itoa(int(port.Port)),
-				"counter", "dnat", "to", b.getDhcpConfigIpByProtocol(proto))
+				"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
 			if err != nil {
 				return err
 			}
@@ -1156,7 +1164,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			"counter", "dnat", "to", b.getDhcpConfigIpByProtocol(proto))
+			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
 		if err != nil {
 			return err
 		}
@@ -1188,11 +1196,11 @@ func (b *MasqueradeBindMechanism) getGatewayByProtocol(proto iptables.Protocol) 
 	}
 }
 
-func (b *MasqueradeBindMechanism) getDhcpConfigIpByProtocol(proto iptables.Protocol) string {
+func (b *MasqueradeBindMechanism) geVmIfaceIpByProtocol(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv4 {
-		return b.dhcpConfig.IP.IP.String()
+		return b.podIfaceIPv4Addr.IP.String()
 	} else {
-		return b.dhcpConfig.IPv6.IP.String()
+		return b.podIfaceIPv6Addr.IP.String()
 	}
 }
 
