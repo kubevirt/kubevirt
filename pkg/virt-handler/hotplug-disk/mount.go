@@ -36,7 +36,7 @@ import (
 
 var (
 	deviceBasePath = func(podUID types.UID) string {
-		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumeDevices", string(podUID))
+		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID))
 	}
 
 	sourcePodBasePath = func(podUID types.UID) string {
@@ -258,7 +258,7 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 		logger.V(4).Infof("Hotplug check volume name: %s", volumeStatus.Name)
 		sourceUID := volumeStatus.HotplugVolume.AttachPodUID
 		if sourceUID != types.UID("") {
-			if m.isBlockVolume(sourceUID) {
+			if m.isBlockVolume(sourceUID, volumeStatus.Name) {
 				logger.V(4).Infof("Mounting block volume: %s", volumeStatus.Name)
 				if err := m.mountBlockHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
 					return err
@@ -277,13 +277,13 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 
 // isBlockVolume checks if the volumeDevices directory exists in the pod path, we assume there is a single volume associated with
 // each pod, we use this knowledge to determine if we have a block volume or not.
-func (m *volumeMounter) isBlockVolume(sourceUID types.UID) bool {
+func (m *volumeMounter) isBlockVolume(sourceUID types.UID, volumeName string) bool {
 	// Check if the volumeDevices directory exists in the attachment pod, if so, its a block device, otherwise its file system.
 	if sourceUID != types.UID("") {
-		devicePath := deviceBasePath(sourceUID)
+		devicePath := filepath.Join(deviceBasePath(sourceUID), volumeName)
 		info, err := os.Stat(devicePath)
 		if err != nil {
-			log.Log.V(4).Infof("%s pod does not contain a block device %v", sourceUID, err)
+			log.Log.V(1).Infof("%s pod does not contain a block device %s, %v", sourceUID, volumeName, err)
 			return false
 		}
 		return info.IsDir()
@@ -309,7 +309,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(sourceUID)
+		sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(sourceUID, volume)
 		if err != nil {
 			return err
 		}
@@ -329,7 +329,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		sourceMajor, sourceMinor, _, err := m.getSourceMajorMinor(sourceUID)
+		sourceMajor, sourceMinor, _, err := m.getSourceMajorMinor(sourceUID, volume)
 		if err != nil {
 			return err
 		}
@@ -353,11 +353,11 @@ func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMach
 	return true
 }
 
-func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID) (int64, int64, string, error) {
+func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID, volumeName string) (int64, int64, string, error) {
 	result := make([]int64, 2)
 	perms := ""
 	if sourceUID != types.UID("") {
-		basepath := deviceBasePath(sourceUID)
+		basepath := filepath.Join(deviceBasePath(sourceUID), volumeName)
 		err := filepath.Walk(basepath, func(filePath string, info os.FileInfo, err error) error {
 			if info != nil && !info.IsDir() {
 				// Walk doesn't follow symlinks which is good because I need to massage symlinks
@@ -644,7 +644,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			if volumeStatus.HotplugVolume == nil {
 				continue
 			}
-			if m.isBlockVolume(volumeStatus.HotplugVolume.AttachPodUID) {
+			if m.isBlockVolume(volumeStatus.HotplugVolume.AttachPodUID, volumeStatus.Name) {
 				path := filepath.Join(basePath, volumeStatus.Name)
 				currentHotplugPaths[path] = virtlauncherUID
 			} else {
@@ -772,7 +772,7 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 	if err != nil {
 		return false, err
 	}
-	if m.isBlockVolume(sourceUID) {
+	if m.isBlockVolume(sourceUID, volume) {
 		deviceName := filepath.Join(targetPath, volume)
 		isBlockExists, _ := isBlockDevice(deviceName)
 		return isBlockExists, nil

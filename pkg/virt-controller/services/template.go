@@ -103,8 +103,8 @@ const ephemeralStorageOverheadSize = "50M"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate (volume []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]bool, tempPod bool) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentTriggerPodTemplate (volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volume []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	GetLauncherImage() string
 	GetCpuArch() string
@@ -1338,7 +1338,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	return &pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]bool, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	command := []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
@@ -1430,34 +1430,36 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		if claimName == "" {
 			continue
 		}
-		readonly := false
+		skipMount := false
 		if hotplugVolumeStatusMap[volume.Name] == v1.VolumeReady || hotplugVolumeStatusMap[volume.Name] == v1.HotplugVolumeMounted {
-			readonly = true
+			skipMount = true
 		}
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volume.Name,
 			VolumeSource: k8sv1.VolumeSource{
 				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: claimName,
-					ReadOnly:  readonly,
 				},
 			},
 		})
-		if claimMap[volume.Name] {
-			pod.Spec.Containers[0].VolumeDevices = []k8sv1.VolumeDevice{
-				{
-					Name:       volume.Name,
-					DevicePath: fmt.Sprintf("/dev/hpdev-%s", volume.Name),
-				},
+		if !skipMount {
+			pvc := claimMap[volume.Name]
+			if pvc != nil {
+				if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
+					pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
+						Name:       volume.Name,
+						DevicePath: fmt.Sprintf("/path/%s/%s", volume.Name, pvc.GetUID()),
+					})
+					pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
+						RunAsUser: &[]int64{0}[0],
+					}
+				} else {
+					pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+						Name:      volume.Name,
+						MountPath: fmt.Sprintf("/%s", volume.Name),
+					})
+				}
 			}
-			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
-				RunAsUser: &[]int64{0}[0],
-			}
-		} else {
-			pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: fmt.Sprintf("/%s", volume.Name),
-			})
 		}
 	}
 

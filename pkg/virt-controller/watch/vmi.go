@@ -1411,7 +1411,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 
 func (c *VMIController) podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*virtv1.Volume) bool {
 	// -2 for empty dir and token
-	if len(attachmentPod.Spec.Volumes) - 2 != len(volumes) {
+	if len(attachmentPod.Spec.Volumes)-2 != len(volumes) {
 		return false
 	}
 	podVolumeMap := make(map[string]k8sv1.Volume)
@@ -1567,7 +1567,7 @@ func (c *VMIController) deleteAttachmentPodForVolume(vmi *virtv1.VirtualMachineI
 
 func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, error) {
 	logger := log.Log.Object(vmi)
-	volumeNamesBlockMap := make(map[string]bool)
+	volumeNamesPVCMap := make(map[string]*k8sv1.PersistentVolumeClaim)
 	for _, volume := range volumes {
 		claimName := ""
 		if volume.DataVolume != nil {
@@ -1580,7 +1580,7 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 			logger.Infof("Unable to hotplug, volume %s not PVC or Datavolume", volume.Name)
 			continue
 		}
-		pvc, exists, isBlock, err := kubevirttypes.IsPVCBlockFromStore(c.pvcInformer.GetStore(), virtlauncherPod.Namespace, claimName)
+		pvc, exists, _, err := kubevirttypes.IsPVCBlockFromStore(c.pvcInformer.GetStore(), virtlauncherPod.Namespace, claimName)
 		if err != nil {
 			return nil, err
 		}
@@ -1600,11 +1600,11 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 			return nil, err
 		}
 		if populated {
-			volumeNamesBlockMap[volume.Name] = isBlock
+			volumeNamesPVCMap[volume.Name] = pvc
 		}
 	}
 
-	pod, err := c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesBlockMap, false)
+	pod, err := c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap, false)
 	return pod, err
 }
 
