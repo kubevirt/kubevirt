@@ -32,6 +32,7 @@ categories.
 - Addresses a logical defect in KubeVirt
 - Fixes or improves the stability of our test suite
 - Any infrastructure change related testing or releasing
+- Logging and debug changes aimed at improving supportability of a stable release.
 
 There is purposefully some ambiguity here. These are meant to be read as
 guidelines to help reviewers make judgment calls. The intent here is to keep
