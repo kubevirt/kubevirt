@@ -107,7 +107,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			// Name will be there in all the cases, so verify name
 			Expect(resultFields[len(expectedHeader)]).To(Equal(vm.Name))
 		},
-			table.Entry("[test_id:3464]virtualmachine", "get", "vm", []string{"NAME", "AGE", "VOLUME"}),
+			table.Entry("[test_id:3464]virtualmachine", "get", "vm", []string{"NAME", "AGE", "STATUS", "VOLUME"}),
 			table.Entry("[test_id:3465]virtualmachineinstance", "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME"}),
 		)
 
@@ -130,34 +130,12 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			Expect(resultFields[len(expectedHeader)]).To(Equal(vm.Name))
 			// Verify one of the wide column output field
 			Expect(resultFields[len(resultFields)-verifyPos]).To(Equal(expectedData))
+
 		},
-			table.Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "VOLUME", "CREATED"}, 1, "true"),
+			table.Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "STATUS", "VOLUME", "CREATED"}, 1, "true"),
 			table.Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
 		)
 
-		table.DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
-
-			result, _, err := tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
-			// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
-			if err != nil {
-				result, _, err = tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
-			}
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(result)).ToNot(Equal(0))
-			resultFields := strings.Fields(result)
-			// Verify that only Header is not present
-			Expect(len(resultFields)).Should(BeNumerically(">", len(expectedHeader)))
-			columnHeaders := resultFields[:len(expectedHeader)]
-			// Verify the generated header is same as expected
-			Expect(columnHeaders).To(Equal(expectedHeader))
-			// Name will be there in all the cases, so verify name
-			Expect(resultFields[len(expectedHeader)]).To(Equal(vm.Name))
-			// Verify one of the wide column output field
-			Expect(resultFields[len(resultFields)-verifyPos]).To(Equal(expectedData))
-		},
-			table.Entry("[test_id:4423]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "VOLUME", "CREATED"}, 1, "true"),
-			table.Entry("[test_id:4422]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
-		)
 	})
 
 })

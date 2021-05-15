@@ -24711,6 +24711,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"printableStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
