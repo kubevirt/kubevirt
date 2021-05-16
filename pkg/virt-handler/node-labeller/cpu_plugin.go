@@ -26,47 +26,62 @@ import (
 	"path/filepath"
 	"strings"
 
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
+
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const (
 	isUnusable             string = "no"
+	isRequired             string = "require"
 	nodeLabellerVolumePath        = "/var/lib/kubevirt-node-labeller/"
+
+	supportedFeaturesXml = "supported_features.xml"
 )
 
-// getCPUInfo processes all cpu info data and returns
-// slice of usable cpu models and features.
-func (n *NodeLabeller) getCPUInfo() ([]string, cpuFeatures) {
+func (n *NodeLabeller) getMinCpuFeature() cpuFeatures {
 	minCPUModel := n.clusterConfig.GetMinCPUModel()
 	if minCPUModel == "" {
 		minCPUModel = util.DefaultMinCPUModel
 	}
+	return n.cpuInfo.models[minCPUModel]
+}
+
+func (n *NodeLabeller) getSupportedCpuModels() []string {
+	supportedCPUModels := make([]string, 0)
 
 	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
 	if obsoleteCPUsx86 == nil {
 		obsoleteCPUsx86 = util.DefaultObsoleteCPUModels
 	}
 
-	basicFeaturesMap := n.cpuInfo.models[minCPUModel]
-
-	cpus := make([]string, 0)
-	features := make(cpuFeatures)
-
 	for _, model := range n.hostCapabilities.items {
 		if _, ok := obsoleteCPUsx86[model]; ok {
 			continue
 		}
-		cpus = append(cpus, model)
+		supportedCPUModels = append(supportedCPUModels, model)
 	}
 
+	return supportedCPUModels
+}
+
+func (n *NodeLabeller) getSupportedCpuFeatures() cpuFeatures {
+	supportedCpuFeatures := make(cpuFeatures)
+	minCpuFeatures := n.getMinCpuFeature()
+
 	for _, feature := range n.supportedFeatures {
-		if _, exist := basicFeaturesMap[feature]; !exist {
-			features[feature] = true
+		if _, exist := minCpuFeatures[feature]; !exist {
+			supportedCpuFeatures[feature] = true
 		}
 	}
 
-	return cpus, features
+	return supportedCpuFeatures
+}
+
+func (n *NodeLabeller) getHostCpuModel() hostCPUModel {
+	return n.hostCPUModel
 }
 
 //loadDomCapabilities loads info about cpu models, which can host emulate
@@ -77,9 +92,25 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	}
 
 	usableModels := make([]string, 0)
+	minCpuFeatures := n.getMinCpuFeature()
+	log.Log.Infof("CPU features of a minimum baseline CPU model: %+v", minCpuFeatures)
 	for _, mode := range hostDomCapabilities.CPU.Mode {
-		if mode.Vendor.Name != "" {
+		if mode.Name == v1.CPUModeHostModel {
 			n.cpuModelVendor = mode.Vendor.Name
+
+			hostCpuModel := mode.Model[0]
+			if len(mode.Model) > 0 {
+				log.Log.Warning("host model mode is expected to contain only one model")
+			}
+
+			n.hostCPUModel.name = hostCpuModel.Name
+			n.hostCPUModel.fallback = hostCpuModel.Fallback
+
+			for _, feature := range mode.Feature {
+				if _, isMinCpuFeature := minCpuFeatures[feature.Name]; !isMinCpuFeature && feature.Policy == isRequired {
+					n.hostCPUModel.requiredFeatures[feature.Name] = true
+				}
+			}
 		}
 
 		for _, model := range mode.Model {
@@ -97,7 +128,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 
 //loadHostSupportedFeatures loads supported features
 func (n *NodeLabeller) loadHostSupportedFeatures() error {
-	featuresFile := filepath.Join(n.volumePath, "supported_features.xml")
+	featuresFile := filepath.Join(n.volumePath, supportedFeaturesXml)
 
 	hostFeatures := SupportedHostFeature{}
 	err := n.getStructureFromXMLFile(featuresFile, &hostFeatures)

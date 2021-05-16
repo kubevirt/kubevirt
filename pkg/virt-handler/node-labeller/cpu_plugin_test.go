@@ -24,6 +24,8 @@ package nodelabeller
 import (
 	"path"
 
+	"kubevirt.io/kubevirt/tests"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -38,6 +40,10 @@ import (
 )
 
 var features = []string{"apic", "clflush", "cmov"}
+
+const (
+	x86PenrynXml = "x86_Penryn.xml"
+)
 
 var _ = Describe("Node-labeller config", func() {
 	var nlController *NodeLabeller
@@ -69,18 +75,18 @@ var _ = Describe("Node-labeller config", func() {
 			logger:                  log.DefaultLogger(),
 			volumePath:              "testdata",
 			domCapabilitiesFileName: "virsh_domcapabilities.xml",
+			hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
 		}
 	})
 
 	It("should return correct cpu file path", func() {
-		fileName := "x86_Penryn.xml"
-		p := getPathCPUFeatures("testdata", fileName)
-		correctPath := path.Join("testdata", "cpu_map", "x86_Penryn.xml")
+		p := getPathCPUFeatures(nlController.volumePath, x86PenrynXml)
+		correctPath := path.Join(nlController.volumePath, "cpu_map", x86PenrynXml)
 		Expect(p).To(Equal(correctPath), "cpu file path is not the same")
 	})
 
 	It("should load cpu features", func() {
-		fileName := "x86_Penryn.xml"
+		fileName := x86PenrynXml
 		f, err := nlController.loadFeatures(fileName)
 		Expect(err).ToNot(HaveOccurred())
 		for _, val := range features {
@@ -104,7 +110,8 @@ var _ = Describe("Node-labeller config", func() {
 		err = nlController.loadHostCapabilities()
 		Expect(err).ToNot(HaveOccurred())
 
-		cpuModels, cpuFeatures := nlController.getCPUInfo()
+		cpuModels := nlController.getSupportedCpuModels()
+		cpuFeatures := nlController.getSupportedCpuFeatures()
 
 		Expect(len(cpuModels)).To(Equal(3), "number of models must match")
 
@@ -124,11 +131,38 @@ var _ = Describe("Node-labeller config", func() {
 		err = nlController.loadCPUInfo()
 		Expect(err).ToNot(HaveOccurred())
 
-		cpuModels, cpuFeatures := nlController.getCPUInfo()
+		cpuModels := nlController.getSupportedCpuModels()
+		cpuFeatures := nlController.getSupportedCpuFeatures()
 
 		Expect(len(cpuModels)).To(Equal(0), "number of models doesn't match")
 
 		Expect(len(cpuFeatures)).To(Equal(2), "number of features doesn't match")
+	})
+
+	Context("should return correct host cpu", func() {
+		var hostCpuModel hostCPUModel
+
+		tests.BeforeAll(func() {
+			err := nlController.loadHostSupportedFeatures()
+			Expect(err).ToNot(HaveOccurred())
+
+			hostCpuModel = nlController.getHostCpuModel()
+		})
+
+		It("model", func() {
+			Expect(hostCpuModel.name).To(Equal("Skylake-Client-IBRS"))
+			Expect(hostCpuModel.fallback).To(Equal("allow"))
+		})
+
+		It("required features", func() {
+			features := hostCpuModel.requiredFeatures
+			Expect(features).To(HaveLen(3))
+			Expect(features).Should(And(
+				HaveKey("ds"),
+				HaveKey("acpi"),
+				HaveKey("ss"),
+			))
+		})
 	})
 
 })

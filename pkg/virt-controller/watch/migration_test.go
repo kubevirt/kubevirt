@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -844,6 +845,56 @@ var _ = Describe("Migration watcher", func() {
 			table.Entry("in failed state", v1.MigrationFailed, true, k8sv1.PodFailed, true),
 			table.Entry("in failed state before pod is created", v1.MigrationFailed, false, k8sv1.PodFailed, false),
 			table.Entry("in failed state and pod does not exist", v1.MigrationFailed, false, k8sv1.PodFailed, false),
+		)
+		table.DescribeTable("with CPU mode which is", func(toDefineHostModelCPU bool) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+
+			if toDefineHostModelCPU {
+				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+			}
+
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			kubeClient.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				_, ok := action.(testing.GetAction)
+				Expect(ok).To(BeTrue())
+				node := k8sv1.Node{}
+				if toDefineHostModelCPU {
+					node.ObjectMeta.Labels = map[string]string{
+						v1.HostModelCPULabel + "fake":              "true",
+						v1.HostModelRequiredFeaturesLabel + "fake": "true",
+					}
+				}
+				return true, &node, nil
+			})
+
+			expectPodToHaveProperNodeSelector := func(pod *k8sv1.Pod) {
+				podHasCpuModeLabelSelector := false
+				for key, _ := range pod.Spec.NodeSelector {
+					if strings.Contains(key, v1.HostModelCPULabel) {
+						podHasCpuModeLabelSelector = true
+						break
+					}
+				}
+
+				Expect(podHasCpuModeLabelSelector).To(Equal(toDefineHostModelCPU))
+			}
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				creation, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				pod := creation.GetObject().(*k8sv1.Pod)
+				expectPodToHaveProperNodeSelector(pod)
+				return true, creation.GetObject(), nil
+			})
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvent(recorder, successfulCreatePodDisruptionBudgetReason) // for temporal migration PDB
+		},
+			table.Entry("host-model should be targeted only to nodes which support the model", true),
+			table.Entry("non-host-model should not be targeted to nodes which support the model", false),
 		)
 	})
 })

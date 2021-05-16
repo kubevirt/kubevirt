@@ -1835,6 +1835,119 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				})
 			})
 		})
+		Context("with a host-model cpu", func() {
+			getNodeHostModel := func(node *k8sv1.Node) (hostModel string) {
+				for key, _ := range node.Labels {
+					if strings.HasPrefix(key, v1.HostModelCPULabel) {
+						hostModel = strings.TrimPrefix(key, v1.HostModelCPULabel)
+						break
+					}
+				}
+				Expect(hostModel).ToNot(BeEmpty(), "must find node's host model")
+				return hostModel
+			}
+			getNodeHostRequiredFeatures := func(node *k8sv1.Node) (features []string) {
+				for key, _ := range node.Labels {
+					if strings.HasPrefix(key, v1.HostModelRequiredFeaturesLabel) {
+						features = append(features, strings.TrimPrefix(key, v1.HostModelRequiredFeaturesLabel))
+					}
+				}
+				return features
+			}
+			isModelSupportedOnNode := func(node *k8sv1.Node, model string) bool {
+				for key, _ := range node.Labels {
+					if strings.HasPrefix(key, v1.HostModelCPULabel) && strings.Contains(key, model) {
+						return true
+					}
+				}
+				return false
+			}
+			expectFeatureToBeSupportedOnNode := func(node *k8sv1.Node, features []string) {
+				isFeatureSupported := func(feature string) bool {
+					for key, _ := range node.Labels {
+						if strings.HasPrefix(key, v1.CPUFeatureLabel) && strings.Contains(key, feature) {
+							return true
+						}
+					}
+					return false
+				}
+
+				supportedFeatures := make(map[string]bool)
+				for _, feature := range features {
+					supportedFeatures[feature] = isFeatureSupported(feature)
+				}
+
+				Expect(supportedFeatures).Should(Not(ContainElement(false)),
+					"copy features must be supported on node")
+			}
+			getOtherNodes := func(nodeList *k8sv1.NodeList, node *k8sv1.Node) (others []*k8sv1.Node) {
+				for _, curNode := range nodeList.Items {
+					if curNode.Name != node.Name {
+						others = append(others, &curNode)
+					}
+				}
+				return others
+			}
+			isHeterogeneousCluster := func() bool {
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				for _, node := range nodes.Items {
+					hostModel := getNodeHostModel(&node)
+					otherNodes := getOtherNodes(nodes, &node)
+
+					foundSupportedNode := false
+					foundUnsupportedNode := false
+					for _, otherNode := range otherNodes {
+						if isModelSupportedOnNode(otherNode, hostModel) {
+							foundSupportedNode = true
+						} else {
+							foundUnsupportedNode = true
+						}
+
+						if foundSupportedNode && foundUnsupportedNode {
+							return true
+						}
+					}
+				}
+
+				return false
+			}
+
+			FIt("should migrate only to nodes supporting right cpu model", func() {
+				if !isHeterogeneousCluster() {
+					log.Log.Warning("all nodes have the same CPU model. Therefore the test is a happy-path since " +
+						"VMIs with host-model CPU can be migrated to every other node")
+				}
+
+				By("Creating a VMI with host-model CPU mode")
+				vmi := cirrosVMIWithEvictionStrategy()
+				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Fetching original host CPU model & supported CPU features")
+				originalNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				hostModel := getNodeHostModel(originalNode)
+				requiredFeatures := getNodeHostRequiredFeatures(originalNode)
+
+				By("Starting the migration and expecting it to end successfully")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				By("Ensuring that target pod has correct nodeSelector label")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(vmiPod.Spec.NodeSelector).To(HaveKey(v1.HostModelCPULabel+hostModel),
+					"target pod is expected to have correct nodeSelector label defined")
+
+				By("Ensuring that target node has correct CPU mode & features")
+				newNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(isModelSupportedOnNode(newNode, hostModel)).To(BeTrue(), "original host model should be supported on new node")
+				expectFeatureToBeSupportedOnNode(newNode, requiredFeatures)
+			})
+		})
 	})
 
 	Context("with sata disks", func() {

@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -471,6 +472,19 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 
 	// TODO libvirt requires unique host names for each target and source
 	templatePod.Spec.Hostname = ""
+
+	// If cpu model is "host model" allow migration only to nodes that supports this cpu model
+	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel {
+		node, err := c.clientset.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, v1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("cannot get nodes to migrate VMI with host-model CPU. error: %v", err)
+		}
+
+		err = prepareNodeSelectorForHostCpuModel(node, templatePod)
+		if err != nil {
+			return err
+		}
+	}
 
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
@@ -1028,4 +1042,31 @@ func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineI
 		}
 	}
 	return runningMigrations, nil
+}
+
+func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod) error {
+	var hostCpuModel string
+	var labelValue string
+
+	for key, value := range node.Labels {
+		if strings.HasPrefix(key, virtv1.HostModelCPULabel) {
+			hostCpuModel = strings.TrimPrefix(key, virtv1.HostModelCPULabel)
+			labelValue = value
+		}
+
+		if strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) {
+			requiredFeature := strings.TrimPrefix(key, virtv1.HostModelRequiredFeaturesLabel)
+			pod.Spec.NodeSelector[virtv1.CPUFeatureLabel+requiredFeature] = value
+		}
+	}
+
+	if hostCpuModel == "" {
+		return fmt.Errorf("node does not contain labal \"%s\" with information about host cpu model", virtv1.HostModelCPULabel)
+	}
+
+	labelKey := virtv1.HostModelCPULabel + hostCpuModel
+	pod.Spec.NodeSelector[labelKey] = labelValue
+	log.Log.Object(pod).Infof("host model label selector (\"%s\") defined for migration target pod", labelKey)
+
+	return nil
 }

@@ -58,6 +58,7 @@ type NodeLabeller struct {
 	volumePath              string
 	domCapabilitiesFileName string
 	capabilities            *api.Capabilities
+	hostCPUModel            hostCPUModel
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
@@ -74,6 +75,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 		queue:                   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
+		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
 	}
 
 	err := n.loadAll()
@@ -156,13 +158,9 @@ func (n *NodeLabeller) loadAll() error {
 }
 
 func (n *NodeLabeller) run() error {
-	var (
-		cpuFeatures map[string]bool
-		cpuModels   []string
-	)
-
-	//parse all informations
-	cpuModels, cpuFeatures = n.getCPUInfo()
+	cpuModels := n.getSupportedCpuModels()
+	cpuFeatures := n.getSupportedCpuFeatures()
+	hostCPUModel := n.getHostCpuModel()
 
 	originalNode, err := n.clientset.CoreV1().Nodes().Get(context.Background(), n.host, metav1.GetOptions{})
 	if err != nil {
@@ -176,7 +174,7 @@ func (n *NodeLabeller) run() error {
 	}
 
 	//prepare new labels
-	newLabels := n.prepareLabels(cpuModels, cpuFeatures)
+	newLabels := n.prepareLabels(cpuModels, cpuFeatures, hostCPUModel)
 	//remove old labeller labels
 	n.removeLabellerLabels(node)
 	//add new labels
@@ -240,7 +238,7 @@ func (n *NodeLabeller) loadHypervFeatures() {
 
 // prepareLabels converts cpu models, features, hyperv features to map[string]string format
 // e.g. "cpu-feature.node.kubevirt.io/Penryn": "true"
-func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures) map[string]string {
+func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel) map[string]string {
 	newLabels := make(map[string]string)
 	for key := range cpuFeatures {
 		newLabels[kubevirtv1.CPUFeatureLabel+key] = "true"
@@ -261,7 +259,12 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 		n.logger.Reason(err).Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
 	}
 
+	for feature, _ := range hostCpuModel.requiredFeatures {
+		newLabels[kubevirtv1.HostModelRequiredFeaturesLabel+feature] = "true"
+	}
+
 	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
+	newLabels[kubevirtv1.HostModelCPULabel+hostCpuModel.name] = "true"
 
 	return newLabels
 }
