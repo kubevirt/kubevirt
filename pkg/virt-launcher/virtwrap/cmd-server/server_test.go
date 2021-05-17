@@ -118,17 +118,46 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should list domains", func() {
+		It("should list domains when no guest agent info exists", func() {
 			var list []*api.Domain
 			list = append(list, api.NewMinimalDomain("testvmi1"))
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			domainManager.EXPECT().GetGuestOSInfo().Return(nil)
+			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return(nil)
 			domain, exists, err := client.GetDomain()
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(exists).To(BeTrue())
 			Expect(domain).ToNot(Equal(nil))
 			Expect(domain.ObjectMeta.Name).To(Equal("testvmi1"))
+			Expect(domain.Status.OSInfo).To(Equal(api.GuestOSInfo{}))
+			Expect(domain.Status.Interfaces).To(BeNil())
+		})
+
+		It("should list domains when guest agent info exists", func() {
+			const vmiName = "testvmi1"
+			list := []*api.Domain{api.NewMinimalDomain(vmiName)}
+
+			fakeInterfaces := []api.InterfaceStatus{
+				{
+					Name: "eth1",
+					Mac:  "00:00:00:00:00:01",
+				},
+			}
+			domainManager.EXPECT().InterfacesStatus(list[0].Spec.Devices.Interfaces).Return(fakeInterfaces)
+			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			const osName = "fedora"
+			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{Name: osName})
+
+			domain, exists, err := client.GetDomain()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(exists).To(BeTrue())
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.ObjectMeta.Name).To(Equal(vmiName))
+			Expect(domain.Status.OSInfo).To(Equal(api.GuestOSInfo{Name: osName}))
+			Expect(domain.Status.Interfaces).To(Equal(fakeInterfaces))
 		})
 
 		It("should list no domain if no domain is there yet", func() {
