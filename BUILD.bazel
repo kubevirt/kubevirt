@@ -284,6 +284,15 @@ container_push(
     tag = "$(container_tag)",
 )
 
+container_push(
+    name = "push-libguestfs",
+    format = "Docker",
+    image = "//cmd/libguestfs:libguestfs-tools-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)libguestfs-tools",
+    tag = "$(container_tag)",
+)
+
 genrule(
     name = "build-virtctl",
     srcs = [
