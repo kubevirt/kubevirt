@@ -102,13 +102,15 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-			metrics := getDownwardMetrics(vmi)
+			metrics, err := getDownwardMetrics(vmi)
+			Expect(err).ToNot(HaveOccurred())
 			timestamp := getTimeFromMetrics(metrics)
 
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() int {
-				metrics = getDownwardMetrics(vmi)
+				metrics, err = getDownwardMetrics(vmi)
+				Expect(err).ToNot(HaveOccurred())
 				return getTimeFromMetrics(metrics)
 			}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
 			Expect(getHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
@@ -1450,16 +1452,18 @@ func getMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) stri
 	return ""
 }
 
-func getDownwardMetrics(vmi *v1.VirtualMachineInstance) *api.Metrics {
+func getDownwardMetrics(vmi *v1.VirtualMachineInstance) (*api.Metrics, error) {
 	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 		&expect.BSnd{S: `sudo vm-dump-metrics 2> /dev/null` + "\n"},
 		&expect.BExp{R: `(?s)(<metrics>.+</metrics>)`},
-	}, 15)
-	Expect(err).ToNot(HaveOccurred())
+	}, 5)
+	if err != nil {
+		return nil, err
+	}
 	metricsStr := res[0].Match[2]
 	metrics := &api.Metrics{}
 	Expect(xml.Unmarshal([]byte(metricsStr), metrics)).To(Succeed())
-	return metrics
+	return metrics, nil
 }
 
 func getTimeFromMetrics(metrics *api.Metrics) int {

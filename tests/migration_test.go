@@ -476,10 +476,16 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 
 				By("checking if the metrics are still updated after the migration")
-				metrics := getDownwardMetrics(vmi)
+				Eventually(func() error {
+					_, err := getDownwardMetrics(vmi)
+					return err
+				}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+				metrics, err := getDownwardMetrics(vmi)
+				Expect(err).ToNot(HaveOccurred())
 				timestamp := getTimeFromMetrics(metrics)
 				Eventually(func() int {
-					metrics = getDownwardMetrics(vmi)
+					metrics, err := getDownwardMetrics(vmi)
+					Expect(err).ToNot(HaveOccurred())
 					return getTimeFromMetrics(metrics)
 				}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
 
