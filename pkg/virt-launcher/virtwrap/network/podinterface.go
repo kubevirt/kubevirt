@@ -421,8 +421,8 @@ func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
 		b.mac = &b.podNicLink.Attrs().HardwareAddr
 	}
 
-	if b.podNicLink.Attrs().MTU < 0 || b.podNicLink.Attrs().MTU > 65535 {
-		return fmt.Errorf("MTU value out of range ")
+	if err := validateMTU(b.podNicLink.Attrs().MTU); err != nil {
+		return err
 	}
 
 	return nil
@@ -714,8 +714,8 @@ func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
 	}
 	b.podNicLink = link
 
-	if b.podNicLink.Attrs().MTU < 0 || b.podNicLink.Attrs().MTU > 65535 {
-		return fmt.Errorf("MTU value out of range ")
+	if err := validateMTU(b.podNicLink.Attrs().MTU); err != nil {
+		return err
 	}
 
 	b.setDefaultCidr(iptables.ProtocolIPv4)
@@ -1362,4 +1362,11 @@ func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
 
 func generateInPodBridgeInterfaceName(podInterfaceName string) string {
 	return fmt.Sprintf("k6t-%s", podInterfaceName)
+}
+
+func validateMTU(mtu int) error {
+	if mtu < 0 || mtu > 65535 {
+		return fmt.Errorf("MTU value out of range ")
+	}
+	return nil
 }
