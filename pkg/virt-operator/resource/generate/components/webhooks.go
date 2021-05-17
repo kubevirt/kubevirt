@@ -13,6 +13,8 @@ import (
 var sideEffectNone = admissionregistrationv1.SideEffectClassNone
 var sideEffectNoneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
 
+var defaultTimeoutSeconds = int32(10)
+
 func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -87,13 +89,15 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 						Resources:   []string{"kubevirts"},
 					},
 				}},
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				FailurePolicy:  &failurePolicy,
+				TimeoutSeconds: &defaultTimeoutSeconds,
+				SideEffects:    &sideEffectNone,
 			},
 			{
 				Name:                    "kubevirt-update-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
@@ -144,6 +148,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				SideEffects:             &sideEffectNone,
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
@@ -168,6 +173,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				SideEffects:             &sideEffectNone,
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
@@ -192,6 +198,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				SideEffects:             &sideEffectNone,
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
@@ -251,8 +258,9 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				// We don't want to block evictions in the cluster in a case where this webhook is down.
 				// The eviction of virt-launcher will still be protected by our pdb.
-				FailurePolicy: &ignorePolicy,
-				SideEffects:   &sideEffectNoneOnDryRun,
+				FailurePolicy:  &ignorePolicy,
+				TimeoutSeconds: &defaultTimeoutSeconds,
+				SideEffects:    &sideEffectNoneOnDryRun,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.OperationAll,
@@ -275,6 +283,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Name:                    "virtualmachineinstances-create-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
@@ -298,6 +307,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Name:                    "virtualmachineinstances-update-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
@@ -321,6 +331,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Name:                    "virtualmachine-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
@@ -345,6 +356,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Name:                    "virtualmachinereplicaset-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
@@ -369,6 +381,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Name:                    "virtualmachinepreset-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
@@ -393,6 +406,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Name:                    "migration-create-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
@@ -416,6 +430,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Name:                    "migration-update-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
@@ -439,6 +454,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Name:                    "virtualmachinesnapshot-validator.snapshot.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
@@ -464,6 +480,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				SideEffects:             &sideEffectNone,
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
@@ -487,6 +504,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				Name:                    "kubevirt-crd-status-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
 				SideEffects:             &sideEffectNone,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Operations: []admissionregistrationv1.OperationType{
