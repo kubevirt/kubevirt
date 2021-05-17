@@ -92,7 +92,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				By("Specifying a VMI with a readiness probe")
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
-				vmi = tests.VMILauncher(virtClient)(vmi)
+				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 				By("Waiting for agent to connect")
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -114,7 +114,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			if isExecProbe {
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
-				vmi = tests.VMILauncher(virtClient)(vmi)
+				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 			} else {
 				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
 			}
@@ -169,7 +169,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				By("Specifying a VMI with a liveness probe")
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.LivenessProbe = livenessProbe
-				vmi = tests.VMILauncher(virtClient)(vmi)
+				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 
 				By("Waiting for agent to connect")
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -194,7 +194,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			if isExecProbe {
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.LivenessProbe = livenessProbe
-				vmi = tests.VMILauncher(virtClient)(vmi)
+				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
 			} else {
 				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
 			}

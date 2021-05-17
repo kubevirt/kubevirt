@@ -5109,8 +5109,8 @@ func IsLauncherCapabilityDropped(capability k8sv1.Capability) bool {
 	return false
 }
 
-// VMILauncher waiting for the VMI to be up but ignoring warnings like a disconnected guest-agent
-func VMILauncher(virtClient kubecli.KubevirtClient) func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+// VMILauncherIgnoreWarnings waiting for the VMI to be up but ignoring warnings like a disconnected guest-agent
+func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	return func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 		By("Starting a VirtualMachineInstance")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()

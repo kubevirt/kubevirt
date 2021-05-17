@@ -53,7 +53,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 
-		LaunchVMI = tests.VMILauncher(virtClient)
+		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
 
 		ExecutingBatchCmd = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
