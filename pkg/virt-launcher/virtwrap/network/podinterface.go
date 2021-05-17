@@ -323,7 +323,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 			dhcpConfig:          dhcpConfig,
 			domain:              domain,
 			podInterfaceName:    l.podInterfaceName,
-			bridgeInterfaceName: fmt.Sprintf("k6t-%s", l.podInterfaceName),
+			bridgeInterfaceName: generateInPodBridgeInterfaceName(l.podInterfaceName),
 			cacheFactory:        l.cacheFactory,
 			launcherPID:         l.launcherPID,
 			queueCount:          calculateNetworkQueues(l.vmi),
@@ -347,7 +347,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 			podInterfaceName:    l.podInterfaceName,
 			vmNetworkCIDR:       l.network.Pod.VMNetworkCIDR,
 			vmIPv6NetworkCIDR:   l.network.Pod.VMIPv6NetworkCIDR,
-			bridgeInterfaceName: fmt.Sprintf("k6t-%s", l.podInterfaceName),
+			bridgeInterfaceName: generateInPodBridgeInterfaceName(l.podInterfaceName),
 			cacheFactory:        l.cacheFactory,
 			launcherPID:         l.launcherPID,
 			queueCount:          calculateNetworkQueues(l.vmi),
@@ -1402,4 +1402,8 @@ func calculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
 func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) &&
 		(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
+}
+
+func generateInPodBridgeInterfaceName(podInterfaceName string) string {
+	return fmt.Sprintf("k6t-%s", podInterfaceName)
 }
