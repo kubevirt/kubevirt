@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -291,13 +292,6 @@ func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.Sha
 }
 
 func GeneratePatchBytes(ops []string) []byte {
-	opsStr := "["
-	for idx, entry := range ops {
-		sep := ", "
-		if len(ops)-1 == idx {
-			sep = "]"
-		}
-		opsStr = fmt.Sprintf("%s%s%s", opsStr, entry, sep)
-	}
-	return []byte(opsStr)
+
+	return []byte(fmt.Sprintf("[%s]", strings.Join(ops, ", ")))
 }

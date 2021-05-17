@@ -495,6 +495,7 @@ func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.V
 
 	err := c.patchVMI(vmi, vmiCopy)
 	if err != nil {
+		log.Log.Reason(err).Object(vmi).Errorf("Failed to patch VMI status to indicate migration %s/%s failed.", migration.Namespace, migration.Name)
 		return err
 	}
 	log.Log.Object(vmi).Infof("Marked Migration %s/%s failed on vmi due to target pod disappearing before migration kicked off.", migration.Namespace, migration.Name)
@@ -598,7 +599,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 
 	if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
 		// Let's ensure that we only have two outbound migrations per node
-		// XXX: Make this configurebale, thinkg about inbout migration limit, bandwidh per migration, and so on.
+		// XXX: Make this configurable, thinkg about inbound migration limit, bandwidh per migration, and so on.
 		c.Queue.AddAfter(key, time.Second*5)
 		return nil
 	}
