@@ -58,7 +58,6 @@ type BindMechanism interface {
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
 	decorateConfig(domainIface api.Interface) error
-	startDHCP() error
 }
 
 type podNIC struct {
@@ -86,9 +85,20 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 	if err != nil {
 		return nil, err
 	}
-	var dhcpConfigurator dhcpconfigurator.Configurator
-	if correspondingNetworkIface.Bridge != nil || correspondingNetworkIface.Masquerade != nil {
-		dhcpConfigurator = dhcpconfigurator.NewConfigurator(cacheFactory, getPIDString(launcherPID))
+
+	var dhcpConfigurator *dhcpconfigurator.Configurator
+	if correspondingNetworkIface.Bridge != nil {
+		dhcpConfigurator = dhcpconfigurator.NewConfiguratorWithClientFilter(
+			cacheFactory,
+			getPIDString(launcherPID),
+			generateInPodBridgeInterfaceName(podInterfaceName),
+			handler)
+	} else if correspondingNetworkIface.Masquerade != nil {
+		dhcpConfigurator = dhcpconfigurator.NewConfigurator(
+			cacheFactory,
+			getPIDString(launcherPID),
+			generateInPodBridgeInterfaceName(podInterfaceName),
+			handler)
 	}
 	return &podNIC{
 		cacheFactory:     cacheFactory,
@@ -98,7 +108,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		podInterfaceName: podInterfaceName,
 		iface:            correspondingNetworkIface,
 		launcherPID:      launcherPID,
-		dhcpConfigurator: &dhcpConfigurator,
+		dhcpConfigurator: dhcpConfigurator,
 	}, nil
 }
 
@@ -218,11 +228,6 @@ func (l *podNIC) PlugPhase1() error {
 			return err
 		}
 
-		if err := bindMechanism.preparePodNetworkInterface(); err != nil {
-			log.Log.Reason(err).Error("failed to prepare pod networking")
-			return errors.CreateCriticalNetworkError(err)
-		}
-
 		if l.dhcpConfigurator != nil {
 			dhcpConfig := bindMechanism.generateDhcpConfig()
 			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
@@ -231,28 +236,25 @@ func (l *podNIC) PlugPhase1() error {
 			}
 		}
 
-		if err := l.storeCachedDomainIface(bindMechanism.generateDomainIfaceSpec()); err != nil {
+		domainIface := bindMechanism.generateDomainIfaceSpec()
+		// preparePodNetworkInterface must be called *after* the generate
+		// methods since it mutates the pod interface from which those
+		// generator methods get their info from.
+		if err := bindMechanism.preparePodNetworkInterface(); err != nil {
+			log.Log.Reason(err).Error("failed to prepare pod networking")
+			return errors.CreateCriticalNetworkError(err)
+		}
+
+		// caching the domain interface *must* be the last thing done in phase
+		// 1, since retrieving it is the criteria to configure the pod
+		// networking infrastructure.
+		if err := l.storeCachedDomainIface(domainIface); err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
 			return errors.CreateCriticalNetworkError(err)
 		}
+
 	}
 
-	return nil
-}
-
-func ensureDHCP(bindMechanism BindMechanism, podInterfaceName string) error {
-	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
-	_, err := os.Stat(dhcpStartedFile)
-	if os.IsNotExist(err) {
-		if err := bindMechanism.startDHCP(); err != nil {
-			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
-		}
-		newFile, err := os.Create(dhcpStartedFile)
-		if err != nil {
-			return fmt.Errorf("failed to create dhcp started file %s: %s", dhcpStartedFile, err)
-		}
-		newFile.Close()
-	}
 	return nil
 }
 
@@ -286,7 +288,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		if err != nil || dhcpConfig == nil {
 			log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
 		}
-		if err := ensureDHCP(bindMechanism, l.podInterfaceName); err != nil {
+		if err := l.dhcpConfigurator.EnsureDhcpServerStarted(l.podInterfaceName, *dhcpConfig, l.iface.DHCPOptions); err != nil {
 			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
 			panic(err)
 		}
@@ -374,7 +376,6 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 
 type BridgeBindMechanism struct {
 	vmi                 *v1.VirtualMachineInstance
-	dhcpConfig          *cache.DhcpConfig
 	iface               *v1.Interface
 	podNicLink          netlink.Link
 	domain              *api.Domain
@@ -416,11 +417,14 @@ func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
 	}
 
 	b.tapDeviceName = generateTapDeviceName(b.podInterfaceName)
+	if b.mac == nil {
+		b.mac = &b.podNicLink.Attrs().HardwareAddr
+	}
+
 	if b.podNicLink.Attrs().MTU < 0 || b.podNicLink.Attrs().MTU > 65535 {
 		return fmt.Errorf("MTU value out of range ")
 	}
 
-	b.dhcpConfig = b.generateDhcpConfig()
 	return nil
 }
 
@@ -428,15 +432,20 @@ func (b *BridgeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
 	if !b.ipamEnabled {
 		return &cache.DhcpConfig{Name: b.podInterfaceName, IPAMDisabled: true}
 	}
+	fakeBridgeIP, err := b.getFakeBridgeIP()
+	if err != nil {
+		return nil
+	}
+	fakeServerAddr, err := netlink.ParseAddr(fakeBridgeIP)
+	if err != nil || fakeServerAddr == nil {
+		return nil
+	}
 	dhcpConfig := &cache.DhcpConfig{
+		MAC:          *b.mac,
 		Name:         b.podInterfaceName,
 		IPAMDisabled: !b.ipamEnabled,
 		IP:           b.podIfaceIP,
-	}
-	if b.mac != nil {
-		dhcpConfig.MAC = *b.mac
-	} else {
-		dhcpConfig.MAC = b.podNicLink.Attrs().HardwareAddr
+		Gateway:      fakeServerAddr.IP,
 	}
 	if b.podNicLink != nil {
 		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
@@ -456,22 +465,6 @@ func (b *BridgeBindMechanism) getFakeBridgeIP() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", b.iface.Name)
-}
-
-func (b *BridgeBindMechanism) startDHCP() error {
-	if !b.dhcpConfig.IPAMDisabled {
-		addr, err := b.getFakeBridgeIP()
-		if err != nil {
-			return err
-		}
-		fakeServerAddr, err := netlink.ParseAddr(addr)
-		if err != nil {
-			return fmt.Errorf("failed to parse address while starting DHCP server: %s", addr)
-		}
-		log.Log.Object(b.vmi).Infof("bridge pod interface: %+v %+v", b.dhcpConfig, b)
-		return b.handler.StartDHCP(b.dhcpConfig, fakeServerAddr.IP, b.bridgeInterfaceName, b.iface.DHCPOptions, true)
-	}
-	return nil
 }
 
 func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
@@ -532,7 +525,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
 
 func (b *BridgeBindMechanism) generateDomainIfaceSpec() api.Interface {
 	return api.Interface{
-		MAC: &api.MAC{MAC: b.dhcpConfig.MAC.String()},
+		MAC: &api.MAC{MAC: b.mac.String()},
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
 		Target: &api.InterfaceTarget{
 			Device:  b.tapDeviceName,
@@ -695,7 +688,6 @@ func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
 
 type MasqueradeBindMechanism struct {
 	vmi                 *v1.VirtualMachineInstance
-	dhcpConfig          *cache.DhcpConfig
 	iface               *v1.Interface
 	podNicLink          netlink.Link
 	domain              *api.Domain
@@ -749,7 +741,6 @@ func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
 		b.gatewayIpv6Addr = gatewayIPv6
 	}
 
-	b.dhcpConfig = b.generateDhcpConfig()
 	return nil
 }
 
@@ -761,8 +752,6 @@ func (b *MasqueradeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
 	}
 	if b.mac != nil {
 		dhcpConfig.MAC = *b.mac
-	} else {
-		dhcpConfig.MAC = b.podNicLink.Attrs().HardwareAddr
 	}
 	if b.podNicLink != nil {
 		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
@@ -810,10 +799,6 @@ func (b *MasqueradeBindMechanism) generateGatewayAndVmIPAddrs(protocol iptables.
 		return nil, nil, fmt.Errorf("failed to parse vm address %s err %v", vmAddr, err)
 	}
 	return gatewayAddr, vmAddr, nil
-}
-
-func (b *MasqueradeBindMechanism) startDHCP() error {
-	return b.handler.StartDHCP(b.dhcpConfig, b.dhcpConfig.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
 }
 
 func (b *MasqueradeBindMechanism) preparePodNetworkInterface() error {
@@ -1256,10 +1241,6 @@ func (b *SlirpBindMechanism) generateDomainIfaceSpec() api.Interface {
 	return api.Interface{}
 }
 
-func (b *SlirpBindMechanism) startDHCP() error {
-	return nil
-}
-
 func (b *SlirpBindMechanism) decorateConfig(api.Interface) error {
 	// remove slirp interface from domain spec devices interfaces
 	var foundIfaceModelType string
@@ -1348,11 +1329,6 @@ func (b *MacvtapBindMechanism) decorateConfig(domainIface api.Interface) error {
 			break
 		}
 	}
-	return nil
-}
-
-func (b *MacvtapBindMechanism) startDHCP() error {
-	// macvtap will connect to the host's subnet
 	return nil
 }
 

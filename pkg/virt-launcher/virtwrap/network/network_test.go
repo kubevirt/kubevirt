@@ -24,20 +24,14 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	"kubevirt.io/kubevirt/pkg/network/dhcp"
 )
 
 var _ = Describe("VMNetworkConfigurator", func() {
 	Context("interface configuration", func() {
-		var cacheFactory cache.InterfaceCacheFactory
-		var dhcpConfigurator dhcp.Configurator
+		var launcherPID *int
 
-		BeforeEach(func() {
-			cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
-			dhcpConfigurator = dhcp.NewConfigurator(cacheFactory, "self")
-		})
 		It("should configure bridged pod networking by default", func() {
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
@@ -53,7 +47,11 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				network:          defaultNet,
 				handler:          vmNetworkConfigurator.handler,
 				cacheFactory:     vmNetworkConfigurator.cacheFactory,
-				dhcpConfigurator: &dhcpConfigurator,
+				dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
+					vmNetworkConfigurator.cacheFactory,
+					getPIDString(launcherPID),
+					generateInPodBridgeInterfaceName(primaryPodInterfaceName),
+					vmNetworkConfigurator.handler),
 			}}))
 		})
 		It("should accept empty network list", func() {
@@ -84,7 +82,11 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				podInterfaceName: multusInterfaceName,
 				handler:          vmNetworkConfigurator.handler,
 				cacheFactory:     vmNetworkConfigurator.cacheFactory,
-				dhcpConfigurator: &dhcpConfigurator,
+				dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
+					vmNetworkConfigurator.cacheFactory,
+					getPIDString(launcherPID),
+					generateInPodBridgeInterfaceName(multusInterfaceName),
+					vmNetworkConfigurator.handler),
 			}}))
 		})
 		It("should configure networking with multus and a default multus network", func() {
@@ -145,7 +147,11 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					podInterfaceName: "net1",
 					handler:          vmNetworkConfigurator.handler,
 					cacheFactory:     vmNetworkConfigurator.cacheFactory,
-					dhcpConfigurator: &dhcpConfigurator,
+					dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
+						vmNetworkConfigurator.cacheFactory,
+						getPIDString(launcherPID),
+						generateInPodBridgeInterfaceName("net1"),
+						vmNetworkConfigurator.handler),
 				},
 				{
 					vmi:              vm,
@@ -154,7 +160,11 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					podInterfaceName: "eth0",
 					handler:          vmNetworkConfigurator.handler,
 					cacheFactory:     vmNetworkConfigurator.cacheFactory,
-					dhcpConfigurator: &dhcpConfigurator,
+					dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
+						vmNetworkConfigurator.cacheFactory,
+						getPIDString(launcherPID),
+						generateInPodBridgeInterfaceName("eth0"),
+						vmNetworkConfigurator.handler),
 				},
 				{
 					vmi:              vm,
@@ -163,7 +173,11 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					podInterfaceName: "net2",
 					handler:          vmNetworkConfigurator.handler,
 					cacheFactory:     vmNetworkConfigurator.cacheFactory,
-					dhcpConfigurator: &dhcpConfigurator,
+					dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
+						vmNetworkConfigurator.cacheFactory,
+						getPIDString(launcherPID),
+						generateInPodBridgeInterfaceName("net2"),
+						vmNetworkConfigurator.handler),
 				},
 			}))
 		})
