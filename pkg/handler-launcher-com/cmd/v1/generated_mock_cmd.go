@@ -174,20 +174,36 @@ func (_mr *_MockCmdClientRecorder) CancelVirtualMachineMigration(arg0, arg1 inte
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CancelVirtualMachineMigration", _s...)
 }
 
-func (_m *MockCmdClient) SetVirtualMachineGuestTime(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+func (_m *MockCmdClient) SignalTargetPodCleanup(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
 	_s := []interface{}{ctx, in}
 	for _, _x := range opts {
 		_s = append(_s, _x)
 	}
-	ret := _m.ctrl.Call(_m, "SetVirtualMachineGuestTime", _s...)
+	ret := _m.ctrl.Call(_m, "SignalTargetPodCleanup", _s...)
 	ret0, _ := ret[0].(*Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockCmdClientRecorder) SetVirtualMachineGuestTime(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (_mr *_MockCmdClientRecorder) SignalTargetPodCleanup(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineGuestTime", _s...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SignalTargetPodCleanup", _s...)
+}
+
+func (_m *MockCmdClient) FinalizeVirtualMachineMigration(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "FinalizeVirtualMachineMigration", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) FinalizeVirtualMachineMigration(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", _s...)
 }
 
 func (_m *MockCmdClient) GetDomain(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*DomainResponse, error) {
@@ -422,15 +438,26 @@ func (_mr *_MockCmdServerRecorder) CancelVirtualMachineMigration(arg0, arg1 inte
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CancelVirtualMachineMigration", arg0, arg1)
 }
 
-func (_m *MockCmdServer) SetVirtualMachineGuestTime(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
-	ret := _m.ctrl.Call(_m, "SetVirtualMachineGuestTime", _param0, _param1)
+func (_m *MockCmdServer) SignalTargetPodCleanup(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "SignalTargetPodCleanup", _param0, _param1)
 	ret0, _ := ret[0].(*Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockCmdServerRecorder) SetVirtualMachineGuestTime(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineGuestTime", arg0, arg1)
+func (_mr *_MockCmdServerRecorder) SignalTargetPodCleanup(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SignalTargetPodCleanup", arg0, arg1)
+}
+
+func (_m *MockCmdServer) FinalizeVirtualMachineMigration(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "FinalizeVirtualMachineMigration", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) FinalizeVirtualMachineMigration(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0, arg1)
 }
 
 func (_m *MockCmdServer) GetDomain(_param0 context.Context, _param1 *EmptyRequest) (*DomainResponse, error) {
