@@ -134,10 +134,7 @@ http_file(
 http_file(
     name = "fedora_image",
     sha256 = "423a4ce32fa32c50c11e3d3ff392db97a762533b81bef9d00599de518a7469c8",
-    urls = [
-        "https://download.fedoraproject.org/pub/fedora/linux/releases/32/Cloud/x86_64/images/Fedora-Cloud-Base-32-1.6.x86_64.qcow2",
-        "https://storage.googleapis.com/builddeps/423a4ce32fa32c50c11e3d3ff392db97a762533b81bef9d00599de518a7469c8",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/423a4ce32fa32c50c11e3d3ff392db97a762533b81bef9d00599de518a7469c8"],
 )
 
 http_file(
@@ -2659,34 +2656,20 @@ rpm(
 rpm(
     name = "iproute-0__5.7.0-1.fc32.aarch64",
     sha256 = "0a8e6e635b4385e1de46b21af5c8ea4ab17c27b4355805f836271016925ee424",
-    urls = [
-        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/aarch64/Packages/i/iproute-5.7.0-1.fc32.aarch64.rpm",
-        "https://mirror.yandex.ru/fedora/linux/updates/32/Everything/aarch64/Packages/i/iproute-5.7.0-1.fc32.aarch64.rpm",
-        "https://mirror.dst.ca/fedora/updates/32/Everything/aarch64/Packages/i/iproute-5.7.0-1.fc32.aarch64.rpm",
-        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/i/iproute-5.7.0-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/0a8e6e635b4385e1de46b21af5c8ea4ab17c27b4355805f836271016925ee424",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/0a8e6e635b4385e1de46b21af5c8ea4ab17c27b4355805f836271016925ee424"],
 )
 
 rpm(
     name = "iproute-0__5.7.0-1.fc32.x86_64",
     sha256 = "a3b5786f7050c97ccd7e1a5f71fea1500578b1d36a5e28b47a6afdacd0a25c06",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/i/iproute-5.7.0-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/i/iproute-5.7.0-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/i/iproute-5.7.0-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/i/iproute-5.7.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a3b5786f7050c97ccd7e1a5f71fea1500578b1d36a5e28b47a6afdacd0a25c06",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/a3b5786f7050c97ccd7e1a5f71fea1500578b1d36a5e28b47a6afdacd0a25c06"],
 )
 
 rpm(
     name = "iproute-tc-0__5.7.0-1.fc32.aarch64",
     sha256 = "6673de297676fa8a70db42bc616f96a20966b39386ab559094bc228dcdf823d9",
     urls = [
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/i/iproute-tc-5.7.0-1.fc32.aarch64.rpm",
         "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/updates/32/Everything/aarch64/Packages/i/iproute-tc-5.7.0-1.fc32.aarch64.rpm",
-        "https://mirror.sjtu.edu.cn/fedora/linux/updates/32/Everything/aarch64/Packages/i/iproute-tc-5.7.0-1.fc32.aarch64.rpm",
         "https://storage.googleapis.com/builddeps/6673de297676fa8a70db42bc616f96a20966b39386ab559094bc228dcdf823d9",
     ],
 )
@@ -2694,13 +2677,7 @@ rpm(
 rpm(
     name = "iproute-tc-0__5.7.0-1.fc32.x86_64",
     sha256 = "2fc37a0b615dc9ac31d51467a39209005e4f181337ba0e3aa0990c7d1f701210",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/i/iproute-tc-5.7.0-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/i/iproute-tc-5.7.0-1.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/i/iproute-tc-5.7.0-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/i/iproute-tc-5.7.0-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/2fc37a0b615dc9ac31d51467a39209005e4f181337ba0e3aa0990c7d1f701210",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/2fc37a0b615dc9ac31d51467a39209005e4f181337ba0e3aa0990c7d1f701210"],
 )
 
 rpm(
@@ -3737,7 +3714,6 @@ rpm(
     sha256 = "45f0ca3a98642c045da905e38f4a00ffb4b751f558dc49dfabb8459ced343e0b",
     urls = [
         "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/updates/32/Everything/aarch64/Packages/l/libgcc-10.2.1-9.fc32.aarch64.rpm",
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/libgcc-10.2.1-9.fc32.aarch64.rpm",
         "https://storage.googleapis.com/builddeps/45f0ca3a98642c045da905e38f4a00ffb4b751f558dc49dfabb8459ced343e0b",
     ],
 )
@@ -3745,19 +3721,13 @@ rpm(
 rpm(
     name = "libgcc-0__10.2.1-9.fc32.ppc64le",
     sha256 = "0955989b418231a5f48ff9acaf22dd85d30f2c2c5d56461c99bf6a2881045f5b",
-    urls = [
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/l/libgcc-10.2.1-9.fc32.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/0955989b418231a5f48ff9acaf22dd85d30f2c2c5d56461c99bf6a2881045f5b",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/0955989b418231a5f48ff9acaf22dd85d30f2c2c5d56461c99bf6a2881045f5b"],
 )
 
 rpm(
     name = "libgcc-0__10.2.1-9.fc32.x86_64",
     sha256 = "cc25429520d34e963a91d47204cfc8112592d5406e4c7a0a883f7201b5f70915",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libgcc-10.2.1-9.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/cc25429520d34e963a91d47204cfc8112592d5406e4c7a0a883f7201b5f70915",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/cc25429520d34e963a91d47204cfc8112592d5406e4c7a0a883f7201b5f70915"],
 )
 
 rpm(
@@ -3847,7 +3817,6 @@ rpm(
     name = "libgomp-0__10.2.1-9.fc32.aarch64",
     sha256 = "23e628f2dbebe64f0a55c6db53d1aa8d54b6dae012eeb22efbe3be730e5dcf41",
     urls = [
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/libgomp-10.2.1-9.fc32.aarch64.rpm",
         "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/updates/32/Everything/aarch64/Packages/l/libgomp-10.2.1-9.fc32.aarch64.rpm",
         "https://storage.googleapis.com/builddeps/23e628f2dbebe64f0a55c6db53d1aa8d54b6dae012eeb22efbe3be730e5dcf41",
     ],
@@ -3856,10 +3825,7 @@ rpm(
 rpm(
     name = "libgomp-0__10.2.1-9.fc32.x86_64",
     sha256 = "9895b6a204d4c4d83ee1cbe5a50b2bd1470daffe38448a09f704c7c6da78d4ef",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libgomp-10.2.1-9.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9895b6a204d4c4d83ee1cbe5a50b2bd1470daffe38448a09f704c7c6da78d4ef",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/9895b6a204d4c4d83ee1cbe5a50b2bd1470daffe38448a09f704c7c6da78d4ef"],
 )
 
 rpm(
@@ -4873,7 +4839,6 @@ rpm(
     name = "libstdc__plus____plus__-0__10.2.1-9.fc32.aarch64",
     sha256 = "98df12387f9f55cd1f1ef574ee2702a56d12ec374900a40ddd0b7f0f25e6904f",
     urls = [
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/l/libstdc++-10.2.1-9.fc32.aarch64.rpm",
         "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/updates/32/Everything/aarch64/Packages/l/libstdc++-10.2.1-9.fc32.aarch64.rpm",
         "https://storage.googleapis.com/builddeps/98df12387f9f55cd1f1ef574ee2702a56d12ec374900a40ddd0b7f0f25e6904f",
     ],
@@ -4882,19 +4847,13 @@ rpm(
 rpm(
     name = "libstdc__plus____plus__-0__10.2.1-9.fc32.ppc64le",
     sha256 = "3b2def16c868c45a6c455bafa54ddb826201510cfecffa0d0ee03c379e74db7f",
-    urls = [
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/l/libstdc++-10.2.1-9.fc32.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/3b2def16c868c45a6c455bafa54ddb826201510cfecffa0d0ee03c379e74db7f",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/3b2def16c868c45a6c455bafa54ddb826201510cfecffa0d0ee03c379e74db7f"],
 )
 
 rpm(
     name = "libstdc__plus____plus__-0__10.2.1-9.fc32.x86_64",
     sha256 = "05c67ab4e848cbf57040a693580c9303a2154281b2e3a91fc13e26280369dc81",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libstdc++-10.2.1-9.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/05c67ab4e848cbf57040a693580c9303a2154281b2e3a91fc13e26280369dc81",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/05c67ab4e848cbf57040a693580c9303a2154281b2e3a91fc13e26280369dc81"],
 )
 
 rpm(
@@ -9885,28 +9844,19 @@ rpm(
 rpm(
     name = "vim-minimal-2__8.2.2735-1.fc32.aarch64",
     sha256 = "459dcdcf09ceef42abe0d57c08bfb91c16f5753be2f38d01557e94b3b2efd332",
-    urls = [
-        "https://ftp.upjs.sk/pub/fedora/linux/updates/32/Everything/aarch64/Packages/v/vim-minimal-8.2.2735-1.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/459dcdcf09ceef42abe0d57c08bfb91c16f5753be2f38d01557e94b3b2efd332",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/459dcdcf09ceef42abe0d57c08bfb91c16f5753be2f38d01557e94b3b2efd332"],
 )
 
 rpm(
     name = "vim-minimal-2__8.2.2735-1.fc32.ppc64le",
     sha256 = "6f592f19baf41ed405941d1da9239c2efbf46bf29aece87e708153cc84ed7e81",
-    urls = [
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2735-1.fc32.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/6f592f19baf41ed405941d1da9239c2efbf46bf29aece87e708153cc84ed7e81",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/6f592f19baf41ed405941d1da9239c2efbf46bf29aece87e708153cc84ed7e81"],
 )
 
 rpm(
     name = "vim-minimal-2__8.2.2735-1.fc32.x86_64",
     sha256 = "2cc20a499926e012eeb43bf4210d10a8c04920020594fc8d5c77159c30bd2dfd",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2735-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/2cc20a499926e012eeb43bf4210d10a8c04920020594fc8d5c77159c30bd2dfd",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/2cc20a499926e012eeb43bf4210d10a8c04920020594fc8d5c77159c30bd2dfd"],
 )
 
 rpm(
