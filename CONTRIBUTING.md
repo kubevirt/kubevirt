@@ -81,26 +81,16 @@ review, or your Pull Request does not get the attention you think it deserves,
 reach out for us via Comments in your Issues, or ping us on Slack
 [#kubevirt-dev @ kubernetes.slack.com](https://kubernetes.slack.com/?redir=%2Farchives%2FC0163DT0R8X).
 
-Maintainers are:
-
- * @admiyo
- * @berrange
- * @davidvossel
- * @fabiand
- * @rmohr
- * @stu-gott
- * @vladikr
+Maintainers are tracked in [OWNERS
+files](https://github.com/kubernetes/test-infra/blob/f7e21a3c18f4f4bbc7ee170675ed53e4544a0632/prow/plugins/approve/approvers/README.md)
+and will be assigned by Prow.
 
 ### Becoming a member
 
 Contributors that frequently contribute to the project may ask to join the
 kubevirt organization.
-Please send a request to join by sending an email to our
-[Google Group](https://groups.google.com/forum/#!forum/kubevirt-dev).
-The request should include a self-introduction, and an explanation why you
-should become a member.
 
-Responses will be provided privately by one of the organization owners.
+Please have a look at our [membership guidelines](https://github.com/kubevirt/community/tree/master/member_dd).
 
 ## Projects & Communities
 
