@@ -64,7 +64,7 @@ var _ = Describe("Common Methods", func() {
 		table.DescribeTable("should compose the correct command",
 			func(protocol iptables.Protocol, protocolVersionNum string) {
 				cmd := composeNftablesLoad(protocol)
-				Expect(cmd.Path).To(Equal("nft"))
+				Expect(cmd.Path).To(HaveSuffix("nft"))
 				Expect(cmd.Args).To(Equal([]string{
 					"nft",
 					"-f",
