@@ -65,9 +65,6 @@ const (
 	AdditionalPropertiesWorkloadUpdatesEnabled = "WorkloadUpdatesEnabled"
 
 	// account to use if one is not explicitly named
-	DefaultMonitorNamespace = "openshift-monitoring"
-
-	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
 
 	// lookup keys in AdditionalProperties
@@ -81,6 +78,13 @@ const (
 	// Prefix for env vars that will be passed along
 	PassthroughEnvPrefix = "KV_IO_EXTRA_ENV_"
 )
+
+// DefaultMonitorNamespaces holds a set of well known prometheus-operator namespaces.
+// Ordering in the list matters. First entries have precedence.
+var DefaultMonitorNamespaces = []string{
+	"openshift-monitoring", // default namespace in openshift
+	"monitoring",           // default namespace of https://github.com/prometheus-operator/kube-prometheus
+}
 
 type KubeVirtDeploymentConfig struct {
 	ID          string `json:"id,omitempty" optional:"true"`
@@ -401,12 +405,12 @@ func (c *KubeVirtDeploymentConfig) WorkloadUpdatesEnabled() bool {
 	return enabled
 }
 
-func (c *KubeVirtDeploymentConfig) GetMonitorNamespace() string {
+func (c *KubeVirtDeploymentConfig) GetMonitorNamespaces() []string {
 	p := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
 	if p == "" {
-		return DefaultMonitorNamespace
+		return DefaultMonitorNamespaces
 	}
-	return p
+	return []string{p}
 }
 
 func (c *KubeVirtDeploymentConfig) GetMonitorServiceAccount() string {

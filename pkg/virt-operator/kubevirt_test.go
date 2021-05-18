@@ -270,6 +270,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 		if action.GetVerb() == "get" && action.GetResource().Resource == "mutatingwebhookconfigurations" {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "mutatingwebhookconfigurations"}, "whatever")
 		}
+		if action.GetVerb() == "get" && action.GetResource().Resource == "serviceaccounts" {
+			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "serviceaccounts"}, "whatever")
+		}
 		if action.GetVerb() != "get" || action.GetResource().Resource != "namespaces" {
 			Expect(action).To(BeNil())
 		}
@@ -1106,8 +1109,8 @@ func (k *KubeVirtTestData) addAll(config *util.KubeVirtDeploymentConfig, kv *v1.
 
 	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
-	all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
-	all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetMonitorNamespace(), true))
+	all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespaces()[0], config.GetMonitorServiceAccount())...)
+	all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetMonitorNamespaces()[0], true))
 
 	// ca certificate
 	caSecret := components.NewCACertSecret(NAMESPACE)
@@ -1285,7 +1288,7 @@ func (k *KubeVirtTestData) addValidatingWebhook(wh *admissionregistrationv1.Vali
 
 func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentConfig) {
 	// install strategy config
-	resource, _ := install.NewInstallStrategyConfigMap(config, true, NAMESPACE)
+	resource, _ := install.NewInstallStrategyConfigMap(config, "openshift-monitoring", NAMESPACE)
 
 	resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 
@@ -2545,7 +2548,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addKubeVirt(kv)
 
 			// install strategy config
-			resource, _ := install.NewInstallStrategyConfigMap(kvTestData.defaultConfig, false, NAMESPACE)
+			resource, _ := install.NewInstallStrategyConfigMap(kvTestData.defaultConfig, "", NAMESPACE)
 			resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 			kvTestData.addResource(resource, kvTestData.defaultConfig, nil)
 

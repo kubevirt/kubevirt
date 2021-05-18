@@ -23,6 +23,9 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/onsi/ginkgo/extensions/table"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/ghodss/yaml"
@@ -59,9 +62,42 @@ var _ = Describe("Install Strategy", func() {
 
 	config := getConfig("fake-registry", "v9.9.9")
 
+	Context("monitoring detection", func() {
+		table.DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {
+			client := fake.NewSimpleClientset(objects...)
+			ns, err := getMonitorNamespace(client.CoreV1(), config)
+			Expect(ns).To(Equal(expectedNS))
+			Expect(err).To(BeNil())
+		},
+			table.Entry("match first entry if namespace and SA exist",
+				"openshift-monitoring",
+				newSA("openshift-monitoring", "prometheus-k8s"),
+				newNS("openshift-monitoring"),
+			),
+			table.Entry("should match second namespace if SA for the first namespace does not exist",
+				"monitoring",
+				newSA("monitoring", "prometheus-k8s"),
+				newNS("openshift-monitoring"),
+				newNS("monitoring"),
+			),
+			table.Entry("should match first namespace if SA for both namespaces exist",
+				"openshift-monitoring",
+				newSA("openshift-monitoring", "prometheus-k8s"),
+				newSA("monitoring", "prometheus-k8s"),
+				newNS("openshift-monitoring"),
+				newNS("monitoring"),
+			),
+			table.Entry("succeed fail if SA does not exist in both namespaces",
+				"",
+				newNS("openshift-monitoring"),
+				newNS("monitoring"),
+			),
+		)
+	})
+
 	Context("should generate", func() {
 		It("install strategy convertable back to objects", func() {
-			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
+			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
 			Expect(err).NotTo(HaveOccurred())
 
 			data := string(dumpInstallStrategyToBytes(strategy))
@@ -80,7 +116,7 @@ var _ = Describe("Install Strategy", func() {
 
 		})
 		It("latest install strategy with lossless byte conversion.", func() {
-			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
+			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			strategyStr := string(dumpInstallStrategyToBytes(strategy))
@@ -227,7 +263,7 @@ var _ = Describe("Install Strategy", func() {
 			// for backwards compatibility
 			stores := util.Stores{}
 			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
-			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
+			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
 			Expect(err).ToNot(HaveOccurred())
 			data := string(dumpInstallStrategyToBytes(strategy))
 
@@ -252,7 +288,7 @@ var _ = Describe("Install Strategy", func() {
 		It("a gzip+base64 encoded install strategy.", func() {
 			stores := util.Stores{}
 			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
-			configMap, err := NewInstallStrategyConfigMap(config, true, namespace)
+			configMap, err := NewInstallStrategyConfigMap(config, "openshift-monitoring", namespace)
 			Expect(err).ToNot(HaveOccurred())
 			stores.InstallStrategyConfigMapCache.Add(configMap)
 			_, err = LoadInstallStrategyFromCache(stores, config)
@@ -260,3 +296,15 @@ var _ = Describe("Install Strategy", func() {
 		})
 	})
 })
+
+func newSA(namespace string, name string) *corev1.ServiceAccount {
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+	}
+}
+
+func newNS(name string) *corev1.Namespace {
+	return &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}
+}
