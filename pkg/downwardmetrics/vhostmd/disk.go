@@ -81,12 +81,16 @@ func (v *vhostmd) Read() (*api.Metrics, error) {
 	return disk.Metrics()
 }
 
-func (v *vhostmd) Write(metrics *api.Metrics) error {
+func (v *vhostmd) Write(metrics *api.Metrics) (err error) {
 	f, err := os.OpenFile(v.filePath, os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("failed to open vhostmd disk: %v", err)
 	}
-	defer f.Close()
+	defer func() {
+		if fileErr := f.Close(); fileErr != nil && err == nil {
+			err = fileErr
+		}
+	}()
 	if err := writeDisk(f, metrics); err != nil {
 		return fmt.Errorf("failed to write metrics: %v", err)
 	}
@@ -120,14 +124,17 @@ func readDisk(filePath string) (*Disk, error) {
 	return d, err
 }
 
-func createDisk(filePath string) error {
+func createDisk(filePath string) (err error) {
 	var f *os.File
-	var err error
 
 	if f, err = os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0755); err != nil {
 		return fmt.Errorf("failed getting vhostmd disk filestats: %v", err)
 	}
-	defer f.Close()
+	defer func() {
+		if fileErr := f.Close(); fileErr != nil && err == nil {
+			err = fileErr
+		}
+	}()
 
 	_, err = f.Seek(fileSize-1, 0)
 	if err != nil {
