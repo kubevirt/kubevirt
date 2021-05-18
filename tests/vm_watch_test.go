@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	v12 "kubevirt.io/client-go/api/v1"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v12 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-
+	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
+	virtctlvm "kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
@@ -26,8 +26,9 @@ const (
 	relevantk8sVer = "1.16.2"
 
 	// Define a timeout for read opeartions in order to prevent test hanging
-	readTimeout       = 30 * time.Second
-	vmCreationTimeout = 1 * time.Minute
+	readTimeout        = 30 * time.Second
+	vmCreationTimeout  = 1 * time.Minute
+	vmMigrationTimeout = 5 * time.Minute
 
 	vmAgeRegex = "^[0-9]+[sm]$"
 
@@ -94,7 +95,7 @@ func readLineWithTimeout(rc io.ReadCloser, timeout time.Duration) (string, error
 
 // Reads VM/VMI status from rc and returns a new status.
 // If oldStatus is non-nil, the function will read status lines until
-// newStatus.running != oldStatus.running or newStatus.phase != oldStatus.phase
+// newStatus.printableStatus != oldStatus.printableStatus or newStatus.phase != oldStatus.phase
 // in order to skip duplicated status lines
 func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) ([]string, error) {
 	statusLine, err := readLineWithTimeout(rc, timeout)
@@ -105,7 +106,7 @@ func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) 
 
 	newStatus := strings.Fields(statusLine)
 
-	// Skip status line with similar running state for VM or phase state for VMI
+	// Skip status line with similar printableStatus state for VM or phase state for VMI
 	// newStatus[2] and oldStatus[2] point to the VM running state or VMI phase
 	if oldStatus != nil && len(oldStatus) == len(newStatus) {
 		if len(oldStatus) == 2 {
@@ -213,6 +214,77 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Expect(err).ToNot(HaveOccurred())
 		Expect(titles).To(Equal([]string{"NAME", "AGE", "STATUS", "VOLUME"}),
 			"Output should have the proper columns")
+
+		vmStatus, err := readNewStatus(stdout, titles, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusStopped)),
+			"VM should be in the %s status", v12.VirtualMachineStatusStopped)
+
+		By("Starting the VM")
+		vm = tests.StartVirtualMachine(vm)
+
+		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusStarting)),
+			"VM should be in the %s status", v12.VirtualMachineStatusStarting)
+
+		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning)),
+			"VM should be in the %s status", v12.VirtualMachineStatusRunning)
+
+		By("Pausing the VirtualMachine")
+		pauseCommand := tests.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_PAUSE, "vm", "--namespace", vm.Namespace, vm.Name)
+		Expect(pauseCommand()).To(Succeed())
+
+		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusPaused)),
+			"VM should be in the %s status", v12.VirtualMachineStatusPaused)
+
+		By("Unpausing the VirtualMachine")
+		unpauseCommand := tests.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_UNPAUSE, "vm", "--namespace", vm.Namespace, vm.Name)
+		Expect(unpauseCommand()).To(Succeed())
+
+		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning)),
+			"VM should be in the %s status", v12.VirtualMachineStatusRunning)
+
+		By("Migrating the VirtualMachine")
+
+		// Verify we have more than one scheduleable node
+		virtClient, err := kubecli.GetKubevirtClient()
+		Expect(err).ToNot(HaveOccurred())
+
+		nodes := tests.GetAllSchedulableNodes(virtClient)
+		if len(nodes.Items) > 1 {
+			migrateCommand := tests.NewRepeatableVirtctlCommand(virtctlvm.COMMAND_MIGRATE, "--namespace", vm.Namespace, vm.Name)
+			Expect(migrateCommand()).To(Succeed())
+
+			vmStatus, err = readNewStatus(stdout, vmStatus, vmMigrationTimeout)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusMigrating)),
+				"VM should be in the %s status", v12.VirtualMachineStatusMigrating)
+
+			vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning)),
+				"VM should be in the %s status", v12.VirtualMachineStatusRunning)
+		}
+
+		By("Stopping the VirtualMachine")
+		vm = tests.StopVirtualMachine(vm)
+
+		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusStopping)),
+			"VM should be in the %s status", v12.VirtualMachineStatusStopping)
+
+		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusStopped)),
+			"VM should be in the %s status", v12.VirtualMachineStatusStopped)
 	})
 
 	It("[test_id:3466]Should update vmi status with the proper columns using 'kubectl get vmi -w'", func() {
