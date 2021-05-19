@@ -38,7 +38,8 @@ RUN dnf install -y dnf-plugins-core && \
         redhat-rpm-config \
         jq \
         wget \
-        diffutils && \
+        diffutils \
+        xz && \
     dnf -y clean all
 
 # install gradle (required for swagger)
