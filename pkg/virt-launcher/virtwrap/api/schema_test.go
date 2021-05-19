@@ -57,18 +57,21 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
       <target dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk"></alias>
+      <iotune></iotune>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target dev="vdb"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk1"></alias>
+      <iotune></iotune>
     </disk>
     <disk device="disk" type="block">
       <source dev="/dev/testdev"></source>
       <target dev="vdc"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk2"></alias>
+      <iotune></iotune>
     </disk>
     <input type="tablet" bus="virtio">
       <alias name="ua-tablet0"></alias>
@@ -135,18 +138,21 @@ var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schem
       <target dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk"></alias>
+      <iotune></iotune>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target dev="vdb"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk1"></alias>
+      <iotune></iotune>
     </disk>
     <disk device="disk" type="block">
       <source dev="/dev/testdev"></source>
       <target dev="vdc"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk2"></alias>
+      <iotune></iotune>
     </disk>
     <input type="tablet" bus="virtio">
       <alias name="ua-tablet0"></alias>
@@ -214,18 +220,21 @@ var exampleXMLarm64 = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas
       <target dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk"></alias>
+      <iotune></iotune>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target dev="vdb"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk1"></alias>
+      <iotune></iotune>
     </disk>
     <disk device="disk" type="block">
       <source dev="/dev/testdev"></source>
       <target dev="vdc"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk2"></alias>
+      <iotune></iotune>
     </disk>
     <input type="tablet" bus="virtio">
       <alias name="ua-tablet0"></alias>
