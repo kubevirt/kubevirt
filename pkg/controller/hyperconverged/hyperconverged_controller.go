@@ -896,9 +896,11 @@ func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest)
 
 	modified := adoptOldKvConfigs(req, cm)
 
-	err = r.removeConfigMap(req, cm, kvCmName)
-	if err != nil {
-		return false, err
+	if !modified {
+		err = r.removeConfigMap(req, cm, kvCmName)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	return modified, nil
@@ -1029,19 +1031,20 @@ func adoptOldKvConfigs(req *common.HcoRequest, cm *corev1.ConfigMap) bool {
 	if !ok {
 		return false
 	}
-	hcoLiveMigrationConfig := hcov1beta1.LiveMigrationConfigurations{}
-	err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(kvLiveMigrationConfig), 1024).Decode(&hcoLiveMigrationConfig)
+	kvCmLiveMigrationConfig := hcov1beta1.LiveMigrationConfigurations{}
+	req.Instance.Spec.LiveMigrationConfig.DeepCopyInto(&kvCmLiveMigrationConfig)
+	err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(kvLiveMigrationConfig), 1024).Decode(&kvCmLiveMigrationConfig)
 	if err != nil {
 		req.Logger.Error(err, "Failed to read the KubeVirt ConfigMap, and its content was ignored. This ConfigMap will be deleted. The backup ConfigMap called "+backupKvCmName)
 		return false
 	}
 
-	if !reflect.DeepEqual(req.Instance.Spec.LiveMigrationConfig, hcoLiveMigrationConfig) {
+	if !reflect.DeepEqual(req.Instance.Spec.LiveMigrationConfig, kvCmLiveMigrationConfig) {
 		req.Logger.Info("updating the HyperConverged CR from the KeubeVirt configMap")
-		kvConfigMapToHyperConvergedCr(req, hcoLiveMigrationConfig)
+		kvConfigMapToHyperConvergedCr(req, kvCmLiveMigrationConfig)
 
-		req.Dirty = true
 		modified = true
+		req.Dirty = true
 	}
 
 	return modified
@@ -1075,21 +1078,21 @@ func adoptCdiConfigs(req *common.HcoRequest, cdiCfg *cdiv1beta1.CDIConfigSpec) b
 	return modified
 }
 
-func kvConfigMapToHyperConvergedCr(req *common.HcoRequest, hcoLiveMigrationConfig hcov1beta1.LiveMigrationConfigurations) {
-	if hcoLiveMigrationConfig.BandwidthPerMigration != nil {
-		req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration = hcoLiveMigrationConfig.BandwidthPerMigration
+func kvConfigMapToHyperConvergedCr(req *common.HcoRequest, kvCmLMConfig hcov1beta1.LiveMigrationConfigurations) {
+	if kvCmLMConfig.BandwidthPerMigration != nil {
+		req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration = kvCmLMConfig.BandwidthPerMigration
 	}
-	if hcoLiveMigrationConfig.CompletionTimeoutPerGiB != nil {
-		req.Instance.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = hcoLiveMigrationConfig.CompletionTimeoutPerGiB
+	if kvCmLMConfig.CompletionTimeoutPerGiB != nil {
+		req.Instance.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = kvCmLMConfig.CompletionTimeoutPerGiB
 	}
-	if hcoLiveMigrationConfig.ParallelMigrationsPerCluster != nil {
-		req.Instance.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = hcoLiveMigrationConfig.ParallelMigrationsPerCluster
+	if kvCmLMConfig.ParallelMigrationsPerCluster != nil {
+		req.Instance.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = kvCmLMConfig.ParallelMigrationsPerCluster
 	}
-	if hcoLiveMigrationConfig.ParallelOutboundMigrationsPerNode != nil {
-		req.Instance.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = hcoLiveMigrationConfig.ParallelOutboundMigrationsPerNode
+	if kvCmLMConfig.ParallelOutboundMigrationsPerNode != nil {
+		req.Instance.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = kvCmLMConfig.ParallelOutboundMigrationsPerNode
 	}
-	if hcoLiveMigrationConfig.ProgressTimeout != nil {
-		req.Instance.Spec.LiveMigrationConfig.ProgressTimeout = hcoLiveMigrationConfig.ProgressTimeout
+	if kvCmLMConfig.ProgressTimeout != nil {
+		req.Instance.Spec.LiveMigrationConfig.ProgressTimeout = kvCmLMConfig.ProgressTimeout
 	}
 }
 
