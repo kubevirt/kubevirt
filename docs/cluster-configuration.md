@@ -395,6 +395,46 @@ spec:
     minCPUModel: "Penryn"
 ```
 
+## Enable eventual launcher updates by default
+us the HyperConverged `spec.workloadUpdateStrategy` object to define how to handle automated workload updates at the cluster
+level.
+
+The `workloadUpdateStrategy` fields are:
+* `batchEvictionInterval` - BatchEvictionInterval Represents the interval to wait before issuing the next batch of
+  shutdowns. 
+  
+  The Default value is `1m`
+  
+* `batchEvictionSize` - Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval
+  
+  The default value is `10`
+
+* `workloadUpdateMethods` - defines the methods that can be used to disrupt workloads
+  during automated workload updates.
+  
+  When multiple methods are present, the least disruptive method takes
+  precedence over more disruptive methods. For example if both LiveMigrate and Shutdown
+  methods are listed, only VMs which are not live migratable will be restarted/shutdown.
+  
+  An empty list defaults to no automated workload updating.
+
+  The default values are `LiveMigrate` and `Evict`.
+
+### workloadUpdateStrategy example
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  workloadUpdateStrategy:
+    workloadUpdateMethods:
+    - LiveMigrate
+    - Evict
+    batchEvictionSize: 10
+    batchEvictionInterval: "1m"
+```
+
 ## Insecure Registries for Imported Data containerized Images
 If there is a need to import data images from an insecure registry, these registries should be added to the
 `insecureRegistries` field under the `storageImport` in the `HyperConverged`'s `spec` field.

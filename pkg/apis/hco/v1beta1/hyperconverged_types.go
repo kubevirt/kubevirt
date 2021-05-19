@@ -81,6 +81,11 @@ type HyperConvergedSpec struct {
 	// +optional
 	StorageImport *StorageImportConfig `json:"storageImport,omitempty"`
 
+	// WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates
+	// +kubebuilder:default={"workloadUpdateMethods": {"LiveMigrate", "Evict"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m"}
+	// +optional
+	WorkloadUpdateStrategy *HyperConvergedWorkloadUpdateStrategy `json:"workloadUpdateStrategy,omitempty"`
+
 	// operator version
 	// +optional
 	Version string `json:"version,omitempty"`
@@ -271,6 +276,38 @@ type StorageImportConfig struct {
 	// in this list allows pulling images from this registry.
 	// +optional
 	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
+}
+
+//
+// HyperConvergedWorkloadUpdateStrategy defines options related to updating a KubeVirt install
+//
+// +k8s:openapi-gen=true
+type HyperConvergedWorkloadUpdateStrategy struct {
+	// WorkloadUpdateMethods defines the methods that can be used to disrupt workloads
+	// during automated workload updates.
+	// When multiple methods are present, the least disruptive method takes
+	// precedence over more disruptive methods. For example if both LiveMigrate and Shutdown
+	// methods are listed, only VMs which are not live migratable will be restarted/shutdown.
+	// An empty list defaults to no automated workload updating.
+	//
+	// +listType=atomic
+	// +kubebuilder:default={"LiveMigrate", "Evict"}
+	// +optional
+	WorkloadUpdateMethods []string `json:"workloadUpdateMethods,omitempty"`
+
+	// BatchEvictionSize Represents the number of VMIs that can be forced updated per
+	// the BatchShutdownInteral interval
+	//
+	// +kubebuilder:default=10
+	// +optional
+	BatchEvictionSize *int `json:"batchEvictionSize,omitempty"`
+
+	// BatchEvictionInterval Represents the interval to wait before issuing the next
+	// batch of shutdowns
+	//
+	// +kubebuilder:default="1m"
+	// +optional
+	BatchEvictionInterval *metav1.Duration `json:"batchEvictionInterval,omitempty"`
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

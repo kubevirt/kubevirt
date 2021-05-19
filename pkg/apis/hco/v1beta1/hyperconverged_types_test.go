@@ -309,6 +309,9 @@ var _ = Describe("HyperconvergedTypes", func() {
 		parallelOutboundMigrationsPerNode := uint32(2)
 		progressTimeout := int64(150)
 		ScratchSpaceStorageClass := "ScratchSpaceStorageClassValue"
+		VddkInitImage := "VddkInitImage"
+		batchEvictionInterval := &metav1.Duration{Duration: time.Minute * 1}
+		batchEvictionSize := 10
 
 		hco := HyperConverged{
 			TypeMeta: metav1.TypeMeta{
@@ -392,7 +395,17 @@ var _ = Describe("HyperconvergedTypes", func() {
 				},
 				ScratchSpaceStorageClass: &ScratchSpaceStorageClass,
 				StorageImport:            &StorageImportConfig{InsecureRegistries: []string{"aaa", "bbb", "ccc"}},
-				Version:                  "v1.2.3",
+				VddkInitImage:            &VddkInitImage,
+				ObsoleteCPUs: &HyperConvergedObsoleteCPUs{
+					MinCPUModel: "minCPUModel",
+					CPUModels:   []string{"modelA", "modelB", "modelC"},
+				},
+				WorkloadUpdateStrategy: &HyperConvergedWorkloadUpdateStrategy{
+					WorkloadUpdateMethods: []string{"methodA", "methodB"},
+					BatchEvictionInterval: batchEvictionInterval,
+					BatchEvictionSize:     &batchEvictionSize,
+				},
+				Version: "v1.2.3",
 			},
 			Status: HyperConvergedStatus{
 				Conditions: []conditionsv1.Condition{

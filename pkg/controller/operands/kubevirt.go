@@ -229,6 +229,7 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtv1.Kub
 		Workloads:                   hcoConfig2KvConfig(hc.Spec.Workloads),
 		Configuration:               *config,
 		CertificateRotationStrategy: *kvCertConfig,
+		WorkloadUpdateStrategy:      hcWorkloadUpdateStrategyToKv(hc.Spec.WorkloadUpdateStrategy),
 	}
 
 	kv := NewKubeVirtWithNameOnly(hc, opts...)
@@ -239,6 +240,30 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtv1.Kub
 	}
 
 	return kv, nil
+}
+
+func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpdateStrategy) kubevirtv1.KubeVirtWorkloadUpdateStrategy {
+	kvObject := kubevirtv1.KubeVirtWorkloadUpdateStrategy{}
+	if hcObject != nil {
+		if hcObject.BatchEvictionInterval != nil {
+			kvObject.BatchEvictionInterval = new(metav1.Duration)
+			*kvObject.BatchEvictionInterval = *hcObject.BatchEvictionInterval
+		}
+
+		if hcObject.BatchEvictionSize != nil {
+			kvObject.BatchEvictionSize = new(int)
+			*kvObject.BatchEvictionSize = *hcObject.BatchEvictionSize
+		}
+
+		if size := len(hcObject.WorkloadUpdateMethods); size > 0 {
+			kvObject.WorkloadUpdateMethods = make([]kubevirtv1.WorkloadUpdateMethod, size)
+			for i, updateMethod := range hcObject.WorkloadUpdateMethods {
+				kvObject.WorkloadUpdateMethods[i] = kubevirtv1.WorkloadUpdateMethod(updateMethod)
+			}
+		}
+	}
+
+	return kvObject
 }
 
 func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfiguration, error) {

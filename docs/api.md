@@ -16,6 +16,7 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [HyperConvergedObsoleteCPUs](#hyperconvergedobsoletecpus)
 * [HyperConvergedSpec](#hyperconvergedspec)
 * [HyperConvergedStatus](#hyperconvergedstatus)
+* [HyperConvergedWorkloadUpdateStrategy](#hyperconvergedworkloadupdatestrategy)
 * [LiveMigrationConfigurations](#livemigrationconfigurations)
 * [MediatedHostDevice](#mediatedhostdevice)
 * [OperandResourceRequirements](#operandresourcerequirements)
@@ -130,6 +131,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | vddkInitImage | VDDK Init Image eventually used to import VMs from external providers | *string |  | false |
 | obsoleteCPUs | ObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models | *[HyperConvergedObsoleteCPUs](#hyperconvergedobsoletecpus) |  | false |
 | storageImport | StorageImport contains configuration for importing containerized data | *[StorageImportConfig](#storageimportconfig) |  | false |
+| workloadUpdateStrategy | WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates | *[HyperConvergedWorkloadUpdateStrategy](#hyperconvergedworkloadupdatestrategy) | {"workloadUpdateMethods": {"LiveMigrate", "Evict"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m"} | false |
 | version | operator version | string |  | false |
 
 [Back to TOC](#table-of-contents)
@@ -143,6 +145,18 @@ HyperConvergedStatus defines the observed state of HyperConverged
 | conditions | Conditions describes the state of the HyperConverged resource. | []conditionsv1.Condition |  | false |
 | relatedObjects | RelatedObjects is a list of objects created and maintained by this operator. Object references will be added to this list after they have been created AND found in the cluster. | []corev1.ObjectReference |  | false |
 | versions | Versions is a list of HCO component versions, as name/version pairs. The version with a name of \"operator\" is the HCO version itself, as described here: https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusteroperator.md#version | Versions |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## HyperConvergedWorkloadUpdateStrategy
+
+HyperConvergedWorkloadUpdateStrategy defines options related to updating a KubeVirt install
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| workloadUpdateMethods | WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Shutdown methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating. | []string | {"LiveMigrate", "Evict"} | false |
+| batchEvictionSize | BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval | *int | 10 | false |
+| batchEvictionInterval | BatchEvictionInterval Represents the interval to wait before issuing the next batch of shutdowns | *metav1.Duration | "1m" | false |
 
 [Back to TOC](#table-of-contents)
 

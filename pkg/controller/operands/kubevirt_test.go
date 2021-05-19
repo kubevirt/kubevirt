@@ -1681,6 +1681,169 @@ Version: 1.2.3`)
 			})
 		})
 
+		Context("Workload Update Strategy", func() {
+			defaultBatchEvictionSize := 10
+
+			It("should add Workload Update Strategy if missing in KV", func() {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.WorkloadUpdateStrategy = &hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
+					WorkloadUpdateMethods: []string{"aaa", "bbb"},
+					BatchEvictionInterval: &metav1.Duration{Duration: time.Minute * 1},
+					BatchEvictionSize:     &defaultBatchEvictionSize,
+				}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.WorkloadUpdateStrategy).ToNot(BeNil())
+				kvUpdateStrategy := foundResource.Spec.WorkloadUpdateStrategy
+				Expect(kvUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("1m0s"))
+				Expect(*kvUpdateStrategy.BatchEvictionSize).Should(Equal(defaultBatchEvictionSize))
+				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(2))
+				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(kubevirtv1.WorkloadUpdateMethod("aaa"), kubevirtv1.WorkloadUpdateMethod("bbb")))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should set Workload Update Strategy to defaults if missing in HCO CR", func() {
+				existingResource := NewKubeVirtWithNameOnly(hco)
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.WorkloadUpdateStrategy).ToNot(BeNil())
+				kvUpdateStrategy := foundResource.Spec.WorkloadUpdateStrategy
+				Expect(kvUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("1m0s"))
+				Expect(*kvUpdateStrategy.BatchEvictionSize).Should(Equal(defaultBatchEvictionSize))
+				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(2))
+				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(
+					ContainElements(
+						kubevirtv1.WorkloadUpdateMethodLiveMigrate,
+						kubevirtv1.WorkloadUpdateMethodEvict,
+					),
+				)
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should modify Workload Update Strategy according to HCO CR", func() {
+
+				existingKv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				modifiedBatchEvictionSize := 5
+				hco.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []string{"aaa", "bbb", "ccc"}
+				hco.Spec.WorkloadUpdateStrategy.BatchEvictionInterval = &metav1.Duration{Duration: time.Minute * 3}
+				hco.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &modifiedBatchEvictionSize
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingKv})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundKv := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingKv.Name, Namespace: existingKv.Namespace},
+						foundKv),
+				).To(BeNil())
+
+				Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(3))
+				Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).Should(
+					ContainElements(
+						kubevirtv1.WorkloadUpdateMethod("aaa"),
+						kubevirtv1.WorkloadUpdateMethod("bbb"),
+						kubevirtv1.WorkloadUpdateMethod("ccc"),
+					),
+				)
+
+				Expect(*foundKv.Spec.WorkloadUpdateStrategy.BatchEvictionInterval).Should(Equal(metav1.Duration{Duration: time.Minute * 3}))
+				Expect(*foundKv.Spec.WorkloadUpdateStrategy.BatchEvictionSize).Should(Equal(modifiedBatchEvictionSize))
+			})
+
+			It("should overwrite Workload Update Strategy if directly set on KV CR", func() {
+
+				hcoModifiedBatchEvictionSize := 5
+				kvModifiedBatchEvictionSize := 7
+
+				hco.Spec.WorkloadUpdateStrategy = &hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
+					WorkloadUpdateMethods: []string{"LiveMigrate"},
+					BatchEvictionInterval: &metav1.Duration{Duration: time.Minute * 5},
+					BatchEvictionSize:     &hcoModifiedBatchEvictionSize,
+				}
+
+				existingKV, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Mock a reconciliation triggered by a change in KV CR")
+				req.HCOTriggered = false
+
+				By("Modify KV's Workload Update Strategy configuration")
+				existingKV.Spec.WorkloadUpdateStrategy.BatchEvictionInterval = &metav1.Duration{Duration: 3 * time.Minute}
+				existingKV.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &kvModifiedBatchEvictionSize
+				existingKV.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []kubevirtv1.WorkloadUpdateMethod{kubevirtv1.WorkloadUpdateMethodEvict}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingKV})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundKV := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingKV.Name, Namespace: existingKV.Namespace},
+						foundKV),
+				).To(BeNil())
+
+				Expect(existingKV.Spec.CertificateRotationStrategy).ToNot(BeNil())
+				existingUpdateStrategy := existingKV.Spec.WorkloadUpdateStrategy
+				Expect(existingUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(1))
+				Expect(existingUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(
+					kubevirtv1.WorkloadUpdateMethodEvict,
+				))
+				Expect(*existingUpdateStrategy.BatchEvictionSize).Should(Equal(kvModifiedBatchEvictionSize))
+				Expect(existingUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("3m0s"))
+
+				Expect(foundKV.Spec.CertificateRotationStrategy).ToNot(BeNil())
+				foundUpdateStrategy := foundKV.Spec.WorkloadUpdateStrategy
+				Expect(foundUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(1))
+				Expect(foundUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(
+					kubevirtv1.WorkloadUpdateMethodLiveMigrate,
+				))
+				Expect(*foundUpdateStrategy.BatchEvictionSize).Should(Equal(hcoModifiedBatchEvictionSize))
+				Expect(foundUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("5m0s"))
+			})
+		})
+
 		It("should handle conditions", func() {
 			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
