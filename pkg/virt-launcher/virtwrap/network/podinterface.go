@@ -718,13 +718,9 @@ func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
 		return err
 	}
 
-	b.setDefaultCidr(iptables.ProtocolIPv4)
-	vmIPv4Addr, gatewayIPv4, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv4)
-	if err != nil {
+	if err := b.configureIPv4Addresses(); err != nil {
 		return err
 	}
-	b.podIfaceIPv4Addr = *vmIPv4Addr
-	b.gatewayAddr = gatewayIPv4
 
 	ipv6Enabled, err := b.handler.IsIpv6Enabled(b.podInterfaceName)
 	if err != nil {
@@ -732,15 +728,33 @@ func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
 		return err
 	}
 	if ipv6Enabled {
-		b.setDefaultCidr(iptables.ProtocolIPv6)
-		vmIPv6Addr, gatewayIPv6, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv6)
-		if err != nil {
+		if err := b.configureIPv6Addresses(); err != nil {
 			return err
 		}
-		b.podIfaceIPv6Addr = *vmIPv6Addr
-		b.gatewayIpv6Addr = gatewayIPv6
 	}
 
+	return nil
+}
+
+func (b *MasqueradeBindMechanism) configureIPv4Addresses() error {
+	b.setDefaultCidr(iptables.ProtocolIPv4)
+	vmIPv4Addr, gatewayIPv4, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv4)
+	if err != nil {
+		return err
+	}
+	b.podIfaceIPv4Addr = *vmIPv4Addr
+	b.gatewayAddr = gatewayIPv4
+	return nil
+}
+
+func (b *MasqueradeBindMechanism) configureIPv6Addresses() error {
+	b.setDefaultCidr(iptables.ProtocolIPv6)
+	vmIPv6Addr, gatewayIPv6, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv6)
+	if err != nil {
+		return err
+	}
+	b.podIfaceIPv6Addr = *vmIPv6Addr
+	b.gatewayIpv6Addr = gatewayIPv6
 	return nil
 }
 
