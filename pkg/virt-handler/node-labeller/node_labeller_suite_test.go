@@ -24,11 +24,9 @@ package nodelabeller_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestNodeLabeller(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "NodeLabeller Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "NodeLabeller Suite")
 }

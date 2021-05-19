@@ -660,6 +660,7 @@ const (
 	CPUFeatureLabel = "cpu-feature.node.kubevirt.io/"
 	// This laberepresents supported cpu models on the node
 	CPUModelLabel = "cpu-model.node.kubevirt.io/"
+	CPUTimerLabel = "cpu-timer.node.kubevirt.io/"
 	// This label represents supported HyperV features on the node
 	HypervLabel = "hyperv.node.kubevirt.io/"
 	// This label represents vendor of cpu model on the node

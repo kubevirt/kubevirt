@@ -1,0 +1,8 @@
+<cpu mode='custom' match='exact'>
+    <model fallback='forbid'>Skylake-Client-IBRS</model>
+    <vendor>Intel</vendor>
+    <feature policy='require' name='apic'/>
+    <feature policy='require' name='clflush'/>
+    <feature policy='require' name='vmx'/>
+    <feature policy='require' name='xsaves'/>
+</cpu>
