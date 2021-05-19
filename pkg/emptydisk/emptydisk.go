@@ -11,22 +11,25 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-var EmptyDiskBaseDir = "/var/run/libvirt/empty-disks/"
+const emptyDiskBaseDir = "/var/run/libvirt/empty-disks/"
 
-func CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
+type emptyDiskCreator struct {
+	emptyDiskBaseDir string
+	discCreateFunc   func(filePath string, size string) error
+}
 
+func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 
 		if volume.EmptyDisk != nil {
 			// qemu-img takes the size in bytes or in Kibibytes/Mebibytes/...; lets take bytes
 			size := strconv.FormatInt(volume.EmptyDisk.Capacity.ToDec().ScaledValue(0), 10)
-			file := FilePathForVolumeName(volume.Name)
-			if err := util.MkdirAllWithNosec(EmptyDiskBaseDir); err != nil {
+			file := filePathForVolumeName(c.emptyDiskBaseDir, volume.Name)
+			if err := util.MkdirAllWithNosec(c.emptyDiskBaseDir); err != nil {
 				return err
 			}
 			if _, err := os.Stat(file); os.IsNotExist(err) {
-				// #nosec No risk for attacket injection. Parameters are predefined strings
-				if err := exec.Command("qemu-img", "create", "-f", "qcow2", file, size).Run(); err != nil {
+				if err := c.discCreateFunc(file, size); err != nil {
 					return err
 				}
 			} else if err != nil {
@@ -41,6 +44,22 @@ func CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func FilePathForVolumeName(volumeName string) string {
-	return path.Join(EmptyDiskBaseDir, volumeName+".qcow2")
+func (c *emptyDiskCreator) FilePathForVolumeName(volumeName string) string {
+	return filePathForVolumeName(c.emptyDiskBaseDir, volumeName)
+}
+
+func filePathForVolumeName(basedir string, volumeName string) string {
+	return path.Join(basedir, volumeName+".qcow2")
+}
+
+func createQCOW(file string, size string) error {
+	// #nosec No risk for attacket injection. Parameters are predefined strings
+	return exec.Command("qemu-img", "create", "-f", "qcow2", file, size).Run()
+}
+
+func NewEmptyDiskCreator() *emptyDiskCreator {
+	return &emptyDiskCreator{
+		emptyDiskBaseDir: emptyDiskBaseDir,
+		discCreateFunc:   createQCOW,
+	}
 }

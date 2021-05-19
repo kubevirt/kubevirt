@@ -93,6 +93,7 @@ type volumeMounter struct {
 	mountRecords         map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock     sync.Mutex
 	skipSafetyCheck      bool
+	hotplugDiskManager   hotplugdisk.HotplugDiskManagerInterface
 }
 
 // VolumeMounter is the interface used to mount and unmount volumes to/from a running virtlauncher pod.
@@ -121,6 +122,7 @@ func NewVolumeMounter(isoDetector isolation.PodIsolationDetector, mountStateDir 
 		podIsolationDetector: isoDetector,
 		mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
 		mountStateDir:        mountStateDir,
+		hotplugDiskManager:   hotplugdisk.NewHotplugDiskManager(),
 	}
 }
 
@@ -292,7 +294,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		// This is not the node the pod is running on.
 		return nil
 	}
-	targetPath, err := hotplugdisk.GetHotplugTargetPodPathOnHost(virtlauncherUID)
+	targetPath, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(virtlauncherUID)
 	if err != nil {
 		return err
 	}
@@ -546,7 +548,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		// This is not the node the pod is running on.
 		return nil
 	}
-	targetPath, err := hotplugdisk.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, true)
+	targetPath, err := m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, true)
 	if err != nil {
 		return err
 	}
@@ -634,7 +636,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 		currentHotplugPaths := make(map[string]types.UID, 0)
 		virtlauncherUID := m.findVirtlauncherUID(vmi)
 
-		basePath, err := hotplugdisk.GetHotplugTargetPodPathOnHost(virtlauncherUID)
+		basePath, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(virtlauncherUID)
 		if err != nil {
 			return err
 		}
@@ -646,7 +648,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 				path := filepath.Join(basePath, volumeStatus.Name)
 				currentHotplugPaths[path] = virtlauncherUID
 			} else {
-				path, err := hotplugdisk.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
+				path, err := m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
 				if err != nil {
 					return err
 				}
@@ -766,7 +768,7 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		// This is not the node the pod is running on.
 		return false, fmt.Errorf("Unable to determine virt-launcher UID")
 	}
-	targetPath, err := hotplugdisk.GetHotplugTargetPodPathOnHost(virtlauncherUID)
+	targetPath, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(virtlauncherUID)
 	if err != nil {
 		return false, err
 	}

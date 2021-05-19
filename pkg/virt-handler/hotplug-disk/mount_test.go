@@ -74,6 +74,7 @@ var _ = Describe("HotplugVolume mount target records", func() {
 			podIsolationDetector: &mockIsolationDetector{},
 			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
 			mountStateDir:        tempDir,
+			hotplugDiskManager:   hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 		}
 		record = &vmiMountTargetRecord{
 			MountTargetEntries: []vmiMountTargetEntry{
@@ -181,6 +182,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
 			mountStateDir:        tempDir,
 			skipSafetyCheck:      true,
+			hotplugDiskManager:   hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 		}
 		record = &vmiMountTargetRecord{}
 
@@ -237,8 +239,11 @@ var _ = Describe("HotplugVolume block devices", func() {
 
 	It("mountBlockHotplugVolume and unmountBlockHotplugVolumes should make appropriate calls", func() {
 		blockSourcePodUID := types.UID("fghij")
-		hotplugdisk.SetKubeletPodsDirectory(tempDir)
-		targetPodPath := filepath.Join(tempDir, string(m.findVirtlauncherUID(vmi)), "volumes/kubernetes.io~empty-dir/hotplug-disks")
+		mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
+			Expect(os.MkdirAll(deviceName, 0755)).To(Succeed())
+			return []byte("Yay"), nil
+		}
+		targetPodPath := hotplugdisk.TargetPodBasePath(tempDir, m.findVirtlauncherUID(vmi))
 		err = os.MkdirAll(targetPodPath, 0755)
 		Expect(err).ToNot(HaveOccurred())
 		deviceFile := filepath.Join(tempDir, string(blockSourcePodUID), "volumes", "file")
@@ -587,6 +592,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 			podIsolationDetector: &mockIsolationDetector{},
 			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
 			mountStateDir:        tempDir,
+			hotplugDiskManager:   hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 		}
 
 		deviceBasePath = func(sourceUID types.UID) string {
@@ -714,8 +720,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		diskFile := filepath.Join(path, "disk.img")
 		_, err := os.Create(diskFile)
 		Expect(err).ToNot(HaveOccurred())
-		hotplugdisk.SetKubeletPodsDirectory(tempDir)
-		targetPodPath := filepath.Join(tempDir, string(m.findVirtlauncherUID(vmi)), "volumes/kubernetes.io~empty-dir/hotplug-disks")
+		targetPodPath := hotplugdisk.TargetPodBasePath(tempDir, m.findVirtlauncherUID(vmi))
 		err = os.MkdirAll(targetPodPath, 0755)
 		Expect(err).ToNot(HaveOccurred())
 		targetFilePath := filepath.Join(targetPodPath, "testvolume")
@@ -805,6 +810,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
 			mountStateDir:        tempDir,
 			skipSafetyCheck:      true,
+			hotplugDiskManager:   hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 		}
 
 		deviceBasePath = func(sourceUID types.UID) string {
@@ -899,8 +905,11 @@ var _ = Describe("HotplugVolume volumes", func() {
 		diskFile := filepath.Join(fileSystemPath, "disk.img")
 		_, err = os.Create(diskFile)
 		Expect(err).ToNot(HaveOccurred())
-		hotplugdisk.SetKubeletPodsDirectory(tempDir)
-		targetPodPath := filepath.Join(tempDir, string(m.findVirtlauncherUID(vmi)), "volumes/kubernetes.io~empty-dir/hotplug-disks")
+		targetPodPath := hotplugdisk.TargetPodBasePath(tempDir, m.findVirtlauncherUID(vmi))
+		mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
+			Expect(os.MkdirAll(deviceName, 0755)).To(Succeed())
+			return []byte("Yay"), nil
+		}
 		err = os.MkdirAll(targetPodPath, 0755)
 		fileSystemVolume := filepath.Join(tempDir, "/abcd/volumes/kubernetes.io~empty-dir/hotplug-disks/filesystemvolume")
 		blockVolume := filepath.Join(tempDir, "/abcd/volumes/kubernetes.io~empty-dir/hotplug-disks/blockvolume")
@@ -962,6 +971,9 @@ var _ = Describe("HotplugVolume volumes", func() {
 		blockSourcePodUID := types.UID("klmno")
 		fsSourcePodUID := types.UID("fghij")
 		volumeStatuses := make([]v1.VolumeStatus, 0)
+		mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
+			return []byte("Yay"), nil
+		}
 		volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
 			Name: "permanent",
 		})
@@ -1025,8 +1037,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 		diskFile := filepath.Join(fileSystemPath, "disk.img")
 		_, err = os.Create(diskFile)
 		Expect(err).ToNot(HaveOccurred())
-		hotplugdisk.SetKubeletPodsDirectory(tempDir)
-		targetPodPath := filepath.Join(tempDir, string(m.findVirtlauncherUID(vmi)), "volumes/kubernetes.io~empty-dir/hotplug-disks")
+		targetPodPath := hotplugdisk.TargetPodBasePath(tempDir, m.findVirtlauncherUID(vmi))
 		err = os.MkdirAll(targetPodPath, 0755)
 		fileSystemVolume := filepath.Join(tempDir, "/abcd/volumes/kubernetes.io~empty-dir/hotplug-disks/filesystemvolume")
 		blockVolume := filepath.Join(tempDir, "/abcd/volumes/kubernetes.io~empty-dir/hotplug-disks/blockvolume")
@@ -1056,8 +1067,6 @@ var _ = Describe("HotplugVolume volumes", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(bytes).To(Equal(expectedBytes))
 		_, err = os.Stat(fileSystemVolume)
-		Expect(err).ToNot(HaveOccurred())
-		_, err = os.Stat(blockVolume)
 		Expect(err).ToNot(HaveOccurred())
 
 		err = m.UnmountAll(vmi)

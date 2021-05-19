@@ -146,8 +146,7 @@ func startDomainEventMonitoring(
 	}
 }
 
-func initializeDirs(virtShareDir string,
-	ephemeralDiskDir string,
+func initializeDirs(ephemeralDiskDir string,
 	containerDiskDir string,
 	hotplugDiskDir string,
 	uid string) {
@@ -177,12 +176,7 @@ func initializeDirs(virtShareDir string,
 		panic(err)
 	}
 
-	err = hotplugdisk.SetLocalDirectory(hotplugDiskDir)
-	if err != nil {
-		panic(err)
-	}
-
-	err = ephemeraldisk.SetLocalDirectory(ephemeralDiskDir + "/disk-data")
+	err = hotplugdisk.CreateLocalDirectory(hotplugDiskDir)
 	if err != nil {
 		panic(err)
 	}
@@ -386,7 +380,11 @@ func main() {
 	vmi := v1.NewVMIReferenceWithUUID(*namespace, *name, types.UID(*uid))
 
 	// Initialize local and shared directories
-	initializeDirs(*virtShareDir, *ephemeralDiskDir, *containerDiskDir, *hotplugDiskDir, *uid)
+	initializeDirs(*ephemeralDiskDir, *containerDiskDir, *hotplugDiskDir, *uid)
+	ephemeralDiskCreator := ephemeraldisk.NewEphemeralDiskCreator(filepath.Join(*ephemeralDiskDir, "disk-data"))
+	if err := ephemeralDiskCreator.Init(); err != nil {
+		panic(err)
+	}
 
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
@@ -408,7 +406,7 @@ func main() {
 	notifier := notifyclient.NewNotifier(*virtShareDir)
 	defer notifier.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration, &agentStore, *ovmfPath)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration, &agentStore, *ovmfPath, ephemeralDiskCreator)
 	if err != nil {
 		panic(err)
 	}

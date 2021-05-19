@@ -123,6 +123,7 @@ type LibvirtDomainManager struct {
 	setGuestTimeContextPtr   *contextStore
 	ovmfPath                 string
 	networkCacheStoreFactory cache.InterfaceCacheFactory
+	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 }
 
 type hostDeviceTypePrefix struct {
@@ -153,7 +154,7 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 	return ok
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, agentStore *agentpoller.AsyncAgentStore, ovmfPath string) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:                connection,
 		virtShareDir:           virtShareDir,
@@ -165,6 +166,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		agentData:                agentStore,
 		ovmfPath:                 ovmfPath,
 		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
+		ephemeralDiskCreator:     ephemeralDiskCreator,
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
@@ -463,17 +465,17 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// Create ephemeral disk for container disks
-	err = containerdisk.CreateEphemeralImages(vmi)
+	err = containerdisk.CreateEphemeralImages(vmi, l.ephemeralDiskCreator)
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
 	// Create images for volumes that are marked ephemeral.
-	err = ephemeraldisk.CreateEphemeralImages(vmi)
+	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi)
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral images failed: %v", err)
 	}
 	// create empty disks if they exist
-	if err := emptydisk.CreateTemporaryDisks(vmi); err != nil {
+	if err := emptydisk.NewEmptyDiskCreator().CreateTemporaryDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)
 	}
 	// create ConfigMap disks if they exists
@@ -693,6 +695,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		OVMFPath:              l.ovmfPath,
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
+		EphemeraldiskCreator:  l.ephemeralDiskCreator,
 	}
 
 	if options != nil {

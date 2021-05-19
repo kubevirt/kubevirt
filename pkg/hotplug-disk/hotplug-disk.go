@@ -30,30 +30,55 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
+const (
+	hotplugDisksKubeletVolumePath = "volumes/kubernetes.io~empty-dir/hotplug-disks"
+)
+
 var (
-	podsBaseDir = filepath.Join(util.HostRootMount, util.KubeletPodsDir)
-
-	mountBaseDir = filepath.Join(util.VirtShareDir, "/hotplug-disks")
-
-	targetPodBasePath = func(podUID types.UID) string {
-		return fmt.Sprintf("%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID))
+	// visible for testing
+	TargetPodBasePath = func(podBaseDir string, podUID types.UID) string {
+		return filepath.Join(podBaseDir, string(podUID), hotplugDisksKubeletVolumePath)
 	}
 )
 
+type HotplugDiskManagerInterface interface {
+	GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (string, error)
+	GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error)
+}
+
+func NewHotplugDiskManager() *hotplugDiskManager {
+	return &hotplugDiskManager{
+		podsBaseDir:       filepath.Join(util.HostRootMount, util.KubeletPodsDir),
+		targetPodBasePath: TargetPodBasePath,
+	}
+}
+
+func NewHotplugDiskWithOptions(podsBaseDir string) *hotplugDiskManager {
+	return &hotplugDiskManager{
+		podsBaseDir:       podsBaseDir,
+		targetPodBasePath: TargetPodBasePath,
+	}
+}
+
+type hotplugDiskManager struct {
+	podsBaseDir       string
+	targetPodBasePath func(podBaseDir string, podUID types.UID) string
+}
+
 // GetHotplugTargetPodPathOnHost retrieves the target pod (virt-launcher) path on the host.
-func GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (string, error) {
-	podpath := targetPodBasePath(virtlauncherPodUID)
-	exists, _ := diskutils.FileExists(filepath.Join(podsBaseDir, podpath))
+func (h *hotplugDiskManager) GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (string, error) {
+	podpath := TargetPodBasePath(h.podsBaseDir, virtlauncherPodUID)
+	exists, _ := diskutils.FileExists(podpath)
 	if exists {
-		return filepath.Join(podsBaseDir, podpath), nil
+		return podpath, nil
 	}
 
-	return "", fmt.Errorf("Unable to locate target path")
+	return "", fmt.Errorf("Unable to locate target path: %s", podpath)
 }
 
 // GetFileSystemDiskTargetPathFromHostView gets the disk image file in the target pod (virt-launcher) on the host.
-func GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error) {
-	targetPath, err := GetHotplugTargetPodPathOnHost(virtlauncherPodUID)
+func (h *hotplugDiskManager) GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error) {
+	targetPath, err := h.GetHotplugTargetPodPathOnHost(virtlauncherPodUID)
 	if err != nil {
 		return targetPath, err
 	}
@@ -69,14 +94,8 @@ func GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volum
 	return diskFile, err
 }
 
-// SetLocalDirectory sets the base directory where disk images will be mounted when hotplugged. File system volumes will be in
+// CreateLocalDirectory creates the base directory where disk images will be mounted when hotplugged. File system volumes will be in
 // a directory under this, that contains the volume name. block volumes will be in this directory as a block device.
-func SetLocalDirectory(dir string) error {
-	mountBaseDir = dir
-	return os.MkdirAll(dir, 0750)
-}
-
-// SetKubeletPodsDirectory sets the base directory of where the kubelet stores its pods.
-func SetKubeletPodsDirectory(dir string) {
-	podsBaseDir = dir
+func CreateLocalDirectory(dir string) error {
+	return os.MkdirAll(dir, 0755)
 }

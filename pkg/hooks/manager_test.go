@@ -17,7 +17,7 @@
  *
  */
 
-package hooks_test
+package hooks
 
 import (
 	"context"
@@ -33,7 +33,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 )
@@ -85,11 +84,8 @@ var _ = Describe("HooksManager", func() {
 		var socketDir string
 
 		BeforeEach(func() {
-			var err error
-			socketDir, err = ioutil.TempDir("", "hooks-manager-test")
-			Expect(err).ToNot(HaveOccurred())
-			err = os.MkdirAll(socketDir, os.ModePerm)
-			Expect(err).ToNot(HaveOccurred())
+			socketDir, _ = ioutil.TempDir("", "hooksocketdir")
+			os.MkdirAll(socketDir, os.ModePerm)
 		})
 
 		It("Should find sidecar", func() {
@@ -101,7 +97,7 @@ var _ = Describe("HooksManager", func() {
 			defer socket.Close()
 			defer os.Remove(socketPath)
 
-			manager := hooks.NewManager(socketDir)
+			manager := newManager(socketDir)
 			err = manager.Collect(1, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -122,7 +118,7 @@ var _ = Describe("HooksManager", func() {
 				defer os.Remove(socketPath)
 			}
 
-			manager := hooks.NewManager(socketDir)
+			manager := newManager(socketDir)
 			err := manager.Collect(uint(len(hookNames)), 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -144,7 +140,7 @@ var _ = Describe("HooksManager", func() {
 				defer os.Remove(socketPath)
 			}
 
-			manager := hooks.NewManager(socketDir)
+			manager := newManager(socketDir)
 			err := manager.Collect(uint(len(hookNameMap)), 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 

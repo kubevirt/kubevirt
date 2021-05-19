@@ -58,6 +58,7 @@ go_test(
     deps = [
         "//pkg/cloud-init:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/ephemeral-disk/fake:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",

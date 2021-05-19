@@ -236,7 +236,7 @@ func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName stri
 	return containers
 }
 
-func CreateEphemeralImages(vmi *v1.VirtualMachineInstance) error {
+func CreateEphemeralImages(vmi *v1.VirtualMachineInstance, diskCreator ephemeraldisk.EphemeralDiskCreatorInterface) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetDiskTargetPartFromLauncherView)
 	// for each disk that requires it.
@@ -245,7 +245,7 @@ func CreateEphemeralImages(vmi *v1.VirtualMachineInstance) error {
 		if volume.VolumeSource.ContainerDisk != nil {
 			if backingFile, err := GetDiskTargetPartFromLauncherView(i); err != nil {
 				return err
-			} else if err := ephemeraldisk.CreateBackedImageForVolume(volume, backingFile); err != nil {
+			} else if err := diskCreator.CreateBackedImageForVolume(volume, backingFile); err != nil {
 				return err
 			}
 		}
