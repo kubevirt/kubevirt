@@ -226,4 +226,10 @@
 #endif
 
 
+/* 7.0.0 */
+
+#ifndef VIR_ERR_MULTIPLE_DOMAINS
+#define VIR_ERR_MULTIPLE_DOMAINS 110
+#endif
+
 #endif /* LIBVIRT_GO_ERROR_COMPAT_H__ */

@@ -84,5 +84,14 @@ int
 virNodeDeviceResetWrapper(virNodeDevicePtr dev,
                           virErrorPtr err);
 
+int
+virNodeDeviceCreateWrapper(virNodeDevicePtr dev,
+                           unsigned int flags,
+			   virErrorPtr err);
+
+int
+virNodeDeviceUndefineWrapper(virNodeDevicePtr dev,
+                             unsigned int flags,
+			     virErrorPtr err);
 
 #endif /* LIBVIRT_GO_NODE_DEVICE_WRAPPER_H__ */

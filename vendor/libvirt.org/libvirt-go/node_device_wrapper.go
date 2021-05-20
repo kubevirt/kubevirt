@@ -180,5 +180,39 @@ virNodeDeviceResetWrapper(virNodeDevicePtr dev,
 }
 
 
+int
+virNodeDeviceCreateWrapper(virNodeDevicePtr dev,
+                           unsigned int flags,
+                           virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 7003000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virNodeDeviceCreate(dev, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
+int
+virNodeDeviceUndefineWrapper(virNodeDevicePtr dev,
+                             unsigned int flags,
+                             virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 7003000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virNodeDeviceUndefine(dev, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
 */
 import "C"
