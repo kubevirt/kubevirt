@@ -5053,7 +5053,8 @@ var CRDsValidation map[string]string = map[string]string{
             cluster
           type: boolean
         printableStatus:
-          description: PrintableStatus is a human readable, high-level representation of the status of the virtual machine
+          description: PrintableStatus is a human readable, high-level representation
+            of the status of the virtual machine
           type: string
         ready:
           description: Ready indicates if the virtual machine is running and ready
@@ -14558,7 +14559,8 @@ var CRDsValidation map[string]string = map[string]string{
                         in the cluster
                       type: boolean
                     printableStatus:
-                      description: PrintableStatus is a human readable, high-level representation of the status of the virtual machine
+                      description: PrintableStatus is a human readable, high-level
+                        representation of the status of the virtual machine
                       type: string
                     ready:
                       description: Ready indicates if the virtual machine is running
