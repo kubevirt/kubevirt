@@ -88,11 +88,11 @@ var _ = Describe("DHCP configurator", func() {
 
 		BeforeEach(func() {
 			dhcpConfig = cache.DhcpConfig{
-				Name:         ifaceName,
-				IP:           netlink.Addr{},
-				Gateway:      advertisingAddr.IP,
-				Mtu:          1400,
-				IPAMDisabled: false,
+				Name:              ifaceName,
+				IP:                netlink.Addr{},
+				AdvertisingIPAddr: advertisingAddr.IP,
+				Mtu:               1400,
+				IPAMDisabled:      false,
 			}
 		})
 
@@ -137,11 +137,11 @@ var _ = Describe("DHCP configurator", func() {
 		When("IPAM is disabled on the DhcpConfig", func() {
 			BeforeEach(func() {
 				dhcpConfig = cache.DhcpConfig{
-					Name:         ifaceName,
-					IP:           netlink.Addr{},
-					Gateway:      advertisingAddr.IP,
-					Mtu:          1400,
-					IPAMDisabled: true,
+					Name:              ifaceName,
+					IP:                netlink.Addr{},
+					AdvertisingIPAddr: advertisingAddr.IP,
+					Mtu:               1400,
+					IPAMDisabled:      true,
 				}
 			})
 

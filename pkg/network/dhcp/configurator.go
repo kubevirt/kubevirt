@@ -51,8 +51,8 @@ func (d Configurator) ImportConfiguration(ifaceName string) (*cache.DhcpConfig, 
 	if err != nil {
 		return nil, err
 	}
-	dhcpConfig.Gateway = dhcpConfig.Gateway.To4()
-	dhcpConfig.GatewayIpv6 = dhcpConfig.GatewayIpv6.To16()
+	dhcpConfig.AdvertisingIPAddr = dhcpConfig.AdvertisingIPAddr.To4()
+	dhcpConfig.AdvertisingIPv6Addr = dhcpConfig.AdvertisingIPv6Addr.To16()
 	return dhcpConfig, nil
 }
 
@@ -67,7 +67,7 @@ func (d Configurator) EnsureDhcpServerStarted(podInterfaceName string, dhcpConfi
 	dhcpStartedFile := d.getDhcpStartedFilePath(podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
-		if err := d.handler.StartDHCP(&dhcpConfig, dhcpConfig.Gateway, d.advertisingIfaceName, dhcpOptions, d.filterByMac); err != nil {
+		if err := d.handler.StartDHCP(&dhcpConfig, dhcpConfig.AdvertisingIPAddr, d.advertisingIfaceName, dhcpOptions, d.filterByMac); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}
 		newFile, err := os.Create(dhcpStartedFile)

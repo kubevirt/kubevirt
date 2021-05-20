@@ -441,11 +441,11 @@ func (b *BridgeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
 		return nil
 	}
 	dhcpConfig := &cache.DhcpConfig{
-		MAC:          *b.mac,
-		Name:         b.podInterfaceName,
-		IPAMDisabled: !b.ipamEnabled,
-		IP:           b.podIfaceIP,
-		Gateway:      fakeServerAddr.IP,
+		MAC:               *b.mac,
+		Name:              b.podInterfaceName,
+		IPAMDisabled:      !b.ipamEnabled,
+		IP:                b.podIfaceIP,
+		AdvertisingIPAddr: fakeServerAddr.IP,
 	}
 	if b.podNicLink != nil {
 		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
@@ -586,7 +586,7 @@ func (b *BridgeBindMechanism) learnInterfaceRoutes() error {
 }
 
 func (b *BridgeBindMechanism) decorateDhcpConfigRoutes(dhcpConfig *cache.DhcpConfig) {
-	dhcpConfig.Gateway = b.routes[0].Gw
+	dhcpConfig.AdvertisingIPAddr = b.routes[0].Gw
 	if len(b.routes) > 1 {
 		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.routes, dhcpConfig)
 		dhcpConfig.Routes = &dhcpRoutes
@@ -771,10 +771,10 @@ func (b *MasqueradeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
 		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
 	}
 	if b.gatewayAddr != nil {
-		dhcpConfig.Gateway = b.gatewayAddr.IP.To4()
+		dhcpConfig.AdvertisingIPAddr = b.gatewayAddr.IP.To4()
 	}
 	if b.gatewayIpv6Addr != nil {
-		dhcpConfig.GatewayIpv6 = b.gatewayIpv6Addr.IP.To16()
+		dhcpConfig.AdvertisingIPv6Addr = b.gatewayIpv6Addr.IP.To16()
 	}
 
 	return dhcpConfig

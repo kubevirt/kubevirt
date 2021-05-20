@@ -142,10 +142,10 @@ var _ = Describe("Pod Network", func() {
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		tapDeviceName = "tap0"
 		testNic = &cache.DhcpConfig{Name: primaryPodInterfaceName,
-			IP:      fakeAddr,
-			MAC:     fakeMac,
-			Mtu:     uint16(mtu),
-			Gateway: gw,
+			IP:                fakeAddr,
+			MAC:               fakeMac,
+			Mtu:               uint16(mtu),
+			AdvertisingIPAddr: gw,
 		}
 
 		masqueradeGwStr = "10.0.2.1/30"
@@ -163,12 +163,12 @@ var _ = Describe("Pod Network", func() {
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
 		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName, MTU: mtu}}
 		masqueradeTestNic = &cache.DhcpConfig{Name: primaryPodInterfaceName,
-			IP:          *masqueradeVmAddr,
-			IPv6:        *masqueradeIpv6VmAddr,
-			MAC:         fakeMac,
-			Mtu:         uint16(mtu),
-			Gateway:     masqueradeGwAddr.IP.To4(),
-			GatewayIpv6: masqueradeIpv6GwAddr.IP.To16()}
+			IP:                  *masqueradeVmAddr,
+			IPv6:                *masqueradeIpv6VmAddr,
+			MAC:                 fakeMac,
+			Mtu:                 uint16(mtu),
+			AdvertisingIPAddr:   masqueradeGwAddr.IP.To4(),
+			AdvertisingIPv6Addr: masqueradeIpv6GwAddr.IP.To16()}
 	})
 
 	AfterEach(func() {
