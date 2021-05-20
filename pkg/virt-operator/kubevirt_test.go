@@ -1217,7 +1217,9 @@ func (k *KubeVirtTestData) makeApiAndControllerReady() {
 		}
 		deplNew.Status.Replicas = replicas
 		deplNew.Status.ReadyReplicas = replicas
+		k.mockQueue.ExpectAdds(1)
 		k.deploymentSource.Modify(deplNew)
+		k.mockQueue.Wait()
 	}
 
 	for _, name := range []string{"/virt-api", "/virt-controller"} {
@@ -1259,7 +1261,9 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 			handlerNew := handler.DeepCopy()
 			handlerNew.Status.DesiredNumberScheduled = 1
 			handlerNew.Status.NumberReady = 1
+			k.mockQueue.ExpectAdds(1)
 			k.daemonSetSource.Modify(handlerNew)
+			k.mockQueue.Wait()
 		}
 	}
 }
@@ -1463,7 +1467,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 			kvTestData.addAll(kvTestData.defaultConfig, kv)
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
-			kvTestData.makeHandlerReady()
 			kvTestData.makeApiAndControllerReady()
 			kvTestData.makeHandlerReady()
 			kvTestData.shouldExpectPatchesAndUpdates()
