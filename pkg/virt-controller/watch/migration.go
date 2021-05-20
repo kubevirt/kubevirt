@@ -65,6 +65,7 @@ type MigrationController struct {
 	vmiInformer        cache.SharedIndexInformer
 	podInformer        cache.SharedIndexInformer
 	migrationInformer  cache.SharedIndexInformer
+	nodeInformer       cache.SharedIndexInformer
 	recorder           record.EventRecorder
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	migrationStartLock *sync.Mutex
@@ -76,6 +77,7 @@ func NewMigrationController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
+	nodeInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -87,6 +89,7 @@ func NewMigrationController(templateService services.TemplateService,
 		vmiInformer:        vmiInformer,
 		podInformer:        podInformer,
 		migrationInformer:  migrationInformer,
+		nodeInformer:       nodeInformer,
 		recorder:           recorder,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -475,9 +478,12 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 
 	// If cpu model is "host model" allow migration only to nodes that supports this cpu model
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel {
-		node, err := c.clientset.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, v1.GetOptions{})
+		obj, exists, err := c.nodeInformer.GetStore().GetByKey(vmi.Status.NodeName)
+		node := obj.(*k8sv1.Node)
 		if err != nil {
 			return fmt.Errorf("cannot get nodes to migrate VMI with host-model CPU. error: %v", err)
+		} else if !exists {
+			return fmt.Errorf("node \"%s\" assosiated with vmi \"%s\" does not exist", vmi.Status.NodeName, vmi.Name)
 		}
 
 		err = prepareNodeSelectorForHostCpuModel(node, templatePod)
