@@ -269,6 +269,10 @@ func getRunningJson(vm *v1.VirtualMachine, running bool) string {
 	}
 }
 
+func getUpdateTerminatingSecondsGracePeriod(gracePeriod int64) string {
+	return fmt.Sprintf("{\"spec\":{\"terminationGracePeriodSeconds\": %d }}", gracePeriod)
+}
+
 func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, response *restful.Response) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
@@ -571,6 +575,18 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
+	bodyStruct := &v1.StopOptions{}
+	if request.Request.Body != nil {
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s", err)), response)
+			return
+		}
+	}
+
 	vm, statusErr := app.fetchVirtualMachine(name, namespace)
 	if statusErr != nil {
 		writeError(statusErr, response)
@@ -599,6 +615,17 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
+
+	if bodyStruct.GracePeriod != nil {
+		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
+		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
+		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(vmi.GetName(), patchType, []byte(bodyString))
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+	}
+
 	switch runStrategy {
 	case v1.RunStrategyHalted:
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual stop requests", v1.RunStrategyHalted)), response)

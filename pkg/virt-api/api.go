@@ -233,14 +233,17 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
+		stopRouteBuilder := subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
 			To(subresourceApp.StopVMRequestHandler).
+			Reads(v1.StopOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation(version.Version+"Stop").
 			Doc("Stop a VirtualMachine object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
-			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "")
+		stopRouteBuilder.ParameterNamed("body").Required(false)
+		subws.Route(stopRouteBuilder)
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("pause")).
 			To(subresourceApp.PauseVMIRequestHandler).

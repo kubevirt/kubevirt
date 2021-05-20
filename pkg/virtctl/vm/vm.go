@@ -87,6 +87,9 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
+
+	cmd.Flags().BoolVar(&forceRestart, "force", forceRestart, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
+	cmd.Flags().IntVar(&gracePeriod, "grace-period", gracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -339,6 +342,20 @@ func (o *Command) Run(args []string) error {
 			return fmt.Errorf("Error starting VirtualMachine %v", err)
 		}
 	case COMMAND_STOP:
+		if gracePeriod != -1 && forceRestart == false {
+			return fmt.Errorf("Can not set gracePeriod without --force=true")
+		}
+		if forceRestart {
+			if gracePeriod != -1 {
+				err = virtClient.VirtualMachine(namespace).ForceStop(vmiName, gracePeriod)
+				if err != nil {
+					return fmt.Errorf("Error force stoping VirtualMachine, %v", err)
+				}
+			} else if gracePeriod == -1 {
+				return fmt.Errorf("Can not force stop without gracePeriod")
+			}
+			break
+		}
 		err = virtClient.VirtualMachine(namespace).Stop(vmiName)
 		if err != nil {
 			return fmt.Errorf("Error stopping VirtualMachine %v", err)

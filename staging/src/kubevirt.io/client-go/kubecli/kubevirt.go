@@ -209,6 +209,7 @@ type VirtualMachineInterface interface {
 	ForceRestart(name string, graceperiod int) error
 	Start(name string, startOptions *v1.StartOptions) error
 	Stop(name string) error
+	ForceStop(name string, graceperiod int) error
 	Migrate(name string) error
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
