@@ -32,6 +32,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
+	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/errors"
@@ -904,11 +905,16 @@ func (b *MasqueradeBindMechanism) createBridge() error {
 		return err
 	}
 
+	mac, err := net.ParseMAC(network.StaticMasqueradeBridgeMAC)
+	if err != nil {
+		return err
+	}
 	// Create a bridge
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: b.bridgeInterfaceName,
-			MTU:  int(b.dhcpConfig.Mtu),
+			Name:         b.bridgeInterfaceName,
+			MTU:          int(b.dhcpConfig.Mtu),
+			HardwareAddr: mac,
 		},
 	}
 	err = b.handler.LinkAdd(bridge)
