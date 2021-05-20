@@ -39,6 +39,7 @@ import (
 )
 
 const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
+const skipSidecarTestsMessage = "Sidecar is not supported in Kubevirt"
 
 var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 
@@ -88,6 +89,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", func() {
 	}
 
 	BeforeEach(func() {
+		Skip(skipSidecarTestsMessage)
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 

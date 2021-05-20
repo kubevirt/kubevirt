@@ -773,7 +773,6 @@ func AdjustKubeVirtResource() {
 		virtconfig.CPUManager,
 		virtconfig.LiveMigrationGate,
 		virtconfig.IgnitionGate,
-		virtconfig.SidecarGate,
 		virtconfig.SnapshotGate,
 		virtconfig.HostDiskGate,
 		virtconfig.VirtIOFSGate,

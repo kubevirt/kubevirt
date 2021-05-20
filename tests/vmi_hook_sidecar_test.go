@@ -54,6 +54,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
+		Skip(skipSidecarTestsMessage)
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 
