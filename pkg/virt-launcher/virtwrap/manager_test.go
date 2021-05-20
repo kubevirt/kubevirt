@@ -880,6 +880,30 @@ var _ = Describe("Manager", func() {
 
 			manager.MarkGracefulShutdownVMI(vmi)
 		})
+
+		It("Should signal graceful shutdown after marked for shutdown", func() {
+			mockDomain.EXPECT().Free().AnyTimes()
+
+			vmi := newVMI(testNamespace, testVmName)
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).To(BeNil())
+
+			Expect(err).To(BeNil())
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return(`<kubevirt><graceperiod><deletionGracePeriodSeconds>3600</deletionGracePeriodSeconds><deletionTimestamp>2021-03-11T09:08:20.144606353Z</deletionTimestamp><markedForGracefulShutdown>true</markedForGracefulShutdown></graceperiod></kubevirt>`, nil)
+
+			mockDomain.EXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN).Times(1).Return(nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+			manager.SignalShutdownVMI(vmi)
+		})
 	})
 	Context("test migration monitor", func() {
 		It("migration should be canceled if it's not progressing", func() {
