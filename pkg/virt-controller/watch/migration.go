@@ -649,6 +649,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		}
 	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady, virtv1.MigrationFailed:
 		if (!podExists || podIsDown(pod)) &&
+			vmi.Status.MigrationState != nil &&
 			len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 &&
 			vmi.Status.MigrationState.StartTimestamp == nil &&
 			!vmi.Status.MigrationState.Failed &&
