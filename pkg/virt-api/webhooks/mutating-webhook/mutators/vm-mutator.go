@@ -101,7 +101,13 @@ func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {
 		// nothing to do, let's the validating webhook fail later
 		return
 	}
-	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
-		vm.Spec.Template.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType()
+	machineType := mutator.ClusterConfig.GetMachineType()
+
+	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil {
+		if machine.Type == "" {
+			machine.Type = machineType
+		}
+	} else {
+		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 	}
 }

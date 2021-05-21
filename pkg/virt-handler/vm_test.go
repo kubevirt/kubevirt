@@ -3094,7 +3094,7 @@ func NewScheduledVMIWithContainerDisk(vmiUID types.UID, podUID types.UID, hostna
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: "test",
 		VolumeSource: v1.VolumeSource{
-			ContainerDisk: &v1.ContainerDiskSource{},
+			ContainerDisk: testutils.NewFakeContainerDiskSource(),
 		},
 	})
 	return vmi

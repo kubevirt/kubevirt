@@ -23,8 +23,6 @@ spec:
           port: 80
           protocol: TCP
       rng: {}
-    machine:
-      type: ""
     resources:
       requests:
         memory: 1024M

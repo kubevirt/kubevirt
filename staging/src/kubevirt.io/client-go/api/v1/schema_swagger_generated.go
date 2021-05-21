@@ -174,7 +174,7 @@ func (Hugepages) SwaggerDoc() map[string]string {
 func (Machine) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "+k8s:openapi-gen=true",
-		"type": "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
+		"type": "QEMU machine type is the actual chipset of the VirtualMachineInstance.\n+optional",
 	}
 }
 

@@ -45,8 +45,6 @@ objects:
               name: default
             networkInterfaceMultiqueue: true
             rng: {}
-          machine:
-            type: ""
           resources:
             requests:
               memory: ${MEMORY}

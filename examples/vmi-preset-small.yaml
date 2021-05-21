@@ -6,8 +6,6 @@ metadata:
 spec:
   domain:
     devices: {}
-    machine:
-      type: ""
     resources:
       requests:
         memory: 128Mi

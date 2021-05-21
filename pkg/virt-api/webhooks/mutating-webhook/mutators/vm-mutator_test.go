@@ -112,7 +112,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vm.Spec.Template.Spec.Domain.Machine.Type = "q35"
+		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
 
 		vmSpec, _ := getVMSpecMetaFromResponse()
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))

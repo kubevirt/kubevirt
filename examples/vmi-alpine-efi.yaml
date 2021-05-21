@@ -16,8 +16,6 @@ spec:
       bootloader:
         efi:
           secureBoot: false
-    machine:
-      type: ""
     resources:
       requests:
         memory: 1Gi

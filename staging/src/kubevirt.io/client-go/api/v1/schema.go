@@ -196,7 +196,7 @@ type DomainSpec struct {
 	Memory *Memory `json:"memory,omitempty"`
 	// Machine type.
 	// +optional
-	Machine Machine `json:"machine,omitempty"`
+	Machine *Machine `json:"machine,omitempty"`
 	// Firmware.
 	// +optional
 	Firmware *Firmware `json:"firmware,omitempty"`
@@ -356,6 +356,7 @@ type Hugepages struct {
 // +k8s:openapi-gen=true
 type Machine struct {
 	// QEMU machine type is the actual chipset of the VirtualMachineInstance.
+	// +optional
 	Type string `json:"type"`
 }
 

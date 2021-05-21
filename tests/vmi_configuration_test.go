@@ -1686,7 +1686,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		It("[test_id:3124]should set machine type from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine.Type = "pc"
+			vmi.Spec.Domain.Machine = &v1.Machine{Type: "pc"}
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
@@ -1694,9 +1694,20 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
 		})
 
-		It("[test_id:3125]should set default machine type when it is not provided", func() {
+		It("[test_id:3125]should allow creating VM without Machine defined", func() {
 			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine.Type = ""
+			vmi.Spec.Domain.Machine = nil
+			tests.RunVMIAndExpectLaunch(vmi, 30)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
+		})
+
+		It("should allow creating VM defined with Machine with an empty Type", func() {
+			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Machine = &v1.Machine{Type: ""}
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
@@ -1712,7 +1723,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine.Type = ""
+			vmi.Spec.Domain.Machine = nil
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 

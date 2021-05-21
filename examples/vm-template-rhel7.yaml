@@ -41,8 +41,6 @@ objects:
               model: virtio
               name: default
             networkInterfaceMultiqueue: true
-          machine:
-            type: ""
           resources:
             requests:
               memory: ${MEMORY}

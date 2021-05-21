@@ -19,8 +19,6 @@ spec:
       - deviceName: nvidia.com/GP102GL_Tesla_P40
         name: gpu1
       rng: {}
-    machine:
-      type: ""
     resources:
       requests:
         memory: 1024M

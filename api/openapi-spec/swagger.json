@@ -10553,9 +10553,6 @@
    },
    "v1.Machine": {
     "type": "object",
-    "required": [
-     "type"
-    ],
     "properties": {
      "type": {
       "description": "QEMU machine type is the actual chipset of the VirtualMachineInstance.",

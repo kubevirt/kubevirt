@@ -12,8 +12,6 @@ spec:
       - disk:
           bus: sata
         name: containerdisk
-    machine:
-      type: ""
     resources:
       requests:
         memory: 128Mi

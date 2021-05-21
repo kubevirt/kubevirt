@@ -18,8 +18,6 @@ spec:
       - disk:
           bus: virtio
         name: emptydisk
-    machine:
-      type: ""
     resources:
       requests:
         memory: 128Mi

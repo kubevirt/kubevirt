@@ -299,7 +299,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testdisk",
 			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{},
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
 			},
 		})
 		vmiBytes, _ := json.Marshal(&vmi)
@@ -451,11 +451,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should accept valid machine type", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			if webhooks.IsPPC64() {
-				vmi.Spec.Domain.Machine.Type = "pseries"
+				vmi.Spec.Domain.Machine = &v1.Machine{Type: "pseries"}
 			} else if webhooks.IsARM64() {
-				vmi.Spec.Domain.Machine.Type = "virt"
+				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
 			} else {
-				vmi.Spec.Domain.Machine.Type = "q35"
+				vmi.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -463,7 +463,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject invalid machine type", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Machine.Type = "test"
+			vmi.Spec.Domain.Machine = &v1.Machine{Type: "test"}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
@@ -515,7 +515,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: diskName,
 					VolumeSource: v1.VolumeSource{
-						ContainerDisk: &v1.ContainerDiskSource{},
+						ContainerDisk: testutils.NewFakeContainerDiskSource(),
 					},
 				})
 			}
@@ -547,7 +547,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: volumeName,
 					VolumeSource: v1.VolumeSource{
-						ContainerDisk: &v1.ContainerDiskSource{},
+						ContainerDisk: testutils.NewFakeContainerDiskSource(),
 					},
 				})
 			}
@@ -597,7 +597,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testdisk",
 				VolumeSource: v1.VolumeSource{
-					ContainerDisk: &v1.ContainerDiskSource{},
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
 				},
 			})
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -939,7 +939,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				&v1.Volume{
 					Name: "testdisk",
 					VolumeSource: v1.VolumeSource{
-						ContainerDisk: &v1.ContainerDiskSource{},
+						ContainerDisk: testutils.NewFakeContainerDiskSource(),
 					},
 				}, 1),
 			table.Entry("and accept PVC sources",
@@ -1015,7 +1015,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: volumeName,
 					VolumeSource: v1.VolumeSource{
-						ContainerDisk: &v1.ContainerDiskSource{},
+						ContainerDisk: testutils.NewFakeContainerDiskSource(),
 					},
 				})
 			}
@@ -1037,9 +1037,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, []v1.Volume{
 				{Name: "testvolume1", VolumeSource: v1.VolumeSource{
-					ContainerDisk: &v1.ContainerDiskSource{}}},
+					ContainerDisk: testutils.NewFakeContainerDiskSource()}},
 				{Name: "testvolume2", VolumeSource: v1.VolumeSource{
-					ContainerDisk: &v1.ContainerDiskSource{}}}}...)
+					ContainerDisk: testutils.NewFakeContainerDiskSource()}}}...)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
@@ -3546,7 +3546,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		volume := v1.Volume{
 			Name: "testdisk",
 			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{},
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
 			},
 		}
 
@@ -3579,7 +3579,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		volume := v1.Volume{
 			Name: "testdisk",
 			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{},
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
 			},
 		}
 		spec.Volumes = []v1.Volume{volume}

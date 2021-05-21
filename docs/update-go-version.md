@@ -8,8 +8,7 @@ In addition, [go rules for bazel](https://github.com/bazelbuild/rules_go) have t
 
 ## Updating Go Version
 ### Updating builder image
-* Update `VERSION` tag in [hack/builder/version.sh](../hack/builder/version.sh).
-  * For example, change from `VERSION=30-9.0.3` to `VERSION=30-9.0.4`
+
 * Change the `GIMME_GO` version in the [hack/builder/Dockerfile](../hack/builder/Dockerfile) to the desired Go version.
 * Rebuild the builder image by executing `make builder-build`.
   

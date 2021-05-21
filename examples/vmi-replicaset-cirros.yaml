@@ -19,8 +19,6 @@ spec:
           - disk:
               bus: virtio
             name: containerdisk
-        machine:
-          type: ""
         resources:
           requests:
             memory: 128Mi

@@ -21,8 +21,6 @@ spec:
       - name: sriov-net
         sriov: {}
       rng: {}
-    machine:
-      type: ""
     resources:
       requests:
         memory: 1024M

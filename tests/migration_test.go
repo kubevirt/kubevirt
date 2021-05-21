@@ -1376,7 +1376,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		})
 
 		Context("migration postcopy", func() {
-			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
+			FIt("[test_id:4747] should migrate using cluster level config for postcopy", func() {
 				config := defaultKVConfig()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
 				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
