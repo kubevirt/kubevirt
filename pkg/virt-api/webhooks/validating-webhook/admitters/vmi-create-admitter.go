@@ -903,6 +903,23 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 			})
 		}
 
+		// Verify that DownwardMetrics is mapped to disk
+		if volumeExists && matchingVolume.DownwardMetrics != nil {
+			if disk.Disk == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("DownwardMetrics volume must be mapped to a disk, but disk is not set on %v.", field.Child("domain", "devices", "disks").Index(idx).Child("disk").String()),
+					Field:   field.Child("domain", "devices", "disks").Index(idx).Child("disk").String(),
+				})
+			} else if disk.Disk != nil && disk.Disk.Bus != "virtio" && disk.Disk.Bus != "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("DownwardMetrics volume must be mapped to virtio bus, but %v is set to %v", field.Child("domain", "devices", "disks").Index(idx).Child("disk").Child("bus").String(), disk.Disk.Bus),
+					Field:   field.Child("domain", "devices", "disks").Index(idx).Child("disk").Child("bus").String(),
+				})
+			}
+		}
+
 		// verify that there are no duplicate boot orders
 		if disk.BootOrder != nil {
 			order := *disk.BootOrder
@@ -1706,8 +1723,9 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		return causes
 	}
 
-	// check that we have max 1 serviceAccount volume
+	// check that we have max 1 instance of below disks
 	serviceAccountVolumeCount := 0
+	downwardMetricVolumeCount := 0
 
 	for idx, volume := range volumes {
 		// verify name is unique
@@ -1778,6 +1796,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		if volume.ServiceAccount != nil {
 			volumeSourceSetCount++
 			serviceAccountVolumeCount++
+		}
+		if volume.DownwardMetrics != nil {
+			downwardMetricVolumeCount++
+			volumeSourceSetCount++
 		}
 
 		if volumeSourceSetCount != 1 {
@@ -1896,6 +1918,14 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			}
 		}
 
+		if volume.DownwardMetrics != nil && !config.DownwardMetricsEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "downwardMetrics disks are not allowed: DownwardMetrics feature gate is not enabled.",
+				Field:   field.Index(idx).String(),
+			})
+		}
+
 		// validate HostDisk data
 		if hostDisk := volume.HostDisk; hostDisk != nil {
 			if !config.HostDiskEnabled() {
@@ -1966,6 +1996,14 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s must have max one serviceAccount volume set", field.String()),
+			Field:   field.String(),
+		})
+	}
+
+	if downwardMetricVolumeCount > 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have max one downwardMetric volume set", field.String()),
 			Field:   field.String(),
 		})
 	}

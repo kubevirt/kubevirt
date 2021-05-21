@@ -13,6 +13,7 @@ go_library(
         "//pkg/inotify-informer:go_default_library",
         "//pkg/monitoring/client/prometheus:go_default_library",
         "//pkg/monitoring/reflector/prometheus:go_default_library",
+        "//pkg/monitoring/vms/downwardmetrics:go_default_library",
         "//pkg/monitoring/vms/prometheus:go_default_library",
         "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/service:go_default_library",

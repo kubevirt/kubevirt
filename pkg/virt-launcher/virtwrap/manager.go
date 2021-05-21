@@ -36,6 +36,7 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -499,6 +500,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// create ServiceAccount disk if exists
 	if err := config.CreateServiceAccountDisk(vmi); err != nil {
 		return domain, fmt.Errorf("creating service account disk failed: %v", err)
+	}
+	// create downwardMetric disk if exists
+	if err := downwardmetrics.CreateDownwardMetricDisk(vmi); err != nil {
+		return domain, fmt.Errorf("failed to craete downwardMetric disk: %v", err)
 	}
 
 	// set drivers cache mode

@@ -321,6 +321,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.DiskTarget":                                            schema_kubevirtio_client_go_api_v1_DiskTarget(ref),
 		"kubevirt.io/client-go/api/v1.DomainSpec":                                            schema_kubevirtio_client_go_api_v1_DomainSpec(ref),
 		"kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource":                               schema_kubevirtio_client_go_api_v1_DownwardAPIVolumeSource(ref),
+		"kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource":                           schema_kubevirtio_client_go_api_v1_DownwardMetricsVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.EFI":                                                   schema_kubevirtio_client_go_api_v1_EFI(ref),
 		"kubevirt.io/client-go/api/v1.EmptyDiskSource":                                       schema_kubevirtio_client_go_api_v1_EmptyDiskSource(ref),
 		"kubevirt.io/client-go/api/v1.EphemeralVolumeSource":                                 schema_kubevirtio_client_go_api_v1_EphemeralVolumeSource(ref),
@@ -15193,6 +15194,17 @@ func schema_kubevirtio_client_go_api_v1_DownwardAPIVolumeSource(ref common.Refer
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_DownwardMetricsVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_EFI(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19984,12 +19996,18 @@ func schema_kubevirtio_client_go_api_v1_Volume(ref common.ReferenceCallback) com
 							Ref:         ref("kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource"),
 						},
 					},
+					"downwardMetrics": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
 	}
 }
 
@@ -20112,11 +20130,17 @@ func schema_kubevirtio_client_go_api_v1_VolumeSource(ref common.ReferenceCallbac
 							Ref:         ref("kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource"),
 						},
 					},
+					"downwardMetrics": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
 	}
 }
 

@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"net"
@@ -41,6 +42,10 @@ import (
 	gomegatypes "github.com/onsi/gomega/types"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	netutils "k8s.io/utils/net"
+
+	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
+
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,6 +91,30 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 		}
+	})
+
+	Describe("downwardMetrics", func() {
+		It("should be published to a vmi and periodically updated", func() {
+			vmi := libvmi.NewTestToolingFedora(
+				libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentUserData(), false),
+			)
+			tests.AddDownwardMetricsVolume(vmi, "vhostmd")
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			metrics, err := getDownwardMetrics(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			timestamp := getTimeFromMetrics(metrics)
+
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() int {
+				metrics, err = getDownwardMetrics(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				return getTimeFromMetrics(metrics)
+			}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
+			Expect(getHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
+		})
 	})
 
 	Describe("CRDs", func() {
@@ -1430,5 +1459,42 @@ func getMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) stri
 			return key
 		}
 	}
+	return ""
+}
+
+func getDownwardMetrics(vmi *v1.VirtualMachineInstance) (*api.Metrics, error) {
+	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: `sudo vm-dump-metrics 2> /dev/null` + "\n"},
+		&expect.BExp{R: `(?s)(<metrics>.+</metrics>)`},
+	}, 5)
+	if err != nil {
+		return nil, err
+	}
+	metricsStr := res[0].Match[2]
+	metrics := &api.Metrics{}
+	Expect(xml.Unmarshal([]byte(metricsStr), metrics)).To(Succeed())
+	return metrics, nil
+}
+
+func getTimeFromMetrics(metrics *api.Metrics) int {
+
+	for _, m := range metrics.Metrics {
+		if m.Name == "Time" {
+			val, err := strconv.Atoi(m.Value)
+			Expect(err).ToNot(HaveOccurred())
+			return val
+		}
+	}
+	Fail("no Time in metrics XML")
+	return -1
+}
+
+func getHostnameFromMetrics(metrics *api.Metrics) string {
+	for _, m := range metrics.Metrics {
+		if m.Name == "HostName" {
+			return m.Value
+		}
+	}
+	Fail("no hostname in metrics XML")
 	return ""
 }

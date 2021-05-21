@@ -44,6 +44,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -456,6 +458,42 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// check VMI, confirm migration state
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			})
+
+			It("should migrate with a downwardMetrics disk", func() {
+				vmi := libvmi.NewTestToolingFedora(
+					libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentUserData(), false),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+				tests.AddDownwardMetricsVolume(vmi, "vhostmd")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("checking if the metrics are still updated after the migration")
+				Eventually(func() error {
+					_, err := getDownwardMetrics(vmi)
+					return err
+				}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+				metrics, err := getDownwardMetrics(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				timestamp := getTimeFromMetrics(metrics)
+				Eventually(func() int {
+					metrics, err := getDownwardMetrics(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					return getTimeFromMetrics(metrics)
+				}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
+
+				By("checking that the new nodename is reflected in the downward metrics")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(getHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
 			})
 
 			It("[test_id:4113]should be successfully migrate with cloud-init disk with devices on the root bus", func() {

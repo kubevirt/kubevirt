@@ -28,17 +28,18 @@ const (
 	IgnitionGate      = "ExperimentalIgnitionSupport"
 	LiveMigrationGate = "LiveMigration"
 	// SRIOVLiveMigrationGate enable's Live Migration for VM's with SRIOV interfaces.
-	SRIOVLiveMigrationGate = "SRIOVLiveMigration"
-	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"
-	HypervStrictCheckGate  = "HypervStrictCheck"
-	SidecarGate            = "Sidecar"
-	GPUGate                = "GPU"
-	HostDevicesGate        = "HostDevices"
-	SnapshotGate           = "Snapshot"
-	HotplugVolumesGate     = "HotplugVolumes"
-	HostDiskGate           = "HostDisk"
-	VirtIOFSGate           = "ExperimentalVirtiofsSupport"
-	MacvtapGate            = "Macvtap"
+	SRIOVLiveMigrationGate     = "SRIOVLiveMigration"
+	CPUNodeDiscoveryGate       = "CPUNodeDiscovery"
+	HypervStrictCheckGate      = "HypervStrictCheck"
+	SidecarGate                = "Sidecar"
+	GPUGate                    = "GPU"
+	HostDevicesGate            = "HostDevices"
+	SnapshotGate               = "Snapshot"
+	HotplugVolumesGate         = "HotplugVolumes"
+	HostDiskGate               = "HostDisk"
+	VirtIOFSGate               = "ExperimentalVirtiofsSupport"
+	MacvtapGate                = "Macvtap"
+	DownwardMetricsFeatureGate = "DownwardMetrics"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -52,6 +53,10 @@ func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
 	return config.isFeatureGateEnabled(CPUManager)
+}
+
+func (config *ClusterConfig) DownwardMetricsEnabled() bool {
+	return config.isFeatureGateEnabled(DownwardMetricsFeatureGate)
 }
 
 func (config *ClusterConfig) IgnitionEnabled() bool {
