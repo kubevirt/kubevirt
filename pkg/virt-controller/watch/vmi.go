@@ -1327,16 +1327,17 @@ func (c *VMIController) virtlauncherAttachmentPods(virtlauncherPod *k8sv1.Pod) (
 }
 
 func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
-	// If lengths don't match, need to handle for sure. This captures single adds/deletes
+
 	// Determine if the ready volumes have changed compared to the current pod
 	for _, attachmentPod := range hotplugAttachmentPods {
 		if c.podVolumesMatchesReadyVolumes(attachmentPod, hotplugVolumes) {
 			log.DefaultLogger().Infof("Don't need to handle as we have a matching attachment pod")
 			return false
 		}
+		return true
 	}
 	log.DefaultLogger().Infof("Handle no matching attachment pod found!")
-	return true
+	return len(hotplugVolumes) > 0 && true
 }
 
 func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) syncError {
@@ -1567,6 +1568,9 @@ func (c *VMIController) deleteAttachmentPodForVolume(vmi *virtv1.VirtualMachineI
 
 func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, error) {
 	logger := log.Log.Object(vmi)
+	var pod *k8sv1.Pod
+	var err error
+
 	volumeNamesPVCMap := make(map[string]*k8sv1.PersistentVolumeClaim)
 	for _, volume := range volumes {
 		claimName := ""
@@ -1592,7 +1596,7 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 		populated, err := cdiv1.IsPopulated(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
 			dv, exists, _ := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 			if !exists {
-				return nil, fmt.Errorf("Unable to find datavolume %s/%s", namespace, name)
+				return nil, fmt.Errorf("unable to find datavolume %s/%s", namespace, name)
 			}
 			return dv.(*cdiv1.DataVolume), nil
 		})
@@ -1601,10 +1605,14 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 		}
 		if populated {
 			volumeNamesPVCMap[volume.Name] = pvc
+		} else {
+			logger.Infof("Unable to hotplug, claim %s found, but not ready", claimName)
 		}
 	}
 
-	pod, err := c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap, false)
+	if len(volumeNamesPVCMap) > 0 {
+		pod, err = c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap, false)
+	}
 	return pod, err
 }
 

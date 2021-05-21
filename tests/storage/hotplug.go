@@ -829,48 +829,6 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			})
 
-			It("should mark VMI failed, if an attachment pod is deleted", func() {
-				volumeMode := corev1.PersistentVolumeFilesystem
-				addVolumeFunc := addDVVolumeVMI
-				dv := createDataVolumeAndWaitForImport(sc, volumeMode)
-
-				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
-				By("Adding volume to running VMI")
-				addVolumeFunc(vmi.Name, vmi.Namespace, "testvolume", dv.Name, "scsi")
-				By("Verifying the volume and disk are in the VMI")
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
-
-				podName := ""
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, volumeStatus := range vmi.Status.VolumeStatus {
-					if volumeStatus.HotplugVolume != nil {
-						podName = volumeStatus.HotplugVolume.AttachPodName
-						break
-					}
-				}
-				Expect(podName).ToNot(BeEmpty())
-				By("Deleting attachment pod:" + podName)
-				zero := int64(0)
-				err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{
-					GracePeriodSeconds: &zero,
-				})
-				Expect(err).ToNot(HaveOccurred())
-				By("Verifying that VMI goes into failed state")
-				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					if err != nil {
-						return false
-					}
-					return vmi.Status.Phase == kubevirtv1.Failed
-				}, 90*time.Second, 1*time.Second).Should(BeTrue(), "VMI not in failed state")
-			})
-
 			It("should mark VMI not migrateable, if a volume is attached", func() {
 				volumeMode := corev1.PersistentVolumeBlock
 				addVolumeFunc := addDVVolumeVMI

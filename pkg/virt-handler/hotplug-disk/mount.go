@@ -250,6 +250,7 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		return err
 	}
+	logger.Infof("record for: %s, %v", vmi.UID, record)
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
@@ -607,7 +608,6 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 				}
 				split := strings.Split(string(target), "\n")
 				if len(split) > 0 {
-					log.DefaultLogger().Infof("Target: [%s]", split[1])
 					return split[1], nil
 				}
 			} else {
