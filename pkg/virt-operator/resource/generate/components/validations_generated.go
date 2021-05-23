@@ -4868,7 +4868,10 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                       downwardMetrics:
-                        description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                        description: DownwardMetrics adds a very small disk to VMIs
+                          which contains a limited view of host and guest metrics.
+                          The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd)
+                          and vm-dump-metrics.
                         type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which
@@ -7365,7 +7368,10 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                 type: object
               downwardMetrics:
-                description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                description: DownwardMetrics adds a very small disk to VMIs which
+                  contains a limited view of host and guest metrics. The disk content
+                  is compatible with vhostmd (https://github.com/vhostmd/vhostmd)
+                  and vm-dump-metrics.
                 type: object
               emptyDisk:
                 description: 'EmptyDisk represents a temporary disk which shares the
@@ -10949,7 +10955,10 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                       downwardMetrics:
-                        description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                        description: DownwardMetrics adds a very small disk to VMIs
+                          which contains a limited view of host and guest metrics.
+                          The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd)
+                          and vm-dump-metrics.
                         type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which
@@ -14368,7 +14377,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     type: object
                                   downwardMetrics:
-                                    description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                                    description: DownwardMetrics adds a very small
+                                      disk to VMIs which contains a limited view of
+                                      host and guest metrics. The disk content is
+                                      compatible with vhostmd (https://github.com/vhostmd/vhostmd)
+                                      and vm-dump-metrics.
                                     type: object
                                   emptyDisk:
                                     description: 'EmptyDisk represents a temporary
