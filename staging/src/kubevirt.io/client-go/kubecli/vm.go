@@ -187,13 +187,13 @@ func (v *vm) Start(name string) error {
 }
 
 func (v *vm) StartPaused(name string) error {
-	data := map[string]bool{"paused": true}
-	body, err := json.Marshal(data)
+	optsJson, err := json.Marshal(v1.StartOptions{Paused: true})
+
 	if err != nil {
-		return fmt.Errorf("Cannot Marshal to json: %s", err)
+		return err
 	}
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "start")
-	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().RequestURI(uri).Body([]byte(optsJson)).Do(context.Background()).Error()
 }
 
 func (v *vm) Stop(name string) error {

@@ -71,7 +71,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
-	cmd.Flags().BoolVar(&startPaused, "paused", startPaused, "--paused=false: If set to true, start virtual machine in paused state.")
+	cmd.Flags().BoolVar(&startPaused, "paused", false, "--paused=false: If set to true, start virtual machine in paused state")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }

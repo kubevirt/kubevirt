@@ -1672,6 +1672,11 @@ type StartOptions struct {
 	Paused bool `json:"paused,omitempty" protobuf:"varint,7,opt,name=paused"`
 }
 
+const (
+	StartRequestDataPausedKey  string = "paused"
+	StartRequestDataPausedTrue string = "true"
+)
+
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

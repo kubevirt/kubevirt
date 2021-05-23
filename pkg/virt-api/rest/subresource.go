@@ -269,46 +269,6 @@ func getRunningJson(vm *v1.VirtualMachine, running bool) string {
 	}
 }
 
-func (app *SubresourceAPIApp) patchVmStart(vm *v1.VirtualMachine, namespace string, startPaused bool) error {
-	patchType := types.MergePatchType
-
-	if startPaused {
-		patchString := "{\"spec\": {\"template\": {\"spec\": {\"startStrategy\":  \"Paused\"}}}}"
-		log.Log.Object(vm).V(4).Infof("Patching VM: %s", patchString)
-		_, err := app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(patchString))
-		if err != nil {
-			return err
-		}
-	}
-
-	patchString := getRunningJson(vm, true)
-	log.Log.Object(vm).V(4).Infof("Patching VM: %s", patchString)
-	_, err := app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(patchString))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (app *SubresourceAPIApp) patchVmStop(vm *v1.VirtualMachine, namespace string) error {
-	if vm.Spec.Template != nil && vm.Spec.Template.Spec.StartStrategy != nil {
-		patchString := "[{\"op\": \"remove\", \"path\": \"/spec/template/spec/startStrategy\"}]"
-		log.Log.Object(vm).V(4).Infof("Patching VM: %s", patchString)
-		_, err := app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), types.JSONPatchType, []byte(patchString))
-		if err != nil {
-			return err
-		}
-	}
-
-	patchString := getRunningJson(vm, false)
-	log.Log.Object(vm).V(4).Infof("Patching VM: %s", patchString)
-	_, err := app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), types.MergePatchType, []byte(patchString))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, response *restful.Response) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
@@ -510,6 +470,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 
 	startPaused := false
+	startChangeRequestData := make(map[string]string)
 	if vm.Spec.Template != nil && vm.Spec.Template.Spec.StartStrategy == nil {
 		bodyStruct := &v1.StartOptions{}
 		if request.Request.Body != nil {
@@ -523,6 +484,9 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			}
 		}
 		startPaused = bodyStruct.Paused
+		if startPaused {
+			startChangeRequestData[v1.StartRequestDataPausedKey] = v1.StartRequestDataPausedTrue
+		}
 	}
 
 	var patchErr error
@@ -538,7 +502,22 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	// RunStrategyRerunOnFailure -> doesn't make sense
 	switch runStrategy {
 	case v1.RunStrategyHalted:
-		patchErr = app.patchVmStart(vm, namespace, startPaused)
+		if startPaused {
+			patchString, err := getChangeRequestJson(vm, v1.VirtualMachineStateChangeRequest{
+				Action: v1.StartRequest,
+				Data:   startChangeRequestData,
+			})
+			if err != nil {
+				writeError(errors.NewInternalError(err), response)
+				return
+			}
+			log.Log.Object(vm).V(4).Infof("Patching VM status: %s", patchString)
+			patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patchString))
+		} else {
+			patchString := getRunningJson(vm, true)
+			log.Log.Object(vm).V(4).Infof("Patching VM: %s", patchString)
+			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), types.MergePatchType, []byte(patchString))
+		}
 
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
 		needsRestart := false
@@ -554,15 +533,10 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		if needsRestart {
 			bodyString, err = getChangeRequestJson(vm,
 				v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
-				v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
+				v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest, Data: startChangeRequestData})
 		} else {
-			if startPaused {
-				bodyString, err = getChangeRequestJson(vm,
-					v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest, Data: map[string]string{"paused": "true"}})
-			} else {
-				bodyString, err = getChangeRequestJson(vm,
-					v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
-			}
+			bodyString, err = getChangeRequestJson(vm,
+				v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest, Data: startChangeRequestData})
 		}
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
@@ -617,6 +591,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		return
 	}
 
+	patchType := types.MergePatchType
 	var patchErr error
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
@@ -630,6 +605,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	case v1.RunStrategyManual:
 		// pass the buck and ask virt-controller to stop the VM. this way the
 		// VM will retain RunStrategy = manual
+		patchType = types.JSONPatchType
 		bodyString, err := getChangeRequestJson(vm,
 			v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
 		if err != nil {
@@ -637,9 +613,11 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			return
 		}
 		log.Log.Object(vm).V(4).Infof("Patching VM status: %s", bodyString)
-		patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(bodyString))
+		patchErr = app.statusUpdater.PatchStatus(vm, patchType, []byte(bodyString))
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways:
-		patchErr = app.patchVmStop(vm, namespace)
+		bodyString := getRunningJson(vm, false)
+		log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
+		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
 	}
 
 	if patchErr != nil {

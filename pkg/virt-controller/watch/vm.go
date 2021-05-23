@@ -662,6 +662,22 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	case virtv1.RunStrategyHalted:
 		// For this runStrategy, no VMI should be running under any circumstances.
 		if vmi == nil {
+			if len(vm.Status.StateChangeRequests) != 0 {
+				stateChange := vm.Status.StateChangeRequests[0]
+				if stateChange.Action == virtv1.StartRequest {
+					vmCopy := vm.DeepCopy()
+					runStrategy := virtv1.RunStrategyAlways
+					running := true
+
+					if vmCopy.Spec.RunStrategy != nil {
+						vmCopy.Spec.RunStrategy = &runStrategy
+					} else {
+						vmCopy.Spec.Running = &running
+					}
+					_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+					return err
+				}
+			}
 			return nil
 		}
 		log.Log.Object(vm).Infof("%s with VMI in phase %s due to runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
@@ -775,8 +791,8 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	if len(vm.Status.StateChangeRequests) != 0 {
 		stateChange := vm.Status.StateChangeRequests[0]
 		if stateChange.Action == virtv1.StartRequest {
-			_, paused := stateChange.Data["paused"]
-			if paused {
+			paused, hasPaused := stateChange.Data[virtv1.StartRequestDataPausedKey]
+			if hasPaused && paused == virtv1.StartRequestDataPausedTrue {
 				strategy := virtv1.StartStrategyPaused
 				vmi.Spec.StartStrategy = &strategy
 			}
@@ -1170,10 +1186,6 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 	vm.Status.Ready = ready
 
-	runStrategy, err := vm.RunStrategy()
-	if err != nil {
-		log.Log.Object(vm).Errorf("Error getting RunStrategy: %v", err)
-	}
 	clearChangeRequest := false
 	if len(vm.Status.StateChangeRequests) != 0 {
 		// Only consider one stateChangeRequest at a time. The second and subsequent change
@@ -1184,7 +1196,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 			if vmi == nil {
 				// because either the VM or VMI informers can trigger processing here
 				// double check the state of the cluster before taking action
-				_, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(vm.GetName(), &v1.GetOptions{})
+				_, err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(vm.GetName(), &v1.GetOptions{})
 				if err != nil && errors.IsNotFound(err) {
 					// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
 					log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
@@ -1208,12 +1220,6 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 			// If the current VMI is running, then it has been started.
 			if vmi != nil {
 				log.Log.Object(vm).V(4).Infof("VMI exists. clearing start request")
-				clearChangeRequest = true
-			}
-			// It never makes sense to start a VM with RunStrategy Halted -- This shouldn't be
-			// possible -- but if it occurs, clear the request, because it can't be acted upon.
-			if runStrategy == virtv1.RunStrategyHalted {
-				log.Log.Object(vm).Errorf("Start request shouldn't be honored for RunStrategyHalted.")
 				clearChangeRequest = true
 			}
 		}
@@ -1298,12 +1304,13 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	c.setPrintableStatus(vm, vmi)
 
 	// only update if necessary
-	err = nil
 	if !reflect.DeepEqual(vm.Status, vmOrig.Status) {
-		err = c.statusUpdater.UpdateStatus(vm)
+		if err := c.statusUpdater.UpdateStatus(vm); err != nil {
+			return err
+		}
 	}
 
-	return err
+	return nil
 }
 
 func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
