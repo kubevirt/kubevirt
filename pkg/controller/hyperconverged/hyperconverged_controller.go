@@ -366,11 +366,23 @@ func (r *ReconcileHyperConverged) updateHyperConverged(request *common.HcoReques
 	// Since the status subresource is enabled for the HyperConverged kind,
 	// we need to update the status and the metadata separately.
 	// Moreover, we need to update the status first, in order to prevent a conflict.
+	// In addition, spec changes are removed by status update, but since status update done first, we need
+	// to store the spec and recover it after status update
+
+	var spec hcov1beta1.HyperConvergedSpec
+	if request.Dirty {
+		request.Instance.Spec.DeepCopyInto(&spec)
+	}
 
 	err := r.updateHyperConvergedStatus(request)
 	if err != nil {
 		r.logHyperConvergedUpdateError(request, err, "Failed to update HCO Status")
 		return err
+	}
+
+	// restore spec
+	if request.Dirty {
+		request.Instance.Spec = spec
 	}
 
 	// Doing it here because status.update overrides spec for some reason
@@ -1040,7 +1052,7 @@ func adoptOldKvConfigs(req *common.HcoRequest, cm *corev1.ConfigMap) bool {
 	}
 
 	if !reflect.DeepEqual(req.Instance.Spec.LiveMigrationConfig, kvCmLiveMigrationConfig) {
-		req.Logger.Info("updating the HyperConverged CR from the KeubeVirt configMap")
+		req.Logger.Info("updating the HyperConverged CR from the KubeVirt configMap")
 		kvConfigMapToHyperConvergedCr(req, kvCmLiveMigrationConfig)
 
 		modified = true
