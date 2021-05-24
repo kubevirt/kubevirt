@@ -67,8 +67,10 @@ var _ = Describe("CloudInit", func() {
 	}
 
 	BeforeEach(func() {
-		tmpDir, _ = ioutil.TempDir("", "cloudinittest")
-		err := SetLocalDirectory(tmpDir)
+		var err error
+		tmpDir, err = ioutil.TempDir("", "cloudinittest")
+		Expect(err).ToNot(HaveOccurred())
+		err = SetLocalDirectory(tmpDir)
 		if err != nil {
 			panic(err)
 		}
