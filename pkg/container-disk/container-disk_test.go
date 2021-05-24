@@ -37,7 +37,7 @@ import (
 )
 
 var _ = Describe("ContainerDisk", func() {
-	tmpDir, _ := ioutil.TempDir("", "containerdisktest")
+	var tmpDir string
 	owner, err := user.Current()
 	if err != nil {
 		panic(err)
@@ -62,8 +62,11 @@ var _ = Describe("ContainerDisk", func() {
 	}
 
 	BeforeEach(func() {
+		var err error
+		tmpDir, err = ioutil.TempDir("", "containerdisktest")
+		Expect(err).ToNot(HaveOccurred())
 		os.MkdirAll(tmpDir, 0755)
-		err := SetLocalDirectory(tmpDir)
+		err = SetLocalDirectory(tmpDir)
 		Expect(err).ToNot(HaveOccurred())
 		setLocalDataOwner(owner.Username)
 		err = setPodsDirectory(tmpDir)
