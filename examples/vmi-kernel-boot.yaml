@@ -1,0 +1,21 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-kernel-boot
+  name: vmi-kernel-boot
+spec:
+  domain:
+    devices: {}
+    firmware:
+      kernelBoot:
+        container:
+          image: registry:5000/kubevirt/alpine-ext-kernel-boot-demo:devel
+          initrdPath: /boot/initramfs-virt
+          kernelPath: /boot/vmlinuz-virt
+        kernelArgs: console=ttyS0
+    resources:
+      requests:
+        memory: 1Gi
+  terminationGracePeriodSeconds: 0

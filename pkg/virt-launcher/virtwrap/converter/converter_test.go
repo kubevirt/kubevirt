@@ -2882,6 +2882,59 @@ var _ = Describe("Converter", func() {
 		})
 	})
 
+	Context("Kernel Boot", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{}
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				UseEmulation:   true,
+			}
+		})
+
+		Context("when kernel boot is set", func() {
+			table.DescribeTable("should configure the kernel, initrd and Cmdline arguments correctly", func(kernelPath string, initrdPath string, kernelArgs string) {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					KernelBoot: &v1.KernelBoot{
+						KernelArgs: kernelArgs,
+						Container: &v1.KernelBootContainer{
+							KernelPath: kernelPath,
+							InitrdPath: initrdPath,
+						},
+					},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				if kernelPath == "" {
+					Expect(domainSpec.OS.Kernel).To(BeEmpty())
+				} else {
+					Expect(domainSpec.OS.Kernel).To(ContainSubstring(kernelPath))
+				}
+				if initrdPath == "" {
+					Expect(domainSpec.OS.Initrd).To(BeEmpty())
+				} else {
+					Expect(domainSpec.OS.Initrd).To(ContainSubstring(initrdPath))
+				}
+
+				Expect(domainSpec.OS.KernelArgs).To(Equal(kernelArgs))
+			},
+				table.Entry("when kernel, initrd and Cmdline are provided", "fully specified path to kernel", "fully specified path to initrd", "some cmdline arguments"),
+				table.Entry("when only kernel and Cmdline are provided", "fully specified path to kernel", "", "some cmdline arguments"),
+				table.Entry("when only kernel and initrd are provided", "fully specified path to kernel", "fully specified path to initrd", ""),
+				table.Entry("when only kernel is provided", "fully specified path to kernel", "", ""),
+				table.Entry("when only initrd and Cmdline are provided", "", "fully specified path to initrd", "some cmdline arguments"),
+				table.Entry("when only Cmdline is provided", "", "", "some cmdline arguments"),
+				table.Entry("when only initrd is provided", "", "fully specified path to initrd", ""),
+				table.Entry("when no arguments provided", "", "", ""),
+			)
+		})
+	})
+
 	Context("Legacy GPU resource request", func() {
 		vmi := &v1.VirtualMachineInstance{
 			ObjectMeta: k8smeta.ObjectMeta{

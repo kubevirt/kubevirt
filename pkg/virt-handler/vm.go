@@ -1775,6 +1775,9 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	d.migrationProxy.StopSourceListener(vmiId)
 
 	// Unmount container disks and clean up remaining files
+	if err := d.containerDiskMounter.UnmountKernelArtifacts(vmi); err != nil {
+		return err
+	}
 	if err := d.containerDiskMounter.Unmount(vmi); err != nil {
 		return err
 	}
@@ -2364,6 +2367,10 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return err
 	}
 
+	if err := d.containerDiskMounter.MountKernelArtifacts(vmi, false); err != nil {
+		return fmt.Errorf("failed to mount kernel artifacts: %v", err)
+	}
+
 	// configure network inside virt-launcher compute container
 	criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
 	if err != nil {
@@ -2435,6 +2442,11 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
 			return err
 		}
+
+		if err := d.containerDiskMounter.MountKernelArtifacts(vmi, true); err != nil {
+			return fmt.Errorf("failed to mount kernel artifacts: %v", err)
+		}
+
 		criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
 		if err != nil {
 			if criticalNetworkError {

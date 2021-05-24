@@ -464,6 +464,13 @@ container_pull(
     repository = "kubevirt/fedora-with-test-tooling",
 )
 
+container_pull(
+    name = "alpine-ext-kernel-boot-demo-container-base",
+    digest = "sha256:97bfbe0e3d57a45da3130dd6a63d6f83dcbc37e82b1be7ac30b6cf698d52e932",
+    registry = "quay.io",
+    repository = "kubevirt/alpine-ext-kernel-boot-demo",
+)
+
 load(
     "@io_bazel_rules_docker//go:image.bzl",
     _go_image_repos = "repositories",

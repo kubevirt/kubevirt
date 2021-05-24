@@ -4236,6 +4236,44 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: boolean
                               type: object
                           type: object
+                        kernelBoot:
+                          description: Settings to set the kernel for booting.
+                          properties:
+                            container:
+                              description: Container defines the container that containes
+                                kernel artifacts
+                              properties:
+                                image:
+                                  description: Image that container initrd / kernel
+                                    files.
+                                  type: string
+                                imagePullPolicy:
+                                  description: 'Image pull policy. One of Always,
+                                    Never, IfNotPresent. Defaults to Always if :latest
+                                    tag is specified, or IfNotPresent otherwise. Cannot
+                                    be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images'
+                                  type: string
+                                imagePullSecret:
+                                  description: ImagePullSecret is the name of the
+                                    Docker registry secret required to pull the image.
+                                    The secret must already exist.
+                                  type: string
+                                initrdPath:
+                                  description: the fully-qualified path to the ramdisk
+                                    image in the host OS
+                                  type: string
+                                kernelPath:
+                                  description: The fully-qualified path to the kernel
+                                    image in the host OS
+                                  type: string
+                              required:
+                              - image
+                              type: object
+                            kernelArgs:
+                              description: Arguments to be passed to the kernel at
+                                boot time
+                              type: string
+                          type: object
                         serial:
                           description: The system-serial-number in SMBIOS
                           type: string
@@ -4868,7 +4906,10 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                       downwardMetrics:
-                        description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                        description: DownwardMetrics adds a very small disk to VMIs
+                          which contains a limited view of host and guest metrics.
+                          The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd)
+                          and vm-dump-metrics.
                         type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which
@@ -6769,6 +6810,41 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                   type: object
+                kernelBoot:
+                  description: Settings to set the kernel for booting.
+                  properties:
+                    container:
+                      description: Container defines the container that containes
+                        kernel artifacts
+                      properties:
+                        image:
+                          description: Image that container initrd / kernel files.
+                          type: string
+                        imagePullPolicy:
+                          description: 'Image pull policy. One of Always, Never, IfNotPresent.
+                            Defaults to Always if :latest tag is specified, or IfNotPresent
+                            otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images'
+                          type: string
+                        imagePullSecret:
+                          description: ImagePullSecret is the name of the Docker registry
+                            secret required to pull the image. The secret must already
+                            exist.
+                          type: string
+                        initrdPath:
+                          description: the fully-qualified path to the ramdisk image
+                            in the host OS
+                          type: string
+                        kernelPath:
+                          description: The fully-qualified path to the kernel image
+                            in the host OS
+                          type: string
+                      required:
+                      - image
+                      type: object
+                    kernelArgs:
+                      description: Arguments to be passed to the kernel at boot time
+                      type: string
+                  type: object
                 serial:
                   description: The system-serial-number in SMBIOS
                   type: string
@@ -7365,7 +7441,10 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                 type: object
               downwardMetrics:
-                description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                description: DownwardMetrics adds a very small disk to VMIs which
+                  contains a limited view of host and guest metrics. The disk content
+                  is compatible with vhostmd (https://github.com/vhostmd/vhostmd)
+                  and vm-dump-metrics.
                 type: object
               emptyDisk:
                 description: 'EmptyDisk represents a temporary disk which shares the
@@ -8565,6 +8644,41 @@ var CRDsValidation map[string]string = map[string]string{
                             Requires SMM to be enabled. Defaults to true
                           type: boolean
                       type: object
+                  type: object
+                kernelBoot:
+                  description: Settings to set the kernel for booting.
+                  properties:
+                    container:
+                      description: Container defines the container that containes
+                        kernel artifacts
+                      properties:
+                        image:
+                          description: Image that container initrd / kernel files.
+                          type: string
+                        imagePullPolicy:
+                          description: 'Image pull policy. One of Always, Never, IfNotPresent.
+                            Defaults to Always if :latest tag is specified, or IfNotPresent
+                            otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images'
+                          type: string
+                        imagePullSecret:
+                          description: ImagePullSecret is the name of the Docker registry
+                            secret required to pull the image. The secret must already
+                            exist.
+                          type: string
+                        initrdPath:
+                          description: the fully-qualified path to the ramdisk image
+                            in the host OS
+                          type: string
+                        kernelPath:
+                          description: The fully-qualified path to the kernel image
+                            in the host OS
+                          type: string
+                      required:
+                      - image
+                      type: object
+                    kernelArgs:
+                      description: Arguments to be passed to the kernel at boot time
+                      type: string
                   type: object
                 serial:
                   description: The system-serial-number in SMBIOS
@@ -10317,6 +10431,44 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: boolean
                               type: object
                           type: object
+                        kernelBoot:
+                          description: Settings to set the kernel for booting.
+                          properties:
+                            container:
+                              description: Container defines the container that containes
+                                kernel artifacts
+                              properties:
+                                image:
+                                  description: Image that container initrd / kernel
+                                    files.
+                                  type: string
+                                imagePullPolicy:
+                                  description: 'Image pull policy. One of Always,
+                                    Never, IfNotPresent. Defaults to Always if :latest
+                                    tag is specified, or IfNotPresent otherwise. Cannot
+                                    be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images'
+                                  type: string
+                                imagePullSecret:
+                                  description: ImagePullSecret is the name of the
+                                    Docker registry secret required to pull the image.
+                                    The secret must already exist.
+                                  type: string
+                                initrdPath:
+                                  description: the fully-qualified path to the ramdisk
+                                    image in the host OS
+                                  type: string
+                                kernelPath:
+                                  description: The fully-qualified path to the kernel
+                                    image in the host OS
+                                  type: string
+                              required:
+                              - image
+                              type: object
+                            kernelArgs:
+                              description: Arguments to be passed to the kernel at
+                                boot time
+                              type: string
+                          type: object
                         serial:
                           description: The system-serial-number in SMBIOS
                           type: string
@@ -10949,7 +11101,10 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                       downwardMetrics:
-                        description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                        description: DownwardMetrics adds a very small disk to VMIs
+                          which contains a limited view of host and guest metrics.
+                          The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd)
+                          and vm-dump-metrics.
                         type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which
@@ -13678,6 +13833,47 @@ var CRDsValidation map[string]string = map[string]string{
                                               type: boolean
                                           type: object
                                       type: object
+                                    kernelBoot:
+                                      description: Settings to set the kernel for
+                                        booting.
+                                      properties:
+                                        container:
+                                          description: Container defines the container
+                                            that containes kernel artifacts
+                                          properties:
+                                            image:
+                                              description: Image that container initrd
+                                                / kernel files.
+                                              type: string
+                                            imagePullPolicy:
+                                              description: 'Image pull policy. One
+                                                of Always, Never, IfNotPresent. Defaults
+                                                to Always if :latest tag is specified,
+                                                or IfNotPresent otherwise. Cannot
+                                                be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images'
+                                              type: string
+                                            imagePullSecret:
+                                              description: ImagePullSecret is the
+                                                name of the Docker registry secret
+                                                required to pull the image. The secret
+                                                must already exist.
+                                              type: string
+                                            initrdPath:
+                                              description: the fully-qualified path
+                                                to the ramdisk image in the host OS
+                                              type: string
+                                            kernelPath:
+                                              description: The fully-qualified path
+                                                to the kernel image in the host OS
+                                              type: string
+                                          required:
+                                          - image
+                                          type: object
+                                        kernelArgs:
+                                          description: Arguments to be passed to the
+                                            kernel at boot time
+                                          type: string
+                                      type: object
                                     serial:
                                       description: The system-serial-number in SMBIOS
                                       type: string
@@ -14368,7 +14564,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     type: object
                                   downwardMetrics:
-                                    description: DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+                                    description: DownwardMetrics adds a very small
+                                      disk to VMIs which contains a limited view of
+                                      host and guest metrics. The disk content is
+                                      compatible with vhostmd (https://github.com/vhostmd/vhostmd)
+                                      and vm-dump-metrics.
                                     type: object
                                   emptyDisk:
                                     description: 'EmptyDisk represents a temporary

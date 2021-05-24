@@ -146,6 +146,7 @@ go_test(
         "vmi_hostdev_test.go",
         "vmi_ignition_test.go",
         "vmi_iothreads_test.go",
+        "vmi_kernel_boot_test.go",
         "vmi_lifecycle_test.go",
         "vmi_monitoring_test.go",
         "vmi_multiqueue_test.go",

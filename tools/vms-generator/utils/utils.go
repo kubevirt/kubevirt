@@ -48,6 +48,7 @@ const (
 	VmiPVC               = "vmi-pvc"
 	VmiBlockPVC          = "vmi-block-pvc"
 	VmiWindows           = "vmi-windows"
+	VmiKernelBoot        = "vmi-kernel-boot"
 	VmiSlirp             = "vmi-slirp"
 	VmiMasquerade        = "vmi-masquerade"
 	VmiSRIOV             = "vmi-sriov"
@@ -90,6 +91,7 @@ const (
 	imageCirros      = "cirros-container-disk-demo"
 	imageFedora      = "fedora-cloud-container-disk-demo"
 	imageMicroLiveCD = "microlivecd-container-disk-demo"
+	imageKernelBoot  = "alpine-ext-kernel-boot-demo"
 )
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 const defaultInterfaceName = "default"
@@ -185,6 +187,23 @@ func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus str
 		},
 	}
 	spec.Volumes = append(spec.Volumes, *volume)
+	return spec
+}
+
+func addKernelBootContainer(spec *v1.VirtualMachineInstanceSpec, image, kernelArgs, kernelPath, initrdPath string) *v1.VirtualMachineInstanceSpec {
+	if spec.Domain.Firmware == nil {
+		spec.Domain.Firmware = &v1.Firmware{}
+	}
+
+	spec.Domain.Firmware.KernelBoot = &v1.KernelBoot{
+		KernelArgs: kernelArgs,
+		Container: &v1.KernelBootContainer{
+			Image:      image,
+			KernelPath: kernelPath,
+			InitrdPath: initrdPath,
+		},
+	}
+
 	return spec
 }
 
@@ -570,6 +589,20 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 
 	addPVCDisk(&vmi.Spec, "disk-windows", busSata, "pvcdisk")
+	return vmi
+}
+
+func GetVMIKernelBoot() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiKernelBoot)
+
+	image := fmt.Sprintf("%s/%s:%s", DockerPrefix, imageKernelBoot, DockerTag)
+	KernelArgs := "console=ttyS0"
+	kernelPath := "/boot/vmlinuz-virt"
+	initrdPath := "/boot/initramfs-virt"
+
+	addKernelBootContainer(&vmi.Spec, image, KernelArgs, kernelPath, initrdPath)
+
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	return vmi
 }
 

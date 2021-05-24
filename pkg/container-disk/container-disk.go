@@ -23,8 +23,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
+
+	"kubevirt.io/client-go/log"
 
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -43,6 +46,10 @@ var podsBaseDir = util.KubeletPodsDir
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
 type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
+type KernelBootSocketPathGetter func(vmi *v1.VirtualMachineInstance) (string, error)
+
+const KernelBootName = "kernel-boot"
+const KernelBootVolumeName = KernelBootName + "-volume"
 
 const ephemeralStorageOverheadSize = "50M"
 
@@ -79,7 +86,7 @@ func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, erro
 	return "", false, nil
 }
 
-func GetDiskTargetPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+func GetDiskTargetDirFromHostView(vmi *v1.VirtualMachineInstance) (string, error) {
 	basepath, found, err := GetVolumeMountDirOnHost(vmi)
 	if err != nil {
 		return "", err
@@ -87,11 +94,25 @@ func GetDiskTargetPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex i
 		return "", fmt.Errorf("container disk volume for vmi not found")
 	}
 
+	return basepath, nil
+}
+
+func GetDiskTargetPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+	basepath, err := GetDiskTargetDirFromHostView(vmi)
+	if err != nil {
+		return "", err
+	}
+
 	return fmt.Sprintf("%s/disk_%d.img", basepath, volumeIndex), nil
 }
 
 func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
 	return filepath.Join(mountBaseDir, fmt.Sprintf("disk_%d.img", volumeIndex))
+}
+
+func GetKernelBootArtifactPathFromLauncherView(artifact string) string {
+	artifactBase := filepath.Base(artifact)
+	return filepath.Join(mountBaseDir, KernelBootName, artifactBase)
 }
 
 func SetLocalDirectory(dir string) error {
@@ -133,14 +154,30 @@ func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
 func NewSocketPathGetter(baseDir string) SocketPathGetter {
 	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
 		for podUID := range vmi.Status.ActivePods {
-			basepath := fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, string(podUID))
-			socketPath := filepath.Join(basepath, fmt.Sprintf("disk_%d.sock", volumeIndex))
+			basePath := getContainerDiskSocketBasePath(baseDir, string(podUID))
+			socketPath := filepath.Join(basePath, fmt.Sprintf("disk_%d.sock", volumeIndex))
 			exists, _ := diskutils.FileExists(socketPath)
 			if exists {
 				return socketPath, nil
 			}
 		}
-		return "", fmt.Errorf("container disk socket path not found for vmi")
+		return "", fmt.Errorf("container disk socket path not found for vmi \"%s\"", vmi.Name)
+	}
+}
+
+// NewKernelBootSocketPathGetter get the socket pat of the kernel-boot containerDisk. For testing a baseDir
+// can be provided which can for instance point to /tmp.
+func NewKernelBootSocketPathGetter(baseDir string) KernelBootSocketPathGetter {
+	return func(vmi *v1.VirtualMachineInstance) (string, error) {
+		for podUID := range vmi.Status.ActivePods {
+			basePath := getContainerDiskSocketBasePath(baseDir, string(podUID))
+			socketPath := filepath.Join(basePath, KernelBootName+".sock")
+			exists, _ := diskutils.FileExists(socketPath)
+			if exists {
+				return socketPath, nil
+			}
+		}
+		return "", fmt.Errorf("kernel boot socket path not found for vmi \"%s\"", vmi.Name)
 	}
 }
 
@@ -176,6 +213,29 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, bi
 	return generateContainersHelper(vmi, podVolumeName, binVolumeName, false)
 }
 
+func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) *kubev1.Container {
+	if !util.HasKernelBootContainerImage(vmi) {
+		return nil
+	}
+
+	kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+
+	kernelBootVolume := v1.Volume{
+		Name: KernelBootVolumeName,
+		VolumeSource: v1.VolumeSource{
+			ContainerDisk: &v1.ContainerDiskSource{
+				Image:           kernelBootContainer.Image,
+				ImagePullSecret: kernelBootContainer.ImagePullSecret,
+				Path:            "/",
+				ImagePullPolicy: kernelBootContainer.ImagePullPolicy,
+			},
+		},
+	}
+
+	const fakeVolumeIdx = 0 // volume index makes no difference for kernel-boot container
+	return generateContainerFromVolume(vmi, podVolumeName, binVolumeName, false, true, &kernelBootVolume, fakeVolumeIdx)
+}
+
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
 func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string, isInit bool) []kubev1.Container {
@@ -183,57 +243,77 @@ func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName stri
 
 	// Make VirtualMachineInstance Image Wrapper Containers
 	for index, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
-
-			volumeMountDir := GetVolumeMountDirOnGuest(vmi)
-			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
-			diskContainerImage := volume.ContainerDisk.Image
-			resources := kubev1.ResourceRequirements{}
-			resources.Limits = make(kubev1.ResourceList)
-			resources.Requests = make(kubev1.ResourceList)
-			resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
-			resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
-			resources.Requests[kubev1.ResourceEphemeralStorage] = resource.MustParse(ephemeralStorageOverheadSize)
-
-			if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("10m")
-				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("40M")
-			} else {
-				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("100m")
-				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1M")
-			}
-			var args []string
-			var name string
-			if isInit {
-				name = diskContainerName + "-init"
-				args = []string{"--no-op"}
-			} else {
-				name = diskContainerName
-				args = []string{"--copy-path", volumeMountDir + "/disk_" + strconv.Itoa(index)}
-			}
-			container := kubev1.Container{
-				Name:            name,
-				Image:           diskContainerImage,
-				ImagePullPolicy: volume.ContainerDisk.ImagePullPolicy,
-				Command:         []string{"/usr/bin/container-disk"},
-				Args:            args,
-				VolumeMounts: []kubev1.VolumeMount{
-					{
-						Name:      podVolumeName,
-						MountPath: volumeMountDir,
-					},
-					{
-						Name:      binVolumeName,
-						MountPath: "/usr/bin",
-					},
-				},
-				Resources: resources,
-			}
-
-			containers = append(containers, container)
+		if volume.Name == KernelBootVolumeName {
+			continue
+		}
+		if container := generateContainerFromVolume(vmi, podVolumeName, binVolumeName, isInit, false, &volume, index); container != nil {
+			containers = append(containers, *container)
 		}
 	}
 	return containers
+}
+
+func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, podVolumeName, binVolumeName string, isInit, isKernelBoot bool, volume *v1.Volume, volumeIdx int) *kubev1.Container {
+	if volume.ContainerDisk == nil {
+		return nil
+	}
+
+	volumeMountDir := GetVolumeMountDirOnGuest(vmi)
+	diskContainerName := fmt.Sprintf("volume%s", volume.Name)
+	diskContainerImage := volume.ContainerDisk.Image
+	resources := kubev1.ResourceRequirements{}
+	resources.Limits = make(kubev1.ResourceList)
+	resources.Requests = make(kubev1.ResourceList)
+	resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
+	resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
+	resources.Requests[kubev1.ResourceEphemeralStorage] = resource.MustParse(ephemeralStorageOverheadSize)
+
+	var mountedDiskName string
+	if isKernelBoot {
+		mountedDiskName = KernelBootName
+	} else {
+		mountedDiskName = "disk_" + strconv.Itoa(volumeIdx)
+	}
+
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		resources.Limits[kubev1.ResourceCPU] = resource.MustParse("10m")
+		resources.Requests[kubev1.ResourceMemory] = resource.MustParse("40M")
+	} else {
+		resources.Limits[kubev1.ResourceCPU] = resource.MustParse("100m")
+		resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1M")
+	}
+	var args []string
+	var name string
+	if isInit {
+		name = diskContainerName + "-init"
+		args = []string{"--no-op"}
+	} else {
+		name = diskContainerName
+		copyPathArg := path.Join(volumeMountDir, mountedDiskName)
+		args = []string{"--copy-path", copyPathArg}
+
+		log.Log.Object(vmi).Infof("arguments for container-disk \"%s\": --copy-path %s", name, copyPathArg)
+	}
+	container := &kubev1.Container{
+		Name:            name,
+		Image:           diskContainerImage,
+		ImagePullPolicy: volume.ContainerDisk.ImagePullPolicy,
+		Command:         []string{"/usr/bin/container-disk"},
+		Args:            args,
+		VolumeMounts: []kubev1.VolumeMount{
+			{
+				Name:      podVolumeName,
+				MountPath: volumeMountDir,
+			},
+			{
+				Name:      binVolumeName,
+				MountPath: "/usr/bin",
+			},
+		},
+		Resources: resources,
+	}
+
+	return container
 }
 
 func CreateEphemeralImages(vmi *v1.VirtualMachineInstance, diskCreator ephemeraldisk.EphemeralDiskCreatorInterface) error {
@@ -252,4 +332,8 @@ func CreateEphemeralImages(vmi *v1.VirtualMachineInstance, diskCreator ephemeral
 	}
 
 	return nil
+}
+
+func getContainerDiskSocketBasePath(baseDir, podUID string) string {
+	return fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, podUID)
 }

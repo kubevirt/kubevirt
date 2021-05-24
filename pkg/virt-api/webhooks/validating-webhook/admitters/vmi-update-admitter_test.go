@@ -428,7 +428,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeDisks(1),
 			makeDisks(1),
 			makeStatus(0, 0),
-			makeExpected("number of disks does not equal the number of volumes", "")),
+			makeExpected("number of disks (1) does not equal the number of volumes (2)", "")),
 		table.Entry("Should reject if we remove a permanent volume",
 			makeVolumes(),
 			makeVolumes(0),

@@ -1568,6 +1568,7 @@ func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.Stat
 
 	if firmware != nil {
 		causes = append(causes, validateBootloader(field.Child("bootloader"), firmware.Bootloader)...)
+		causes = append(causes, validateKernelBoot(field.Child("kernelBoot"), firmware.KernelBoot)...)
 	}
 
 	return causes
@@ -2273,4 +2274,32 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 	}
 
 	return causes
+}
+
+// Rejects kernel boot defined with initrd/kernel path but without an image
+func validateKernelBoot(field *k8sfield.Path, kernelBoot *v1.KernelBoot) (causes []metav1.StatusCause) {
+	if kernelBoot == nil || kernelBoot.Container == nil {
+		return
+	}
+
+	container := kernelBoot.Container
+	containerField := field.Child("container").String()
+
+	if container.Image == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("%s must be defined with an image", containerField),
+			Field:   containerField,
+		})
+	}
+
+	if container.InitrdPath == "" && container.KernelPath == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("%s must be defined with at least one of the following: kernelPath, initrdPath", containerField),
+			Field:   containerField,
+		})
+	}
+
+	return
 }

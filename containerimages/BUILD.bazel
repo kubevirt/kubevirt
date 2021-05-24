@@ -167,3 +167,16 @@ container_image(
     mode = "444",
     visibility = ["//visibility:public"],
 )
+
+container_image(
+    name = "alpine-ext-kernel-boot-demo-container",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = "@alpine-ext-kernel-boot-demo-container-base//image",
+    mode = "444",
+    tars = [":alpine-image-tar"],
+    visibility = ["//visibility:public"],
+)
