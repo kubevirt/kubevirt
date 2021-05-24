@@ -514,6 +514,11 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			return nil
 		}()
 	case virtv1.MigrationScheduled:
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID {
+			// already handed off
+			return nil
+		}
+
 		// once target pod is scheduled, alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
 		if podExists && !podIsDown(pod) {
