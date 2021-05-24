@@ -646,6 +646,25 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		})
 
+		It("should not hand pod over target pod that's already handed over", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+			}
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(pod)
+
+			controller.Execute()
+
+			// expect nothing to occur
+		})
+
 		It("should transition to preparing target phase", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Status.NodeName = "node02"
