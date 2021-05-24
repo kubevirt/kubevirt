@@ -77,6 +77,30 @@ function _add_common_params() {
         params=" --enable-ceph $params"
     fi
 
+    if [[ $KUBEVIRT_DEPLOY_PROMETHEUS == "true" ]] && 
+        [[ $KUBEVIRT_PROVIDER_EXTRA_ARGS != *"--enable-prometheus"* ]]; then
+
+        if [[ ($KUBEVIRT_PROVIDER =~ k8s-1\.1.*) || ($KUBEVIRT_PROVIDER =~ k8s-1.20) ]]; then
+            echo "ERROR: cluster up failed because prometheus is only supported for providers >= k8s-1.21\n"
+            echo "the current provider is $KUBEVIRT_PROVIDER, consider updating to a newer version, or\n"
+            echo "disabling Prometheus using export KUBEVIRT_DEPLOY_PROMETHEUS=false"
+            exit 1
+        fi
+
+        params=" --enable-prometheus $params"
+        
+        if [[ $KUBEVIRT_DEPLOY_PROMETHEUS_ALERTMANAGER == "true" ]] && 
+            [[ $KUBEVIRT_PROVIDER_EXTRA_ARGS != *"--enable-grafana"* ]]; then
+            params=" --enable-prometheus-alertmanager $params"
+        fi
+
+        if [[ $KUBEVIRT_DEPLOY_GRAFANA == "true" ]] && 
+            [[ $KUBEVIRT_PROVIDER_EXTRA_ARGS != *"--enable-grafana"* ]]; then
+            params=" --enable-grafana $params"
+        fi
+    fi
+
+
     echo $params
 }
 
