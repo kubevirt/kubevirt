@@ -33,11 +33,13 @@ import (
 )
 
 var _ = Describe("MigrationProxy", func() {
-	tmpDir, _ := ioutil.TempDir("", "migrationproxytest")
 	var tlsConfig *tls.Config
+	var tmpDir string
 
 	BeforeEach(func() {
-
+		var err error
+		tmpDir, err = ioutil.TempDir("", "migrationproxytest")
+		Expect(err).ToNot(HaveOccurred())
 		os.MkdirAll(tmpDir, 0755)
 		store, err := certificates.GenerateSelfSignedCert(tmpDir, "test", "test")
 
