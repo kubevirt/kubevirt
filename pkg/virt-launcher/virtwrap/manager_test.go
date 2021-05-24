@@ -56,19 +56,21 @@ var _ = Describe("Manager", func() {
 	var mockConn *cli.MockConnection
 	var mockDomain *cli.MockVirDomain
 	var ctrl *gomock.Controller
-	var testVirtShareDir string
+	var testVirtShareDir, tmpDir string
 	testVmName := "testvmi"
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 	ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
 
-	tmpDir, _ := ioutil.TempDir("", "cloudinittest")
 	isoCreationFunc := func(isoOutFile, volumeID string, inDir string) error {
 		_, err := os.Create(isoOutFile)
 		return err
 	}
 	BeforeSuite(func() {
-		err := cloudinit.SetLocalDirectory(tmpDir)
+		var err error
+		tmpDir, err = ioutil.TempDir("", "cloudinittest")
+		Expect(err).ToNot(HaveOccurred())
+		err = cloudinit.SetLocalDirectory(tmpDir)
 		if err != nil {
 			panic(err)
 		}
