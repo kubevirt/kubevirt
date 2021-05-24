@@ -94,7 +94,7 @@ var _ = Describe("Application", func() {
 
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
 		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
-		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, recorder, virtClient)
+		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient)
 		app.nodeController = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
 		app.vmiController = NewVMIController(services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, runtime.GOARCH),
 			vmiInformer,

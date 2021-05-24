@@ -1912,7 +1912,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmiNodeOrig := vmi.Status.NodeName
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
-				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+				Expect(err).To(HaveOccurred())
 
 				By("Ensuring the VMI has migrated and lives on another node")
 				Eventually(func() error {
@@ -2002,21 +2002,24 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Verifying at least once that both pods are protected")
 				for _, pod := range pods.Items {
 					err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
-					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+					Expect(err).To(HaveOccurred())
 				}
 				By("Verifying that both pods are protected by the PodDisruptionBudget for the whole migration")
-				getOptions := &metav1.GetOptions{}
+				getOptions := metav1.GetOptions{}
 				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
-					currentMigration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(migration.Name, getOptions)
+					currentMigration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(migration.Name, &getOptions)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(currentMigration.Status.Phase).NotTo(Equal(v1.MigrationFailed))
-					for _, pod := range pods.Items {
-						err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
-						if !errors.IsTooManyRequests(err) && currentMigration.Status.Phase != v1.MigrationRunning {
-							// In case we get an unexpected error and the migration isn't running anymore, let's not fail
+					for _, p := range pods.Items {
+						pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), p.Name, getOptions)
+						if err != nil || pod.Status.Phase != k8sv1.PodRunning {
 							continue
 						}
-						Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+
+						deleteOptions := &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{ResourceVersion: &pod.ResourceVersion}}
+						eviction := &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}, DeleteOptions: deleteOptions}
+						err = virtClient.CoreV1().Pods(vmi.Namespace).Evict(context.Background(), eviction)
+						Expect(err).To(HaveOccurred())
 					}
 					return currentMigration.Status.Phase
 				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))

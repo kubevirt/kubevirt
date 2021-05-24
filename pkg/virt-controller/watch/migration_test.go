@@ -28,6 +28,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -197,6 +198,12 @@ var _ = Describe("Migration watcher", func() {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
+
+		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
+		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+			return true, &v1beta1.PodDisruptionBudget{}, nil
+		})
+
 		syncCaches(stop)
 	})
 
@@ -230,7 +237,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason, successfulCreatePodDisruptionBudgetReason)
 		})
 		It("should not create target pod if multiple pods exist in a non finalized state for VMI", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
@@ -279,7 +286,7 @@ var _ = Describe("Migration watcher", func() {
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason, successfulCreatePodDisruptionBudgetReason)
 		})
 
 		It("should not overload the cluster and only run 5 migrations in parallel", func() {
@@ -355,7 +362,7 @@ var _ = Describe("Migration watcher", func() {
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason, successfulCreatePodDisruptionBudgetReason)
 		})
 
 		It("should not overload the node and only run 2 outbound migrations in parallel", func() {
@@ -433,7 +440,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason, successfulCreatePodDisruptionBudgetReason)
 		})
 
 		It("should place migration in scheduling state if pod exists", func() {
