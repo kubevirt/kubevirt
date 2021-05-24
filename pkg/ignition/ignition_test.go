@@ -34,12 +34,15 @@ var _ = Describe("Ignition", func() {
 
 	const vmName = "my-vm"
 	const namespace = "my-namespace"
-	tmpDir, _ := ioutil.TempDir("", "ignitiontest")
+	var tmpDir string
 	// const ignitionLocalDir = "/var/run/libvirt/ignition-dir"
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeSuite(func() {
-		err := SetLocalDirectory(tmpDir)
+		var err error
+		tmpDir, err = ioutil.TempDir("", "ignitiontest")
+		Expect(err).ToNot(HaveOccurred())
+		err = SetLocalDirectory(tmpDir)
 		if err != nil {
 			panic(err)
 		}
