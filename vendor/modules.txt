@@ -854,7 +854,7 @@ kubevirt.io/kubevirt/tools/vms-generator/utils
 ## explicit
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# kubevirt.io/ssp-operator v0.2.0
+# kubevirt.io/ssp-operator v0.11.0
 ## explicit
 kubevirt.io/ssp-operator/api/v1beta1
 # sigs.k8s.io/controller-runtime v0.8.3

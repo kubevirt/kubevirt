@@ -49,7 +49,7 @@ require (
 	kubevirt.io/controller-lifecycle-operator-sdk v0.1.3-0.20210112105647-bbf16167410b
 	kubevirt.io/kubevirt v0.41.0
 	kubevirt.io/qe-tools v0.1.7
-	kubevirt.io/ssp-operator v0.2.0
+	kubevirt.io/ssp-operator v0.11.0
 	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/controller-tools v0.5.0
 )

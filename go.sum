@@ -2127,8 +2127,8 @@ kubevirt.io/kubevirt v0.41.0/go.mod h1:dqlwreAmqjzqbk5GV5bbnWhyuRQ/hicsho5McSXOT
 kubevirt.io/qe-tools v0.1.6/go.mod h1:PJyH/YXC4W0AmxfheDmXWMbLNsMSboVGXKpMAwfKzVE=
 kubevirt.io/qe-tools v0.1.7 h1:7fdEwwqKKiLa5wlrrTboqpjX7MMzR7CMZfyzZIQ1iUw=
 kubevirt.io/qe-tools v0.1.7/go.mod h1:O1EynUeGswOi4Embakmv+SsGwr+U3ILHgit9pptK2qk=
-kubevirt.io/ssp-operator v0.2.0 h1:JI45HuicMtuyUvTxGrkvk+tY5LguCx59ZjRQ5a/kaqU=
-kubevirt.io/ssp-operator v0.2.0/go.mod h1:W/pwBRblN1FsbDcJjo5P5vucPiXB7/yuiyz4GDp/TGs=
+kubevirt.io/ssp-operator v0.11.0 h1:BzkiWnyLyoAnbsoyjmmSOe5ozg6pcY+tTg+7C2LaD8o=
+kubevirt.io/ssp-operator v0.11.0/go.mod h1:nlwVwTC8StCB69JEaa6RtZepaU4TlrEuLm8566z7M28=
 libvirt.org/libvirt-go v6.6.0+incompatible/go.mod h1:CPoljLoiC2aEw+62g1rZXl2oXAJaNsrq4YCSmJOELek=
 libvirt.org/libvirt-go-xml v6.6.0+incompatible/go.mod h1:FL+H1+hKNWDdkKQGGS4sGCZJ3pGWcjt6VbxZvPlQJkY=
 mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157/go.mod h1:Ge4atmRUYqueGppvJ7JNrtqpqokoJEFxYbP0Z+WeKS8=
