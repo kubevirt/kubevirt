@@ -5,7 +5,12 @@ set -e
 source ${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh
 
 function up() {
-    ${_cli} run $(_add_common_params)
+    params=$(echo $(_add_common_params))
+    if [[ ! -z $(echo $params | grep ERROR) ]]; then
+        echo -e $params
+        exit 1
+    fi
+    ${_cli} run $params
 
     # Copy k8s config and kubectl
     ${_cli} scp --prefix $provider_prefix /usr/bin/kubectl - >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
