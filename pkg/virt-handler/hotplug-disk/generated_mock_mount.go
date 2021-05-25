@@ -41,6 +41,16 @@ func (_mr *_MockVolumeMounterRecorder) Mount(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Mount", arg0)
 }
 
+func (_m *MockVolumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID) error {
+	ret := _m.ctrl.Call(_m, "MountFromPod", vmi, sourceUID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVolumeMounterRecorder) MountFromPod(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MountFromPod", arg0, arg1)
+}
+
 func (_m *MockVolumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "Unmount", vmi)
 	ret0, _ := ret[0].(error)

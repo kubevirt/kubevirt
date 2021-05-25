@@ -7930,6 +7930,9 @@ var CRDsValidation map[string]string = map[string]string{
               format: date-time
               nullable: true
               type: string
+            targetAttachmentPodUID:
+              description: The UID of the target attachment pod for hotplug volumes
+              type: string
             targetDirectMigrationNodePorts:
               additionalProperties:
                 type: integer

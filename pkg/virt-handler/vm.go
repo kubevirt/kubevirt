@@ -831,7 +831,6 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 
 func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
-	hasHotplug := false
 
 	// Don't update the VirtualMachineInstance if it is already in a final state
 	if origVMI.IsFinal() {
@@ -869,7 +868,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 			}
 		}
 
-		hasHotplug = d.updateVolumeStatusesFromDomain(vmi, domain)
+		_ = d.updateVolumeStatusesFromDomain(vmi, domain)
 		if len(vmi.Status.Interfaces) == 0 {
 			// Set Pod Interface
 			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
@@ -1031,7 +1030,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	}
 
 	// Cacluate whether the VM is migratable
-	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi, hasHotplug)
+	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi)
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		// Set VMI Migration Method
@@ -1269,7 +1268,7 @@ func newNonMigratableCondition(msg string, reason string) *v1.VirtualMachineInst
 	}
 }
 
-func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance, hasHotplug bool) (*v1.VirtualMachineInstanceCondition, bool) {
+func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceCondition, bool) {
 	isBlockMigration, err := d.checkVolumesForMigration(vmi)
 	if err != nil {
 		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
@@ -1278,10 +1277,6 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 	err = d.checkNetworkInterfacesForMigration(vmi)
 	if err != nil {
 		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonInterfaceNotMigratable), isBlockMigration
-	}
-
-	if hasHotplug {
-		return newNonMigratableCondition("VMI has hotplugged disks", v1.VirtualMachineInstanceReasonHotplugNotMigratable), isBlockMigration
 	}
 
 	if err := d.isHostModelMigratable(vmi); err != nil {
@@ -2398,6 +2393,13 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	if err := d.containerDiskMounter.MountKernelArtifacts(vmi, false); err != nil {
 		return fmt.Errorf("failed to mount kernel artifacts: %v", err)
+	}
+
+	// Mount hotplug disks
+	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != types.UID("") {
+		if err := d.hotplugVolumeMounter.MountFromPod(vmi, attachmentPodUID); err != nil {
+			return fmt.Errorf("failed to mount hotplug volumes: %v", err)
+		}
 	}
 
 	// configure network inside virt-launcher compute container

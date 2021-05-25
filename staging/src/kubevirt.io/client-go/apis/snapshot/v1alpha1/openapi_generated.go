@@ -19134,6 +19134,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationState(ref
 							Format:      "",
 						},
 					},
+					"targetAttachmentPodUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The UID of the target attachment pod for hotplug volumes",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"sourceNode": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The source node that the VMI originated on",

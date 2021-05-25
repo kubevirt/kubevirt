@@ -94,6 +94,7 @@ type volumeMounter struct {
 type VolumeMounter interface {
 	// Mount any new volumes defined in the VMI
 	Mount(vmi *v1.VirtualMachineInstance) error
+	MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID) error
 	// Unmount any volumes no longer defined in the VMI
 	Unmount(vmi *v1.VirtualMachineInstance) error
 	//UnmountAll cleans up all hotplug volumes
@@ -235,8 +236,26 @@ func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachi
 	return nil
 }
 
-func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
+func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volumeName string, sourceUID types.UID, record *vmiMountTargetRecord) error {
 	logger := log.DefaultLogger()
+	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
+	if sourceUID != types.UID("") {
+		if m.isBlockVolume(sourceUID, volumeName) {
+			logger.V(4).Infof("Mounting block volume: %s", volumeName)
+			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record); err != nil {
+				return err
+			}
+		} else {
+			logger.V(4).Infof("Mounting file system volume: %s", volumeName)
+			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 	record, err := m.getMountTargetRecord(vmi)
 	if err != nil {
 		return err
@@ -246,23 +265,28 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 			// Skip non hotplug volumes
 			continue
 		}
-		logger.V(4).Infof("Hotplug check volume name: %s", volumeStatus.Name)
 		sourceUID := volumeStatus.HotplugVolume.AttachPodUID
-		if sourceUID != types.UID("") {
-			if m.isBlockVolume(sourceUID, volumeStatus.Name) {
-				logger.V(4).Infof("Mounting block volume: %s", volumeStatus.Name)
-				if err := m.mountBlockHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
-					return err
-				}
-			} else {
-				logger.V(4).Infof("Mounting file system volume: %s", volumeStatus.Name)
-				if err := m.mountFileSystemHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
-					return err
-				}
-			}
+		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
+func (m *volumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID) error {
+	record, err := m.getMountTargetRecord(vmi)
+	if err != nil {
+		return err
+	}
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.HotplugVolume == nil {
+			// Skip non hotplug volumes
+			continue
+		}
+		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -294,6 +318,8 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 
 	deviceName := filepath.Join(targetPath, volume)
 
+	isMigrationInProgress := vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.Completed
+
 	if isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists {
 		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
 		if err != nil {
@@ -313,7 +339,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if _, err = m.createBlockDeviceFile(deviceName, sourceMajor, sourceMinor, permissions); err != nil {
 			return err
 		}
-	} else if isBlockExists && !m.volumeStatusReady(volume, vmi) {
+	} else if isBlockExists && (!m.volumeStatusReady(volume, vmi) || isMigrationInProgress) {
 		// Block device exists already, but the volume is not ready yet, ensure that the device is allowed.
 		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
 		if err != nil {
@@ -730,12 +756,12 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance) error {
 			diskPath := entry.TargetFile
 			if m.isBlockFile(diskPath) {
 				if err := m.unmountBlockHotplugVolumes(diskPath, vmi); err != nil {
-					logger.Infof("Unable to remove block device at path %s", diskPath)
+					logger.Infof("Unable to remove block device at path %s: %v", diskPath, err)
 					// Don't return error, try next.
 				}
 			} else {
 				if err := m.unmountFileSystemHotplugVolumes(diskPath); err != nil {
-					logger.Infof("Unable to unmount volume at path %s", diskPath)
+					logger.Infof("Unable to unmount volume at path %s: %v", diskPath, err)
 					// Don't return error, try next.
 				}
 			}

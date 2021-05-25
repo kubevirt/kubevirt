@@ -12200,6 +12200,10 @@
       "description": "The time the migration action began",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
      },
+     "targetAttachmentPodUID": {
+      "description": "The UID of the target attachment pod for hotplug volumes",
+      "type": "string"
+     },
      "targetDirectMigrationNodePorts": {
       "description": "The list of ports opened for live migration on the destination node",
       "type": "object",
