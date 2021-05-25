@@ -470,7 +470,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.dataVolumeInformer,
-		topology.NewTopologyHinter(vca.nodeInformer.GetStore()),
+		topology.NewTopologyHinter(vca.nodeInformer.GetStore(), runtime.GOARCH),
 	)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)

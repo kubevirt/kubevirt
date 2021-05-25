@@ -108,7 +108,7 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			dataVolumeInformer,
-			topology.NewTopologyHinter(&cache.FakeCustomStore{}),
+			topology.NewTopologyHinter(&cache.FakeCustomStore{}, "amd64"),
 		)
 		app.rsController = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, pvcInformer, recorder, virtClient)

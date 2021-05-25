@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	g "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,11 +44,26 @@ var _ = Describe("Hinter", func() {
 			},
 		))
 	})
+
+	table.DescribeTable("should bit propose a TSC frequency on architectures like", func(arch string) {
+		hinter := hinterWithNodes(
+			NodeWithInvalidTSC("node0"),
+			NodeWithTSC("node1", 1234, true),
+		)
+		hinter.arch = arch
+		g.Expect(hinter.TopologyHintsForVMI(
+			vmiWithoutTSCFrequency("myvmi")),
+		).To(g.BeNil())
+	},
+		table.Entry("arm64", "arm64"),
+		table.Entry("ppc64le", "ppc64le"),
+	)
 })
 
 func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 	return &topologyHinter{
-		store: &cache.FakeCustomStore{
+		arch: "amd64",
+		nodeStore: &cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return ToObjects(nodes...)
 			},
@@ -83,6 +99,25 @@ func NodeWithInvalidTSC(name string) *v1.Node {
 			Labels: map[string]string{
 				TSCFrequencyLabel: fmt.Sprintf("%v", "a"+rand.String(5)),
 				TSCScalableLabel:  fmt.Sprintf("%v", rand.String(10)),
+			},
+		},
+	}
+}
+func vmiWithoutTSCFrequency(vmiName string) *virtv1.VirtualMachineInstance {
+	return &virtv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: vmiName,
+		},
+		Spec: virtv1.VirtualMachineInstanceSpec{
+			Domain: virtv1.DomainSpec{
+				CPU: &virtv1.CPU{
+					Features: []virtv1.CPUFeature{
+						{
+							Name:   "invtsc",
+							Policy: "require",
+						},
+					},
+				},
 			},
 		},
 	}

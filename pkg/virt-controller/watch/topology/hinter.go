@@ -14,11 +14,12 @@ type Hinter interface {
 }
 
 type topologyHinter struct {
-	store cache.Store
+	nodeStore cache.Store
+	arch      string
 }
 
 func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, err error) {
-	if VMIHasInvTSCFeature(vmi) {
+	if VMIHasInvTSCFeature(vmi) && t.arch == "amd64" {
 		freq, err := t.LowestTSCFrequencyOnCluster()
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine the lowest tsc frequency on the cluster: %v", err)
@@ -31,7 +32,7 @@ func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) 
 }
 
 func (t *topologyHinter) LowestTSCFrequencyOnCluster() (int64, error) {
-	nodes := FilterNodesFromCache(t.store.List(),
+	nodes := FilterNodesFromCache(t.nodeStore.List(),
 		HasInvTSCFrequency,
 	)
 	freq := LowestTSCFrequency(nodes)
@@ -41,6 +42,6 @@ func (t *topologyHinter) LowestTSCFrequencyOnCluster() (int64, error) {
 	return freq, nil
 }
 
-func NewTopologyHinter(store cache.Store) *topologyHinter {
-	return &topologyHinter{store: store}
+func NewTopologyHinter(nodeStore cache.Store, arch string) *topologyHinter {
+	return &topologyHinter{nodeStore: nodeStore, arch: arch}
 }
