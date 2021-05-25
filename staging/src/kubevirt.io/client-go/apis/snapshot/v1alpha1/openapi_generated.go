@@ -20469,6 +20469,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"restoreInProgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"created": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Created indicates if the virtual machine is created in the cluster",
