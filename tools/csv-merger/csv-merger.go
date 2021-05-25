@@ -281,7 +281,7 @@ func getHcoCsv() {
 	csvBase := components.GetCSVBase(csvParams)
 
 	if *enableUniqueSemver {
-		csvBase.ObjectMeta.Annotations["olm.skipRange"] = fmt.Sprintf(">=%v-1 <%v", strings.Split(version.String(), "-")[0], version.String())
+		csvBase.ObjectMeta.Annotations["olm.skipRange"] = fmt.Sprintf("<%v", version.String())
 	}
 
 	params := getDeploymentParams()
