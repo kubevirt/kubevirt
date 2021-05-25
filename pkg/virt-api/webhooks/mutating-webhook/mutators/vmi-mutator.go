@@ -33,6 +33,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -57,7 +58,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	var patch []patchOperation
+	var patch []utiltypes.PatchOperation
 
 	// Patch the spec, metadata and status with defaults if we deal with a create operation
 	if ar.Request.Operation == admissionv1.Create {
@@ -120,21 +121,21 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 		var value interface{}
 		value = newVMI.Spec
-		patch = append(patch, patchOperation{
+		patch = append(patch, utiltypes.PatchOperation{
 			Op:    "replace",
 			Path:  "/spec",
 			Value: value,
 		})
 
 		value = newVMI.ObjectMeta
-		patch = append(patch, patchOperation{
+		patch = append(patch, utiltypes.PatchOperation{
 			Op:    "replace",
 			Path:  "/metadata",
 			Value: value,
 		})
 
 		value = newVMI.Status
-		patch = append(patch, patchOperation{
+		patch = append(patch, utiltypes.PatchOperation{
 			Op:    "replace",
 			Path:  "/status",
 			Value: value,
@@ -145,7 +146,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
 		if !reflect.DeepEqual(newVMI.Status, oldVMI.Status) {
 			if !webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
-				patch = append(patch, patchOperation{
+				patch = append(patch, utiltypes.PatchOperation{
 					Op:    "replace",
 					Path:  "/status",
 					Value: oldVMI.Status,

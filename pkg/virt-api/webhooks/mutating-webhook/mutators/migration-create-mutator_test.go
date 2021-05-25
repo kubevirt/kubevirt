@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
@@ -55,7 +56,7 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		By("Getting the VMI spec from the response")
 		migrationSpec := &v1.VirtualMachineInstanceMigrationSpec{}
 		migrationMeta := &k8smetav1.ObjectMeta{}
-		patch := []patchOperation{
+		patch := []utiltypes.PatchOperation{
 			{Value: migrationSpec},
 			{Value: migrationMeta},
 		}

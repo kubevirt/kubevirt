@@ -45,6 +45,7 @@ import (
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	utiltype "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -806,18 +807,18 @@ var _ = Describe("Migration watcher", func() {
 				patch := `[{ "op": "test", "path": "/status/migrationState", "value": {"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "replace", "path": "/status/migrationState", "value": {"startTimestamp":"%s","endTimestamp":"%s","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"} }]`
 
 				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).DoAndReturn(func(name interface{}, ptype interface{}, vmiStatusPatch []byte) (*v1.VirtualMachineInstance, error) {
-					type P struct {
-						Op    string                                   `json:"op,omitempty"`
-						Path  string                                   `json:"path,omitempty"`
-						Value *v1.VirtualMachineInstanceMigrationState `json:"value,omitempty"`
-					}
 
-					vmiSP := []P{}
+					vmiSP := []utiltype.PatchOperation{}
 					err := json.Unmarshal(vmiStatusPatch, &vmiSP)
 					Expect(err).To(BeNil())
 					Expect(vmiSP).To(HaveLen(2))
 
-					newMS := vmiSP[1].Value
+					b, err := json.Marshal(vmiSP[1].Value)
+					Expect(err).To(BeNil())
+
+					newMS := v1.VirtualMachineInstanceMigrationState{}
+					err = json.Unmarshal(b, &newMS)
+					Expect(err).To(BeNil())
 					Expect(newMS.StartTimestamp).ToNot(BeNil())
 					Expect(newMS.EndTimestamp).ToNot(BeNil())
 

@@ -25,6 +25,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -66,17 +67,17 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	log.Log.Object(&vm).V(4).Info("Apply defaults")
 	mutator.setDefaultMachineType(&vm)
 
-	var patch []patchOperation
+	var patch []utiltypes.PatchOperation
 	var value interface{}
 	value = vm.Spec
-	patch = append(patch, patchOperation{
+	patch = append(patch, utiltypes.PatchOperation{
 		Op:    "replace",
 		Path:  "/spec",
 		Value: value,
 	})
 
 	value = vm.ObjectMeta
-	patch = append(patch, patchOperation{
+	patch = append(patch, utiltypes.PatchOperation{
 		Op:    "replace",
 		Path:  "/metadata",
 		Value: value,

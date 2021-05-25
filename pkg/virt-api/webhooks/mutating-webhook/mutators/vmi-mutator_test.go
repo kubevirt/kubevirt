@@ -38,6 +38,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
@@ -82,7 +83,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		By("Getting the VMI spec from the response")
 		vmiSpec := &v1.VirtualMachineInstanceSpec{}
 		vmiMeta := &k8smetav1.ObjectMeta{}
-		patch := []patchOperation{
+		patch := []utiltypes.PatchOperation{
 			{Value: vmiSpec},
 			{Value: vmiMeta},
 		}
@@ -120,7 +121,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		By("Getting the VMI spec from the response")
 		vmiStatus := &v1.VirtualMachineInstanceStatus{}
-		patch := []patchOperation{
+		patch := []utiltypes.PatchOperation{
 			{Value: vmiStatus},
 		}
 		err = json.Unmarshal(resp.Patch, &patch)

@@ -13,6 +13,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/util/types:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/node-labeller/api:go_default_library",
         "//pkg/virt-handler/node-labeller/util:go_default_library",

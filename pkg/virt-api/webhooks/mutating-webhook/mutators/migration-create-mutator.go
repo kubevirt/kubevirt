@@ -26,6 +26,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -60,18 +61,18 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 
 	// Add a finalizer
 	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
-	var patch []patchOperation
+	var patch []utiltypes.PatchOperation
 	var value interface{}
 
 	value = migration.Spec
-	patch = append(patch, patchOperation{
+	patch = append(patch, utiltypes.PatchOperation{
 		Op:    "replace",
 		Path:  "/spec",
 		Value: value,
 	})
 
 	value = migration.ObjectMeta
-	patch = append(patch, patchOperation{
+	patch = append(patch, utiltypes.PatchOperation{
 		Op:    "replace",
 		Path:  "/metadata",
 		Value: value,
