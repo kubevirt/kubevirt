@@ -1202,6 +1202,8 @@ const (
 type VirtualMachineStatus struct {
 	// SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing
 	SnapshotInProgress *string `json:"snapshotInProgress,omitempty"`
+	// RestoreInProgress is the name of the VirtualMachineRestore currently executing
+	RestoreInProgress *string `json:"restoreInProgress,omitempty"`
 	// Created indicates if the virtual machine is created in the cluster
 	Created bool `json:"created,omitempty"`
 	// Ready indicates if the virtual machine is running and ready
