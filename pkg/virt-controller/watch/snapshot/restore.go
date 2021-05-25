@@ -56,6 +56,8 @@ type restoreTarget interface {
 	Reconcile() (bool, error)
 	Cleanup() error
 	Own(obj metav1.Object)
+	UpdateDoneRestore() (bool, error)
+	UpdateRestoreInProgress() error
 }
 
 type vmRestoreTarget struct {
@@ -87,10 +89,6 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 
 	logger.V(1).Infof("Updating VirtualMachineRestore")
 
-	if !vmRestoreProgressing(vmRestoreIn) {
-		return 0, nil
-	}
-
 	vmRestoreOut := vmRestoreIn.DeepCopy()
 
 	if vmRestoreOut.Status == nil {
@@ -106,10 +104,24 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdateError(vmRestoreOut, err)
 	}
 
+	if !vmRestoreProgressing(vmRestoreIn) && target != nil {
+		//update the vm if Done restore
+		if updated, err := target.UpdateDoneRestore(); updated || err != nil {
+			return 0, err
+		}
+
+		return 0, nil
+	}
+
 	if len(vmRestoreOut.OwnerReferences) == 0 {
 		target.Own(vmRestoreOut)
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"))
 		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"))
+	}
+
+	err = target.UpdateRestoreInProgress()
+	if err != nil {
+		return 0, err
 	}
 
 	// let's make sure everything is initialized properly before continuing
@@ -299,6 +311,35 @@ func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClai
 
 func (t *vmRestoreTarget) UID() types.UID {
 	return t.vm.UID
+}
+
+func (t *vmRestoreTarget) UpdateDoneRestore() (bool, error) {
+	if t.vm.Status.RestoreInProgress == nil || *t.vm.Status.RestoreInProgress != t.vmRestore.Name {
+		return false, nil
+	}
+
+	vmCopy := t.vm.DeepCopy()
+
+	vmCopy.Status.RestoreInProgress = nil
+	return true, t.controller.vmStatusUpdater.UpdateStatus(vmCopy)
+}
+
+func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
+	if t.vm.Status.RestoreInProgress != nil && *t.vm.Status.RestoreInProgress != t.vmRestore.Name {
+		return fmt.Errorf("vm restore %s in progress", *t.vm.Status.RestoreInProgress)
+	}
+
+	vmCopy := t.vm.DeepCopy()
+
+	if vmCopy.Status.RestoreInProgress == nil {
+		vmCopy.Status.RestoreInProgress = &t.vmRestore.Name
+
+		// unfortunately, status Updater does not return the updated resource
+		// but the controller is watching VMs so will get notified
+		return t.controller.vmStatusUpdater.UpdateStatus(vmCopy)
+	}
+
+	return nil
 }
 
 func (t *vmRestoreTarget) Ready() (bool, error) {

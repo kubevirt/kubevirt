@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 var _ = Describe("Restore controlleer", func() {
@@ -259,6 +260,7 @@ var _ = Describe("Restore controlleer", func() {
 				StorageClassInformer:      storageClassInformer,
 				DataVolumeInformer:        dataVolumeInformer,
 				Recorder:                  recorder,
+				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
 			}
 			controller.Init()
 
