@@ -26,10 +26,3 @@ build --define gotags=selinux
 
 # let our unit tests produce our own junit reports
 test --action_env=GO_TEST_WRAP=0
-
-# speed up unit tests by enabling ginkos parallel execution
-test --test_arg=--ginkgo.parallel.total=5
-
-# for code coverage ginkos parallel execution needs to be disabled
-# since ginkgo has a forking model
-coverage --test_arg=--ginkgo.parallel.total=1
