@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
-    createdAt: "2021-05-25 05:38:26"
+    createdAt: "2021-05-25 15:26:45"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -1845,7 +1845,7 @@ spec:
                 - name: SSP_VERSION
                   value: v0.11.0
                 - name: NMO_VERSION
-                  value: v0.7.0
+                  value: v0.9.0
                 - name: HPPO_VERSION
                   value: v0.7.2
                 - name: VM_IMPORT_VERSION
@@ -2231,13 +2231,6 @@ spec:
                 app.kubernetes.io/version: 1.5.0
                 name: node-maintenance-operator
             spec:
-              affinity:
-                nodeAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    nodeSelectorTerms:
-                    - matchExpressions:
-                      - key: node-role.kubernetes.io/master
-                        operator: Exists
               containers:
               - env:
                 - name: WATCH_NAMESPACE
@@ -2250,7 +2243,7 @@ spec:
                       fieldPath: metadata.name
                 - name: OPERATOR_NAME
                   value: node-maintenance-operator
-                image: quay.io/kubevirt/node-maintenance-operator@sha256:71bb8de714dc0de0616050d66405ccb58841930fc1562a61399e1b964a0b678a
+                image: quay.io/kubevirt/node-maintenance-operator@sha256:8a406e215a002dd80a6c44ab8c136b0fa6efc04842901af55d53ef4d48856055
                 imagePullPolicy: Always
                 name: node-maintenance-operator
                 resources: {}
@@ -2593,7 +2586,7 @@ spec:
     name: kubevirt-vmware
   - image: quay.io/kubevirt/macvtap-cni@sha256:f20d5e56f8b8c1ab7e5a64e536b66f65aa688b2d1dc0b37e3c26c2af2b481266
     name: macvtap-cni
-  - image: quay.io/kubevirt/node-maintenance-operator@sha256:71bb8de714dc0de0616050d66405ccb58841930fc1562a61399e1b964a0b678a
+  - image: quay.io/kubevirt/node-maintenance-operator@sha256:8a406e215a002dd80a6c44ab8c136b0fa6efc04842901af55d53ef4d48856055
     name: node-maintenance-operator
   - image: quay.io/kubevirt/ovs-cni-marker@sha256:dca0d0432eacb1e97ea49c755df1c232159fe4267e7f872222ef0ef77e3d8915
     name: ovs-cni-marker
@@ -2716,6 +2709,7 @@ spec:
     webhookPath: /validate-ssp-kubevirt-io-v1beta1-ssp
   - admissionReviewVersions:
     - v1beta1
+    - v1
     containerPort: 8443
     deploymentName: node-maintenance-operator
     failurePolicy: Fail

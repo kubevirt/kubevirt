@@ -66,7 +66,7 @@ spec:
         - name: SSP_VERSION
           value: v0.11.0
         - name: NMO_VERSION
-          value: v0.7.0
+          value: v0.9.0
         - name: HPPO_VERSION
           value: v0.7.2
         - name: VM_IMPORT_VERSION
@@ -498,13 +498,6 @@ spec:
         app.kubernetes.io/version: 1.5.0
         name: node-maintenance-operator
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-role.kubernetes.io/master
-                operator: Exists
       containers:
       - env:
         - name: WATCH_NAMESPACE
@@ -517,7 +510,7 @@ spec:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: node-maintenance-operator
-        image: quay.io/kubevirt/node-maintenance-operator@sha256:71bb8de714dc0de0616050d66405ccb58841930fc1562a61399e1b964a0b678a
+        image: quay.io/kubevirt/node-maintenance-operator@sha256:8a406e215a002dd80a6c44ab8c136b0fa6efc04842901af55d53ef4d48856055
         imagePullPolicy: Always
         name: node-maintenance-operator
         resources: {}
