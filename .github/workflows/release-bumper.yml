@@ -3,6 +3,13 @@ on:
   schedule:
     - cron:  '0 5 * * *'
   workflow_dispatch:
+    inputs:
+      component:
+        description: 'Component to bump'
+        required: false
+      version:
+        description: 'Component version'
+        required: false
 jobs:
   build:
     name: HCO Release Bump Job
@@ -18,6 +25,9 @@ jobs:
           go-version: '1.16' # The Go version to download (if necessary) and use.
 
       - name: Check for new releases and update
+        env:
+          UPDATED_COMPONENT: ${{ github.event.inputs.component }}"
+          UPDATED_VERSION: ${{ github.event.inputs.version }}"
         run: |
           ./automation/release-bumper/release-bumper.sh
           if [[ -f updated_component.txt ]]; then

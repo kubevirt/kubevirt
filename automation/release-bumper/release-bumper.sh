@@ -79,13 +79,30 @@ function get_updated_versions {
   )
 
   UPDATED_VERSIONS=()
-  for component in "${!COMPONENTS_REPOS[@]}"; do
-    UPDATED_VERSIONS[$component]=$(get_latest_release "${COMPONENTS_REPOS[$component]}");
-    if [ -z "${UPDATED_VERSIONS[$component]}" ]; then
-      echo "ERROR: Unable to get an updated version of $component, aborting..."
+  if [[ -n ${UPDATED_COMPONENT} ]]; then
+    if [[ -z ${UPDATED_VERSION} ]]; then
+      UPDATED_VERSION=$(get_latest_release "${COMPONENTS_REPOS[$component]}")
+    fi
+    if [[ -v COMPONENTS_REPOS[${UPDATED_COMPONENT}] ]]; then
+      if [[ $(curl "https://api.github.com/repos/${COMPONENTS_REPOS[$component]}/releases/tags/${UPDATED_VERSION}" --write-out '%{http_code}' --silent --output /dev/null) == "200" ]]; then
+        UPDATED_VERSIONS["${UPDATED_COMPONENT}"]="${UPDATED_VERSION}"
+      else
+        echo "ERROR: unknown version '${UPDATED_VERSION} for component '${UPDATED_COMPONENT}'"
+        exit 1
+      fi
+    else
+      echo "ERROR: unknown component '${UPDATED_COMPONENT}'"
       exit 1
     fi
+  else
+    for component in "${!COMPONENTS_REPOS[@]}"; do
+      UPDATED_VERSIONS[$component]=$(get_latest_release "${COMPONENTS_REPOS[$component]}");
+      if [ -z "${UPDATED_VERSIONS[$component]}" ]; then
+        echo "ERROR: Unable to get an updated version of $component, aborting..."
+        exit 1
+      fi
     done;
+  fi
 }
 
 function get_latest_release() {
