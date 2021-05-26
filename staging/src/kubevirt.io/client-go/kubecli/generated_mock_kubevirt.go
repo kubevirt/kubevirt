@@ -1333,6 +1333,16 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Stop(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stop", arg0)
 }
 
+func (_m *MockVirtualMachineInterface) ForceStop(name string, graceperiod int) error {
+	ret := _m.ctrl.Call(_m, "ForceStop", name, graceperiod)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) ForceStop(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForceStop", arg0, arg1)
+}
+
 func (_m *MockVirtualMachineInterface) Migrate(name string) error {
 	ret := _m.ctrl.Call(_m, "Migrate", name)
 	ret0, _ := ret[0].(error)
