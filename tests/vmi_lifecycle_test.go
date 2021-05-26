@@ -31,12 +31,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/rand"
+	k8sWatch "k8s.io/apimachinery/pkg/watch"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -110,16 +112,22 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			pod := pods.Items[0]
 			handlerNamespace := pod.GetNamespace()
+
+			By("setting up a watch on Nodes")
+			nodeWatch, err := virtClient.CoreV1().Nodes().Watch(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			err = virtClient.CoreV1().Pods(handlerNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(func() string {
-				n, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				return n.Labels[v1.NodeSchedulable]
-			}, 20*time.Second, 1*time.Second).Should(Equal("false"))
-
+			Eventually(nodeWatch.ResultChan(), 120*time.Second).Should(Receive(WithTransform(func(e k8sWatch.Event) metav1.ObjectMeta {
+				node, ok := e.Object.(*k8sv1.Node)
+				Expect(ok).To(BeTrue())
+				return node.ObjectMeta
+			}, MatchFields(IgnoreExtras, Fields{
+				"Name":   Equal(pod.Spec.NodeName),
+				"Labels": HaveKeyWithValue(v1.NodeSchedulable, "false"),
+			}))), "Failed to observe change in schedulable label")
 		})
 	})
 
@@ -928,7 +936,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				supportedFeatures = tests.GetSupportedCPUFeatures(*nodes)
 				Expect(supportedFeatures).ToNot(BeEmpty(), "There should be some supported cpu features")
 
-				for key, _ := range node.Labels {
+				for key := range node.Labels {
 					if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
 						!strings.Contains(key, "tlbflush") &&
 						!strings.Contains(key, "ipi") &&
