@@ -87,7 +87,7 @@ bazel run \
     libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
     libvirt-client-${LIBVIRT_VERSION} \
     libvirt-daemon-driver-storage-core-${LIBVIRT_VERSION} \
-    qemu-kvm-${QEMU_VERSION} \
+    qemu-kvm-core-${QEMU_VERSION} \
     seabios-${SEABIOS_VERSION} \
     genisoimage \
     selinux-policy selinux-policy-targeted \
@@ -105,7 +105,7 @@ bazel run \
     libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
     libvirt-client-${LIBVIRT_VERSION} \
     libvirt-daemon-driver-storage-core-${LIBVIRT_VERSION} \
-    qemu-kvm-${QEMU_VERSION} \
+    qemu-kvm-core-${QEMU_VERSION} \
     genisoimage \
     selinux-policy selinux-policy-targeted \
     nftables \
