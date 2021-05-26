@@ -86,6 +86,7 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
 	var pid int
+	var ppid int
 	var slice string
 	var err error
 	var controller []string
@@ -95,13 +96,18 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 		return nil, err
 	}
 
+	if ppid, err = getPPid(pid); err != nil {
+		log.Log.Object(vm).Reason(err).Errorf("Could not get owner PPid of socket %s", socket)
+		return nil, err
+	}
+
 	// Look up the cgroup slice based on the whitelisted controller
 	if controller, slice, err = s.getSlice(pid); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get cgroup slice for Pid %d", pid)
 		return nil, err
 	}
 
-	return NewIsolationResult(pid, slice, controller), nil
+	return NewIsolationResult(pid, ppid, slice, controller), nil
 }
 
 func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolationDetector {
@@ -143,17 +149,85 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		if err != nil {
 			return err
 		}
-		rLimit := unix.Rlimit{
-			Max: uint64(memlockSize),
-			Cur: uint64(memlockSize),
-		}
-		err = prLimit(process.Pid(), unix.RLIMIT_MEMLOCK, &rLimit)
+		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize)
 		if err != nil {
-			return fmt.Errorf("failed to set rlimit for memory lock: %v", err)
+			return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", process.Pid(), memlockSize, err)
 		}
 		// we assume a single process should match
 		break
 	}
+	return nil
+}
+
+// AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
+// virt-launcher pod on the given VMI according to its spec.
+// Only VMI's with VFIO devices (e.g: SRIOV, GPU) require QEMU process MEMLOCK adjustment.
+func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance) error {
+	if !util.IsVFIOVMI(vmi) {
+		return nil
+	}
+
+	isolationResult, err := podIsoDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+
+	processes, err := ps.Processes()
+	if err != nil {
+		return fmt.Errorf("failed to get all processes: %v", err)
+	}
+	qemuProcess, err := findIsolatedQemuProcess(processes, isolationResult.PPid())
+	if err != nil {
+		return err
+	}
+	qemuProcessPid := qemuProcess.Pid()
+
+	memlockSize, err := getMemlockSize(vmi)
+	if err != nil {
+		return err
+	}
+
+	if err := setProcessMemoryLockRLimit(qemuProcessPid, memlockSize); err != nil {
+		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessPid, memlockSize, err)
+	}
+	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %d Max:%d",
+		qemuProcess, memlockSize, memlockSize)
+
+	return nil
+}
+
+var qemuProcessExecutables = []string{"qemu-system", "qemu-kvm"}
+
+// findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
+func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error) {
+	processes = childProcesses(processes, pid)
+	for _, exec := range qemuProcessExecutables {
+		if qemuProcess := lookupProcessByExecutable(processes, exec); qemuProcess != nil {
+			return qemuProcess, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
+}
+
+// setProcessMemoryLockRLimit Adjusts process MEMLOCK
+// soft-limit (current) and hard-limit (max) to the given size.
+func setProcessMemoryLockRLimit(pid int, size int64) error {
+	// standard golang libraries don't provide API to set runtime limits
+	// for other processes, so we have to directly call to kernel
+	rlimit := unix.Rlimit{
+		Cur: uint64(size),
+		Max: uint64(size),
+	}
+	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
+		uintptr(pid),
+		uintptr(unix.RLIMIT_MEMLOCK),
+		uintptr(unsafe.Pointer(&rlimit)), // #nosec used in unix RawSyscall6
+		0, 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("Error setting prlimit: %v", errno)
+	}
+
 	return nil
 }
 
@@ -179,6 +253,15 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	}
 
 	return int(ucreds.Pid), nil
+}
+
+func getPPid(pid int) (int, error) {
+	process, err := ps.FindProcess(pid)
+	if err != nil {
+		return -1, err
+	}
+
+	return process.PPid(), nil
 }
 
 func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, slice string, err error) {
@@ -207,20 +290,6 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, 
 	}
 
 	return
-}
-
-// standard golang libraries don't provide API to set runtime limits
-// for other processes, so we have to directly call to kernel
-func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
-	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
-		uintptr(pid),
-		limit,
-		uintptr(unsafe.Pointer(rlimit)), // #nosec used in unix RawSyscall6
-		0, 0, 0)
-	if errno != 0 {
-		return fmt.Errorf("Error setting prlimit: %v", errno)
-	}
-	return nil
 }
 
 // consider reusing getMemoryOverhead()

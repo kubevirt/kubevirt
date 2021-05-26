@@ -39,12 +39,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-// IsolationResult is the result of a succesful PodIsolationDetector.Detect
+// IsolationResult is the result of a successful PodIsolationDetector.Detect
 type IsolationResult interface {
 	// cgroup slice
 	Slice() string
 	// process ID
 	Pid() int
+	// parent process ID
+	PPid() int
 	// full path to the process namespace
 	PIDNamespace() string
 	// full path to the process root mount
@@ -61,12 +63,13 @@ type IsolationResult interface {
 
 type RealIsolationResult struct {
 	pid        int
+	ppid       int
 	slice      string
 	controller []string
 }
 
-func NewIsolationResult(pid int, slice string, controller []string) IsolationResult {
-	return &RealIsolationResult{pid: pid, slice: slice, controller: controller}
+func NewIsolationResult(pid, ppid int, slice string, controller []string) IsolationResult {
+	return &RealIsolationResult{pid: pid, ppid: ppid, slice: slice, controller: controller}
 }
 
 func (r *RealIsolationResult) DoNetNS(f func() error) error {
@@ -142,6 +145,10 @@ func (r *RealIsolationResult) MountRoot() string {
 
 func (r *RealIsolationResult) Pid() int {
 	return r.pid
+}
+
+func (r *RealIsolationResult) PPid() int {
+	return r.ppid
 }
 
 func (r *RealIsolationResult) Controller() []string {

@@ -63,11 +63,10 @@ const virtiofsDebugLogs = "virtiofsdDebugLogs"
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
 const (
-	CAP_NET_ADMIN    = "NET_ADMIN"
-	CAP_NET_RAW      = "NET_RAW"
-	CAP_SYS_ADMIN    = "SYS_ADMIN"
-	CAP_SYS_NICE     = "SYS_NICE"
-	CAP_SYS_RESOURCE = "SYS_RESOURCE"
+	CAP_NET_ADMIN = "NET_ADMIN"
+	CAP_NET_RAW   = "NET_RAW"
+	CAP_SYS_ADMIN = "SYS_ADMIN"
+	CAP_SYS_NICE  = "SYS_NICE"
 )
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
@@ -1461,12 +1460,6 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 	if util.IsVMIVirtiofsEnabled(vmi) {
 		capabilities = append(capabilities, CAP_SYS_ADMIN)
 		capabilities = append(capabilities, getVirtiofsCapabilities()...)
-	}
-
-	// add SYS_RESOURCE capability to enable Live Migration for VM with SRIOV interfaces
-	// until https://bugzilla.redhat.com/show_bug.cgi?id=1916346 is resolved.
-	if config.SRIOVLiveMigrationEnabled() && util.IsSRIOVVmi(vmi) {
-		capabilities = append(capabilities, CAP_SYS_RESOURCE)
 	}
 
 	return capabilities
