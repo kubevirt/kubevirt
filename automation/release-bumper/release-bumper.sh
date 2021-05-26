@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -ex
 
 CONFIG_FILE="hack/config"
 
@@ -84,10 +84,11 @@ function get_updated_versions {
       UPDATED_VERSION=$(get_latest_release "${COMPONENTS_REPOS[$component]}")
     fi
     if [[ -v COMPONENTS_REPOS[${UPDATED_COMPONENT}] ]]; then
-      if [[ $(curl "https://api.github.com/repos/${COMPONENTS_REPOS[$component]}/releases/tags/${UPDATED_VERSION}" --write-out '%{http_code}' --silent --output /dev/null) == "200" ]]; then
+      HTTP_CODE=$(curl "https://api.github.com/repos/${COMPONENTS_REPOS[$component]}/releases/tags/${UPDATED_VERSION}" --write-out '%{http_code}' --silent --output /dev/null)
+      if [[ ${HTTP_CODE} == "200" ]]; then
         UPDATED_VERSIONS["${UPDATED_COMPONENT}"]="${UPDATED_VERSION}"
       else
-        echo "ERROR: unknown version '${UPDATED_VERSION} for component '${UPDATED_COMPONENT}'"
+        echo "ERROR: unknown version '${UPDATED_VERSION}' for component '${UPDATED_COMPONENT}'"
         exit 1
       fi
     else
