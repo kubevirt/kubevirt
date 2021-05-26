@@ -193,7 +193,7 @@ metadata:
 EOF
 
 cat <<EOF | ${CMD} apply -f -
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-testing-cluster-admin

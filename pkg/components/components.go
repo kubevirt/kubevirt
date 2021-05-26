@@ -27,7 +27,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	crdgen "sigs.k8s.io/controller-tools/pkg/crd"
@@ -817,27 +816,94 @@ func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
 
 // TODO: remove once VMware provider is removed from HCO
 // GetV2VCRD creates CRD for v2v VMWare provider
-func GetV2VCRD() *extv1beta1.CustomResourceDefinition {
-	return &extv1beta1.CustomResourceDefinition{
+func GetV2VCRD() *extv1.CustomResourceDefinition {
+	return &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apiextensions.k8s.io/v1beta1",
+			APIVersion: "apiextensions.k8s.io/v1",
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "v2vvmwares." + vmimportv1beta1.SchemeGroupVersion.Group,
 		},
-		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group:   vmimportv1beta1.SchemeGroupVersion.Group,
-			Version: "v1alpha1",
-			Scope:   "Namespaced",
-			Versions: []extv1beta1.CustomResourceDefinitionVersion{
+		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: vmimportv1beta1.SchemeGroupVersion.Group,
+			Scope: "Namespaced",
+			Versions: []extv1.CustomResourceDefinitionVersion{
 				{
 					Name:    "v1alpha1",
 					Served:  true,
 					Storage: true,
+					Subresources: &extv1.CustomResourceSubresources{
+						Status: &extv1.CustomResourceSubresourceStatus{},
+					},
+					Schema: &extv1.CustomResourceValidation{
+						OpenAPIV3Schema: &extv1.JSONSchemaProps{
+							Description: "V2VVmware is the Schema for the v2vvmwares API",
+							Type:        "object",
+							Properties: map[string]extv1.JSONSchemaProps{
+								"apiVersion": {
+									Type: "string",
+									Description: `APIVersion defines the versioned schema of this representation
+                        of an object. Servers should convert recognized schemas to the latest
+                        internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources`,
+								},
+								"kind": {
+									Type: "string",
+									Description: `Kind is a string value representing the REST resource this
+                        object represents. Servers may infer this from the endpoint the client
+                        submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds`,
+								},
+								"metadata": {Type: "object"},
+								"spec": {
+									Description: "V2VVmwareSpec defines the desired state of V2VVmware",
+									Type:        "object",
+									Properties: map[string]extv1.JSONSchemaProps{
+										"connection": {Type: "string"},
+										"thumbprint": {Type: "string"},
+										"timeToLive": {Type: "string"},
+										"vms": {
+											Items: &extv1.JSONSchemaPropsOrArray{
+												Schema: &extv1.JSONSchemaProps{
+													Type: "object",
+													Properties: map[string]extv1.JSONSchemaProps{
+														"detail": {
+															Type: "object",
+															Properties: map[string]extv1.JSONSchemaProps{
+																"hostPath": {
+																	Type: "string",
+																},
+																"raw": {
+																	Type:        "string",
+																	Description: "TODO: list required details",
+																},
+															},
+															Required: []string{"hostPath"},
+														},
+														"detailRequest": {Type: "boolean"},
+														"name":          {Type: "string"},
+													},
+													Required: []string{"name"},
+												},
+											},
+											Type: "array",
+										},
+									},
+								},
+								"status": {
+									Description: "V2VVmwareStatus defines the observed state of V2VVmware",
+									Type:        "object",
+									Properties: map[string]extv1.JSONSchemaProps{
+										"phase": {
+											Type: "string",
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
-			Names: extv1beta1.CustomResourceDefinitionNames{
+			Names: extv1.CustomResourceDefinitionNames{
 				Plural:   "v2vvmwares",
 				Singular: "v2vvmware",
 				Kind:     "V2VVmware",
@@ -849,96 +915,95 @@ func GetV2VCRD() *extv1beta1.CustomResourceDefinition {
 
 // TODO: remove once oVirt provider  is removed from HCO
 // GetV2VOvirtProviderCRD creates CRD for v2v oVirt provider
-func GetV2VOvirtProviderCRD() *extv1beta1.CustomResourceDefinition {
-	return &extv1beta1.CustomResourceDefinition{
+func GetV2VOvirtProviderCRD() *extv1.CustomResourceDefinition {
+	return &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apiextensions.k8s.io/v1beta1",
+			APIVersion: "apiextensions.k8s.io/v1",
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "ovirtproviders." + vmimportv1beta1.SchemeGroupVersion.Group,
 		},
-		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group:   vmimportv1beta1.SchemeGroupVersion.Group,
-			Version: "v1alpha1",
-			Scope:   "Namespaced",
-			Versions: []extv1beta1.CustomResourceDefinitionVersion{
+		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: vmimportv1beta1.SchemeGroupVersion.Group,
+			Scope: "Namespaced",
+			Versions: []extv1.CustomResourceDefinitionVersion{
 				{
 					Name:    "v1alpha1",
 					Served:  true,
 					Storage: true,
-				},
-			},
-			Names: extv1beta1.CustomResourceDefinitionNames{
-				Plural:   "ovirtproviders",
-				Singular: "ovirtprovider",
-				Kind:     "OVirtProvider",
-				ListKind: "OVirtProviderList",
-			},
-			Subresources: &extv1beta1.CustomResourceSubresources{
-				Status: &extv1beta1.CustomResourceSubresourceStatus{},
-			},
-			Validation: &extv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &extv1beta1.JSONSchemaProps{
-					Description: "OVirtProvider is the Schema for the ovirtproviders API",
-					Type:        "object",
-					Properties: map[string]extv1beta1.JSONSchemaProps{
-						"apiVersion": {
-							Type: "string",
-							Description: `APIVersion defines the versioned schema of this representation
+					Subresources: &extv1.CustomResourceSubresources{
+						Status: &extv1.CustomResourceSubresourceStatus{},
+					},
+					Schema: &extv1.CustomResourceValidation{
+						OpenAPIV3Schema: &extv1.JSONSchemaProps{
+							Description: "OVirtProvider is the Schema for the ovirtproviders API",
+							Type:        "object",
+							Properties: map[string]extv1.JSONSchemaProps{
+								"apiVersion": {
+									Type: "string",
+									Description: `APIVersion defines the versioned schema of this representation
                         of an object. Servers should convert recognized schemas to the latest
                         internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources`,
-						},
-						"kind": {
-							Type: "string",
-							Description: `Kind is a string value representing the REST resource this
+								},
+								"kind": {
+									Type: "string",
+									Description: `Kind is a string value representing the REST resource this
                         object represents. Servers may infer this from the endpoint the client
                         submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds`,
-						},
-						"metadata": {Type: "object"},
-						"spec": {
-							Description: "OVirtProviderSpec defines the desired state of OVirtProvider",
-							Type:        "object",
-							Properties: map[string]extv1beta1.JSONSchemaProps{
-								"connection": {Type: "string"},
-								"timeToLive": {Type: "string"},
-								"vms": {
-									Items: &extv1beta1.JSONSchemaPropsOrArray{
-										Schema: &extv1beta1.JSONSchemaProps{
-											Description: "OVirtVM aligns with maintained UI interface",
-											Type:        "object",
-											Properties: map[string]extv1beta1.JSONSchemaProps{
-												"cluster": {Type: "string"},
-												"detail": {
-													Description: "OVirtVMDetail contains ovirt vm details as json string",
+								},
+								"metadata": {Type: "object"},
+								"spec": {
+									Description: "OVirtProviderSpec defines the desired state of OVirtProvider",
+									Type:        "object",
+									Properties: map[string]extv1.JSONSchemaProps{
+										"connection": {Type: "string"},
+										"timeToLive": {Type: "string"},
+										"vms": {
+											Items: &extv1.JSONSchemaPropsOrArray{
+												Schema: &extv1.JSONSchemaProps{
+													Description: "OVirtVM aligns with maintained UI interface",
 													Type:        "object",
-													Properties: map[string]extv1beta1.JSONSchemaProps{
-														"raw": {Type: "string"},
+													Properties: map[string]extv1.JSONSchemaProps{
+														"cluster": {Type: "string"},
+														"detail": {
+															Description: "OVirtVMDetail contains ovirt vm details as json string",
+															Type:        "object",
+															Properties: map[string]extv1.JSONSchemaProps{
+																"raw": {Type: "string"},
+															},
+														},
+														"detailRequest": {Type: "boolean"},
+														"id":            {Type: "string"},
+														"name":          {Type: "string"},
 													},
+													Required: []string{"cluster", "id", "name"},
 												},
-												"detailRequest": {Type: "boolean"},
-												"id":            {Type: "string"},
-												"name":          {Type: "string"},
 											},
-											Required: []string{"cluster", "id", "name"},
+											Type: "array",
 										},
 									},
-									Type: "array",
 								},
-							},
-						},
-						"status": {
-							Description: "OVirtProviderStatus defines the observed state of OVirtProvider",
-							Type:        "object",
-							Properties: map[string]extv1beta1.JSONSchemaProps{
-								"phase": {
-									Description: "VirtualMachineProviderPhase defines provider phase",
-									Type:        "string",
+								"status": {
+									Description: "OVirtProviderStatus defines the observed state of OVirtProvider",
+									Type:        "object",
+									Properties: map[string]extv1.JSONSchemaProps{
+										"phase": {
+											Description: "VirtualMachineProviderPhase defines provider phase",
+											Type:        "string",
+										},
+									},
 								},
 							},
 						},
 					},
 				},
+			},
+			Names: extv1.CustomResourceDefinitionNames{
+				Plural:   "ovirtproviders",
+				Singular: "ovirtprovider",
+				Kind:     "OVirtProvider",
+				ListKind: "OVirtProviderList",
 			},
 		},
 	}
