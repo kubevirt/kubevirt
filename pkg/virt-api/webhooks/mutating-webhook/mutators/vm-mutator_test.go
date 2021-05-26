@@ -31,6 +31,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -61,7 +62,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		By("Getting the VM spec from the response")
 		vmSpec := &v1.VirtualMachineSpec{}
 		vmMeta := &k8smetav1.ObjectMeta{}
-		patch := []patchOperation{
+		patch := []utiltypes.PatchOperation{
 			{Value: vmSpec},
 			{Value: vmMeta},
 		}

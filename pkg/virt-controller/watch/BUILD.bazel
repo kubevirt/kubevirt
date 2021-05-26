@@ -82,6 +82,7 @@ go_test(
         "//pkg/controller:go_default_library",
         "//pkg/rest:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//pkg/util/types:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-controller/watch/drain/disruptionbudget:go_default_library",
         "//pkg/virt-controller/watch/drain/evacuation:go_default_library",

@@ -20,8 +20,10 @@
 package watch
 
 import (
+	"encoding/json"
 	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -43,6 +45,7 @@ import (
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	utiltype "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -801,9 +804,31 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			if initializeMigrationState {
-				patch := `[{ "op": "test", "path": "/status/migrationState", "value": {"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "replace", "path": "/status/migrationState", "value": {"startTimestamp":"2021-05-24T14:51:47Z","endTimestamp":"2021-05-24T14:51:47Z","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"} }]`
-				shouldExpectVirtualMachineInstancePatch(vmi, patch)
+				patch := `[{ "op": "test", "path": "/status/migrationState", "value": {"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "replace", "path": "/status/migrationState", "value": {"startTimestamp":"%s","endTimestamp":"%s","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"} }]`
+
+				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).DoAndReturn(func(name interface{}, ptype interface{}, vmiStatusPatch []byte) (*v1.VirtualMachineInstance, error) {
+
+					vmiSP := []utiltype.PatchOperation{}
+					err := json.Unmarshal(vmiStatusPatch, &vmiSP)
+					Expect(err).To(BeNil())
+					Expect(vmiSP).To(HaveLen(2))
+
+					b, err := json.Marshal(vmiSP[1].Value)
+					Expect(err).To(BeNil())
+
+					newMS := v1.VirtualMachineInstanceMigrationState{}
+					err = json.Unmarshal(b, &newMS)
+					Expect(err).To(BeNil())
+					Expect(newMS.StartTimestamp).ToNot(BeNil())
+					Expect(newMS.EndTimestamp).ToNot(BeNil())
+
+					expected := fmt.Sprintf(patch, newMS.StartTimestamp.UTC().Format(time.RFC3339), newMS.EndTimestamp.UTC().Format(time.RFC3339))
+					Expect(expected).To(Equal(string(vmiStatusPatch)))
+
+					return vmi, nil
+				})
 			}
+
 			controller.Execute()
 
 			// in this case, we have two failed events. one for the VMI and one on the Migration object.
