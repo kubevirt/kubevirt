@@ -26,6 +26,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -54,7 +55,7 @@ func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool 
 	return shouldBlock
 }
 
-func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
+func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions) error {
 	logger := log.Log.Object(vmi)
 
 	if shouldBlockMigrationTargetPreparation(vmi) {
@@ -71,7 +72,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
-	dom, err := l.preStartHook(vmi, domain)
+	dom, err := l.preStartHook(vmi, domain, options)
 	if err != nil {
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}

@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -56,7 +57,6 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
@@ -95,7 +95,7 @@ type DomainManager interface {
 	MarkGracefulShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
-	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
+	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
 	GetDomainStats() ([]*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
 	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
@@ -281,8 +281,8 @@ func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
 }
 
 // PrepareMigrationTarget the target pod environment before the migration is initiated
-func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
-	return l.prepareMigrationTarget(vmi, useEmulation)
+func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions) error {
+	return l.prepareMigrationTarget(vmi, useEmulation, options)
 }
 
 // FinalizeVirtualMachineMigration finalized the migration after the migration has completed and vmi is running on target pod.
@@ -422,7 +422,7 @@ func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstan
 //
 // The Domain.Spec can be alterned in this function and any changes
 // made to the domain will get set in libvirt after this function exits.
-func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain) (*api.Domain, error) {
+func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain, options *cmdv1.VirtualMachineOptions) (*api.Domain, error) {
 
 	logger := log.Log.Object(vmi)
 
@@ -456,6 +456,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		if err != nil {
 			return domain, err
 		}
+	}
+
+	err = l.networkCacheStoreFactory.CacheDhcpConfigForPid("self").Unmarshal(options.DHCPConfig)
+	if err != nil {
+		return domain, fmt.Errorf("reading DHCP config failed: %v", err)
 	}
 
 	err = network.NewVMNetworkConfigurator(vmi, l.networkCacheStoreFactory).SetupPodNetworkPhase2(domain)
@@ -765,7 +770,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
-			domain, err = l.preStartHook(vmi, domain)
+			domain, err = l.preStartHook(vmi, domain, options)
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err

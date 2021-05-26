@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -44,11 +45,15 @@ type InterfaceCacheFactory interface {
 }
 
 func NewInterfaceCacheFactory() *interfaceCacheFactory {
-	return &interfaceCacheFactory{}
+	return &interfaceCacheFactory{
+		lock: &sync.Mutex{},
+	}
 }
 
 type interfaceCacheFactory struct {
-	baseDir string
+	baseDir          string
+	dhcpConfigStores map[string]*dhcpConfigCacheStore
+	lock             *sync.Mutex
 }
 
 func (i *interfaceCacheFactory) CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore {
@@ -59,8 +64,17 @@ func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInt
 	return newDomainInterfaceStore(pid, i.baseDir, virtLauncherCachedPattern)
 }
 
-func (i *interfaceCacheFactory) CacheDhcpConfigForPid(pid string) DhcpConfigStore {
-	return newDhcpConfigCacheStore(pid, i.baseDir, dhcpConfigCachedPattern)
+func (f *interfaceCacheFactory) CacheDhcpConfigForPid(pid string) DhcpConfigStore {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if store, exists := f.dhcpConfigStores[pid]; exists {
+		return store
+	}
+	f.dhcpConfigStores[pid] = &dhcpConfigCacheStore{
+		store: map[string]*DhcpConfig{},
+		lock:  &sync.Mutex{},
+	}
+	return f.dhcpConfigStores[pid]
 }
 
 type DomainInterfaceStore interface {
@@ -77,6 +91,8 @@ type PodInterfaceCacheStore interface {
 type DhcpConfigStore interface {
 	Read(ifaceName string) (*DhcpConfig, error)
 	Write(ifaceName string, cacheInterface *DhcpConfig) error
+	Marshal() ([]byte, error)
+	Unmarshal([]byte) error
 }
 
 type domainInterfaceStore struct {
@@ -125,28 +141,42 @@ func newPodInterfaceCacheStore(vmi *v1.VirtualMachineInstance, baseDir, pattern 
 	return podInterfaceCacheStore{vmi: vmi, baseDir: baseDir, pattern: pattern}
 }
 
+//FIXME: Use a sync.Map ?
 type dhcpConfigCacheStore struct {
-	pid     string
-	pattern string
-	baseDir string
+	lock  *sync.Mutex
+	store map[string]*DhcpConfig
 }
 
-func (d dhcpConfigCacheStore) Read(ifaceName string) (*DhcpConfig, error) {
-	cachedIface := &DhcpConfig{}
-	err := readFromCachedFile(cachedIface, d.getInterfaceCacheFile(ifaceName))
-	return cachedIface, err
+func (f *dhcpConfigCacheStore) Read(ifaceName string) (*DhcpConfig, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if val, exists := f.store[ifaceName]; exists {
+		return val, nil
+	}
+	return nil, os.ErrNotExist
 }
 
-func (d dhcpConfigCacheStore) Write(ifaceName string, ifaceToCache *DhcpConfig) error {
-	return writeToCachedFile(ifaceToCache, d.getInterfaceCacheFile(ifaceName))
+func (f *dhcpConfigCacheStore) Write(ifaceName string, vifToCache *DhcpConfig) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.store[ifaceName] = vifToCache
+	return nil
 }
 
-func (d dhcpConfigCacheStore) getInterfaceCacheFile(ifaceName string) string {
-	return getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, ifaceName)
+func (f *dhcpConfigCacheStore) Marshal() ([]byte, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	marshaled, err := json.Marshal(f.store)
+	if err != nil {
+		return nil, err
+	}
+	return marshaled, err
 }
 
-func newDhcpConfigCacheStore(pid string, baseDir, pattern string) dhcpConfigCacheStore {
-	return dhcpConfigCacheStore{pid: pid, baseDir: baseDir, pattern: pattern}
+func (f *dhcpConfigCacheStore) Unmarshal(marshaled []byte) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return json.Unmarshal(marshaled, &f.store)
 }
 
 func writeToCachedFile(obj interface{}, fileName string) error {

@@ -30,6 +30,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -2492,6 +2493,12 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	smbios := d.clusterConfig.GetSMBIOS()
 	period := d.clusterConfig.GetMemBalloonStatsPeriod()
 
+	launcherPID := d.phase1NetworkSetupCache[vmi.UID]
+	dhcpConfig, err := d.networkCacheStoreFactory.CacheDhcpConfigForPid(strconv.Itoa(launcherPID)).Marshal()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve DHCP config: %v", err)
+	}
+
 	options := &cmdv1.VirtualMachineOptions{
 		VirtualMachineSMBios: &cmdv1.SMBios{
 			Family:       smbios.Family,
@@ -2502,6 +2509,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		},
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
+		DHCPConfig:            dhcpConfig,
 	}
 
 	err = client.SyncVirtualMachine(vmi, options)

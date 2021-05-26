@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"encoding/json"
 	"os"
 	"sync"
 
@@ -134,4 +135,20 @@ func (f *fakeDhcpConfigCacheStore) Write(ifaceName string, vifToCache *cache.Dhc
 	defer f.lock.Unlock()
 	f.store[ifaceName] = vifToCache
 	return nil
+}
+
+func (f *fakeDhcpConfigCacheStore) Marshal() ([]byte, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	marshaled, err := json.Marshal(f.store)
+	if err != nil {
+		return nil, err
+	}
+	return marshaled, err
+}
+
+func (f *fakeDhcpConfigCacheStore) Unmarshal(marshaled []byte) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return json.Unmarshal(marshaled, &f.store)
 }

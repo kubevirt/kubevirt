@@ -25,15 +25,12 @@ It has these top-level messages:
 */
 package v1
 
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
+
 import (
-	fmt "fmt"
-
-	proto "github.com/golang/protobuf/proto"
-
-	math "math"
-
 	context "golang.org/x/net/context"
-
 	grpc "google.golang.org/grpc"
 )
 
@@ -116,6 +113,7 @@ type VirtualMachineOptions struct {
 	VirtualMachineSMBios  *SMBios  `protobuf:"bytes,1,opt,name=VirtualMachineSMBios" json:"VirtualMachineSMBios,omitempty"`
 	MemBalloonStatsPeriod uint32   `protobuf:"varint,2,opt,name=MemBalloonStatsPeriod" json:"MemBalloonStatsPeriod,omitempty"`
 	PreallocatedVolumes   []string `protobuf:"bytes,3,rep,name=PreallocatedVolumes" json:"PreallocatedVolumes,omitempty"`
+	DHCPConfig            []byte   `protobuf:"bytes,4,opt,name=DHCPConfig,proto3" json:"DHCPConfig,omitempty"`
 }
 
 func (m *VirtualMachineOptions) Reset()                    { *m = VirtualMachineOptions{} }
@@ -140,6 +138,13 @@ func (m *VirtualMachineOptions) GetMemBalloonStatsPeriod() uint32 {
 func (m *VirtualMachineOptions) GetPreallocatedVolumes() []string {
 	if m != nil {
 		return m.PreallocatedVolumes
+	}
+	return nil
+}
+
+func (m *VirtualMachineOptions) GetDHCPConfig() []byte {
+	if m != nil {
+		return m.DHCPConfig
 	}
 	return nil
 }
