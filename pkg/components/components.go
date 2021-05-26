@@ -150,37 +150,9 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 						Image:           params.Image,
 						ImagePullPolicy: corev1.PullPolicy(params.ImagePullPolicy),
 						// TODO: command being name is artifact of operator-sdk usage
-						Command: []string{hcoName},
-						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: hcoutil.ReadinessEndpointName,
-									Port: intstr.IntOrString{
-										Type:   intstr.Int,
-										IntVal: hcoutil.HealthProbePort,
-									},
-									Scheme: corev1.URISchemeHTTP,
-								},
-							},
-							InitialDelaySeconds: 5,
-							PeriodSeconds:       5,
-							FailureThreshold:    1,
-						},
-						LivenessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: hcoutil.LivenessEndpointName,
-									Port: intstr.IntOrString{
-										Type:   intstr.Int,
-										IntVal: hcoutil.HealthProbePort,
-									},
-									Scheme: corev1.URISchemeHTTP,
-								},
-							},
-							InitialDelaySeconds: 30,
-							PeriodSeconds:       5,
-							FailureThreshold:    1,
-						},
+						Command:        []string{hcoName},
+						ReadinessProbe: getReadinessProbe(),
+						LivenessProbe:  getLivenessProbe(),
 						Env: append([]corev1.EnvVar{
 							{
 								// deprecated: left here for CI test.
@@ -326,37 +298,9 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 						Image:           image,
 						ImagePullPolicy: corev1.PullPolicy(imagePullPolicy),
 						// TODO: command being name is artifact of operator-sdk usage
-						Command: []string{hcoNameWebhook},
-						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: hcoutil.ReadinessEndpointName,
-									Port: intstr.IntOrString{
-										Type:   intstr.Int,
-										IntVal: hcoutil.HealthProbePort,
-									},
-									Scheme: corev1.URISchemeHTTP,
-								},
-							},
-							InitialDelaySeconds: 5,
-							PeriodSeconds:       5,
-							FailureThreshold:    1,
-						},
-						LivenessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: hcoutil.LivenessEndpointName,
-									Port: intstr.IntOrString{
-										Type:   intstr.Int,
-										IntVal: hcoutil.HealthProbePort,
-									},
-									Scheme: corev1.URISchemeHTTP,
-								},
-							},
-							InitialDelaySeconds: 30,
-							PeriodSeconds:       5,
-							FailureThreshold:    1,
-						},
+						Command:        []string{hcoNameWebhook},
+						ReadinessProbe: getReadinessProbe(),
+						LivenessProbe:  getLivenessProbe(),
 						Env: append([]corev1.EnvVar{
 							{
 								// deprecated: left here for CI test.
@@ -415,74 +359,29 @@ func GetClusterRole() rbacv1.ClusterRole {
 	}
 }
 
+var (
+	AnyResource = []string{"*"}
+	anyVerb     = []string{"*"}
+)
+
+func getAnyPolicy(apiGroups []string) rbacv1.PolicyRule {
+	return rbacv1.PolicyRule{
+		APIGroups: apiGroups,
+		Resources: AnyResource,
+		Verbs:     anyVerb,
+	}
+}
+
 func GetClusterPermissions() []rbacv1.PolicyRule {
+	emptyAPIGroup := []string{""}
+
 	return []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{
-				util.APIVersionGroup,
-			},
-			Resources: []string{
-				"*",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"kubevirt.io",
-			},
-			Resources: []string{
-				"*",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"cdi.kubevirt.io",
-			},
-			Resources: []string{
-				"*",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"ssp.kubevirt.io",
-			},
-			Resources: []string{
-				"*",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"networkaddonsoperator.network.kubevirt.io",
-			},
-			Resources: []string{
-				"*",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"v2v.kubevirt.io",
-			},
-			Resources: []string{
-				"*",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
+		getAnyPolicy([]string{util.APIVersionGroup}),
+		getAnyPolicy([]string{"kubevirt.io"}),
+		getAnyPolicy([]string{"cdi.kubevirt.io"}),
+		getAnyPolicy([]string{"ssp.kubevirt.io"}),
+		getAnyPolicy([]string{"networkaddonsoperator.network.kubevirt.io"}),
+		getAnyPolicy([]string{"v2v.kubevirt.io"}),
 		{
 			APIGroups: []string{
 				"machineremediation.kubevirt.io",
@@ -496,217 +395,101 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			},
 		},
 		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"pods",
-				"services",
-				"services/finalizers",
-				"endpoints",
-				"persistentvolumeclaims",
-				"events",
-				"configmaps",
-				"secrets",
-				"serviceaccounts",
-			},
-			Verbs: []string{
-				"*",
-			},
+			APIGroups: emptyAPIGroup,
+			Resources: getPolicyRules("pods", "services", "services/finalizers", "endpoints", "persistentvolumeclaims", "events", "configmaps", "secrets", "serviceaccounts"),
+			Verbs:     anyVerb,
 		},
 		{
-			APIGroups: []string{
-				"",
-			},
+			APIGroups: emptyAPIGroup,
 			Resources: []string{
 				"nodes",
 			},
-			Verbs: []string{
-				"get",
-				"list",
-			},
+			Verbs: getPolicyRules("get", "list"),
 		},
 		{
 			APIGroups: []string{
 				"apps",
 			},
-			Resources: []string{
-				"deployments",
-				"deployments/finalizers",
-				"daemonsets",
-				"replicasets",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"delete",
-				"update",
-			},
+			Resources: getPolicyRules("deployments", "deployments/finalizers", "daemonsets", "replicasets"),
+			Verbs:     getPolicyRules("get", "list", "watch", "create", "delete", "update"),
 		},
 		{
 			APIGroups: []string{
 				"batch",
 			},
-			Resources: []string{
-				"jobs",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"delete",
-			},
+			Resources: getPolicyRules("jobs"),
+			Verbs:     getPolicyRules("get", "list", "watch", "create", "delete"),
 		},
 		{
 			APIGroups: []string{
 				"rbac.authorization.k8s.io",
 			},
-			Resources: []string{
-				"clusterroles",
-				"clusterrolebindings",
-				"roles",
-				"rolebindings",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"delete",
-				"update",
-			},
+			Resources: getPolicyRules("clusterroles", "clusterrolebindings", "roles", "rolebindings"),
+			Verbs:     getPolicyRules("get", "list", "watch", "create", "delete", "update"),
 		},
 		{
 			APIGroups: []string{
 				"apiextensions.k8s.io",
 			},
-			Resources: []string{
-				"customresourcedefinitions",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"delete",
-				"patch",
-				"update",
-			},
+			Resources: getPolicyRules("customresourcedefinitions"),
+			Verbs:     getPolicyRules("get", "list", "watch", "create", "delete", "patch", "update"),
 		},
 		{
 			APIGroups: []string{
 				"security.openshift.io",
 			},
-			Resources: []string{
-				"securitycontextconstraints",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
+			Resources: getPolicyRules("securitycontextconstraints"),
+			Verbs:     getPolicyRules("get", "list", "watch"),
 		},
 		{
 			APIGroups: []string{
 				"security.openshift.io",
 			},
-			Resources: []string{
-				"securitycontextconstraints",
-			},
+			Resources: getPolicyRules("securitycontextconstraints"),
 			ResourceNames: []string{
 				"privileged",
 			},
-			Verbs: []string{
-				"get",
-				"patch",
-				"update",
-			},
+			Verbs: getPolicyRules("get", "patch", "update"),
 		},
 		{
 			APIGroups: []string{
 				"monitoring.coreos.com",
 			},
-			Resources: []string{
-				"servicemonitors",
-				"prometheusrules",
-			},
-			Verbs: []string{
-				"*",
-			},
+			Resources: getPolicyRules("servicemonitors", "prometheusrules"),
+			Verbs:     anyVerb,
 		},
 		{
 			APIGroups: []string{
 				"operators.coreos.com",
 			},
-			Resources: []string{
-				"clusterserviceversions",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
+			Resources: getPolicyRules("clusterserviceversions"),
+			Verbs:     getPolicyRules("get", "list", "watch"),
 		},
 		{
-			APIGroups: []string{
-				"scheduling.k8s.io",
-			},
-			Resources: []string{
-				"priorityclasses",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"delete",
-			},
+			APIGroups: []string{"scheduling.k8s.io"},
+			Resources: getPolicyRules("priorityclasses"),
+			Verbs:     getPolicyRules("get", "list", "watch", "create", "delete"),
 		},
 		{
 			APIGroups: []string{
 				"admissionregistration.k8s.io",
 			},
-			Resources: []string{
-				"validatingwebhookconfigurations",
-			},
-			Verbs: []string{
-				"list",
-				"watch",
-				"update",
-				"patch",
-			},
+			Resources: getPolicyRules("validatingwebhookconfigurations"),
+			Verbs:     getPolicyRules("list", "watch", "update", "patch"),
 		},
 		{
 			APIGroups: []string{
 				"console.openshift.io",
 			},
-			Resources: []string{
-				"consoleclidownloads",
-				"consolequickstarts",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"delete",
-				"update",
-			},
+			Resources: getPolicyRules("consoleclidownloads", "consolequickstarts"),
+			Verbs:     getPolicyRules("get", "list", "watch", "create", "delete", "update"),
 		},
 		{
 			APIGroups: []string{
 				"config.openshift.io",
 			},
-			Resources: []string{
-				"clusterversions",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-			},
+			Resources: getPolicyRules("clusterversions"),
+			Verbs:     getPolicyRules("get", "list"),
 		},
 	}
 }
@@ -771,6 +554,8 @@ func packageErrors(pkg *loader.Package, filterKinds ...packages.ErrorKind) error
 	return outErr
 }
 
+const objectType = "object"
+
 func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
 	pkgs, err := loader.LoadRoots(relPath)
 	if err != nil {
@@ -802,7 +587,7 @@ func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
 	// enforce validation of CR name to prevent multiple CRs
 	for _, v := range c.Spec.Versions {
 		v.Schema.OpenAPIV3Schema.Properties["metadata"] = extv1.JSONSchemaProps{
-			Type: "object",
+			Type: objectType,
 			Properties: map[string]extv1.JSONSchemaProps{
 				"name": {
 					Type:    "string",
@@ -814,199 +599,171 @@ func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
 	return &c
 }
 
+var crdMeta = metav1.TypeMeta{
+	APIVersion: "apiextensions.k8s.io/v1",
+	Kind:       "CustomResourceDefinition",
+}
+
+func getSchemaInitialProps() map[string]extv1.JSONSchemaProps {
+	return map[string]extv1.JSONSchemaProps{
+		"apiVersion": {
+			Type: "string",
+			Description: `APIVersion defines the versioned schema of this representation
+                        of an object. Servers should convert recognized schemas to the latest
+                        internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources`,
+		},
+		"kind": {
+			Type: "string",
+			Description: `Kind is a string value representing the REST resource this
+                        object represents. Servers may infer this from the endpoint the client
+                        submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds`,
+		},
+		"metadata": {Type: objectType},
+	}
+}
+
 // TODO: remove once VMware provider is removed from HCO
 // GetV2VCRD creates CRD for v2v VMWare provider
 func GetV2VCRD() *extv1.CustomResourceDefinition {
-	return &extv1.CustomResourceDefinition{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apiextensions.k8s.io/v1",
-			Kind:       "CustomResourceDefinition",
+	versionSchema := &extv1.CustomResourceValidation{
+		OpenAPIV3Schema: &extv1.JSONSchemaProps{
+			Description: "V2VVmware is the Schema for the v2vvmwares API",
+			Type:        objectType,
+			Properties:  getSchemaInitialProps(),
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "v2vvmwares." + vmimportv1beta1.SchemeGroupVersion.Group,
-		},
-		Spec: extv1.CustomResourceDefinitionSpec{
-			Group: vmimportv1beta1.SchemeGroupVersion.Group,
-			Scope: "Namespaced",
-			Versions: []extv1.CustomResourceDefinitionVersion{
-				{
-					Name:    "v1alpha1",
-					Served:  true,
-					Storage: true,
-					Subresources: &extv1.CustomResourceSubresources{
-						Status: &extv1.CustomResourceSubresourceStatus{},
-					},
-					Schema: &extv1.CustomResourceValidation{
-						OpenAPIV3Schema: &extv1.JSONSchemaProps{
-							Description: "V2VVmware is the Schema for the v2vvmwares API",
-							Type:        "object",
-							Properties: map[string]extv1.JSONSchemaProps{
-								"apiVersion": {
-									Type: "string",
-									Description: `APIVersion defines the versioned schema of this representation
-                        of an object. Servers should convert recognized schemas to the latest
-                        internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources`,
-								},
-								"kind": {
-									Type: "string",
-									Description: `Kind is a string value representing the REST resource this
-                        object represents. Servers may infer this from the endpoint the client
-                        submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds`,
-								},
-								"metadata": {Type: "object"},
-								"spec": {
-									Description: "V2VVmwareSpec defines the desired state of V2VVmware",
-									Type:        "object",
-									Properties: map[string]extv1.JSONSchemaProps{
-										"connection": {Type: "string"},
-										"thumbprint": {Type: "string"},
-										"timeToLive": {Type: "string"},
-										"vms": {
-											Items: &extv1.JSONSchemaPropsOrArray{
-												Schema: &extv1.JSONSchemaProps{
-													Type: "object",
-													Properties: map[string]extv1.JSONSchemaProps{
-														"detail": {
-															Type: "object",
-															Properties: map[string]extv1.JSONSchemaProps{
-																"hostPath": {
-																	Type: "string",
-																},
-																"raw": {
-																	Type:        "string",
-																	Description: "TODO: list required details",
-																},
-															},
-															Required: []string{"hostPath"},
-														},
-														"detailRequest": {Type: "boolean"},
-														"name":          {Type: "string"},
-													},
-													Required: []string{"name"},
-												},
-											},
-											Type: "array",
-										},
+	}
+
+	versionSchema.OpenAPIV3Schema.Properties["spec"] = extv1.JSONSchemaProps{
+		Description: "V2VVmwareSpec defines the desired state of V2VVmware",
+		Type:        objectType,
+		Properties: map[string]extv1.JSONSchemaProps{
+			"connection": {Type: "string"},
+			"thumbprint": {Type: "string"},
+			"timeToLive": {Type: "string"},
+			"vms": {
+				Items: &extv1.JSONSchemaPropsOrArray{
+					Schema: &extv1.JSONSchemaProps{
+						Type: objectType,
+						Properties: map[string]extv1.JSONSchemaProps{
+							"detail": {
+								Type: objectType,
+								Properties: map[string]extv1.JSONSchemaProps{
+									"hostPath": {
+										Type: "string",
+									},
+									"raw": {
+										Type:        "string",
+										Description: "TODO: list required details",
 									},
 								},
-								"status": {
-									Description: "V2VVmwareStatus defines the observed state of V2VVmware",
-									Type:        "object",
-									Properties: map[string]extv1.JSONSchemaProps{
-										"phase": {
-											Type: "string",
-										},
-									},
-								},
+								Required: []string{"hostPath"},
 							},
+							"detailRequest": {Type: "boolean"},
+							"name":          {Type: "string"},
 						},
+						Required: []string{"name"},
 					},
 				},
-			},
-			Names: extv1.CustomResourceDefinitionNames{
-				Plural:   "v2vvmwares",
-				Singular: "v2vvmware",
-				Kind:     "V2VVmware",
-				ListKind: "V2VVmwareList",
+				Type: "array",
 			},
 		},
 	}
+	versionSchema.OpenAPIV3Schema.Properties["status"] = extv1.JSONSchemaProps{
+		Description: "V2VVmwareStatus defines the observed state of V2VVmware",
+		Type:        objectType,
+		Properties: map[string]extv1.JSONSchemaProps{
+			"phase": {
+				Type: "string",
+			},
+		},
+	}
+
+	names := extv1.CustomResourceDefinitionNames{
+		Plural:   "v2vvmwares",
+		Singular: "v2vvmware",
+		Kind:     "V2VVmware",
+		ListKind: "V2VVmwareList",
+	}
+
+	return getCrd("v2vvmwares."+vmimportv1beta1.SchemeGroupVersion.Group, versionSchema, names)
 }
 
 // TODO: remove once oVirt provider  is removed from HCO
 // GetV2VOvirtProviderCRD creates CRD for v2v oVirt provider
 func GetV2VOvirtProviderCRD() *extv1.CustomResourceDefinition {
-	return &extv1.CustomResourceDefinition{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apiextensions.k8s.io/v1",
-			Kind:       "CustomResourceDefinition",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "ovirtproviders." + vmimportv1beta1.SchemeGroupVersion.Group,
-		},
-		Spec: extv1.CustomResourceDefinitionSpec{
-			Group: vmimportv1beta1.SchemeGroupVersion.Group,
-			Scope: "Namespaced",
-			Versions: []extv1.CustomResourceDefinitionVersion{
-				{
-					Name:    "v1alpha1",
-					Served:  true,
-					Storage: true,
-					Subresources: &extv1.CustomResourceSubresources{
-						Status: &extv1.CustomResourceSubresourceStatus{},
-					},
-					Schema: &extv1.CustomResourceValidation{
-						OpenAPIV3Schema: &extv1.JSONSchemaProps{
-							Description: "OVirtProvider is the Schema for the ovirtproviders API",
-							Type:        "object",
-							Properties: map[string]extv1.JSONSchemaProps{
-								"apiVersion": {
-									Type: "string",
-									Description: `APIVersion defines the versioned schema of this representation
+	versionSchema := &extv1.CustomResourceValidation{
+		OpenAPIV3Schema: &extv1.JSONSchemaProps{
+			Description: "OVirtProvider is the Schema for the ovirtproviders API",
+			Type:        objectType,
+			Properties: map[string]extv1.JSONSchemaProps{
+				"apiVersion": {
+					Type: "string",
+					Description: `APIVersion defines the versioned schema of this representation
                         of an object. Servers should convert recognized schemas to the latest
                         internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources`,
-								},
-								"kind": {
-									Type: "string",
-									Description: `Kind is a string value representing the REST resource this
+				},
+				"kind": {
+					Type: "string",
+					Description: `Kind is a string value representing the REST resource this
                         object represents. Servers may infer this from the endpoint the client
                         submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds`,
-								},
-								"metadata": {Type: "object"},
-								"spec": {
-									Description: "OVirtProviderSpec defines the desired state of OVirtProvider",
-									Type:        "object",
-									Properties: map[string]extv1.JSONSchemaProps{
-										"connection": {Type: "string"},
-										"timeToLive": {Type: "string"},
-										"vms": {
-											Items: &extv1.JSONSchemaPropsOrArray{
-												Schema: &extv1.JSONSchemaProps{
-													Description: "OVirtVM aligns with maintained UI interface",
-													Type:        "object",
-													Properties: map[string]extv1.JSONSchemaProps{
-														"cluster": {Type: "string"},
-														"detail": {
-															Description: "OVirtVMDetail contains ovirt vm details as json string",
-															Type:        "object",
-															Properties: map[string]extv1.JSONSchemaProps{
-																"raw": {Type: "string"},
-															},
-														},
-														"detailRequest": {Type: "boolean"},
-														"id":            {Type: "string"},
-														"name":          {Type: "string"},
-													},
-													Required: []string{"cluster", "id", "name"},
-												},
-											},
-											Type: "array",
-										},
-									},
-								},
-								"status": {
-									Description: "OVirtProviderStatus defines the observed state of OVirtProvider",
-									Type:        "object",
-									Properties: map[string]extv1.JSONSchemaProps{
-										"phase": {
-											Description: "VirtualMachineProviderPhase defines provider phase",
-											Type:        "string",
-										},
-									},
-								},
-							},
-						},
-					},
 				},
-			},
-			Names: extv1.CustomResourceDefinitionNames{
-				Plural:   "ovirtproviders",
-				Singular: "ovirtprovider",
-				Kind:     "OVirtProvider",
-				ListKind: "OVirtProviderList",
+				"metadata": {Type: objectType},
 			},
 		},
 	}
+
+	versionSchema.OpenAPIV3Schema.Properties["spec"] = extv1.JSONSchemaProps{
+		Description: "OVirtProviderSpec defines the desired state of OVirtProvider",
+		Type:        objectType,
+		Properties: map[string]extv1.JSONSchemaProps{
+			"connection": {Type: "string"},
+			"timeToLive": {Type: "string"},
+			"vms": {
+				Items: &extv1.JSONSchemaPropsOrArray{
+					Schema: &extv1.JSONSchemaProps{
+						Description: "OVirtVM aligns with maintained UI interface",
+						Type:        objectType,
+						Properties: map[string]extv1.JSONSchemaProps{
+							"cluster": {Type: "string"},
+							"detail": {
+								Description: "OVirtVMDetail contains ovirt vm details as json string",
+								Type:        objectType,
+								Properties: map[string]extv1.JSONSchemaProps{
+									"raw": {Type: "string"},
+								},
+							},
+							"detailRequest": {Type: "boolean"},
+							"id":            {Type: "string"},
+							"name":          {Type: "string"},
+						},
+						Required: []string{"cluster", "id", "name"},
+					},
+				},
+				Type: "array",
+			},
+		},
+	}
+
+	versionSchema.OpenAPIV3Schema.Properties["status"] = extv1.JSONSchemaProps{
+		Description: "OVirtProviderStatus defines the observed state of OVirtProvider",
+		Type:        objectType,
+		Properties: map[string]extv1.JSONSchemaProps{
+			"phase": {
+				Description: "VirtualMachineProviderPhase defines provider phase",
+				Type:        "string",
+			},
+		},
+	}
+
+	names := extv1.CustomResourceDefinitionNames{
+		Plural:   "ovirtproviders",
+		Singular: "ovirtprovider",
+		Kind:     "OVirtProvider",
+		ListKind: "OVirtProviderList",
+	}
+
+	return getCrd("ovirtproviders."+vmimportv1beta1.SchemeGroupVersion.Group, versionSchema, names)
 }
 
 func GetOperatorCR() *hcov1beta1.HyperConverged {
@@ -1429,6 +1186,75 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 				Name:      "apiservice-cert",
 				MountPath: hcov1beta1.DefaultWebhookCertDir,
 			})
+	}
+}
+
+func getReadinessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: hcoutil.ReadinessEndpointName,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: hcoutil.HealthProbePort,
+				},
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		InitialDelaySeconds: 5,
+		PeriodSeconds:       5,
+		FailureThreshold:    1,
+	}
+}
+
+func getLivenessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: hcoutil.LivenessEndpointName,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: hcoutil.HealthProbePort,
+				},
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		InitialDelaySeconds: 30,
+		PeriodSeconds:       5,
+		FailureThreshold:    1,
+	}
+}
+
+func getPolicyRules(words ...string) []string {
+	return words
+}
+
+func getCrd(crdName string, versionSchema *extv1.CustomResourceValidation, names extv1.CustomResourceDefinitionNames) *extv1.CustomResourceDefinition {
+	return &extv1.CustomResourceDefinition{
+		TypeMeta: crdMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name: crdName,
+		},
+		Spec: getCrdSpec(versionSchema, names),
+	}
+}
+
+func getCrdSpec(schema *extv1.CustomResourceValidation, names extv1.CustomResourceDefinitionNames) extv1.CustomResourceDefinitionSpec {
+	return extv1.CustomResourceDefinitionSpec{
+		Group: vmimportv1beta1.SchemeGroupVersion.Group,
+		Scope: "Namespaced",
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    "v1alpha1",
+				Served:  true,
+				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+				Schema: schema,
+			},
+		},
+		Names: names,
 	}
 }
 
