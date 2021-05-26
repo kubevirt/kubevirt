@@ -415,6 +415,7 @@ func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
 		}
 	}
 
+	b.tapDeviceName = generateTapDeviceName(b.podInterfaceName)
 	if b.podNicLink.Attrs().MTU < 0 || b.podNicLink.Attrs().MTU > 65535 {
 		return fmt.Errorf("MTU value out of range ")
 	}
@@ -479,8 +480,6 @@ func (b *BridgeBindMechanism) preparePodNetworkInterface() error {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
 		return err
 	}
-
-	b.tapDeviceName = generateTapDeviceName(b.podInterfaceName)
 
 	if b.ipamEnabled {
 		// Remove IP from POD interface
