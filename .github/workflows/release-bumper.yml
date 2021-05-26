@@ -26,8 +26,8 @@ jobs:
 
       - name: Check for new releases and update
         env:
-          UPDATED_COMPONENT: ${{ github.event.inputs.component }}"
-          UPDATED_VERSION: ${{ github.event.inputs.version }}"
+          UPDATED_COMPONENT: ${{ github.event.inputs.component }}
+          UPDATED_VERSION: ${{ github.event.inputs.version }}
         run: |
           ./automation/release-bumper/release-bumper.sh
           if [[ -f updated_component.txt ]]; then
