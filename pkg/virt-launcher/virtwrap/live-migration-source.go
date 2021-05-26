@@ -263,13 +263,7 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 		return fmt.Errorf("failed to update the hosts file: %v", err)
 	}
 
-	err = l.asyncMigrate(vmi, options)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
-		l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-		return err
-	}
-
+	go l.migrate(vmi, options)
 	return nil
 }
 
@@ -880,40 +874,38 @@ func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {
 	return shouldFail
 }
 
-func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
-
+func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 	// get connection proxies for tunnelling migration through virt-handler
-	go func() {
-		if shouldImmediatelyFailMigration(vmi) {
-			log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
-			l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
-			return
-		}
 
-		migrationErrorChan := make(chan error, 1)
-		defer close(migrationErrorChan)
+	if shouldImmediatelyFailMigration(vmi) {
+		log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
+		l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
+		return
+	}
 
-		log.Log.Object(vmi).Infof("Initiating live migration.")
-		if options.UnsafeMigration {
-			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
-		}
+	migrationErrorChan := make(chan error, 1)
+	defer close(migrationErrorChan)
 
-		// From here on out, any error encountered must be sent to the
-		// migrationError channel which is processed by the liveMigrationMonitor
-		// go routine.
-		monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
-		go monitor.startMonitor()
+	log.Log.Object(vmi).Infof("Initiating live migration.")
+	if options.UnsafeMigration {
+		log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
+	}
 
-		err := l.migrateHelper(vmi, options)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
-			migrationErrorChan <- err
-			return
-		}
+	// From here on out, any error encountered must be sent to the
+	// migrationError channel which is processed by the liveMigrationMonitor
+	// go routine.
+	monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
+	go monitor.startMonitor()
 
-		log.Log.Object(vmi).Infof("Live migration succeeded.")
-	}()
-	return nil
+	err := l.migrateHelper(vmi, options)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+		migrationErrorChan <- err
+		return
+	}
+
+	log.Log.Object(vmi).Infof("Live migration succeeded.")
+
 }
 
 func (l *LibvirtDomainManager) updateVMIMigrationMode(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, mode v1.MigrationMode) error {
