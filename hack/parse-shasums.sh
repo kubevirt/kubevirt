@@ -24,6 +24,11 @@ if [[ ! -f "${KUBEVIRT_DIR}/bazel-bin/push-virt-operator.digest" ]]; then
     return
 fi
 
+if [[ ${KUBEVIRT_ONLY_USE_TAGS} == "true" ]]; then
+    echo "found KUBEVIRT_ONLY_USE_TAGS; using tags instead of shasums"
+    return
+fi
+
 # bazel push images creates digest files in bazel-bin/push-<image-name>.digest
 
 VIRT_OPERATOR_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-operator.digest)
