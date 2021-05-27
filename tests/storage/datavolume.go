@@ -86,7 +86,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 					Skip("HonorWaitForFirstConsumer is disabled in CDI, skipping tests relying on it")
 				}
 			})
-			It("[QUARANTINE][test_id:3189]should be successfully started and stopped multiple times", func() {
+			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -118,7 +118,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("[QUARANTINE][test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
+			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
