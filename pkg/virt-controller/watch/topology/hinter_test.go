@@ -45,7 +45,7 @@ var _ = Describe("Hinter", func() {
 		))
 	})
 
-	table.DescribeTable("should bit propose a TSC frequency on architectures like", func(arch string) {
+	table.DescribeTable("should not propose a TSC frequency on architectures like", func(arch string) {
 		hinter := hinterWithNodes(
 			NodeWithInvalidTSC("node0"),
 			NodeWithTSC("node1", 1234, true),
@@ -69,7 +69,6 @@ func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 			},
 		},
 	}
-
 }
 
 func ToObjects(nodes ...*v1.Node) (objs []interface{}) {

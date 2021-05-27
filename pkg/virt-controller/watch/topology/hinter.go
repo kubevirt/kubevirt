@@ -11,10 +11,13 @@ import (
 
 type Hinter interface {
 	TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, err error)
+	TSCFrequenciesInUse() []int64
+	LowestTSCFrequencyOnCluster() (int64, error)
 }
 
 type topologyHinter struct {
 	nodeStore cache.Store
+	vmiStore  cache.Store
 	arch      string
 }
 
@@ -42,6 +45,21 @@ func (t *topologyHinter) LowestTSCFrequencyOnCluster() (int64, error) {
 	return freq, nil
 }
 
-func NewTopologyHinter(nodeStore cache.Store, arch string) *topologyHinter {
-	return &topologyHinter{nodeStore: nodeStore, arch: arch}
+func (t *topologyHinter) TSCFrequenciesInUse() []int64 {
+	frequencyMap := map[int64]struct{}{}
+	for _, obj := range t.vmiStore.List() {
+		vmi := obj.(*k6tv1.VirtualMachineInstance)
+		if vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil {
+			frequencyMap[*vmi.Status.TopologyHints.TSCFrequency] = struct{}{}
+		}
+	}
+	frequencies := []int64{}
+	for freq := range frequencyMap {
+		frequencies = append(frequencies, freq)
+	}
+	return frequencies
+}
+
+func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, arch string) *topologyHinter {
+	return &topologyHinter{nodeStore: nodeStore, vmiStore: vmiStore, arch: arch}
 }

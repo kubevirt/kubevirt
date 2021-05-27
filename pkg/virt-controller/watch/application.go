@@ -194,9 +194,10 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 
-	caConfigMapName  string
-	promCertFilePath string
-	promKeyFilePath  string
+	caConfigMapName     string
+	promCertFilePath    string
+	promKeyFilePath     string
+	nodeTopologyUpdater topology.NodeTopologyUpdater
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -427,6 +428,9 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
 		go vca.restoreController.Run(vca.restoreControllerThreads, stop)
 		go vca.workloadUpdateController.Run(stop)
+		cache.WaitForCacheSync(stop, vca.nodeInformer.HasSynced)
+		go vca.nodeTopologyUpdater.Run(30*time.Second, stop)
+
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 		close(vca.readyChan)
 		leaderGauge.Set(1)
@@ -462,6 +466,8 @@ func (vca *VirtControllerApp) initCommon() {
 		runtime.GOARCH,
 	)
 
+	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH)
+
 	vca.vmiController = NewVMIController(
 		vca.templateService,
 		vca.vmiInformer,
@@ -470,7 +476,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.dataVolumeInformer,
-		topology.NewTopologyHinter(vca.nodeInformer.GetStore(), runtime.GOARCH),
+		topologyHinter,
 	)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
@@ -484,6 +490,8 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clientSet,
 		vca.clusterConfig,
 	)
+
+	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.clientSet, topologyHinter, vca.nodeInformer.GetStore())
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

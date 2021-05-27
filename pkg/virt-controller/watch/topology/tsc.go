@@ -3,6 +3,7 @@ package topology
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -38,6 +39,53 @@ func TSCFrequencyFromNode(node *v1.Node) (frequency int64, scalable bool, err er
 		return freq, scalable, err
 	}
 	return 0, false, nil
+}
+
+func TSCFrequenciesOnNode(node *v1.Node) (frequencies []int64) {
+	for key := range node.Labels {
+		if strings.HasPrefix(key, TSCFrequencySchedulingLabel+"-") {
+			freq, err := strconv.ParseInt(strings.TrimPrefix(key, TSCFrequencySchedulingLabel+"-"), 10, 64)
+			if err != nil {
+				log.DefaultLogger().Object(node).Reason(err).Errorf("Label %s is invalid", key)
+				continue
+			}
+			frequencies = append(frequencies, freq)
+		}
+	}
+	return
+}
+
+func CalculateTSCLabelDiff(frequenciesInUse []int64, frequenciesOnNode []int64, nodeFrequency int64, scalable bool) (toAdd []int64, toRemove []int64) {
+	if scalable {
+		frequenciesInUse = append(frequenciesInUse, nodeFrequency)
+	} else {
+		frequenciesInUse = []int64{nodeFrequency}
+	}
+	requiredMap := map[int64]struct{}{}
+	for _, freq := range frequenciesInUse {
+		requiredMap[freq] = struct{}{}
+	}
+
+	for _, freq := range frequenciesOnNode {
+		if _, exists := requiredMap[freq]; !exists {
+			toRemove = append(toRemove, freq)
+		}
+	}
+
+	for _, freq := range frequenciesInUse {
+		if freq <= nodeFrequency {
+			toAdd = append(toAdd, freq)
+		}
+	}
+
+	return
+}
+
+func ToLabels(frequencies []int64) (labels []string) {
+	for _, freq := range frequencies {
+		labels = append(labels, fmt.Sprintf("%s-%d", TSCFrequencySchedulingLabel, freq))
+	}
+	return
 }
 
 func VMIHasInvTSCFeature(vmi *k6tv1.VirtualMachineInstance) bool {
