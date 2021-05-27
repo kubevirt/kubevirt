@@ -221,16 +221,12 @@ func enforceAPIGroup(existing runtime.Object, required runtime.Object) {
 
 	existingRoleRef.APIGroup = rbacv1.GroupName
 	for i := range existingSubjects {
-		if existingSubjects[i].Kind == "User" {
-			existingSubjects[i].APIGroup = rbacv1.GroupName
-		}
+		existingSubjects[i].APIGroup = rbacv1.GroupName
 	}
 
 	requiredRoleRef.APIGroup = rbacv1.GroupName
 	for i := range requiredSubjects {
-		if existingSubjects[i].Kind == "User" {
-			requiredSubjects[i].APIGroup = rbacv1.GroupName
-		}
+		requiredSubjects[i].APIGroup = rbacv1.GroupName
 	}
 }
 
