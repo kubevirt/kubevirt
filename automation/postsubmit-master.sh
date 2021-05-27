@@ -10,6 +10,7 @@ export DOCKER_TAG=""
 
 make bazel-build-verify
 
+make rpm-deps
 make build-verify # verify that we set version on the packages built by go (goveralls depends on go-build target)
 make apidocs
 make client-python

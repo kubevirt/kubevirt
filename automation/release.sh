@@ -30,6 +30,7 @@ function ensure_gh_cli_installed() {
 
 function build_release_artifacts() {
     make
+    make rpm-deps
     make build-verify
     make apidocs
     make client-python
