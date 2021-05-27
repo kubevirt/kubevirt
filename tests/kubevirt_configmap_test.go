@@ -62,7 +62,7 @@ var _ = Describe("[Serial][sig-compute]KubeVirtConfigmapConfiguration", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("[test_id:4670]check health check returns configmap resource version", func() {
+	It("[QUARANTINE][test_id:4670]check health check returns configmap resource version", func() {
 		cfg, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), virtconfig.ConfigMapName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -71,7 +71,7 @@ var _ = Describe("[Serial][sig-compute]KubeVirtConfigmapConfiguration", func() {
 		tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", cfg.ResourceVersion, tests.ExpectResourceVersionToBeEqualConfigVersion)
 	})
 
-	It("[test_id:4671]test kubevirt config-map is used for configuration when present", func() {
+	It("[QUARANTINE][test_id:4671]test kubevirt config-map is used for configuration when present", func() {
 
 		vmi := tests.NewRandomFedoraVMIWithDmidecode()
 
