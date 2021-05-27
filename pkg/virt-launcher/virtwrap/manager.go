@@ -1155,14 +1155,14 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 			return err
 		}
 
-		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
-			err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
-			if err != nil {
-				log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
-				return err
-			}
-			log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
+		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
+			return err
+		}
+		log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
 
+		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
 			now := metav1.Now()
 			domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
 			d, err := l.setDomainSpecWithHooks(vmi, domSpec)
@@ -1213,7 +1213,7 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 		return nil
 	}
 
-	log.Log.Object(vmi).Info("Domain not running or paused, nothing to do.")
+	log.Log.Object(vmi).Info("Domain not running, paused or shut down, nothing to do.")
 	return nil
 }
 
