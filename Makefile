@@ -176,6 +176,9 @@ olm-push:
 bump-kubevirtci:
 	./hack/bump-kubevirtci.sh
 
+fossa:
+	hack/dockerized "FOSSA_TOKEN_FILE=${FOSSA_TOKEN_FILE} ./hack/fossa.sh"
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -206,4 +209,5 @@ bump-kubevirtci:
 	olm-push \
 	coverage \
 	goveralls \
-	build-functests
+	build-functests \
+	fossa

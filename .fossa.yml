@@ -8,90 +8,87 @@ cli:
   project: git@github.com:kubevirt/kubevirt.git
 analyze:
   modules:
-  - name: gen-swagger-doc
-    type: gradle
-    target: ':'
-    path: hack/gen-swagger-doc
-    ignore: true
-  - name: container-disk-v2alpha
-    type: go
-    target: 'kubevirt.io/kubevirt/cmd/container-disk-v2alpha'
-    path: cmd/container-disk-v2alpha
-    options:
-      modules-vendor: true
   - name: virt-operator
     type: go
     target: 'kubevirt.io/kubevirt/cmd/virt-operator'
     path: cmd/virt-operator
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: example-cloudinit-hook-sidecar
     type: go
     target: 'kubevirt.io/kubevirt/cmd/example-cloudinit-hook-sidecar'
     path: cmd/example-cloudinit-hook-sidecar
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: subresource-access-test
     type: go
     target: 'kubevirt.io/kubevirt/cmd/subresource-access-test'
     path: cmd/subresource-access-test
-    ignore: true
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: fake-qemu-process
     type: go
     target: 'kubevirt.io/kubevirt/cmd/fake-qemu-process'
     path: cmd/fake-qemu-process
-    ignore: true
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: dump
     type: go
     target: 'kubevirt.io/kubevirt/cmd/dump'
     path: cmd/dump
-    ignore: true
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: virt-handler
     type: go
     target: 'kubevirt.io/kubevirt/cmd/virt-handler'
     path: cmd/virt-handler
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: virt-launcher
     type: go
     target: 'kubevirt.io/kubevirt/cmd/virt-launcher'
     path: cmd/virt-launcher
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: virtctl
     type: go
     target: 'kubevirt.io/kubevirt/cmd/virtctl'
     path: cmd/virtctl
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: chroot
     type: go
-    target: 'kubevirt.io/kubevirt/cmd/chroot'
-    path: cmd/chroot
+    target: 'kubevirt.io/kubevirt/cmd/virt-chroot'
+    path: cmd/virt-chroot
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: virt-api
     type: go
     target: 'kubevirt.io/kubevirt/cmd/virt-api'
     path: cmd/virt-api
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: example-hook-sidecar
     type: go
     target: 'kubevirt.io/kubevirt/cmd/example-hook-sidecar'
     path: cmd/example-hook-sidecar
-    ignore: true
     options:
       modules-vendor: true
+      strategy: gomodules
   - name: virt-controller
     type: go
     target: 'kubevirt.io/kubevirt/cmd/virt-controller'
     path: cmd/virt-controller
     options:
       modules-vendor: true
+      strategy: gomodules
