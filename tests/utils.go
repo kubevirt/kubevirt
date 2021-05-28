@@ -127,6 +127,7 @@ const (
 	AlpineHttpUrl = iota
 	DummyFileHttpUrl
 	CirrosHttpUrl
+	FedoraHttpUrl
 	VirtWhatCpuidHelperHttpUrl
 )
 
@@ -3198,6 +3199,25 @@ func NewRepeatableVirtctlCommand(args ...string) func() error {
 	}
 }
 
+func ExecuteCommandOnCephToolbox(virtCli kubecli.KubevirtClient, command []string) (string, error) {
+	pods, err := virtCli.CoreV1().Pods("rook-ceph").List(context.Background(), metav1.ListOptions{LabelSelector: "app=rook-ceph-tools"})
+	if err != nil {
+		return "", err
+	}
+
+	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, &pods.Items[0], "rook-ceph-tools", command)
+
+	if err != nil {
+		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
+	}
+
+	if len(stderr) > 0 {
+		return "", fmt.Errorf("stderr: %v", stderr)
+	}
+
+	return stdout, nil
+}
+
 func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
 	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, pod, containerName, command)
 
@@ -4748,6 +4768,8 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", flags.KubeVirtInstallNamespace)
 	case CirrosHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/cirros.img", flags.KubeVirtInstallNamespace)
+	case FedoraHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/fedora.img", flags.KubeVirtInstallNamespace)
 	case VirtWhatCpuidHelperHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/virt-what-cpuid-helper", flags.KubeVirtInstallNamespace)
 	default:
