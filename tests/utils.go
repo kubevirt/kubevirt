@@ -4564,33 +4564,37 @@ func waitForConfigToBePropagated(resourceVersion string) {
 func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+	errAdditionalInfo := fmt.Sprintf("component: \"%s\"", strings.TrimPrefix(podLabel, "kubevirt.io="))
 
-	EventuallyWithOffset(3, func() bool {
+	EventuallyWithOffset(3, func() error {
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: podLabel})
+
 		if err != nil {
-			log.DefaultLogger().Reason(err).Infof("Failed to fetch pods.")
-			return false
+			return fmt.Errorf("failed to fetch pods. %s", errAdditionalInfo)
 		}
 		for _, pod := range pods.Items {
+			errAdditionalInfo += fmt.Sprintf(", pod: \"%s\"", pod.Name)
+
 			if pod.DeletionTimestamp != nil {
 				continue
 			}
 			body, err := CallUrlOnPod(&pod, "8443", "/healthz")
 			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Failed to call healthz endpoint on %s", pod.Name)
-				return false
+				return fmt.Errorf("failed to call healthz endpoint. %s", errAdditionalInfo)
 			}
 			result := map[string]interface{}{}
 			err = json.Unmarshal(body, &result)
 			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Failed to parse response from healthz endpoint on %s", pod.Name)
-				return false
+				return fmt.Errorf("failed to parse response from healthz endpoint. %s", errAdditionalInfo)
 			}
 
-			return compareResourceVersions(resourceVersion, result["config-resource-version"].(string))
+			if configVersion := result["config-resource-version"].(string); !compareResourceVersions(resourceVersion, configVersion) {
+				return fmt.Errorf("resource & config versions (%s and %s respectively) are not as expected. %s ",
+					resourceVersion, configVersion, errAdditionalInfo)
+			}
 		}
-		return true
-	}, 10*time.Second, 1*time.Second).Should(BeTrue(), "Not all kubevirt components picked up the kubevirt config successfully")
+		return nil
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
