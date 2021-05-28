@@ -711,7 +711,7 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 		// remove this endpoint from rotation due to pod.DeletionTimestamp != nil
 		// By pausing, we reduce the chance that the load balancer will attempt to
 		// route new requests to the service after we've started the shutdown
-		// proceedure
+		// procedure
 		time.Sleep(5 * time.Second)
 
 		// by default, server.Shutdown() waits indefinitely for all existing
