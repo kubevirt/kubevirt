@@ -732,7 +732,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("[QUARANTINE][test_id:5264]should restore a vm from an online snapshot", func() {
+			It("[QUARANTINE][test_id:6053]should restore a vm from an online snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithBlockDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
 					tests.NamespaceTestDefault,
