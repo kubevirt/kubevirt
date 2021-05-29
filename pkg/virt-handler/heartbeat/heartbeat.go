@@ -132,7 +132,7 @@ func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
 		return false
 	}
 
-	if v, ok := cpuManagerOptions["policyName"]; ok && v == "static" {
+	if v, ok := cpuManagerOptions["policyName"]; ok && v != "none" {
 		log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
 		return true
 	} else {
