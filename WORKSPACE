@@ -7445,15 +7445,25 @@ rpm(
 )
 
 rpm(
-    name = "python3-0__3.8.9-1.fc32.aarch64",
-    sha256 = "ce187933cf3cedd08892233a9ed90af4736e7fccb042dbe259bee59d93a42e33",
-    urls = ["https://storage.googleapis.com/builddeps/ce187933cf3cedd08892233a9ed90af4736e7fccb042dbe259bee59d93a42e33"],
+    name = "python3-0__3.8.10-1.fc32.aarch64",
+    sha256 = "6be3f542137bf8321218bdcfe357dfce06db5d6abff48fe2a6b38124bf7840ca",
+    urls = [
+        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-3.8.10-1.fc32.aarch64.rpm",
+        "https://mirror.mrjester.net/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-3.8.10-1.fc32.aarch64.rpm",
+        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-3.8.10-1.fc32.aarch64.rpm",
+        "https://mirror.genesisadaptive.com/fedora/updates/32/Everything/aarch64/Packages/p/python3-3.8.10-1.fc32.aarch64.rpm",
+    ],
 )
 
 rpm(
-    name = "python3-0__3.8.9-1.fc32.x86_64",
-    sha256 = "64fc3a5306a7a568372de15984875e0a6863fe85c110f235cd5fcc920dcb97e8",
-    urls = ["https://storage.googleapis.com/builddeps/64fc3a5306a7a568372de15984875e0a6863fe85c110f235cd5fcc920dcb97e8"],
+    name = "python3-0__3.8.10-1.fc32.x86_64",
+    sha256 = "714cf76e1206c7782ddb104d8b38cd8cbf4a3b0ad6a759dc6c7b2a71970e4099",
+    urls = [
+        "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.10-1.fc32.x86_64.rpm",
+        "https://sjc.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.10-1.fc32.x86_64.rpm",
+        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.10-1.fc32.x86_64.rpm",
+        "https://mirrors.rit.edu/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.10-1.fc32.x86_64.rpm",
+    ],
 )
 
 rpm(
@@ -7553,15 +7563,25 @@ rpm(
 )
 
 rpm(
-    name = "python3-libs-0__3.8.9-1.fc32.aarch64",
-    sha256 = "bb370faa22e155a3fb498800fb5a158a1dca359c9fa9191b905ef2125848593f",
-    urls = ["https://storage.googleapis.com/builddeps/bb370faa22e155a3fb498800fb5a158a1dca359c9fa9191b905ef2125848593f"],
+    name = "python3-libs-0__3.8.10-1.fc32.aarch64",
+    sha256 = "23ea540161b08791a66cb9e9975e79d8c03e2cd0e6258a66b4c6e0e0d00b4959",
+    urls = [
+        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.10-1.fc32.aarch64.rpm",
+        "https://mirror.mrjester.net/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.10-1.fc32.aarch64.rpm",
+        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.10-1.fc32.aarch64.rpm",
+        "https://mirror.genesisadaptive.com/fedora/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.10-1.fc32.aarch64.rpm",
+    ],
 )
 
 rpm(
-    name = "python3-libs-0__3.8.9-1.fc32.x86_64",
-    sha256 = "d622b1fe20cd91a7e23942852713ba1e425c1ed01e61f82e5c3b400151fa5f80",
-    urls = ["https://storage.googleapis.com/builddeps/d622b1fe20cd91a7e23942852713ba1e425c1ed01e61f82e5c3b400151fa5f80"],
+    name = "python3-libs-0__3.8.10-1.fc32.x86_64",
+    sha256 = "79b78215cf83e351516dea7e580ecf2d3350a477dda5fbd4e9188873d0dd19e9",
+    urls = [
+        "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.10-1.fc32.x86_64.rpm",
+        "https://sjc.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.10-1.fc32.x86_64.rpm",
+        "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.10-1.fc32.x86_64.rpm",
+        "https://mirrors.rit.edu/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.10-1.fc32.x86_64.rpm",
+    ],
 )
 
 rpm(
