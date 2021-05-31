@@ -503,6 +503,53 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(getHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
 			})
 
+			It("should migrate with TSC frequency set", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Features: []v1.CPUFeature{
+						{
+							Name:   "invtsc",
+							Policy: "require",
+						},
+					},
+				}
+				// only with this strategy will the frequency be set
+				strategy := v1.EvictionStrategyLiveMigrate
+				vmi.Spec.EvictionStrategy = &strategy
+
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+				By("Checking the TSC frequency on the Domain XML")
+				domainSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				timerFrequency := ""
+				for _, timer := range domainSpec.Clock.Timer {
+					if timer.Name == "tsc" {
+						timerFrequency = timer.Frequency
+					}
+				}
+				Expect(timerFrequency).ToNot(BeEmpty())
+
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("Checking the TSC frequency on the Domain XML on the new node")
+				domainSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				timerFrequency = ""
+				for _, timer := range domainSpec.Clock.Timer {
+					if timer.Name == "tsc" {
+						timerFrequency = timer.Frequency
+					}
+				}
+				Expect(timerFrequency).ToNot(BeEmpty())
+			})
+
 			It("[test_id:4113]should be successfully migrate with cloud-init disk with devices on the root bus", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi.Annotations = map[string]string{
