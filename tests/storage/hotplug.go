@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
@@ -343,6 +344,23 @@ var _ = SIGDescribe("Hotplug", func() {
 			&expect.BSnd{S: expectReturn},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("cat %s\n", filepath.Join("/test", filepath.Base(device), "data/message"))},
+			&expect.BExp{R: string(vmi.UID)},
+			&expect.BSnd{S: "sync\n"},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: "sync\n"},
+			&expect.BExp{R: console.PromptExpression},
+		}
+		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
+	}
+
+	verifyWriteReadData := func(vmi *kubevirtv1.VirtualMachineInstance, device string) {
+		dataFile := filepath.Join("/test", filepath.Base(device), "data/message")
+		batch := []expect.Batcher{
+			&expect.BSnd{S: fmt.Sprintf("echo '%s' > %s\n", vmi.UID, dataFile)},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: expectReturn},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: fmt.Sprintf("cat %s\n", dataFile)},
 			&expect.BExp{R: string(vmi.UID)},
 			&expect.BSnd{S: "sync\n"},
 			&expect.BExp{R: console.PromptExpression},
@@ -897,11 +915,12 @@ var _ = SIGDescribe("Hotplug", func() {
 					Skip("Skip OCS tests when Ceph is not present")
 				}
 
-				vmi = tests.NewRandomFedoraVMI()
+				vmi, _ = newVirtualMachineInstanceWithContainerDisk()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			})
 
-			It("should mark VMI not migrateable, if a volume is attached", func() {
+			It("should allow live migration with attached hotplug volumes", func() {
+				volumeName := "testvolume"
 				volumeMode := corev1.PersistentVolumeBlock
 				addVolumeFunc := addDVVolumeVMI
 				removeVolumeFunc := removeVolumeVMI
@@ -914,27 +933,55 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyIsMigratable(vmi, true)
 
 				By("Adding volume to running VMI")
-				addVolumeFunc(vmi.Name, vmi.Namespace, "testvolume", dv.Name, "scsi")
+				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, "scsi")
 				By("Verifying the volume and disk are in the VMI")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+				verifyVolumeAndDiskVMIAdded(vmi, volumeName)
+				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, volumeName)
 
-				By("Verifying the VMI is not migrateable")
-				verifyIsMigratable(vmi, false)
+				By("Verifying the VMI is still migrateable")
+				verifyIsMigratable(vmi, true)
+
+				By("Verifying the volume is attached and usable")
+				getVmiConsoleAndLogin(vmi)
+				targets := verifyHotplugAttachedAndUseable(vmi, []string{volumeName})
+				Expect(len(targets) == 1).To(BeTrue())
+
+				By("Starting the migration multiple times")
+				for i := 0; i < 3; i++ {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					sourceAttachmentPods := []string{}
+					for _, volumeStatus := range vmi.Status.VolumeStatus {
+						if volumeStatus.HotplugVolume != nil {
+							sourceAttachmentPods = append(sourceAttachmentPods, volumeStatus.HotplugVolume.AttachPodName)
+						}
+					}
+					Expect(len(sourceAttachmentPods) == 1).To(BeTrue())
+
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+					By("Verifying the volume is still accessible and usable")
+					verifyVolumeAccessible(vmi, targets[0])
+					verifyWriteReadData(vmi, targets[0])
+
+					By("Verifying the source attachment pods are deleted")
+					Eventually(func() bool {
+						_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourceAttachmentPods[0], metav1.GetOptions{})
+						return errors.IsNotFound(err)
+					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+				}
+
+				By("Verifying the volume can be detached and reattached after migration")
+				removeVolumeFunc(vmi.Name, vmi.Namespace, volumeName)
+				verifyVolumeNolongerAccessible(vmi, targets[0])
+				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, "scsi")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				By("Verifying the migration disabled reason is hotplug")
-				for _, condition := range vmi.Status.Conditions {
-					if condition.Type == kubevirtv1.VirtualMachineInstanceIsMigratable {
-						Expect(condition.Reason).To(Equal(kubevirtv1.VirtualMachineInstanceReasonHotplugNotMigratable))
-						break
-					}
-				}
-				removeVolumeFunc(vmi.Name, vmi.Namespace, "testvolume")
-				By("Verifying the VMI is migrateable")
-				verifyIsMigratable(vmi, true)
+				verifyVolumeAndDiskVMIAdded(vmi, volumeName)
+				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, volumeName)
 			})
 		})
 	})
