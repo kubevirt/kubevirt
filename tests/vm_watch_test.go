@@ -263,7 +263,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Expect(err).ToNot(HaveOccurred())
 
 		nodes := tests.GetAllSchedulableNodes(virtClient)
-		Expect(nodes.Items).To(BeNumerically(">=", 2),
+		Expect(len(nodes.Items)).To(BeNumerically(">=", 2),
 			"Migration requires at least 2 schedulable nodes")
 
 		migrateCommand := tests.NewRepeatableVirtctlCommand(virtctlvm.COMMAND_MIGRATE, "--namespace", vm.Namespace, vm.Name)
