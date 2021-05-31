@@ -72,7 +72,8 @@ func (h HcCmdHelper) RegisterPPROFServer(mgr manager.Manager) error {
 		errCh := make(chan error)
 		defer func() {
 			for range errCh {
-			} // drain errCh for GC
+				// drain errCh for GC
+			}
 		}()
 
 		go func() {

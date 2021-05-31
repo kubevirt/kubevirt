@@ -149,7 +149,7 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 						Name:            hcoName,
 						Image:           params.Image,
 						ImagePullPolicy: corev1.PullPolicy(params.ImagePullPolicy),
-						// TODO: command being name is artifact of operator-sdk usage
+						// command being name is artifact of operator-sdk usage
 						Command:        []string{hcoName},
 						ReadinessProbe: getReadinessProbe(),
 						LivenessProbe:  getLivenessProbe(),

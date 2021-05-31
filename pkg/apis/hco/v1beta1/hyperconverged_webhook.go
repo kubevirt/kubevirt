@@ -116,8 +116,6 @@ type nsMutator struct {
 	decoder *admission.Decoder
 }
 
-// TODO: nsMutator should try to delete HyperConverged CR before deleting the namespace
-// currently it simply blocks namespace deletion if HyperConverged CR is there
 func (a *nsMutator) Handle(_ context.Context, req admission.Request) admission.Response {
 	hcolog.Info("reaching nsMutator.Handle")
 

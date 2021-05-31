@@ -236,10 +236,7 @@ func (wh WebhookHandler) HandleMutatingNsDelete(ns *corev1.Namespace, dryRun boo
 		},
 	}
 
-	// TODO: once the deletion of HCO CR is really safe during namespace deletion
-	// (foreground deletion, context timeouts...) try to automatically
-	// delete HCO CR if there.
-	// For now let's simply block the deletion if the namespace with a clear error message
+	// Block the deletion if the namespace with a clear error message
 	// if HCO CR is still there
 
 	found := &v1beta1.HyperConverged{}
