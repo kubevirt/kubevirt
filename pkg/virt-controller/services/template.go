@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -1161,6 +1163,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		hvNodeSelectors := getHypervNodeSelectors(vmi)
 		for k, v := range hvNodeSelectors {
 			nodeSelector[k] = v
+		}
+	}
+
+	if vmi.Status.TopologyHints != nil {
+		if vmi.Status.TopologyHints.TSCFrequency != nil {
+			nodeSelector[topology.ToTSCSchedulableLabel(*vmi.Status.TopologyHints.TSCFrequency)] = "true"
 		}
 	}
 

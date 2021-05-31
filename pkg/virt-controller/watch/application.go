@@ -428,7 +428,6 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
 		go vca.restoreController.Run(vca.restoreControllerThreads, stop)
 		go vca.workloadUpdateController.Run(stop)
-		cache.WaitForCacheSync(stop, vca.nodeInformer.HasSynced)
 		go vca.nodeTopologyUpdater.Run(30*time.Second, stop)
 
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
@@ -491,7 +490,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 	)
 
-	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.clientSet, topologyHinter, vca.nodeInformer.GetStore())
+	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.clientSet, topologyHinter, vca.nodeInformer)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

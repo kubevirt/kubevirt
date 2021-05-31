@@ -29,7 +29,7 @@ var _ = Describe("TSC", func() {
 	})
 
 	It("should convert a frequency to a proper label", func() {
-		Expect(topology.ToLabels([]int64{123, 456})).To(ConsistOf(
+		Expect(topology.ToTSCSchedulableLabels([]int64{123, 456})).To(ConsistOf(
 			topology.TSCFrequencySchedulingLabel+"-123",
 			topology.TSCFrequencySchedulingLabel+"-456",
 		))

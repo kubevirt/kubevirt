@@ -1,5 +1,7 @@
 package topology
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
 import (
 	"context"
 	"encoding/json"
@@ -24,9 +26,9 @@ type NodeTopologyUpdater interface {
 }
 
 type nodeTopologyUpdater struct {
-	nodeStore cache.Store
-	hinter    Hinter
-	client    kubecli.KubevirtClient
+	nodeInformer cache.SharedIndexInformer
+	hinter       Hinter
+	client       kubecli.KubevirtClient
 }
 
 type stats struct {
@@ -36,9 +38,10 @@ type stats struct {
 }
 
 func (n *nodeTopologyUpdater) Run(interval time.Duration, stopChan <-chan struct{}) {
+	cache.WaitForCacheSync(stopChan, n.nodeInformer.HasSynced)
 	wait.JitterUntil(func() {
 		requiredFrequencies := n.requiredFrequencies()
-		nodes := FilterNodesFromCache(n.nodeStore.List(),
+		nodes := FilterNodesFromCache(n.nodeInformer.GetStore().List(),
 			HasInvTSCFrequency,
 		)
 		stats := &stats{}
@@ -91,8 +94,8 @@ func calculateNodeLabelChanges(original *v1.Node, requiredFrequencies []int64) (
 	}
 	freqsOnNode := TSCFrequenciesOnNode(original)
 	toAdd, toRemove := CalculateTSCLabelDiff(requiredFrequencies, freqsOnNode, nodeFreq, scalable)
-	toAddLabels := ToLabels(toAdd)
-	toRemoveLabels := ToLabels(toRemove)
+	toAddLabels := ToTSCSchedulableLabels(toAdd)
+	toRemoveLabels := ToTSCSchedulableLabels(toRemove)
 
 	nodeCopy := original.DeepCopy()
 	for _, freq := range toAddLabels {
@@ -112,10 +115,10 @@ func (n nodeTopologyUpdater) requiredFrequencies() []int64 {
 	return append(n.hinter.TSCFrequenciesInUse(), lowestFrequency)
 }
 
-func NewNodeTopologyUpdater(clientset kubecli.KubevirtClient, hinter Hinter, nodeStore cache.Store) NodeTopologyUpdater {
+func NewNodeTopologyUpdater(clientset kubecli.KubevirtClient, hinter Hinter, nodeInformer cache.SharedIndexInformer) NodeTopologyUpdater {
 	return &nodeTopologyUpdater{
-		client:    clientset,
-		hinter:    hinter,
-		nodeStore: nodeStore,
+		client:       clientset,
+		hinter:       hinter,
+		nodeInformer: nodeInformer,
 	}
 }

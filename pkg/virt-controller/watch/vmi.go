@@ -373,6 +373,14 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
+			if vmi.Status.TopologyHints == nil {
+				if topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil {
+					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
+					return &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}
+				} else if topologyHints != nil {
+					vmiCopy.Status.TopologyHints = topologyHints
+				}
+			}
 			if hasWffcDataVolume {
 				condition := virtv1.VirtualMachineInstanceCondition{
 					Type:   virtv1.VirtualMachineInstanceProvisioning,
@@ -438,13 +446,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					syncErr = &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}
 					break
 				}
-				// let's add topology hints about the cluster which a node can't know about
-				topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi)
-				if err != nil {
-					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
-					syncErr = &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}
-					break
-				}
+
 				// vmi is still owned by the controller but pod is already ready,
 				// so let's hand over the vmi too
 				vmiCopy.Status.Phase = virtv1.Scheduled
@@ -453,7 +455,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 				vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
 				vmiCopy.Status.NodeName = pod.Spec.NodeName
-				vmiCopy.Status.TopologyHints = topologyHints
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
@@ -743,6 +744,17 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
 			return nil
+		}
+		// let's check if we already have topology hints or if we are still waiting for them
+		if vmi.Status.TopologyHints == nil {
+			if topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
+				return &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}
+			} else if topologyHints != nil {
+				log.Log.V(3).Object(vmi).Infof("Delaying pod creation until topology hints are set")
+				// no hints in the status yet, but apparently the VMI requires some, let's retry when they are there
+				return nil
+			}
 		}
 
 		// ensure that all dataVolumes associated with the VMI are ready before creating the pod
