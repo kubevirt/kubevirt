@@ -39,7 +39,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[Serial]IOThreads", func() {
+var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
