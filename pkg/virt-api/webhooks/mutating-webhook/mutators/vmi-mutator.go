@@ -329,14 +329,6 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 }
 
 func canBeNonRoot(vmi *v1.VirtualMachineInstance) bool {
-	// hugepages are temporarily not working with non-root implementation
-	// This need to sync the owneship change of /dev/hugepages with libvird startup
-	hugepages := false
-	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
-		hugepages = true
-
-	}
-
 	// VirtioFS doesn't work with session mode
-	return !util.IsVMIVirtiofsEnabled(vmi) && !hugepages && !util.IsSRIOVVmi(vmi)
+	return !util.IsVMIVirtiofsEnabled(vmi)
 }
