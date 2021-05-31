@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
-var _ = Describe("VMI with external kernel boot", func() {
+var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 
 	var virtClient kubecli.KubevirtClient
 
