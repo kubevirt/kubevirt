@@ -228,6 +228,7 @@ const (
 )
 
 const MigrationWaitTime = 240
+const ContainerCompletionWaitTime = 60
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
