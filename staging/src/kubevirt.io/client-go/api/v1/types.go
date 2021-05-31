@@ -364,10 +364,12 @@ const (
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 	// Reason means that VMI is not live migratioable because of it's network interfaces collection
 	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
-	// Reason means that VMI is not live migratioable because of it's network interfaces collection
+	// Reason means that VMI is not live migratioable because it uses hotplug
 	VirtualMachineInstanceReasonHotplugNotMigratable = "HotplugNotLiveMigratable"
 	// Reason means that VMI is not live migratioable because of it's CPU mode
 	VirtualMachineInstanceReasonCPUModeNotMigratable = "CPUModeLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses virtiofs
+	VirtualMachineInstanceReasonVirtIOFSNotMigratable = "VirtIOFSNotLiveMigratable"
 )
 
 const (
