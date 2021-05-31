@@ -870,7 +870,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	}
 
 	// Consider hugepages resource for pod scheduling
-	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+	if util.HasHugePages(vmi) {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
 		hugepagesMemReq := vmi.Spec.Domain.Resources.Requests.Memory()
 
@@ -1368,6 +1368,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	}
 
 	if nonRoot {
+		if util.HasHugePages(vmi) {
+			pod.Spec.SecurityContext.FSGroup = &userId
+		}
 		pod.Spec.SecurityContext.RunAsGroup = &userId
 		pod.Spec.SecurityContext.RunAsNonRoot = &nonRoot
 	}
