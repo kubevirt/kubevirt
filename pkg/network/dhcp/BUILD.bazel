@@ -1,0 +1,33 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["configurator.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/network/dhcp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/network/cache:go_default_library",
+        "//pkg/network/driver:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "configurator_test.go",
+        "dhcp_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/network/cache:go_default_library",
+        "//pkg/network/cache/fake:go_default_library",
+        "//pkg/network/driver:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+    ],
+)

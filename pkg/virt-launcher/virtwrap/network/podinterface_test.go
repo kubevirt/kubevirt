@@ -110,7 +110,7 @@ var _ = Describe("Pod Network", func() {
 		newPodInterfaceName = fmt.Sprintf("%s-nic", primaryPodInterfaceName)
 		dummySwap = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: primaryPodInterfaceName}}
 		primaryPodInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodInterfaceName, MTU: mtu}}
-		primaryPodInterfaceAfterNameChange = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: newPodInterfaceName}}
+		primaryPodInterfaceAfterNameChange = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: newPodInterfaceName, MTU: mtu}}
 		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
 		gw := net.IPv4(10, 35, 0, 1)
 		fakeMac, _ = net.ParseMAC(testMac)
@@ -142,10 +142,10 @@ var _ = Describe("Pod Network", func() {
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		tapDeviceName = "tap0"
 		testNic = &cache.DhcpConfig{Name: primaryPodInterfaceName,
-			IP:      fakeAddr,
-			MAC:     fakeMac,
-			Mtu:     uint16(mtu),
-			Gateway: gw,
+			IP:                fakeAddr,
+			MAC:               fakeMac,
+			Mtu:               uint16(mtu),
+			AdvertisingIPAddr: gw,
 		}
 
 		masqueradeGwStr = "10.0.2.1/30"
@@ -163,12 +163,12 @@ var _ = Describe("Pod Network", func() {
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
 		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName, MTU: mtu}}
 		masqueradeTestNic = &cache.DhcpConfig{Name: primaryPodInterfaceName,
-			IP:          *masqueradeVmAddr,
-			IPv6:        *masqueradeIpv6VmAddr,
-			MAC:         fakeMac,
-			Mtu:         uint16(mtu),
-			Gateway:     masqueradeGwAddr.IP.To4(),
-			GatewayIpv6: masqueradeIpv6GwAddr.IP.To16()}
+			IP:                  *masqueradeVmAddr,
+			IPv6:                *masqueradeIpv6VmAddr,
+			MAC:                 fakeMac,
+			Mtu:                 uint16(mtu),
+			AdvertisingIPAddr:   masqueradeGwAddr.IP.To4(),
+			AdvertisingIPv6Addr: masqueradeIpv6GwAddr.IP.To16()}
 	})
 
 	AfterEach(func() {
@@ -382,6 +382,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(primaryPodInterfaceName).Return(fakeMac, nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
+			mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
 
 			podnic := createDefaultPodNIC(vm)
 			podnic.launcherPID = &pid
@@ -428,9 +429,10 @@ var _ = Describe("Pod Network", func() {
 					podnic.launcherPID = &pid
 					driver, err := podnic.getPhase1Binding()
 					Expect(err).ToNot(HaveOccurred())
-					bridge, ok := driver.(*BridgeBindMechanism)
+					bridgeBinding, ok := driver.(*BridgeBindMechanism)
 					Expect(ok).To(BeTrue())
-					Expect(bridge.dhcpConfig.MAC.String()).To(Equal("de:ad:00:00:be:af"))
+					bridgeBinding.ipamEnabled = true
+					Expect(driver.generateDhcpConfig().MAC.String()).To(Equal("de:ad:00:00:be:af"))
 				})
 			})
 		})
@@ -651,193 +653,6 @@ var _ = Describe("Pod Network", func() {
 				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
 
 			})
-		})
-	})
-
-	Context("Masquerade startDHCP", func() {
-		It("should succeed when DHCP server started", func() {
-			domain := NewDomainWithBridgeInterface()
-			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			podnic := createDefaultPodNIC(vmi)
-			podnic.launcherPID = &pid
-			driver, err := podnic.getPhase2Binding(domain)
-			Expect(err).ToNot(HaveOccurred())
-			masq, ok := driver.(*MasqueradeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			masq.dhcpConfig.Gateway = masqueradeGwAddr.IP.To4()
-			masq.dhcpConfig.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
-			mockNetwork.EXPECT().StartDHCP(masq.dhcpConfig, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
-
-			Expect(masq.startDHCP()).To(Succeed())
-		})
-		It("should fail when DHCP server failed", func() {
-			domain := NewDomainWithBridgeInterface()
-			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			podnic := createDefaultPodNIC(vmi)
-			podnic.launcherPID = &pid
-			driver, err := podnic.getPhase2Binding(domain)
-			Expect(err).ToNot(HaveOccurred())
-			masq, ok := driver.(*MasqueradeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			masq.dhcpConfig.Gateway = masqueradeGwAddr.IP.To4()
-			masq.dhcpConfig.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
-
-			err = fmt.Errorf("failed to start DHCP server")
-			mockNetwork.EXPECT().StartDHCP(masq.dhcpConfig, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(err)
-
-			Expect(masq.startDHCP()).To(HaveOccurred())
-		})
-	})
-	Context("Bridge startDHCP", func() {
-		It("should succeed when DHCP server started", func() {
-			domain := NewDomainWithBridgeInterface()
-			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			podnic := createDefaultPodNIC(vmi)
-			podnic.launcherPID = &pid
-			driver, err := podnic.getPhase2Binding(domain)
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*BridgeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			mockNetwork.EXPECT().StartDHCP(bridge.dhcpConfig, gomock.Any(), api.DefaultBridgeName, nil, true).Return(nil)
-
-			Expect(bridge.startDHCP()).To(Succeed())
-		})
-		It("should fail when DHCP server failed", func() {
-			domain := NewDomainWithBridgeInterface()
-			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			podnic := createDefaultPodNIC(vmi)
-			podnic.launcherPID = &pid
-			driver, err := podnic.getPhase2Binding(domain)
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*BridgeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			err = fmt.Errorf("failed to start DHCP server")
-			mockNetwork.EXPECT().StartDHCP(bridge.dhcpConfig, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
-
-			Expect(bridge.startDHCP()).To(HaveOccurred())
-		})
-		It("should succeed when DHCP server started and isLayer2 = true", func() {
-			domain := NewDomainWithBridgeInterface()
-			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			podnic := createDefaultPodNIC(vmi)
-			podnic.launcherPID = &pid
-			driver, err := podnic.getPhase2Binding(domain)
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*BridgeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			bridge.dhcpConfig.IPAMDisabled = true
-			err = fmt.Errorf("failed to start DHCP server")
-			mockNetwork.EXPECT().StartDHCP(bridge.dhcpConfig, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
-
-			Expect(bridge.startDHCP()).To(Succeed())
-		})
-	})
-	Context("Slirp startDHCP", func() {
-		It("should succeed when DHCP server started", func() {
-			domain := NewDomainWithSlirpInterface()
-			vmi := newVMISlirpInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			podnic := createDefaultPodNIC(vmi)
-			driver, err := podnic.getPhase2Binding(domain)
-			Expect(err).ToNot(HaveOccurred())
-			slirp, ok := driver.(*SlirpBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			Expect(slirp.startDHCP()).To(Succeed())
-		})
-		// slirp never fails to start DHCP because it doesn't need it at all
-	})
-
-	Context("Bridge loadCachedDhcpConfig", func() {
-		It("should fail when nothing to load", func() {
-			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			podnic := createDefaultPodNIC(vmi)
-			podnic.launcherPID = &pid
-			driver, err := podnic.getPhase1Binding()
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*BridgeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			Expect(bridge.loadCachedDhcpConfig()).To(HaveOccurred())
-		})
-		It("should succeed when cache file present", func() {
-			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			podnic := createDefaultPodNIC(vmi)
-			podnic.launcherPID = &pid
-			driver, err := podnic.getPhase1Binding()
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*BridgeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			Expect(bridge.setCachedDhcpConfig()).ToNot(HaveOccurred())
-			Expect(bridge.loadCachedDhcpConfig()).ToNot(HaveOccurred())
-		})
-	})
-
-	Context("Slirp loadCachedDhcpConfig", func() {
-		It("should succeed", func() {
-			vmi := newVMISlirpInterface("testnamespace", "testVmName")
-
-			podnic := createDefaultPodNIC(vmi)
-
-			driver, err := podnic.getPhase1Binding()
-			Expect(err).ToNot(HaveOccurred())
-			slirp, ok := driver.(*SlirpBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			// it doesn't fail regardless, whether called without setCachedVIF...
-			Expect(slirp.loadCachedDhcpConfig()).NotTo(HaveOccurred())
-
-			// ...or after it
-			err = slirp.setCachedDhcpConfig()
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(slirp.loadCachedDhcpConfig()).NotTo(HaveOccurred())
-		})
-	})
-
-	Context("Masquerade loadCachedDhcpConfig", func() {
-		It("should fail when nothing to load", func() {
-			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			podnic := createDefaultPodNIC(vmi)
-			podnic.launcherPID = &pid
-			driver, err := podnic.getPhase1Binding()
-			Expect(err).ToNot(HaveOccurred())
-			masq, ok := driver.(*MasqueradeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			Expect(masq.loadCachedDhcpConfig()).To(HaveOccurred())
-		})
-		It("should succeed when cache file present", func() {
-			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			podnic := createDefaultPodNIC(vmi)
-			podnic.launcherPID = &pid
-			driver, err := podnic.getPhase1Binding()
-			Expect(err).ToNot(HaveOccurred())
-			masq, ok := driver.(*MasqueradeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			Expect(masq.setCachedDhcpConfig()).ToNot(HaveOccurred())
-			Expect(masq.loadCachedDhcpConfig()).ToNot(HaveOccurred())
 		})
 	})
 
