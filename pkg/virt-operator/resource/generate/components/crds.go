@@ -567,6 +567,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"summary": "All virt-api servers are down.",
 						},
+						Labels: map[string]string{
+							"severity": "critical",
+						},
 					},
 					{
 						Record: "num_of_allocatable_nodes",
@@ -578,6 +581,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						For:   "60m",
 						Annotations: map[string]string{
 							"summary": "More than one virt-api should be running if more than one worker nodes exist.",
+						},
+						Labels: map[string]string{
+							"severity": "warning",
 						},
 					},
 					{
@@ -615,6 +621,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"summary": "Some virt controllers are running but not ready.",
 						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
 					},
 					{
 						Alert: "NoReadyVirtController",
@@ -622,6 +631,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "No ready virt-controller was detected for the last 5 min.",
+						},
+						Labels: map[string]string{
+							"severity": "critical",
 						},
 					},
 					{
@@ -631,6 +643,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"summary": "No running virt-controller was detected for the last 5 min.",
 						},
+						Labels: map[string]string{
+							"severity": "critical",
+						},
 					},
 					{
 						Alert: "LowVirtControllersCount",
@@ -638,6 +653,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "More than one virt-controller should be ready if more than one worker node.",
+						},
+						Labels: map[string]string{
+							"severity": "warning",
 						},
 					},
 					{
@@ -671,6 +689,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"summary": "More than 5% of the rest calls failed in virt-controller for the last hour",
 						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
 					},
 					{
 						Alert: "VirtControllerRESTErrorsBurst",
@@ -678,6 +699,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "More than 80% of the rest calls failed in virt-controller for the last 5 minutes",
+						},
+						Labels: map[string]string{
+							"severity": "critical",
 						},
 					},
 					{
@@ -693,6 +717,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"summary": "All virt-operator servers are down.",
 						},
+						Labels: map[string]string{
+							"severity": "critical",
+						},
 					},
 					{
 						Alert: "LowVirtOperatorCount",
@@ -700,6 +727,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						For:   "60m",
 						Annotations: map[string]string{
 							"summary": "More than one virt-operator should be running if more than one worker nodes exist.",
+						},
+						Labels: map[string]string{
+							"severity": "warning",
 						},
 					},
 					{
@@ -733,6 +763,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"summary": "More than 5% of the rest calls failed in virt-operator for the last hour",
 						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
 					},
 					{
 						Alert: "VirtOperatorRESTErrorsBurst",
@@ -740,6 +773,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "More than 80% of the rest calls failed in virt-operator for the last 5 minutes",
+						},
+						Labels: map[string]string{
+							"severity": "critical",
 						},
 					},
 					{
@@ -761,6 +797,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"summary": "Some virt-operators are running but not ready.",
 						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
 					},
 					{
 						Alert: "NoReadyVirtOperator",
@@ -769,6 +808,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"summary": "No ready virt-operator was detected for the last 5 min.",
 						},
+						Labels: map[string]string{
+							"severity": "critical",
+						},
 					},
 					{
 						Alert: "NoLeadingVirtOperator",
@@ -776,6 +818,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "No leading virt-operator was detected for the last 5 min.",
+						},
+						Labels: map[string]string{
+							"severity": "critical",
 						},
 					},
 					{
@@ -791,6 +836,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						For: "15m",
 						Annotations: map[string]string{
 							"summary": "Some virt-handlers failed to roll out",
+						},
+						Labels: map[string]string{
+							"severity": "warning",
 						},
 					},
 					{
@@ -824,6 +872,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"summary": "More than 5% of the rest calls failed in virt-handler for the last hour",
 						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
 					},
 					{
 						Alert: "VirtHandlerRESTErrorsBurst",
@@ -831,6 +882,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "More than 80% of the rest calls failed in virt-handler for the last 5 minutes",
+						},
+						Labels: map[string]string{
+							"severity": "critical",
 						},
 					},
 					{
