@@ -98,25 +98,30 @@ func readLineWithTimeout(rc io.ReadCloser, timeout time.Duration) (string, error
 // newStatus.printableStatus != oldStatus.printableStatus or newStatus.phase != oldStatus.phase
 // in order to skip duplicated status lines
 func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) ([]string, error) {
-	statusLine, err := readLineWithTimeout(rc, timeout)
+	prevStatus := oldStatus
 
-	if err != nil {
-		return nil, err
-	}
-
-	newStatus := strings.Fields(statusLine)
-
-	// Skip status line with similar printableStatus state for VM or phase state for VMI
-	// newStatus[2] and oldStatus[2] point to the VM running state or VMI phase
-	if oldStatus != nil && len(oldStatus) == len(newStatus) {
-		if len(oldStatus) == 2 {
-			return readNewStatus(rc, newStatus, timeout)
-		} else if len(oldStatus) >= 3 && newStatus[2] == oldStatus[2] {
-			return readNewStatus(rc, newStatus, timeout)
+	// Iterate repeatedly until a modified line is found
+	for {
+		statusLine, err := readLineWithTimeout(rc, timeout)
+		if err != nil {
+			return nil, err
 		}
-	}
+		newStatus := strings.Fields(statusLine)
 
-	return newStatus, nil
+		if prevStatus == nil {
+			return newStatus, nil
+		}
+
+		// Skip status line with similar printableStatus state for VM or phase state for VMI
+		// newStatus[2] and oldStatus[2] point to the VM printableStatus or VMI phase
+		if len(prevStatus) >= 3 &&
+			len(newStatus) >= 3 &&
+			prevStatus[2] != newStatus[2] {
+			return newStatus, nil
+		}
+
+		prevStatus = newStatus
+	}
 }
 
 // Create a command with output/error redirection.
@@ -258,20 +263,21 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Expect(err).ToNot(HaveOccurred())
 
 		nodes := tests.GetAllSchedulableNodes(virtClient)
-		if len(nodes.Items) > 1 {
-			migrateCommand := tests.NewRepeatableVirtctlCommand(virtctlvm.COMMAND_MIGRATE, "--namespace", vm.Namespace, vm.Name)
-			Expect(migrateCommand()).To(Succeed())
+		Expect(nodes.Items).To(BeNumerically(">=", 2),
+			"Migration requires at least 2 schedulable nodes")
 
-			vmStatus, err = readNewStatus(stdout, vmStatus, vmMigrationTimeout)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusMigrating)),
-				"VM should be in the %s status", v12.VirtualMachineStatusMigrating)
+		migrateCommand := tests.NewRepeatableVirtctlCommand(virtctlvm.COMMAND_MIGRATE, "--namespace", vm.Namespace, vm.Name)
+		Expect(migrateCommand()).To(Succeed())
 
-			vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning)),
-				"VM should be in the %s status", v12.VirtualMachineStatusRunning)
-		}
+		vmStatus, err = readNewStatus(stdout, vmStatus, vmMigrationTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusMigrating)),
+			"VM should be in the %s status", v12.VirtualMachineStatusMigrating)
+
+		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning)),
+			"VM should be in the %s status", v12.VirtualMachineStatusRunning)
 
 		By("Stopping the VirtualMachine")
 		vm = tests.StopVirtualMachine(vm)
