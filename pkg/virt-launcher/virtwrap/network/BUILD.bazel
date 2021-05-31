@@ -21,6 +21,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
         "//vendor/github.com/coreos/go-iptables/iptables:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
     ],
 )
 

@@ -92,6 +92,7 @@ const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
 const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
 
 const ENV_VAR_POD_NAME = "POD_NAME"
+const ENV_VAR_POD_IP = "MY_POD_IP"
 
 // extensive log verbosity threshold after which libvirt debug logs will be enabled
 const EXT_LOG_VERBOSITY_THRESHOLD = 5
@@ -1092,6 +1093,16 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			},
 		},
 	})
+
+	compute.Env = append(compute.Env, k8sv1.EnvVar{
+		Name: "MY_POD_IP",
+		ValueFrom: &k8sv1.EnvVarSource{
+			FieldRef: &k8sv1.ObjectFieldSelector{
+				FieldPath: "status.podIP",
+			},
+		},
+	},
+	)
 
 	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
 	// for adding the requested resources to the pod will add them to the first container of the list

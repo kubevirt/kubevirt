@@ -46,7 +46,8 @@ type InterfaceCacheFactory interface {
 
 func NewInterfaceCacheFactory() *interfaceCacheFactory {
 	return &interfaceCacheFactory{
-		lock: &sync.Mutex{},
+		lock:             &sync.Mutex{},
+		dhcpConfigStores: map[string]*dhcpConfigCacheStore{},
 	}
 }
 

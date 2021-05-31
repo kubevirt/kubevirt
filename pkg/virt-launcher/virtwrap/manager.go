@@ -426,7 +426,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger := log.Log.Object(vmi)
 
-	logger.Info("Executing PreStartHook on VMI pod environment")
+	logger.Info("FOO: Executing PreStartHook on VMI pod environment")
 
 	// generate cloud-init data
 	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
@@ -435,7 +435,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// Pass cloud-init data to PreCloudInitIso hook
-	logger.Info("Starting PreCloudInitIso hook")
+	logger.Info("FOO: Starting PreCloudInitIso hook")
 	hooksManager := hooks.GetManager()
 	cloudInitData, err = hooksManager.PreCloudInitIso(vmi, cloudInitData)
 	if err != nil {
@@ -463,9 +463,16 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("reading DHCP config failed: %v", err)
 	}
 
+	logger.Info("Running SetupPodNetworkPhase2")
 	err = network.NewVMNetworkConfigurator(vmi, l.networkCacheStoreFactory).SetupPodNetworkPhase2(domain)
 	if err != nil {
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
+	}
+
+	logger.Info("Sending domain interfaces status")
+	err = l.notifier.SendInterfacesUpdate(domain.Status.Interfaces)
+	if err != nil {
+		return domain, fmt.Errorf("notifying interface statuses failed: %v", err)
 	}
 
 	// create disks images on the cluster lever
@@ -775,6 +782,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err
 			}
+			logger.Infof("FOO after preStartHook domain.Spec.Devices.Interfaces: %+v", domain.Spec.Devices.Interfaces)
 			dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
 			if err != nil {
 				return nil, err

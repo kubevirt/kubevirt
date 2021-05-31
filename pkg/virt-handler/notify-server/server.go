@@ -64,6 +64,7 @@ func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEv
 			response.Message = err.Error()
 			return response, nil
 		}
+		log.Log.Infof("Domain event received -> domain.Status.Interfaces: %v", domain.Status.Interfaces)
 	}
 	if len(request.StatusJSON) > 0 {
 		err := json.Unmarshal(request.StatusJSON, status)

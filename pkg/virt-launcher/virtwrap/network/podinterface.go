@@ -27,6 +27,8 @@ import (
 	"strings"
 
 	"github.com/coreos/go-iptables/iptables"
+	"k8s.io/apimachinery/pkg/watch"
+
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -58,6 +60,10 @@ type BindMechanism interface {
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
 	decorateConfig(domainIface api.Interface) error
+}
+
+type EventNotifier interface {
+	SendDomainEvent(watch.Event) error
 }
 
 type podNIC struct {
@@ -150,36 +156,32 @@ func isSecondaryMultusNetwork(net v1.Network) bool {
 	return net.Multus != nil && !net.Multus.Default
 }
 
-func (l *podNIC) setPodInterfaceCache() error {
-	ifCache := &cache.PodCacheInterface{Iface: l.iface}
+func (l *podNIC) composeInterfaceStatus(domain *api.Domain) (*api.InterfaceStatus, error) {
+	interfaceStatus := &api.InterfaceStatus{
+		Name:          l.iface.Name,
+		InterfaceName: l.podInterfaceName,
+	}
 
 	ipv4, ipv6, err := l.handler.ReadIPAddressesFromLink(l.podInterfaceName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	switch {
 	case ipv4 != "" && ipv6 != "":
-		ifCache.PodIPs, err = l.sortIPsBasedOnPrimaryIP(ipv4, ipv6)
+		interfaceStatus.IPs, err = l.sortIPsBasedOnPrimaryIP(ipv4, ipv6)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	case ipv4 != "":
-		ifCache.PodIPs = []string{ipv4}
+		interfaceStatus.IPs = []string{ipv4}
 	case ipv6 != "":
-		ifCache.PodIPs = []string{ipv6}
+		interfaceStatus.IPs = []string{ipv6}
 	default:
-		return nil
+		return nil, nil
 	}
-
-	ifCache.PodIP = ifCache.PodIPs[0]
-	err = l.cacheFactory.CacheForVMI(l.vmi).Write(l.iface.Name, ifCache)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
-		return err
-	}
-
-	return nil
+	interfaceStatus.Ip = interfaceStatus.IPs[0]
+	return interfaceStatus, nil
 }
 
 // sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
@@ -210,13 +212,6 @@ func (l *podNIC) PlugPhase1() error {
 	}
 
 	doesExist := cachedDomainIface != nil
-	// ignore the bindMechanism.cachedDomainInterface for slirp and set the Pod interface cache
-	if !doesExist || l.iface.Slirp != nil {
-		err := l.setPodInterfaceCache()
-		if err != nil {
-			return err
-		}
-	}
 	if !doesExist {
 		bindMechanism, err := l.getPhase1Binding()
 		if err != nil {
@@ -293,6 +288,24 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		}
 	}
 
+	updatedInterfaceStatus, err := l.composeInterfaceStatus(domain)
+	if err != nil {
+		return fmt.Errorf("failed composing domain interface status at nic '%s': %w", l.podInterfaceName, err)
+	}
+	if updatedInterfaceStatus == nil {
+		return nil
+	}
+	found := false
+	for i, interfaceStatus := range domain.Status.Interfaces {
+		if interfaceStatus.Name == l.iface.Name {
+			found = true
+			domain.Status.Interfaces[i] = *updatedInterfaceStatus
+		}
+	}
+	if !found {
+		domain.Status.Interfaces = append(domain.Status.Interfaces, *updatedInterfaceStatus)
+	}
+	log.Log.Infof("domain.Status.Interfaces: %v", domain.Status.Interfaces)
 	return nil
 }
 
@@ -527,6 +540,15 @@ func (b *BridgeBindMechanism) generateDomainIfaceSpec() api.Interface {
 			Managed: "no",
 		},
 	}
+}
+
+func (b *BridgeBindMechanism) findInterfaceStatusByName(name string) *api.InterfaceStatus {
+	for i, ifaceStatus := range b.domain.Status.Interfaces {
+		if ifaceStatus.InterfaceName == name {
+			return &b.domain.Status.Interfaces[i]
+		}
+	}
+	return nil
 }
 
 func (b *BridgeBindMechanism) decorateConfig(domainIface api.Interface) error {

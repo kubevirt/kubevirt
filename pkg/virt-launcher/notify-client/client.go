@@ -45,9 +45,10 @@ type Notifier struct {
 	pipeSocketPath   string
 	legacySocketPath string
 
-	intervalTimeout time.Duration
-	sendTimeout     time.Duration
-	totalTimeout    time.Duration
+	intervalTimeout      time.Duration
+	sendTimeout          time.Duration
+	totalTimeout         time.Duration
+	interfacesUpdateChan chan []api.InterfaceStatus
 }
 
 type libvirtEvent struct {
@@ -58,11 +59,12 @@ type libvirtEvent struct {
 
 func NewNotifier(virtShareDir string) *Notifier {
 	return &Notifier{
-		pipeSocketPath:   filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
-		legacySocketPath: filepath.Join(virtShareDir, "domain-notify.sock"),
-		intervalTimeout:  defaultIntervalTimeout,
-		sendTimeout:      defaultSendTimeout,
-		totalTimeout:     defaultTotalTimeout,
+		pipeSocketPath:       filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
+		legacySocketPath:     filepath.Join(virtShareDir, "domain-notify.sock"),
+		intervalTimeout:      defaultIntervalTimeout,
+		sendTimeout:          defaultSendTimeout,
+		totalTimeout:         defaultTotalTimeout,
+		interfacesUpdateChan: make(chan []api.InterfaceStatus, 10),
 	}
 }
 
@@ -149,6 +151,11 @@ func (n *Notifier) connect() error {
 	}
 
 	log.Log.Infof("Successfully connected to domain notify socket at %s", socketPath)
+	return nil
+}
+
+func (n *Notifier) SendInterfacesUpdate(interfaces []api.InterfaceStatus) error {
+	n.interfacesUpdateChan <- interfaces
 	return nil
 }
 
@@ -391,6 +398,8 @@ func (n *Notifier) StartDomainNotifier(
 
 				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo, vmi)
+			case interfaceStatuses = <-n.interfacesUpdateChan:
+				log.Log.Infof("Domain interfaces updated received")
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 			}
