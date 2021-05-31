@@ -52,6 +52,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		const (
 			period         = 5
 			initialSeconds = 5
+			timeoutSeconds = 1
 			port           = 1500
 		)
 
@@ -106,7 +107,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
-			table.Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, "uname", "-a"), blankIPFamily, true),
+			table.Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
 		)
 
 		table.DescribeTable("should fail", func(readinessProbe *v1.Probe, isExecProbe bool) {
@@ -128,7 +129,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		},
 			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, false),
 			table.Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, false),
-			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, "exit", "1"), true),
+			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), true),
+			table.Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), true),
 		)
 	})
 
@@ -136,6 +138,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		const (
 			period         = 5
 			initialSeconds = 90
+			timeoutSeconds = 1
 			port           = 1500
 		)
 
@@ -186,7 +189,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
 			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
 			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
-			table.Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, "uname", "-a"), blankIPFamily, true),
+			table.Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
 		)
 
 		table.DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, isExecProbe bool) {
@@ -208,7 +211,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		},
 			table.Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, false),
 			table.Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, false),
-			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, "exit", "1"), true),
+			table.Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), true),
 		)
 	})
 })
@@ -266,7 +269,7 @@ func createTCPProbe(period int32, initialSeconds int32, port int) *v1.Probe {
 			Port: intstr.FromInt(port),
 		},
 	}
-	return createProbeSpecification(period, initialSeconds, httpHandler)
+	return createProbeSpecification(period, initialSeconds, 1, httpHandler)
 }
 
 func patchProbeWithIPAddr(existingProbe *v1.Probe, ipHostIP string) *v1.Probe {
@@ -284,19 +287,20 @@ func createHTTPProbe(period int32, initialSeconds int32, port int) *v1.Probe {
 			Port: intstr.FromInt(port),
 		},
 	}
-	return createProbeSpecification(period, initialSeconds, httpHandler)
+	return createProbeSpecification(period, initialSeconds, 1, httpHandler)
 }
 
-func createExecProbe(period int32, initialSeconds int32, command ...string) *v1.Probe {
+func createExecProbe(period int32, initialSeconds int32, timeoutSeconds int32, command ...string) *v1.Probe {
 	execHandler := v1.Handler{Exec: &corev1.ExecAction{Command: command}}
-	return createProbeSpecification(period, initialSeconds, execHandler)
+	return createProbeSpecification(period, initialSeconds, timeoutSeconds, execHandler)
 }
 
-func createProbeSpecification(period int32, initialSeconds int32, handler v1.Handler) *v1.Probe {
+func createProbeSpecification(period int32, initialSeconds int32, timeoutSeconds int32, handler v1.Handler) *v1.Probe {
 	return &v1.Probe{
 		PeriodSeconds:       period,
 		InitialDelaySeconds: initialSeconds,
 		Handler:             handler,
+		TimeoutSeconds:      timeoutSeconds,
 	}
 }
 

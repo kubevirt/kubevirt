@@ -39,6 +39,7 @@ func main() {
 	domainName := pflag.String("domainName", "", "Domain Name of the Virtual Machine to connect the agent to. Usually namespace_vmname")
 	command := pflag.String("command", "", "Command to execute on the guest")
 	memProfile := pflag.String("memProfile", "", "Path to store a memory profile. Profiling is skipped if empty")
+	timeoutSeconds := pflag.Int32("timeoutSeconds", 1, "Duration in seconds the probe will wait for the guest command to return.")
 
 	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 	pflag.Parse()
@@ -51,7 +52,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	exitCode, stdOut, err := client.Exec(*domainName, *command, pflag.Args())
+	exitCode, stdOut, err := client.Exec(*domainName, *command, pflag.Args(), *timeoutSeconds)
 	if len(stdOut) > 0 {
 		fmt.Println(stdOut)
 	}

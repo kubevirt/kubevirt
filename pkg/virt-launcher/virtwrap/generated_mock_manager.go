@@ -220,13 +220,13 @@ func (_mr *_MockDomainManagerRecorder) GetGuestOSInfo() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetGuestOSInfo")
 }
 
-func (_m *MockDomainManager) Exec(_param0 string, _param1 string, _param2 []string) (string, error) {
-	ret := _m.ctrl.Call(_m, "Exec", _param0, _param1, _param2)
+func (_m *MockDomainManager) Exec(_param0 string, _param1 string, _param2 []string, _param3 int32) (string, error) {
+	ret := _m.ctrl.Call(_m, "Exec", _param0, _param1, _param2, _param3)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockDomainManagerRecorder) Exec(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Exec", arg0, arg1, arg2)
+func (_mr *_MockDomainManagerRecorder) Exec(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Exec", arg0, arg1, arg2, arg3)
 }

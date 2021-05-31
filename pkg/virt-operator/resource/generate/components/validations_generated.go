@@ -4370,10 +4370,19 @@ var CRDsValidation map[string]string = map[string]string{
                     be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                   properties:
                     exec:
-                      description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                      description: One and only one of the following should be specified.
+                        Exec specifies the action to take, it will be executed on
+                        the guest through the qemu-guest-agent. If the guest agent
+                        is not available, this probe will fail.
                       properties:
                         command:
-                          description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          description: Command is the command line to execute inside
+                            the container, the working directory for the command  is
+                            root ('/') in the container's filesystem. The command
+                            is simply exec'd, it is not run inside a shell, so traditional
+                            shell instructions ('|', etc) won't work. To use a shell,
+                            you need to explicitly call out to that shell. Exit status
+                            of 0 is treated as live/healthy and non-zero is unhealthy.
                           items:
                             type: string
                           type: array
@@ -4466,8 +4475,13 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                     timeoutSeconds:
                       description: 'Number of seconds after which the probe times
-                        out. Defaults to 1 second. Minimum value is 1. More info:
-                        https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                        out. For exec probes the timeout fails the probe but does
+                        not terminate the command running on the guest. This means
+                        a blocking command can result in an increasing load on the
+                        guest. A small buffer will be added to the resulting workload
+                        exec probe to compensate for delays caused by the qemu guest
+                        exec mechanism. Defaults to 1 second. Minimum value is 1.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                       format: int32
                       type: integer
                   type: object
@@ -4531,10 +4545,19 @@ var CRDsValidation map[string]string = map[string]string{
                     if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                   properties:
                     exec:
-                      description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                      description: One and only one of the following should be specified.
+                        Exec specifies the action to take, it will be executed on
+                        the guest through the qemu-guest-agent. If the guest agent
+                        is not available, this probe will fail.
                       properties:
                         command:
-                          description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          description: Command is the command line to execute inside
+                            the container, the working directory for the command  is
+                            root ('/') in the container's filesystem. The command
+                            is simply exec'd, it is not run inside a shell, so traditional
+                            shell instructions ('|', etc) won't work. To use a shell,
+                            you need to explicitly call out to that shell. Exit status
+                            of 0 is treated as live/healthy and non-zero is unhealthy.
                           items:
                             type: string
                           type: array
@@ -4627,8 +4650,13 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                     timeoutSeconds:
                       description: 'Number of seconds after which the probe times
-                        out. Defaults to 1 second. Minimum value is 1. More info:
-                        https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                        out. For exec probes the timeout fails the probe but does
+                        not terminate the command running on the guest. This means
+                        a blocking command can result in an increasing load on the
+                        guest. A small buffer will be added to the resulting workload
+                        exec probe to compensate for delays caused by the qemu guest
+                        exec mechanism. Defaults to 1 second. Minimum value is 1.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                       format: int32
                       type: integer
                   type: object
@@ -6953,10 +6981,18 @@ var CRDsValidation map[string]string = map[string]string{
             will be stopped if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
           properties:
             exec:
-              description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+              description: One and only one of the following should be specified.
+                Exec specifies the action to take, it will be executed on the guest
+                through the qemu-guest-agent. If the guest agent is not available,
+                this probe will fail.
               properties:
                 command:
-                  description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                  description: Command is the command line to execute inside the container,
+                    the working directory for the command  is root ('/') in the container's
+                    filesystem. The command is simply exec'd, it is not run inside
+                    a shell, so traditional shell instructions ('|', etc) won't work.
+                    To use a shell, you need to explicitly call out to that shell.
+                    Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
                   items:
                     type: string
                   type: array
@@ -7044,8 +7080,13 @@ var CRDsValidation map[string]string = map[string]string{
               - port
               type: object
             timeoutSeconds:
-              description: 'Number of seconds after which the probe times out. Defaults
-                to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+              description: 'Number of seconds after which the probe times out. For
+                exec probes the timeout fails the probe but does not terminate the
+                command running on the guest. This means a blocking command can result
+                in an increasing load on the guest. A small buffer will be added to
+                the resulting workload exec probe to compensate for delays caused
+                by the qemu guest exec mechanism. Defaults to 1 second. Minimum value
+                is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
               format: int32
               type: integer
           type: object
@@ -7106,10 +7147,18 @@ var CRDsValidation map[string]string = map[string]string{
             probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
           properties:
             exec:
-              description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+              description: One and only one of the following should be specified.
+                Exec specifies the action to take, it will be executed on the guest
+                through the qemu-guest-agent. If the guest agent is not available,
+                this probe will fail.
               properties:
                 command:
-                  description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                  description: Command is the command line to execute inside the container,
+                    the working directory for the command  is root ('/') in the container's
+                    filesystem. The command is simply exec'd, it is not run inside
+                    a shell, so traditional shell instructions ('|', etc) won't work.
+                    To use a shell, you need to explicitly call out to that shell.
+                    Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
                   items:
                     type: string
                   type: array
@@ -7197,8 +7246,13 @@ var CRDsValidation map[string]string = map[string]string{
               - port
               type: object
             timeoutSeconds:
-              description: 'Number of seconds after which the probe times out. Defaults
-                to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+              description: 'Number of seconds after which the probe times out. For
+                exec probes the timeout fails the probe but does not terminate the
+                command running on the guest. This means a blocking command can result
+                in an increasing load on the guest. A small buffer will be added to
+                the resulting workload exec probe to compensate for delays caused
+                by the qemu guest exec mechanism. Defaults to 1 second. Minimum value
+                is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
               format: int32
               type: integer
           type: object
@@ -10601,10 +10655,19 @@ var CRDsValidation map[string]string = map[string]string{
                     be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                   properties:
                     exec:
-                      description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                      description: One and only one of the following should be specified.
+                        Exec specifies the action to take, it will be executed on
+                        the guest through the qemu-guest-agent. If the guest agent
+                        is not available, this probe will fail.
                       properties:
                         command:
-                          description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          description: Command is the command line to execute inside
+                            the container, the working directory for the command  is
+                            root ('/') in the container's filesystem. The command
+                            is simply exec'd, it is not run inside a shell, so traditional
+                            shell instructions ('|', etc) won't work. To use a shell,
+                            you need to explicitly call out to that shell. Exit status
+                            of 0 is treated as live/healthy and non-zero is unhealthy.
                           items:
                             type: string
                           type: array
@@ -10697,8 +10760,13 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                     timeoutSeconds:
                       description: 'Number of seconds after which the probe times
-                        out. Defaults to 1 second. Minimum value is 1. More info:
-                        https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                        out. For exec probes the timeout fails the probe but does
+                        not terminate the command running on the guest. This means
+                        a blocking command can result in an increasing load on the
+                        guest. A small buffer will be added to the resulting workload
+                        exec probe to compensate for delays caused by the qemu guest
+                        exec mechanism. Defaults to 1 second. Minimum value is 1.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                       format: int32
                       type: integer
                   type: object
@@ -10762,10 +10830,19 @@ var CRDsValidation map[string]string = map[string]string{
                     if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                   properties:
                     exec:
-                      description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                      description: One and only one of the following should be specified.
+                        Exec specifies the action to take, it will be executed on
+                        the guest through the qemu-guest-agent. If the guest agent
+                        is not available, this probe will fail.
                       properties:
                         command:
-                          description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          description: Command is the command line to execute inside
+                            the container, the working directory for the command  is
+                            root ('/') in the container's filesystem. The command
+                            is simply exec'd, it is not run inside a shell, so traditional
+                            shell instructions ('|', etc) won't work. To use a shell,
+                            you need to explicitly call out to that shell. Exit status
+                            of 0 is treated as live/healthy and non-zero is unhealthy.
                           items:
                             type: string
                           type: array
@@ -10858,8 +10935,13 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                     timeoutSeconds:
                       description: 'Number of seconds after which the probe times
-                        out. Defaults to 1 second. Minimum value is 1. More info:
-                        https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                        out. For exec probes the timeout fails the probe but does
+                        not terminate the command running on the guest. This means
+                        a blocking command can result in an increasing load on the
+                        guest. A small buffer will be added to the resulting workload
+                        exec probe to compensate for delays caused by the qemu guest
+                        exec mechanism. Defaults to 1 second. Minimum value is 1.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                       format: int32
                       type: integer
                   type: object
@@ -14032,10 +14114,22 @@ var CRDsValidation map[string]string = map[string]string{
                                 https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                               properties:
                                 exec:
-                                  description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                                  description: One and only one of the following should
+                                    be specified. Exec specifies the action to take,
+                                    it will be executed on the guest through the qemu-guest-agent.
+                                    If the guest agent is not available, this probe
+                                    will fail.
                                   properties:
                                     command:
-                                      description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                      description: Command is the command line to
+                                        execute inside the container, the working
+                                        directory for the command  is root ('/') in
+                                        the container's filesystem. The command is
+                                        simply exec'd, it is not run inside a shell,
+                                        so traditional shell instructions ('|', etc)
+                                        won't work. To use a shell, you need to explicitly
+                                        call out to that shell. Exit status of 0 is
+                                        treated as live/healthy and non-zero is unhealthy.
                                       items:
                                         type: string
                                       type: array
@@ -14132,8 +14226,14 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: object
                                 timeoutSeconds:
                                   description: 'Number of seconds after which the
-                                    probe times out. Defaults to 1 second. Minimum
-                                    value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                                    probe times out. For exec probes the timeout fails
+                                    the probe but does not terminate the command running
+                                    on the guest. This means a blocking command can
+                                    result in an increasing load on the guest. A small
+                                    buffer will be added to the resulting workload
+                                    exec probe to compensate for delays caused by
+                                    the qemu guest exec mechanism. Defaults to 1 second.
+                                    Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                   format: int32
                                   type: integer
                               type: object
@@ -14202,10 +14302,22 @@ var CRDsValidation map[string]string = map[string]string{
                                 Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                               properties:
                                 exec:
-                                  description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                                  description: One and only one of the following should
+                                    be specified. Exec specifies the action to take,
+                                    it will be executed on the guest through the qemu-guest-agent.
+                                    If the guest agent is not available, this probe
+                                    will fail.
                                   properties:
                                     command:
-                                      description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                      description: Command is the command line to
+                                        execute inside the container, the working
+                                        directory for the command  is root ('/') in
+                                        the container's filesystem. The command is
+                                        simply exec'd, it is not run inside a shell,
+                                        so traditional shell instructions ('|', etc)
+                                        won't work. To use a shell, you need to explicitly
+                                        call out to that shell. Exit status of 0 is
+                                        treated as live/healthy and non-zero is unhealthy.
                                       items:
                                         type: string
                                       type: array
@@ -14302,8 +14414,14 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: object
                                 timeoutSeconds:
                                   description: 'Number of seconds after which the
-                                    probe times out. Defaults to 1 second. Minimum
-                                    value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                                    probe times out. For exec probes the timeout fails
+                                    the probe but does not terminate the command running
+                                    on the guest. This means a blocking command can
+                                    result in an increasing load on the guest. A small
+                                    buffer will be added to the resulting workload
+                                    exec probe to compensate for delays caused by
+                                    the qemu guest exec mechanism. Defaults to 1 second.
+                                    Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                   format: int32
                                   type: integer
                               type: object

@@ -104,7 +104,7 @@ type DomainManager interface {
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance) error
 	InterfacesStatus(domainInterfaces []api.Interface) []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
-	Exec(string, string, []string) (string, error)
+	Exec(string, string, []string, int32) (string, error)
 }
 
 type LibvirtDomainManager struct {
@@ -320,8 +320,8 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 	return nil
 }
 
-func (l *LibvirtDomainManager) Exec(domainName, command string, args []string) (string, error) {
-	return agent.GuestExec(l.virConn, domainName, command, args)
+func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, timeoutSeconds int32) (string, error) {
+	return agent.GuestExec(l.virConn, domainName, command, args, timeoutSeconds)
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {

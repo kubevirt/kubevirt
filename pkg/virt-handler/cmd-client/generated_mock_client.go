@@ -200,16 +200,16 @@ func (_mr *_MockLauncherClientRecorder) GetFilesystems() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetFilesystems")
 }
 
-func (_m *MockLauncherClient) Exec(_param0 string, _param1 string, _param2 []string) (int, string, error) {
-	ret := _m.ctrl.Call(_m, "Exec", _param0, _param1, _param2)
+func (_m *MockLauncherClient) Exec(_param0 string, _param1 string, _param2 []string, _param3 int32) (int, string, error) {
+	ret := _m.ctrl.Call(_m, "Exec", _param0, _param1, _param2, _param3)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-func (_mr *_MockLauncherClientRecorder) Exec(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Exec", arg0, arg1, arg2)
+func (_mr *_MockLauncherClientRecorder) Exec(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Exec", arg0, arg1, arg2, arg3)
 }
 
 func (_m *MockLauncherClient) Ping() error {

@@ -227,7 +227,7 @@ func (l *AccessCredentialManager) readGuestFile(domName string, filePath string)
 }
 
 func (l *AccessCredentialManager) agentGuestExec(domName string, command string, args []string) (string, error) {
-	return agent.GuestExec(l.virConn, domName, command, args)
+	return agent.GuestExec(l.virConn, domName, command, args, 10)
 }
 
 // Requires usage of mkdir, chown, chmod

@@ -257,24 +257,27 @@ var _ = Describe("Virt remote commands", func() {
 
 		Context("exec", func() {
 			var (
-				testDomainName = "test"
-				testCommand    = "testCmd"
-				testArgs       = []string{"-v", "2"}
-				testExecErr    = errors.New("exec error")
-				testStdOut     = "stdOut"
+				testDomainName           = "test"
+				testCommand              = "testCmd"
+				testArgs                 = []string{"-v", "2"}
+				testExecErr              = errors.New("exec error")
+				testStdOut               = "stdOut"
+				testTimeoutSeconds int32 = 10
 
 				expectExec = func() *gomock.Call {
 					return domainManager.EXPECT().Exec(
 						testDomainName,
 						testCommand,
 						testArgs,
+						testTimeoutSeconds,
 					)
 				}
 				execRequest = func() *cmdv1.ExecRequest {
 					return &cmdv1.ExecRequest{
-						DomainName: testDomainName,
-						Command:    testCommand,
-						Args:       testArgs,
+						DomainName:     testDomainName,
+						Command:        testCommand,
+						Args:           testArgs,
+						TimeoutSeconds: testTimeoutSeconds,
 					}
 				}
 

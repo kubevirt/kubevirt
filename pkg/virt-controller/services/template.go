@@ -1050,11 +1050,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	}
 
 	if vmi.Spec.ReadinessProbe != nil {
+		v1.SetDefaults_Probe(vmi.Spec.ReadinessProbe)
 		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
 		updateProbe(vmi, compute.ReadinessProbe)
 	}
 
 	if vmi.Spec.LivenessProbe != nil {
+		v1.SetDefaults_Probe(vmi.Spec.LivenessProbe)
 		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
 		updateProbe(vmi, compute.LivenessProbe)
 	}
@@ -1742,10 +1744,18 @@ func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Pro
 		return
 	}
 
-	wrappedCommand := []string{"virt-probe", "--domainName", api.VMINamespaceKeyFunc(vmi), "--command", originalCommand[0], "--"}
+	wrappedCommand := []string{
+		"virt-probe",
+		"--domainName", api.VMINamespaceKeyFunc(vmi),
+		"--timeoutSeconds", strconv.FormatInt(int64(probe.TimeoutSeconds), 10),
+		"--command", originalCommand[0],
+		"--",
+	}
 	wrappedCommand = append(wrappedCommand, originalCommand[1:]...)
 
 	probe.Handler.Exec.Command = wrappedCommand
+	// we add 1s to the pod probe to compensate for the additional steps in probing
+	probe.TimeoutSeconds += 1
 }
 
 func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string) {

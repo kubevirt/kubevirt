@@ -171,27 +171,29 @@ var _ = Describe("Virt remote commands", func() {
 			})
 
 			var (
-				testDomainName = "test"
-				testCommand    = "testCmd"
-				testArgs       = []string{"-v", "2"}
-				testClientErr  = errors.New("client error")
-				testStdOut     = "stdOut"
+				testDomainName           = "test"
+				testCommand              = "testCmd"
+				testArgs                 = []string{"-v", "2"}
+				testClientErr            = errors.New("client error")
+				testStdOut               = "stdOut"
+				testTimeoutSeconds int32 = 10
 
 				expectExec = func() *gomock.Call {
 					return mockCmdClient.EXPECT().Exec(gomock.Any(), &cmdv1.ExecRequest{
-						DomainName: testDomainName,
-						Command:    testCommand,
-						Args:       testArgs,
+						DomainName:     testDomainName,
+						Command:        testCommand,
+						Args:           testArgs,
+						TimeoutSeconds: testTimeoutSeconds,
 					})
 				}
 			)
 			It("calls cmdclient.Exec", func() {
 				expectExec().Times(1)
-				client.Exec(testDomainName, testCommand, testArgs)
+				client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 			})
 			It("returns client errors", func() {
 				expectExec().Times(1).Return(&cmdv1.ExecResponse{}, testClientErr)
-				_, _, err := client.Exec(testDomainName, testCommand, testArgs)
+				_, _, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 				Expect(err).To(HaveOccurred())
 			})
 			It("returns exitCode and stdOut if possible", func() {
@@ -199,7 +201,7 @@ var _ = Describe("Virt remote commands", func() {
 					ExitCode: 1,
 					StdOut:   testStdOut,
 				}, nil)
-				exitCode, stdOut, _ := client.Exec(testDomainName, testCommand, testArgs)
+				exitCode, stdOut, _ := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 				Expect(exitCode).To(Equal(1))
 				Expect(stdOut).To(Equal(testStdOut))
 			})
@@ -209,7 +211,7 @@ var _ = Describe("Virt remote commands", func() {
 					Expect(ok).To(BeTrue())
 					return nil, nil
 				})
-				client.Exec(testDomainName, testCommand, testArgs)
+				client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 			})
 		})
 	})

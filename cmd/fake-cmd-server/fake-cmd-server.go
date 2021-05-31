@@ -30,7 +30,7 @@ func main() {
 	options := cmdserver.NewServerOptions(true)
 
 	domainManager := virtwrap.NewMockDomainManager(gomock.NewController(nil))
-	domainManager.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).
+	domainManager.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().DoAndReturn(func(domainName string, _ string, _ []string) (string, error) {
 		if domainName == "error" {
 			return "", errors.New("fake error")
