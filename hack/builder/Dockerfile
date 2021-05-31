@@ -96,7 +96,7 @@ RUN set -x && \
     rm -rf /test-infra && \
     rm -rf /go && mkdir /go
 
-RUN pip3 install --upgrade j2cli operator-courier==2.1.11
+RUN pip3 install --upgrade operator-courier==2.1.11
 
 ENV SONOBUOY_VERSION=0.19.0
 RUN set -x && \
