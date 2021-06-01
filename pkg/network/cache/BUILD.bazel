@@ -21,6 +21,7 @@ go_test(
     srcs = [
         "cache_suite_test.go",
         "infocache_test.go",
+        "types_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
@@ -29,6 +30,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )
