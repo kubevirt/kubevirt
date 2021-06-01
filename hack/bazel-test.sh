@@ -13,11 +13,9 @@ rm -rf ${ARTIFACTS}/junit ${ARTIFACTS}/testlogs
 
 function collect_results() {
     cd ${KUBEVIRT_DIR}
-    for f in $(find bazel-testlogs/ -name 'test.xml'); do
-        dir=${ARTIFACTS}/junit/$(dirname $f)
-        mkdir -p ${dir}
-        cp -f ${f} ${dir}/junit.xml
-    done
+    mkdir -p ${ARTIFACTS}/junit/
+    bazel run //tools/junit-merger:junit-merger -- -o ${ARTIFACTS}/junit/junit.unittests.xml $(find bazel-testlogs/ -name 'test.xml' -printf "%p ")
+
     for f in $(find bazel-out/ -name 'test.log'); do
         dir=${ARTIFACTS}/testlogs/$(dirname $f)
         mkdir -p ${dir}

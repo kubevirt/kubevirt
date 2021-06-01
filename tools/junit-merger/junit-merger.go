@@ -15,6 +15,12 @@ import (
 
 func main() {
 
+	if path := os.Getenv("BUILD_WORKSPACE_DIRECTORY"); path != "" {
+		if err := os.Chdir(path); err != nil {
+			panic(err)
+		}
+	}
+
 	var output string
 	flag.StringVarP(&output, "output", "o", "-", "File to write the resulting junit file to, defaults to stdout (-)")
 	flag.Parse()
