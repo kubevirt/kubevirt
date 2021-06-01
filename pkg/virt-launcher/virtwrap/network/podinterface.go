@@ -809,32 +809,12 @@ func (b *MasqueradeBindMechanism) generateGatewayAndVmIPAddrs(protocol iptables.
 }
 
 func (b *MasqueradeBindMechanism) preparePodNetworkInterface() error {
-	// Create an master bridge interface
-	bridgeNicName := fmt.Sprintf("%s-nic", b.bridgeInterfaceName)
-	bridgeNic := &netlink.Dummy{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: bridgeNicName,
-			MTU:  b.podNicLink.Attrs().MTU,
-		},
-	}
-	err := b.handler.LinkAdd(bridgeNic)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create an interface: %s", bridgeNic.Name)
-		return err
-	}
-
-	err = b.handler.LinkSetUp(bridgeNic)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeNic.Name)
-		return err
-	}
-
 	if err := b.createBridge(); err != nil {
 		return err
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podNicLink.Attrs().Name)
-	err = createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, *b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -890,14 +870,6 @@ func (b *MasqueradeBindMechanism) decorateConfig(domainIface api.Interface) erro
 }
 
 func (b *MasqueradeBindMechanism) createBridge() error {
-	// Get dummy link
-	bridgeNicName := fmt.Sprintf("%s-nic", b.bridgeInterfaceName)
-	bridgeNicLink, err := b.handler.LinkByName(bridgeNicName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to find dummy interface for bridge")
-		return err
-	}
-
 	mac, err := net.ParseMAC(network.StaticMasqueradeBridgeMAC)
 	if err != nil {
 		return err
@@ -913,12 +885,6 @@ func (b *MasqueradeBindMechanism) createBridge() error {
 	err = b.handler.LinkAdd(bridge)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create a bridge")
-		return err
-	}
-
-	err = b.handler.LinkSetMaster(bridgeNicLink, bridge)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to connect %s interface to bridge %s", bridgeNicName, b.bridgeInterfaceName)
 		return err
 	}
 

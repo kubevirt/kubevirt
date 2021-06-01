@@ -990,10 +990,6 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 
 				Expect(bridgeMtu).To(Equal(primaryIfaceMtu), "k6t-eth0 bridge mtu should equal eth0 interface mtu")
 
-				By("checking k6t-eth0-nic MTU inside the pod")
-				bridgePrimaryNicMtu := getMtu(vmiPod, "k6t-eth0-nic")
-				Expect(bridgePrimaryNicMtu).To(Equal(primaryIfaceMtu), "k6t-eth0-nic mtu should equal eth0 interface mtu")
-
 				By("checking the tap device - tap0 - MTU inside the pod")
 				tapDeviceMTU := getMtu(vmiPod, "tap0")
 				Expect(tapDeviceMTU).To(Equal(primaryIfaceMtu), "tap0 mtu should equal eth0 interface mtu")
