@@ -876,18 +876,25 @@ var _ = SIGDescribe("Storage", func() {
 
 			Context("With multiple empty PVCs", func() {
 
-				var pvcs = [...]string{"empty-pvc1", "empty-pvc2", "empty-pvc3"}
+				var pvcs = []string{}
+				var node string
+				var nodeSelector map[string]string
 
 				BeforeEach(func() {
+					for i := 0; i < 3; i++ {
+						pvcs = append(pvcs, fmt.Sprintf("empty-pvc-%d-%s", i, rand.String(5)))
+					}
 					for _, pvc := range pvcs {
 						hostpath := filepath.Join(tests.HostPathBase, pvc)
-						tests.CreateHostPathPv(pvc, hostpath)
+						node = tests.CreateHostPathPv(pvc, hostpath)
 						tests.CreateHostPathPVC(pvc, "1G")
 						if checks.HasFeature(virtconfig.NonRoot) {
+							nodeSelector = map[string]string{"kubernetes.io/hostname": node}
 							By("changing permissions to qemu")
 							args := []string{fmt.Sprintf(`chown 107 %s`, hostpath)}
 							pod := tests.RenderHostPathPod("tmp-change-owner-job", hostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
+							pod.Spec.NodeSelector = nodeSelector
 							runHostPathJobAndExpectCompletion(pod)
 						}
 					}
@@ -905,6 +912,7 @@ var _ = SIGDescribe("Storage", func() {
 					for _, pvc := range pvcs {
 						By("starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithPVC(fmt.Sprintf("disk-%s", pvc))
+						vmi.Spec.NodeSelector = nodeSelector
 						tests.RunVMIAndExpectLaunch(vmi, 90)
 
 						By("Checking if disk.img exists")
