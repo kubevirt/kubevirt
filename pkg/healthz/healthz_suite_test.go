@@ -1,13 +1,11 @@
 package healthz
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 
 	"testing"
 )
 
 func TestHealthz(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Healthz Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Hooks Suite")
 }

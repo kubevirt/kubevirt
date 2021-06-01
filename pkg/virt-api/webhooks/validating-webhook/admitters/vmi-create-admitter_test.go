@@ -1011,25 +1011,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake.networks "+
 				"list exceeds the %d element limit in length", arrayLenMax)))
 		})
-		It("should reject volume lists greater than max element length", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
-
-			for i := 0; i <= arrayLenMax; i++ {
-				volumeName := "testVolume"
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: volumeName,
-					VolumeSource: v1.VolumeSource{
-						ContainerDisk: testutils.NewFakeContainerDiskSource(),
-					},
-				})
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			// if this is processed correctly, it should result in a single error
-			// If multiple causes occurred, then the spec was processed too far.
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.volumes"))
-		})
 		It("should reject disks with the same boot order", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			order := uint(1)
@@ -3712,7 +3693,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(len(causes)).To(Equal(0))
 	})
 
-	It("Should validate VMIs with hyperv EVMCS configuration without deps", func() {
+	It("Should validate VMIs with hyperv EVMCS configuration without deps and detect multiple issues", func() {
 		_true := true
 		vmi := v1.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Features = &v1.Features{

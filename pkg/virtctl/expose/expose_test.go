@@ -216,8 +216,13 @@ var _ = Describe("Expose", func() {
 				})
 			})
 			Context("With cluster-ip on an unknown vm", func() {
-				It("should fail", func() {
+				It("should fail on a vmi", func() {
 					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", unknownVM, "--name", "my-service",
+						"--port", "9999")
+					Expect(cmd()).NotTo(BeNil())
+				})
+				It("should fail on a vm", func() {
+					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", unknownVM, "--name", "my-service",
 						"--port", "9999")
 					Expect(cmd()).NotTo(BeNil())
 				})
@@ -234,13 +239,6 @@ var _ = Describe("Expose", func() {
 					err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
 						"--port", "9999")
 					Expect(err()).To(BeNil())
-				})
-			})
-			Context("With cluster-ip on an unknown vm", func() {
-				It("should fail", func() {
-					cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", unknownVM, "--name", "my-service",
-						"--port", "9999")
-					Expect(cmd()).NotTo(BeNil())
 				})
 			})
 			Context("With cluster-ip on an vm replica set", func() {

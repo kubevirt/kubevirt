@@ -390,8 +390,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
 		table.Entry("Should be empty if statuses is empty", makeVolumes(), makeStatus(0, 0), emptyResult()),
-		table.Entry("Should be empty if statuses is not empty, but no hotplug", makeVolumes(), makeStatus(2, 0), emptyResult()),
-		table.Entry("Should be empty if statuses is not empty, but no hotplug", makeVolumes(), makeStatus(1, 0), emptyResult()),
+		table.Entry("Should be empty if statuses has multiple entries, but no hotplug", makeVolumes(), makeStatus(2, 0), emptyResult()),
+		table.Entry("Should be empty if statuses has one entry, but no hotplug", makeVolumes(), makeStatus(1, 0), emptyResult()),
 		table.Entry("Should have a single hotplug if status has one hotplug", makeVolumes(0, 1), makeStatus(2, 1), makeResult(1)),
 		table.Entry("Should have a multiple hotplug if status has multiple hotplug", makeVolumes(0, 1, 2, 3), makeStatus(4, 2), makeResult(2, 3)),
 	)
@@ -402,8 +402,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	},
 		table.Entry("Should be empty if volume is empty", makeVolumes(), makeStatus(0, 0), emptyResult()),
 		table.Entry("Should be empty if all volumes are hotplugged", makeVolumes(0, 1, 2, 3), makeStatus(4, 4), emptyResult()),
-		table.Entry("Should return all volumes if hotplugged is empty", makeVolumes(0, 1, 2, 3), makeStatus(4, 0), makeResult(0, 1, 2, 3)),
-		table.Entry("Should return all volumes if hotplugged is empty", makeVolumes(0), makeStatus(1, 0), makeResult(0)),
+		table.Entry("Should return all volumes if hotplugged is empty with multiple volumes", makeVolumes(0, 1, 2, 3), makeStatus(4, 0), makeResult(0, 1, 2, 3)),
+		table.Entry("Should return all volumes if hotplugged is empty with a single volume", makeVolumes(0), makeStatus(1, 0), makeResult(0)),
 		table.Entry("Should return 3 volumes if  1 hotplugged volume", makeVolumes(0, 1, 2, 3), makeStatus(4, 1), makeResult(0, 1, 2)),
 	)
 
@@ -450,7 +450,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeDisks(0, 1),
 			makeStatus(1, 0),
 			makeExpected("permanent disk volume-name-0, changed", "")),
-		table.Entry("Should reject if we add volumes that are not PVC or DV",
+		table.Entry("Should reject if a hotplug volume changed",
 			makeInvalidVolumes(2, 1),
 			makeVolumes(0, 1),
 			makeDisks(0, 1),

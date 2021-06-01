@@ -39,7 +39,7 @@ var _ = Describe("Lookup", func() {
 		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
 	})
 
-	It("should return vmis", func() {
+	It("should return all vmis on a node", func() {
 		vmi1 := createVirtualMachineInstance("vmi1", "node01", virtv1.Running)
 		vmi2 := createVirtualMachineInstance("vmi2", "node01", virtv1.Failed)
 		vmis := []virtv1.VirtualMachineInstance{*vmi1, *vmi2}
@@ -53,7 +53,7 @@ var _ = Describe("Lookup", func() {
 		Expect(len(returnedVMIs)).To(Equal(2))
 	})
 
-	It("should return vmis", func() {
+	It("should return active vmis on a node", func() {
 		vmi1 := createVirtualMachineInstance("vmi1", "node01", virtv1.Running)
 		vmi2 := createVirtualMachineInstance("vmi2", "node01", virtv1.Failed)
 		vmis := []virtv1.VirtualMachineInstance{*vmi1, *vmi2}
@@ -83,6 +83,6 @@ var _ = Describe("Lookup", func() {
 		table.Entry("pending state", virtv1.Pending),
 		table.Entry("scheduling state", virtv1.Scheduling),
 		table.Entry("failed state", virtv1.Failed),
-		table.Entry("failed state", virtv1.Succeeded),
+		table.Entry("succeeded state", virtv1.Succeeded),
 	)
 })

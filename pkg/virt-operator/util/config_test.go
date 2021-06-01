@@ -129,7 +129,7 @@ var _ = Describe("Operator Config", func() {
 			getConfigWithShas("sha256:api", "sha256:controller", "sha256:handler", "sha256:launcher", "v234"),
 			getFullConfig("kubevirt", "sha256:operator", "sha256:api", "sha256:controller", "sha256:handler", "sha256:launcher", "v234"),
 			true, true),
-		table.Entry("with all shasums given", "kubevirt/virt-operator:v123",
+		table.Entry("with shasums given should fail if not all are provided", "kubevirt/virt-operator:v123",
 			getConfigWithShas("sha256:api", "sha256:controller", "", "", ""),
 			getConfig("kubevirt", "v123"),
 			false, false),
