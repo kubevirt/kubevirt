@@ -29,10 +29,9 @@ type DhcpConfig struct {
 
 func (vif DhcpConfig) String() string {
 	return fmt.Sprintf(
-		"DhcpConfig: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: %t}",
+		"DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: %t}",
 		vif.Name,
-		vif.IP.IP,
-		vif.IP.Mask,
+		vif.IP,
 		vif.IPv6,
 		vif.MAC,
 		vif.AdvertisingIPAddr,

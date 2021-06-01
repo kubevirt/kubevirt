@@ -79,7 +79,6 @@ var _ = Describe("Common Methods", func() {
 var _ = Describe("DhcpConfig", func() {
 	const ipv4Cidr = "10.0.0.200/24"
 	const ipv4Address = "10.0.0.200"
-	const ipv4Mask = "ffffff00"
 	const ipv6Cidr = "fd10:0:2::2/120"
 	const mac = "de:ad:00:00:be:ef"
 	const ipv4Gateway = "10.0.0.1"
@@ -89,21 +88,16 @@ var _ = Describe("DhcpConfig", func() {
 	Context("String", func() {
 		It("returns correct string representation", func() {
 			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, "", mac, mtu)
-			Expect(vif.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IP: %s, Mask: %s, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Address, ipv4Mask, mac, ipv4Gateway, mtu)))
+			Expect(vif.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, mac, ipv4Gateway, mtu)))
 		})
 		It("returns correct string representation with ipv6", func() {
 			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac, mtu)
-			Expect(vif.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Address, ipv4Mask, ipv6Cidr, mac, ipv4Gateway, mtu)))
+			Expect(vif.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, ipv6Cidr, mac, ipv4Gateway, mtu)))
 		})
 		It("returns correct string representation when an IP is not defined", func() {
 			emptyCIDR := ""
 			dhcpConfig := createDummyVIF(vifName, emptyCIDR, ipv4Gateway, emptyCIDR, mac, mtu)
-			// there's a bug.
-			defer func() {
-				if recover() == nil {
-				}
-			}()
-			Expect(dhcpConfig.String()).To(Panic())
+			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: <nil>, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, mac, ipv4Gateway, mtu)))
 		})
 	})
 })
