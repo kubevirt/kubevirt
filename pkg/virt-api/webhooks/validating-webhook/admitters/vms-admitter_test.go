@@ -1372,6 +1372,63 @@ var _ = Describe("Validating VM Admitter", func() {
 			return true
 		}),
 	)
+
+	table.DescribeTable("when restore is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
+		vmi := v1.NewMinimalVMI("testvmi")
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: &[]bool{false}[0],
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+			Status: v1.VirtualMachineStatus{
+				RestoreInProgress: &[]string{"testrestore"}[0],
+			},
+		}
+		oldObjectBytes, _ := json.Marshal(vm)
+
+		allow := mutateFn(vm)
+		objectBytes, _ := json.Marshal(vm)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Update,
+				Resource:  webhooks.VirtualMachineGroupVersionResource,
+				OldObject: runtime.RawExtension{
+					Raw: oldObjectBytes,
+				},
+				Object: runtime.RawExtension{
+					Raw: objectBytes,
+				},
+			},
+		}
+
+		resp := vmsAdmitter.Admit(ar)
+		Expect(resp.Allowed).To(Equal(allow))
+
+		if !allow {
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
+		}
+	},
+		table.Entry("reject update to running true", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Running = &[]bool{true}[0]
+			return false
+		}),
+		table.Entry("accept update to spec except running true", func(vm *v1.VirtualMachine) bool {
+			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+			return true
+		}),
+		table.Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
+			vm.Annotations = map[string]string{"foo": "bar"}
+			return true
+		}),
+		table.Entry("accept update to status", func(vm *v1.VirtualMachine) bool {
+			vm.Status.Ready = true
+			return true
+		}),
+	)
 })
 
 func makeCloneAdmitFunc(expectedSourceNamespace, expectedPVCName, expectedTargetNamespace, expectedServiceAccount string) CloneAuthFunc {
