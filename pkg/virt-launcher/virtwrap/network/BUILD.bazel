@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "network.go",
         "podinterface.go",
+        "podnic.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network",
     visibility = ["//visibility:public"],
