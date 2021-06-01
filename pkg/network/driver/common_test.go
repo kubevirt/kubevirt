@@ -74,6 +74,31 @@ var _ = Describe("Common Methods", func() {
 			table.Entry("ipv6", iptables.ProtocolIPv6, "6"),
 		)
 	})
+	Context("FilterPodNetworkRoutes function", func() {
+		address := net.IPv4(10, 35, 0, 6)
+
+		defRoute := netlink.Route{
+			Gw: net.IPv4(10, 35, 0, 1),
+		}
+
+		staticRoute := netlink.Route{
+			Dst: &net.IPNet{IP: net.IPv4(10, 45, 0, 10), Mask: net.CIDRMask(32, 32)},
+			Gw:  net.IPv4(10, 25, 0, 1),
+		}
+
+		gwRoute := netlink.Route{
+			Dst: &net.IPNet{IP: net.IPv4(10, 35, 0, 1), Mask: net.CIDRMask(32, 32)},
+		}
+
+		nicRoute := netlink.Route{Src: net.IPv4(10, 35, 0, 6)}
+		emptyRoute := netlink.Route{}
+		staticRouteList := []netlink.Route{defRoute, gwRoute, nicRoute, emptyRoute, staticRoute}
+
+		It("should remove empty routes, and routes matching address, leaving others intact", func() {
+			expectedRouteList := []netlink.Route{defRoute, gwRoute, staticRoute}
+			Expect(FilterPodNetworkRoutes(staticRouteList, address)).To(Equal(expectedRouteList))
+		})
+	})
 })
 
 var _ = Describe("DhcpConfig", func() {

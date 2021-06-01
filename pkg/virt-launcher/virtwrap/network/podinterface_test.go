@@ -407,26 +407,6 @@ var _ = Describe("Pod Network", func() {
 			err := podnic.PlugPhase1()
 			Expect(err).To(HaveOccurred())
 		})
-		Context("func filterPodNetworkRoutes()", func() {
-			defRoute := netlink.Route{
-				Gw: net.IPv4(10, 35, 0, 1),
-			}
-			staticRoute := netlink.Route{
-				Dst: &net.IPNet{IP: net.IPv4(10, 45, 0, 10), Mask: net.CIDRMask(32, 32)},
-				Gw:  net.IPv4(10, 25, 0, 1),
-			}
-			gwRoute := netlink.Route{
-				Dst: &net.IPNet{IP: net.IPv4(10, 35, 0, 1), Mask: net.CIDRMask(32, 32)},
-			}
-			nicRoute := netlink.Route{Src: net.IPv4(10, 35, 0, 6)}
-			emptyRoute := netlink.Route{}
-			staticRouteList := []netlink.Route{defRoute, gwRoute, nicRoute, emptyRoute, staticRoute}
-
-			It("should remove empty routes, and routes matching nic, leaving others intact", func() {
-				expectedRouteList := []netlink.Route{defRoute, gwRoute, staticRoute}
-				Expect(netdriver.FilterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
-			})
-		})
 		It("phase2 should panic if DHCP startup fails", func() {
 			testDhcpPanic := func() {
 				domain := NewDomainWithBridgeInterface()

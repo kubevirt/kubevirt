@@ -243,7 +243,7 @@ func (b *BridgeBindMechanism) learnInterfaceRoutes() error {
 func (b *BridgeBindMechanism) decorateDhcpConfigRoutes(dhcpConfig *cache.DhcpConfig) {
 	dhcpConfig.AdvertisingIPAddr = b.routes[0].Gw
 	if len(b.routes) > 1 {
-		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.routes, dhcpConfig)
+		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.routes, dhcpConfig.IP.IP)
 		dhcpConfig.Routes = &dhcpRoutes
 	}
 }

@@ -475,15 +475,15 @@ var DHCPServer = dhcp.SingleClientDHCPServer
 var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
 
 // filter out irrelevant routes
-func FilterPodNetworkRoutes(routes []netlink.Route, nic *cache.DhcpConfig) (filteredRoutes []netlink.Route) {
+func FilterPodNetworkRoutes(routes []netlink.Route, ip net.IP) (filteredRoutes []netlink.Route) {
 	for _, route := range routes {
 		// don't create empty static routes
 		if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
 			continue
 		}
 
-		// don't create static route for src == nic
-		if route.Src != nil && route.Src.Equal(nic.IP.IP) {
+		// don't create static route for src == ip
+		if route.Src != nil && route.Src.Equal(ip) {
 			continue
 		}
 
