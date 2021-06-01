@@ -28,14 +28,11 @@ import (
 	"strings"
 
 	"github.com/coreos/go-iptables/iptables"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
-
-	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network"
@@ -653,31 +650,6 @@ var _ = Describe("Pod Network", func() {
 
 			})
 		})
-	})
-
-	It("should write interface to cache file", func() {
-		uid := types.UID("test-1234")
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{UID: uid}}
-		address1 := &net.IPNet{IP: net.IPv4(1, 2, 3, 4)}
-		address2 := &net.IPNet{IP: net.IPv4(169, 254, 0, 0)}
-		fakeAddr1 := netlink.Addr{IPNet: address1}
-		fakeAddr2 := netlink.Addr{IPNet: address2}
-		addrList := []netlink.Addr{fakeAddr1, fakeAddr2}
-
-		iface := &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
-		mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr1.IP.String(), fakeAddr2.IP.String(), nil)
-		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
-		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
-		mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
-		podnic := newPodNIC(vmi)
-		podnic.iface = iface
-		podnic.podInterfaceName = primaryPodInterfaceName
-		err := podnic.setPodInterfaceCache()
-		Expect(err).ToNot(HaveOccurred())
-
-		podData, err := cacheFactory.CacheForVMI(vmi).Read(iface.Name)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(podData.PodIP).To(Equal("1.2.3.4"))
 	})
 })
 

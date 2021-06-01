@@ -31,6 +31,7 @@ go_test(
         "network_suite_test.go",
         "network_test.go",
         "podinterface_test.go",
+        "podnic_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
