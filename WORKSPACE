@@ -7451,7 +7451,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-3.8.10-1.fc32.aarch64.rpm",
         "https://mirror.mrjester.net/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-3.8.10-1.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-3.8.10-1.fc32.aarch64.rpm",
-        "https://mirror.genesisadaptive.com/fedora/updates/32/Everything/aarch64/Packages/p/python3-3.8.10-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/6be3f542137bf8321218bdcfe357dfce06db5d6abff48fe2a6b38124bf7840ca",
     ],
 )
 
@@ -7463,6 +7463,7 @@ rpm(
         "https://sjc.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.10-1.fc32.x86_64.rpm",
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.10-1.fc32.x86_64.rpm",
         "https://mirrors.rit.edu/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.10-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/714cf76e1206c7782ddb104d8b38cd8cbf4a3b0ad6a759dc6c7b2a71970e4099",
     ],
 )
 
@@ -7569,7 +7570,7 @@ rpm(
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.10-1.fc32.aarch64.rpm",
         "https://mirror.mrjester.net/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.10-1.fc32.aarch64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.10-1.fc32.aarch64.rpm",
-        "https://mirror.genesisadaptive.com/fedora/updates/32/Everything/aarch64/Packages/p/python3-libs-3.8.10-1.fc32.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/23ea540161b08791a66cb9e9975e79d8c03e2cd0e6258a66b4c6e0e0d00b4959",
     ],
 )
 
@@ -7581,6 +7582,7 @@ rpm(
         "https://sjc.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.10-1.fc32.x86_64.rpm",
         "https://mirror.atl.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.10-1.fc32.x86_64.rpm",
         "https://mirrors.rit.edu/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.10-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/79b78215cf83e351516dea7e580ecf2d3350a477dda5fbd4e9188873d0dd19e9",
     ],
 )
 
