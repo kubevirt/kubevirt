@@ -329,14 +329,6 @@ var _ = Describe("Pod Network", func() {
 		Expect(err).To(BeNil())
 	}
 
-	TestRunPlug := func(driver BindMechanism, ifaceName string) {
-		err := driver.discoverPodNetworkInterface(ifaceName)
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(driver.preparePodNetworkInterface()).To(Succeed())
-		Expect(driver.decorateConfig(driver.generateDomainIfaceSpec())).To(Succeed())
-	}
-
 	Context("on successful setup", func() {
 		It("should define a new DhcpConfig bind to a bridge", func() {
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
@@ -566,90 +558,6 @@ var _ = Describe("Pod Network", func() {
 			})
 
 		})
-		Context("Slirp Plug", func() {
-			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
-				domain := NewDomainWithSlirpInterface()
-				vmi := newVMISlirpInterface("testnamespace", "testVmName")
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				podnic := createDefaultPodNIC(vmi)
-				driver, err := podnic.getPhase2Binding(domain)
-				Expect(err).ToNot(HaveOccurred())
-				TestRunPlug(driver, podnic.podInterfaceName)
-				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
-				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
-			})
-			It("Should append MAC address to qemu arguments if set", func() {
-				domain := NewDomainWithSlirpInterface()
-				vmi := newVMISlirpInterface("testnamespace", "testVmName")
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-				podnic := createDefaultPodNIC(vmi)
-				driver, err := podnic.getPhase2Binding(domain)
-				Expect(err).ToNot(HaveOccurred())
-				TestRunPlug(driver, podnic.podInterfaceName)
-				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
-				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default,mac=de-ad-00-00-be-af"}))
-			})
-			It("Should create an interface in the qemu command line, remove it from the interfaces and leave the other interfaces inplace", func() {
-				domain := NewDomainWithSlirpInterface()
-				vmi := newVMISlirpInterface("testnamespace", "testVmName")
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, api.Interface{
-					Model: &api.Model{
-						Type: "virtio",
-					},
-					Type: "bridge",
-					Source: api.InterfaceSource{
-						Bridge: api.DefaultBridgeName,
-					},
-					Alias: api.NewUserDefinedAlias("default"),
-				})
-				podnic := createDefaultPodNIC(vmi)
-				podnic.launcherPID = &pid
-				driver, err := podnic.getPhase2Binding(domain)
-				Expect(err).ToNot(HaveOccurred())
-				TestRunPlug(driver, podnic.podInterfaceName)
-				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
-				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
-			})
-		})
-		Context("Macvtap plug", func() {
-			const ifaceName = "macvtap0"
-			var macvtapInterface *netlink.GenericLink
-
-			BeforeEach(func() {
-				macvtapInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: mtu, HardwareAddr: fakeMac}}
-			})
-
-			It("Should pass a non-privileged macvtap interface to qemu", func() {
-				domain := NewDomainWithMacvtapInterface(ifaceName)
-				vmi := newVMIMacvtapInterface("testnamespace", "default", ifaceName)
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				podnic := createDefaultPodNIC(vmi)
-				podnic.launcherPID = &pid
-				podnic.podInterfaceName = ifaceName
-				driver, err := podnic.getPhase2Binding(domain)
-				mockNetwork.EXPECT().LinkByName(ifaceName).Return(macvtapInterface, nil)
-				Expect(err).ToNot(HaveOccurred(), "should have identified the correct binding mechanism")
-				TestRunPlug(driver, podnic.podInterfaceName)
-				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1), "should have a single interface")
-				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: ifaceName, Managed: "no"}), "should have an unmanaged interface")
-				Expect(domain.Spec.Devices.Interfaces[0].MAC).To(Equal(&api.MAC{MAC: fakeMac.String()}), "should have the expected MAC address")
-				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
-
-			})
-		})
 	})
 })
 
@@ -677,20 +585,6 @@ func newVMIMasqueradeInterface(namespace string, name string) *v1.VirtualMachine
 	return vmi
 }
 
-func newVMISlirpInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := newVMI(namespace, name)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultSlirpNetworkInterface()}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	return vmi
-}
-
-func newVMIMacvtapInterface(namespace string, vmiName string, ifaceName string) *v1.VirtualMachineInstance {
-	vmi := newVMI(namespace, vmiName)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface(ifaceName)}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	return vmi
-}
-
 func NewDomainWithBridgeInterface() *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.Interfaces = []api.Interface{{
@@ -704,40 +598,5 @@ func NewDomainWithBridgeInterface() *api.Domain {
 		Alias: api.NewUserDefinedAlias("default"),
 	},
 	}
-	return domain
-}
-
-func NewDomainWithSlirpInterface() *api.Domain {
-	domain := &api.Domain{}
-	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Model: &api.Model{
-			Type: "e1000",
-		},
-		Type:  "user",
-		Alias: api.NewUserDefinedAlias("default"),
-	},
-	}
-
-	// Create network interface
-	if domain.Spec.QEMUCmd == nil {
-		domain.Spec.QEMUCmd = &api.Commandline{}
-	}
-
-	if domain.Spec.QEMUCmd.QEMUArg == nil {
-		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
-	}
-
-	return domain
-}
-
-func NewDomainWithMacvtapInterface(macvtapName string) *api.Domain {
-	domain := &api.Domain{}
-	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Alias: api.NewUserDefinedAlias(macvtapName),
-		Model: &api.Model{
-			Type: "virtio",
-		},
-		Type: "ethernet",
-	}}
 	return domain
 }
