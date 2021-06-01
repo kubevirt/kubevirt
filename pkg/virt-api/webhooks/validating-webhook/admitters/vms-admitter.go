@@ -117,6 +117,11 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	causes = validateRestoreStatus(ar.Request, &vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
@@ -136,6 +141,11 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 	}
 
 	causes = validateSnapshotStatus(ar.Request, vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = validateRestoreStatus(ar.Request, vm)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -451,6 +461,32 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 
 	return nil, nil
 
+}
+
+func validateRestoreStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
+	if ar.Operation != admissionv1.Update || vm.Status.RestoreInProgress == nil {
+		return nil
+	}
+
+	oldVM := &v1.VirtualMachine{}
+	if err := json.Unmarshal(ar.OldObject.Raw, oldVM); err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeUnexpectedServerResponse,
+			Message: "Could not fetch old VM",
+		}}
+	}
+
+	if !reflect.DeepEqual(oldVM.Spec, vm.Spec) {
+		if *vm.Spec.Running {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("Cannot start VM until restore %q completes", *vm.Status.RestoreInProgress),
+				Field:   k8sfield.NewPath("spec").String(),
+			}}
+		}
+	}
+
+	return nil
 }
 
 func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
