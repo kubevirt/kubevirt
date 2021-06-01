@@ -42,6 +42,7 @@ var _ = Describe("Restore controlleer", func() {
 		vmAPIGroup       = "kubevirt.io"
 		timeStamp        = metav1.Now()
 		storageClassName = "sc"
+		vmRestoreName    = "restore"
 	)
 
 	timeFunc := func() *metav1.Time {
@@ -51,7 +52,7 @@ var _ = Describe("Restore controlleer", func() {
 	createRestore := func() *snapshotv1.VirtualMachineRestore {
 		return &snapshotv1.VirtualMachineRestore{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "restore",
+				Name:      vmRestoreName,
 				Namespace: testNamespace,
 				UID:       uid,
 			},
@@ -319,6 +320,13 @@ var _ = Describe("Restore controlleer", func() {
 			mockVMRestoreQueue.Wait()
 		}
 
+		expectUpdateVMRestoreInProgress := func(vm *v1.VirtualMachine) {
+			vmStatusUpdate := vm.DeepCopy()
+			vmStatusUpdate.ResourceVersion = "1"
+			vmStatusUpdate.Status.RestoreInProgress = &vmRestoreName
+			vmInterface.EXPECT().UpdateStatus(vmStatusUpdate).Return(vmStatusUpdate, nil)
+		}
+
 		Context("with initialized snapshot and content", func() {
 			BeforeEach(func() {
 				s := createSnapshot()
@@ -349,6 +357,7 @@ var _ = Describe("Restore controlleer", func() {
 				}
 				vmSnapshotSource.Delete(createSnapshot())
 				vmSource.Add(vm)
+				expectUpdateVMRestoreInProgress(vm)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
@@ -369,6 +378,7 @@ var _ = Describe("Restore controlleer", func() {
 					},
 				}
 				vmSource.Add(vm)
+				expectUpdateVMRestoreInProgress(vm)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
@@ -391,6 +401,7 @@ var _ = Describe("Restore controlleer", func() {
 					},
 				}
 				vmSource.Add(vm)
+				expectUpdateVMRestoreInProgress(vm)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
@@ -409,6 +420,7 @@ var _ = Describe("Restore controlleer", func() {
 					},
 				}
 				vmSource.Add(vm)
+				expectUpdateVMRestoreInProgress(vm)
 				addVolumeRestores(rc)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
@@ -427,6 +439,7 @@ var _ = Describe("Restore controlleer", func() {
 				}
 				vmSource.Add(vm)
 				addVolumeRestores(r)
+				expectUpdateVMRestoreInProgress(vm)
 				expectPVCCreates(k8sClient, r)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
@@ -452,6 +465,7 @@ var _ = Describe("Restore controlleer", func() {
 					pvc.Status.Phase = corev1.ClaimPending
 					addPVC(&pvc)
 				}
+				expectUpdateVMRestoreInProgress(vm)
 				controller.processVMRestoreWorkItem()
 			})
 
@@ -477,6 +491,7 @@ var _ = Describe("Restore controlleer", func() {
 				vmSource.Add(vm)
 				vmiSource.Add(vmi)
 				vmRestoreSource.Add(r)
+				expectUpdateVMRestoreInProgress(vm)
 				expectVMRestoreUpdate(kubevirtClient, ur)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimBound
@@ -508,6 +523,7 @@ var _ = Describe("Restore controlleer", func() {
 
 				vm := createModifiedVM()
 				vmSource.Add(vm)
+				expectUpdateVMRestoreInProgress(vm)
 				vmRestoreSource.Add(r)
 				expectPVCUpdates(k8sClient, ur)
 				expectVMRestoreUpdate(kubevirtClient, ur)
@@ -530,7 +546,9 @@ var _ = Describe("Restore controlleer", func() {
 				}
 				addVolumeRestores(r)
 				vm := createModifiedVM()
+				vm.Status.RestoreInProgress = &vmRestoreName
 				updatedVM := createSnapshotVM()
+				updatedVM.Status.RestoreInProgress = &vmRestoreName
 				updatedVM.ResourceVersion = "1"
 				updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
 				updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
@@ -603,6 +621,7 @@ var _ = Describe("Restore controlleer", func() {
 				}
 
 				vmRestoreSource.Add(r)
+				vm.Status.RestoreInProgress = &vmRestoreName
 				addVM(vm)
 				controller.processVMRestoreWorkItem()
 
@@ -610,6 +629,23 @@ var _ = Describe("Restore controlleer", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(l.Items)).To(BeZero())
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")
+			})
+
+			It("should unlock source VirtualMachine", func() {
+				r := createRestoreWithOwner()
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: &t,
+				}
+				vm := createModifiedVM()
+				vm.Status.RestoreInProgress = &vmRestoreName
+				vmSource.Add(vm)
+				addVirtualMachineRestore(r)
+
+				updatedVM := vm.DeepCopy()
+				updatedVM.ResourceVersion = "1"
+				updatedVM.Status.RestoreInProgress = nil
+				vmInterface.EXPECT().UpdateStatus(updatedVM).Return(updatedVM, nil)
+				controller.processVMRestoreWorkItem()
 			})
 		})
 	})
