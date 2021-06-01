@@ -95,19 +95,31 @@ var _ = Describe("DhcpConfig", func() {
 			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac, mtu)
 			Expect(vif.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Address, ipv4Mask, ipv6Cidr, mac, ipv4Gateway, mtu)))
 		})
+		It("returns correct string representation when an IP is not defined", func() {
+			emptyCIDR := ""
+			dhcpConfig := createDummyVIF(vifName, emptyCIDR, ipv4Gateway, emptyCIDR, mac, mtu)
+			// there's a bug.
+			defer func() {
+				if recover() == nil {
+				}
+			}()
+			Expect(dhcpConfig.String()).To(Panic())
+		})
 	})
 })
 
 func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu uint16) *cache.DhcpConfig {
-	addr, _ := netlink.ParseAddr(ipv4cidr)
 	mac, _ := net.ParseMAC(macStr)
 	gw := net.ParseIP(ipv4gateway)
 	vif := &cache.DhcpConfig{
 		Name:              vifName,
-		IP:                *addr,
 		MAC:               mac,
 		AdvertisingIPAddr: gw,
 		Mtu:               mtu,
+	}
+	if ipv4cidr != "" {
+		ipv4Addr, _ := netlink.ParseAddr(ipv4cidr)
+		vif.IP = *ipv4Addr
 	}
 	if ipv6cidr != "" {
 		ipv6Addr, _ := netlink.ParseAddr(ipv6cidr)
