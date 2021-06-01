@@ -44,58 +44,97 @@ import (
 )
 
 var _ = Describe("Pod Network", func() {
-	var mockNetwork *netdriver.MockNetworkHandler
-	var ctrl *gomock.Controller
-	var dummySwap *netlink.Dummy
-	var primaryPodInterface *netlink.GenericLink
-	var primaryPodInterfaceAfterNameChange *netlink.GenericLink
-	var addrList []netlink.Addr
-	var newPodInterfaceName string
-	var routeList []netlink.Route
-	var routeAddr netlink.Route
-	var fakeMac net.HardwareAddr
-	var fakeAddr netlink.Addr
-	var updateFakeMac net.HardwareAddr
-	var bridgeTest *netlink.Bridge
-	var masqueradeBridgeTest *netlink.Bridge
-	var bridgeAddr *netlink.Addr
-	var testNic *cache.DhcpConfig
-	var tmpDir string
-	var masqueradeTestNic *cache.DhcpConfig
-	var masqueradeDummyName string
-	var masqueradeDummy *netlink.Dummy
-	var masqueradeGwStr string
-	var masqueradeGwAddr *netlink.Addr
-	var masqueradeGwIp string
-	var masqueradeVmStr string
-	var masqueradeVmAddr *netlink.Addr
-	var masqueradeVmIp string
-	var masqueradeIpv6GwStr string
-	var masqueradeIpv6GwAddr *netlink.Addr
-	var masqueradeGwIpv6 string
-	var masqueradeIpv6VmStr string
-	var masqueradeIpv6VmAddr *netlink.Addr
-	var masqueradeVmIpv6 string
-	var pid int
-	var tapDeviceName string
-	var queueNumber uint32
-	var mtu int
-	var cacheFactory cache.InterfaceCacheFactory
-	var libvirtUser string
-	var newPodNIC = func(vmi *v1.VirtualMachineInstance) podNIC {
-		return podNIC{
-			cacheFactory: cacheFactory,
-			handler:      mockNetwork,
-			vmi:          vmi,
+	var (
+		mockNetwork                        *netdriver.MockNetworkHandler
+		ctrl                               *gomock.Controller
+		dummySwap                          *netlink.Dummy
+		primaryPodInterface                *netlink.GenericLink
+		primaryPodInterfaceAfterNameChange *netlink.GenericLink
+		addrList                           []netlink.Addr
+		newPodInterfaceName                string
+		routeList                          []netlink.Route
+		routeAddr                          netlink.Route
+		fakeMac                            net.HardwareAddr
+		fakeAddr                           netlink.Addr
+		updateFakeMac                      net.HardwareAddr
+		bridgeTest                         *netlink.Bridge
+		masqueradeBridgeTest               *netlink.Bridge
+		bridgeAddr                         *netlink.Addr
+		testNic                            *cache.DhcpConfig
+		tmpDir                             string
+		masqueradeTestNic                  *cache.DhcpConfig
+		masqueradeDummyName                string
+		masqueradeDummy                    *netlink.Dummy
+		masqueradeGwStr                    string
+		masqueradeGwAddr                   *netlink.Addr
+		masqueradeGwIp                     string
+		masqueradeVmStr                    string
+		masqueradeVmAddr                   *netlink.Addr
+		masqueradeVmIp                     string
+		masqueradeIpv6GwStr                string
+		masqueradeIpv6GwAddr               *netlink.Addr
+		masqueradeGwIpv6                   string
+		masqueradeIpv6VmStr                string
+		masqueradeIpv6VmAddr               *netlink.Addr
+		masqueradeVmIpv6                   string
+		pid                                int
+		tapDeviceName                      string
+		queueNumber                        uint32
+		mtu                                int
+		cacheFactory                       cache.InterfaceCacheFactory
+		libvirtUser                        string
+		newPodNIC                          = func(vmi *v1.VirtualMachineInstance) podNIC {
+			return podNIC{
+				cacheFactory: cacheFactory,
+				handler:      mockNetwork,
+				vmi:          vmi,
+			}
 		}
-	}
-	var createDefaultPodNIC = func(vmi *v1.VirtualMachineInstance) podNIC {
-		podnic := newPodNIC(vmi)
-		podnic.iface = &vmi.Spec.Domain.Devices.Interfaces[0]
-		podnic.network = &vmi.Spec.Networks[0]
-		podnic.podInterfaceName = primaryPodInterfaceName
-		return podnic
-	}
+		createDefaultPodNIC = func(vmi *v1.VirtualMachineInstance) podNIC {
+			podnic := newPodNIC(vmi)
+			podnic.iface = &vmi.Spec.Domain.Devices.Interfaces[0]
+			podnic.network = &vmi.Spec.Networks[0]
+			podnic.podInterfaceName = primaryPodInterfaceName
+			return podnic
+		}
+		ipProtocols = func() [2]iptables.Protocol {
+			return [2]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}
+		}
+		newVMI = func(namespace, name string) *v1.VirtualMachineInstance {
+			vmi := v1.NewMinimalVMIWithNS(namespace, name)
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			return vmi
+		}
+		newVMIBridgeInterface = func(namespace string, name string) *v1.VirtualMachineInstance {
+			vmi := newVMI(namespace, name)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			return vmi
+		}
+
+		newVMIMasqueradeInterface = func(namespace string, name string) *v1.VirtualMachineInstance {
+			vmi := newVMI(namespace, name)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			return vmi
+		}
+
+		newDomainWithBridgeInterface = func() *api.Domain {
+			domain := &api.Domain{}
+			domain.Spec.Devices.Interfaces = []api.Interface{{
+				Model: &api.Model{
+					Type: "virtio",
+				},
+				Type: "bridge",
+				Source: api.InterfaceSource{
+					Bridge: api.DefaultBridgeName,
+				},
+				Alias: api.NewUserDefinedAlias("default"),
+			},
+			}
+			return domain
+		}
+	)
 	BeforeEach(func() {
 		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
 
@@ -333,7 +372,7 @@ var _ = Describe("Pod Network", func() {
 		It("should define a new DhcpConfig bind to a bridge", func() {
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
-			domain := NewDomainWithBridgeInterface()
+			domain := newDomainWithBridgeInterface()
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -341,7 +380,7 @@ var _ = Describe("Pod Network", func() {
 		})
 		It("phase1 should return a CriticalNetworkError if pod networking fails to setup", func() {
 
-			domain := NewDomainWithBridgeInterface()
+			domain := newDomainWithBridgeInterface()
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -378,7 +417,7 @@ var _ = Describe("Pod Network", func() {
 		})
 		It("should return an error if the MTU is out or range", func() {
 			primaryPodInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 65536}}
-			domain := NewDomainWithBridgeInterface()
+			domain := newDomainWithBridgeInterface()
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -398,7 +437,7 @@ var _ = Describe("Pod Network", func() {
 		})
 		It("phase2 should panic if DHCP startup fails", func() {
 			testDhcpPanic := func() {
-				domain := NewDomainWithBridgeInterface()
+				domain := newDomainWithBridgeInterface()
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("failed to open file"))
@@ -461,7 +500,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
-				domain := NewDomainWithBridgeInterface()
+				domain := newDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -498,7 +537,7 @@ var _ = Describe("Pod Network", func() {
 						"-j", "DNAT", "--to-destination", GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
 				}
 
-				domain := NewDomainWithBridgeInterface()
+				domain := newDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 
@@ -513,7 +552,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
-				domain := NewDomainWithBridgeInterface()
+				domain := newDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -549,7 +588,7 @@ var _ = Describe("Pod Network", func() {
 						"counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
 				}
 
-				domain := NewDomainWithBridgeInterface()
+				domain := newDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 
@@ -560,43 +599,3 @@ var _ = Describe("Pod Network", func() {
 		})
 	})
 })
-
-func ipProtocols() [2]iptables.Protocol {
-	return [2]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}
-}
-
-func newVMI(namespace, name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMIWithNS(namespace, name)
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	return vmi
-}
-
-func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := newVMI(namespace, name)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	return vmi
-}
-
-func newVMIMasqueradeInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := newVMI(namespace, name)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	return vmi
-}
-
-func NewDomainWithBridgeInterface() *api.Domain {
-	domain := &api.Domain{}
-	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Model: &api.Model{
-			Type: "virtio",
-		},
-		Type: "bridge",
-		Source: api.InterfaceSource{
-			Bridge: api.DefaultBridgeName,
-		},
-		Alias: api.NewUserDefinedAlias("default"),
-	},
-	}
-	return domain
-}

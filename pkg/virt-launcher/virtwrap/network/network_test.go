@@ -29,6 +29,17 @@ import (
 )
 
 var _ = Describe("VMNetworkConfigurator", func() {
+	newVMI := func(namespace, name string) *v1.VirtualMachineInstance {
+		vmi := v1.NewMinimalVMIWithNS(namespace, name)
+		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		return vmi
+	}
+	newVMIBridgeInterface := func(namespace string, name string) *v1.VirtualMachineInstance {
+		vmi := newVMI(namespace, name)
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		return vmi
+	}
 	Context("interface configuration", func() {
 		var launcherPID *int
 
