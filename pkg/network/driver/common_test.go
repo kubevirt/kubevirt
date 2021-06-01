@@ -87,25 +87,25 @@ var _ = Describe("DhcpConfig", func() {
 
 	Context("String", func() {
 		It("returns correct string representation", func() {
-			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, "", mac, mtu)
-			Expect(vif.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, mac, ipv4Gateway, mtu)))
+			dhcpConfig := createDummyDhcpConfig(vifName, ipv4Cidr, ipv4Gateway, "", mac, mtu)
+			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, mac, ipv4Gateway, mtu)))
 		})
 		It("returns correct string representation with ipv6", func() {
-			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac, mtu)
-			Expect(vif.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, ipv6Cidr, mac, ipv4Gateway, mtu)))
+			dhcpConfig := createDummyDhcpConfig(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac, mtu)
+			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, ipv6Cidr, mac, ipv4Gateway, mtu)))
 		})
 		It("returns correct string representation when an IP is not defined", func() {
 			emptyCIDR := ""
-			dhcpConfig := createDummyVIF(vifName, emptyCIDR, ipv4Gateway, emptyCIDR, mac, mtu)
+			dhcpConfig := createDummyDhcpConfig(vifName, emptyCIDR, ipv4Gateway, emptyCIDR, mac, mtu)
 			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: <nil>, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, mac, ipv4Gateway, mtu)))
 		})
 	})
 })
 
-func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu uint16) *cache.DhcpConfig {
+func createDummyDhcpConfig(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu uint16) *cache.DhcpConfig {
 	mac, _ := net.ParseMAC(macStr)
 	gw := net.ParseIP(ipv4gateway)
-	vif := &cache.DhcpConfig{
+	dhcpConfig := &cache.DhcpConfig{
 		Name:              vifName,
 		MAC:               mac,
 		AdvertisingIPAddr: gw,
@@ -113,14 +113,14 @@ func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu
 	}
 	if ipv4cidr != "" {
 		ipv4Addr, _ := netlink.ParseAddr(ipv4cidr)
-		vif.IP = *ipv4Addr
+		dhcpConfig.IP = *ipv4Addr
 	}
 	if ipv6cidr != "" {
 		ipv6Addr, _ := netlink.ParseAddr(ipv6cidr)
-		vif.IPv6 = *ipv6Addr
+		dhcpConfig.IPv6 = *ipv6Addr
 	}
 
-	return vif
+	return dhcpConfig
 }
 
 var _ = Describe("infocache", func() {
