@@ -84,7 +84,9 @@ var _ = Describe("HooksManager", func() {
 		var socketDir string
 
 		BeforeEach(func() {
-			socketDir, _ = ioutil.TempDir("", "hooksocketdir")
+			var err error
+			socketDir, err = ioutil.TempDir("", "hooksocketdir")
+			Expect(err).ToNot(HaveOccurred())
 			os.MkdirAll(socketDir, os.ModePerm)
 		})
 
