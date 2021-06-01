@@ -1912,7 +1912,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				return false
 			}
 
-			FIt("should migrate only to nodes supporting right cpu model", func() {
+			It("should migrate only to nodes supporting right cpu model", func() {
 				if !isHeterogeneousCluster() {
 					log.Log.Warning("all nodes have the same CPU model. Therefore the test is a happy-path since " +
 						"VMIs with host-model CPU can be migrated to every other node")

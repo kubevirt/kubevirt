@@ -478,12 +478,10 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 
 	// If cpu model is "host model" allow migration only to nodes that supports this cpu model
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel {
-		obj, exists, err := c.nodeInformer.GetStore().GetByKey(vmi.Status.NodeName)
-		node := obj.(*k8sv1.Node)
+		node, err := c.getNodeForVMI(vmi)
+
 		if err != nil {
-			return fmt.Errorf("cannot get nodes to migrate VMI with host-model CPU. error: %v", err)
-		} else if !exists {
-			return fmt.Errorf("node \"%s\" assosiated with vmi \"%s\" does not exist", vmi.Status.NodeName, vmi.Name)
+			return err
 		}
 
 		err = prepareNodeSelectorForHostCpuModel(node, templatePod)
@@ -1048,6 +1046,19 @@ func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineI
 		}
 	}
 	return runningMigrations, nil
+}
+
+func (c *MigrationController) getNodeForVMI(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Node, error) {
+	obj, exists, err := c.nodeInformer.GetStore().GetByKey(vmi.Status.NodeName)
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot get nodes to migrate VMI with host-model CPU. error: %v", err)
+	} else if !exists {
+		return nil, fmt.Errorf("node \"%s\" associated with vmi \"%s\" does not exist", vmi.Status.NodeName, vmi.Name)
+	}
+
+	node := obj.(*k8sv1.Node)
+	return node, nil
 }
 
 func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod) error {

@@ -31,6 +31,9 @@ import (
 	"sync"
 	"time"
 
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/testing"
+
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	fakenetcache "kubevirt.io/kubevirt/pkg/network/cache/fake"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
@@ -75,6 +78,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var client *cmdclient.MockLauncherClient
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var virtClient *kubecli.MockKubevirtClient
+	var clientTest *fake.Clientset
 
 	var ctrl *gomock.Controller
 	var controller *VirtualMachineController
@@ -160,9 +164,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 
+		clientTest = fake.NewSimpleClientset()
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(fake.NewSimpleClientset().CoreV1()).AnyTimes()
+		virtClient.EXPECT().CoreV1().Return(clientTest.CoreV1()).AnyTimes()
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 
@@ -2116,6 +2121,37 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
+		table.DescribeTable("when host model labels", func(toDefineHostModelLabels bool) {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+
+			node := &k8sv1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   host,
+					Labels: map[string]string{},
+				},
+			}
+
+			if toDefineHostModelLabels {
+				node.ObjectMeta.Labels = map[string]string{
+					v1.HostModelCPULabel + "fake":              "true",
+					v1.HostModelRequiredFeaturesLabel + "fake": "true",
+				}
+			}
+			addNode(clientTest, node)
+
+			err := controller.isHostModelMigratable(vmi)
+
+			if toDefineHostModelLabels {
+				Expect(err).ShouldNot(HaveOccurred())
+			} else {
+				Expect(err).Should(HaveOccurred())
+			}
+
+		},
+			table.Entry("exist migration should succeed", true),
+			table.Entry("don't exist migration should fail", false),
+		)
 
 		Context("with network configuration", func() {
 			It("should block migration for bridge binding assigned to the pod network", func() {
@@ -3107,4 +3143,10 @@ func NewScheduledVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.Vi
 
 	vmi = addActivePods(vmi, podUID, hostname)
 	return vmi
+}
+
+func addNode(client *fake.Clientset, node *k8sv1.Node) {
+	client.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+		return true, node, nil
+	})
 }
