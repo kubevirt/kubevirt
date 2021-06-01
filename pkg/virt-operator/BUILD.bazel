@@ -57,7 +57,7 @@ go_test(
         "virt_operator_suite_test.go",
     ],
     embed = [":go_default_library"],
-    tags = ["manual"],
+    tags = ["cov"],
     deps = [
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
@@ -106,4 +106,5 @@ ginkgo_test(
     name = "go_parallel_test",
     ginkgo_args = ["-p"],
     go_test = ":go_default_test",
+    tags = ["nocov"],
 )
