@@ -6,6 +6,52 @@ group_eval_order:
   - kubevirt.rules
 
 tests:
+  # Pod is using more CPU than expected
+  - interval: 1m
+    input_series:
+      - series: 'node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate{namespace="ci",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
+        values: "2 2 2 2 2 2 2 2 2 2"
+      - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="cpu",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
+        values: "0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: KubeVirtComponentExceedsRequestedCPU
+        exp_alerts:
+          - exp_annotations:
+              description: "Container virt-controller in pod virt-controller-8546c99968-x9jgg cpu usage exceeds the CPU requested"
+              summary: "The container is using more CPU than what is defined in the containers resource requests"
+            exp_labels:
+              severity: "warning"
+              pod: "virt-controller-8546c99968-x9jgg"
+              container: "virt-controller"
+              namespace: ci
+              node: node1
+              resource: cpu
+
+  # Pod is using more memory than expected
+  - interval: 1m
+    input_series:
+      - series: 'container_memory_usage_bytes{namespace="ci",container="virt-controller",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
+        values: "157286400 157286400 157286400 157286400 157286400 157286400 157286400 157286400"
+      - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="memory",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
+        values: "118325248 118325248 118325248 118325248 118325248 118325248 118325248 118325248"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: KubeVirtComponentExceedsRequestedMemory
+        exp_alerts:
+          - exp_annotations:
+              description: "Container virt-controller in pod virt-controller-8546c99968-x9jgg memory usage exceeds the memory requested"
+              summary: "The container is using more memory than what is defined in the containers resource requests"
+            exp_labels:
+              severity: "warning"
+              namespace: ci
+              node: "node1"
+              pod: "virt-controller-8546c99968-x9jgg"
+              resource: "memory"
+              container: virt-controller
+
   # All components are down
   - interval: 1m
     input_series:
@@ -255,7 +301,7 @@ tests:
         alertname: VMCannotBeEvicted
         exp_alerts:
           - exp_annotations:
-              description: "Eviction policy for vm-evict-nonmigratable (on node node1) is set to Live Migration but the VM is not migratable" 
+              description: "Eviction policy for vm-evict-nonmigratable (on node node1) is set to Live Migration but the VM is not migratable"
               summary: "The VM's eviction strategy is set to Live Migration but the VM is not migratable"
             exp_labels:
               severity: "warning"
