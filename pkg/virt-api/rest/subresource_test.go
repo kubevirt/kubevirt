@@ -571,6 +571,84 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			close(done)
 		})
 
+		It("should ForceStop VirtualMachine", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+			var terminationGracePeriodSeconds int64 = 1800
+
+			body := map[string]int64{
+				"gracePeriod": 0,
+			}
+			bytesRepresentation, _ := json.Marshal(body)
+			request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+
+			vm := v1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "testvm",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineSpec{
+					Running: &running,
+				},
+			}
+
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "testvm",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					Phase: v1.Running,
+				},
+			}
+			vmi.ObjectMeta.SetUID(uuid.NewUUID())
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("DELETE", "/api/v1/namespaces/default/pods/virt-launcher-testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.StopVMRequestHandler(request, response)
+
+			Expect(response.Error()).ToNot(HaveOccurred())
+			fmt.Printf("\n %+v \n", response.ResponseWriter)
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			close(done)
+		})
+
 		It("should start VirtualMachine if VMI doesn't exist", func(done Done) {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
@@ -607,7 +685,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			)
 
 			app.RestartVMRequestHandler(request, response)
-
 			Expect(response.Error()).NotTo(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			close(done)
