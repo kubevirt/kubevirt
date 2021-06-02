@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["fake-cmd-server.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/fake-cmd-server",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-launcher/virtwrap:go_default_library",
+        "//pkg/virt-launcher/virtwrap/agent:go_default_library",
+        "//pkg/virt-launcher/virtwrap/cmd-server:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "fake-cmd-server",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

@@ -344,4 +344,22 @@ var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
 		Expect(vmi.Spec.Networks[0].Pod).ToNot(BeNil())
 	})
 
+	It("should default probes", func() {
+		vmi := &VirtualMachineInstance{
+			Spec: VirtualMachineInstanceSpec{
+				ReadinessProbe: &Probe{},
+				LivenessProbe:  &Probe{},
+			},
+		}
+		SetDefaults_VirtualMachineInstance(vmi)
+
+		validateProbe := func(probe *Probe) {
+			Expect(probe.TimeoutSeconds).To(BeEquivalentTo(1))
+			Expect(probe.PeriodSeconds).To(BeEquivalentTo(10))
+			Expect(probe.SuccessThreshold).To(BeEquivalentTo(1))
+			Expect(probe.FailureThreshold).To(BeEquivalentTo(3))
+		}
+		validateProbe(vmi.Spec.ReadinessProbe)
+		validateProbe(vmi.Spec.LivenessProbe)
+	})
 })

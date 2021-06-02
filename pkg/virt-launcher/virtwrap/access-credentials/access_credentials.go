@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -226,65 +227,7 @@ func (l *AccessCredentialManager) readGuestFile(domName string, filePath string)
 }
 
 func (l *AccessCredentialManager) agentGuestExec(domName string, command string, args []string) (string, error) {
-	stdOut := ""
-	argsStr := ""
-	for _, arg := range args {
-		if argsStr == "" {
-			argsStr = fmt.Sprintf("\"%s\"", arg)
-		} else {
-			argsStr = argsStr + fmt.Sprintf(", \"%s\"", arg)
-		}
-	}
-
-	cmdExec := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "%s", "arg": [ %s ], "capture-output":true } }`, command, argsStr)
-	output, err := l.virConn.QemuAgentCommand(cmdExec, domName)
-	if err != nil {
-		return "", err
-	}
-	execRes := &execReturn{}
-	err = json.Unmarshal([]byte(output), execRes)
-	if err != nil {
-		return "", err
-	}
-
-	if execRes.Return.Pid <= 0 {
-		return "", fmt.Errorf("Invalid pid [%d] returned from qemu agent during access credential injection: %s", execRes.Return.Pid, output)
-	}
-
-	exited := false
-	exitCode := 0
-	for i := 10; i > 0; i-- {
-		cmdExecStatus := fmt.Sprintf(`{"execute": "guest-exec-status", "arguments": { "pid": %d } }`, execRes.Return.Pid)
-		output, err := l.virConn.QemuAgentCommand(cmdExecStatus, domName)
-		if err != nil {
-			return "", err
-		}
-		execStatusRes := &execStatusReturn{}
-		err = json.Unmarshal([]byte(output), execStatusRes)
-		if err != nil {
-			return "", err
-		}
-
-		if execStatusRes.Return.Exited {
-			stdOutBytes, err := base64.StdEncoding.DecodeString(execStatusRes.Return.OutData)
-			if err != nil {
-				return "", err
-			}
-			stdOut = string(stdOutBytes)
-			exitCode = execStatusRes.Return.ExitCode
-			exited = true
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	if !exited {
-		return "", fmt.Errorf("Timed out waiting for guest pid [%d] for command [%s] to exit", execRes.Return.Pid, command)
-	} else if exitCode != 0 {
-		return stdOut, fmt.Errorf("Non-zero exit code [%d] for guest command [%s] with args [%v]: %s", exitCode, command, args, stdOut)
-	}
-
-	return stdOut, nil
+	return agent.GuestExec(l.virConn, domName, command, args, 10)
 }
 
 // Requires usage of mkdir, chown, chmod

@@ -94,6 +94,7 @@ type LauncherClient interface {
 	GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error)
 	GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error)
+	Exec(string, string, []string, int32) (int, string, error)
 	Ping() error
 	Close()
 }
@@ -627,4 +628,34 @@ func (c *VirtLauncherClient) GetFilesystems() (v1.VirtualMachineInstanceFileSyst
 	}
 
 	return filesystemList, nil
+}
+
+// Exec the command with args on the guest and return the resulting status code, stdOut and error
+func (c *VirtLauncherClient) Exec(domainName, command string, args []string, timeoutSeconds int32) (int, string, error) {
+	request := &cmdv1.ExecRequest{
+		DomainName:     domainName,
+		Command:        command,
+		Args:           args,
+		TimeoutSeconds: int32(timeoutSeconds),
+	}
+	exitCode := -1
+	stdOut := ""
+
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		// we give the context a bit more time as the timeout should kick
+		// on the actual execution
+		time.Duration(timeoutSeconds)*time.Second+shortTimeout,
+	)
+	defer cancel()
+
+	resp, err := c.v1client.Exec(ctx, request)
+	if resp == nil {
+		return exitCode, stdOut, err
+	}
+
+	exitCode = int(resp.ExitCode)
+	stdOut = resp.StdOut
+
+	return exitCode, stdOut, err
 }

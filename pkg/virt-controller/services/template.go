@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const KvmDevice = "devices.kubevirt.io/kvm"
@@ -1049,13 +1050,15 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	}
 
 	if vmi.Spec.ReadinessProbe != nil {
+		v1.SetDefaults_Probe(vmi.Spec.ReadinessProbe)
 		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
-		compute.ReadinessProbe.InitialDelaySeconds = compute.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		updateProbe(vmi, compute.ReadinessProbe)
 	}
 
 	if vmi.Spec.LivenessProbe != nil {
+		v1.SetDefaults_Probe(vmi.Spec.LivenessProbe)
 		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
-		compute.LivenessProbe.InitialDelaySeconds = compute.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		updateProbe(vmi, compute.LivenessProbe)
 	}
 
 	for networkName, resourceName := range networkToResourceMap {
@@ -1571,7 +1574,40 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 		overhead.Add(resource.MustParse("1Mi"))
 	}
 
+	addProbeOverheads(vmi, overhead)
+
 	return overhead
+}
+
+// We need to add this overhead due to potential issues when using exec probes.
+// In certain situations depending on things like node size and kernel versions
+// the exec probe can cause a significant memory overhead that results in the pod getting OOM killed.
+// To prevent this, we add this overhead until we have a better way of doing exec probes.
+// The virtProbeTotalAdditionalOverhead is added for the virt-probe binary we use for probing and
+// only added once, while the virtProbeOverhead is the general memory consumption of virt-probe
+// that we add per added probe.
+var virtProbeTotalAdditionalOverhead = resource.MustParse("100Mi")
+var virtProbeOverhead = resource.MustParse("10Mi")
+
+func addProbeOverheads(vmi *v1.VirtualMachineInstance, to *resource.Quantity) {
+	hasLiveness := addProbeOverhead(vmi.Spec.LivenessProbe, to)
+	hasReadiness := addProbeOverhead(vmi.Spec.ReadinessProbe, to)
+	if hasLiveness || hasReadiness {
+		to.Add(virtProbeTotalAdditionalOverhead)
+	}
+}
+
+func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) bool {
+	if probe != nil && probe.Exec != nil {
+		to.Add(virtProbeOverhead)
+		return true
+	}
+	return false
+}
+
+func updateProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
+	wrapExecProbeWithVirtProbe(vmi, computeProbe)
+	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
 }
 
 func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
@@ -1691,10 +1727,35 @@ func copyProbe(probe *v1.Probe) *k8sv1.Probe {
 		SuccessThreshold:    probe.SuccessThreshold,
 		FailureThreshold:    probe.FailureThreshold,
 		Handler: k8sv1.Handler{
+			Exec:      probe.Exec,
 			HTTPGet:   probe.HTTPGet,
 			TCPSocket: probe.TCPSocket,
 		},
 	}
+}
+
+func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Probe) {
+	if probe == nil || probe.Handler.Exec == nil {
+		return
+	}
+
+	originalCommand := probe.Handler.Exec.Command
+	if len(originalCommand) < 1 {
+		return
+	}
+
+	wrappedCommand := []string{
+		"virt-probe",
+		"--domainName", api.VMINamespaceKeyFunc(vmi),
+		"--timeoutSeconds", strconv.FormatInt(int64(probe.TimeoutSeconds), 10),
+		"--command", originalCommand[0],
+		"--",
+	}
+	wrappedCommand = append(wrappedCommand, originalCommand[1:]...)
+
+	probe.Handler.Exec.Command = wrappedCommand
+	// we add 1s to the pod probe to compensate for the additional steps in probing
+	probe.TimeoutSeconds += 1
 }
 
 func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string) {

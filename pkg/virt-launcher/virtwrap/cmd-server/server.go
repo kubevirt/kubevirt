@@ -20,6 +20,7 @@
 package cmdserver
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -35,6 +36,7 @@ import (
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
 
@@ -436,6 +438,28 @@ func (l *Launcher) GetFilesystems(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 	}
 
 	return response, nil
+}
+
+// Exec the provided command and return it's success
+func (l *Launcher) Exec(ctx context.Context, request *cmdv1.ExecRequest) (*cmdv1.ExecResponse, error) {
+	resp := &cmdv1.ExecResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	stdOut, err := l.domainManager.Exec(request.DomainName, request.Command, request.Args, request.TimeoutSeconds)
+	resp.StdOut = stdOut
+
+	exitCode := agent.ExecExitCode{}
+	if err != nil && !errors.As(err, &exitCode) {
+		resp.Response.Success = false
+		resp.Response.Message = err.Error()
+		return resp, err
+	}
+	resp.ExitCode = int32(exitCode.ExitCode)
+
+	return resp, nil
 }
 
 func RunServer(socketPath string,

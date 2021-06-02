@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["virt-probe.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/virt-probe",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/virt-handler/cmd-client:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "virt-probe",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

@@ -330,6 +330,7 @@ func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 func (Handler) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":          "Handler defines a specific action that should be taken",
+		"exec":      "One and only one of the following should be specified.\nExec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.\nIf the guest agent is not available, this probe will fail.\n+optional",
 		"httpGet":   "HTTPGet specifies the http request to perform.\n+optional",
 		"tcpSocket": "TCPSocket specifies an action involving a TCP port.\nTCP hooks not yet supported\n+optional",
 	}
@@ -339,7 +340,7 @@ func (Probe) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                    "Probe describes a health check to be performed against a VirtualMachineInstance to determine whether it is\nalive or ready to receive traffic.\n+k8s:openapi-gen=true",
 		"initialDelaySeconds": "Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
-		"timeoutSeconds":      "Number of seconds after which the probe times out.\nDefaults to 1 second. Minimum value is 1.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
+		"timeoutSeconds":      "Number of seconds after which the probe times out.\nFor exec probes the timeout fails the probe but does not terminate the command running on the guest.\nThis means a blocking command can result in an increasing load on the guest.\nA small buffer will be added to the resulting workload exec probe to compensate for delays\ncaused by the qemu guest exec mechanism.\nDefaults to 1 second. Minimum value is 1.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
 		"periodSeconds":       "How often (in seconds) to perform the probe.\nDefault to 10 seconds. Minimum value is 1.\n+optional",
 		"successThreshold":    "Minimum consecutive successes for the probe to be considered successful after having failed.\nDefaults to 1. Must be 1 for liveness. Minimum value is 1.\n+optional",
 		"failureThreshold":    "Minimum consecutive failures for the probe to be considered failed after having succeeded.\nDefaults to 3. Minimum value is 1.\n+optional",
