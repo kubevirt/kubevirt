@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
+        "io_utils.go",
         "job.go",
         "migration.go",
         "pod_servers.go",
