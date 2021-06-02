@@ -19,6 +19,7 @@ go_library(
         "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/healthz:go_default_library",
+        "//pkg/monitoring/vmistats:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/lookup:go_default_library",
