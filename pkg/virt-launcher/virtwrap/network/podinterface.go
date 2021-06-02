@@ -257,6 +257,24 @@ func (l *podNIC) PlugPhase1() error {
 	return nil
 }
 
+func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
+	ifaceConfig, err := l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Read(l.iface.Name)
+
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ifaceConfig, nil
+}
+
+func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
+	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
+}
+
 func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
 
@@ -547,24 +565,6 @@ func getPIDString(pid *int) string {
 		return fmt.Sprintf("%d", *pid)
 	}
 	return "self"
-}
-
-func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
-	ifaceConfig, err := l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Read(l.iface.Name)
-
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ifaceConfig, nil
-}
-
-func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
-	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
 }
 
 func (b *BridgeBindMechanism) learnInterfaceRoutes() error {
