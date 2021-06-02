@@ -48,7 +48,7 @@ var _ = Describe("SELinux context executor", func() {
 				Times(2)
 		})
 
-		It("should successfuly execute a command", func() {
+		It("should successfully execute a command", func() {
 			ce, err := newContextExecutor(pid, &exec.Cmd{}, executor)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ce.desiredLabel).To(BeEmpty())
@@ -95,7 +95,7 @@ var _ = Describe("SELinux context executor", func() {
 				UnlockOSThread()
 		})
 
-		It("should successfuly execute a command", func() {
+		It("should successfully execute a command", func() {
 			ce, err := newContextExecutor(pid, &exec.Cmd{}, executor)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ce.desiredLabel).To(Equal(desiredLabel))
