@@ -1737,6 +1737,121 @@ var _ = Describe("Manager", func() {
 		})
 	})
 
+	It("executes hotPlugHostDevices", func() {
+		os.Setenv("KUBEVIRT_RESOURCE_NAME_test1", "127.0.0.1")
+		os.Setenv("PCIDEVICE_127_0_0_1", "05EA:Fc:1d.6")
+
+		defer os.Unsetenv("KUBEVIRT_RESOURCE_NAME_test1")
+		defer os.Unsetenv("PCIDEVICE_127_0_0_1")
+
+		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+		// we need the non-typecast object to make the function we want to test available
+		libvirtmanager := manager.(*LibvirtDomainManager)
+
+		vmi := newVMI(testNamespace, testVmName)
+		vmi.Spec.Domain.Devices.Interfaces = append(
+			vmi.Spec.Domain.Devices.Interfaces,
+			v1.Interface{
+				Name: "test1",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					SRIOV: &v1.InterfaceSRIOV{},
+				},
+				MacAddress: "de:ad:00:00:be:af",
+			},
+		)
+		vmi.Spec.Networks = append(
+			vmi.Spec.Networks,
+			v1.Network{Name: "test1",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "test1"},
+				}},
+		)
+
+		domainSpec := expectIsolationDetectionForVMI(vmi)
+		xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+		Expect(err).NotTo(HaveOccurred())
+
+		mockDomain.EXPECT().Free()
+		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
+		mockDomain.EXPECT().AttachDeviceFlags(`<hostdev type="pci" managed="no"><source><address type="pci" domain="0x05EA" bus="0xFc" slot="0x1d" function="0x6"></address></source><alias name="ua-sriov-test1"></alias></hostdev>`, libvirt.DomainDeviceModifyFlags(3)).Return(nil)
+
+		err = libvirtmanager.hotPlugHostDevices(vmi)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("executes GetGuestInfo", func() {
+		agentStore := agentpoller.NewAsyncAgentStore()
+		agentStore.Store(agentpoller.GET_USERS, []api.User{
+			{
+				Name:      "test",
+				Domain:    "test",
+				LoginTime: 0,
+			},
+		})
+		agentStore.Store(agentpoller.GET_FILESYSTEM, []api.Filesystem{
+			{
+				Name:       "test",
+				Mountpoint: "/mnt/whatever",
+				Type:       "fs",
+				UsedBytes:  0,
+				TotalBytes: 0,
+			},
+		})
+
+		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, &agentStore, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+		// we need the non-typecast object to make the function we want to test available
+		libvirtmanager := manager.(*LibvirtDomainManager)
+
+		virtualMachineInstanceGuestAgentInfo, err := libvirtmanager.GetGuestInfo()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeNil())
+	})
+
+	It("executes GetUsers", func() {
+		agentStore := agentpoller.NewAsyncAgentStore()
+		agentStore.Store(agentpoller.GET_USERS, []api.User{
+			{
+				Name:      "test",
+				Domain:    "test",
+				LoginTime: 0,
+			},
+		})
+
+		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, &agentStore, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+		// we need the non-typecast object to make the function we want to test available
+		libvirtmanager := manager.(*LibvirtDomainManager)
+
+		virtualMachineInstanceGuestAgentInfo, err := libvirtmanager.GetUsers()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeNil())
+	})
+
+	It("executes GetFilesystems", func() {
+		agentStore := agentpoller.NewAsyncAgentStore()
+		agentStore.Store(agentpoller.GET_FILESYSTEM, []api.Filesystem{
+			{
+				Name:       "test",
+				Mountpoint: "/mnt/whatever",
+				Type:       "fs",
+				UsedBytes:  0,
+				TotalBytes: 0,
+			},
+		})
+
+		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, &agentStore, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+		// we need the non-typecast object to make the function we want to test available
+		libvirtmanager := manager.(*LibvirtDomainManager)
+
+		virtualMachineInstanceGuestAgentInfo, err := libvirtmanager.GetFilesystems()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(virtualMachineInstanceGuestAgentInfo).ToNot(BeNil())
+	})
+
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
 
 	AfterEach(func() {
