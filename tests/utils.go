@@ -183,6 +183,7 @@ const (
 const (
 	osAlpineHostPath = "alpine-host-path"
 	OSWindows        = "windows"
+	OSWindowsSysprep = "windows-sysprep" // This is for sysprep tests, they run on a syspreped image of windows of a different version.
 	OSRhel           = "rhel"
 	CustomHostPath   = "custom-host-path"
 	HostPathBase     = "/tmp/hostImages"
@@ -197,6 +198,7 @@ var (
 const (
 	DiskAlpineHostPath = "disk-alpine-host-path"
 	DiskWindows        = "disk-windows"
+	DiskWindowsSysprep = "disk-windows-sysprep"
 	DiskRhel           = "disk-rhel"
 	DiskCustomHostPath = "disk-custom-host-path"
 )
@@ -3426,10 +3428,10 @@ func BeforeAll(fn func()) {
 	})
 }
 
-func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
-	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), DiskWindows, metav1.GetOptions{})
+func SkipIfMissingRequiredImage(virtClient kubecli.KubevirtClient, imageName string) {
+	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, metav1.GetOptions{})
 	if err != nil || windowsPv.Status.Phase == k8sv1.VolumePending || windowsPv.Status.Phase == k8sv1.VolumeFailed {
-		Skip(fmt.Sprintf("Skip Windows tests that requires PVC %s", DiskWindows))
+		Skip(fmt.Sprintf("Skip tests that requires PV %s", imageName))
 	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
 		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})

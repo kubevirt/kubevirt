@@ -79,6 +79,8 @@ export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
 export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2016}
 export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
+export WINDOWS_SYSPREP_NFS_DIR=${WINDOWS_SYSPREP_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2012_syspreped}
+export WINDOWS_SYSPREP_LOCK_PATH=${WINDOWS_SYSPREP_LOCK_PATH:-/var/lib/stdci/shared/download_windows_syspreped_image.lock}
 
 wait_for_download_lock() {
   local max_lock_attempts=60
@@ -149,7 +151,17 @@ if [[ $TARGET =~ os-.* ]] || [[ $TARGET =~ (okd|ocp)-.* ]]; then
     safe_download "$RHEL_LOCK_PATH" "$rhel_image_url" "$rhel_image" || exit 1
 fi
 
-if [[ $TARGET =~ windows.* ]]; then
+if [[ $TARGET =~ windows_sysprep.* ]]; then
+  # Create images directory
+  if [[ ! -d $WINDOWS_SYSPREP_NFS_DIR ]]; then
+    mkdir -p $WINDOWS_SYSPREP_NFS_DIR
+  fi
+
+  # Download Windows image
+  win_image_url="${TEMPLATES_SERVER}/windows2012_syspreped.img"
+  win_image="$WINDOWS_SYSPREP_NFS_DIR/disk.img"
+  safe_download "$WINDOWS_SYSPREP_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
+elif [[ $TARGET =~ windows.* ]]; then
   # Create images directory
   if [[ ! -d $WINDOWS_NFS_DIR ]]; then
     mkdir -p $WINDOWS_NFS_DIR
@@ -281,17 +293,24 @@ ginko_params="--noColor --seed=42"
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
+  if [[ $TARGET =~ windows_sysprep.* ]]; then
+    disk_name=disk-windows-sysprep
+    os_label=windows-sysprep
+  else
+    disk_name=disk-windows
+    os_label=windows
+  fi
   kubectl create -f - <<EOF
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: disk-windows
+  name: $disk_name
   labels:
-    kubevirt.io/test: "windows"
+    kubevirt.io/test: $os_label
 spec:
   capacity:
-    storage: 30Gi
+    storage: 35Gi
   accessModes:
     - ReadWriteOnce
   nfs:
@@ -303,7 +322,9 @@ fi
 
 # Set KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP only if both of them are not already set
 if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
-  if [[ $TARGET =~ windows.* ]]; then
+  if [[ $TARGET =~ windows_sysprep.* ]]; then
+    export KUBEVIRT_E2E_FOCUS="\\[Sysprep\\]"
+  elif [[ $TARGET =~ windows.* ]]; then
     # Run only Windows tests
     export KUBEVIRT_E2E_FOCUS=Windows
   elif [[ $TARGET =~ (cnao|multus) ]]; then
