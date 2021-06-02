@@ -181,18 +181,13 @@ func (v *vm) ForceRestart(name string, graceperiod int) error {
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
-func (v *vm) Start(name string) error {
+func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "start")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
-}
 
-func (v *vm) StartPaused(name string) error {
-	optsJson, err := json.Marshal(v1.StartOptions{Paused: true})
-
+	optsJson, err := json.Marshal(startOptions)
 	if err != nil {
 		return err
 	}
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "start")
 	return v.restClient.Put().RequestURI(uri).Body([]byte(optsJson)).Do(context.Background()).Error()
 }
 

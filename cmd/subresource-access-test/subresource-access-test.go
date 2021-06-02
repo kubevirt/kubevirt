@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -61,7 +62,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		err = client.VirtualMachine(namespace).Start(resource)
+		err = client.VirtualMachine(namespace).Start(resource, &v1.StartOptions{})
 		if err != nil {
 			panic(err)
 		}

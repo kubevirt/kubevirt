@@ -334,14 +334,7 @@ func (o *Command) Run(args []string) error {
 
 	switch o.command {
 	case COMMAND_START:
-		if startPaused {
-			err = virtClient.VirtualMachine(namespace).StartPaused(vmiName)
-			if err != nil {
-				return fmt.Errorf("Error starting VirtualMachine %v", err)
-			}
-			break
-		}
-		err = virtClient.VirtualMachine(namespace).Start(vmiName)
+		err = virtClient.VirtualMachine(namespace).Start(vmiName, &v1.StartOptions{Paused: startPaused})
 		if err != nil {
 			return fmt.Errorf("Error starting VirtualMachine %v", err)
 		}

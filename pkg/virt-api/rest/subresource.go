@@ -471,22 +471,20 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 
 	startPaused := false
 	startChangeRequestData := make(map[string]string)
-	if vm.Spec.Template != nil && vm.Spec.Template.Spec.StartStrategy == nil {
+	if request.Request.Body != nil {
 		bodyStruct := &v1.StartOptions{}
-		if request.Request.Body != nil {
-			err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-			switch err {
-			case io.EOF, nil:
-				break
-			default:
-				writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s", err)), response)
-				return
-			}
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s", err)), response)
+			return
 		}
 		startPaused = bodyStruct.Paused
-		if startPaused {
-			startChangeRequestData[v1.StartRequestDataPausedKey] = v1.StartRequestDataPausedTrue
-		}
+	}
+	if startPaused {
+		startChangeRequestData[v1.StartRequestDataPausedKey] = v1.StartRequestDataPausedTrue
 	}
 
 	var patchErr error
@@ -496,13 +494,16 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
-	// RunStrategyHalted         -> spec.running = true
+	// RunStrategyHalted         -> spec.running = true / send start request for paused start
 	// RunStrategyManual         -> send start request
 	// RunStrategyAlways         -> doesn't make sense
 	// RunStrategyRerunOnFailure -> doesn't make sense
 	switch runStrategy {
 	case v1.RunStrategyHalted:
-		if startPaused {
+		pausedStartStrategy := v1.StartStrategyPaused
+		// Send start request if VM should start paused. virt-controller will update RunStrategy upon this request.
+		// No need to send the request if StartStrategy is already set to Paused in VMI Spec.
+		if startPaused && (vm.Spec.Template == nil || vm.Spec.Template.Spec.StartStrategy != &pausedStartStrategy) {
 			patchString, err := getChangeRequestJson(vm, v1.VirtualMachineStateChangeRequest{
 				Action: v1.StartRequest,
 				Data:   startChangeRequestData,

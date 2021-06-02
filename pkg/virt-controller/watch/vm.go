@@ -661,6 +661,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 
 	case virtv1.RunStrategyHalted:
 		// For this runStrategy, no VMI should be running under any circumstances.
+		// Set RunStrategyAlways/running = true if VM has StartRequest(start paused case).
 		if vmi == nil {
 			if len(vm.Status.StateChangeRequests) != 0 {
 				stateChange := vm.Status.StateChangeRequests[0]
@@ -788,15 +789,9 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 	vmi.Spec = vm.Spec.Template.Spec
 
-	if len(vm.Status.StateChangeRequests) != 0 {
-		stateChange := vm.Status.StateChangeRequests[0]
-		if stateChange.Action == virtv1.StartRequest {
-			paused, hasPaused := stateChange.Data[virtv1.StartRequestDataPausedKey]
-			if hasPaused && paused == virtv1.StartRequestDataPausedTrue {
-				strategy := virtv1.StartStrategyPaused
-				vmi.Spec.StartStrategy = &strategy
-			}
-		}
+	if hasStartPausedRequest(vm) {
+		strategy := virtv1.StartStrategyPaused
+		vmi.Spec.StartStrategy = &strategy
 	}
 
 	setupStableFirmwareUUID(vm, vmi)
@@ -808,6 +803,19 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	}
 
 	return vmi
+}
+
+func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {
+	if len(vm.Status.StateChangeRequests) != 0 {
+		stateChange := vm.Status.StateChangeRequests[0]
+		if stateChange.Action == virtv1.StartRequest {
+			paused, hasPaused := stateChange.Data[virtv1.StartRequestDataPausedKey]
+			if hasPaused && paused == virtv1.StartRequestDataPausedTrue {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // no special meaning, randomly generated on my box.
