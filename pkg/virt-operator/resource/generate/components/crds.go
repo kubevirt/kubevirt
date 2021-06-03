@@ -876,6 +876,32 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 							"severity": "warning",
 						},
 					},
+					{
+						Alert: "KubeVirtComponentExceedsRequestedMemory",
+						Expr:  intstr.FromString(fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="memory"}) - on(pod) group_left(node) container_memory_usage_bytes{namespace="%s"}) < 0`, ns, ns)),
+						For:   "5m",
+						Annotations: map[string]string{
+							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory usage exceeds the memory requested",
+							"summary":     "The container is using more memory than what is defined in the containers resource requests",
+						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
+					},
+					{
+						Alert: "KubeVirtComponentExceedsRequestedCPU",
+						Expr: intstr.FromString(
+							fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="cpu"}) - on(pod) group_left(node) node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate{namespace="%s"}) < 0`, ns, ns),
+						),
+						For: "5m",
+						Annotations: map[string]string{
+							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} cpu usage exceeds the CPU requested",
+							"summary":     "The container is using more CPU than what is defined in the containers resource requests",
+						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
+					},
 				},
 			},
 		},
