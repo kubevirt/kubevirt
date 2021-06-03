@@ -215,14 +215,14 @@ func (_mr *_MockNetworkHandlerRecorder) LinkSetMaster(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetMaster", arg0, arg1)
 }
 
-func (_m *MockNetworkHandler) StartDHCP(nic *cache.DhcpConfig, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
-	ret := _m.ctrl.Call(_m, "StartDHCP", nic, serverAddr, bridgeInterfaceName, dhcpOptions, filterByMAC)
+func (_m *MockNetworkHandler) StartDHCP(nic *cache.DhcpConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
+	ret := _m.ctrl.Call(_m, "StartDHCP", nic, bridgeInterfaceName, dhcpOptions, filterByMAC)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1, arg2, arg3, arg4)
+func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1, arg2, arg3)
 }
 
 func (_m *MockNetworkHandler) HasNatIptables(proto iptables.Protocol) bool {
