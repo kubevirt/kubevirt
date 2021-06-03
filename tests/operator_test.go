@@ -1054,7 +1054,7 @@ spec:
 
 					return pdb.Spec.Selector.MatchLabels["kubevirt.io"] != "dne"
 				}),
-			table.Entry("daemonsets",
+			table.Entry("[test_id:6308] daemonsets",
 				func() {
 					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1091,7 +1091,7 @@ spec:
 				}),
 		)
 
-		It("checking updating service is reverted to original state", func() {
+		It("[test_id:6309] checking updating service is reverted to original state", func() {
 			service, err := virtClient.CoreV1().Services(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
