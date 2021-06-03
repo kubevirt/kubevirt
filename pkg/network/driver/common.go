@@ -477,6 +477,7 @@ var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
 // filter out irrelevant routes
 func FilterPodNetworkRoutes(routes []netlink.Route, nic *cache.DhcpConfig) (filteredRoutes []netlink.Route) {
 	for _, route := range routes {
+		log.Log.V(5).Infof("route: %s", route.String())
 		// don't create empty static routes
 		if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
 			continue
