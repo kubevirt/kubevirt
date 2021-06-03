@@ -229,6 +229,7 @@ func (l *podNIC) PlugPhase1() error {
 
 		if l.dhcpConfigurator != nil {
 			dhcpConfig := bindMechanism.generateDhcpConfig()
+			log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
 			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
 				log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
 				return errors.CreateCriticalNetworkError(err)
@@ -287,6 +288,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		if err != nil || dhcpConfig == nil {
 			log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
 		}
+		log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
 		if err := l.dhcpConfigurator.EnsureDhcpServerStarted(l.podInterfaceName, *dhcpConfig, l.iface.DHCPOptions); err != nil {
 			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
 			panic(err)
@@ -447,6 +449,7 @@ func (b *BridgeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
 	}
 
 	if b.ipamEnabled && len(b.routes) > 0 {
+		log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.routes))
 		b.decorateDhcpConfigRoutes(dhcpConfig)
 	}
 	return dhcpConfig
@@ -581,6 +584,7 @@ func (b *BridgeBindMechanism) learnInterfaceRoutes() error {
 }
 
 func (b *BridgeBindMechanism) decorateDhcpConfigRoutes(dhcpConfig *cache.DhcpConfig) {
+	log.Log.V(4).Infof("the default route is: %s", b.routes[0].String())
 	dhcpConfig.Gateway = b.routes[0].Gw
 	if len(b.routes) > 1 {
 		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.routes, dhcpConfig)
