@@ -283,7 +283,7 @@ var _ = Describe("Node controller with", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		})
-		It("should set a vmi without a pod to failed state, triggered by vmi modify event", func() {
+		It("should set a vmi with an unhealthy pod to failed state, triggered by vmi modify event", func() {
 			node := NewUnhealthyNode("testnode")
 			vmi := NewRunningVirtualMachine("vmi1", node)
 

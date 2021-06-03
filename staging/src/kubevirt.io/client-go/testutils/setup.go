@@ -1,10 +1,12 @@
 package testutils
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
 
@@ -34,6 +36,9 @@ func KubeVirtTestSuiteSetup(t *testing.T, description string) {
 		testTarget := os.Getenv("TEST_TARGET")
 		if testTarget != "" {
 			description = testTarget
+		}
+		if config.GinkgoConfig.ParallelTotal > 1 {
+			outputFile = fmt.Sprintf("%s-%d", outputFile, config.GinkgoConfig.ParallelNode)
 		}
 
 		ginkgo.RunSpecsWithDefaultAndCustomReporters(

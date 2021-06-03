@@ -1334,7 +1334,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			},
 				table.Entry("When current phase is bound", v1.VolumeBound),
 				table.Entry("When current phase is pending", v1.VolumePending),
-				table.Entry("When current phase is bound", v1.HotplugVolumeAttachedToNode),
+				table.Entry("When current phase is bound for hotplug volume", v1.HotplugVolumeAttachedToNode),
 			)
 
 			table.DescribeTable("should generate an unmount event, when able to move to unmount", func(currentPhase v1.VolumePhase) {
@@ -1370,7 +1370,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			},
 				table.Entry("When current phase is bound", v1.VolumeReady),
 				table.Entry("When current phase is pending", v1.HotplugVolumeMounted),
-				table.Entry("When current phase is bound", v1.HotplugVolumeAttachedToNode),
+				table.Entry("When current phase is bound for hotplug volume", v1.HotplugVolumeAttachedToNode),
 			)
 
 			It("Should generate a ready event when target is assigned", func() {

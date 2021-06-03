@@ -26,3 +26,6 @@ build --define gotags=selinux
 
 # let our unit tests produce our own junit reports
 test --action_env=GO_TEST_WRAP=0
+
+test --test_tag_filters=-cov
+coverage --test_tag_filters=-nocov

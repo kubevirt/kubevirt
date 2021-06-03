@@ -1458,7 +1458,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("DeleteAllAttachmentPods should return success if there are no attachment pods", func() {
+		It("DeleteAllAttachmentPods should return success with existing attachment pods", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			attachmentPod1 := NewPodForVirtlauncher(virtlauncherPod, "pod1", "abcd", k8sv1.PodRunning)
@@ -1756,10 +1756,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			res := controller.volumeStatusContainsVolumeAndPod(volumeStatuses, volume)
 			Expect(res).To(Equal(expected))
 		},
-			table.Entry("should return if the volume with pod is in the status", makeVolumeStatuses(), &v1.Volume{
+			table.Entry("should return true if the volume with pod is in the status", makeVolumeStatuses(), &v1.Volume{
 				Name: "test-volume",
 			}, true),
-			table.Entry("should return if the volume with pod is in the status", makeVolumeStatuses(), &v1.Volume{
+			table.Entry("should return false if the volume with pod is in the status", makeVolumeStatuses(), &v1.Volume{
 				Name: "test-volume2",
 			}, false),
 		)
@@ -1997,9 +1997,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(res)).To(Equal(podCount))
 		},
-			table.Entry("should return number of pods passed in", 0),
-			table.Entry("should return number of pods passed in", 1),
-			table.Entry("should return number of pods passed in", 2),
+			table.Entry("should return number (0) of pods passed in", 0),
+			table.Entry("should return number (1) of pods passed in", 1),
+			table.Entry("should return number (2) of pods passed in", 2),
 		)
 
 		table.DescribeTable("getHotplugVolumes", func(virtlauncherVolumes []k8sv1.Volume, vmiVolumes []*v1.Volume, expectedIndexes ...int) {

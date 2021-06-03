@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
 
 go_library(
     name = "go_default_library",
@@ -34,6 +35,7 @@ go_test(
         "webhooks_suite_test.go",
     ],
     embed = [":go_default_library"],
+    tags = ["cov"],
     deps = [
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
@@ -48,4 +50,11 @@ go_test(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
     ],
+)
+
+ginkgo_test(
+    name = "go_parallel_test",
+    ginkgo_args = ["-p"],
+    go_test = ":go_default_test",
+    tags = ["nocov"],
 )
