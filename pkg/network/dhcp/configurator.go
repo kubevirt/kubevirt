@@ -52,6 +52,7 @@ func (d Configurator) ImportConfiguration(ifaceName string) (*cache.DhcpConfig, 
 		return nil, err
 	}
 	dhcpConfig.AdvertisingIPAddr = dhcpConfig.AdvertisingIPAddr.To4()
+	dhcpConfig.Gateway = dhcpConfig.Gateway.To4()
 	dhcpConfig.AdvertisingIPv6Addr = dhcpConfig.AdvertisingIPv6Addr.To16()
 	return dhcpConfig, nil
 }

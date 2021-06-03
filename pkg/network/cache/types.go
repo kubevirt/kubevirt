@@ -25,17 +25,19 @@ type DhcpConfig struct {
 	Routes              *[]netlink.Route
 	Mtu                 uint16
 	IPAMDisabled        bool
+	Gateway             net.IP
 }
 
 func (d DhcpConfig) String() string {
 	return fmt.Sprintf(
-		"DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: %t}",
+		"DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: %t}",
 		d.Name,
 		d.IP,
 		d.IPv6,
 		d.MAC,
 		d.AdvertisingIPAddr,
 		d.Mtu,
+		d.Gateway,
 		d.IPAMDisabled,
 	)
 }
