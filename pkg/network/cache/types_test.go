@@ -21,21 +21,23 @@ var _ = Describe("DhcpConfig", func() {
 	Context("String", func() {
 		It("returns correct string representation", func() {
 			dhcpConfig := createDummyDhcpConfig(vifName, ipv4Cidr, ipv4Gateway, "", mac, mtu)
-			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, mac, ipv4Gateway, mtu)))
+			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: false}", vifName, ipv4Cidr, mac, ipv4Gateway, mtu, ipv4Gateway)))
 		})
 		It("returns correct string representation with ipv6", func() {
 			dhcpConfig := createDummyDhcpConfig(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac, mtu)
-			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, ipv6Cidr, mac, ipv4Gateway, mtu)))
+			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: false}", vifName, ipv4Cidr, ipv6Cidr, mac, ipv4Gateway, mtu, ipv4Gateway)))
 		})
 		It("returns correct string representation when an IP is not defined", func() {
+			gw := net.ParseIP(ipv4Gateway)
 			macAddr, _ := net.ParseMAC(mac)
 			dhcpConfig := DhcpConfig{
 				Name:              vifName,
 				MAC:               macAddr,
-				AdvertisingIPAddr: net.ParseIP(ipv4Gateway),
+				AdvertisingIPAddr: gw,
 				Mtu:               mtu,
+				Gateway:           gw,
 			}
-			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: <nil>, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, mac, ipv4Gateway, mtu)))
+			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: <nil>, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: false}", vifName, mac, ipv4Gateway, mtu, ipv4Gateway)))
 		})
 	})
 })
@@ -48,6 +50,7 @@ func createDummyDhcpConfig(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr stri
 		MAC:               mac,
 		AdvertisingIPAddr: gw,
 		Mtu:               mtu,
+		Gateway:           gw,
 	}
 	if ipv4cidr != "" {
 		ipv4Addr, _ := netlink.ParseAddr(ipv4cidr)

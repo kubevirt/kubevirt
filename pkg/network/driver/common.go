@@ -382,7 +382,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DhcpConfig, serverAddr net.IP
 			nic.IP.Mask,
 			bridgeInterfaceName,
 			serverAddr,
-			nic.AdvertisingIPAddr,
+			nic.Gateway,
 			nameservers,
 			nic.Routes,
 			searchDomains,

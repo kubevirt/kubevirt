@@ -581,7 +581,7 @@ func (b *BridgeBindMechanism) learnInterfaceRoutes() error {
 }
 
 func (b *BridgeBindMechanism) decorateDhcpConfigRoutes(dhcpConfig *cache.DhcpConfig) {
-	dhcpConfig.AdvertisingIPAddr = b.routes[0].Gw
+	dhcpConfig.Gateway = b.routes[0].Gw
 	if len(b.routes) > 1 {
 		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.routes, dhcpConfig)
 		dhcpConfig.Routes = &dhcpRoutes
@@ -765,6 +765,7 @@ func (b *MasqueradeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
 	}
 	if b.gatewayAddr != nil {
 		dhcpConfig.AdvertisingIPAddr = b.gatewayAddr.IP.To4()
+		dhcpConfig.Gateway = b.gatewayAddr.IP.To4()
 	}
 	if b.gatewayIpv6Addr != nil {
 		dhcpConfig.AdvertisingIPv6Addr = b.gatewayIpv6Addr.IP.To16()
