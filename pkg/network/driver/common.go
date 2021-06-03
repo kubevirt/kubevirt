@@ -69,7 +69,7 @@ type NetworkHandler interface {
 	SetRandomMac(iface string) (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
-	StartDHCP(nic *cache.DhcpConfig, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error
+	StartDHCP(nic *cache.DhcpConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error
 	HasNatIptables(proto iptables.Protocol) bool
 	IsIpv6Enabled(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
@@ -365,7 +365,7 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 	return currentMac, nil
 }
 
-func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DhcpConfig, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
+func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DhcpConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
 	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod()
 	if err != nil {
@@ -381,7 +381,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DhcpConfig, serverAddr net.IP
 			nic.IP.IP,
 			nic.IP.Mask,
 			bridgeInterfaceName,
-			serverAddr,
+			nic.AdvertisingIPAddr,
 			nic.Gateway,
 			nameservers,
 			nic.Routes,
