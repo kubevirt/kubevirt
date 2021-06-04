@@ -51,6 +51,21 @@ The total amount of unused memory as seen by the domain.
 
 The amount of traffic that is being read and written in swap memory.
 
+#### kubevirt_migrate_vmi_data_remaining_bytes
+#### HELP kubevirt_migrate_vmi_data_remaining_bytes The remaining VM data to be migrated.
+
+The remaining Guest OS data to be migrated to the new VM.
+
+#### kubevirt_migrate_vmi_data_processed_bytes
+#### HELP kubevirt_migrate_vmi_data_processed_bytes The total VM data processed and migrated.
+
+The total Guest OS data processed and migrated to the new VM.
+
+#### kubevirt_migrate_vmi_dirty_memory_rate_bytes
+#### HELP kubevirt_migrate_vmi_dirty_memory_rate_bytes The rate at which the memory is getting dirty in the VM being Migrated.
+
+The rate of memory being dirtied in the Guest OS.
+
 Extra labels:
 * `type` - Whether the data is being transmitted or received. `in` when transmitting and `out` when receiving.
 

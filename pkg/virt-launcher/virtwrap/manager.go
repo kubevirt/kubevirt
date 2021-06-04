@@ -127,6 +127,7 @@ type LibvirtDomainManager struct {
 	ovmfPath                 string
 	networkCacheStoreFactory cache.InterfaceCacheFactory
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
+	migrateInfoStats         *stats.DomainJobInfo
 }
 
 type hostDeviceTypePrefix struct {
@@ -170,6 +171,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		ovmfPath:                 ovmfPath,
 		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
+		migrateInfoStats:         &stats.DomainJobInfo{},
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
@@ -1301,7 +1303,7 @@ func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
 
-	return l.virConn.GetDomainStats(statsTypes, flags)
+	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
 }
 
 func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) ([]cloudinit.DeviceData, error) {

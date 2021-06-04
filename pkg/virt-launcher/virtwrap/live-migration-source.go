@@ -43,6 +43,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -540,13 +542,14 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 	return nil
 }
 
-func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflightMigrationAborted {
+func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) *inflightMigrationAborted {
 	logger := log.Log.Object(m.vmi)
 
 	// Migration is running
 	now := time.Now().UTC().UnixNano()
 	elapsed := now - m.start
 
+	m.l.migrateInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
 	if (m.progressWatermark == 0) ||
 		(m.progressWatermark > m.remainingData) {
 		m.progressWatermark = m.remainingData
@@ -641,6 +644,13 @@ func (m *migrationMonitor) startMonitor() {
 	m.lastProgressUpdate = m.start
 
 	logger := log.Log.Object(vmi)
+	defer func() {
+		m.l.migrateInfoStats = &stats.DomainJobInfo{
+			DataProcessed: 0,
+			DataRemaining: 0,
+			MemDirtyRate:  0,
+		}
+	}()
 
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.l.virConn.LookupDomainByName(domName)
@@ -680,7 +690,7 @@ func (m *migrationMonitor) startMonitor() {
 		m.remainingData = int64(stats.DataRemaining)
 		switch stats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
-			aborted := m.processInflightMigration(dom)
+			aborted := m.processInflightMigration(dom, stats)
 			if aborted != nil {
 				logger.Errorf("Live migration abort detected with reason: %s", aborted.message)
 				m.l.setMigrationResult(vmi, true, aborted.message, aborted.abortStatus)
