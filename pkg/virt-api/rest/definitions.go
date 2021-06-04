@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"strings"
 
+	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
+
 	restful "github.com/emicklei/go-restful"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,6 +42,7 @@ func ComposeAPIDefinitions() []*restful.WebService {
 	for _, f := range []func() []*restful.WebService{
 		kubevirtApiServiceDefinitions,
 		snapshotApiServiceDefinitions,
+		flavorApiServiceDefinitions,
 	} {
 		result = append(result, f()...)
 	}
@@ -126,6 +129,28 @@ func snapshotApiServiceDefinitions() []*restful.WebService {
 	if err != nil {
 		panic(err)
 	}
+	return []*restful.WebService{ws, ws2}
+}
+
+func flavorApiServiceDefinitions() []*restful.WebService {
+	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineflavors")
+	//clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineclusterflavors")
+
+	ws, err := GroupVersionProxyBase(flavorv1alpha1.SchemeGroupVersion)
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericResourceProxy(ws, flavorGVR, &flavorv1alpha1.VirtualMachineFlavor{}, "VirtualMachineFlavor", &flavorv1alpha1.VirtualMachineFlavorList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err := ResourceProxyAutodiscovery(flavorGVR)
+	if err != nil {
+		panic(err)
+	}
+
 	return []*restful.WebService{ws, ws2}
 }
 
