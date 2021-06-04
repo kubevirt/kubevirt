@@ -2690,9 +2690,20 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
+func vmiHasTerminationGracePeriod(vmi *v1.VirtualMachineInstance) bool {
+	// if not set we use the default graceperiod
+	return vmi.Spec.TerminationGracePeriodSeconds == nil ||
+		(vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds != 0)
+}
+
+func domainHasGracePeriod(domain *api.Domain) bool {
+	return domain != nil &&
+		domain.Spec.Metadata.KubeVirt.GracePeriod != nil &&
+		domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds != 0
+}
+
 func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
-	zero := int64(0)
-	return vmi.Spec.TerminationGracePeriodSeconds != &zero &&
+	return (vmiHasTerminationGracePeriod(vmi) || (vmi.Spec.TerminationGracePeriodSeconds == nil && domainHasGracePeriod(domain))) &&
 		domain != nil &&
 		domain.Spec.Features != nil &&
 		domain.Spec.Features.ACPI != nil
