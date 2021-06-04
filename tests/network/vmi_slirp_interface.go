@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial]Slirp Networking", func() {
+var _ = SIGDescribe("[BLOCK_0][Serial]Slirp Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
