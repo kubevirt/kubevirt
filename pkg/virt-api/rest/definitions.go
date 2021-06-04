@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 )
@@ -40,6 +41,7 @@ func ComposeAPIDefinitions() []*restful.WebService {
 	for _, f := range []func() []*restful.WebService{
 		kubevirtApiServiceDefinitions,
 		snapshotApiServiceDefinitions,
+		flavorApiServiceDefinitions,
 	} {
 		result = append(result, f()...)
 	}
@@ -60,31 +62,31 @@ func kubevirtApiServiceDefinitions() []*restful.WebService {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, kubeVirtGVR, &v1.KubeVirt{}, v1.KubeVirtGroupVersionKind.Kind, &v1.KubeVirtList{})
+	ws, err = GenericNamespacedResourceProxy(ws, kubeVirtGVR, &v1.KubeVirt{}, v1.KubeVirtGroupVersionKind.Kind, &v1.KubeVirtList{})
 	if err != nil {
 		panic(err)
 	}
-	ws, err = GenericResourceProxy(ws, vmiGVR, &v1.VirtualMachineInstance{}, v1.VirtualMachineInstanceGroupVersionKind.Kind, &v1.VirtualMachineInstanceList{})
-	if err != nil {
-		panic(err)
-	}
-
-	ws, err = GenericResourceProxy(ws, vmirsGVR, &v1.VirtualMachineInstanceReplicaSet{}, v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineInstanceReplicaSetList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmiGVR, &v1.VirtualMachineInstance{}, v1.VirtualMachineInstanceGroupVersionKind.Kind, &v1.VirtualMachineInstanceList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, vmipGVR, &v1.VirtualMachineInstancePreset{}, v1.VirtualMachineInstancePresetGroupVersionKind.Kind, &v1.VirtualMachineInstancePresetList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmirsGVR, &v1.VirtualMachineInstanceReplicaSet{}, v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineInstanceReplicaSetList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmipGVR, &v1.VirtualMachineInstancePreset{}, v1.VirtualMachineInstancePresetGroupVersionKind.Kind, &v1.VirtualMachineInstancePresetList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, migrationGVR, &v1.VirtualMachineInstanceMigration{}, v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind, &v1.VirtualMachineInstanceMigrationList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericNamespacedResourceProxy(ws, migrationGVR, &v1.VirtualMachineInstanceMigration{}, v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind, &v1.VirtualMachineInstanceMigrationList{})
 	if err != nil {
 		panic(err)
 	}
@@ -107,17 +109,17 @@ func snapshotApiServiceDefinitions() []*restful.WebService {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, vmsGVR, &snapshotv1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1.VirtualMachineSnapshotList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmsGVR, &snapshotv1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1.VirtualMachineSnapshotList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, vmscGVR, &snapshotv1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1.VirtualMachineSnapshotContentList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmscGVR, &snapshotv1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1.VirtualMachineSnapshotContentList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, vmrGVR, &snapshotv1.VirtualMachineRestore{}, "VirtualMachineRestore", &snapshotv1.VirtualMachineRestoreList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmrGVR, &snapshotv1.VirtualMachineRestore{}, "VirtualMachineRestore", &snapshotv1.VirtualMachineRestoreList{})
 	if err != nil {
 		panic(err)
 	}
@@ -126,6 +128,33 @@ func snapshotApiServiceDefinitions() []*restful.WebService {
 	if err != nil {
 		panic(err)
 	}
+	return []*restful.WebService{ws, ws2}
+}
+
+func flavorApiServiceDefinitions() []*restful.WebService {
+	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineflavors")
+	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineclusterflavors")
+
+	ws, err := GroupVersionProxyBase(flavorv1alpha1.SchemeGroupVersion)
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericNamespacedResourceProxy(ws, flavorGVR, &flavorv1alpha1.VirtualMachineFlavor{}, "VirtualMachineFlavor", &flavorv1alpha1.VirtualMachineFlavorList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericClusterResourceProxy(ws, clusterFlavorGVR, &flavorv1alpha1.VirtualMachineClusterFlavor{}, "VirtualMachineClusterFlavor", &flavorv1alpha1.VirtualMachineClusterFlavorList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err := ResourceProxyAutodiscovery(flavorGVR)
+	if err != nil {
+		panic(err)
+	}
+
 	return []*restful.WebService{ws, ws2}
 }
 
@@ -145,31 +174,31 @@ func GroupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) 
 	return ws, nil
 }
 
-func GenericResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
+func GenericNamespacedResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
 
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
 	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
 
 	ws.Route(addNamespaceParam(ws,
-		createOperation(ws, ResourceBasePath(gvr), objExample).
+		createOperation(ws, NamespacedResourceBasePath(gvr), objExample).
 			Operation("createNamespaced"+objKind).
 			Doc("Create a "+objKind+" object."),
 	))
 
 	ws.Route(addNamespaceParam(ws,
-		replaceOperation(ws, ResourcePath(gvr), objExample).
+		replaceOperation(ws, NamespacedResourcePath(gvr), objExample).
 			Operation("replaceNamespaced"+objKind).
 			Doc("Update a "+objKind+" object."),
 	))
 
 	ws.Route(addNamespaceParam(ws,
-		deleteOperation(ws, ResourcePath(gvr)).
+		deleteOperation(ws, NamespacedResourcePath(gvr)).
 			Operation("deleteNamespaced"+objKind).
 			Doc("Delete a "+objKind+" object."),
 	))
 
 	ws.Route(addNamespaceParam(ws,
-		readOperation(ws, ResourcePath(gvr), objExample).
+		readOperation(ws, NamespacedResourcePath(gvr), objExample).
 			Operation("readNamespaced"+objKind).
 			Doc("Get a "+objKind+" object."),
 	))
@@ -181,7 +210,7 @@ func GenericResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResourc
 	)
 
 	ws.Route(addNamespaceParam(ws,
-		patchOperation(ws, ResourcePath(gvr), objExample).
+		patchOperation(ws, NamespacedResourcePath(gvr), objExample).
 			Operation("patchNamespaced"+objKind).
 			Doc("Patch a "+objKind+" object."),
 	))
@@ -195,20 +224,77 @@ func GenericResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResourc
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
 	ws.Route(addNamespaceParam(ws,
-		watchOperation(ws, "/watch"+ResourceBasePath(gvr)).
+		watchOperation(ws, "/watch"+NamespacedResourceBasePath(gvr)).
 			Operation("watchNamespaced"+objKind).
 			Doc("Watch a "+objKind+" object."),
 	))
 
 	ws.Route(addNamespaceParam(ws,
-		listOperation(ws, ResourceBasePath(gvr), listExample).
+		listOperation(ws, NamespacedResourceBasePath(gvr), listExample).
 			Operation("listNamespaced"+objKind).
 			Doc("Get a list of "+objKind+" objects."),
 	))
 
 	ws.Route(
-		deleteCollectionOperation(ws, ResourceBasePath(gvr)).
+		deleteCollectionOperation(ws, NamespacedResourceBasePath(gvr)).
 			Operation("deleteCollectionNamespaced" + objKind).
+			Doc("Delete a collection of " + objKind + " objects."),
+	)
+
+	return ws, nil
+}
+
+func GenericClusterResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
+
+	objExample := reflect.ValueOf(objPointer).Elem().Interface()
+	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
+
+	ws.Route(
+		createOperation(ws, ClusterResourceBasePath(gvr), objExample).
+			Operation("create" + objKind).
+			Doc("Create a " + objKind + " object."),
+	)
+
+	ws.Route(
+		replaceOperation(ws, ClusterResourcePath(gvr), objExample).
+			Operation("replace" + objKind).
+			Doc("Update a " + objKind + " object."),
+	)
+
+	ws.Route(
+		deleteOperation(ws, ClusterResourcePath(gvr)).
+			Operation("delete" + objKind).
+			Doc("Delete a " + objKind + " object."),
+	)
+
+	ws.Route(
+		readOperation(ws, ClusterResourcePath(gvr), objExample).
+			Operation("read" + objKind).
+			Doc("Get a " + objKind + " object."),
+	)
+
+	ws.Route(
+		listOperation(ws, gvr.Resource, listExample).
+			Operation("list" + objKind).
+			Doc("Get a list of " + objKind + " objects."),
+	)
+
+	ws.Route(
+		patchOperation(ws, ClusterResourcePath(gvr), objExample).
+			Operation("patch" + objKind).
+			Doc("Patch a " + objKind + " object."),
+	)
+
+	// TODO, implement watch. For now it is here to provide swagger doc only
+	ws.Route(
+		watchOperation(ws, "/watch/"+gvr.Resource).
+			Operation("watch" + objKind + "ListForAllNamespaces").
+			Doc("Watch a " + objKind + "List object."),
+	)
+
+	ws.Route(
+		deleteCollectionOperation(ws, ClusterResourceBasePath(gvr)).
+			Operation("deleteCollection" + objKind).
 			Doc("Delete a collection of " + objKind + " objects."),
 	)
 
@@ -436,12 +522,20 @@ func GroupVersionBasePath(gvr schema.GroupVersion) string {
 	return fmt.Sprintf("/apis/%s/%s", gvr.Group, gvr.Version)
 }
 
-func ResourceBasePath(gvr schema.GroupVersionResource) string {
+func NamespacedResourceBasePath(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s", gvr.Resource)
 }
 
-func ResourcePath(gvr schema.GroupVersionResource) string {
+func NamespacedResourcePath(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
+}
+
+func ClusterResourceBasePath(gvr schema.GroupVersionResource) string {
+	return gvr.Resource
+}
+
+func ClusterResourcePath(gvr schema.GroupVersionResource) string {
+	return fmt.Sprintf("%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
 }
 
 func SubResourcePath(subResource string) string {
