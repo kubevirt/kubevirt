@@ -42,15 +42,15 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 )
 
 const (
-	guestDiskIdPrefix      = "scsi-0QEMU_QEMU_HARDDISK_"
 	virtCtlNamespace       = "--namespace"
 	virtCtlVolumeName      = "--volume-name=%s"
-	verifyCannotAccessDisk = "ls: cannot access '%s'"
+	verifyCannotAccessDisk = "ls: %s: No such file or directory"
 
 	waitDiskTemplateError         = "waiting on new disk to appear in template"
 	waitVolumeTemplateError       = "waiting on new volume to appear in template"
@@ -392,7 +392,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
 			if _, ok := nameMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil {
 				Expect(volumeStatus.Target).ToNot(BeEmpty())
-				res = append(res, fmt.Sprintf("/dev/disk/by-id/%s%s", guestDiskIdPrefix, volumeStatus.Name))
+				res = append(res, fmt.Sprintf("/dev/%s", volumeStatus.Target))
 			}
 		}
 		return res
@@ -404,7 +404,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Skip("Skip no local wffc storage class available")
 		}
 
-		template := tests.NewRandomFedoraVMI()
+		template := libvmi.NewCirros()
 		vm := createVirtualMachine(true, template)
 		Eventually(func() bool {
 			vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
@@ -425,7 +425,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	getVmiConsoleAndLogin := func(vmi *kubevirtv1.VirtualMachineInstance) {
 		By("Obtaining the serial console")
-		Expect(console.LoginToFedora(vmi)).To(Succeed())
+		Expect(console.LoginToCirros(vmi)).To(Succeed())
 	}
 
 	createDataVolumeAndWaitForImport := func(sc string, volumeMode corev1.PersistentVolumeMode) *cdiv1.DataVolume {
@@ -508,6 +508,8 @@ var _ = SIGDescribe("Hotplug", func() {
 			for _, volumeName := range dvNames {
 				By("removing volume " + volumeName + " from VM")
 				removeVolumeFunc(vm.Name, vm.Namespace, volumeName)
+			}
+			for _, volumeName := range dvNames {
 				verifyVolumeNolongerAccessible(vmi, volumeName)
 			}
 		},
@@ -547,7 +549,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Skip("Skip OCS tests when Ceph is not present")
 				}
 
-				template := tests.NewRandomFedoraVMI()
+				template := libvmi.NewCirros()
 				node := findCPUManagerWorkerNode()
 				if node != "" {
 					template.Spec.NodeSelector = make(map[string]string)
@@ -620,13 +622,15 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumeAndDiskVMIAdded(vmi, testVolumes...)
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes...)
 				targets := verifyHotplugAttachedAndUseable(vmi, testVolumes)
-				for i, volumeName := range testVolumes {
+				for _, volumeName := range testVolumes {
 					By("removing volume " + volumeName + " from VM")
 					removeVolumeFunc(vm.Name, vm.Namespace, volumeName)
 					if !vmiOnly {
 						By("Verifying the volume no longer exists in VM")
 						verifyVolumeAndDiskVMRemoved(vm, volumeName)
 					}
+				}
+				for i := range testVolumes {
 					verifyVolumeNolongerAccessible(vmi, targets[i])
 				}
 			},
@@ -914,7 +918,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			// Setup second PVC to use in this context
 			pvNode := tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
 			tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
-			template := tests.NewRandomFedoraVMIWithGuestAgent()
+			template := libvmi.NewCirros()
 			if pvNode != "" {
 				template.Spec.NodeSelector = make(map[string]string)
 				template.Spec.NodeSelector[corev1.LabelHostname] = pvNode
