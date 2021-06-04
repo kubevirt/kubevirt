@@ -39,7 +39,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[sig-compute]Guest Access Credentials", func() {
+var _ = Describe("[BLOCK_100][sig-compute]Guest Access Credentials", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
