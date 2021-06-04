@@ -25,10 +25,9 @@ import (
 	"strings"
 	"time"
 
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/vms"
+	vms "kubevirt.io/kubevirt/pkg/monitoring/domainstats"
 
 	libvirt "libvirt.org/libvirt-go"
 
@@ -39,7 +38,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
-	"kubevirt.io/kubevirt/pkg/controller"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -52,33 +50,13 @@ var (
 	labelFormatter = strings.NewReplacer(".", "_", "/", "_", "-", "_")
 
 	// Preffixes used when transforming K8s metadata into metric labels
-	labelPrefix      = "kubernetes_vmi_label_"
-	annotationPrefix = "vm.kubevirt.io/"
+	labelPrefix = "kubernetes_vmi_label_"
 
 	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
 	versionDesc = prometheus.NewDesc(
 		"kubevirt_info",
 		"Version information",
 		[]string{"goversion", "kubeversion"},
-		nil,
-	)
-
-	// higher-level, telemetry-friendly metrics
-	vmiCountDesc = prometheus.NewDesc(
-		"kubevirt_vmi_phase_count",
-		"VMI phase.",
-		[]string{
-			"node", "phase", "os", "workload", "flavor",
-		},
-		nil,
-	)
-
-	vmiEvictionBlockerDesc = prometheus.NewDesc(
-		"kubevirt_vmi_non_evictable",
-		"Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
-		[]string{
-			"node", "namespace", "name",
-		},
 		nil,
 	)
 )
@@ -449,94 +427,6 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 	}
 }
 
-type vmiCountMetric struct {
-	Phase    string
-	OS       string
-	Workload string
-	Flavor   string
-}
-
-func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string) {
-	if val, ok := annotations[annotationPrefix+"os"]; ok {
-		vmc.OS = val
-	}
-
-	if val, ok := annotations[annotationPrefix+"workload"]; ok {
-		vmc.Workload = val
-	}
-
-	if val, ok := annotations[annotationPrefix+"flavor"]; ok {
-		vmc.Flavor = val
-	}
-}
-
-func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
-	vmc := vmiCountMetric{
-		Phase:    strings.ToLower(string(vmi.Status.Phase)),
-		OS:       "<none>",
-		Workload: "<none>",
-		Flavor:   "<none>",
-	}
-	vmc.UpdateFromAnnotations(vmi.Annotations)
-	return vmc
-}
-
-func makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance) map[vmiCountMetric]uint64 {
-	countMap := make(map[vmiCountMetric]uint64)
-
-	for _, vmi := range vmis {
-		vmc := newVMICountMetric(vmi)
-		countMap[vmc]++
-	}
-	return countMap
-}
-
-func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
-	countMap := makeVMICountMetricMap(vmis)
-
-	for vmc, count := range countMap {
-		mv, err := prometheus.NewConstMetric(
-			vmiCountDesc, prometheus.GaugeValue,
-			float64(count),
-			nodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor,
-		)
-		if err != nil {
-			continue
-		}
-		ch <- mv
-	}
-}
-
-func updateVMIEvictionBlocker(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
-	for _, vmi := range vmis {
-		mv, err := prometheus.NewConstMetric(
-			vmiEvictionBlockerDesc, prometheus.GaugeValue,
-			checkNonEvictableVMAndSetMetric(vmi),
-			nodeName, vmi.Namespace, vmi.Name,
-		)
-		if err != nil {
-			continue
-		}
-		ch <- mv
-	}
-}
-
-func checkNonEvictableVMAndSetMetric(vmi *k6tv1.VirtualMachineInstance) float64 {
-	setVal := 0.0
-	if vmi.IsEvictable() {
-		vmiIsMigratableCond := controller.NewVirtualMachineInstanceConditionManager().
-			GetCondition(vmi, k6tv1.VirtualMachineInstanceIsMigratable)
-
-		//As this metric is used for user alert we refer to be conservative - so if the VirtualMachineInstanceIsMigratable
-		//condition is still not set we treat the VM as if it's "not migratable"
-		if vmiIsMigratableCond == nil || vmiIsMigratableCond.Status == k8sv1.ConditionFalse {
-			setVal = 1.0
-		}
-
-	}
-	return setVal
-}
-
 func updateVersion(ch chan<- prometheus.Metric) {
 	verinfo := version.Get()
 	ch <- prometheus.MustNewConstMetric(
@@ -546,33 +436,33 @@ func updateVersion(ch chan<- prometheus.Metric) {
 	)
 }
 
-type Collector struct {
-	virtCli       kubecli.KubevirtClient
+type DomainStatsCollector struct {
 	virtShareDir  string
 	nodeName      string
 	concCollector *vms.ConcurrentCollector
 	vmiInformer   cache.SharedIndexInformer
 }
 
-func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) *Collector {
-	log.Log.Infof("Starting collector: node name=%v", nodeName)
-	co := &Collector{
-		virtCli:       virtCli,
+// aggregates to virt-launcher
+func SetupDomainStatsCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) *DomainStatsCollector {
+	log.Log.Infof("Starting domain stats collector: node name=%v", nodeName)
+	co := &DomainStatsCollector{
 		virtShareDir:  virtShareDir,
 		nodeName:      nodeName,
 		concCollector: vms.NewConcurrentCollector(MaxRequestsInFlight),
 		vmiInformer:   vmiInformer,
 	}
+
 	prometheus.MustRegister(co)
 	return co
 }
 
-func (co *Collector) Describe(_ chan<- *prometheus.Desc) {
+func (co *DomainStatsCollector) Describe(_ chan<- *prometheus.Desc) {
 	// TODO: Use DescribeByCollect?
 }
 
 // Note that Collect could be called concurrently
-func (co *Collector) Collect(ch chan<- prometheus.Metric) {
+func (co *DomainStatsCollector) Collect(ch chan<- prometheus.Metric) {
 	updateVersion(ch)
 
 	cachedObjs := co.vmiInformer.GetIndexer().List()
@@ -589,9 +479,6 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 
 	scraper := &prometheusScraper{ch: ch}
 	co.concCollector.Collect(vmis, scraper, PrometheusCollectionTimeout)
-
-	updateVMIsPhase(co.nodeName, vmis, ch)
-	updateVMIEvictionBlocker(co.nodeName, vmis, ch)
 	return
 }
 

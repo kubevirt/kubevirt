@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	fake "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"
-	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus" // import for prometheus metrics
+	domainstats "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus" // import for prometheus metrics
+	fake "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus"
 	_ "kubevirt.io/kubevirt/pkg/virt-controller/watch"
 )
 
@@ -21,7 +21,7 @@ func main() {
 
 	recorder := httptest.NewRecorder()
 
-	handler := promvm.Handler(1)
+	handler := domainstats.Handler(1)
 
 	fake.RegisterFakeCollector()
 

@@ -15,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	metricspkg "kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/metrics"
-	"kubevirt.io/kubevirt/pkg/monitoring/vms"
+	vms "kubevirt.io/kubevirt/pkg/monitoring/domainstats"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"

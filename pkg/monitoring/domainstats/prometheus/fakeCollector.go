@@ -49,11 +49,11 @@ func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
 
 	vmi := k6tv1.VirtualMachineInstance{
 		Status: k6tv1.VirtualMachineInstanceStatus{
-			Phase: k6tv1.Running,
+			Phase:    k6tv1.Running,
+			NodeName: "test",
 		},
 	}
 	ps.Report("test", &vmi, &out)
-	updateVMIsPhase("test", []*k6tv1.VirtualMachineInstance{&vmi}, ch)
 }
 
 type fakeIdentifier struct {

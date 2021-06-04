@@ -524,7 +524,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 		var preparedVMIs []*v1.VirtualMachineInstance
 		var pod *k8sv1.Pod
-		var metricsIPs []string
+		var handlerMetricIPs []string
+		var controllerMetricIPs []string
 
 		pinVMIOnNode := func(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
 			if vmi == nil {
@@ -614,6 +615,15 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
+			By("Finding the virt-controller prometheus endpoint")
+			virtControllerLeaderPodName := getLeader()
+			leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
+
+			for _, ip := range leaderPod.Status.PodIPs {
+				controllerMetricIPs = append(controllerMetricIPs, ip.IP)
+			}
+
 			// The initial test for the metrics subsystem used only a single VM for the sake of simplicity.
 			// However, testing a single entity is a corner case (do we test handling sequences? potential clashes
 			// in maps? and so on).
@@ -624,11 +634,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			// any node is fine, we don't really care, as long as we run all VMIs on it.
 			prepareVMIForTests(nodeName)
 
-			By("Finding the prometheus endpoint")
+			By("Finding the virt-handler prometheus endpoint")
 			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 			for _, ip := range pod.Status.PodIPs {
-				metricsIPs = append(metricsIPs, ip.IP)
+				handlerMetricIPs = append(handlerMetricIPs, ip.IP)
 			}
 		})
 
@@ -759,7 +769,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
-			ip := getSupportedIP(metricsIPs, family)
+			ip := getSupportedIP(handlerMetricIPs, family)
 
 			if netutils.IsIPv6String(ip) {
 				Skip("Skip testing with IPv6 until https://github.com/kubevirt/kubevirt/issues/4145 is fixed")
@@ -807,7 +817,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
-			ip := getSupportedIP(metricsIPs, family)
+			ip := getSupportedIP(handlerMetricIPs, family)
 
 			By("Scraping the Prometheus endpoint")
 			Eventually(func() string {
@@ -825,7 +835,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
-			ip := getSupportedIP(metricsIPs, family)
+			ip := getSupportedIP(handlerMetricIPs, family)
 
 			metrics := collectMetrics(ip, metricSubstring)
 			By("Checking the collected metrics")
@@ -865,7 +875,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
-			ip := getSupportedIP(metricsIPs, family)
+			ip := getSupportedIP(handlerMetricIPs, family)
 
 			metrics := collectMetrics(ip, metricSubstring)
 			By("Checking the collected metrics")
@@ -893,7 +903,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
-			ip := getSupportedIP(metricsIPs, family)
+			ip := getSupportedIP(handlerMetricIPs, family)
 
 			metrics := collectMetrics(ip, "kubevirt_vmi_")
 			By("Checking the collected metrics")
@@ -932,7 +942,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
-			ip := getSupportedIP(metricsIPs, family)
+			ip := getSupportedIP(handlerMetricIPs, family)
 
 			metrics := collectMetrics(ip, "kubevirt_vmi_")
 			By("Checking the collected metrics")
@@ -953,7 +963,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
-			ip := getSupportedIP(metricsIPs, family)
+			ip := getSupportedIP(controllerMetricIPs, family)
 
 			metrics := collectMetrics(ip, "kubevirt_vmi_non_evictable")
 			By("Checking the collected metrics")
@@ -973,7 +983,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
-			ip := getSupportedIP(metricsIPs, family)
+			ip := getSupportedIP(handlerMetricIPs, family)
 
 			// Every VMI is labeled with kubevirt.io/nodeName, so just creating a VMI should
 			// be enough to its metrics to contain a kubernetes label
@@ -998,7 +1008,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
-			ip := getSupportedIP(metricsIPs, family)
+			ip := getSupportedIP(handlerMetricIPs, family)
 
 			metrics := collectMetrics(ip, "kubevirt_vmi_memory_swap_")
 			var in, out bool
