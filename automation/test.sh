@@ -161,6 +161,7 @@ if [[ $TARGET =~ windows.* ]]; then
 fi
 
 kubectl() { cluster-up/kubectl.sh "$@"; }
+cli() { cluster-up/cli.sh "$@"; }
 
 collect_debug_logs() {
     local containers
@@ -367,3 +368,19 @@ fi
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest
+
+# Run REST API coverage based on k8s audit log and openapi spec
+if [ -n "$RUN_REST_COVERAGE" ]; then
+  echo "Generating REST API coverage report"
+  wget https://github.com/mfranczy/crd-rest-coverage/releases/download/v0.1.3/rest-coverage -O _out/rest-coverage
+  chmod +x _out/rest-coverage
+  AUDIT_LOG_PATH=${AUDIT_LOG_PATH-/var/log/k8s-audit/k8s-audit.log}
+  log_dest="$ARTIFACTS_PATH/cluster-audit.log"
+  cli scp "$AUDIT_LOG_PATH" - > $log_dest
+  _out/rest-coverage \
+    --swagger-path "api/openapi-spec/swagger.json" \
+    --audit-log-path $log_dest \
+    --output-path "$ARTIFACTS_PATH/rest-coverage.json" \
+    --ignore-resource-version
+  echo "REST API coverage report generated"
+fi

@@ -31,6 +31,7 @@ cluster/local/certs
 *.crt
 *.csr
 _out
+exported-artifacts
 vendor/**/*_test.go
 **/polarion.xml
 .coverprofile*
