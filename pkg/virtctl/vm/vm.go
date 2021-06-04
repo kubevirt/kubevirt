@@ -48,7 +48,8 @@ const (
 	COMMAND_ADDVOLUME    = "addvolume"
 	COMMAND_REMOVEVOLUME = "removevolume"
 
-	volumeNameArg = "volume-name"
+	volumeNameArg         = "volume-name"
+	notDefinedGracePeriod = -1
 )
 
 var (
@@ -321,6 +322,10 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 	return nil
 }
 
+func gracePeriodIsSet(period int) bool {
+	return period != notDefinedGracePeriod
+}
+
 func (o *Command) Run(args []string) error {
 
 	vmiName := args[0]
@@ -342,16 +347,16 @@ func (o *Command) Run(args []string) error {
 			return fmt.Errorf("Error starting VirtualMachine %v", err)
 		}
 	case COMMAND_STOP:
-		if gracePeriod != -1 && forceRestart == false {
+		if gracePeriodIsSet(gracePeriod) && forceRestart == false {
 			return fmt.Errorf("Can not set gracePeriod without --force=true")
 		}
 		if forceRestart {
-			if gracePeriod != -1 {
+			if gracePeriodIsSet(gracePeriod) {
 				err = virtClient.VirtualMachine(namespace).ForceStop(vmiName, gracePeriod)
 				if err != nil {
 					return fmt.Errorf("Error force stoping VirtualMachine, %v", err)
 				}
-			} else if gracePeriod == -1 {
+			} else if !gracePeriodIsSet(gracePeriod) {
 				return fmt.Errorf("Can not force stop without gracePeriod")
 			}
 			break
