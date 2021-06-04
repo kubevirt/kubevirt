@@ -71,7 +71,7 @@ const (
 
 const ptpSubnet = "10.1.1.0/24"
 
-var _ = SIGDescribe("[Serial]Multus", func() {
+var _ = SIGDescribe("[BLOCK_0][Serial]Multus", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -622,7 +622,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 	})
 })
 
-var _ = Describe("[Serial]SRIOV", func() {
+var _ = Describe("[BLOCK_0][Serial]SRIOV", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -1041,7 +1041,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 	})
 })
 
-var _ = SIGDescribe("[Serial]Macvtap", func() {
+var _ = SIGDescribe("[BLOCK_0][Serial]Macvtap", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var macvtapLowerDevice string

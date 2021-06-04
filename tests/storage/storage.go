@@ -62,7 +62,7 @@ const (
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
 
-var _ = SIGDescribe("Storage", func() {
+var _ = SIGDescribe("[BLOCK_11]Storage", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
