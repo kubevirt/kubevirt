@@ -21,7 +21,6 @@ package containerdisk
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -193,7 +192,7 @@ func GetImage(root string, imagePath string) (string, error) {
 			}
 		}
 	} else {
-		files, err := ioutil.ReadDir(fallbackPath)
+		files, err := os.ReadDir(fallbackPath)
 		if err != nil {
 			return "", fmt.Errorf("Failed to check %s for disks: %v", fallbackPath, err)
 		}

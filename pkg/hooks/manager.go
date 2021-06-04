@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -89,7 +89,7 @@ func (m *Manager) collectSideCarSockets(numberOfRequestedHookSidecars uint, time
 	timeoutCh := time.After(timeout)
 
 	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
-		sockets, err := ioutil.ReadDir(m.hookSocketSharedDirectory)
+		sockets, err := os.ReadDir(m.hookSocketSharedDirectory)
 		if err != nil {
 			return nil, err
 		}

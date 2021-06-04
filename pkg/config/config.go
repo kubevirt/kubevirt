@@ -20,7 +20,7 @@
 package config
 
 import (
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 )
@@ -88,7 +88,7 @@ func setIsoCreationFunction(isoFunc isoCreationFunc) {
 
 func getFilesLayout(dirPath string) ([]string, error) {
 	var filesPath []string
-	files, err := ioutil.ReadDir(dirPath)
+	files, err := os.ReadDir(dirPath)
 	if err != nil {
 		return nil, err
 	}

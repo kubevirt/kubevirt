@@ -23,7 +23,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -196,7 +195,7 @@ func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir s
 		}
 
 		baseDir := filepath.Join(secretSourceDir, secretName+"-access-cred")
-		files, err := ioutil.ReadDir(baseDir)
+		files, err := os.ReadDir(baseDir)
 		if err != nil {
 			return keys, err
 		}
@@ -268,7 +267,7 @@ func findCloudInitConfigDriveSecretVolume(volumes []v1.Volume) *v1.Volume {
 func readFileFromDir(basedir, secretFile string) (string, error) {
 	userDataSecretFile := filepath.Join(basedir, secretFile)
 	// #nosec No risk for path injection: basedir & secretFile are static strings
-	userDataSecret, err := ioutil.ReadFile(userDataSecretFile)
+	userDataSecret, err := os.ReadFile(userDataSecretFile)
 	if err != nil {
 		log.Log.V(2).Reason(err).
 			Errorf("could not read secret data from source: %s", userDataSecretFile)
@@ -526,20 +525,20 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		return err
 	}
 
-	err = ioutil.WriteFile(userFile, userData, 0600)
+	err = os.WriteFile(userFile, userData, 0600)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(userFile)
 
-	err = ioutil.WriteFile(metaFile, metaData, 0600)
+	err = os.WriteFile(metaFile, metaData, 0600)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(metaFile)
 
 	if len(networkData) > 0 {
-		err = ioutil.WriteFile(networkFile, networkData, 0600)
+		err = os.WriteFile(networkFile, networkData, 0600)
 		if err != nil {
 			return err
 		}

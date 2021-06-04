@@ -23,7 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -503,7 +503,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 			}
 
 			secretDir := getSecretDir(secretName)
-			files, err := ioutil.ReadDir(secretDir)
+			files, err := os.ReadDir(secretDir)
 			if err != nil {
 				// if reading failed, reset reload to true so this change will be retried again
 				reload = true
@@ -529,7 +529,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 						continue
 					}
 
-					pubKeyBytes, err := ioutil.ReadFile(filepath.Join(secretDir, file.Name()))
+					pubKeyBytes, err := os.ReadFile(filepath.Join(secretDir, file.Name()))
 					if err != nil {
 						// if reading failed, reset reload to true so this change will be retried again
 						reload = true
@@ -552,7 +552,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 						continue
 					}
 
-					passwordBytes, err := ioutil.ReadFile(filepath.Join(secretDir, file.Name()))
+					passwordBytes, err := os.ReadFile(filepath.Join(secretDir, file.Name()))
 					if err != nil {
 						// if reading failed, reset reload to true so this change will be retried again
 						reload = true

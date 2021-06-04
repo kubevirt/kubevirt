@@ -22,7 +22,7 @@ package nodelabeller
 import (
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -130,7 +130,7 @@ func (n *NodeLabeller) loadHostCapabilities() error {
 
 //loadCPUInfo load info about all cpu models
 func (n *NodeLabeller) loadCPUInfo() error {
-	files, err := ioutil.ReadDir(filepath.Join(n.volumePath, "cpu_map"))
+	files, err := os.ReadDir(filepath.Join(n.volumePath, "cpu_map"))
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func getPathCPUFeatures(volumePath string, name string) string {
 //GetStructureFromXMLFile load data from xml file and unmarshals them into given structure
 //Given structure has to be pointer
 func (n *NodeLabeller) getStructureFromXMLFile(path string, structure interface{}) error {
-	rawFile, err := ioutil.ReadFile(path)
+	rawFile, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}

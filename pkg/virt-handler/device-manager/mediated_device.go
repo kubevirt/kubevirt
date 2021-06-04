@@ -21,7 +21,6 @@ package device_manager
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -302,9 +301,9 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 	initHandler()
 
 	mdevsMap := make(map[string][]*MDEV)
-	files, err := ioutil.ReadDir(mdevBasePath)
+	files, err := os.ReadDir(mdevBasePath)
 	for _, info := range files {
-		if info.Mode()&os.ModeSymlink == 0 {
+		if info.Type()&os.ModeSymlink == 0 {
 			continue
 		}
 		mdevTypeName, err := getMdevTypeName(info.Name())
@@ -415,7 +414,7 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 
 func getMdevTypeName(mdevUUID string) (string, error) {
 	// #nosec No risk for path injection. Path is composed from static base  "mdevBasePath" and static components
-	rawName, err := ioutil.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name"))
+	rawName, err := os.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			originFile, err := os.Readlink(filepath.Join(mdevBasePath, mdevUUID, "mdev_type"))
