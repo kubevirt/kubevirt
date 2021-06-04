@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial]Services", func() {
+var _ = SIGDescribe("[BLOCK_0][Serial]Services", func() {
 	var virtClient kubecli.KubevirtClient
 
 	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string, retries int32) *batchv1.Job {
