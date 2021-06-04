@@ -15,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[Serial][sig-compute]HostDevices", func() {
+var _ = Describe("[BLOCK_0][Serial][sig-compute]HostDevices", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
