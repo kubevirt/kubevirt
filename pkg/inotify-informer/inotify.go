@@ -21,7 +21,7 @@ package inotifyinformer
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -164,7 +164,7 @@ func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, err
 		return nil, err
 	}
 
-	files, err := ioutil.ReadDir(d.fileDir)
+	files, err := os.ReadDir(d.fileDir)
 	if err != nil {
 		d.Stop()
 		return nil, err

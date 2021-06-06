@@ -22,7 +22,6 @@ package cache
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -107,7 +106,7 @@ func InitializeGhostRecordCache(directoryPath string) error {
 		return err
 	}
 
-	files, err := ioutil.ReadDir(ghostRecordDir)
+	files, err := os.ReadDir(ghostRecordDir)
 	if err != nil {
 		return err
 	}
@@ -118,7 +117,7 @@ func InitializeGhostRecordCache(directoryPath string) error {
 		}
 		recordPath := filepath.Join(ghostRecordDir, file.Name())
 		// #nosec no risk for path injection. Used only for testing and using static location
-		fileBytes, err := ioutil.ReadFile(recordPath)
+		fileBytes, err := os.ReadFile(recordPath)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Unable to read ghost record file at path %s", recordPath)
 			continue

@@ -24,7 +24,7 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -186,7 +186,7 @@ func main() {
 	}
 
 	if *processFiles {
-		manifests, err := ioutil.ReadDir(*genDir)
+		manifests, err := os.ReadDir(*genDir)
 		if err != nil {
 			panic(err)
 		}
@@ -195,7 +195,7 @@ func main() {
 			if manifest.IsDir() {
 				continue
 			}
-			b, err := ioutil.ReadFile(filepath.Join(*genDir, manifest.Name()))
+			b, err := os.ReadFile(filepath.Join(*genDir, manifest.Name()))
 			if err != nil {
 				panic(err)
 			}
@@ -294,7 +294,7 @@ func getKubeVirtLogo(path string) string {
 
 	// Read entire file into byte slice.
 	reader := bufio.NewReader(file)
-	content, err := ioutil.ReadAll(reader)
+	content, err := io.ReadAll(reader)
 	if err != nil {
 		panic(err)
 	}

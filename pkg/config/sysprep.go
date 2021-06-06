@@ -21,7 +21,7 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -50,7 +50,7 @@ func sysprepVolumeHasContents(sysprepVolume *v1.SysprepSource) bool {
 const sysprepFileName = "autounattend.xml"
 
 func validateAutounattendPresence(dirPath string) error {
-	files, err := ioutil.ReadDir(dirPath)
+	files, err := os.ReadDir(dirPath)
 	if err != nil {
 		return fmt.Errorf("Error validating %s presence: %w", sysprepFileName, err)
 	}

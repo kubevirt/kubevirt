@@ -28,7 +28,6 @@ package cmdclient
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/rpc"
 	"os"
@@ -130,7 +129,7 @@ func ListAllSockets() ([]string, error) {
 		return socketFiles, nil
 	}
 
-	files, err := ioutil.ReadDir(socketsDir)
+	files, err := os.ReadDir(socketsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +146,7 @@ func ListAllSockets() ([]string, error) {
 	}
 
 	podsDir := podsBaseDir
-	dirs, err := ioutil.ReadDir(podsDir)
+	dirs, err := os.ReadDir(podsDir)
 	if err != nil {
 		return nil, err
 	}

@@ -21,7 +21,6 @@ package watchdog
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +49,7 @@ func WatchdogFileGetUID(baseDir string, vmi *v1.VirtualMachineInstance) string {
 
 	filePath := WatchdogFileFromNamespaceName(baseDir, namespace, domain)
 	// #nosec No risk for path injection. Using static path and base path of "virtShareDir"
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 	if err != nil {
 		return ""
 	}
@@ -150,13 +149,18 @@ func getExpiredDomains(timeoutSeconds int, virtShareDir string, timeNow time.Tim
 		return domains, nil
 	}
 
-	files, err := ioutil.ReadDir(fileDir)
+	files, err := os.ReadDir(fileDir)
 	if err != nil {
 		return nil, err
 	}
 	now := timeNow.UTC().Unix()
 	for _, file := range files {
-		if isExpired(now, timeoutSeconds, file) == true {
+		fileInfo, err := file.Info()
+		if err != nil {
+			return nil, err
+		}
+
+		if isExpired(now, timeoutSeconds, fileInfo) == true {
 			key := file.Name()
 			namespace, name, err := splitFileNamespaceName(key)
 			if err != nil {

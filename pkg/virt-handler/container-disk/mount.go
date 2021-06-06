@@ -3,7 +3,6 @@ package container_disk
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -125,7 +124,7 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 	if exists {
 		record := vmiMountTargetRecord{}
 		// #nosec No risk for path injection. Using static base and cleaned filename
-		bytes, err := ioutil.ReadFile(recordFile)
+		bytes, err := os.ReadFile(recordFile)
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +171,7 @@ func (m *mounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *v
 		return err
 	}
 
-	err = ioutil.WriteFile(recordFile, bytes, 0600)
+	err = os.WriteFile(recordFile, bytes, 0600)
 	if err != nil {
 		return err
 	}
@@ -278,7 +277,7 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 func (m *mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
 	mountDir := containerdisk.GetLegacyVolumeMountDirOnHost(vmi)
 
-	files, err := ioutil.ReadDir(mountDir)
+	files, err := os.ReadDir(mountDir)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to list container disk mounts: %v", err)
 	}

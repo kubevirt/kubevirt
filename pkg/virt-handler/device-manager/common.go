@@ -25,7 +25,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -75,7 +74,7 @@ func (h *DeviceUtilsHandler) GetDeviceNumaNode(basepath string, pciAddress strin
 	numaNode = -1
 	numaNodePath := filepath.Join(basepath, pciAddress, "numa_node")
 	// #nosec No risk for path injection. Reading static path of NUMA node info
-	numaNodeStr, err := ioutil.ReadFile(numaNodePath)
+	numaNodeStr, err := os.ReadFile(numaNodePath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to read numa_node %s for device %s", numaNodePath, pciAddress)
 		return

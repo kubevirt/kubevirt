@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
@@ -20,7 +19,7 @@ func main() {
 
 	flag.Parse()
 
-	files, err := ioutil.ReadDir(*dirname)
+	files, err := os.ReadDir(*dirname)
 	if err != nil {
 		panic(fmt.Errorf("Error occurred reading directory, %v", err))
 	}
