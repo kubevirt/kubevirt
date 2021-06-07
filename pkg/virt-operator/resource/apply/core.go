@@ -535,10 +535,11 @@ func findRequiredCAConfigMap(configmaps []*corev1.ConfigMap) *corev1.ConfigMap {
 }
 
 func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue workqueue.RateLimitingInterface, caCert *tls.Certificate, overlapInterval *metav1.Duration) (bool, error) {
-	updateBundle := false
 	bundle, certCount, err := components.MergeCABundle(caCert, []byte(existing.Data[components.CABundleKey]), overlapInterval.Duration)
 	if err != nil {
-		return updateBundle, err
+		// the only error that can be returned form MergeCABundle is if the CA caBundle
+		// is unable to be parsed. If we can not parse it we should update it
+		return true, err
 	}
 
 	// ensure that we remove the old CA after the overlap period
@@ -546,6 +547,7 @@ func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue 
 		queue.AddAfter(key, overlapInterval.Duration)
 	}
 
+	updateBundle := false
 	required.Data = map[string]string{components.CABundleKey: string(bundle)}
 	if !reflect.DeepEqual(required.Data, existing.Data) {
 		updateBundle = true
@@ -583,7 +585,12 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 	existing := obj.(*corev1.ConfigMap)
 	updateBundle, err := shouldUpdateBundle(configMap, existing, r.kvKey, queue, caCert, overlapInterval)
 	if err != nil {
-		return nil, err
+		if !updateBundle {
+			return nil, err
+		}
+
+		configMap.Data = map[string]string{components.CABundleKey: string(cert.EncodeCertPEM(caCert.Leaf))}
+		log.Log.Reason(err).V(2).Infof("There was an error validating the CA bundle stored in configmap %s. We are updating the bundle.", configMap.GetName())
 	}
 
 	modified := resourcemerge.BoolPtr(false)
