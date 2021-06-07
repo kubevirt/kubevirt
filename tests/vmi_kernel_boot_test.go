@@ -41,6 +41,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 
 	Context("with external alpine-based kernel & initrd images", func() {
 		It("ensure successful boot", func() {
+			tests.SkipIfNonRoot(virtClient, "possitive case, needs https://github.com/kubevirt/kubevirtci/pull/613")
 			vmi := utils.GetVMIKernelBoot()
 			obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
