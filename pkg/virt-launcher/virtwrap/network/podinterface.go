@@ -204,56 +204,27 @@ func (l *podNIC) PlugPhase1() error {
 		return nil
 	}
 
-	cachedDomainIface, err := l.cachedDomainInterface()
+	err := l.setPodInterfaceCache()
 	if err != nil {
 		return err
 	}
 
-	doesExist := cachedDomainIface != nil
-	// ignore the bindMechanism.cachedDomainInterface for slirp and set the Pod interface cache
-	if !doesExist || l.iface.Slirp != nil {
-		err := l.setPodInterfaceCache()
-		if err != nil {
-			return err
-		}
-	}
-	if !doesExist {
-		bindMechanism, err := l.getPhase1Binding()
-		if err != nil {
-			return err
-		}
-
-		if err := bindMechanism.discoverPodNetworkInterface(l.podInterfaceName); err != nil {
-			return err
-		}
-
-		if l.dhcpConfigurator != nil {
-			dhcpConfig := bindMechanism.generateDhcpConfig()
-			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
-				log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
-				return errors.CreateCriticalNetworkError(err)
-			}
-		}
-
-		domainIface := bindMechanism.generateDomainIfaceSpec()
-		// preparePodNetworkInterface must be called *after* the generate
-		// methods since it mutates the pod interface from which those
-		// generator methods get their info from.
-		if err := bindMechanism.preparePodNetworkInterface(); err != nil {
-			log.Log.Reason(err).Error("failed to prepare pod networking")
-			return errors.CreateCriticalNetworkError(err)
-		}
-
-		// caching the domain interface *must* be the last thing done in phase
-		// 1, since retrieving it is the criteria to configure the pod
-		// networking infrastructure.
-		if err := l.storeCachedDomainIface(domainIface); err != nil {
-			log.Log.Reason(err).Error("failed to save interface configuration")
-			return errors.CreateCriticalNetworkError(err)
-		}
-
+	bindMechanism, err := l.getPhase1Binding()
+	if err != nil {
+		return err
 	}
 
+	if err := bindMechanism.discoverPodNetworkInterface(l.podInterfaceName); err != nil {
+		return err
+	}
+
+	// preparePodNetworkInterface must be called *after* the generate
+	// methods since it mutates the pod interface from which those
+	// generator methods get their info from.
+	if err := bindMechanism.preparePodNetworkInterface(); err != nil {
+		log.Log.Reason(err).Error("failed to prepare pod networking")
+		return errors.CreateCriticalNetworkError(err)
+	}
 	return nil
 }
 
@@ -265,28 +236,29 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return nil
 	}
 
-	domainIface, err := l.cachedDomainInterface()
-	if err != nil {
-		log.Log.Reason(err).Critical("failed to load cached interface configuration")
-	}
-	if domainIface == nil {
-		log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
-	}
-
 	bindMechanism, err := l.getPhase2Binding(domain)
 	if err != nil {
 		return err
 	}
 
-	if err := bindMechanism.decorateConfig(*domainIface); err != nil {
+	if err := bindMechanism.discoverPodNetworkInterface(l.podInterfaceName); err != nil {
+		return err
+	}
+
+	domainIface := bindMechanism.generateDomainIfaceSpec()
+
+	if err := bindMechanism.decorateConfig(domainIface); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
 	if l.dhcpConfigurator != nil {
-		dhcpConfig, err := l.dhcpConfigurator.ImportConfiguration(l.podInterfaceName)
-		if err != nil || dhcpConfig == nil {
-			log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
+		dhcpConfig := bindMechanism.generateDhcpConfig()
+		if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
+			log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
+			return errors.CreateCriticalNetworkError(err)
 		}
+		dhcpConfig.AdvertisingIPAddr = dhcpConfig.AdvertisingIPAddr.To4()
+		dhcpConfig.AdvertisingIPv6Addr = dhcpConfig.AdvertisingIPv6Addr.To16()
 		if err := l.dhcpConfigurator.EnsureDhcpServerStarted(l.podInterfaceName, *dhcpConfig, l.iface.DHCPOptions); err != nil {
 			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
 			panic(err)
