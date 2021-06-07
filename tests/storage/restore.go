@@ -732,7 +732,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("[QUARANTINE][test_id:6053]should restore a vm from an online snapshot", func() {
+			It("[test_id:6053]should restore a vm from an online snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithBlockDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
 					tests.NamespaceTestDefault,
@@ -745,8 +745,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}, 360, 10).Should(Succeed())
 
 				b := append([]expect.Batcher{
-					&expect.BSnd{S: "cat /var/run/resize.rootfs | grep resized\n"},
-					&expect.BExp{R: "resized successfully"},
+					&expect.BSnd{S: "grep -q resized /var/run/resize.rootfs \n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: expectReturn},
+					&expect.BExp{R: console.RetValue("0")},
 				})
 				Eventually(func() error {
 					return console.SafeExpectBatch(vmi, b, 10)
