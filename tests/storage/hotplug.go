@@ -549,6 +549,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		table.DescribeTable("Should be able to add and use WFFC local storage", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string)) {
+			tests.SkipIfNonRoot(virtClient, "root owned disk.img")
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
