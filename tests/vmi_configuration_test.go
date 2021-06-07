@@ -380,7 +380,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 
