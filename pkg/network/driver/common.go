@@ -76,6 +76,7 @@ type NetworkHandler interface {
 	ConfigureIpForwarding(proto iptables.Protocol) error
 	ConfigureIpv4ArpIgnore() error
 	ConfigurePingGroupRange() error
+	ConfigureFsFileMax() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesNewChain(proto iptables.Protocol, table, chain string) error
@@ -151,6 +152,11 @@ func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
 
 func (h *NetworkUtilsHandler) ConfigurePingGroupRange() error {
 	err := sysctl.New().SetSysctl(sysctl.PingGroupRange, "0 2147483647")
+	return err
+}
+
+func (h *NetworkUtilsHandler) ConfigureFsFileMax() error {
+	err := sysctl.New().SetSysctl(sysctl.FsFileMax, "9223372036854775807")
 	return err
 }
 

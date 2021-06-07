@@ -193,6 +193,13 @@ func (l *podNIC) PlugPhase1() error {
 			log.Log.Reason(err).Errorf("failed to configure ping group range")
 			return err
 		}
+
+		log.Log.Reason(err).Infof("Configuring fs.file-max on the node")
+		err = l.handler.ConfigureFsFileMax()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure fs.file-max on the node")
+			return err
+		}
 	}
 
 	if l.infraConfigurator == nil {

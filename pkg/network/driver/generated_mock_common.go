@@ -265,6 +265,26 @@ func (_mr *_MockNetworkHandlerRecorder) ConfigureIpv4ArpIgnore() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpv4ArpIgnore")
 }
 
+func (_m *MockNetworkHandler) ConfigurePingGroupRange() error {
+	ret := _m.ctrl.Call(_m, "ConfigurePingGroupRange")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ConfigurePingGroupRange() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigurePingGroupRange")
+}
+
+func (_m *MockNetworkHandler) ConfigureFsFileMax() error {
+	ret := _m.ctrl.Call(_m, "ConfigureFsFileMax")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ConfigureFsFileMax() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureFsFileMax")
+}
+
 func (_m *MockNetworkHandler) IptablesNewChain(proto iptables.Protocol, table string, chain string) error {
 	ret := _m.ctrl.Call(_m, "IptablesNewChain", proto, table, chain)
 	ret0, _ := ret[0].(error)
