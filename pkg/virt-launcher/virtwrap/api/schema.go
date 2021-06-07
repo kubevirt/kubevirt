@@ -138,6 +138,10 @@ type Timezone struct {
 	Offset int
 }
 
+type FSFreeze struct {
+	Status string
+}
+
 type Filesystem struct {
 	Name       string
 	Mountpoint string

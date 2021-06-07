@@ -130,6 +130,7 @@ func startDomainEventMonitoring(
 	qemuAgentFileInterval time.Duration,
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
+	qemuAgentFSFreezeStatusInterval time.Duration,
 ) {
 	go func() {
 		for {
@@ -140,7 +141,7 @@ func startDomainEventMonitoring(
 		}
 	}()
 
-	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval)
+	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval)
 	if err != nil {
 		panic(err)
 	}
@@ -343,6 +344,7 @@ func main() {
 	qemuAgentFileInterval := pflag.Duration("qemu-agent-file-interval", 300, "Interval in seconds between consecutive qemu agent calls for file command")
 	qemuAgentUserInterval := pflag.Duration("qemu-agent-user-interval", 10, "Interval in seconds between consecutive qemu agent calls for user command")
 	qemuAgentVersionInterval := pflag.Duration("qemu-agent-version-interval", 300, "Interval in seconds between consecutive qemu agent calls for version command")
+	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5, "Interval in seconds between consecutive qemu agent calls for fsfreeze status command")
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
 
@@ -446,7 +448,7 @@ func main() {
 
 	events := make(chan watch.Event, 2)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval)
+	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,

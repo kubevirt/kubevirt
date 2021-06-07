@@ -344,6 +344,7 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentFileInterval time.Duration,
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
+	qemuAgentFSFreezeStatusInterval time.Duration,
 ) error {
 
 	eventChan := make(chan libvirtEvent, 10)
@@ -363,6 +364,7 @@ func (n *Notifier) StartDomainNotifier(
 		qemuAgentFileInterval,
 		qemuAgentUserInterval,
 		qemuAgentVersionInterval,
+		qemuAgentFSFreezeStatusInterval,
 	)
 
 	// Run the event process logic in a separate go-routine to not block libvirt
