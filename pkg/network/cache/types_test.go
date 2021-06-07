@@ -1,0 +1,62 @@
+package cache
+
+import (
+	"fmt"
+	"net"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	"github.com/vishvananda/netlink"
+)
+
+var _ = Describe("DhcpConfig", func() {
+	const ipv4Cidr = "10.0.0.200/24"
+	const ipv6Cidr = "fd10:0:2::2/120"
+	const mac = "de:ad:00:00:be:ef"
+	const ipv4Gateway = "10.0.0.1"
+	const mtu = 1450
+	const vifName = "test-vif"
+
+	Context("String", func() {
+		It("returns correct string representation", func() {
+			dhcpConfig := createDummyDhcpConfig(vifName, ipv4Cidr, ipv4Gateway, "", mac, mtu)
+			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, mac, ipv4Gateway, mtu)))
+		})
+		It("returns correct string representation with ipv6", func() {
+			dhcpConfig := createDummyDhcpConfig(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac, mtu)
+			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Cidr, ipv6Cidr, mac, ipv4Gateway, mtu)))
+		})
+		It("returns correct string representation when an IP is not defined", func() {
+			macAddr, _ := net.ParseMAC(mac)
+			dhcpConfig := DhcpConfig{
+				Name:              vifName,
+				MAC:               macAddr,
+				AdvertisingIPAddr: net.ParseIP(ipv4Gateway),
+				Mtu:               mtu,
+			}
+			Expect(dhcpConfig.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IPv4: <nil>, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, mac, ipv4Gateway, mtu)))
+		})
+	})
+})
+
+func createDummyDhcpConfig(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu uint16) *DhcpConfig {
+	mac, _ := net.ParseMAC(macStr)
+	gw := net.ParseIP(ipv4gateway)
+	dhcpConfig := &DhcpConfig{
+		Name:              vifName,
+		MAC:               mac,
+		AdvertisingIPAddr: gw,
+		Mtu:               mtu,
+	}
+	if ipv4cidr != "" {
+		ipv4Addr, _ := netlink.ParseAddr(ipv4cidr)
+		dhcpConfig.IP = *ipv4Addr
+	}
+	if ipv6cidr != "" {
+		ipv6Addr, _ := netlink.ParseAddr(ipv6cidr)
+		dhcpConfig.IPv6 = *ipv6Addr
+	}
+
+	return dhcpConfig
+}
