@@ -468,7 +468,7 @@ container_pull(
 
 container_pull(
     name = "alpine-ext-kernel-boot-demo-container-base",
-    digest = "sha256:97bfbe0e3d57a45da3130dd6a63d6f83dcbc37e82b1be7ac30b6cf698d52e932",
+    digest = "sha256:a2ddb2f568bf3814e594a14bc793d5a655a61d5983f3561d60d02afa7bbc56b4",
     registry = "quay.io",
     repository = "kubevirt/alpine-ext-kernel-boot-demo",
 )
