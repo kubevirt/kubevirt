@@ -1347,6 +1347,7 @@ func (l *LibvirtDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAge
 	sysInfo := l.agentData.GetSysInfo()
 	fsInfo := l.agentData.GetFS(10)
 	userInfo := l.agentData.GetUsers(10)
+	fsFreezestatus := l.agentData.GetFSFreezeStatus()
 
 	gaInfo := l.agentData.GetGA()
 
@@ -1354,6 +1355,7 @@ func (l *LibvirtDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAge
 		GAVersion:         gaInfo.Version,
 		SupportedCommands: gaInfo.SupportedCommands,
 		Hostname:          sysInfo.Hostname,
+		FSFreezeStatus:    fsFreezestatus.Status,
 		OS: v1.VirtualMachineInstanceGuestOSInfo{
 			Name:          sysInfo.OSInfo.Name,
 			KernelRelease: sysInfo.OSInfo.KernelRelease,

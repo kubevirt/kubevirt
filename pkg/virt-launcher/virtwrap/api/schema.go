@@ -91,6 +91,8 @@ const (
 	ReasonPausedPostcopyFailed StateChangeReason = "PostcopyFailed"
 
 	UserAliasPrefix = "ua-"
+
+	FSThawed = "thawed"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

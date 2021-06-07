@@ -7719,6 +7719,10 @@ var CRDsValidation map[string]string = map[string]string{
             meant to be used by KubeVirt core components only and can't be set or
             modified by users.
           type: string
+        fsFreezeStatus:
+          description: FSFreezeStatus is the state of the fs of the guest it can be
+            either frozen or thawed
+          type: string
         guestOSInfo:
           description: Guest OS Information
           properties:

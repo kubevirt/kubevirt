@@ -11366,6 +11366,10 @@
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
       "type": "string"
      },
+     "fsFreezeStatus": {
+      "description": "FSFreezeStatus is the state of the fs of the guest it can be either frozen or thawed",
+      "type": "string"
+     },
      "fsInfo": {
       "description": "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
       "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemInfo"
@@ -12039,6 +12043,10 @@
      },
      "evacuationNodeName": {
       "description": "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.",
+      "type": "string"
+     },
+     "fsFreezeStatus": {
+      "description": "FSFreezeStatus is the state of the fs of the guest it can be either frozen or thawed",
       "type": "string"
      },
      "guestOSInfo": {

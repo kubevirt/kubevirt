@@ -1129,6 +1129,14 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstancePaused)
 	}
 
+	if domain != nil && domain.Status.FSFreezeStatus.Status != "" {
+		if domain.Status.FSFreezeStatus.Status == api.FSThawed {
+			vmi.Status.FSFreezeStatus = ""
+		} else {
+			vmi.Status.FSFreezeStatus = domain.Status.FSFreezeStatus.Status
+		}
+	}
+
 	if _, ok := syncError.(*virtLauncherCriticalNetworkError); ok {
 		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
