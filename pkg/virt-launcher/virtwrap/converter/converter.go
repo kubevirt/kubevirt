@@ -1104,41 +1104,25 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
-			// The location of uefi boot loader on ARM64 is different from that on x86 and ppc64le
-			efiCode := ""
-			efiVars := ""
-			if isARM64(c.Architecture) {
-				efiCode = EFICodeAARCH64
-				efiVars = EFIVarsAARCH64
-			} else {
-				efiCode = EFICode
-				efiVars = EFIVars
+			secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
+			efiCode, _ := detectEFICodeRom(c, secureBoot)
+			efiVars, _ := detectEFIVarsRom(c, secureBoot)
+
+			secureLoader := "yes"
+			if !secureBoot {
+				secureLoader = "no"
 			}
 
-			if vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot {
-				domain.Spec.OS.BootLoader = &api.Loader{
-					Path:     filepath.Join(c.OVMFPath, EFICodeSecureBoot),
-					ReadOnly: "yes",
-					Secure:   "yes",
-					Type:     "pflash",
-				}
+			domain.Spec.OS.BootLoader = &api.Loader{
+				Path:     filepath.Join(c.OVMFPath, efiCode),
+				ReadOnly: "yes",
+				Secure:   secureLoader,
+				Type:     "pflash",
+			}
 
-				domain.Spec.OS.NVRam = &api.NVRam{
-					NVRam:    filepath.Join("/tmp", domain.Spec.Name),
-					Template: filepath.Join(c.OVMFPath, EFIVarsSecureBoot),
-				}
-			} else {
-				domain.Spec.OS.BootLoader = &api.Loader{
-					Path:     filepath.Join(c.OVMFPath, efiCode),
-					ReadOnly: "yes",
-					Secure:   "no",
-					Type:     "pflash",
-				}
-
-				domain.Spec.OS.NVRam = &api.NVRam{
-					NVRam:    filepath.Join("/tmp", domain.Spec.Name),
-					Template: filepath.Join(c.OVMFPath, efiVars),
-				}
+			domain.Spec.OS.NVRam = &api.NVRam{
+				NVRam:    filepath.Join("/tmp", domain.Spec.Name),
+				Template: filepath.Join(c.OVMFPath, efiVars),
 			}
 		}
 
@@ -1698,33 +1682,59 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
+func detectEFICodeRom(c *ConverterContext, secureBoot bool) (string, error) {
+	efiCode := EFICode
+
+	if secureBoot {
+		efiCode = EFICodeSecureBoot
+	} else if isARM64(c.Architecture) {
+		efiCode = EFICodeAARCH64
+	}
+
+	_, err := os.Stat(filepath.Join(c.OVMFPath, efiCode))
+	if os.IsNotExist(err) && efiCode == EFICode {
+		// The combination (EFICodeSecureBoot + EFIVars) is valid
+		// for booting in EFI mode with SecureBoot disabled
+		efiCode = EFICodeSecureBoot
+		_, err = os.Stat(filepath.Join(c.OVMFPath, efiCode))
+	}
+
+	if os.IsNotExist(err) {
+		log.Log.Reason(err).Errorf("'%s' EFI OVMF rom missing for booting in EFI mode with SecureBoot=%v", efiCode, secureBoot)
+		return "", fmt.Errorf("'%s' EFI OVMF rom missing for booting in EFI mode with SecureBoot=%v", efiCode, secureBoot)
+	}
+	return efiCode, nil
+}
+
+func detectEFIVarsRom(c *ConverterContext, secureBoot bool) (string, error) {
+	efiVars := EFIVars
+
+	if secureBoot {
+		efiVars = EFIVarsSecureBoot
+	} else if isARM64(c.Architecture) {
+		efiVars = EFIVarsAARCH64
+	}
+
+	_, err := os.Stat(filepath.Join(c.OVMFPath, efiVars))
+	if os.IsNotExist(err) {
+		log.Log.Reason(err).Errorf("'%s' EFI OVMF rom missing for booting in EFI mode with SecureBoot=%v", efiVars, secureBoot)
+		return "", fmt.Errorf("'%s' EFI OVMF rom missing for booting in EFI mode with SecureBoot=%v", efiVars, secureBoot)
+	}
+	return efiVars, nil
+}
+
 func CheckEFI_OVMFRoms(vmi *v1.VirtualMachineInstance, c *ConverterContext) (err error) {
 	if vmi.Spec.Domain.Firmware != nil {
 		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
-			if vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot {
-				_, err1 := os.Stat(filepath.Join(c.OVMFPath, EFICodeSecureBoot))
-				_, err2 := os.Stat(filepath.Join(c.OVMFPath, EFIVarsSecureBoot))
-				if os.IsNotExist(err1) || os.IsNotExist(err2) {
-					log.Log.Reason(err).Error("EFI OVMF roms missing for secure boot")
-					return fmt.Errorf("EFI OVMF roms missing for secure boot")
-				}
-			} else {
-				// the EFICode and EFIVars have different path and name on Arm64
-				efiCode := ""
-				efiVars := ""
-				if isARM64(c.Architecture) {
-					efiCode = EFICodeAARCH64
-					efiVars = EFIVarsAARCH64
-				} else {
-					efiCode = EFICode
-					efiVars = EFIVars
-				}
-				_, err1 := os.Stat(filepath.Join(c.OVMFPath, efiCode))
-				_, err2 := os.Stat(filepath.Join(c.OVMFPath, efiVars))
-				if os.IsNotExist(err1) || os.IsNotExist(err2) {
-					log.Log.Reason(err).Error("EFI OVMF roms missing for insecure boot")
-					return fmt.Errorf("EFI OVMF roms missing for insecure boot")
-				}
+			secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
+			_, errCode := detectEFICodeRom(c, secureBoot)
+			_, errVars := detectEFIVarsRom(c, secureBoot)
+
+			if errCode != nil {
+				return errCode
+			}
+			if errVars != nil {
+				return errVars
 			}
 		}
 	}
