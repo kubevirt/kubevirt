@@ -2485,7 +2485,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 	} else if vmi.IsRunning() {
 		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
-			return err
+			return fmt.Errorf("failed to hotplug volumes: %v", err)
 		}
 	}
 

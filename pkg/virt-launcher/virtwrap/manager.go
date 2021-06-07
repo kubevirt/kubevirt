@@ -34,6 +34,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
@@ -851,6 +852,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			return nil, err
 		}
 		if !allowAttach {
+			logger.V(4).Infof("Not allowed to attach disk, %v", attachDisk)
 			continue
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
@@ -881,12 +883,13 @@ func getSourceFile(disk api.Disk) string {
 var checkIfDiskReadyToUse = checkIfDiskReadyToUseFunc
 
 func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
+	logger := log.DefaultLogger()
 	info, err := os.Stat(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		log.DefaultLogger().V(1).Infof("stat error: %v", err)
+		logger.V(1).Infof("stat error: %v", err)
 		return false, err
 	}
 	if (info.Mode() & os.ModeDevice) != 0 {
@@ -903,6 +906,12 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	// Before attempting to attach, ensure we can open the file
 	file, err := os.OpenFile(filename, os.O_RDWR, 0600)
 	if err != nil {
+		if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+			logger.V(4).Errorf("Failed to open disk, mod %s, owner %d:%d, to attach, %s, %s", info.Mode(), stat.Uid, stat.Gid, filename, err)
+		} else {
+			logger.V(4).Errorf("Failed to open disk, mod %s, to attach, %s, %s", info.Mode(), filename, err)
+		}
+
 		return false, nil
 	}
 	if err := file.Close(); err != nil {
