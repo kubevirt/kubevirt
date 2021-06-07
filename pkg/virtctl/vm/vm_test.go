@@ -35,6 +35,8 @@ var _ = Describe("VirtualMachine", func() {
 	runStrategyManual := v1.RunStrategyManual
 	runStrategyHalted := v1.RunStrategyHalted
 
+	startOpts := v1.StartOptions{Paused: false}
+
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
@@ -77,7 +79,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Running = &notRunning
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Start(vm.Name).Return(nil).Times(1)
+			vmInterface.EXPECT().Start(vm.Name, &startOpts).Return(nil).Times(1)
 
 			cmd := tests.NewVirtctlCommand("start", vmName)
 			Expect(cmd.Execute()).To(BeNil())
@@ -111,7 +113,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.RunStrategy = &runStrategyHalted
 
 				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Start(vm.Name).Return(nil).Times(1)
+				vmInterface.EXPECT().Start(vm.Name, &startOpts).Return(nil).Times(1)
 
 				cmd := tests.NewVirtctlCommand("start", vmName)
 				Expect(cmd.Execute()).To(BeNil())
@@ -136,6 +138,26 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().Stop(vm.Name).Return(nil).Times(1)
 
 				cmd := tests.NewVirtctlCommand("stop", vmName)
+				Expect(cmd.Execute()).To(BeNil())
+			})
+		})
+		Context("With --paused flag", func() {
+			It("should start paused if --paused true", func() {
+				vm := kubecli.NewMinimalVM(vmName)
+
+				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+				vmInterface.EXPECT().Start(vm.Name, &v1.StartOptions{Paused: true}).Return(nil).Times(1)
+
+				cmd := tests.NewVirtctlCommand("start", vmName, "--paused")
+				Expect(cmd.Execute()).To(BeNil())
+			})
+			It("should start if --paused false", func() {
+				vm := kubecli.NewMinimalVM(vmName)
+
+				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+				vmInterface.EXPECT().Start(vm.Name, &startOpts).Return(nil).Times(1)
+
+				cmd := tests.NewVirtctlCommand("start", vmName, "--paused=false")
 				Expect(cmd.Execute()).To(BeNil())
 			})
 		})

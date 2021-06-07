@@ -467,6 +467,13 @@ func (RestartOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (StartOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "StartOptions may be provided on start request.\n\n+k8s:openapi-gen=true",
+		"paused": "Indicates that VM will be started in paused state.\n+optional",
+	}
+}
+
 func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",

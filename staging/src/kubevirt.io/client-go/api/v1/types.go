@@ -1673,6 +1673,22 @@ type RestartOptions struct {
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty" protobuf:"varint,1,opt,name=gracePeriodSeconds"`
 }
 
+// StartOptions may be provided on start request.
+//
+// +k8s:openapi-gen=true
+type StartOptions struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// Indicates that VM will be started in paused state.
+	// +optional
+	Paused bool `json:"paused,omitempty" protobuf:"varint,7,opt,name=paused"`
+}
+
+const (
+	StartRequestDataPausedKey  string = "paused"
+	StartRequestDataPausedTrue string = "true"
+)
+
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

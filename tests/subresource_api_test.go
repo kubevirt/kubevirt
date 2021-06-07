@@ -155,7 +155,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting VM via Start subresource")
-				err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Start(vm.Name)
+				err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Start(vm.Name, &v1.StartOptions{Paused: false})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to start")

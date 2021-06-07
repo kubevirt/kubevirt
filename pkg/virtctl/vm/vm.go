@@ -57,6 +57,7 @@ var (
 	volumeName   string
 	serial       string
 	persist      bool
+	startPaused  bool
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -70,6 +71,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
+	cmd.Flags().BoolVar(&startPaused, "paused", false, "--paused=false: If set to true, start virtual machine in paused state")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -332,7 +334,7 @@ func (o *Command) Run(args []string) error {
 
 	switch o.command {
 	case COMMAND_START:
-		err = virtClient.VirtualMachine(namespace).Start(vmiName)
+		err = virtClient.VirtualMachine(namespace).Start(vmiName, &v1.StartOptions{Paused: startPaused})
 		if err != nil {
 			return fmt.Errorf("Error starting VirtualMachine %v", err)
 		}
