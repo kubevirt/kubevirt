@@ -26,12 +26,12 @@ updated `rpmtree` dependencies are the base for the test image containers.
 
 To update the RPM repositories in use, change [repo.yaml](../repo.yaml).
 
-This is an example entry for Fedora 32 on `ppc64le`:
+This is an example entry for Fedora 32 on `aarch64`:
 
 ```yaml
-- arch: ppc64le
-  metalink: https://mirrors.fedoraproject.org/metalink?repo=fedora-32&arch=ppc64le
-  name: 32-ppc64le-primary-repo
+- arch: aarch64
+  metalink: https://mirrors.fedoraproject.org/metalink?repo=fedora-32&arch=aarch64
+  name: 32-aarch64-primary-repo
 ```
 
 Here the corresponding entry for `x86_64`:

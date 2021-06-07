@@ -158,12 +158,10 @@ load(
 container_image(
     name = "passwd-image",
     architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     base = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@go_image_base_ppc64le//image",
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64//image",
         "//conditions:default": "@go_image_base//image",
     }),

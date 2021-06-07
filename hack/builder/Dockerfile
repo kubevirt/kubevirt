@@ -1,7 +1,6 @@
 ARG ARCH
 FROM ${ARCH}/fedora:32
 
-COPY qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
 COPY qemu-aarch64-static /usr/bin/qemu-aarch64-static
 
 ARG SONOBUOY_ARCH

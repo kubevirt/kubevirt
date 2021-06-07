@@ -6,12 +6,10 @@ load(
 container_image(
     name = "nfs-server-image",
     architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     base = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@nfs-server_ppc64le//image",
         "@io_bazel_rules_go//go/platform:linux_arm64": "@nfs-server_aarch64//image",
         "//conditions:default": "@nfs-server//image",
     }),

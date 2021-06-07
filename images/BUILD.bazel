@@ -6,10 +6,6 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 container_image(
     name = "kubevirt-testing-base",
     tars = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": [
-            ":passwd-tar",
-            "//rpm:testimage_ppc64le",
-        ],
         "//conditions:default": [
             ":passwd-tar",
             "//rpm:testimage_x86_64",
