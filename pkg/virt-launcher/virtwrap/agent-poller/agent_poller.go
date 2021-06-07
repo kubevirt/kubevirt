@@ -91,6 +91,9 @@ func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 			domainInfo.OSInfo = &info
 		case GET_INTERFACES:
 			domainInfo.Interfaces = value.([]api.InterfaceStatus)
+		case GET_FSFREEZE_STATUS:
+			status := value.(api.FSFreeze)
+			domainInfo.FSFreezeStatus = &status
 		}
 
 		s.AgentUpdated <- AgentUpdatedEvent{
