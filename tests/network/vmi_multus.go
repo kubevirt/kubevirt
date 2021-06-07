@@ -30,6 +30,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -334,57 +335,27 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		})
 
 		Context("VirtualMachineInstance with Linux bridge plugin interface", func() {
-			It("[test_id:1577]should create two virtual machines with one interface", func() {
-				By("checking virtual machine instance can ping the secondary virtual machine instance using Linux bridge CNI plugin")
-				interfaces := []v1.Interface{linuxBridgeInterface}
-				networks := []v1.Network{linuxBridgeNetwork}
-
+			table.DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface, networks []v1.Network, ifaceName string) {
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
 
 				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 				tests.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 
-				Expect(configInterface(vmiOne, "eth0", "10.1.1.1/24")).To(Succeed())
-				By("checking virtual machine interface eth0 state")
-				Expect(checkInterface(vmiOne, "eth0")).To(Succeed())
+				Expect(configInterface(vmiOne, ifaceName, "10.1.1.1/24")).To(Succeed())
+				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
+				Expect(checkInterface(vmiOne, ifaceName)).To(Succeed())
 
-				Expect(configInterface(vmiTwo, "eth0", "10.1.1.2/24")).To(Succeed())
-				By("checking virtual machine interface eth0 state")
-				Expect(checkInterface(vmiTwo, "eth0")).To(Succeed())
-
-				By("ping between virtual machines")
-				Expect(libnet.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
-			})
-
-			It("[test_id:1578]should create two virtual machines with two interfaces", func() {
-				By("checking the first virtual machine instance can ping 10.1.1.2 using Linux bridge CNI plugin")
-				interfaces := []v1.Interface{
-					defaultInterface,
-					linuxBridgeInterface,
-				}
-				networks := []v1.Network{
-					defaultNetwork,
-					linuxBridgeNetwork,
-				}
-
-				vmiOne := createVMIOnNode(interfaces, networks)
-				vmiTwo := createVMIOnNode(interfaces, networks)
-
-				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
-				tests.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
-
-				Expect(configInterface(vmiOne, "eth1", "10.1.1.1/24")).To(Succeed())
-				By("checking virtual machine interface eth1 state")
-				Expect(checkInterface(vmiOne, "eth1")).To(Succeed())
-
-				Expect(configInterface(vmiTwo, "eth1", "10.1.1.2/24")).To(Succeed())
-				By("checking virtual machine interface eth1 state")
-				Expect(checkInterface(vmiTwo, "eth1")).To(Succeed())
+				Expect(configInterface(vmiTwo, ifaceName, "10.1.1.2/24")).To(Succeed())
+				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
+				Expect(checkInterface(vmiTwo, ifaceName)).To(Succeed())
 
 				By("ping between virtual machines")
 				Expect(libnet.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
-			})
+			},
+				table.Entry("[test_id:1577]with secondary network only", []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0"),
+				table.Entry("[test_id:1578]with default network and secondary network", []v1.Interface{defaultInterface, linuxBridgeInterface}, []v1.Network{defaultNetwork, linuxBridgeNetwork}, "eth1"),
+			)
 		})
 
 		Context("VirtualMachineInstance with Linux bridge CNI plugin interface and custom MAC address.", func() {
