@@ -4584,16 +4584,17 @@ func waitForConfigToBePropagated(resourceVersion string) {
 func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	errAdditionalInfo := fmt.Sprintf("component: \"%s\"", strings.TrimPrefix(podLabel, "kubevirt.io="))
+
+	errComponentInfo := fmt.Sprintf("component: \"%s\"", strings.TrimPrefix(podLabel, "kubevirt.io="))
 
 	EventuallyWithOffset(3, func() error {
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: podLabel})
 
 		if err != nil {
-			return fmt.Errorf("failed to fetch pods. %s", errAdditionalInfo)
+			return fmt.Errorf("failed to fetch pods. %s", errComponentInfo)
 		}
 		for _, pod := range pods.Items {
-			errAdditionalInfo += fmt.Sprintf(", pod: \"%s\"", pod.Name)
+			errAdditionalInfo := errComponentInfo + fmt.Sprintf(", pod: \"%s\"", pod.Name)
 
 			if pod.DeletionTimestamp != nil {
 				continue
