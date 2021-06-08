@@ -1225,6 +1225,9 @@ type VirtualMachineSpec struct {
 	// mutually exclusive with Running
 	RunStrategy *VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
 
+	// FlavorMatcher references a flavor that is used to fill fields in Template
+	Flavor *FlavorMatcher `json:"flavor,omitempty" optional:"true"`
+
 	// Template is the direct specification of VirtualMachineInstance
 	Template *VirtualMachineInstanceTemplateSpec `json:"template"`
 
@@ -2134,4 +2137,22 @@ type ProfilerResult struct {
 // +k8s:openapi-gen=true
 type ClusterProfilerResults struct {
 	ComponentResults map[string]ProfilerResult `json:"componentResults"`
+}
+
+// FlavorMatcher references a flavor that is used to fill fields in the VMI template.
+// +k8s:openapi-gen=true
+type FlavorMatcher struct {
+	// Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+	Name string `json:"name"`
+
+	// Kind specifies which flavor resource is referenced.
+	// Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
+	// If not specified, "VirtualMachineClusterFlavor" is used by default.
+	//
+	// +optional
+	Kind string `json:"kind,omitempty"`
+
+	// Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.
+	// +optional
+	Profile string `json:"profile,omitempty"`
 }

@@ -441,6 +441,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.FilesystemVirtiofs":                                        schema_kubevirtio_client_go_api_v1_FilesystemVirtiofs(ref),
 		"kubevirt.io/client-go/api/v1.Firmware":                                                  schema_kubevirtio_client_go_api_v1_Firmware(ref),
 		"kubevirt.io/client-go/api/v1.Flags":                                                     schema_kubevirtio_client_go_api_v1_Flags(ref),
+		"kubevirt.io/client-go/api/v1.FlavorMatcher":                                             schema_kubevirtio_client_go_api_v1_FlavorMatcher(ref),
 		"kubevirt.io/client-go/api/v1.FloppyTarget":                                              schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
 		"kubevirt.io/client-go/api/v1.GPU":                                                       schema_kubevirtio_client_go_api_v1_GPU(ref),
 		"kubevirt.io/client-go/api/v1.GenerationStatus":                                          schema_kubevirtio_client_go_api_v1_GenerationStatus(ref),
@@ -20734,6 +20735,41 @@ func schema_kubevirtio_client_go_api_v1_Flags(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_FlavorMatcher(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FlavorMatcher references a flavor that is used to fill fields in the VMI template.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind specifies which flavor resource is referenced. Allowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\". If not specified, \"VirtualMachineClusterFlavor\" is used by default.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"profile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_FloppyTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -25392,6 +25428,12 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"flavor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FlavorMatcher references a flavor that is used to fill fields in Template",
+							Ref:         ref("kubevirt.io/client-go/api/v1.FlavorMatcher"),
+						},
+					},
 					"template": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Template is the direct specification of VirtualMachineInstance",
@@ -25416,7 +25458,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec"},
+			"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec", "kubevirt.io/client-go/api/v1.FlavorMatcher", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 

@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/flavor"
 	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -49,6 +50,7 @@ type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool
 type VMsAdmitter struct {
 	VMIInformer        cache.SharedIndexInformer
 	DataSourceInformer cache.SharedIndexInformer
+	FlavorMethods      flavor.Methods
 	ClusterConfig      *virtconfig.ClusterConfig
 	cloneAuthFunc      CloneAuthFunc
 }
@@ -61,13 +63,15 @@ func (p *sarProxy) Create(sar *authv1.SubjectAccessReview) (*authv1.SubjectAcces
 	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmiInformer cache.SharedIndexInformer, dataSourceInformer cache.SharedIndexInformer) *VMsAdmitter {
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers) *VMsAdmitter {
 	proxy := &sarProxy{client: client}
 
 	return &VMsAdmitter{
-		VMIInformer:        vmiInformer,
-		DataSourceInformer: dataSourceInformer,
-		ClusterConfig:      clusterConfig,
+		VMIInformer:        informers.VMIInformer,
+		DataSourceInformer: informers.DataSourceInformer,
+		FlavorMethods:      flavor.NewMethods(informers.FlavorInformer.GetStore(), informers.ClusterFlavorInformer.GetStore()),
+
+		ClusterConfig: clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
 		},
@@ -93,7 +97,12 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec, admitter.ClusterConfig, accountName)
+	causes := admitter.applyFlavorToVm(&vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec, admitter.ClusterConfig, accountName)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -154,6 +163,39 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func (admitter *VMsAdmitter) applyFlavorToVm(vm *v1.VirtualMachine) []metav1.StatusCause {
+	flavorProfile, err := admitter.FlavorMethods.FindProfile(vm)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("Could not find flavor profile: %v", err),
+			Field:   k8sfield.NewPath("spec", "flavor").String(),
+		}}
+	}
+	if flavorProfile == nil {
+		return nil
+	}
+
+	conflicts := admitter.FlavorMethods.ApplyToVmi(
+		k8sfield.NewPath("spec", "template", "spec"),
+		flavorProfile,
+		&vm.Spec.Template.Spec,
+	)
+	if len(conflicts) == 0 {
+		return nil
+	}
+
+	causes := make([]metav1.StatusCause, 0, len(conflicts))
+	for _, conflict := range conflicts {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "VMI field conflicts with selected Flavor profile",
+			Field:   conflict.String(),
+		})
+	}
+	return causes
 }
 
 func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {

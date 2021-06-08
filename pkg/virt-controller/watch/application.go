@@ -28,6 +28,8 @@ import (
 	"runtime"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/flavor"
+
 	"github.com/emicklei/go-restful"
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -169,6 +171,9 @@ type VirtControllerApp struct {
 	allPodInformer            cache.SharedIndexInformer
 
 	crdInformer cache.SharedIndexInformer
+
+	flavorInformer        cache.SharedIndexInformer
+	clusterFlavorInformer cache.SharedIndexInformer
 
 	LeaderElection leaderelectionconfig.Configuration
 
@@ -335,6 +340,9 @@ func Execute() {
 		app.dataVolumeInformer = app.informerFactory.DummyDataVolume()
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
+
+	app.flavorInformer = app.informerFactory.VirtualMachineFlavor()
+	app.clusterFlavorInformer = app.informerFactory.VirtualMachineClusterFlavor()
 
 	app.initCommon()
 	app.initReplicaSet()
@@ -545,6 +553,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
+		flavor.NewMethods(vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore()),
 		recorder,
 		vca.clientSet)
 }

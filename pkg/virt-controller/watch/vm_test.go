@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -24,10 +25,13 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	virtv1 "kubevirt.io/client-go/api/v1"
+	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/flavor"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -51,6 +55,7 @@ var _ = Describe("VirtualMachine", func() {
 		var dataVolumeSource *framework.FakeControllerSource
 		var pvcInformer cache.SharedIndexInformer
 		var crInformer cache.SharedIndexInformer
+		var flavorMethods *testutils.MockFlavorMethods
 		var stop chan struct{}
 		var controller *VMController
 		var recorder *record.FakeRecorder
@@ -73,6 +78,7 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
+			generatedInterface := fake.NewSimpleClientset()
 
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
@@ -89,10 +95,21 @@ var _ = Describe("VirtualMachine", func() {
 					return nil, nil
 				},
 			})
+
+			flavorMethods = testutils.NewMockFlavorMethods()
+
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			controller = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, pvcInformer, crInformer, recorder, virtClient)
+			controller = NewVMController(vmiInformer,
+				vmInformer,
+				dataVolumeInformer,
+				pvcInformer,
+				crInformer,
+				flavorMethods,
+				recorder,
+				virtClient)
+
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
@@ -103,6 +120,7 @@ var _ = Describe("VirtualMachine", func() {
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
+			virtClient.EXPECT().GeneratedKubeVirtClient().Return(generatedInterface).AnyTimes()
 
 			cdiClient = cdifake.NewSimpleClientset()
 			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
@@ -2150,6 +2168,102 @@ var _ = Describe("VirtualMachine", func() {
 				table.Entry("Reason: ErrImagePull", ErrImagePullReason),
 				table.Entry("Reason: ImagePullBackOff", ImagePullBackOffReason),
 			)
+		})
+
+		Context("Flavor", func() {
+			BeforeEach(func() {
+				flavorMethods.FindFlavorFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
+					return &flavorv1alpha1.VirtualMachineFlavorProfile{
+						CPU: &v1.CPU{
+							Sockets: 2,
+							Cores:   1,
+							Threads: 1,
+						},
+					}, nil
+				}
+			})
+
+			It("should apply flavor", func() {
+				const flavorCpus = uint32(4)
+				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
+					vmiSpec.Domain.CPU = &v1.CPU{Sockets: flavorCpus}
+					return nil
+				}
+
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Spec.Flavor = &v1.FlavorMatcher{
+					Name: "test-flavor",
+				}
+
+				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 2}
+
+				addVirtualMachine(vm)
+
+				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					vmiArg := arg.(*v1.VirtualMachineInstance)
+					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(flavorCpus))
+				}).Return(vmi, nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+
+				controller.Execute()
+
+				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			})
+
+			It("should fail if flavor does not exist", func() {
+				const errorMessage = "flavor not found"
+				flavorMethods.FindFlavorFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
+					return nil, fmt.Errorf(errorMessage)
+				}
+
+				vm, _ := DefaultVirtualMachine(true)
+				vm.Spec.Flavor = &v1.FlavorMatcher{
+					Name: "test-flavor",
+				}
+
+				addVirtualMachine(vm)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					objVM := obj.(*v1.VirtualMachine)
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(cond.Message).To(Equal(errorMessage))
+				}).Return(vm, nil)
+
+				controller.Execute()
+
+				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+			})
+
+			It("should fail applying flavor", func() {
+				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+					return flavor.Conflicts{k8sfield.NewPath("spec", "template", "test", "path")}
+				}
+
+				vm, _ := DefaultVirtualMachine(true)
+				vm.Spec.Flavor = &v1.FlavorMatcher{
+					Name: "test-flavor",
+				}
+
+				addVirtualMachine(vm)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					objVM := obj.(*v1.VirtualMachine)
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(cond.Message).To(HavePrefix("VMI conflicts with flavor"))
+					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+				}).Return(vm, nil)
+
+				controller.Execute()
+
+				testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+			})
 		})
 	})
 })
