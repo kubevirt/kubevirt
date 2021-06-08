@@ -20,17 +20,23 @@
 package apply
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"strings"
+	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/golang/mock/gomock"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	. "github.com/onsi/ginkgo"
@@ -85,6 +91,174 @@ var _ = Describe("Apply", func() {
 
 			deleteAndReplace := hasImmutableFieldChanged(service, cachedService)
 			Expect(deleteAndReplace).To(BeTrue())
+		})
+	})
+
+	Context("should reconcile configmap", func() {
+
+		var clientset *kubecli.MockKubevirtClient
+		var ctrl *gomock.Controller
+		var coreclientset *fake.Clientset
+		var expectations *util.Expectations
+		var kv *v1.KubeVirt
+		var stores util.Stores
+
+		operatorNamespace := "opNamespace"
+		queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		duration := &metav1.Duration{
+			Duration: time.Hour,
+		}
+
+		createCrt := func() *tls.Certificate {
+			caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour)
+
+			encodedCert := cert.EncodeCertPEM(caKeyPair.Cert)
+			encodedKey := cert.EncodePrivateKeyPEM(caKeyPair.Key)
+
+			crt, err := tls.X509KeyPair(encodedCert, encodedKey)
+			Expect(err).ToNot(HaveOccurred())
+			leaf, err := cert.ParseCertsPEM(encodedCert)
+			Expect(err).ToNot(HaveOccurred())
+			crt.Leaf = leaf[0]
+
+			return &crt
+		}
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
+			coreclientset = fake.NewSimpleClientset()
+
+			coreclientset.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				Expect(action).To(BeNil())
+				return true, nil, nil
+			})
+
+			stores = util.Stores{}
+			stores.ConfigMapCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
+
+			expectations = &util.Expectations{}
+
+			clientset = kubecli.NewMockKubevirtClient(ctrl)
+			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+			clientset.EXPECT().CoreV1().Return(coreclientset.CoreV1()).AnyTimes()
+
+			kv = &v1.KubeVirt{}
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		It("should not patch ConfigMap on sync", func() {
+			requiredCM := components.NewKubeVirtCAConfigMap(operatorNamespace)
+			version, imageRegistry, id := getTargetVersionRegistryID(kv)
+			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id, true)
+
+			existingCM := requiredCM.DeepCopy()
+			crt := createCrt()
+
+			bundle, _, err := components.MergeCABundle(crt, []byte(cert.EncodeCertPEM(crt.Leaf)), time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+
+			existingCM.Data = map[string]string{
+				components.CABundleKey: string(bundle),
+			}
+
+			stores.ConfigMapCache.Add(existingCM)
+
+			r := &Reconciler{
+				kv:           kv,
+				stores:       stores,
+				clientset:    clientset,
+				expectations: expectations,
+			}
+
+			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, crt, duration, requiredCM)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should patch ConfigMap on sync when not parsable", func() {
+			notRSAParsableString := "something not parsable"
+			requiredCM := components.NewKubeVirtCAConfigMap(operatorNamespace)
+			version, imageRegistry, id := getTargetVersionRegistryID(kv)
+			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id, true)
+
+			existingCM := requiredCM.DeepCopy()
+			existingCM.Data = map[string]string{
+				components.CABundleKey: notRSAParsableString,
+			}
+			stores.ConfigMapCache.Add(existingCM)
+
+			r := &Reconciler{
+				kv:           kv,
+				stores:       stores,
+				clientset:    clientset,
+				expectations: expectations,
+			}
+
+			patched := false
+			coreclientset.Fake.PrependReactor("patch", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				a := action.(testing.PatchActionImpl)
+				patch, err := jsonpatch.DecodePatch(a.Patch)
+				Expect(err).ToNot(HaveOccurred())
+
+				obj, err := json.Marshal(existingCM)
+				Expect(err).To(BeNil())
+
+				obj, err = patch.Apply(obj)
+				Expect(err).To(BeNil())
+
+				pr := &corev1.ConfigMap{}
+				Expect(json.Unmarshal(obj, existingCM)).To(Succeed())
+				Expect(existingCM.Data[components.CABundleKey]).ToNot(Equal(notRSAParsableString))
+
+				patched = true
+				return true, pr, nil
+			})
+
+			crt := createCrt()
+
+			_, err := r.createOrUpdateKubeVirtCAConfigMap(queue, crt, duration, requiredCM)
+			Expect(err).To(BeNil())
+			Expect(patched).To(BeTrue())
+		})
+
+		It("should patch ConfigMap on sync when CA expired", func() {
+			requiredCM := components.NewKubeVirtCAConfigMap(operatorNamespace)
+			version, imageRegistry, id := getTargetVersionRegistryID(kv)
+			injectOperatorMetadata(kv, &requiredCM.ObjectMeta, version, imageRegistry, id, true)
+
+			existingCM := requiredCM.DeepCopy()
+			crt := createCrt()
+
+			bundle, _, err := components.MergeCABundle(crt, []byte(cert.EncodeCertPEM(crt.Leaf)), time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+
+			existingCM.Data = map[string]string{
+				components.CABundleKey: string(bundle),
+			}
+			stores.ConfigMapCache.Add(existingCM)
+
+			r := &Reconciler{
+				kv:           kv,
+				stores:       stores,
+				clientset:    clientset,
+				expectations: expectations,
+			}
+
+			patched := false
+			coreclientset.Fake.PrependReactor("patch", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				patched = true
+				return true, &corev1.ConfigMap{}, nil
+			})
+
+			updatedCrt := createCrt()
+
+			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, updatedCrt, duration, requiredCM)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patched).To(BeTrue())
 		})
 	})
 
@@ -211,19 +385,6 @@ var _ = Describe("Apply", func() {
 				targetService *corev1.Service,
 				expectLabelsAnnotationsPatch bool,
 				expectSpecPatch bool) {
-
-				// kv := &v1.KubeVirt{
-				// 	ObjectMeta: metav1.ObjectMeta{
-				// 		Name:       "test-install",
-				// 		Namespace:  "default",
-				// 		Generation: int64(1),
-				// 	},
-				// 	Spec: v1.KubeVirtSpec{
-				// 		ImageTag:      config.GetKubeVirtVersion(),
-				// 		ImageRegistry: config.GetImageRegistry(),
-				// 	},
-				// }
-				// config.SetTargetDeploymentConfig(kv)
 
 				Expect(hasImmutableFieldChanged(targetService, cachedService)).To(BeFalse())
 				ops, err := generateServicePatch(cachedService, targetService)
