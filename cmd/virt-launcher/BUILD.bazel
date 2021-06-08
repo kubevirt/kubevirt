@@ -129,6 +129,15 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
+pkg_tar(
+    name = "nsswitch-tar",
+    srcs = [
+        ":nsswitch.conf",
+    ],
+    mode = "0644",
+    package_dir = "/etc",
+)
+
 container_image(
     name = "version-container",
     directory = "/",
@@ -137,11 +146,13 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             ":libvirt-config",
             ":passwd-tar",
+            ":nsswitch-tar",
             "//rpm:launcherbase_aarch64",
         ],
         "//conditions:default": [
             ":libvirt-config",
             ":passwd-tar",
+            ":nsswitch-tar",
             "//rpm:launcherbase_x86_64",
         ],
     }),

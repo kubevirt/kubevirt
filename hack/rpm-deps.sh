@@ -5,10 +5,11 @@ set -ex
 source hack/common.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=0:7.0.0-12.fc32
-QEMU_VERSION=15:5.2.0-15.fc32
-SEABIOS_VERSION=0:1.14.0-1.fc32
-EDK2_VERSION=0:20200801stable-1.fc32
+LIBVIRT_VERSION=0:7.0.0-14.el8s
+QEMU_VERSION=15:5.2.0-16.el8s
+SEABIOS_VERSION=0:1.14.0-1.el8s
+EDK2_VERSION=0:20200602gitca407c7246bf-4.el8
+LIBGUESTFS_VERSION=1:1.44.0-3.el8s
 
 # Packages that we want to be included in all container images.
 #
@@ -18,14 +19,13 @@ EDK2_VERSION=0:20200801stable-1.fc32
 # have more than one way of being resolved. Listing the latter
 # explicitly ensures that bazeldnf always reaches the same solution
 # and thus keeps things reproducible
-fedora_base="
-  curl-minimal
+centos_base="
+  curl
   vim-minimal
 "
-fedora_extra="
+centos_extra="
   coreutils-single
-  fedora-logos-httpd
-  glibc-langpack-en
+  glibc-minimal-langpack
   libcurl-minimal
 "
 
@@ -48,16 +48,22 @@ testimage_base="
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --name testimage_x86_64 \
-    $fedora_base \
-    $fedora_extra \
+    //:bazeldnf -- rpmtree \
+    --public \
+    --name testimage_x86_64 \
+    --basesystem centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $testimage_base
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --arch=aarch64 --name testimage_aarch64 \
-    $fedora_base \
-    $fedora_extra \
+    //:bazeldnf -- rpmtree \
+    --public \
+    --name testimage_aarch64 --arch aarch64 \
+    --basesystem centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $testimage_base
 
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
@@ -73,17 +79,23 @@ libvirtdevel_extra="
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --name libvirt-devel_x86_64 \
-    $fedora_base \
-    $fedora_extra \
+    //:bazeldnf -- rpmtree \
+    --public --nobest \
+    --name libvirt-devel_x86_64 \
+    --basesystem centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $libvirtdevel_base \
     $libvirtdevel_extra
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --arch=aarch64 --name libvirt-devel_aarch64 \
-    $fedora_base \
-    $fedora_extra \
+    //:bazeldnf -- rpmtree \
+    --public --nobest \
+    --name libvirt-devel_aarch64 --arch aarch64 \
+    --basesystem centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $libvirtdevel_base \
     $libvirtdevel_extra
 
@@ -113,20 +125,26 @@ launcherbase_extra="
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --name launcherbase_x86_64 \
+    //:bazeldnf -- rpmtree \
+    --public --nobest \
+    --name launcherbase_x86_64 \
+    --basesystem centos-stream-release \
     --force-ignore-with-dependencies '^mozjs60' \
-    $fedora_base \
-    $fedora_extra \
+    $centos_base \
+    $centos_extra \
     $launcherbase_base \
     $launcherbase_x86_64 \
     $launcherbase_extra
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --arch=aarch64 --name launcherbase_aarch64 \
+    //:bazeldnf -- rpmtree \
+    --public --nobest \
+    --name launcherbase_aarch64 --arch aarch64 \
+    --basesystem centos-stream-release \
     --force-ignore-with-dependencies '^mozjs60' \
-    $fedora_base \
-    $fedora_extra \
+    $centos_base \
+    $centos_extra \
     $launcherbase_base \
     $launcherbase_aarch64 \
     $launcherbase_extra
@@ -152,27 +170,40 @@ handlerbase_extra="
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --arch=aarch64 --name handlerbase_aarch64 \
-    $basesystem \
+    --basesystem centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $handler_base \
     $handlerbase_extra
 
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --name handlerbase_x86_64 \
-    $basesystem \
+    --basesystem centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $handler_base \
     $handlerbase_extra
 
 libguestfstools_base="
-  libguestfs
-  libguestfs-tools
+  libguestfs-tools-${LIBGUESTFS_VERSION}
+  libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
+  qemu-kvm-core-${QEMU_VERSION}
+  seabios-${SEABIOS_VERSION}
+"
+libguestfstools_x86_64="
+  edk2-ovmf-${EDK2_VERSION}
 "
 
 bazel run \
-    //:bazeldnf -- rpmtree --public --name libguestfs-tools \
-    $fedora_base \
-    $fedora_extra \
+    //:bazeldnf -- rpmtree \
+    --public --nobest \
+    --name libguestfs-tools \
+    --basesystem centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $libguestfstools_base \
+    $libguestfstools_x86_64 \
     --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
     --force-ignore-with-dependencies '^(python[3]{0,1}-|perl[3]{0,1}-)' \
     --force-ignore-with-dependencies '^(mesa-|libwayland-|selinux-policy|mozjs60)' \
