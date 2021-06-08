@@ -78,6 +78,8 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/certificates/triple:go_default_library",
+        "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
@@ -113,5 +115,6 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
     ],
 )
