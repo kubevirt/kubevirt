@@ -161,6 +161,7 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 		{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
 		{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
+		{Name: "Ready", Type: "string", JSONPath: ".status.conditions[?(@.type=='Ready')].status"},
 		{Name: "Live-Migratable", Type: "string", JSONPath: ".status.conditions[?(@.type=='LiveMigratable')].status", Priority: 1},
 		{Name: "Paused", Type: "string", JSONPath: ".status.conditions[?(@.type=='Paused')].status", Priority: 1},
 	})
@@ -196,8 +197,7 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		{Name: "Status", Description: "Human Readable Status", Type: "string", JSONPath: ".status.printableStatus"},
-		{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
-		{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1},
+		{Name: "Ready", Type: "string", JSONPath: ".status.conditions[?(@.type=='Ready')].status"},
 	}, &extv1.CustomResourceSubresources{
 		Status: &extv1.CustomResourceSubresourceStatus{}})
 	if err != nil {
