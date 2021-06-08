@@ -20,7 +20,9 @@
 package watch
 
 import (
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -152,6 +154,7 @@ var _ = Describe("Migration watcher", func() {
 			return arg, nil
 		})
 	}
+
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
@@ -756,9 +759,36 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			if initializeMigrationState {
-				patch := `[{ "op": "test", "path": "/status/migrationState", "value": {"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "replace", "path": "/status/migrationState", "value": {"startTimestamp":"2021-05-24T14:51:47Z","endTimestamp":"2021-05-24T14:51:47Z","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"} }]`
-				shouldExpectVirtualMachineInstancePatch(vmi, patch)
+				patch := `[ { "op": "test", "path": "/status", "value": {"nodeName":"node02","phase":"Running","guestOSInfo":{},"migrationState":{"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"}} }, { "op": "replace", "path": "/status", "value": {"nodeName":"node02","phase":"Running","guestOSInfo":{},"migrationState":{"startTimestamp":"%s","endTimestamp":"%s","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"}} } ]`
+
+				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).DoAndReturn(func(name interface{}, ptype interface{}, vmiStatusPatch []byte) (*v1.VirtualMachineInstance, error) {
+					type patchOperation struct {
+						Op    string      `json:"op"`
+						Path  string      `json:"path"`
+						Value interface{} `json:"value,omitempty"`
+					}
+
+					vmiSP := []patchOperation{}
+					err := json.Unmarshal(vmiStatusPatch, &vmiSP)
+					Expect(err).To(BeNil())
+					Expect(vmiSP).To(HaveLen(2))
+
+					b, err := json.Marshal(vmiSP[1].Value)
+					Expect(err).To(BeNil())
+
+					newMS := v1.VirtualMachineInstanceStatus{}
+					err = json.Unmarshal(b, &newMS)
+					Expect(err).To(BeNil())
+					Expect(newMS.MigrationState.StartTimestamp).ToNot(BeNil())
+					Expect(newMS.MigrationState.EndTimestamp).ToNot(BeNil())
+
+					expected := fmt.Sprintf(patch, newMS.MigrationState.StartTimestamp.UTC().Format(time.RFC3339), newMS.MigrationState.EndTimestamp.UTC().Format(time.RFC3339))
+					Expect(expected).To(Equal(string(vmiStatusPatch)))
+
+					return vmi, nil
+				})
 			}
+
 			controller.Execute()
 
 			// in this case, we have two failed events. one for the VMI and one on the Migration object.
