@@ -5,10 +5,11 @@ set -ex
 source hack/common.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=0:7.0.0-12.fc32
-QEMU_VERSION=15:5.2.0-15.fc32
-SEABIOS_VERSION=0:1.14.0-1.fc32
-EDK2_VERSION=0:20200801stable-1.fc32
+LIBVIRT_VERSION=0:7.0.0-14.el8s
+QEMU_VERSION=15:5.2.0-16.el8s
+SEABIOS_VERSION=0:1.14.0-1.el8s
+EDK2_VERSION=0:20200602gitca407c7246bf-4.el8
+LIBGUESTFS_VERSION=1:1.44.0-3.el8s
 
 # Packages that we want to be included in all container images.
 #
@@ -27,11 +28,21 @@ fedora_extra="
   glibc-langpack-en
   libcurl-minimal
 "
+centos_base="
+  curl
+  vim-minimal
+"
+centos_extra="
+  coreutils-single
+  glibc-minimal-langpack
+  libcurl-minimal
+"
 
 # get latest repo data from repo.yaml
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- fetch \
+    --repofile rpm/centos-repo.yaml \
     --repofile rpm/fedora-repo.yaml
 
 # create a rpmtree for our test image with misc. tools.
@@ -85,22 +96,24 @@ libvirtdevel_extra="
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree \
-    --public \
+    --public --nobest \
     --name libvirt-devel_x86_64 \
-    --repofile rpm/fedora-repo.yaml \
-    $fedora_base \
-    $fedora_extra \
+    --repofile rpm/centos-repo.yaml \
+    -f centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $libvirtdevel_base \
     $libvirtdevel_extra
 
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree \
-    --public \
+    --public --nobest \
     --name libvirt-devel_aarch64 --arch aarch64 \
-    --repofile rpm/fedora-repo.yaml \
-    $fedora_base \
-    $fedora_extra \
+    --repofile rpm/centos-repo.yaml \
+    -f centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $libvirtdevel_base \
     $libvirtdevel_extra
 
@@ -131,11 +144,12 @@ launcherbase_extra="
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree \
-    --public \
+    --public --nobest \
     --name launcherbase_x86_64 \
-    --repofile rpm/fedora-repo.yaml \
-    $fedora_base \
-    $fedora_extra \
+    --repofile rpm/centos-repo.yaml \
+    -f centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $launcherbase_base \
     $launcherbase_x86_64 \
     $launcherbase_extra
@@ -143,35 +157,40 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree \
-    --public \
+    --public --nobest \
     --name launcherbase_aarch64 --arch aarch64 \
-    --repofile rpm/fedora-repo.yaml \
-    $fedora_base \
-    $fedora_extra \
+    --repofile rpm/centos-repo.yaml \
+    -f centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $launcherbase_base \
     $launcherbase_aarch64 \
     $launcherbase_extra
 
 libguestfstools_base="
-  libguestfs
-  libguestfs-tools
+  libguestfs-tools-${LIBGUESTFS_VERSION}
+  libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
+  qemu-kvm-core-${QEMU_VERSION}
+  seabios-${SEABIOS_VERSION}
+"
+libguestfstools_x86_64="
+  edk2-ovmf-${EDK2_VERSION}
 "
 libguestfstools_extra="
-  iptables-nft
   kernel-debug-core
-  libverto-libev
-  mandoc
   selinux-policy-targeted
 "
 
 bazel run \
     //:bazeldnf -- rpmtree \
-    --public \
+    --public --nobest \
     --name libguestfs-tools \
-    --repofile rpm/fedora-repo.yaml \
-    $fedora_base \
-    $fedora_extra \
+    --repofile rpm/centos-repo.yaml \
+    -f centos-stream-release \
+    $centos_base \
+    $centos_extra \
     $libguestfstools_base \
+    $libguestfstools_x86_64 \
     $libguestfstools_extra
 
 # remove all RPMs which are no longer referenced by a rpmtree

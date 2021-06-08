@@ -10,4 +10,5 @@ source hack/config.sh
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- verify \
+    --repofile rpm/centos-repo.yaml \
     --repofile rpm/fedora-repo.yaml
