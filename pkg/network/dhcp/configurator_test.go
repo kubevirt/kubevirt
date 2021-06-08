@@ -97,7 +97,7 @@ var _ = Describe("DHCP configurator", func() {
 		})
 
 		table.DescribeTable("should succeed when DHCP server started", func(configurator *Configurator) {
-			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, advertisingAddr.IP, bridgeName, nil, configurator.filterByMac).Return(nil)
+			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(nil)
 
 			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 		},
@@ -106,7 +106,7 @@ var _ = Describe("DHCP configurator", func() {
 		)
 
 		table.DescribeTable("should succeed when DHCP server started", func(configurator *Configurator) {
-			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, advertisingAddr.IP, bridgeName, nil, configurator.filterByMac).Return(nil)
+			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(nil)
 
 			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
@@ -116,7 +116,7 @@ var _ = Describe("DHCP configurator", func() {
 		)
 
 		table.DescribeTable("should succeed when DHCP server is started multiple times", func(configurator *Configurator) {
-			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, advertisingAddr.IP, bridgeName, nil, configurator.filterByMac).Return(nil)
+			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(nil)
 
 			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
@@ -126,7 +126,7 @@ var _ = Describe("DHCP configurator", func() {
 		)
 
 		table.DescribeTable("should fail when DHCP server failed", func(configurator *Configurator) {
-			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, advertisingAddr.IP, bridgeName, nil, configurator.filterByMac).Return(fmt.Errorf("failed to start DHCP server"))
+			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(fmt.Errorf("failed to start DHCP server"))
 
 			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(HaveOccurred())
 		},
@@ -146,7 +146,7 @@ var _ = Describe("DHCP configurator", func() {
 			})
 
 			table.DescribeTable("should fail when DHCP server failed", func(configurator *Configurator) {
-				configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, advertisingAddr.IP, bridgeName, nil, configurator.filterByMac).Return(nil).Times(0)
+				configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(nil).Times(0)
 
 				Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 			},
