@@ -16,6 +16,7 @@ go_library(
         "//pkg/testutils:go_default_library",
         "//staging/src/github.com/golang/glog:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/apis/flavor/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

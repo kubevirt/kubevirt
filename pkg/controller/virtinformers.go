@@ -50,6 +50,7 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	kubev1 "kubevirt.io/client-go/api/v1"
+	flavorv1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -109,6 +110,12 @@ type KubeInformerFactory interface {
 
 	// Watches VirtualMachineRestore objects
 	VirtualMachineRestore() cache.SharedIndexInformer
+
+	// Watches VirtualMachineFlavor objects
+	VirtualMachineFlavor() cache.SharedIndexInformer
+
+	// Watches VirtualMachineClusterFlavor objects
+	VirtualMachineClusterFlavor() cache.SharedIndexInformer
 
 	// Watches for k8s extensions api configmap
 	ApiAuthConfigMap() cache.SharedIndexInformer
@@ -493,6 +500,20 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 				return nil, nil
 			},
 		})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineFlavor() cache.SharedIndexInformer {
+	return f.getInformer("vmFlavorInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), "virtualmachineflavors", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineFlavor{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineClusterFlavor() cache.SharedIndexInformer {
+	return f.getInformer("vmClusterFlavorInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().FlavorV1alpha1().RESTClient(), "virtualmachineclusterflavors", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &flavorv1.VirtualMachineClusterFlavor{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

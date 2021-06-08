@@ -29,8 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/util/migrations"
-
 	"github.com/pborman/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
@@ -39,6 +37,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -50,6 +49,8 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/flavor"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/status"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 )
@@ -73,6 +74,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
+	flaovrMethods flavor.Methods,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient) *VMController {
 
@@ -85,6 +87,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
 		crInformer:             crInformer,
+		flavorMethods:          flaovrMethods,
 		recorder:               recorder,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -132,6 +135,7 @@ type VMController struct {
 	dataVolumeInformer     cache.SharedIndexInformer
 	pvcInformer            cache.SharedIndexInformer
 	crInformer             cache.SharedIndexInformer
+	flavorMethods          flavor.Methods
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
@@ -766,6 +770,13 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 
+	err = c.applyFlavorToVmi(vm, vmi)
+	if err != nil {
+		log.Log.Object(vm).Infof("Failed to apply flavor to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply flavor: %v", err)
+		return err
+	}
+
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(vmi)
 	if err != nil {
@@ -1049,6 +1060,24 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	}
 
 	return vmi
+}
+
+func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	flavorProfile, err := c.flavorMethods.FindProfile(vm)
+	if err != nil {
+		return err
+	}
+
+	if flavorProfile == nil {
+		return nil
+	}
+
+	conflicts := c.flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), flavorProfile, &vmi.Spec)
+	if len(conflicts) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("VMI conflicts with flavor profile in fields: [%s]", conflicts.String())
 }
 
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {

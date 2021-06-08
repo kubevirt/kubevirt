@@ -2865,6 +2865,25 @@ var CRDsValidation map[string]string = map[string]string{
             - spec
             type: object
           type: array
+        flavor:
+          description: FlavorMatcher references a flavor that is used to fill fields
+            in Template
+          properties:
+            kind:
+              description: 'Kind specifies which flavor resource is referenced. Allowed
+                values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
+                If not specified, "VirtualMachineClusterFlavor" is used by default.'
+              type: string
+            name:
+              description: Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+              type: string
+            profile:
+              description: Profile is the name of a custom profile in the flavor.
+                If left empty, the default profile is used.
+              type: string
+          required:
+          - name
+          type: object
         runStrategy:
           description: Running state indicates the requested running state of the
             VirtualMachineInstance mutually exclusive with Running
@@ -12920,6 +12939,27 @@ var CRDsValidation map[string]string = map[string]string{
                         - spec
                         type: object
                       type: array
+                    flavor:
+                      description: FlavorMatcher references a flavor that is used
+                        to fill fields in Template
+                      properties:
+                        kind:
+                          description: 'Kind specifies which flavor resource is referenced.
+                            Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
+                            If not specified, "VirtualMachineClusterFlavor" is used
+                            by default.'
+                          type: string
+                        name:
+                          description: Name is the name of the VirtualMachineFlavor
+                            or VirtualMachineClusterFlavor
+                          type: string
+                        profile:
+                          description: Profile is the name of a custom profile in
+                            the flavor. If left empty, the default profile is used.
+                          type: string
+                      required:
+                      - name
+                      type: object
                     runStrategy:
                       description: Running state indicates the requested running state
                         of the VirtualMachineInstance mutually exclusive with Running

@@ -196,6 +196,18 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"flavor.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachineflavors",
+					"virtualmachineclusterflavors",
+				},
+				Verbs: []string{
+					"list", "watch",
+				},
+			},
 		},
 	}
 }
