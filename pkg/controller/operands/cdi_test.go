@@ -767,6 +767,15 @@ var _ = Describe("CDI Operand", func() {
 			Expect(foundResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("7h0m0s"))
 			Expect(foundResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("8h0m0s"))
 			Expect(req.Conditions).To(BeEmpty())
+
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
 
 		It("should handle conditions", func() {
@@ -1227,6 +1236,15 @@ var _ = Describe("CDI Operand", func() {
 				Expect(foundResource.Data).To(HaveKey(k))
 				Expect(foundResource.Data[k]).To(Equal(expectedResource.Data[k]))
 			}
+
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, outdatedResource)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
 
 		It("local storage class name should be available when specified", func() {

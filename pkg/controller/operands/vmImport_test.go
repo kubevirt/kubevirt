@@ -96,6 +96,15 @@ var _ = Describe("VM-Import", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Spec.ImagePullPolicy).To(BeEmpty())
+
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
 
 		It("should add node placement if missing in VM-Import", func() {
@@ -437,6 +446,14 @@ var _ = Describe("VM-Import", func() {
 			Expect(foundResource.Data).To(Not(HaveKey(toBeRemovedKey)))
 			Expect(foundResource.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
 
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, outdatedResource)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
 
 	})

@@ -91,6 +91,16 @@ var _ = Describe("CLI Download", func() {
 			Expect(cl.Get(context.TODO(), key, foundResource))
 			Expect(foundResource.Spec.Links[0].Href).To(Equal(expectedResource.Spec.Links[0].Href))
 			Expect(foundResource.Spec.Links[0].Text).To(Equal(expectedResource.Spec.Links[0].Text))
+
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, modifiedResource)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
+
 		},
 			Entry("with modified download link",
 				&consolev1.ConsoleCLIDownload{

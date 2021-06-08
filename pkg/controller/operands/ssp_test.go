@@ -108,6 +108,15 @@ var _ = Describe("SSP Operands", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Spec).To(Equal(expectedResource.Spec))
+
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
 
 		Context("Node placement", func() {

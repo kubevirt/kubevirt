@@ -114,12 +114,12 @@ func (h *genericOperand) handleExistingCr(req *common.HcoRequest, key client.Obj
 		return res.Error(err)
 	}
 
-	if updated {
-		return res.SetUpdated().SetOverwritten(overwritten)
-	}
-
 	if err = h.addCrToTheRelatedObjectList(req, found); err != nil {
 		return res.Error(err)
+	}
+
+	if updated {
+		return res.SetUpdated().SetOverwritten(overwritten)
 	}
 
 	if opr, ok := h.hooks.(hcoOperandHooks); ok { // for operands, perform some more checks

@@ -92,6 +92,16 @@ var _ = Describe("Monitoring Operand", func() {
 			).To(BeNil())
 			Expect(foundResource.Spec.Ports[0].Name).To(BeIdenticalTo(operatorPortName))
 			Expect(foundResource.Spec.Ports[0].Port).To(BeIdenticalTo(hcoutil.MetricsPort))
+
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
+
 		})
 
 	})
@@ -167,6 +177,15 @@ var _ = Describe("Monitoring Operand", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Spec.Endpoints[0].Port).To(BeIdenticalTo(operatorPortName))
+
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
 
 	})
@@ -244,6 +263,15 @@ var _ = Describe("Monitoring Operand", func() {
 			).To(BeNil())
 			Expect(foundResource.Spec.Groups[0].Name).To(BeIdenticalTo(alertRuleGroup))
 			Expect(foundResource.Spec.Groups[0].Rules[0].Alert).To(BeIdenticalTo(outOfBandUpdateAlert))
+
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, existingResource)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
 
 	})

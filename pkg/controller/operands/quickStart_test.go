@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"k8s.io/client-go/tools/reference"
 	"os"
 	"path"
 	"strings"
@@ -194,6 +195,15 @@ var _ = Describe("QuickStart tests", func() {
 				Expect(quickstartObjects.Items[0].Name).Should(Equal("test-quick-start"))
 				// check that the existing object was reconciled
 				Expect(quickstartObjects.Items[0].Spec.DurationMinutes).Should(Equal(20))
+
+				// ObjectReference should have been updated
+				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+				objectRefOutdated, err := reference.GetReference(schemeForTest, exists)
+				Expect(err).To(BeNil())
+				objectRefFound, err := reference.GetReference(schemeForTest, &quickstartObjects.Items[0])
+				Expect(err).To(BeNil())
+				Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 			})
 		})
 	})

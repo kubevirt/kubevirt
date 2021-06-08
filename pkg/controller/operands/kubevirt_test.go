@@ -418,6 +418,16 @@ Version: 1.2.3`)
 			Expect(*mc.ParallelOutboundMigrationsPerNode).To(Equal(parallelOutboundMigrationsPerNode))
 			Expect(*mc.ParallelMigrationsPerCluster).To(Equal(parallelMigrationsPerCluster))
 			Expect(*mc.ProgressTimeout).To(Equal(progressTimeout))
+
+			// ObjectReference should have been updated
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRefOutdated, err := reference.GetReference(handler.Scheme, existKv)
+			Expect(err).To(BeNil())
+			objectRefFound, err := reference.GetReference(handler.Scheme, foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
+
 		})
 
 		Context("test permitted host devices", func() {
