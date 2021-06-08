@@ -26,5 +26,5 @@ import (
 )
 
 func TestHostDisk(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "HotplugDisk Mount Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -7,5 +7,5 @@ import (
 )
 
 func TestNetwork(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "DHCP test Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

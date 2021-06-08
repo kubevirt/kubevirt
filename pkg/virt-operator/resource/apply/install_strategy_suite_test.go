@@ -7,5 +7,5 @@ import (
 )
 
 func TestInstallStrategy(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "InstallStrategy Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

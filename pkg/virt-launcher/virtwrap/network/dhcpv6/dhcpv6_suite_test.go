@@ -26,5 +26,5 @@ import (
 )
 
 func TestDhcpv6(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "DHCPv6 test Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

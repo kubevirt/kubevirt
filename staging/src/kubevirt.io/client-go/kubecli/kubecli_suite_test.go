@@ -26,5 +26,5 @@ import (
 )
 
 func TestKubecli(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "kubecli Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

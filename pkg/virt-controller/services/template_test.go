@@ -2888,5 +2888,5 @@ func False() *bool {
 }
 
 func TestTemplate(t *testing.T) {
-	testutils2.KubeVirtTestSuiteSetup(t, "Template")
+	testutils2.KubeVirtTestSuiteSetup(t)
 }

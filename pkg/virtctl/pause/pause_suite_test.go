@@ -7,5 +7,5 @@ import (
 )
 
 func TestPauseUnpause(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Pausing Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

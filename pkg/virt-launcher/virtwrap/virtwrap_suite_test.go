@@ -7,5 +7,5 @@ import (
 )
 
 func TestVirtwrap(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Virtwrap Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

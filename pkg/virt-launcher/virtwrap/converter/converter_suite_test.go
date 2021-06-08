@@ -7,5 +7,5 @@ import (
 )
 
 func TestConverter(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Converter Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

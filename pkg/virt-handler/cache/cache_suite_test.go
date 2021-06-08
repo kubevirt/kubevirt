@@ -7,5 +7,5 @@ import (
 )
 
 func TestCache(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Cache Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

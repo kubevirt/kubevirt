@@ -7,5 +7,5 @@ import (
 )
 
 func TestAccessCredentials(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "AccessCredentials Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

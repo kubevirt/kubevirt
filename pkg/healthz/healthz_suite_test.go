@@ -7,5 +7,5 @@ import (
 )
 
 func TestHealthz(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Healthz Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

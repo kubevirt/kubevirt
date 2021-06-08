@@ -7,5 +7,5 @@ import (
 )
 
 func TestInstall(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Install Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

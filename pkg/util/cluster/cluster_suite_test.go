@@ -7,5 +7,5 @@ import (
 )
 
 func TestCluster(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Cluster Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

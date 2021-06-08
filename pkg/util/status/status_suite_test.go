@@ -7,5 +7,5 @@ import (
 )
 
 func TestStatus(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Status Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

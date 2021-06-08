@@ -26,5 +26,5 @@ import (
 )
 
 func TestEphemeralDiskUtils(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "EphemeralDiskUtils Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

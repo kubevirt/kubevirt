@@ -26,5 +26,5 @@ import (
 )
 
 func TestV1(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "V1 Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

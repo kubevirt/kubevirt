@@ -26,5 +26,5 @@ import (
 )
 
 func TestVirtApi(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Virt_Api Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

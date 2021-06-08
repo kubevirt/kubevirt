@@ -7,5 +7,5 @@ import (
 )
 
 func TestOpenapi(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Openapi Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

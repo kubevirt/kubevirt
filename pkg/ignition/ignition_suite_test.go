@@ -26,5 +26,5 @@ import (
 )
 
 func TestIgnition(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Ignition Test Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

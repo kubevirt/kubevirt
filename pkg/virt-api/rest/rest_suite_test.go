@@ -26,5 +26,5 @@ import (
 )
 
 func TestRest(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Rest Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

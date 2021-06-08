@@ -26,5 +26,5 @@ import (
 )
 
 func TestEndpoints(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Endpoints Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

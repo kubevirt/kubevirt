@@ -26,5 +26,5 @@ import (
 )
 
 func TestNetwork(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Device Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

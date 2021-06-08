@@ -26,5 +26,5 @@ import (
 )
 
 func TestTypeUtils(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Type Utils Test Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

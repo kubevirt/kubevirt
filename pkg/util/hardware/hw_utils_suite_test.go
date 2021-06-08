@@ -26,5 +26,5 @@ import (
 )
 
 func TestHardwareUtils(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Hardware Utils Test Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

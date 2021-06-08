@@ -7,5 +7,5 @@ import (
 )
 
 func TestNetwork(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Network Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

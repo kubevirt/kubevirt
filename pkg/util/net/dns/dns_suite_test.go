@@ -7,5 +7,5 @@ import (
 )
 
 func TestDns(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Dns Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

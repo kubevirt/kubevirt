@@ -7,5 +7,5 @@ import (
 )
 
 func TestCertificates(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Certificates Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -7,5 +7,5 @@ import (
 )
 
 func TestContainerDisk(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "ContainerDisk Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

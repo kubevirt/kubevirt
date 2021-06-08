@@ -7,5 +7,5 @@ import (
 )
 
 func TestValidatingWebhook(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Admitters Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

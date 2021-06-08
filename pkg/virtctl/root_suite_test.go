@@ -7,5 +7,5 @@ import (
 )
 
 func TestRoot(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "root Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -7,5 +7,5 @@ import (
 )
 
 func TestWebhooks(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Webhooks Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

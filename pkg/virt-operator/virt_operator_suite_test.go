@@ -7,5 +7,5 @@ import (
 )
 
 func TestVirtOperator(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "VirtOperator Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

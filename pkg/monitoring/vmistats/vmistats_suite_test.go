@@ -7,5 +7,5 @@ import (
 )
 
 func TestVmistats(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Vmistats Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

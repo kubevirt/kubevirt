@@ -7,5 +7,5 @@ import (
 )
 
 func TestContainerDiskV2alpha(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Hooks Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

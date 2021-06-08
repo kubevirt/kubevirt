@@ -26,5 +26,5 @@ import (
 )
 
 func TestInotifyInformer(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "InotifyInformer Test Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -7,5 +7,5 @@ import (
 )
 
 func TestPrometheus(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Prometheus Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

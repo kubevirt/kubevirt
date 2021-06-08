@@ -7,5 +7,5 @@ import (
 )
 
 func TestEvacuation(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Evacuation Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

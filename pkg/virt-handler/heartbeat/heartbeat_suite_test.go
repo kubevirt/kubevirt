@@ -7,5 +7,5 @@ import (
 )
 
 func TestHeartbeat(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Heartbeat Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
