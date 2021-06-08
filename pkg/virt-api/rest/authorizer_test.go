@@ -30,7 +30,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
+	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -89,7 +89,7 @@ var _ = Describe("Authorizer", func() {
 
 				server.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1beta1/subjectaccessreviews"),
+						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
 						ghttp.RespondWithJSONEncoded(http.StatusOK, result),
 					),
 				)
@@ -113,7 +113,7 @@ var _ = Describe("Authorizer", func() {
 
 				server.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1beta1/subjectaccessreviews"),
+						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
 						ghttp.RespondWithJSONEncoded(http.StatusOK, result),
 					),
 				)
@@ -132,7 +132,7 @@ var _ = Describe("Authorizer", func() {
 
 				server.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1beta1/subjectaccessreviews"),
+						ghttp.VerifyRequest("POST", "/apis/authorization.k8s.io/v1/subjectaccessreviews"),
 						ghttp.RespondWithJSONEncoded(http.StatusInternalServerError, nil),
 					),
 				)

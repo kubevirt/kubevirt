@@ -28,9 +28,9 @@ import (
 	"strings"
 
 	restful "github.com/emicklei/go-restful"
-	authorization "k8s.io/api/authorization/v1beta1"
+	authorization "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
+	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	restclient "k8s.io/client-go/rest"
 
 	"kubevirt.io/client-go/kubecli"
