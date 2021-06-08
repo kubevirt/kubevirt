@@ -568,11 +568,17 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
-func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) types.UID {
-	if len(vmi.Status.ActivePods) == 1 {
-		for k := range vmi.Status.ActivePods {
-			return k
+func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid types.UID) {
+	cnt := 0
+	for podUID := range vmi.Status.ActivePods {
+		_, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(podUID)
+		if err == nil {
+			uid = podUID
+			cnt++
 		}
+	}
+	if cnt == 1 {
+		return
 	}
 	// Either no pods, or multiple pods, skip.
 	return types.UID("")
