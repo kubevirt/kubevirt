@@ -3,6 +3,9 @@ package log
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/onsi/ginkgo"
@@ -16,7 +19,9 @@ func TestLogging(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	testsWrapped := os.Getenv("GO_TEST_WRAP")
 	outputFile := os.Getenv("XML_OUTPUT_FILE")
-	description := "log"
+	_, description, _, _ := runtime.Caller(1)
+	projectRoot := findRoot()
+	description = strings.TrimPrefix(description, projectRoot)
 
 	// if run on bazel (XML_OUTPUT_FILE is not empty)
 	// and rules_go is configured to not produce the junit xml
@@ -39,5 +44,22 @@ func TestLogging(t *testing.T) {
 		)
 	} else {
 		ginkgo.RunSpecs(t, description)
+	}
+}
+
+func findRoot() string {
+	_, current, _, _ := runtime.Caller(0)
+	for {
+		current = filepath.Dir(current)
+		if current == "/" || current == "." {
+			return current
+		}
+		if _, err := os.Stat(filepath.Join(current, "WORKSPACE")); err == nil {
+			return strings.TrimSuffix(current, "/") + "/"
+		} else if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			panic(err)
+		}
 	}
 }
