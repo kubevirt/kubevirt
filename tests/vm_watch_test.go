@@ -116,14 +116,22 @@ func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) 
 			return newStatus, nil
 		}
 
-		// Skip status line with similar printableStatus state for VM or phase state for VMI
-		// newStatus[2] and oldStatus[2] point to the VM printableStatus or VMI phase
-		if len(prevStatus) >= 3 &&
-			len(newStatus) >= 3 &&
-			prevStatus[2] != newStatus[2] {
-			return newStatus, nil
+		prevStatusOrPhase := ""
+		if len(prevStatus) >= 3 {
+			prevStatusOrPhase = prevStatus[2]
 		}
 
+		newStatusOrPhase := ""
+		if len(newStatus) >= 3 {
+			newStatusOrPhase = newStatus[2]
+		}
+
+		// Only return if a change is detected in the printableStatus of a VM,
+		// or the phase of a VMI
+		if prevStatusOrPhase != newStatusOrPhase {
+			return newStatus, nil
+		}
+		
 		prevStatus = newStatus
 		remainingTimeout -= time.Now().Sub(start)
 		if remainingTimeout <= 0 {
@@ -225,7 +233,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		// Read column titles
 		titles, err := readNewStatus(stdout, nil, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(titles).To(Equal([]string{"NAME", "AGE", "STATUS", "VOLUME"}),
+		Expect(titles).To(Equal([]string{"NAME", "AGE", "STATUS", "READY"}),
 			"Output should have the proper columns")
 
 		vmStatus, err := readNewStatus(stdout, titles, statusChangeTimeout)
@@ -328,7 +336,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		// Read the column titles
 		titles, err := readNewStatus(stdout, nil, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(titles).To(Equal([]string{"NAME", "AGE", "PHASE", "IP", "NODENAME"}),
+		Expect(titles).To(Equal([]string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY"}),
 			"Output should have the proper columns")
 
 		// Read out the guard VMI
@@ -379,10 +387,13 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
+		// running VM may or may not be reported as ready just yet
+		Expect(len(vmiStatus)).To(BeNumerically(">=", 5), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
+		Expect(vmiStatus[0]).To(Equal(vmi.Name))
+		Expect(vmiStatus[1]).To(MatchRegexp(vmAgeRegex))
+		Expect(vmiStatus[2]).To(Equal(string(v12.Running)), "VMI should be in the Running phase")
 		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Running), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Running phase")
+		Expect(vmiStatus[4]).To(Equal(vmi.Status.NodeName))
 
 		// Restart the VMI
 		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name)
@@ -390,10 +401,12 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
+		Expect(len(vmiStatus)).To(BeNumerically(">=", 5), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
+		Expect(vmiStatus[0]).To(Equal(vmi.Name))
+		Expect(vmiStatus[1]).To(MatchRegexp(vmAgeRegex))
+		Expect(vmiStatus[2]).To(Equal(string(v12.Succeeded)), "VMI should be in the Succeeded phase")
 		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Succeeded), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Failed phase")
+		Expect(vmiStatus[4]).To(Equal(vmi.Status.NodeName))
 
 		By("Waiting for the second VMI to be created")
 		Eventually(func() bool {
@@ -433,9 +446,11 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
+		Expect(len(vmiStatus)).To(BeNumerically(">=", 5), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
+		Expect(vmiStatus[0]).To(Equal(vmi.Name))
+		Expect(vmiStatus[1]).To(MatchRegexp(vmAgeRegex))
+		Expect(vmiStatus[2]).To(Equal(string(v12.Running)), "VMI should be in the Running phase")
 		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Running), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Running phase")
+		Expect(vmiStatus[4]).To(Equal(vmi.Status.NodeName))
 	})
 })

@@ -109,8 +109,8 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			// Name will be there in all the cases, so verify name
 			Expect(resultFields[len(expectedHeader)]).To(Equal(vm.Name))
 		},
-			table.Entry("[test_id:3464]virtualmachine", "get", "vm", []string{"NAME", "AGE", "STATUS", "VOLUME"}),
-			table.Entry("[test_id:3465]virtualmachineinstance", "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME"}),
+			table.Entry("[test_id:3464]virtualmachine", "get", "vm", []string{"NAME", "AGE", "STATUS", "READY"}),
+			table.Entry("[test_id:3465]virtualmachineinstance", "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY"}),
 		)
 
 		table.DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
@@ -134,8 +134,8 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 			Expect(resultFields[len(resultFields)-verifyPos]).To(Equal(expectedData))
 
 		},
-			table.Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "STATUS", "VOLUME", "CREATED"}, 1, "true"),
-			table.Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
+			table.Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "STATUS", "READY"}, 1, "True"),
+			table.Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
 		)
 
 	})
