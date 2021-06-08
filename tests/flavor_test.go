@@ -37,6 +37,54 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		tests.BeforeTestCleanup()
 	})
 
+	Context("Flavor validation", func() {
+		It("[test_id:TODO] should allow valid flavor", func() {
+			flavor := newVirtualMachineFlavor()
+			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("[test_id:TODO] should fail flavor with no profiles", func() {
+			flavor := newVirtualMachineFlavor()
+			flavor.Profiles = []flavorv1alpha1.VirtualMachineFlavorProfile{}
+
+			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+
+			Expect(err).To(HaveOccurred())
+			var apiStatus errors.APIStatus
+			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+
+			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
+			cause := apiStatus.Status().Details.Causes[0]
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueRequired))
+			Expect(cause.Message).To(HavePrefix("A flavor must have at least one profile"))
+			Expect(cause.Field).To(Equal("profiles"))
+		})
+
+		It("[test_id:TODO] should fail flavor with multiple default profiles", func() {
+			flavor := newVirtualMachineFlavor()
+			flavor.Profiles = append(flavor.Profiles, flavorv1alpha1.VirtualMachineFlavorProfile{
+				Name:    "second-default",
+				Default: true,
+			})
+
+			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+
+			Expect(err).To(HaveOccurred())
+			var apiStatus errors.APIStatus
+			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+
+			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
+			cause := apiStatus.Status().Details.Causes[0]
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+			Expect(cause.Message).To(HavePrefix("Flavor contains more than one default profile"))
+			Expect(cause.Field).To(Equal("profiles"))
+		})
+	})
+
 	Context("VM with invalid FlavorMatcher", func() {
 		It("[test_id:TODO] should fail to create VM with non-existing cluster flavor", func() {
 			vmi := tests.NewRandomVMI()

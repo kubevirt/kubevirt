@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
+	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 )
 
@@ -234,6 +235,8 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	migrationUpdatePath := MigrationUpdateValidatePath
 	vmSnapshotValidatePath := VMSnapshotValidatePath
 	vmRestoreValidatePath := VMRestoreValidatePath
+	VmFlavorValidatePath := VMFlavorValidatePath
+	VmClusterFlavorValidatePath := VMClusterFlavorValidatePath
 	launcherEvictionValidatePath := LauncherEvictionValidatePath
 	statusValidatePath := StatusValidatePath
 	failurePolicy := admissionregistrationv1.Fail
@@ -503,6 +506,56 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
+				Name:                    "virtualmachineflavor-validator.flavor.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachineflavors"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &VmFlavorValidatePath,
+					},
+				},
+			},
+			{
+				Name:                    "virtualmachineclusterflavor-validator.flavor.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{flavorv1alpha1.SchemeGroupVersion.Group},
+						APIVersions: []string{flavorv1alpha1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachineclusterflavors"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &VmClusterFlavorValidatePath,
+					},
+				},
+			},
+			{
 				Name:                    "kubevirt-crd-status-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				FailurePolicy:           &failurePolicy,
@@ -576,6 +629,10 @@ const KubeVirtOperatorValidatingWebhookName = "virt-operator-validator"
 const VMSnapshotValidatePath = "/virtualmachinesnapshots-validate"
 
 const VMRestoreValidatePath = "/virtualmachinerestores-validate"
+
+const VMFlavorValidatePath = "/virtualmachineflavors-validate"
+
+const VMClusterFlavorValidatePath = "/virtualmachineclusterflavors-validate"
 
 const StatusValidatePath = "/status-validate"
 
