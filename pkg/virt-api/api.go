@@ -736,6 +736,12 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 	http.HandleFunc(components.VMRestoreValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMRestores(w, r, app.clusterConfig, app.virtCli, informers)
 	})
+	http.HandleFunc(components.VMFlavorValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVmFlavors(w, r, app.clusterConfig, app.virtCli)
+	})
+	http.HandleFunc(components.VMClusterFlavorValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVmClusterFlavors(w, r, app.clusterConfig, app.virtCli)
+	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers)
 	})
