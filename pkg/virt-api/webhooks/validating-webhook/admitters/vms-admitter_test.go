@@ -94,18 +94,8 @@ var _ = Describe("Validating VM Admitter", func() {
 				},
 			},
 		}
-		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
@@ -131,18 +121,8 @@ var _ = Describe("Validating VM Admitter", func() {
 				},
 			},
 		}
-		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
@@ -288,7 +268,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Ready:          true,
 			},
 		}
-		vmBytes, _ := json.Marshal(&vm)
 
 		// add some additional volumes to the running VMI so we can simulate
 		// more advanced validation scenarios where VM and VMI specs drift.
@@ -305,18 +284,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		})
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
 		vmsAdmitter.VMIInformer.GetIndexer().Add(vmi)
-
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},
 		table.Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
@@ -495,18 +464,8 @@ var _ = Describe("Validating VM Admitter", func() {
 				VolumeRequests: requests,
 			},
 		}
-		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},
 		table.Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
@@ -696,19 +655,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		})
 
-		vmBytes, _ := json.Marshal(&vm)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
 		testutils.AddDataVolumeAPI(crdInformer)
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
@@ -745,19 +693,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		})
 
-		vmBytes, _ := json.Marshal(&vm)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmBytes,
-				},
-			},
-		}
-
 		testutils.AddDataVolumeAPI(crdInformer)
-		resp := vmsAdmitter.Admit(ar)
+		resp := admitVm(vmsAdmitter, vm)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
@@ -1450,6 +1387,21 @@ var _ = Describe("Validating VM Admitter", func() {
 		}),
 	)
 })
+
+func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
+	vmBytes, _ := json.Marshal(vm)
+
+	ar := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: webhooks.VirtualMachineGroupVersionResource,
+			Object: runtime.RawExtension{
+				Raw: vmBytes,
+			},
+		},
+	}
+
+	return admitter.Admit(ar)
+}
 
 func makeCloneAdmitFunc(expectedSourceNamespace, expectedPVCName, expectedTargetNamespace, expectedServiceAccount string) CloneAuthFunc {
 	return func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
