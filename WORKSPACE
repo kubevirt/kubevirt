@@ -2448,29 +2448,6 @@ rpm(
 )
 
 rpm(
-    name = "libev-0__4.31-2.fc32.aarch64",
-    sha256 = "f6ee382a943ddf8c5de3de7f4a74b4163d1d3b362857813373c915d6de80be74",
-    urls = [
-        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/releases/32/Everything/aarch64/os/Packages/l/libev-4.31-2.fc32.aarch64.rpm",
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/releases/32/Everything/aarch64/os/Packages/l/libev-4.31-2.fc32.aarch64.rpm",
-        "https://mirrors.tuna.tsinghua.edu.cn/fedora/releases/32/Everything/aarch64/os/Packages/l/libev-4.31-2.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/f6ee382a943ddf8c5de3de7f4a74b4163d1d3b362857813373c915d6de80be74",
-    ],
-)
-
-rpm(
-    name = "libev-0__4.31-2.fc32.x86_64",
-    sha256 = "765176863b582a8de7db2d076bd7dbcef05c6f9993f44ad9918e0ca1f9507d11",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libev-4.31-2.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libev-4.31-2.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libev-4.31-2.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libev-4.31-2.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/765176863b582a8de7db2d076bd7dbcef05c6f9993f44ad9918e0ca1f9507d11",
-    ],
-)
-
-rpm(
     name = "libevent-0__2.1.8-8.fc32.aarch64",
     sha256 = "ad874e09de00dbdb887eb6a94351869950ead7f6409dfa191d1443d3bb9dd255",
     urls = [
@@ -3548,29 +3525,6 @@ rpm(
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-0.3.0-9.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-0.3.0-9.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/ed84414c9b2190d3026f58db78dffd8bc3a9ad40311cb0adb8ff8e3c7c06ca60",
-    ],
-)
-
-rpm(
-    name = "libverto-libev-0__0.3.0-9.fc32.aarch64",
-    sha256 = "000730aea340e2b377b5aa2dd31d64d302e49f4f1f191fb85213d31bd26ec059",
-    urls = [
-        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux/releases/32/Everything/aarch64/os/Packages/l/libverto-libev-0.3.0-9.fc32.aarch64.rpm",
-        "https://nrt.edge.kernel.org/fedora-buffet/fedora/linux/releases/32/Everything/aarch64/os/Packages/l/libverto-libev-0.3.0-9.fc32.aarch64.rpm",
-        "https://mirrors.tuna.tsinghua.edu.cn/fedora/releases/32/Everything/aarch64/os/Packages/l/libverto-libev-0.3.0-9.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/000730aea340e2b377b5aa2dd31d64d302e49f4f1f191fb85213d31bd26ec059",
-    ],
-)
-
-rpm(
-    name = "libverto-libev-0__0.3.0-9.fc32.x86_64",
-    sha256 = "ce35e4c3f232c62b75288a7dd7ada055d5742f25ac9411a2d0877a5b93e8ae58",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libev-0.3.0-9.fc32.x86_64.rpm",
-        "https://ftp.wrz.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libev-0.3.0-9.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libev-0.3.0-9.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libev-0.3.0-9.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/ce35e4c3f232c62b75288a7dd7ada055d5742f25ac9411a2d0877a5b93e8ae58",
     ],
 )
 
