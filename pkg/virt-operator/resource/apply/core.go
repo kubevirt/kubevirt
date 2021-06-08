@@ -332,7 +332,7 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 	}
 
 	// create/update CA config map
-	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, caRenewBefore)
+	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, caRenewBefore, findRequiredCAConfigMap(r.targetStrategy.ConfigMaps()))
 	if err != nil {
 		return err
 	}
@@ -556,8 +556,7 @@ func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue 
 	return updateBundle, nil
 }
 
-func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimitingInterface, caCert *tls.Certificate, overlapInterval *metav1.Duration) (caBundle []byte, err error) {
-	configMap := findRequiredCAConfigMap(r.targetStrategy.ConfigMaps())
+func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimitingInterface, caCert *tls.Certificate, overlapInterval *metav1.Duration, configMap *corev1.ConfigMap) (caBundle []byte, err error) {
 	if configMap == nil {
 		return nil, nil
 	}
