@@ -1033,7 +1033,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			Expect(err).To(BeNil())
 		},
 			table.Entry("[test_id:5894]by default, fstrim will make the image smaller", noop, true, false),
-			table.Entry("[test_id:5898]with preallocation true, fstrim has no effect", addPreallocationTrue, false, false),
+			table.Entry("[QUARANTINE][test_id:5898]with preallocation true, fstrim has no effect", addPreallocationTrue, false, false),
 			table.Entry("[test_id:5897]with preallocation false, fstrim will make the image smaller", addPreallocationFalse, true, false),
 			table.Entry("[test_id:5899]with thick provision true, fstrim has no effect", addThickProvisionedTrueAnnotation, false, false),
 			table.Entry("[test_id:5896]with thick provision false, fstrim will make the image smaller", addThickProvisionedFalseAnnotation, true, false),

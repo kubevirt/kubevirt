@@ -144,7 +144,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return newVM
 		}
 
-		It("[test_id:3312]should set the default MachineType when created without explicit value", func() {
+		It("[QUARANTINE][test_id:3312]should set the default MachineType when created without explicit value", func() {
 			By("Creating VirtualMachine")
 			template, _ := newVirtualMachineInstanceWithContainerDisk()
 			template.Spec.Domain.Machine = nil
@@ -156,7 +156,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(createdVM.Spec.Template.Spec.Domain.Machine.Type).To(Equal(testingMachineType))
 		})
 
-		It("[test_id:3311]should keep the supplied MachineType when created", func() {
+		It("[QUARANTINE][test_id:3311]should keep the supplied MachineType when created", func() {
 			By("Creating VirtualMachine")
 			explicitMachineType := "pc-q35-3.0"
 			template, _ := newVirtualMachineInstanceWithContainerDisk()
