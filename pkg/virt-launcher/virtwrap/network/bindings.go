@@ -73,6 +73,30 @@ type BridgeBindMechanism struct {
 	routes              []netlink.Route
 }
 
+func newBridgeBinding(vmi *v1.VirtualMachineInstance,
+	iface *v1.Interface,
+	domain *api.Domain,
+	podInterfaceName string,
+	cacheFactory cache.InterfaceCacheFactory,
+	launcherPID *int,
+	handler netdriver.NetworkHandler) (*BridgeBindMechanism, error) {
+	mac, err := retrieveMacAddress(iface)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BridgeBindMechanism{iface: iface,
+		vmi:                 vmi,
+		domain:              domain,
+		bridgeInterfaceName: generateInPodBridgeInterfaceName(podInterfaceName),
+		cacheFactory:        cacheFactory,
+		launcherPID:         launcherPID,
+		queueCount:          calculateNetworkQueues(vmi),
+		handler:             handler,
+		mac:                 mac,
+	}, nil
+}
+
 func (b *BridgeBindMechanism) discoverPodNetworkInterface(podIfaceName string) error {
 	link, err := b.handler.LinkByName(podIfaceName)
 	if err != nil {
@@ -357,6 +381,34 @@ type MasqueradeBindMechanism struct {
 	podIfaceIPv4Addr    netlink.Addr
 	podIfaceIPv6Addr    netlink.Addr
 	mac                 *net.HardwareAddr
+}
+
+func newMasqueradeBinding(
+	vmi *v1.VirtualMachineInstance,
+	iface *v1.Interface,
+	domain *api.Domain,
+	vmNetworkCIDR string,
+	vmIPv6NetworkCIDR string,
+	podInterfaceName string,
+	cacheFactory cache.InterfaceCacheFactory,
+	launcherPID *int,
+	handler netdriver.NetworkHandler) (*MasqueradeBindMechanism, error) {
+	mac, err := retrieveMacAddress(iface)
+	if err != nil {
+		return nil, err
+	}
+	return &MasqueradeBindMechanism{iface: iface,
+		vmi:                 vmi,
+		domain:              domain,
+		vmNetworkCIDR:       vmNetworkCIDR,
+		vmIPv6NetworkCIDR:   vmIPv6NetworkCIDR,
+		bridgeInterfaceName: generateInPodBridgeInterfaceName(podInterfaceName),
+		cacheFactory:        cacheFactory,
+		launcherPID:         launcherPID,
+		queueCount:          calculateNetworkQueues(vmi),
+		handler:             handler,
+		mac:                 mac,
+	}, nil
 }
 
 func (b *MasqueradeBindMechanism) discoverPodNetworkInterface(podIfaceName string) error {
@@ -955,6 +1007,28 @@ type MacvtapBindMechanism struct {
 	handler      netdriver.NetworkHandler
 }
 
+func newMacvtapBinding(
+	vmi *v1.VirtualMachineInstance,
+	iface *v1.Interface,
+	domain *api.Domain,
+	cacheFactory cache.InterfaceCacheFactory,
+	launcherPID *int,
+	handler netdriver.NetworkHandler) (*MacvtapBindMechanism, error) {
+	mac, err := retrieveMacAddress(iface)
+	if err != nil {
+		return nil, err
+	}
+	return &MacvtapBindMechanism{
+		vmi:          vmi,
+		iface:        iface,
+		domain:       domain,
+		mac:          mac,
+		cacheFactory: cacheFactory,
+		launcherPID:  launcherPID,
+		handler:      handler,
+	}, nil
+}
+
 func (b *MacvtapBindMechanism) discoverPodNetworkInterface(podIfaceName string) error {
 	link, err := b.handler.LinkByName(podIfaceName)
 	if err != nil {
@@ -1023,4 +1097,19 @@ func validateMTU(mtu int) error {
 		return fmt.Errorf("MTU value out of range ")
 	}
 	return nil
+}
+
+func retrieveMacAddress(iface *v1.Interface) (*net.HardwareAddr, error) {
+	if iface.MacAddress != "" {
+		macAddress, err := net.ParseMAC(iface.MacAddress)
+		if err != nil {
+			return nil, err
+		}
+		return &macAddress, nil
+	}
+	return nil, nil
+}
+
+func generateInPodBridgeInterfaceName(podInterfaceName string) string {
+	return fmt.Sprintf("k6t-%s", podInterfaceName)
 }

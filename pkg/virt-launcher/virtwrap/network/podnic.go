@@ -21,7 +21,6 @@ package network
 
 import (
 	"fmt"
-	"net"
 	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -276,71 +275,17 @@ func (l *podNIC) getPhase1Binding() (BindMechanism, error) {
 }
 
 func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
-	retrieveMacAddress := func(iface *v1.Interface) (*net.HardwareAddr, error) {
-		if iface.MacAddress != "" {
-			macAddress, err := net.ParseMAC(iface.MacAddress)
-			if err != nil {
-				return nil, err
-			}
-			return &macAddress, nil
-		}
-		return nil, nil
-	}
-
 	if l.iface.Bridge != nil {
-		mac, err := retrieveMacAddress(l.iface)
-		if err != nil {
-			return nil, err
-		}
-
-		return &BridgeBindMechanism{iface: l.iface,
-			vmi:                 l.vmi,
-			domain:              domain,
-			bridgeInterfaceName: generateInPodBridgeInterfaceName(l.podInterfaceName),
-			cacheFactory:        l.cacheFactory,
-			launcherPID:         l.launcherPID,
-			queueCount:          calculateNetworkQueues(l.vmi),
-			handler:             l.handler,
-			mac:                 mac,
-		}, nil
+		return newBridgeBinding(l.vmi, l.iface, domain, l.podInterfaceName, l.cacheFactory, l.launcherPID, l.handler)
 	}
 	if l.iface.Masquerade != nil {
-		mac, err := retrieveMacAddress(l.iface)
-		if err != nil {
-			return nil, err
-		}
-
-		return &MasqueradeBindMechanism{iface: l.iface,
-			vmi:                 l.vmi,
-			domain:              domain,
-			vmNetworkCIDR:       l.network.Pod.VMNetworkCIDR,
-			vmIPv6NetworkCIDR:   l.network.Pod.VMIPv6NetworkCIDR,
-			bridgeInterfaceName: generateInPodBridgeInterfaceName(l.podInterfaceName),
-			cacheFactory:        l.cacheFactory,
-			launcherPID:         l.launcherPID,
-			queueCount:          calculateNetworkQueues(l.vmi),
-			handler:             l.handler,
-			mac:                 mac,
-		}, nil
+		return newMasqueradeBinding(l.vmi, l.iface, domain, l.network.Pod.VMNetworkCIDR, l.network.Pod.VMIPv6NetworkCIDR, l.podInterfaceName, l.cacheFactory, l.launcherPID, l.handler)
 	}
 	if l.iface.Slirp != nil {
 		return &SlirpBindMechanism{iface: l.iface, domain: domain}, nil
 	}
 	if l.iface.Macvtap != nil {
-		mac, err := retrieveMacAddress(l.iface)
-		if err != nil {
-			return nil, err
-		}
-
-		return &MacvtapBindMechanism{
-			vmi:          l.vmi,
-			iface:        l.iface,
-			domain:       domain,
-			mac:          mac,
-			cacheFactory: l.cacheFactory,
-			launcherPID:  l.launcherPID,
-			handler:      l.handler,
-		}, nil
+		return newMacvtapBinding(l.vmi, l.iface, domain, l.cacheFactory, l.launcherPID, l.handler)
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
@@ -380,8 +325,4 @@ func calculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
 func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) &&
 		(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-}
-
-func generateInPodBridgeInterfaceName(podInterfaceName string) string {
-	return fmt.Sprintf("k6t-%s", podInterfaceName)
 }
