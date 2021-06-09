@@ -482,9 +482,7 @@ var _ = Describe("Pod Network", func() {
 			})
 		})
 		Context("Masquerade Plug", func() {
-			It("should define a new DhcpConfig bind to a bridge and create a default nat rule using iptables", func() {
-
-				// forward all the traffic
+			It("should define a bridge in pod and forward all traffic to VM using iptables", func() {
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().NftablesLoad(proto).Return(fmt.Errorf("no nft"))
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
@@ -498,8 +496,7 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
-			It("should define a new DhcpConfig bind to a bridge and create a specific nat rule using iptables", func() {
-				// Forward a specific port
+			It("should define a bridge in pod and forward specific ports to VM using iptables", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
@@ -536,8 +533,7 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
-			It("should define a new DhcpConfig bind to a bridge and create a default nat rule using nftables", func() {
-				// forward all the traffic
+			It("should define a bridge in pod and forward all traffic to VM using nftables", func() {
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().NftablesLoad(proto).Return(nil)
 				}
@@ -550,8 +546,7 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
-			It("should define a new DhcpConfig bind to a bridge and create a specific nat rule using nftables", func() {
-				// Forward a specific port
+			It("should define a bridge in pod and forward specific ports to VM using nftables", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
@@ -587,8 +582,7 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
-			It("should define a new DhcpConfig bind to a bridge with Istio enabled and create a default nat rule using nftables", func() {
-				// forward all the traffic
+			It("should define a bridge in pod with Istio proxy and forward all traffic to VM using nftables", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
@@ -630,8 +624,7 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
-			It("should define a new DhcpConfig bind to a bridge with Istio enabled and create a specific nat rule using nftables", func() {
-				// Forward a specific port
+			It("should define a bridge in pod with Istio proxy and forward specific ports to VM using nftables", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
