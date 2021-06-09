@@ -59,14 +59,10 @@ function update_github_release() {
         _out/manifests/release/demo-content.yaml \
         _out/manifests/release/kubevirt-operator.yaml \
         _out/manifests/release/kubevirt-cr.yaml \
-        _out/templates/manifests/release/kubevirt-operator.yaml.j2 \
-        _out/templates/manifests/release/kubevirt-cr.yaml.j2 \
-        _out/templates/manifests/release/demo-content.yaml.j2 \
         _out/manifests/release/olm/kubevirt-operatorsource.yaml \
         "_out/manifests/release/olm/bundle/kubevirtoperator.$DOCKER_TAG.clusterserviceversion.yaml" \
         _out/tests/tests.test \
         _out/manifests/release/conformance.yaml \
-        _out/templates/manifests/release/conformance.yaml.j2 \
         _out/manifests/testing/*
 }
 
