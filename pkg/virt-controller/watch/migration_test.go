@@ -20,8 +20,10 @@
 package watch
 
 import (
+	"encoding/json"
 	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -152,6 +154,7 @@ var _ = Describe("Migration watcher", func() {
 			return arg, nil
 		})
 	}
+
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
@@ -734,15 +737,18 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
 		})
-		table.DescribeTable("should finalize migration on VMI if target pod fails before migration starts", func(phase v1.VirtualMachineInstanceMigrationPhase, hasPod bool, podPhase k8sv1.PodPhase) {
+		table.DescribeTable("should finalize migration on VMI if target pod fails before migration starts", func(phase v1.VirtualMachineInstanceMigrationPhase, hasPod bool, podPhase k8sv1.PodPhase, initializeMigrationState bool) {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Status.NodeName = "node02"
 			migration := newMigration("testmigration", vmi.Name, phase)
 
-			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				MigrationUID: migration.UID,
-				TargetNode:   "node01",
-				SourceNode:   "node02",
+			vmi.Status.MigrationState = nil
+			if initializeMigrationState {
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					MigrationUID: migration.UID,
+					TargetNode:   "node01",
+					SourceNode:   "node02",
+				}
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -758,19 +764,52 @@ var _ = Describe("Migration watcher", func() {
 				shouldExpectMigrationFailedState(migration)
 			}
 
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
+			if initializeMigrationState {
+				patch := `[ { "op": "test", "path": "/status", "value": {"nodeName":"node02","phase":"Running","guestOSInfo":{},"migrationState":{"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"}} }, { "op": "replace", "path": "/status", "value": {"nodeName":"node02","phase":"Running","guestOSInfo":{},"migrationState":{"startTimestamp":"%s","endTimestamp":"%s","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"}} } ]`
+
+				vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).DoAndReturn(func(name interface{}, ptype interface{}, vmiStatusPatch []byte) (*v1.VirtualMachineInstance, error) {
+					type patchOperation struct {
+						Op    string      `json:"op"`
+						Path  string      `json:"path"`
+						Value interface{} `json:"value,omitempty"`
+					}
+
+					vmiSP := []patchOperation{}
+					err := json.Unmarshal(vmiStatusPatch, &vmiSP)
+					Expect(err).To(BeNil())
+					Expect(vmiSP).To(HaveLen(2))
+
+					b, err := json.Marshal(vmiSP[1].Value)
+					Expect(err).To(BeNil())
+
+					newMS := v1.VirtualMachineInstanceStatus{}
+					err = json.Unmarshal(b, &newMS)
+					Expect(err).To(BeNil())
+					Expect(newMS.MigrationState.StartTimestamp).ToNot(BeNil())
+					Expect(newMS.MigrationState.EndTimestamp).ToNot(BeNil())
+
+					expected := fmt.Sprintf(patch, newMS.MigrationState.StartTimestamp.UTC().Format(time.RFC3339), newMS.MigrationState.EndTimestamp.UTC().Format(time.RFC3339))
+					Expect(expected).To(Equal(string(vmiStatusPatch)))
+
+					return vmi, nil
+				})
+			}
+
 			controller.Execute()
 
 			// in this case, we have two failed events. one for the VMI and one on the Migration object.
-			testutils.ExpectEvent(recorder, FailedMigrationReason)
+			if initializeMigrationState {
+				testutils.ExpectEvent(recorder, FailedMigrationReason)
+			}
 			if phase != v1.MigrationFailed {
 				testutils.ExpectEvent(recorder, FailedMigrationReason)
 			}
 		},
-			table.Entry("in preparing target state", v1.MigrationPreparingTarget, true, k8sv1.PodFailed),
-			table.Entry("in target ready state", v1.MigrationTargetReady, true, k8sv1.PodFailed),
-			table.Entry("in failed state", v1.MigrationFailed, true, k8sv1.PodFailed),
-			table.Entry("in failed state and pod does not exist", v1.MigrationFailed, false, k8sv1.PodFailed),
+			table.Entry("in preparing target state", v1.MigrationPreparingTarget, true, k8sv1.PodFailed, true),
+			table.Entry("in target ready state", v1.MigrationTargetReady, true, k8sv1.PodFailed, true),
+			table.Entry("in failed state", v1.MigrationFailed, true, k8sv1.PodFailed, true),
+			table.Entry("in failed state before pod is created", v1.MigrationFailed, false, k8sv1.PodFailed, false),
+			table.Entry("in failed state and pod does not exist", v1.MigrationFailed, false, k8sv1.PodFailed, false),
 		)
 	})
 })
