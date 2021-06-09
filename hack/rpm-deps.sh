@@ -34,18 +34,6 @@ bazel run \
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --arch=ppc64le --name testimage_ppc64le \
-    $basesystem \
-    qemu-img \
-    nginx \
-    scsi-target-utils \
-    procps-ng \
-    nmap-ncat \
-    iputils \
-    e2fsprogs
-
-bazel run \
-    --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --arch=aarch64 --name testimage_aarch64 \
     $basesystem \
     qemu-img \

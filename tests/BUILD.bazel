@@ -83,12 +83,10 @@ container_image(
     name = "conformance_image_base",
     testonly = True,
     architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     base = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
         "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_aarch64//image",
         "//conditions:default": "@fedora//image",
     }),
