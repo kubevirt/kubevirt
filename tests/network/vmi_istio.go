@@ -163,7 +163,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					return migrationCompleted(migration)
 				}, tests.MigrationWaitTime, time.Second).Should(Succeed(), fmt.Sprintf(" migration should succeed"))
 			})
-			PIt("All containers should complete in source virt-launcher pod after migration", func() {
+			It("All containers should complete in source virt-launcher pod after migration", func() {
 				Eventually(func() error {
 					return allContainersCompleted(sourcePodName)
 				}, tests.ContainerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod"))
