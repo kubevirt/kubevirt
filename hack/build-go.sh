@@ -124,7 +124,7 @@ for arg in $args; do
             echo "$KUBEVIRT_GIT_VERSION" >${CMD_OUT_DIR}/${BIN_NAME}/.version
 
             # build virtctl also for darwin and windows on amd64
-            if [ "${BIN_NAME}" = "virtctl" -a "${ARCH}" = "amd64" ]; then
+            if [ "${BIN_NAME}" = "virtctl" -a "${ARCH}" = "amd64" -a -z "${LINUX_ONLY}" ]; then
                 GOOS=darwin GOARCH=amd64 go_build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir darwin amd64)
                 GOOS=windows GOARCH=amd64 go_build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir windows amd64)
                 # Create symlinks to the latest binary of each architecture
