@@ -1327,7 +1327,6 @@ func (c *VMIController) virtlauncherAttachmentPods(virtlauncherPod *k8sv1.Pod) (
 }
 
 func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
-
 	// Determine if the ready volumes have changed compared to the current pod
 	for _, attachmentPod := range hotplugAttachmentPods {
 		if c.podVolumesMatchesReadyVolumes(attachmentPod, hotplugVolumes) {
@@ -1336,7 +1335,6 @@ func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotp
 		}
 		return true
 	}
-	log.DefaultLogger().Infof("Handle no matching attachment pod found!")
 	return len(hotplugVolumes) > 0 && true
 }
 
@@ -1367,14 +1365,6 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		}
 		readyHotplugVolumes = append(readyHotplugVolumes, volume)
 	}
-	logger.Infof("Ready to attach to node volumes: %d", len(readyHotplugVolumes))
-	for _, volume := range readyHotplugVolumes {
-		logger.Infof("volume: %s", volume.Name)
-	}
-	logger.Infof("Number of attachment pods: %d", len(hotplugAttachmentPods))
-	for _, pod := range hotplugAttachmentPods {
-		logger.Infof("attachment pod: %s/%s", pod.Namespace, pod.Name)
-	}
 	// Determine if the ready volumes have changed compared to the current pod
 	currentPod := make([]*k8sv1.Pod, 0)
 	oldPods := make([]*k8sv1.Pod, 0)
@@ -1384,14 +1374,6 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		} else {
 			currentPod = append(currentPod, attachmentPod)
 		}
-	}
-	logger.Infof("Number of current pods: %d", len(currentPod))
-	for _, pod := range currentPod {
-		logger.Infof("current pod: %s/%s", pod.Namespace, pod.Name)
-	}
-	logger.Infof("Number of old pods: %d", len(oldPods))
-	for _, pod := range oldPods {
-		logger.Infof("old pod: %s/%s", pod.Namespace, pod.Name)
 	}
 
 	if len(currentPod) == 0 && len(readyHotplugVolumes) > 0 {
@@ -1421,12 +1403,9 @@ func (c *VMIController) podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, 
 			podVolumeMap[volume.Name] = volume
 		}
 	}
-	log.DefaultLogger().Infof("pod volume map before: [%v]", podVolumeMap)
 	for _, volume := range volumes {
-		log.DefaultLogger().Infof("Deleting: %s", volume.Name)
 		delete(podVolumeMap, volume.Name)
 	}
-	log.DefaultLogger().Infof("pod volume map after: [%v]", podVolumeMap)
 	return len(podVolumeMap) == 0
 }
 
