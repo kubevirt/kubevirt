@@ -71,7 +71,6 @@ bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --name launcherbase_x86_64 \
     $basesystem \
-    libverto-libev \
     libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
     libvirt-client-${LIBVIRT_VERSION} \
     qemu-kvm-core-${QEMU_VERSION} \
@@ -88,7 +87,6 @@ bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --arch=aarch64 --name launcherbase_aarch64 \
     $basesystem \
-    libverto-libev \
     libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
     libvirt-client-${LIBVIRT_VERSION} \
     qemu-kvm-core-${QEMU_VERSION} \
