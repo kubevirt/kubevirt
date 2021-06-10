@@ -40,11 +40,12 @@ rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 function functest() {
-    extra_args="${extra_args} -apply-default-e2e-configuration"
+    extra_args="${extra_args} -apply-default-e2e-configuration -conn-check-ipv4-address=${conn_check_ipv4_address} -conn-check-ipv6-address=${conn_check_ipv6_address} -conn-check-dns=${conn_check_dns}"
     if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-1\.16)|(k8s-1\.17)|k8s-sriov.* ]]; then
         echo "Will skip test asserting the cluster is in dual-stack mode."
         extra_args="${extra_args} -skip-dual-stack-test"
     fi
+
     _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
 }
 
