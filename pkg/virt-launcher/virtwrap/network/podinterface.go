@@ -250,24 +250,12 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return nil
 	}
 
-	libvirtIfaceSpec := api.Interface{}
-	if l.iface.Slirp == nil {
-		domainIface, err := l.cachedDomainInterface()
-		if err != nil {
-			log.Log.Reason(err).Critical("failed to load cached interface configuration")
-		}
-		if domainIface == nil {
-			log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
-		}
-		libvirtIfaceSpec = *domainIface
-	}
-
 	libvirtSpecGenerator, err := l.newLibvirtSpecGenerator(domain)
 	if err != nil {
 		return err
 	}
 
-	if err := libvirtSpecGenerator.generate(libvirtIfaceSpec); err != nil {
+	if err := libvirtSpecGenerator.generate(l.getInfoForLibvirtDomainInterface()); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
@@ -284,6 +272,20 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	}
 
 	return nil
+}
+
+func (l *podNIC) getInfoForLibvirtDomainInterface() api.Interface {
+	if l.iface.Slirp == nil {
+		domainIface, err := l.cachedDomainInterface()
+		if err != nil {
+			log.Log.Reason(err).Critical("failed to load cached interface configuration")
+		}
+		if domainIface == nil {
+			log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
+		}
+		return *domainIface
+	}
+	return api.Interface{}
 }
 
 func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) (LibvirtSpecGenerator, error) {
