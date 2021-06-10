@@ -44,9 +44,20 @@ import (
 var bridgeFakeIP = "169.254.75.1%d/32"
 
 const (
-	LibvirtLocalConnectionPort = 22222
-	LibvirtDirectMigrationPort = 49152
-	LibvirtBlockMigrationPort  = 49153
+	LibvirtLocalConnectionPort         = 22222
+	LibvirtDirectMigrationPort         = 49152
+	LibvirtBlockMigrationPort          = 49153
+	EnvoyAdminPort                     = 15000
+	EnvoyOutboundPort                  = 15001
+	EnvoyInboundPort                   = 15006
+	EnvoyTunnelPort                    = 15008
+	EnvoyMergedPrometheusTelemetryPort = 15020
+	EnvoyHealthCheckPort               = 15021
+	EnvoyPrometheusTelemetryPort       = 15090
+)
+
+const (
+	IstioInjectAnnotation = "sidecar.istio.io/inject"
 )
 
 type BindMechanism interface {
@@ -965,7 +976,7 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 		return err
 	}
 
-	err = b.skipForwardingForReservedPortsUsingIptables(protocol)
+	err = b.skipForwardingForPortsUsingIptables(protocol, portsUsedByLiveMigration())
 	if err != nil {
 		return err
 	}
@@ -1047,13 +1058,13 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) skipForwardingForReservedPortsUsingIptables(protocol iptables.Protocol) error {
+func (b *MasqueradeBindMechanism) skipForwardingForPortsUsingIptables(protocol iptables.Protocol, ports []string) error {
 	chainWhereDnatIsPerformed := "OUTPUT"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
 		err := b.handler.IptablesAppendRule(protocol, "nat", chain,
 			"-p", "tcp", "--match", "multiport",
-			"--dports", fmt.Sprintf("%s", strings.Join(portsUsedByLiveMigration(), ",")),
+			"--dports", fmt.Sprintf("%s", strings.Join(ports, ",")),
 			"--source", getLoopbackAdrress(protocol),
 			"-j", "RETURN")
 		if err != nil {
@@ -1089,27 +1100,41 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 		return err
 	}
 
-	err = b.skipForwardingForReservedPortsUsingNftables(proto)
+	err = b.skipForwardingForPortsUsingNftables(proto, portsUsedByLiveMigration())
+	if err != nil {
+		return err
+	}
+
+	addressesToDnat, err := b.getDstAddressesToDnat(proto)
 	if err != nil {
 		return err
 	}
 
 	if len(b.iface.Ports) == 0 {
-		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
-			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
-		if err != nil {
-			return err
+		if hasIstioSidecarInjectionEnabled(b.vmi) {
+			err = b.skipForwardingForPortsUsingNftables(proto, portsUsedByIstio())
+			if err != nil {
+				return err
+			}
 		}
 
 		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
-			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+			b.handler.GetNFTIPString(proto), "saddr", b.getSrcAddressesToSnat(proto),
 			"counter", "snat", "to", b.getGatewayByProtocol(proto))
 		if err != nil {
 			return err
 		}
 
+		if !hasIstioSidecarInjectionEnabled(b.vmi) {
+			err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+				"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
+			if err != nil {
+				return err
+			}
+		}
+
 		err = b.handler.NftablesAppendRule(proto, "nat", "output",
-			b.handler.GetNFTIPString(proto), "daddr", getLoopbackAdrress(proto),
+			b.handler.GetNFTIPString(proto), "daddr", addressesToDnat,
 			"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
 		if err != nil {
 			return err
@@ -1144,10 +1169,6 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 			}
 		}
 
-		addressesToDnat, err := b.getDstAddressesToDnat(proto)
-		if err != nil {
-			return err
-		}
 		err = b.handler.NftablesAppendRule(proto, "nat", "output",
 			b.handler.GetNFTIPString(proto), "daddr", addressesToDnat,
 			strings.ToLower(port.Protocol),
@@ -1162,12 +1183,12 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) skipForwardingForReservedPortsUsingNftables(proto iptables.Protocol) error {
+func (b *MasqueradeBindMechanism) skipForwardingForPortsUsingNftables(proto iptables.Protocol, ports []string) error {
 	chainWhereDnatIsPerformed := "output"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
 		err := b.handler.NftablesAppendRule(proto, "nat", chain,
-			"tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(portsUsedByLiveMigration(), ", ")),
+			"tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(ports, ", ")),
 			b.handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
 			"counter", "return")
 		if err != nil {
@@ -1214,7 +1235,7 @@ func (b *MasqueradeBindMechanism) getDstAddressesToDnat(proto iptables.Protocol)
 }
 
 func hasIstioSidecarInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {
-	if val, ok := vmi.GetAnnotations()["sidecar.istio.io/inject"]; ok {
+	if val, ok := vmi.GetAnnotations()[IstioInjectAnnotation]; ok {
 		return strings.ToLower(val) == "true"
 	}
 	return false
@@ -1237,6 +1258,18 @@ func portsUsedByLiveMigration() []string {
 		fmt.Sprint(LibvirtLocalConnectionPort),
 		fmt.Sprint(LibvirtDirectMigrationPort),
 		fmt.Sprint(LibvirtBlockMigrationPort),
+	}
+}
+
+func portsUsedByIstio() []string {
+	return []string{
+		fmt.Sprint(EnvoyAdminPort),
+		fmt.Sprint(EnvoyOutboundPort),
+		fmt.Sprint(EnvoyInboundPort),
+		fmt.Sprint(EnvoyTunnelPort),
+		fmt.Sprint(EnvoyMergedPrometheusTelemetryPort),
+		fmt.Sprint(EnvoyHealthCheckPort),
+		fmt.Sprint(EnvoyPrometheusTelemetryPort),
 	}
 }
 
