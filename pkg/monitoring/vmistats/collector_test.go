@@ -20,6 +20,8 @@
 package vmistats
 
 import (
+	"time"
+
 	"github.com/onsi/ginkgo/extensions/table"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
@@ -46,7 +48,9 @@ var _ = Describe("VMI Stats Collector", func() {
 			defer close(ch)
 
 			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
-			updateVMIEvictionBlocker(vmis, ch)
+			for _, vmi := range vmis {
+				updateVMIEvictionBlocker(vmi, ch)
+			}
 
 			result := <-ch
 			dto := &io_prometheus_client.Metric{}
@@ -64,7 +68,74 @@ var _ = Describe("VMI Stats Collector", func() {
 			table.Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
 		)
 	})
+
+	Context("VMI Phase Transition Time", func() {
+		table.DescribeTable("time diff calculations", func(expectedVal float64, curPhase k6tv1.VirtualMachineInstancePhase, oldPhase k6tv1.VirtualMachineInstancePhase) {
+			var oldVMI *k6tv1.VirtualMachineInstance
+
+			vmi := createVMISForPhaseTransitionTime(curPhase, oldPhase, expectedVal, true)
+
+			if oldPhase != "" {
+				oldVMI = vmi.DeepCopy()
+				oldVMI.Status.Phase = oldPhase
+			}
+
+			diffSeconds, err := getTransitionTimeSeconds(false, oldVMI, vmi)
+			Expect(err).To(BeNil())
+
+			Expect(diffSeconds).To(Equal(expectedVal))
+
+		},
+			table.Entry("Time between running and scheduled", 5.0, k6tv1.Running, k6tv1.Scheduled),
+			table.Entry("Time between scheduled and scheduling", 2.0, k6tv1.Scheduled, k6tv1.Scheduling),
+			table.Entry("Time between scheduling and pending", 1.0, k6tv1.Scheduling, k6tv1.Pending),
+			table.Entry("Time between scheduling and creation", 3.0, k6tv1.Scheduling, k6tv1.VmPhaseUnset),
+			table.Entry("Time between scheduling and creation when timestamps are within one second of another", 0.0, k6tv1.Scheduling, k6tv1.VmPhaseUnset),
+		)
+	})
+
 })
+
+func createVMISForPhaseTransitionTime(phase k6tv1.VirtualMachineInstancePhase, oldPhase k6tv1.VirtualMachineInstancePhase, offset float64, hasTransitionTime bool) *k6tv1.VirtualMachineInstance {
+
+	now := metav1.NewTime(time.Now())
+
+	old := metav1.NewTime(now.Time.Add(-time.Duration(int64(offset)) * time.Second))
+
+	creation := old
+	if oldPhase != "" {
+		creation = metav1.NewTime(old.Time.Add(-time.Duration(int64(offset)) * time.Second))
+	}
+
+	vmi := &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "test-ns",
+			Name:              "testvmi",
+			CreationTimestamp: creation,
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{
+			NodeName: "testNode",
+			Phase:    phase,
+		},
+	}
+
+	if hasTransitionTime {
+		vmi.Status.PhaseTransitionTimestamps = append(vmi.Status.PhaseTransitionTimestamps, k6tv1.VirtualMachineInstancePhaseTransitionTimestamp{
+			Phase:                    phase,
+			PhaseTransitionTimestamp: now,
+		})
+	}
+
+	if oldPhase != "" {
+		vmi.Status.PhaseTransitionTimestamps = append(vmi.Status.PhaseTransitionTimestamps, k6tv1.VirtualMachineInstancePhaseTransitionTimestamp{
+			Phase:                    oldPhase,
+			PhaseTransitionTimestamp: old,
+		})
+
+	}
+
+	return vmi
+}
 
 func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) []*k6tv1.VirtualMachineInstance {
 
