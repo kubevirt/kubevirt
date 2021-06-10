@@ -681,7 +681,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			vmiInterface.EXPECT().Update(updatedVMI)
+			vmiInterface.EXPECT().Update(gomock.Any()).DoAndReturn(func(obj interface{}) (*v1.VirtualMachineInstance, error) {
+				vmi := obj.(*v1.VirtualMachineInstance)
+				Expect(len(vmi.Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
+				updatedVMI.Status.PhaseTransitionTimestamps = vmi.Status.PhaseTransitionTimestamps
+
+				Expect(vmi).To(Equal(updatedVMI))
+				return vmi, nil
+			})
 
 			node := &k8sv1.Node{
 				Status: k8sv1.NodeStatus{
