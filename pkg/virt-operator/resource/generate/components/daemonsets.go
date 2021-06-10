@@ -80,7 +80,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 				Image: fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
 				Name:  "virt-launcher",
 				Args: []string{
-					"/bin/node-labeller.sh",
+					"node-labeller.sh",
 				},
 				SecurityContext: &corev1.SecurityContext{
 					Privileged: boolPtr(true),
