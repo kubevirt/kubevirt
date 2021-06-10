@@ -19,6 +19,9 @@
 package tests_test
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -39,6 +42,33 @@ import (
 var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", func() {
 
 	var virtClient kubecli.KubevirtClient
+	var CheckIsoVolumeSizes func(vmi *v1.VirtualMachineInstance)
+
+	tests.BeforeAll(func() {
+		CheckIsoVolumeSizes = func(vmi *v1.VirtualMachineInstance) {
+			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+
+			for _, volume := range vmi.Spec.Volumes {
+				var path = ""
+				if volume.ConfigMap != nil {
+					path = config.GetConfigMapDiskPath(volume.Name)
+					By(fmt.Sprintf("Checking ConfigMap at '%s' is 4k-block fs compatible", path))
+				}
+				if volume.Secret != nil {
+					path = config.GetSecretDiskPath(volume.Name)
+					By(fmt.Sprintf("Checking Secret at '%s' is 4k-block fs compatible", path))
+				}
+				if len(path) > 0 {
+					cmdCheck := []string{"stat", "--printf='%s'", path}
+					out, err := tests.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
+					Expect(err).NotTo(HaveOccurred())
+					size, err := strconv.Atoi(strings.Trim(out, "'"))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(size % 4096).To(Equal(0))
+				}
+			}
+		}
+	})
 
 	BeforeEach(func() {
 		var err error
@@ -81,6 +111,8 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				By("Running VMI")
 				vmi := tests.NewRandomVMIWithConfigMap(configMapName)
 				tests.RunVMIAndExpectLaunch(vmi, 90)
+
+				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if ConfigMap has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -139,6 +171,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				tests.AddConfigMapDisk(vmi, configMaps[2], configMaps[2])
 
 				tests.RunVMIAndExpectLaunch(vmi, 90)
+				CheckIsoVolumeSizes(vmi)
 			})
 		})
 	})
@@ -174,6 +207,8 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				By("Running VMI")
 				vmi := tests.NewRandomVMIWithSecret(secretName)
 				tests.RunVMIAndExpectLaunch(vmi, 90)
+
+				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if Secret has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -231,6 +266,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				tests.AddSecretDisk(vmi, secrets[2], secrets[2])
 
 				tests.RunVMIAndExpectLaunch(vmi, 90)
+				CheckIsoVolumeSizes(vmi)
 			})
 		})
 
@@ -246,6 +282,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			By("Running VMI")
 			vmi := tests.NewRandomVMIWithServiceAccount("default")
 			tests.RunVMIAndExpectLaunch(vmi, 90)
+			CheckIsoVolumeSizes(vmi)
 
 			By("Checking if ServiceAccount has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -347,6 +384,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				}
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if ConfigMap has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -457,6 +495,8 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				tests.AddSecretDisk(vmi, secretName, secretName)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
+				CheckIsoVolumeSizes(vmi)
+
 				By("Checking if Secret has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				podOutput1, err := tests.ExecuteCommandOnPod(
@@ -524,6 +564,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
 
 			tests.RunVMIAndExpectLaunch(vmi, 90)
+			CheckIsoVolumeSizes(vmi)
 
 			By("Checking if DownwardAPI has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
