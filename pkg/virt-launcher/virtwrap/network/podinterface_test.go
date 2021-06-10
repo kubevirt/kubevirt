@@ -45,8 +45,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+const bridgeFakeIP = "169.254.75.1%d/32"
 
 var _ = Describe("Pod Network", func() {
 	var mockNetwork *netdriver.MockNetworkHandler
@@ -254,8 +257,8 @@ var _ = Describe("Pod Network", func() {
 			for _, chain := range []string{"OUTPUT", "KUBEVIRT_POSTINBOUND"} {
 				mockNetwork.EXPECT().IptablesAppendRule(proto, "nat", chain,
 					"-p", "tcp", "--match", "multiport",
-					"--dports", fmt.Sprintf("%s", strings.Join(portsUsedByLiveMigration(), ",")),
-					"--source", getLoopbackAdrress(proto), "-j", "RETURN").Return(nil)
+					"--dports", fmt.Sprintf("%s", strings.Join(infraconfigurators.PortsUsedByLiveMigration(), ",")),
+					"--source", infraconfigurators.GetLoopbackAdrress(proto), "-j", "RETURN").Return(nil)
 			}
 		}
 		mockNetwork.EXPECT().ConfigureIpForwarding(iptables.ProtocolIPv4).Return(nil)
@@ -291,7 +294,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
 				"KUBEVIRT_POSTINBOUND",
 				"--source",
-				getLoopbackAdrress(proto),
+				infraconfigurators.GetLoopbackAdrress(proto),
 				"-j",
 				"SNAT",
 				"--to-source",
@@ -299,7 +302,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
 				"OUTPUT",
 				"--destination",
-				getLoopbackAdrress(proto),
+				infraconfigurators.GetLoopbackAdrress(proto),
 				"-j",
 				"DNAT",
 				"--to-destination",
@@ -312,11 +315,11 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil)
 			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil)
 			for _, chain := range []string{"output", "KUBEVIRT_POSTINBOUND"} {
-				mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(portsUsedByLiveMigration(), ", ")), GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto), "counter", "return").Return(nil)
+				mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(infraconfigurators.PortsUsedByLiveMigration(), ", ")), GetNFTIPString(proto), "saddr", infraconfigurators.GetLoopbackAdrress(proto), "counter", "return").Return(nil)
 			}
 			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND", "counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil)
-			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND", GetNFTIPString(proto), "saddr", fmt.Sprintf("{ %s }", getLoopbackAdrress(proto)), "counter", "snat", "to", GetMasqueradeGwIp(proto)).Return(nil)
-			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "output", GetNFTIPString(proto), "daddr", fmt.Sprintf("{ %s }", getLoopbackAdrress(proto)), "counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil)
+			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND", GetNFTIPString(proto), "saddr", fmt.Sprintf("{ %s }", infraconfigurators.GetLoopbackAdrress(proto)), "counter", "snat", "to", GetMasqueradeGwIp(proto)).Return(nil)
+			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "output", GetNFTIPString(proto), "daddr", fmt.Sprintf("{ %s }", infraconfigurators.GetLoopbackAdrress(proto)), "counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil)
 		}
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu, libvirtUser).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
@@ -334,11 +337,10 @@ var _ = Describe("Pod Network", func() {
 		Expect(err).To(BeNil())
 	}
 
-	TestRunPlug := func(driver BindMechanism, infraConfigurator PodNetworkInfraConfigurator, ifaceName string) {
-		Expect(infraConfigurator.discoverPodNetworkInterface(ifaceName)).ToNot(HaveOccurred())
-
-		Expect(infraConfigurator.preparePodNetworkInterface()).To(Succeed())
-		Expect(driver.decorateConfig(infraConfigurator.generateDomainIfaceSpec())).To(Succeed())
+	TestRunPlug := func(driver BindMechanism, infraConfigurator infraconfigurators.PodNetworkInfraConfigurator, ifaceName string) {
+		Expect(infraConfigurator.DiscoverPodNetworkInterface(ifaceName)).ToNot(HaveOccurred())
+		Expect(infraConfigurator.PreparePodNetworkInterface()).To(Succeed())
+		Expect(driver.decorateConfig(infraConfigurator.GenerateDomainIfaceSpec())).To(Succeed())
 	}
 
 	Context("on successful setup", func() {
@@ -440,19 +442,22 @@ var _ = Describe("Pod Network", func() {
 			Expect(testDhcpPanic).To(Panic())
 		})
 		Context("getPhase1Binding", func() {
+			BeforeEach(func() {
+				mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
+				mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
+				mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
+			})
+
 			Context("for Bridge", func() {
 				It("should populate MAC address", func() {
 					vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 					podnic := createDefaultPodNIC(vmi)
 					podnic.launcherPID = &pid
-					driver, err := podnic.newPodNetworkConfigurator()
+					infraConfigurator, err := podnic.newPodNetworkConfigurator()
 					Expect(err).ToNot(HaveOccurred())
-					bridgeBinding, ok := driver.(*BridgePodNetworkConfigurator)
-					Expect(ok).To(BeTrue())
-					bridgeBinding.ipamEnabled = true
-					bridgeBinding.podNicLink = primaryPodInterface
-					Expect(driver.generateDHCPConfig().MAC.String()).To(Equal("de:ad:00:00:be:af"))
+					Expect(infraConfigurator.DiscoverPodNetworkInterface(primaryPodInterfaceName)).NotTo(HaveOccurred())
+					Expect(infraConfigurator.GenerateDHCPConfig().MAC.String()).To(Equal("de:ad:00:00:be:af"))
 				})
 			})
 		})
@@ -510,7 +515,7 @@ var _ = Describe("Pod Network", func() {
 						"tcp",
 						"--dport",
 						"80",
-						"--source", getLoopbackAdrress(proto),
+						"--source", infraconfigurators.GetLoopbackAdrress(proto),
 						"-j", "SNAT", "--to-source", GetMasqueradeGwIp(proto)).Return(nil).AnyTimes()
 					mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
 						"KUBEVIRT_PREINBOUND",
@@ -523,7 +528,7 @@ var _ = Describe("Pod Network", func() {
 						"-p",
 						"tcp",
 						"--dport",
-						"80", "--destination", getLoopbackAdrress(proto),
+						"80", "--destination", infraconfigurators.GetLoopbackAdrress(proto),
 						"-j", "DNAT", "--to-destination", GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
 				}
 
@@ -559,7 +564,7 @@ var _ = Describe("Pod Network", func() {
 						"tcp",
 						"dport",
 						"80",
-						GetNFTIPString(proto), "saddr", "{ "+getLoopbackAdrress(proto)+" }",
+						GetNFTIPString(proto), "saddr", "{ "+infraconfigurators.GetLoopbackAdrress(proto)+" }",
 						"counter", "snat", "to", GetMasqueradeGwIp(proto)).Return(nil).AnyTimes()
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
 						"KUBEVIRT_PREINBOUND",
@@ -569,7 +574,7 @@ var _ = Describe("Pod Network", func() {
 						"counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
 						"output",
-						GetNFTIPString(proto), "daddr", "{ "+getLoopbackAdrress(proto)+" }",
+						GetNFTIPString(proto), "daddr", "{ "+infraconfigurators.GetLoopbackAdrress(proto)+" }",
 						"tcp",
 						"dport",
 						"80",
@@ -592,17 +597,17 @@ var _ = Describe("Pod Network", func() {
 
 					for _, chain := range []string{"output", "KUBEVIRT_POSTINBOUND"} {
 						mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
-							chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(portsUsedByIstio(), ", ")),
-							GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto), "counter", "return").Return(nil)
+							chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(infraconfigurators.PortsUsedByIstio(), ", ")),
+							GetNFTIPString(proto), "saddr", infraconfigurators.GetLoopbackAdrress(proto), "counter", "return").Return(nil)
 					}
 
 					mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr.IP.String(), "", nil)
 					mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
 
-					srcAddressesToSnat := []string{getLoopbackAdrress(proto)}
-					dstAddressesToDnat := []string{getLoopbackAdrress(proto)}
+					srcAddressesToSnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
+					dstAddressesToDnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
 					if proto == iptables.ProtocolIPv4 {
-						srcAddressesToSnat = append(srcAddressesToSnat, getEnvoyLoopbackAddress())
+						srcAddressesToSnat = append(srcAddressesToSnat, infraconfigurators.GetEnvoyLoopbackAddress())
 						dstAddressesToDnat = append(dstAddressesToDnat, fakeAddr.IP.String())
 					}
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
@@ -635,10 +640,10 @@ var _ = Describe("Pod Network", func() {
 					mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr.IP.String(), "", nil)
 					mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
 
-					srcAddressesToSnat := []string{getLoopbackAdrress(proto)}
-					dstAddressesToDnat := []string{getLoopbackAdrress(proto)}
+					srcAddressesToSnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
+					dstAddressesToDnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
 					if proto == iptables.ProtocolIPv4 {
-						srcAddressesToSnat = append(srcAddressesToSnat, getEnvoyLoopbackAddress())
+						srcAddressesToSnat = append(srcAddressesToSnat, infraconfigurators.GetEnvoyLoopbackAddress())
 						dstAddressesToDnat = append(dstAddressesToDnat, fakeAddr.IP.String())
 					}
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",

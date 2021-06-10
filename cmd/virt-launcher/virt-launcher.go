@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -56,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -610,7 +610,7 @@ func RemoveContents(dir string) error {
 
 func terminateIstioProxy() {
 	if istioProxyPresent() {
-		resp, err := http.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", network.EnvoyMergedPrometheusTelemetryPort), "", nil)
+		resp, err := http.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", infraconfigurators.EnvoyMergedPrometheusTelemetryPort), "", nil)
 		if err != nil || resp.StatusCode != http.StatusOK {
 			log.Log.Error("Failed to request Istio proxy termination")
 		}
@@ -618,7 +618,7 @@ func terminateIstioProxy() {
 }
 
 func istioProxyPresent() bool {
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", network.EnvoyHealthCheckPort))
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", infraconfigurators.EnvoyHealthCheckPort))
 	if err != nil {
 		return false
 	}

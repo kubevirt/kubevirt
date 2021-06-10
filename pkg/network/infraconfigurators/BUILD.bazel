@@ -1,0 +1,25 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "bridge.go",
+        "common.go",
+        "macvtap.go",
+        "masquerade.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/network/infraconfigurators",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/network:go_default_library",
+        "//pkg/network/cache:go_default_library",
+        "//pkg/network/consts:go_default_library",
+        "//pkg/network/driver:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/coreos/go-iptables/iptables:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+    ],
+)
