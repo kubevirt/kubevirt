@@ -40,6 +40,14 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstancePhaseTransitionTimestamp) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                         "VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi\n\n+k8s:openapi-gen=true",
+		"phase":                    "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
+		"phaseTransitionTimestamp": "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
+	}
+}
+
 func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                              "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.\n\n+k8s:openapi-gen=true",
@@ -47,6 +55,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"reason":                        "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
 		"conditions":                    "Conditions are specific points in VirtualMachineInstance's pod runtime.",
 		"phase":                         "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
+		"phaseTransitionTimestamps":     "PhaseTransitionTimestamp is the timestamp of when the last phase change occurred\n+listType=atomic\n+optional",
 		"interfaces":                    "Interfaces represent the details of available network interfaces.",
 		"guestOSInfo":                   "Guest OS Information",
 		"migrationState":                "Represents the status of a live migration",
