@@ -26,5 +26,5 @@ import (
 )
 
 func TestVirtHandler(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "VirtHandler Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

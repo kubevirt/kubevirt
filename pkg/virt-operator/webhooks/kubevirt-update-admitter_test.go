@@ -130,7 +130,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		causes := validateCustomizeComponents(cc)
 		Expect(len(causes)).To(Equal(expectedCauses))
 	},
-		table.Entry("valid values accepted", v1.CustomizeComponents{
+		table.Entry("invalid values rejected", v1.CustomizeComponents{
 			Patches: []v1.CustomizeComponentsPatch{
 				{
 					ResourceName: "virt-api",

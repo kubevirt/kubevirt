@@ -372,9 +372,6 @@ var _ = Describe("HotplugVolume block devices", func() {
 		table.Entry("Should not return values if stat command doesn't return block special file", func(fileName string) ([]byte, error) {
 			return []byte("245,32,0664, block file"), nil
 		}, -1, -1, "", true),
-		table.Entry("Should not return values if stat command doesn't return block special file", func(fileName string) ([]byte, error) {
-			return []byte("245,32,0664, block file"), nil
-		}, -1, -1, "", true),
 		table.Entry("Should not return values if stat command doesn't int major", func(fileName string) ([]byte, error) {
 			return []byte("kk,32,0664,block special file"), nil
 		}, -1, -1, "", true),
@@ -417,7 +414,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(err.Error()).To(ContainSubstring("no such file or directory"))
 	})
 
-	It("getTargetCgroupPath should return cgroup path", func() {
+	It("getTargetCgroupPath should return cgroup path and detect if it is not a directory", func() {
 		slicePath := "slice"
 		expectedCgroupPath := filepath.Join(tempDir, slicePath)
 		m.podIsolationDetector = &mockIsolationDetector{

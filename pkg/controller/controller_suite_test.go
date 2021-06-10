@@ -7,5 +7,5 @@ import (
 )
 
 func TestController(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Controller Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

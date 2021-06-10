@@ -154,12 +154,7 @@ var _ = Describe("Template", func() {
 				),
 				table.Entry("and don't contain kubevirt annotation added by apiserver",
 					map[string]string{
-						"kubevirt.io/latest-observed-api-version": "source",
-					},
-					map[string]string{"kubevirt.io/domain": "testvmi"},
-				),
-				table.Entry("and don't contain kubevirt annotation added by apiserver",
-					map[string]string{
+						"kubevirt.io/latest-observed-api-version":  "source",
 						"kubevirt.io/storage-observed-api-version": ".com",
 					},
 					map[string]string{"kubevirt.io/domain": "testvmi"},
@@ -402,8 +397,8 @@ var _ = Describe("Template", func() {
 				Expect(exceptedValues).To(ContainElements(debugLogsValue))
 
 			},
-			table.Entry("defined when debug annotation is on", "true", []string{"1"}),
-			table.Entry("defined when debug annotation is on", "TRuE", []string{"1"}),
+			table.Entry("defined when debug annotation is on with lowercase true", "true", []string{"1"}),
+			table.Entry("defined when debug annotation is on with mixed case true", "TRuE", []string{"1"}),
 			table.Entry("not defined when debug annotation is off", "false", []string{"0", ""}),
 		)
 
@@ -2893,5 +2888,5 @@ func False() *bool {
 }
 
 func TestTemplate(t *testing.T) {
-	testutils2.KubeVirtTestSuiteSetup(t, "Template")
+	testutils2.KubeVirtTestSuiteSetup(t)
 }

@@ -7,5 +7,5 @@ import (
 )
 
 func TestDisruptionbudget(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Disruptionbudget Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

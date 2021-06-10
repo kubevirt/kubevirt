@@ -840,7 +840,7 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_receive_packets_total"))
 		})
 
-		It("should handle network tx traffic bytes metrics", func() {
+		It("should handle network tx traffic packets metrics", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
 
@@ -894,7 +894,7 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_receive_errors_total"))
 		})
 
-		It("should handle network tx traffic bytes metrics", func() {
+		It("should handle network tx traffic error metrics", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
 

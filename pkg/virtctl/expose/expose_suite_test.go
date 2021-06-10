@@ -7,5 +7,5 @@ import (
 )
 
 func TestExpose(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Expose Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

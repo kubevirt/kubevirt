@@ -7,5 +7,5 @@ import (
 )
 
 func TestMutatingWebhook(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Mutators Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

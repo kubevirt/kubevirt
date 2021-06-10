@@ -7,5 +7,5 @@ import (
 )
 
 func TestClient(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Client Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

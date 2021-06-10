@@ -3,11 +3,9 @@ package driver_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestDriver(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Network Driver Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

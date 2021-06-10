@@ -26,5 +26,5 @@ import (
 )
 
 func TestSnapshot(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Snapshot Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

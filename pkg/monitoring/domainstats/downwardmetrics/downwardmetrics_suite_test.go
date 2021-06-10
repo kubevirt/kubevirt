@@ -7,5 +7,5 @@ import (
 )
 
 func TestPrometheus(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Downwardmetrics Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

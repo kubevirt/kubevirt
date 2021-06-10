@@ -28,5 +28,5 @@ import (
 
 func TestCloudInit(t *testing.T) {
 	ephemeraldiskutils.MockDefaultOwnershipManager()
-	testutils.KubeVirtTestSuiteSetup(t, "CloudInit Test Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

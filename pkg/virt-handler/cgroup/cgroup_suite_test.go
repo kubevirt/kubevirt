@@ -26,5 +26,5 @@ import (
 )
 
 func TestCgroup(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Cgroup Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

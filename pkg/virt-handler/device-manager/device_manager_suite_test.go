@@ -7,5 +7,5 @@ import (
 )
 
 func TestDeviceManager(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "DeviceManager Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

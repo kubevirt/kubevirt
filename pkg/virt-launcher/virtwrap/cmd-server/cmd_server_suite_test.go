@@ -7,5 +7,5 @@ import (
 )
 
 func TestCmdServer(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "CmdServer Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

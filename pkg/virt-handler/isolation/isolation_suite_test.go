@@ -7,5 +7,5 @@ import (
 )
 
 func TestIsolation(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Isolation Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

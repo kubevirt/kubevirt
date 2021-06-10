@@ -46,28 +46,19 @@ var _ = Describe("VirtualMachine", func() {
 	})
 
 	Context("With missing input parameters", func() {
-		It("should fail", func() {
+		It("should fail a start", func() {
 			cmd := tests.NewRepeatableVirtctlCommand("start")
 			Expect(cmd()).NotTo(BeNil())
 		})
-	})
-
-	Context("With missing input parameters", func() {
-		It("should fail", func() {
+		It("should fail a stop", func() {
 			cmd := tests.NewRepeatableVirtctlCommand("stop")
 			Expect(cmd()).NotTo(BeNil())
 		})
-	})
-
-	Context("With missing input parameters", func() {
-		It("should fail", func() {
+		It("should fail a restart", func() {
 			cmd := tests.NewRepeatableVirtctlCommand("restart")
 			Expect(cmd()).NotTo(BeNil())
 		})
-	})
-
-	Context("With missing input parameters", func() {
-		It("should fail", func() {
+		It("should fail a migrate", func() {
 			cmd := tests.NewRepeatableVirtctlCommand("migrate")
 			Expect(cmd()).NotTo(BeNil())
 		})

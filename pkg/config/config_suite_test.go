@@ -9,5 +9,5 @@ import (
 
 func TestConfig(t *testing.T) {
 	ephemeraldiskutils.MockDefaultOwnershipManager()
-	testutils.KubeVirtTestSuiteSetup(t, "Config Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

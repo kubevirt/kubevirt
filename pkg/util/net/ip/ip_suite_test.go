@@ -25,5 +25,5 @@ import (
 )
 
 func TestIp(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Ip Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -7,5 +7,5 @@ import (
 )
 
 func TestSelinux(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Selinux Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

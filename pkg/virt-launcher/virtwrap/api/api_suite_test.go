@@ -7,5 +7,5 @@ import (
 )
 
 func TestApi(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Api Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

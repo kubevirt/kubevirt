@@ -28,5 +28,5 @@ import (
 
 func TestContainerDisk(t *testing.T) {
 	ephemeraldiskutils.MockDefaultOwnershipManager()
-	testutils.KubeVirtTestSuiteSetup(t, "EphemeralDisk Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

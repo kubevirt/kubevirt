@@ -27,7 +27,7 @@ import (
 )
 
 func TestNetwork(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Network SRIOV Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
 
 func newSRIOVInterface(name string) v1.Interface {

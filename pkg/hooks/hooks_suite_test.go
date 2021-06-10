@@ -26,5 +26,5 @@ import (
 )
 
 func TestHooks(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Hooks Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

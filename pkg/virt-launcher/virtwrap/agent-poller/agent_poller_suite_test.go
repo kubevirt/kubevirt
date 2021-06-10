@@ -25,5 +25,5 @@ import (
 )
 
 func TestAgentPoller(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "AgentPoller Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

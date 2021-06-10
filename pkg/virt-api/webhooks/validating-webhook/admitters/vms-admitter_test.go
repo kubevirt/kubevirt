@@ -1112,10 +1112,9 @@ var _ = Describe("Validating VM Admitter", func() {
 		},
 			table.Entry("when source namespace suppied", "ns1", "", "ns3", "", "ns3", "ns1", "default"),
 			table.Entry("when vm namespace suppied and source not", "ns1", "ns2", "", "", "ns2", "ns2", "default"),
-			table.Entry("when source namespace suppied", "ns1", "", "ns3", "", "ns3", "ns1", "default"),
 			table.Entry("when ar namespace suppied and vm/source not", "ns1", "", "", "", "ns1", "ns1", "default"),
-			table.Entry("when everything suppied", "ns1", "ns2", "ns3", "", "ns3", "ns2", "default"),
-			table.Entry("when everything suppied", "ns1", "ns2", "ns3", "sa", "ns3", "ns2", "sa"),
+			table.Entry("when everything suppied with default service account", "ns1", "ns2", "ns3", "", "ns3", "ns2", "default"),
+			table.Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "ns3", "sa", "ns3", "ns2", "sa"),
 		)
 
 		table.DescribeTable("should deny clone", func(sourceNamespace, sourceName, failMessage string, failErr error, expectedMessage string) {

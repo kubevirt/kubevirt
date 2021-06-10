@@ -7,5 +7,5 @@ import (
 )
 
 func TestImageUpload(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "ImageUpload Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

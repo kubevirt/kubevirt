@@ -7,5 +7,5 @@ import (
 )
 
 func TestMigrationProxy(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "MigrationProxy Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -26,5 +26,5 @@ import (
 )
 
 func TestWatchdog(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Watchdog Test Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

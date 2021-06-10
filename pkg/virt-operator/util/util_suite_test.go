@@ -25,5 +25,5 @@ import (
 )
 
 func TestController(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Operator Util Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

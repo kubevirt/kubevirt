@@ -9,5 +9,5 @@ import (
 
 func TestHostDisk(t *testing.T) {
 	ephemeraldiskutils.MockDefaultOwnershipManager()
-	testutils.KubeVirtTestSuiteSetup(t, "HostDisk Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

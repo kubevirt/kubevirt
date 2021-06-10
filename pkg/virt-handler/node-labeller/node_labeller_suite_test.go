@@ -28,5 +28,5 @@ import (
 )
 
 func TestNodeLabeller(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "NodeLabeller Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

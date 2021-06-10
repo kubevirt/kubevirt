@@ -7,5 +7,5 @@ import (
 )
 
 func TestBootstrap(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Bootstrap Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

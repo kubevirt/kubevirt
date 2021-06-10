@@ -7,5 +7,5 @@ import (
 )
 
 func TestWorkloadUpdater(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Workload Updater Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

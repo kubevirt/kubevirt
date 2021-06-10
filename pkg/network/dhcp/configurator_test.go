@@ -105,16 +105,6 @@ var _ = Describe("DHCP configurator", func() {
 			table.Entry("without client filtering", newConfigurator(launcherPID, bridgeName)),
 		)
 
-		table.DescribeTable("should succeed when DHCP server started", func(configurator *Configurator) {
-			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(nil)
-
-			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
-			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
-		},
-			table.Entry("with active client filtering", newConfiguratorWithClientFilter(launcherPID, bridgeName)),
-			table.Entry("without client filtering", newConfigurator(launcherPID, bridgeName)),
-		)
-
 		table.DescribeTable("should succeed when DHCP server is started multiple times", func(configurator *Configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(nil)
 

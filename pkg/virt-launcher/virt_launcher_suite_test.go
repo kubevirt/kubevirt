@@ -7,5 +7,5 @@ import (
 )
 
 func TestVirtLauncher(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "VirtLauncher Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

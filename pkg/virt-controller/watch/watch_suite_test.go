@@ -26,5 +26,5 @@ import (
 )
 
 func TestWatch(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t, "Watch Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
