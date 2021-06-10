@@ -114,10 +114,14 @@ func defaultCreateIsoImage(output string, volID string, files []string) error {
 	args = append(args, "-joliet")
 	args = append(args, "-rock")
 	args = append(args, "-graft-points")
+	args = append(args, "-partition_cyl_align")
+	args = append(args, "on")
 	args = append(args, files...)
 
+	isoBinary := "xorrisofs"
+
 	// #nosec No risk for attacket injection. Parameters are predefined strings
-	cmd := exec.Command("genisoimage", args...)
+	cmd := exec.Command(isoBinary, args...)
 	err := cmd.Run()
 	if err != nil {
 		return err
