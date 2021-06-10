@@ -58,15 +58,6 @@ var (
 		},
 		nil,
 	)
-
-	vmiPhaseTransitionTimeDesc = prometheus.NewDesc(
-		"kubevirt_vmi_phase_transition_seconds_since_creation",
-		"How long in seconds it has taken since VMI creation time to transition to the current VMI phase.",
-		[]string{
-			"node", "namespace", "name", "phase",
-		},
-		nil,
-	)
 )
 
 type vmiCountMetric struct {
@@ -237,6 +228,26 @@ func getTransitionTimeSeconds(fromCreation bool, oldVMI *k6tv1.VirtualMachineIns
 	return diffSeconds, nil
 }
 
+func phaseTransitionTimeBuckets() []float64 {
+	return []float64{
+		(0.5 * time.Second.Seconds()),
+		(1 * time.Second.Seconds()),
+		(2 * time.Second.Seconds()),
+		(5 * time.Second.Seconds()),
+		(10 * time.Second.Seconds()),
+		(20 * time.Second.Seconds()),
+		(30 * time.Second.Seconds()),
+		(40 * time.Second.Seconds()),
+		(50 * time.Second.Seconds()),
+		(60 * time.Second).Seconds(),
+		(90 * time.Second).Seconds(),
+		(2 * time.Minute).Seconds(),
+		(3 * time.Minute).Seconds(),
+		(5 * time.Minute).Seconds(),
+		(10 * time.Minute).Seconds(),
+	}
+}
+
 func updateVMIPhaseTransitionTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *k6tv1.VirtualMachineInstance, newVMI *k6tv1.VirtualMachineInstance) {
 	if oldVMI == nil || oldVMI.Status.Phase == newVMI.Status.Phase {
 		return
@@ -260,18 +271,8 @@ func updateVMIPhaseTransitionTimeHistogramVec(histogramVec *prometheus.Histogram
 func newVMIPhaseTransitionTimeHistogramVec(informer cache.SharedIndexInformer) *prometheus.HistogramVec {
 	histogramVec := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name: "kubevirt_vmi_phase_transition_time_seconds",
-			Buckets: []float64{
-				(1 * time.Second.Seconds()),
-				(2 * time.Second.Seconds()),
-				(5 * time.Second.Seconds()),
-				(10 * time.Second.Seconds()),
-				(30 * time.Second.Seconds()),
-				(1 * time.Minute).Seconds(),
-				(2 * time.Minute).Seconds(),
-				(5 * time.Minute).Seconds(),
-				(10 * time.Minute).Seconds(),
-			},
+			Name:    "kubevirt_vmi_phase_transition_time_seconds",
+			Buckets: phaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi
@@ -314,18 +315,8 @@ func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prom
 func newVMIPhaseTransitionTimeFromCreationHistogramVec(informer cache.SharedIndexInformer) *prometheus.HistogramVec {
 	histogramVec := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name: "kubevirt_vmi_phase_transition_time_from_creation_seconds",
-			Buckets: []float64{
-				(1 * time.Second.Seconds()),
-				(2 * time.Second.Seconds()),
-				(5 * time.Second.Seconds()),
-				(10 * time.Second.Seconds()),
-				(30 * time.Second.Seconds()),
-				(1 * time.Minute).Seconds(),
-				(2 * time.Minute).Seconds(),
-				(5 * time.Minute).Seconds(),
-				(10 * time.Minute).Seconds(),
-			},
+			Name:    "kubevirt_vmi_phase_transition_time_from_creation_seconds",
+			Buckets: phaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi

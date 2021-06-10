@@ -73,7 +73,7 @@ var _ = Describe("VMI Stats Collector", func() {
 		table.DescribeTable("time diff calculations", func(expectedVal float64, curPhase k6tv1.VirtualMachineInstancePhase, oldPhase k6tv1.VirtualMachineInstancePhase) {
 			var oldVMI *k6tv1.VirtualMachineInstance
 
-			vmi := createVMISForPhaseTransitionTime(curPhase, oldPhase, expectedVal, true)
+			vmi := createVMISForPhaseTransitionTime(curPhase, oldPhase, expectedVal*1000, true)
 
 			if oldPhase != "" {
 				oldVMI = vmi.DeepCopy()
@@ -87,6 +87,7 @@ var _ = Describe("VMI Stats Collector", func() {
 
 		},
 			table.Entry("Time between running and scheduled", 5.0, k6tv1.Running, k6tv1.Scheduled),
+			table.Entry("Time between running and scheduled using fraction of a second", .5, k6tv1.Running, k6tv1.Scheduled),
 			table.Entry("Time between scheduled and scheduling", 2.0, k6tv1.Scheduled, k6tv1.Scheduling),
 			table.Entry("Time between scheduling and pending", 1.0, k6tv1.Scheduling, k6tv1.Pending),
 			table.Entry("Time between scheduling and creation", 3.0, k6tv1.Scheduling, k6tv1.VmPhaseUnset),
@@ -100,11 +101,11 @@ func createVMISForPhaseTransitionTime(phase k6tv1.VirtualMachineInstancePhase, o
 
 	now := metav1.NewTime(time.Now())
 
-	old := metav1.NewTime(now.Time.Add(-time.Duration(int64(offset)) * time.Second))
+	old := metav1.NewTime(now.Time.Add(-time.Duration(int64(offset)) * time.Millisecond))
 
 	creation := old
 	if oldPhase != "" {
-		creation = metav1.NewTime(old.Time.Add(-time.Duration(int64(offset)) * time.Second))
+		creation = metav1.NewTime(old.Time.Add(-time.Duration(int64(offset)) * time.Millisecond))
 	}
 
 	vmi := &k6tv1.VirtualMachineInstance{
