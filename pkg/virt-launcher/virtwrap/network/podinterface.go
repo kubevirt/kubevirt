@@ -35,10 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type BindMechanism interface {
-	// The following entry points require domain initialized for the
-	// binding and can be used in phase2 only.
-	decorateConfig(domainIface api.Interface) error
+type LibvirtSpecGenerator interface {
+	generate(domainIface api.Interface) error
 }
 
 type podNIC struct {
@@ -264,12 +262,12 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		libvirtIfaceSpec = *domainIface
 	}
 
-	bindMechanism, err := l.getPhase2Binding(domain)
+	libvirtSpecGenerator, err := l.newLibvirtSpecGenerator(domain)
 	if err != nil {
 		return err
 	}
 
-	if err := bindMechanism.decorateConfig(libvirtIfaceSpec); err != nil {
+	if err := libvirtSpecGenerator.generate(libvirtIfaceSpec); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
@@ -288,37 +286,44 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	return nil
 }
 
-func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
+func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) (LibvirtSpecGenerator, error) {
 	if l.iface.Bridge != nil {
-		return newBridgeBindMechanism(l.iface, domain), nil
+		return newBridgeLibvirtSpecGenerator(l.iface, domain), nil
 	}
 	if l.iface.Masquerade != nil {
-		return newMasqueradeBindMechanism(l.iface, domain), nil
+		return newMasqueradeLibvirtSpecGenerator(l.iface, domain), nil
 	}
 	if l.iface.Slirp != nil {
-		return &SlirpBindMechanism{iface: l.iface, domain: domain}, nil
+		return newSlirpLibvirtSpecGenerator(l.iface, domain), nil
 	}
 	if l.iface.Macvtap != nil {
-		return newMacvtapBindMechanism(l.iface, domain), nil
+		return newMacvtapLibvirtSpecGenerator(l.iface, domain), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func newMacvtapBindMechanism(iface *v1.Interface, domain *api.Domain) *MacvtapBindMechanism {
+func newMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *MacvtapBindMechanism {
 	return &MacvtapBindMechanism{
 		iface:  iface,
 		domain: domain,
 	}
 }
 
-func newMasqueradeBindMechanism(iface *v1.Interface, domain *api.Domain) *MasqueradeBindMechanism {
+func newMasqueradeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *MasqueradeBindMechanism {
 	return &MasqueradeBindMechanism{
 		iface:  iface,
 		domain: domain,
 	}
 }
 
-func newBridgeBindMechanism(iface *v1.Interface, domain *api.Domain) *BridgeBindMechanism {
+func newSlirpLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *SlirpSpecGenerator {
+	return &SlirpSpecGenerator{
+		iface:  iface,
+		domain: domain,
+	}
+}
+
+func newBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *BridgeBindMechanism {
 	return &BridgeBindMechanism{
 		iface:  iface,
 		domain: domain,
@@ -384,7 +389,7 @@ type BridgeBindMechanism struct {
 	domain *api.Domain
 }
 
-func (b *BridgeBindMechanism) decorateConfig(domainIface api.Interface) error {
+func (b *BridgeBindMechanism) generate(domainIface api.Interface) error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {
@@ -427,7 +432,7 @@ type MasqueradeBindMechanism struct {
 	domain *api.Domain
 }
 
-func (b *MasqueradeBindMechanism) decorateConfig(domainIface api.Interface) error {
+func (b *MasqueradeBindMechanism) generate(domainIface api.Interface) error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {
@@ -440,12 +445,12 @@ func (b *MasqueradeBindMechanism) decorateConfig(domainIface api.Interface) erro
 	return nil
 }
 
-type SlirpBindMechanism struct {
+type SlirpSpecGenerator struct {
 	iface  *v1.Interface
 	domain *api.Domain
 }
 
-func (b *SlirpBindMechanism) decorateConfig(api.Interface) error {
+func (b *SlirpSpecGenerator) generate(api.Interface) error {
 	// remove slirp interface from domain spec devices interfaces
 	var foundIfaceModelType string
 	ifaces := b.domain.Spec.Devices.Interfaces
@@ -478,7 +483,7 @@ type MacvtapBindMechanism struct {
 	domain *api.Domain
 }
 
-func (b *MacvtapBindMechanism) decorateConfig(domainIface api.Interface) error {
+func (b *MacvtapBindMechanism) generate(domainIface api.Interface) error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {

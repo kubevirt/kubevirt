@@ -337,10 +337,10 @@ var _ = Describe("Pod Network", func() {
 		Expect(err).To(BeNil())
 	}
 
-	TestRunPlug := func(driver BindMechanism, infraConfigurator infraconfigurators.PodNetworkInfraConfigurator, ifaceName string) {
+	TestRunPlug := func(driver LibvirtSpecGenerator, infraConfigurator infraconfigurators.PodNetworkInfraConfigurator, ifaceName string) {
 		Expect(infraConfigurator.DiscoverPodNetworkInterface(ifaceName)).ToNot(HaveOccurred())
 		Expect(infraConfigurator.PreparePodNetworkInterface()).To(Succeed())
-		Expect(driver.decorateConfig(infraConfigurator.GenerateDomainIfaceSpec())).To(Succeed())
+		Expect(driver.generate(infraConfigurator.GenerateDomainIfaceSpec())).To(Succeed())
 	}
 
 	Context("on successful setup", func() {
@@ -681,9 +681,9 @@ var _ = Describe("Pod Network", func() {
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				podnic := createDefaultPodNIC(vmi)
-				driver, err := podnic.getPhase2Binding(domain)
+				driver, err := podnic.newLibvirtSpecGenerator(domain)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(driver.decorateConfig(api.Interface{})).To(Succeed())
+				Expect(driver.generate(api.Interface{})).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
 				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
@@ -697,9 +697,9 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 				podnic := createDefaultPodNIC(vmi)
-				driver, err := podnic.getPhase2Binding(domain)
+				driver, err := podnic.newLibvirtSpecGenerator(domain)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(driver.decorateConfig(api.Interface{})).To(Succeed())
+				Expect(driver.generate(api.Interface{})).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
 				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
@@ -724,9 +724,9 @@ var _ = Describe("Pod Network", func() {
 				})
 				podnic := createDefaultPodNIC(vmi)
 				podnic.launcherPID = &pid
-				driver, err := podnic.getPhase2Binding(domain)
+				driver, err := podnic.newLibvirtSpecGenerator(domain)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(driver.decorateConfig(api.Interface{})).To(Succeed())
+				Expect(driver.generate(api.Interface{})).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
 				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
@@ -750,7 +750,7 @@ var _ = Describe("Pod Network", func() {
 				podnic := createDefaultPodNIC(vmi)
 				podnic.launcherPID = &pid
 				podnic.podInterfaceName = ifaceName
-				driver, err := podnic.getPhase2Binding(domain)
+				driver, err := podnic.newLibvirtSpecGenerator(domain)
 				mockNetwork.EXPECT().LinkByName(ifaceName).Return(macvtapInterface, nil)
 				Expect(err).ToNot(HaveOccurred(), "should have identified the correct binding mechanism")
 				infraConfigurator, err := podnic.newPodNetworkConfigurator()
