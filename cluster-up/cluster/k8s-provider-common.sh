@@ -51,4 +51,28 @@ function up() {
             $kubectl wait networkaddonsconfig cluster --for condition=Available --timeout=200s
         fi
     fi
+
+    if [ "$KUBEVIRT_DEPLOY_ISTIO" == "true" ] && [[ $KUBEVIRT_PROVIDER =~ k8s-1\.1.* ]]; then
+        echo "ERROR: Istio is not supported on kubevirtci version < 1.20"
+        exit 1
+
+    elif [ "$KUBEVIRT_DEPLOY_ISTIO" == "true" ]; then
+        if [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
+            $kubectl create -f /opt/istio/istio-operator-with-cnao.cr.yaml
+        else
+            $kubectl create -f /opt/istio/istio-operator.cr.yaml
+        fi
+        
+        istio_operator_ns=istio-system
+        retries=0
+        while [[ $retries -lt 20 ]]; do
+            echo "waiting for istio-operator to be healthy"
+            sleep 5
+            retries=$((retries + 1))
+            health=$(kubectl -n $istio_operator_ns get istiooperator istio-operator -o jsonpath="{.status.status}")
+            if [[ $health == "HEALTHY" ]]; then
+                break
+            fi
+        done
+    fi
 }
