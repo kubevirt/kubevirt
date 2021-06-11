@@ -5,9 +5,9 @@ set -ex
 source hack/common.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=0:7.0.0-12
-SEABIOS_VERSION=0:1.14.0-1
-QEMU_VERSION=15:5.2.0-15
+LIBVIRT_VERSION=0:7.0.0-12.fc32
+SEABIOS_VERSION=0:1.14.0-1.fc32
+QEMU_VERSION=15:5.2.0-15.fc32
 
 # Packages that we want to be included in all container images.
 #
