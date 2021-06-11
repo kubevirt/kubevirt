@@ -391,7 +391,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
 		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Failed), vmiStatus[3], vmi.Status.NodeName),
+		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Succeeded), vmiStatus[3], vmi.Status.NodeName),
 			"VMI should be in the Failed phase")
 
 		By("Waiting for the second VMI to be created")
