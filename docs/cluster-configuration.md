@@ -239,7 +239,6 @@ The `pciHostDevices` array is an array of `PciHostDevice` objects. The fields of
   monitoring to an external device plugin.
 
   **default**: `false`
-* `disabled` - set to `true` to disable default host devices, because these device cannot be removed
 
 The `mediatedDevices` array is an array of `MediatedDevice` objects. The fields of this object are:
 * `mdevNameSelector` - name of a mediated device type required to identify a mediated device on a host.
@@ -255,25 +254,7 @@ The `mediatedDevices` array is an array of `MediatedDevice` objects. The fields 
 
   **default**: `false`
 
-### Permitted Host Devices Default Values
-
-HCO enforces the existence of two PCI Host Devices in the list:
-
-```yaml
-pciHostDevices:
-- pciDeviceSelector: "10DE:1DB6"
-  resourceName: "nvidia.com/GV100GL_Tesla_V100",
-- pciDeviceSelector: "10DE:1EB8",
-  resourceName: "nvidia.com/TU104GL_Tesla_T4",
-```
-
-It is possible to add more devices, but these two devices must be in the list. If you need to remove them, use the
-`disabled` filed instead of deleting them.
-
 ### Permitted Host Devices Example
-
-In this example, we're adding a new device in addition to two default ones, and disabling the default "
-nvidia.com/TU104GL_Tesla_T4" device:
 
 ```yaml
 apiVersion: hco.kubevirt.io/v1beta1
@@ -287,10 +268,6 @@ spec:
       resourceName: "nvidia.com/GV100GL_Tesla_V100",
     - pciDeviceSelector: "10DE:1EB8"
       resourceName: "nvidia.com/TU104GL_Tesla_T4"
-      disabled: true
-    - pciDeviceSelector: "8086:6F54"
-      resourceName: "intel.com/qat"
-      externalResourceProvider: true
     mediatedDevices:
     - mdevNameSelector: "GRID T4-1Q"
       resourceName: "nvidia.com/GRID_T4-1Q"

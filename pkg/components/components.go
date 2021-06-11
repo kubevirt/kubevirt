@@ -948,34 +948,6 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		WebhookPath: &mutatingWebhookPath,
 	}
 
-	defaulterWebhookSideEffects := admissionregistrationv1.SideEffectClassNone
-	defaulterWebhookPath := util.DefaulterWebhookPath
-
-	defalterWebhook := csvv1alpha1.WebhookDescription{
-		GenerateName:            util.HcoDefaulterWebhookNS,
-		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
-		DeploymentName:          hcoWhDeploymentName,
-		ContainerPort:           util.WebhookPort,
-		AdmissionReviewVersions: []string{"v1beta1", "v1"},
-		SideEffects:             &defaulterWebhookSideEffects,
-		FailurePolicy:           &failurePolicy,
-		TimeoutSeconds:          &webhookTimeout,
-		Rules: []admissionregistrationv1.RuleWithOperations{
-			{
-				Operations: []admissionregistrationv1.OperationType{
-					admissionregistrationv1.Create,
-					admissionregistrationv1.Update,
-				},
-				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{util.APIVersionGroup},
-					APIVersions: []string{util.APIVersionBeta},
-					Resources:   []string{"hyperconvergeds"},
-				},
-			},
-		},
-		WebhookPath: &defaulterWebhookPath,
-	}
-
 	return &csvv1alpha1.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "operators.coreos.com/v1alpha1",
@@ -1064,7 +1036,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			// Skip this in favor of having a separate function to get
 			// the actual StrategyDetailsDeployment when merging CSVs
 			InstallStrategy:    csvv1alpha1.NamedInstallStrategy{},
-			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validatingWebhook, mutatingWebhook, defalterWebhook},
+			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validatingWebhook, mutatingWebhook},
 			CustomResourceDefinitions: csvv1alpha1.CustomResourceDefinitions{
 				Owned: []csvv1alpha1.CRDDescription{
 					{

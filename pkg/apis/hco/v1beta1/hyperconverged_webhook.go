@@ -91,7 +91,6 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 
 var (
 	_ webhook.Validator = &HyperConverged{}
-	_ webhook.Defaulter = &HyperConverged{}
 )
 
 func (r *HyperConverged) ValidateCreate() error {
@@ -192,43 +191,4 @@ func allowWatchAllNamespaces(ctx context.Context, mgr ctrl.Manager) error {
 func (a *nsMutator) InjectDecoder(d *admission.Decoder) error {
 	a.decoder = d
 	return nil
-}
-
-var defaultPciHostDevices = []PciHostDevice{
-	{
-		PCIDeviceSelector: "10DE:1DB6",
-		ResourceName:      "nvidia.com/GV100GL_Tesla_V100",
-	},
-	{
-		PCIDeviceSelector: "10DE:1EB8",
-		ResourceName:      "nvidia.com/TU104GL_Tesla_T4",
-	},
-}
-
-func (r *HyperConverged) Default() {
-	hcolog.Info("handle the HyperConverged default values")
-	if r.Spec.PermittedHostDevices == nil {
-		r.Spec.PermittedHostDevices = &PermittedHostDevices{}
-	}
-
-	if len(r.Spec.PermittedHostDevices.PciHostDevices) == 0 {
-		hcolog.Info("add default values for HyperConverged")
-		r.Spec.PermittedHostDevices.PciHostDevices = make([]PciHostDevice, len(defaultPciHostDevices))
-		copy(r.Spec.PermittedHostDevices.PciHostDevices, defaultPciHostDevices)
-	} else {
-		for _, phd := range defaultPciHostDevices {
-			if !findPciHostDevice(r.Spec.PermittedHostDevices.PciHostDevices, phd) {
-				r.Spec.PermittedHostDevices.PciHostDevices = append(r.Spec.PermittedHostDevices.PciHostDevices, phd)
-			}
-		}
-	}
-}
-
-func findPciHostDevice(list []PciHostDevice, dev PciHostDevice) bool {
-	for _, phd := range list {
-		if phd.PCIDeviceSelector == dev.PCIDeviceSelector {
-			return true
-		}
-	}
-	return false
 }

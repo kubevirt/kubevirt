@@ -82,7 +82,7 @@ type HyperConvergedSpec struct {
 	StorageImport *StorageImportConfig `json:"storageImport,omitempty"`
 
 	// WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates
-	// +kubebuilder:default={"workloadUpdateMethods": {"LiveMigrate", "Evict"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m"}
+	// +kubebuilder:default={"workloadUpdateMethods": {"LiveMigrate", "Evict"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m0s"}
 	// +optional
 	WorkloadUpdateStrategy *HyperConvergedWorkloadUpdateStrategy `json:"workloadUpdateStrategy,omitempty"`
 
@@ -305,7 +305,7 @@ type HyperConvergedWorkloadUpdateStrategy struct {
 	// BatchEvictionInterval Represents the interval to wait before issuing the next
 	// batch of shutdowns
 	//
-	// +kubebuilder:default="1m"
+	// +kubebuilder:default="1m0s"
 	// +optional
 	BatchEvictionInterval *metav1.Duration `json:"batchEvictionInterval,omitempty"`
 }

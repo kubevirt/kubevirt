@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
-    createdAt: "2021-06-07 06:46:36"
+    createdAt: "2021-06-09 16:38:18"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -2665,27 +2665,6 @@ spec:
     timeoutSeconds: 30
     type: MutatingAdmissionWebhook
     webhookPath: /mutate-ns-hco-kubevirt-io
-  - admissionReviewVersions:
-    - v1beta1
-    - v1
-    containerPort: 4343
-    deploymentName: hco-webhook
-    failurePolicy: Fail
-    generateName: defaulter-hco.kubevirt.io
-    rules:
-    - apiGroups:
-      - hco.kubevirt.io
-      apiVersions:
-      - v1beta1
-      operations:
-      - CREATE
-      - UPDATE
-      resources:
-      - hyperconvergeds
-    sideEffects: None
-    timeoutSeconds: 30
-    type: MutatingAdmissionWebhook
-    webhookPath: /mutate-hco-kubevirt-io-v1beta1-hyperconverged
   - admissionReviewVersions:
     - v1
     - v1beta1

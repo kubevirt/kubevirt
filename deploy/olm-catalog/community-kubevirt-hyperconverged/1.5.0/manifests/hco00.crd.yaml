@@ -1040,7 +1040,7 @@ spec:
                 type: string
               workloadUpdateStrategy:
                 default:
-                  batchEvictionInterval: 1m
+                  batchEvictionInterval: 1m0s
                   batchEvictionSize: 10
                   workloadUpdateMethods:
                   - LiveMigrate
@@ -1049,7 +1049,7 @@ spec:
                   to handle automated workload updates
                 properties:
                   batchEvictionInterval:
-                    default: 1m
+                    default: 1m0s
                     description: BatchEvictionInterval Represents the interval to
                       wait before issuing the next batch of shutdowns
                     type: string

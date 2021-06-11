@@ -17,7 +17,6 @@ const (
 	VMImportEnvV           = "VM_IMPORT_VERSION"
 	HcoValidatingWebhook   = "validate-hco.kubevirt.io"
 	HcoMutatingWebhookNS   = "mutate-ns-hco.kubevirt.io"
-	HcoDefaulterWebhookNS  = "defaulter-hco.kubevirt.io"
 	AppLabel               = "app"
 	UndefinedNamespace     = ""
 	OpenshiftNamespace     = "openshift"

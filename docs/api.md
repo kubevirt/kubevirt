@@ -131,7 +131,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | vddkInitImage | VDDK Init Image eventually used to import VMs from external providers | *string |  | false |
 | obsoleteCPUs | ObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models | *[HyperConvergedObsoleteCPUs](#hyperconvergedobsoletecpus) |  | false |
 | storageImport | StorageImport contains configuration for importing containerized data | *[StorageImportConfig](#storageimportconfig) |  | false |
-| workloadUpdateStrategy | WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates | *[HyperConvergedWorkloadUpdateStrategy](#hyperconvergedworkloadupdatestrategy) | {"workloadUpdateMethods": {"LiveMigrate", "Evict"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m"} | false |
+| workloadUpdateStrategy | WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates | *[HyperConvergedWorkloadUpdateStrategy](#hyperconvergedworkloadupdatestrategy) | {"workloadUpdateMethods": {"LiveMigrate", "Evict"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m0s"} | false |
 | version | operator version | string |  | false |
 
 [Back to TOC](#table-of-contents)
@@ -156,7 +156,7 @@ HyperConvergedWorkloadUpdateStrategy defines options related to updating a KubeV
 | ----- | ----------- | ------ | -------- |-------- |
 | workloadUpdateMethods | WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Shutdown methods are listed, only VMs which are not live migratable will be restarted/shutdown. An empty list defaults to no automated workload updating. | []string | {"LiveMigrate", "Evict"} | false |
 | batchEvictionSize | BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval | *int | 10 | false |
-| batchEvictionInterval | BatchEvictionInterval Represents the interval to wait before issuing the next batch of shutdowns | *metav1.Duration | "1m" | false |
+| batchEvictionInterval | BatchEvictionInterval Represents the interval to wait before issuing the next batch of shutdowns | *metav1.Duration | "1m0s" | false |
 
 [Back to TOC](#table-of-contents)
 
