@@ -6,8 +6,9 @@ source hack/common.sh
 source hack/config.sh
 
 LIBVIRT_VERSION=0:7.0.0-12.fc32
-SEABIOS_VERSION=0:1.14.0-1.fc32
 QEMU_VERSION=15:5.2.0-15.fc32
+SEABIOS_VERSION=0:1.14.0-1.fc32
+EDK2_VERSION=0:20200801stable-1.fc32
 
 # Packages that we want to be included in all container images.
 #
@@ -97,7 +98,11 @@ launcherbase_base="
   qemu-kvm-core-${QEMU_VERSION}
 "
 launcherbase_x86_64="
+  edk2-ovmf-${EDK2_VERSION}
   seabios-${SEABIOS_VERSION}
+"
+launcherbase_aarch64="
+  edk2-aarch64-${EDK2_VERSION}
 "
 launcherbase_extra="
   findutils
@@ -125,6 +130,7 @@ bazel run \
     $fedora_base \
     $fedora_extra \
     $launcherbase_base \
+    $launcherbase_aarch64 \
     $launcherbase_extra
 
 libguestfstools_base="
