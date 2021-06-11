@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"os"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
@@ -18,9 +20,6 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	consolev1 "github.com/openshift/api/console/v1"
-	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -35,14 +34,14 @@ var (
 	cmdHelper            = cmdcommon.NewHelper(logger, "webhook")
 	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 		apis.AddToScheme,
+		corev1.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspv1beta1.AddToScheme,
-		csvv1alpha1.AddToScheme,
 		vmimportv1beta1.AddToScheme,
 		admissionregistrationv1.AddToScheme,
-		consolev1.AddToScheme,
 		openshiftconfigv1.AddToScheme,
+		kubevirtv1.AddToScheme,
 	}
 )
 
@@ -59,6 +58,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup Scheme for all resources
+	scheme := apiruntime.NewScheme()
+	cmdHelper.AddToScheme(scheme, resourcesSchemeFuncs)
+
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
 		Namespace:              watchNamespace,
@@ -67,6 +70,7 @@ func main() {
 		ReadinessEndpointName:  hcoutil.ReadinessEndpointName,
 		LivenessEndpointName:   hcoutil.LivenessEndpointName,
 		LeaderElection:         false,
+		Scheme:                 scheme,
 	})
 	cmdHelper.ExitOnError(err, "failed to create manager")
 
@@ -74,9 +78,6 @@ func main() {
 	cmdHelper.ExitOnError(cmdHelper.RegisterPPROFServer(mgr), "can't register pprof server")
 
 	logger.Info("Registering Components.")
-
-	// Setup Scheme for all resources
-	cmdHelper.AddToScheme(mgr, resourcesSchemeFuncs)
 
 	// Detect OpenShift version
 	ci := hcoutil.GetClusterInfo()

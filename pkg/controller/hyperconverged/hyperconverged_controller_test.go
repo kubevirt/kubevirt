@@ -561,16 +561,16 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
+				res, err = r.Reconcile(context.TODO(), request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+
 				foundResource = &hcov1beta1.HyperConverged{}
-				Expect(
-					cl.Get(context.TODO(),
-						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
-						foundResource),
-				).To(BeNil())
-
-				Expect(foundResource.Status.RelatedObjects).To(BeNil())
-				Expect(foundResource.ObjectMeta.Finalizers).To(BeNil())
-
+				err = cl.Get(context.TODO(),
+					types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+					foundResource)
+				Expect(err).To(HaveOccurred())
+				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			})
 
 			It(`should set a finalizer on HCO CR`, func() {

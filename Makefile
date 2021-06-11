@@ -33,13 +33,13 @@ lint:
 build: build-operator build-csv-merger build-webhook
 
 build-operator: $(SOURCES) ## Build binary from source
-	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
+	go build -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
 
 build-csv-merger: ## Build binary from source
-	go build -i -ldflags="-s -w" -o _out/csv-merger tools/csv-merger/csv-merger.go
+	go build -ldflags="-s -w" -o _out/csv-merger tools/csv-merger/csv-merger.go
 
 build-webhook: $(SOURCES) ## Build binary from source
-	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-webhook ./cmd/hyperconverged-cluster-webhook
+	go build -ldflags="-s -w" -o _out/hyperconverged-cluster-webhook ./cmd/hyperconverged-cluster-webhook
 
 build-manifests:
 	./hack/build-manifests.sh
@@ -48,7 +48,7 @@ build-manifests-prev:
 	RELEASE_DELTA=1 ./hack/build-manifests.sh
 
 build-prom-spec-dumper: ## Build binary from source
-	go build -i -ldflags="-s -w" -o _out/rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go
+	go build -ldflags="-s -w" -o _out/rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go
 
 current-dir := $(realpath .)
 
@@ -168,7 +168,7 @@ generate-doc: build-docgen
 	_out/docgen ./pkg/apis/hco/v1beta1/hyperconverged_types.go > docs/api.md
 
 build-docgen:
-	go build -i -ldflags="-s -w" -o _out/docgen ./tools/docgen
+	go build -ldflags="-s -w" -o _out/docgen ./tools/docgen
 
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'

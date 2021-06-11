@@ -113,9 +113,9 @@ func (h HcCmdHelper) IsRunInLocal() bool {
 	return h.runInLocal
 }
 
-func (h HcCmdHelper) AddToScheme(mgr manager.Manager, addToSchemeFuncs []func(*apiruntime.Scheme) error) {
+func (h HcCmdHelper) AddToScheme(scheme *apiruntime.Scheme, addToSchemeFuncs []func(*apiruntime.Scheme) error) {
 	for _, f := range addToSchemeFuncs {
-		err := f(mgr.GetScheme())
+		err := f(scheme)
 		h.ExitOnError(err, "Failed to add to scheme")
 	}
 }

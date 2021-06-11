@@ -3,10 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
+	appsv1 "k8s.io/api/apps/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,6 +48,10 @@ var (
 	cmdHelper            = cmdcommon.NewHelper(logger, "operator")
 	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 		apis.AddToScheme,
+		schedulingv1.AddToScheme,
+		corev1.AddToScheme,
+		appsv1.AddToScheme,
+		rbacv1.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspv1beta1.AddToScheme,
@@ -49,8 +61,8 @@ var (
 		consolev1.AddToScheme,
 		openshiftconfigv1.AddToScheme,
 		monitoringv1.AddToScheme,
-		consolev1.AddToScheme,
 		apiextensionsv1.AddToScheme,
+		kubevirtv1.AddToScheme,
 	}
 )
 
@@ -58,6 +70,8 @@ func main() {
 	cmdHelper.InitiateCommand()
 
 	watchNamespace := cmdHelper.GetWatchNS()
+	operatorNamespace, err := hcoutil.GetOperatorNamespaceFromEnv()
+	cmdHelper.ExitOnError(err, "can't get operator expected namespace")
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
@@ -67,18 +81,19 @@ func main() {
 	// TODO: remove this once we will move to OLM operator conditions
 	needLeaderElection := !cmdHelper.IsRunInLocal()
 
+	// Setup Scheme for all resources
+	scheme := apiruntime.NewScheme()
+	cmdHelper.AddToScheme(scheme, resourcesSchemeFuncs)
+
 	// Create a new Cmd to provide shared dependencies and start components
 	// TODO: consider changing LeaderElectionResourceLock to new default "configmapsleases".
-	mgr, err := manager.New(cfg, getManagerOptions(watchNamespace, needLeaderElection))
+	mgr, err := manager.New(cfg, getManagerOptions(watchNamespace, operatorNamespace, needLeaderElection, scheme))
 	cmdHelper.ExitOnError(err, "can't initiate manager")
 
 	// register pprof instrumentation if HCO_PPROF_ADDR is set
 	cmdHelper.ExitOnError(cmdHelper.RegisterPPROFServer(mgr), "can't register pprof server")
 
 	logger.Info("Registering Components.")
-
-	// Setup Scheme for all resources
-	cmdHelper.AddToScheme(mgr, resourcesSchemeFuncs)
 
 	// Detect OpenShift version
 	ctx := context.TODO()
@@ -118,9 +133,44 @@ func main() {
 	}
 }
 
-func getManagerOptions(watchNamespace string, needLeaderElection bool) manager.Options {
+// Restricts the cache's ListWatch to specific fields/labels per GVK at the specified object to control the memory impact
+// this is used to completely overwrite the NewCache function so all the interesting objects should be explicitly listed here
+func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
+	return cache.BuilderWithOptions(
+		cache.Options{
+			SelectorsByObject: cache.SelectorsByObject{
+				&hcov1beta1.HyperConverged{}:           {},
+				&kubevirtv1.KubeVirt{}:                 {},
+				&cdiv1beta1.CDI{}:                      {},
+				&networkaddonsv1.NetworkAddonsConfig{}: {},
+				&sspv1beta1.SSP{}:                      {},
+				&vmimportv1beta1.VMImportConfig{}:      {},
+				&schedulingv1.PriorityClass{}: {
+					Label: labels.SelectorFromSet(labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}),
+				},
+				&corev1.ConfigMap{}: {
+					Label: labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}.AsSelector(),
+					Field: fields.Set{"metadata.namespace": operatorNamespace}.AsSelector(),
+				},
+				&corev1.Service{}: {
+					Field: fields.Set{"metadata.namespace": operatorNamespace}.AsSelector(),
+				},
+				&monitoringv1.ServiceMonitor{}: {
+					Label: labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}.AsSelector(),
+					Field: fields.Set{"metadata.namespace": operatorNamespace}.AsSelector(),
+				},
+				&monitoringv1.PrometheusRule{}: {
+					Label: labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}.AsSelector(),
+					Field: fields.Set{"metadata.namespace": operatorNamespace}.AsSelector(),
+				},
+			},
+		},
+	)
+}
+
+func getManagerOptions(watchNamespace string, operatorNamespace string, needLeaderElection bool, scheme *apiruntime.Scheme) manager.Options {
 	return manager.Options{
-		Namespace:                  watchNamespace,
+		Namespace:                  watchNamespace, // to be able to watch objects also in other namespaces
 		MetricsBindAddress:         fmt.Sprintf("%s:%d", hcoutil.MetricsHost, hcoutil.MetricsPort),
 		HealthProbeBindAddress:     fmt.Sprintf("%s:%d", hcoutil.HealthProbeHost, hcoutil.HealthProbePort),
 		ReadinessEndpointName:      hcoutil.ReadinessEndpointName,
@@ -128,6 +178,8 @@ func getManagerOptions(watchNamespace string, needLeaderElection bool) manager.O
 		LeaderElection:             needLeaderElection,
 		LeaderElectionResourceLock: "configmaps",
 		LeaderElectionID:           "hyperconverged-cluster-operator-lock",
+		NewCache:                   getNewManagerCache(operatorNamespace),
+		Scheme:                     scheme,
 	}
 }
 

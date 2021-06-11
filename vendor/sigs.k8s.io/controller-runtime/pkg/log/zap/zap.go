@@ -101,17 +101,19 @@ func newConsoleEncoder(opts ...EncoderConfigOption) zapcore.Encoder {
 	return zapcore.NewConsoleEncoder(encoderConfig)
 }
 
-// Level sets the the minimum enabled logging level e.g Debug, Info
-// See Options.Level
+// Level sets Options.Level, which configures the the minimum enabled logging level e.g Debug, Info.
+// A zap log level should be multiplied by -1 to get the logr verbosity.
+// For example, to get logr verbosity of 3, pass zapcore.Level(-3) to this Opts.
+// See https://pkg.go.dev/github.com/go-logr/zapr for how zap level relates to logr verbosity.
 func Level(level zapcore.LevelEnabler) func(o *Options) {
 	return func(o *Options) {
 		o.Level = level
 	}
 }
 
-// StacktraceLevel configures the logger to record a stack trace for all messages at
-// or above a given level.
-// See Options.StacktraceLevel
+// StacktraceLevel sets Options.StacktraceLevel, which configures the logger to record a stack trace
+// for all messages at or above a given level.
+// See the Level Opts for the relationship of zap log level to logr verbosity.
 func StacktraceLevel(stacktraceLevel zapcore.LevelEnabler) func(o *Options) {
 	return func(o *Options) {
 		o.StacktraceLevel = stacktraceLevel
@@ -151,12 +153,16 @@ type Options struct {
 	//
 	// Deprecated: Use DestWriter instead
 	DestWritter io.Writer
-	// Level configures the verbosity of the logging.  Defaults to Debug when
-	// Development is true and Info otherwise
+	// Level configures the verbosity of the logging.
+	// Defaults to Debug when Development is true and Info otherwise.
+	// A zap log level should be multiplied by -1 to get the logr verbosity.
+	// For example, to get logr verbosity of 3, set this field to zapcore.Level(-3).
+	// See https://pkg.go.dev/github.com/go-logr/zapr for how zap level relates to logr verbosity.
 	Level zapcore.LevelEnabler
 	// StacktraceLevel is the level at and above which stacktraces will
 	// be recorded for all messages. Defaults to Warn when Development
-	// is true and Error otherwise
+	// is true and Error otherwise.
+	// See Level for the relationship of zap log level to logr verbosity.
 	StacktraceLevel zapcore.LevelEnabler
 	// ZapOpts allows passing arbitrary zap.Options to configure on the
 	// underlying Zap logger.

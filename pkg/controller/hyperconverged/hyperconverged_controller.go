@@ -124,6 +124,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		return err
 	}
 
+	// To limit the memory usage, the controller manager got instantiated with a custom cache
+	// that is watching only a specific set of objects with selectors.
+	// When a new object got added here, it has also to be added to the custom cache
+	// managed by getNewManagerCache()
 	secondaryResources := []client.Object{
 		&kubevirtv1.KubeVirt{},
 		&cdiv1beta1.CDI{},
@@ -131,6 +135,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		&sspv1beta1.SSP{},
 		&schedulingv1.PriorityClass{},
 		&vmimportv1beta1.VMImportConfig{},
+		&corev1.ConfigMap{},
 	}
 	if ci.IsOpenshift() {
 		secondaryResources = append(secondaryResources, []client.Object{
