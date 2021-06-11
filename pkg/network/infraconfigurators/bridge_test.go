@@ -146,5 +146,16 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(HaveOccurred())
 			})
 		})
+
+		When("the pod link features an invalid MTU", func() {
+			BeforeEach(func() {
+				podLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: 700000}}
+				handler.EXPECT().LinkByName(ifaceName).Return(podLink, nil)
+			})
+
+			It("should fail", func() {
+				Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(HaveOccurred())
+			})
+		})
 	})
 })
