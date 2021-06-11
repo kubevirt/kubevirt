@@ -21,6 +21,7 @@ package virthandler
 
 import (
 	"context"
+	"encoding/json"
 	goerror "errors"
 	"fmt"
 	"io"
@@ -492,12 +493,13 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 // it results in killing/spawning a posix thread. Only do this if it
 // is absolutely necessary. The cache informs us if this action has
 // already taken place or not for a VMI
-func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineInstance) (bool, error) {
+func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineInstance) (bool, []api.InterfaceStatus, error) {
+	podInterfaces := []api.InterfaceStatus{}
 
 	// configure network
 	res, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		return false, fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+		return false, podInterfaces, fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
 	}
 
 	pid := res.Pid()
@@ -509,18 +511,18 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 
 	if ok && cachedPid == pid {
 		// already completed phase1
-		return false, nil
+		return false, podInterfaces, nil
 	}
-
 	err = res.DoNetNS(func() error {
-		return network.NewVMNetworkConfigurator(vmi, d.networkCacheStoreFactory).SetupPodNetworkPhase1(pid)
+		podInterfaces, err = network.NewVMNetworkConfigurator(vmi, d.networkCacheStoreFactory).SetupPodNetworkPhase1(pid)
+		return err
 	})
 	if err != nil {
 		_, critical := err.(*neterrors.CriticalNetworkError)
 		if critical {
-			return true, err
+			return true, podInterfaces, err
 		} else {
-			return false, err
+			return false, podInterfaces, err
 		}
 
 	}
@@ -530,7 +532,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	d.phase1NetworkSetupCache[vmi.UID] = pid
 	d.phase1NetworkSetupCacheLock.Unlock()
 
-	return false, nil
+	return false, podInterfaces, nil
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -2393,7 +2395,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// configure network inside virt-launcher compute container
-	criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
+	criticalNetworkError, _, err := d.setPodNetworkPhase1(vmi)
 	if err != nil {
 		if criticalNetworkError {
 			return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network for migration target: %v", err)}
@@ -2448,6 +2450,8 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		return err
 	}
 
+	podInterfacesJSON := []byte{}
+
 	if !vmi.IsRunning() && !vmi.IsFinal() {
 
 		// give containerDisks some time to become ready before throwing errors on retries
@@ -2468,7 +2472,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return fmt.Errorf("failed to mount kernel artifacts: %v", err)
 		}
 
-		criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
+		criticalNetworkError, podInterfaces, err := d.setPodNetworkPhase1(vmi)
 		if err != nil {
 			if criticalNetworkError {
 				return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network: %v", err)}
@@ -2476,6 +2480,12 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 				return fmt.Errorf("failed to configure vmi network: %v", err)
 			}
 
+		}
+
+		// marshall it to send it over grpc
+		podInterfacesJSON, err = json.Marshal(podInterfaces)
+		if err != nil {
+			return fmt.Errorf("failed marshaling domain interface statuses from phase1: %v", err)
 		}
 
 		// set runtime limits as needed
@@ -2502,6 +2512,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		},
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
+		PodInterfaces:         podInterfacesJSON,
 	}
 
 	err = client.SyncVirtualMachine(vmi, options)

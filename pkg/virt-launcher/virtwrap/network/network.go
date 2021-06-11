@@ -71,17 +71,22 @@ func (v VMNetworkConfigurator) getNICsWithLauncherPID(launcherPID *int) ([]podNI
 
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) error {
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) ([]api.InterfaceStatus, error) {
+	domainIfaceStatuses := []api.InterfaceStatus{}
 	nics, err := n.getNICsWithLauncherPID(&pid)
 	if err != nil {
-		return nil
+		return domainIfaceStatuses, nil
 	}
 	for _, nic := range nics {
-		if err := nic.PlugPhase1(); err != nil {
-			return fmt.Errorf("failed plugging phase1 at nic '%s': %w", nic.podInterfaceName, err)
+		interfaceStatus, err := nic.PlugPhase1()
+		if err != nil {
+			return domainIfaceStatuses, fmt.Errorf("failed plugging phase1 at nic '%s': %w", nic.podInterfaceName, err)
+		}
+		if interfaceStatus != nil {
+			domainIfaceStatuses = append(domainIfaceStatuses, *interfaceStatus)
 		}
 	}
-	return nil
+	return domainIfaceStatuses, nil
 }
 
 func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error {

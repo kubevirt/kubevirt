@@ -161,36 +161,34 @@ func isSecondaryMultusNetwork(net v1.Network) bool {
 	return net.Multus != nil && !net.Multus.Default
 }
 
-func (l *podNIC) setPodInterfaceCache() error {
-	ifCache := &cache.PodCacheInterface{Iface: l.iface}
+func (l *podNIC) composeDomainInterfaceStatus() (*api.InterfaceStatus, error) {
+	interfaceStatus := &api.InterfaceStatus{
+		Name:          l.iface.Name,
+		InterfaceName: l.podInterfaceName,
+	}
 
 	ipv4, ipv6, err := l.handler.ReadIPAddressesFromLink(l.podInterfaceName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	switch {
 	case ipv4 != "" && ipv6 != "":
-		ifCache.PodIPs, err = l.sortIPsBasedOnPrimaryIP(ipv4, ipv6)
+		interfaceStatus.IPs, err = l.sortIPsBasedOnPrimaryIP(ipv4, ipv6)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	case ipv4 != "":
-		ifCache.PodIPs = []string{ipv4}
+		interfaceStatus.IPs = []string{ipv4}
 	case ipv6 != "":
-		ifCache.PodIPs = []string{ipv6}
+		interfaceStatus.IPs = []string{ipv6}
 	default:
-		return nil
+		return nil, nil
 	}
 
-	ifCache.PodIP = ifCache.PodIPs[0]
-	err = l.cacheFactory.CacheForVMI(l.vmi).Write(l.iface.Name, ifCache)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
-		return err
-	}
+	interfaceStatus.Ip = interfaceStatus.IPs[0]
 
-	return nil
+	return interfaceStatus, nil
 }
 
 // sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
@@ -208,34 +206,37 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 	return []string{ipv6, ipv4}, nil
 }
 
-func (l *podNIC) PlugPhase1() error {
+func (l *podNIC) PlugPhase1() (*api.InterfaceStatus, error) {
+
+	var domainInterfaceStatus *api.InterfaceStatus
 
 	// There is nothing to plug for SR-IOV devices
 	if l.iface.SRIOV != nil {
-		return nil
+		return nil, nil
 	}
 
 	cachedDomainIface, err := l.cachedDomainInterface()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	doesExist := cachedDomainIface != nil
 	// ignore the bindMechanism.cachedDomainInterface for slirp and set the Pod interface cache
 	if !doesExist || l.iface.Slirp != nil {
-		err := l.setPodInterfaceCache()
+		var err error
+		domainInterfaceStatus, err = l.composeDomainInterfaceStatus()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if !doesExist {
 		bindMechanism, err := l.getPhase1Binding()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if err := bindMechanism.discoverPodNetworkInterface(l.podInterfaceName); err != nil {
-			return err
+			return nil, err
 		}
 
 		if l.dhcpConfigurator != nil {
@@ -243,7 +244,7 @@ func (l *podNIC) PlugPhase1() error {
 			log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
 			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
 				log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
-				return errors.CreateCriticalNetworkError(err)
+				return nil, errors.CreateCriticalNetworkError(err)
 			}
 		}
 
@@ -253,7 +254,7 @@ func (l *podNIC) PlugPhase1() error {
 		// generator methods get their info from.
 		if err := bindMechanism.preparePodNetworkInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
-			return errors.CreateCriticalNetworkError(err)
+			return nil, errors.CreateCriticalNetworkError(err)
 		}
 
 		// caching the domain interface *must* be the last thing done in phase
@@ -261,12 +262,12 @@ func (l *podNIC) PlugPhase1() error {
 		// networking infrastructure.
 		if err := l.storeCachedDomainIface(domainIface); err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
-			return errors.CreateCriticalNetworkError(err)
+			return nil, errors.CreateCriticalNetworkError(err)
 		}
 
 	}
 
-	return nil
+	return domainInterfaceStatus, nil
 }
 
 func (l *podNIC) PlugPhase2(domain *api.Domain) error {
