@@ -95,10 +95,13 @@ distclean: clean
 	rm -rf vendor/
 
 deps-update-patch:
-	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh -u=patch && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh -- -u=patch && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
 deps-update:
 	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
+
+deps-sync:
+	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh --sync-only && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
 rpm-deps:
 	SYNC_VENDOR=true hack/dockerized " ./hack/rpm-deps.sh"
@@ -179,6 +182,7 @@ bump-kubevirtci:
 	test \
 	clean \
 	distclean \
+	deps-sync \
 	sync \
 	manifests \
 	functest \
