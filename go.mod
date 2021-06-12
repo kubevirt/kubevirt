@@ -120,4 +120,4 @@ replace (
 	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.34.1
 )
 
-go 1.13
+go 1.16
