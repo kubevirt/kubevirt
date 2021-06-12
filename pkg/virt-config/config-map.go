@@ -49,6 +49,7 @@ const (
 	CPURequestKey                     = "cpu-request"
 	MemoryOvercommitKey               = "memory-overcommit"
 	LessPVCSpaceTolerationKey         = "pvc-tolerate-less-space-up-to-percent"
+	MinimumReservePVCBytesKey         = "minimum-reserve-pvc-bytes"
 	NodeSelectorsKey                  = "node-selectors"
 	NetworkInterfaceKey               = "default-network-interface"
 	PermitSlirpInterface              = "permitSlirpInterface"
@@ -186,6 +187,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 			UseEmulation:           DefaultUseEmulation,
 			MemoryOvercommit:       DefaultMemoryOvercommit,
 			LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
+			MinimumReservePVCBytes: DefaultMinimumReservePVCBytes,
 			NodeSelectors:          nodeSelectorsDefault,
 			CPUAllocationRatio:     DefaultCPUAllocationRatio,
 			LogVerbosity: &v1.LogVerbosity{
@@ -366,6 +368,14 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 			return fmt.Errorf("Invalid lessPVCSpaceToleration in ConfigMap: %s", toleration)
 		} else {
 			config.DeveloperConfiguration.LessPVCSpaceToleration = value
+		}
+	}
+
+	if pvcReserve := strings.TrimSpace(configMap.Data[MinimumReservePVCBytesKey]); pvcReserve != "" {
+		if value, err := strconv.ParseUint(pvcReserve, 10, 64); err != nil {
+			return fmt.Errorf("Invalid minimumReservePVCBytes in ConfigMap: %s", pvcReserve)
+		} else {
+			config.DeveloperConfiguration.MinimumReservePVCBytes = value
 		}
 	}
 
