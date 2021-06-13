@@ -26,7 +26,7 @@ const (
 	relevantk8sVer = "1.16.2"
 
 	// Define a timeout for read opeartions in order to prevent test hanging
-	readTimeout        = 30 * time.Second
+	readTimeout        = 2 * time.Minute
 	vmCreationTimeout  = 1 * time.Minute
 	vmMigrationTimeout = 5 * time.Minute
 
@@ -101,8 +101,11 @@ func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) 
 	prevStatus := oldStatus
 
 	// Iterate repeatedly until a modified line is found
+	remainingTimeout := timeout
 	for {
-		statusLine, err := readLineWithTimeout(rc, timeout)
+		start := time.Now()
+		statusLine, err := readLineWithTimeout(rc, remainingTimeout)
+
 		if err != nil {
 			return nil, err
 		}
@@ -121,6 +124,10 @@ func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) 
 		}
 
 		prevStatus = newStatus
+		remainingTimeout -= time.Now().Sub(start)
+		if remainingTimeout <= 0 {
+			return nil, fmt.Errorf("timeout waiting for new VM/VMI status line")
+		}
 	}
 }
 
