@@ -215,7 +215,7 @@ func (_mr *_MockNetworkHandlerRecorder) LinkSetMaster(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetMaster", arg0, arg1)
 }
 
-func (_m *MockNetworkHandler) StartDHCP(nic *cache.DhcpConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
+func (_m *MockNetworkHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions, filterByMAC bool) error {
 	ret := _m.ctrl.Call(_m, "StartDHCP", nic, bridgeInterfaceName, dhcpOptions, filterByMAC)
 	ret0, _ := ret[0].(error)
 	return ret0

@@ -15,7 +15,7 @@ func NewFakeInMemoryNetworkCacheFactory() cache.InterfaceCacheFactory {
 	return &fakeInterfaceCacheFactory{
 		vmiCacheStores:    map[types.UID]*fakePodInterfaceCacheStore{},
 		domainCacheStores: map[string]*fakeDomainInterfaceStore{},
-		dhcpConfigStores:  map[string]*fakeDhcpConfigCacheStore{},
+		dhcpConfigStores:  map[string]*fakeDHCPConfigCacheStore{},
 		lock:              &sync.Mutex{},
 	}
 }
@@ -23,7 +23,7 @@ func NewFakeInMemoryNetworkCacheFactory() cache.InterfaceCacheFactory {
 type fakeInterfaceCacheFactory struct {
 	vmiCacheStores    map[types.UID]*fakePodInterfaceCacheStore
 	domainCacheStores map[string]*fakeDomainInterfaceStore
-	dhcpConfigStores  map[string]*fakeDhcpConfigCacheStore
+	dhcpConfigStores  map[string]*fakeDHCPConfigCacheStore
 	lock              *sync.Mutex
 }
 
@@ -53,14 +53,14 @@ func (f *fakeInterfaceCacheFactory) CacheDomainInterfaceForPID(pid string) cache
 	return f.domainCacheStores[pid]
 }
 
-func (f *fakeInterfaceCacheFactory) CacheDhcpConfigForPid(pid string) cache.DhcpConfigStore {
+func (f *fakeInterfaceCacheFactory) CacheDHCPConfigForPid(pid string) cache.DHCPConfigStore {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if store, exists := f.dhcpConfigStores[pid]; exists {
 		return store
 	}
-	f.dhcpConfigStores[pid] = &fakeDhcpConfigCacheStore{
-		store: map[string]*cache.DhcpConfig{},
+	f.dhcpConfigStores[pid] = &fakeDHCPConfigCacheStore{
+		store: map[string]*cache.DHCPConfig{},
 		lock:  &sync.Mutex{},
 	}
 	return f.dhcpConfigStores[pid]
@@ -115,12 +115,12 @@ func (f *fakeDomainInterfaceStore) Write(ifaceName string, cacheInterface *api.I
 	return nil
 }
 
-type fakeDhcpConfigCacheStore struct {
+type fakeDHCPConfigCacheStore struct {
 	lock  *sync.Mutex
-	store map[string]*cache.DhcpConfig
+	store map[string]*cache.DHCPConfig
 }
 
-func (f *fakeDhcpConfigCacheStore) Read(ifaceName string) (*cache.DhcpConfig, error) {
+func (f *fakeDHCPConfigCacheStore) Read(ifaceName string) (*cache.DHCPConfig, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if val, exists := f.store[ifaceName]; exists {
@@ -129,7 +129,7 @@ func (f *fakeDhcpConfigCacheStore) Read(ifaceName string) (*cache.DhcpConfig, er
 	return nil, os.ErrNotExist
 }
 
-func (f *fakeDhcpConfigCacheStore) Write(ifaceName string, vifToCache *cache.DhcpConfig) error {
+func (f *fakeDHCPConfigCacheStore) Write(ifaceName string, vifToCache *cache.DHCPConfig) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	f.store[ifaceName] = vifToCache
