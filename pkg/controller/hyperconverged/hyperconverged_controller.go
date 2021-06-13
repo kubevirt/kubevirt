@@ -719,8 +719,8 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 	if allComponentsAreUp {
 		req.Logger.Info("No component operator reported negatively")
 
-		// if in upgrade mode, and all the components are upgraded - upgrade is completed
-		if r.upgradeMode && req.ComponentUpgradeInProgress {
+		// if in upgrade mode, and all the components are upgraded, and nothing pending to be written - upgrade is completed
+		if r.upgradeMode && req.ComponentUpgradeInProgress && !req.Dirty {
 			// update the new version only when upgrade is completed
 			req.Instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
 			req.StatusDirty = true

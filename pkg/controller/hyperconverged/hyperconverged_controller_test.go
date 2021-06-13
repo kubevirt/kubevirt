@@ -363,8 +363,8 @@ var _ = Describe("HyperconvergedController", func() {
 				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				existingResource, err := operands.NewKubeVirt(hco, namespace)
-				existingResource.Kind = kubevirtv1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 				Expect(err).ToNot(HaveOccurred())
+				existingResource.Kind = kubevirtv1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 
 				// now, modify KV's node placement
 				seconds3 := int64(3)
@@ -423,8 +423,8 @@ var _ = Describe("HyperconvergedController", func() {
 				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				existingResource, err := operands.NewKubeVirt(hco, namespace)
-				existingResource.Kind = kubevirtv1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 				Expect(err).ToNot(HaveOccurred())
+				existingResource.Kind = kubevirtv1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 
 				// now, modify KV's node placement
 				seconds3 := int64(3)
@@ -886,9 +886,21 @@ var _ = Describe("HyperconvergedController", func() {
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
+				Expect(ver).Should(Equal(oldVersion))
+				Expect(foundResource.Spec.Version).Should(Equal(oldVersion))
+				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+
+				// check that the image Id is set, now, when upgrade is completed
+				foundResource, requeue = doReconcile(cl, expected.hco)
+				Expect(requeue).To(BeFalse())
+				checkAvailability(foundResource, corev1.ConditionTrue)
+
+				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
-				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo("False"))
 			})
 
@@ -918,12 +930,22 @@ var _ = Describe("HyperconvergedController", func() {
 				checkAvailability(foundResource, corev1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
+				_, ok = foundResource.Status.GetVersion(hcoVersionName)
+				Expect(ok).To(BeFalse())
+				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+
+				foundResource, requeue = doReconcile(cl, expected.hco)
+				Expect(requeue).To(BeFalse())
+				checkAvailability(foundResource, corev1.ConditionTrue)
+
+				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
 
-				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo("False"))
 			})
 
@@ -948,7 +970,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("True"))
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -968,7 +990,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("True"))
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -978,6 +1000,21 @@ var _ = Describe("HyperconvergedController", func() {
 				// now, complete the upgrade
 				expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion
 				cl = expected.initClient()
+				foundResource, requeue = doReconcile(cl, expected.hco)
+				Expect(requeue).To(BeFalse())
+				checkAvailability(foundResource, corev1.ConditionTrue)
+
+				// check that the image Id is set, now, when upgrade is completed
+				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				Expect(ok).To(BeTrue())
+				Expect(ver).Should(Equal(oldVersion))
+				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
+
+				hcoReady = checkHcoReady()
+				Expect(hcoReady).To(BeFalse())
+
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, corev1.ConditionTrue)
@@ -1019,7 +1056,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("True"))
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -1037,15 +1074,29 @@ var _ = Describe("HyperconvergedController", func() {
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
+				Expect(ver).Should(Equal(oldVersion))
+				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
+
+				hcoReady = checkHcoReady()
+				Expect(hcoReady).To(BeFalse())
+
+				foundResource, requeue = doReconcile(cl, expected.hco)
+				Expect(requeue).To(BeFalse())
+				checkAvailability(foundResource, corev1.ConditionTrue)
+
+				// check that the image Id is set, now, when upgrade is completed
+				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("False"))
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
 
 				hcoReady = checkHcoReady()
 				Expect(hcoReady).To(BeTrue())
-
 			})
 
 			It("don't complete upgrade if CNA version is not match to the CNA version env ver", func() {
@@ -1069,7 +1120,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("True"))
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -1084,9 +1135,21 @@ var _ = Describe("HyperconvergedController", func() {
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
+				Expect(ver).Should(Equal(oldVersion))
+				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
+
+				foundResource, requeue = doReconcile(cl, expected.hco)
+				Expect(requeue).To(BeFalse())
+				checkAvailability(foundResource, corev1.ConditionTrue)
+
+				// check that the image Id is set, now, when upgrade is completed
+				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("False"))
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
 			})
@@ -1112,7 +1175,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("True"))
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -1127,9 +1190,21 @@ var _ = Describe("HyperconvergedController", func() {
 				// check that HCO version is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
+				Expect(ver).Should(Equal(oldVersion))
+				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
+
+				foundResource, requeue = doReconcile(cl, expected.hco)
+				Expect(requeue).To(BeFalse())
+				checkAvailability(foundResource, corev1.ConditionTrue)
+
+				// check that HCO version is set, now, when upgrade is completed
+				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("False"))
+				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
 			})
@@ -1740,20 +1815,20 @@ progressTimeout: 150`,
 				_ = wr.Encode(conditions)
 
 				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
 				Expect(cd.Message).Should(Equal("HCO is not available due to degraded components"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIDegraded"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
 				Expect(cd.Message).Should(Equal("HCO is not Upgradeable due to degraded components"))
 
@@ -1783,19 +1858,19 @@ progressTimeout: 150`,
 				_ = wr.Encode(conditions)
 
 				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIDegraded"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
 			})
 
@@ -1823,19 +1898,19 @@ progressTimeout: 150`,
 				_ = wr.Encode(conditions)
 
 				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDINotAvailable"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIDegraded"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
 			})
 
@@ -1857,19 +1932,19 @@ progressTimeout: 150`,
 				_ = wr.Encode(conditions)
 
 				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
 			})
 
@@ -1897,19 +1972,19 @@ progressTimeout: 150`,
 				_ = wr.Encode(conditions)
 
 				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDINotAvailable"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
 			})
 
@@ -1931,19 +2006,19 @@ progressTimeout: 150`,
 				_ = wr.Encode(conditions)
 
 				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDINotAvailable"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 			})
 
@@ -1959,19 +2034,19 @@ progressTimeout: 150`,
 				_ = wr.Encode(conditions)
 
 				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 			})
 
@@ -1999,19 +2074,19 @@ progressTimeout: 150`,
 				_ = wr.Encode(conditions)
 
 				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("NetworkAddonsConfigNotAvailable"))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo("False"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo("True"))
+				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 			})
 		})
