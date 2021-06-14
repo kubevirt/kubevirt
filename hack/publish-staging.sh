@@ -12,8 +12,8 @@ if [ -n "${DOCKER_TAG}" ]; then
     TARGET_TAG="$DOCKER_TAG"
 fi
 
-# if we are not on master and there is no tag, do nothing
-if [ -z "${TARGET_TAG}" ] && [ "${TARGET_BRANCH}" != "master" ]; then
+# if we are not on default branch and there is no tag, do nothing
+if [ -z "${TARGET_TAG}" ] && [ "${TARGET_BRANCH}" != "main" ]; then
     echo "not on a tag and not on master branch, nothing to do."
     exit 0
 fi

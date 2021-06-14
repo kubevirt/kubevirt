@@ -58,7 +58,7 @@ git push -f "https://${user}@github.com/${user}/kubevirt.git" HEAD:kubevirtci
 echo "Creating PR to merge ${user}:kubevirtci into master..." >&2
 pr-creator \
     --github-token-path="${token}" \
-    --org=kubevirt --repo=kubevirt --branch=master \
+    --org=kubevirt --repo=kubevirt --branch=main \
     --title="${title}" --match-title="Run hack/bump-kubevirtci.sh" \
     --body="Automatic kubevirtci update to ${kubevirtci_git_hash}. Please review" \
     --source="${user}":kubevirtci \
