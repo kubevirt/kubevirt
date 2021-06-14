@@ -1466,6 +1466,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	} else if istio.ProxyInjectionEnabled(vmi) {
 		automount := true
 		pod.Spec.AutomountServiceAccountToken = &automount
+	} else if vmi.Spec.ServiceAccountName != "" {
+		pod.Spec.ServiceAccountName = vmi.Spec.ServiceAccountName
+		automount := true
+		pod.Spec.AutomountServiceAccountToken = &automount
 	} else {
 		automount := false
 		pod.Spec.AutomountServiceAccountToken = &automount

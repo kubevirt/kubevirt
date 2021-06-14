@@ -5120,6 +5120,10 @@ var CRDsValidation map[string]string = map[string]string{
                     scheduler. If not specified, the VMI will be dispatched by default
                     scheduler.
                   type: string
+                serviceAccountName:
+                  description: 'ServiceAccountName is the name of the ServiceAccount
+                    to use to run vm. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
+                  type: string
                 startStrategy:
                   description: StartStrategy can be set to "Paused" if Virtual Machine
                     should be started in paused state.
@@ -8058,6 +8062,10 @@ var CRDsValidation map[string]string = map[string]string{
         schedulerName:
           description: If specified, the VMI will be dispatched by specified scheduler.
             If not specified, the VMI will be dispatched by default scheduler.
+          type: string
+        serviceAccountName:
+          description: 'ServiceAccountName is the name of the ServiceAccount to use
+            to run vm. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
           type: string
         startStrategy:
           description: StartStrategy can be set to "Paused" if Virtual Machine should
@@ -12003,6 +12011,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: If specified, the VMI will be dispatched by specified
                     scheduler. If not specified, the VMI will be dispatched by default
                     scheduler.
+                  type: string
+                serviceAccountName:
+                  description: 'ServiceAccountName is the name of the ServiceAccount
+                    to use to run vm. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                   type: string
                 startStrategy:
                   description: StartStrategy can be set to "Paused" if Virtual Machine
@@ -18956,6 +18968,10 @@ var CRDsValidation map[string]string = map[string]string{
                               description: If specified, the VMI will be dispatched
                                 by specified scheduler. If not specified, the VMI
                                 will be dispatched by default scheduler.
+                              type: string
+                            serviceAccountName:
+                              description: 'ServiceAccountName is the name of the
+                                ServiceAccount to use to run vm. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                               type: string
                             startStrategy:
                               description: StartStrategy can be set to "Paused" if

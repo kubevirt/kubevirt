@@ -203,6 +203,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
 
+	causes = append(causes, validateServiceAccount(field, spec)...)
 	return causes
 }
 
@@ -782,6 +783,38 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 		}
 	}
 	return causes
+}
+
+func validateServiceAccount(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	serviceAccountName := spec.ServiceAccountName
+	hasSa := serviceAccountName != ""
+	if !hasSa {
+		return
+	}
+
+	hasSAvolume := false
+	saVolumeName := ""
+	index := 0
+	for i, volume := range spec.Volumes {
+		if volume.ServiceAccount != nil {
+			hasSAvolume = true
+			saVolumeName = volume.ServiceAccount.ServiceAccountName
+			index = i
+			break
+		}
+	}
+
+	if hasSAvolume && saVolumeName != serviceAccountName {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "ServiceAccountName volume must match with provided ServiceAccount",
+			Field: field.Child("volumes").Index(index).
+				Child("serviceAccount").
+				Child("serviceAccountName").String(),
+		})
+	}
+
+	return
 }
 
 func appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {

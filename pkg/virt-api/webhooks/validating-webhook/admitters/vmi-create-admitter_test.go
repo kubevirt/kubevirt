@@ -3524,6 +3524,73 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(ContainElement(metav1.StatusCause{Type: metav1.CauseTypeFieldValueRequired, Field: "fake.domain.cpu.numa.guestMappingPassthrough", Message: "fake.domain.cpu.numa.guestMappingPassthrough must be defined when fake.domain.cpu.realtime is used"}))
 		})
 	})
+
+	Context("with ServiceAccount", func() {
+		minimalVMI := func() *v1.VirtualMachineInstance {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.ServiceAccountName = "default"
+			return vmi
+		}
+
+		withSAVolume := func(vmi *v1.VirtualMachineInstance, name string) *v1.VirtualMachineInstance {
+			volume := v1.Volume{
+				Name: "sa",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{
+						ServiceAccountName: name,
+					},
+				},
+			}
+
+			disk := v1.Disk{Name: "sa"}
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+			return vmi
+		}
+
+		admit := func(vmi *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
+			vmiBytes, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			return vmiCreateAdmitter.Admit(ar)
+		}
+
+		It("should be accepted", func() {
+			vmi := minimalVMI()
+
+			resp := admit(vmi)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("with matching SA volume should be accepted", func() {
+			vmi := minimalVMI()
+			vmi = withSAVolume(vmi, "default")
+
+			resp := admit(vmi)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("with not matching SA volume should be rejected", func() {
+			vmi := minimalVMI()
+			vmi = withSAVolume(vmi, "notMatch")
+
+			resp := admit(vmi)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1), fmt.Sprint(resp.Result.Details.Causes))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumes[0].serviceAccount.serviceAccountName"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("ServiceAccountName volume must match with provided ServiceAccount"))
+		})
+
+	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {

@@ -85,6 +85,11 @@ type VirtualMachineInstanceSpec struct {
 	// +optional
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 
+	// ServiceAccountName is the name of the ServiceAccount to use to run vm.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// Specification of the desired behavior of the VirtualMachineInstance on the host.
 	Domain DomainSpec `json:"domain"`
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.
