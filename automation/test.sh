@@ -330,7 +330,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ (cnao|multus) ]]; then
     export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose|Macvtap"
   elif [[ $TARGET =~ sig-network ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
+    export KUBEVIRT_E2E_FOCUS="Passt"
   elif [[ $TARGET =~ sig-storage ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[rook-ceph\\]"
   elif [[ $TARGET =~ sig-compute ]]; then
