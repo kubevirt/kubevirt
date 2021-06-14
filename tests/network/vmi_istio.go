@@ -332,8 +332,6 @@ func newVMIWithIstioSidecar(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithLabel("app", vmiAppSelector),
 		libvmi.WithAnnotation(consts.ISTIO_INJECT_ANNOTATION, "true"),
 	)
-	// Istio-proxy requires service account token to be mounted
-	tests.AddServiceAccountDisk(vmi, "default")
 	return vmi
 }
 
