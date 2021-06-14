@@ -2354,6 +2354,10 @@ func markAsNonReady(vmi *v1.VirtualMachineInstance) {
 	kvcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse})
 }
 
+func unmarkReady(vmi *v1.VirtualMachineInstance) {
+	kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+}
+
 func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName string) *v1.VirtualMachineInstance {
 
 	if vmi.Status.ActivePods != nil {

@@ -1424,26 +1424,47 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
 		GetCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady))
 
-	if vmReadyCond == nil && vmiReadyCond != nil {
-		log.Log.Object(vm).V(4).Info("Adding ready condition")
+	if vmReadyCond == nil {
 		newCond := virtv1.VirtualMachineCondition{Type: virtv1.VirtualMachineReady}
-		copyConditionDetails(vmiReadyCond, &newCond)
 		vm.Status.Conditions = append(vm.Status.Conditions, newCond)
-	} else if vmReadyCond != nil && vmiReadyCond != nil {
-		log.Log.Object(vm).V(4).Info("Updating ready condition")
-		copyConditionDetails(vmiReadyCond, vmReadyCond)
-	} else if vmReadyCond != nil && vmiReadyCond == nil {
-		log.Log.Object(vm).V(4).Info("Removing ready condition")
-		controller.NewVirtualMachineConditionManager().RemoveCondition(vm, virtv1.VirtualMachineReady)
+		vmReadyCond = &vm.Status.Conditions[len(vm.Status.Conditions)-1]
 	}
-}
 
-func copyConditionDetails(source *virtv1.VirtualMachineInstanceCondition, dest *virtv1.VirtualMachineCondition) {
-	dest.Status = source.Status
-	dest.LastProbeTime = source.LastProbeTime
-	dest.LastTransitionTime = source.LastTransitionTime
-	dest.Reason = source.Reason
-	dest.Message = source.Message
+	setVMCondition := func(status k8score.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
+		if vmReadyCond.Status == status && vmReadyCond.Reason == reason {
+			return
+		}
+
+		vmReadyCond.Status = status
+		vmReadyCond.Reason = reason
+		vmReadyCond.Message = message
+		vmReadyCond.LastProbeTime = lastProbeTime
+		vmReadyCond.LastTransitionTime = lastTransitionTime
+	}
+
+	if vmi == nil {
+		setVMCondition(k8score.ConditionFalse,
+			"VMIConditionMissing",
+			"VMI does not exist",
+			v1.Now(),
+			v1.Now())
+
+	} else if vmiReadyCond == nil {
+		setVMCondition(k8score.ConditionFalse,
+			"VMIConditionMissing",
+			"VMI is missing the Ready condition",
+			v1.Now(),
+			v1.Now())
+
+	} else {
+		log.Log.Object(vm).V(4).Info("Syncing VM Ready condition from VMI")
+
+		setVMCondition(vmiReadyCond.Status,
+			vmiReadyCond.Reason,
+			vmiReadyCond.Message,
+			vmiReadyCond.LastProbeTime,
+			vmiReadyCond.LastTransitionTime)
+	}
 }
 
 func (c *VMController) processFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) {
