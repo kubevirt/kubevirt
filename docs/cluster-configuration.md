@@ -320,6 +320,30 @@ spec:
         memory: "1Gi"
 ```
 
+## Cert Rotation Configuration
+You can configure certificate rotation parameters to influence the frequency of the rotation of the certificates needed by a Kubevirt deployment.
+
+All values must be 10 minutes in length or greater to avoid overloading the system, and should be expressed as strings that comply with [golang's ParseDuration format](https://golang.org/pkg/time/#ParseDuration).
+The value of `server.duration` should be less than the value of `ca.duration`.
+The value of `renewBefore` should be less than the value of `server.duration`.
+
+### Cert Rotation Configuration Example
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: kubevirt-hyperconverged
+spec:
+  certificateRotation:
+    ca:
+      duration: 48h0m0s
+      renewBefore: 24h0m0s
+    server:
+      duration: 24h0m0s
+      renewBefore: 12h0m0s
+```
+
 ## CPU Plugin Configurations
 You can schedule a virtual machine (VM) on a node where the CPU model and policy attribute of the VM are compatible with
 the CPU models and policy attributes that the node supports. By specifying a list of obsolete CPU models in a the 
