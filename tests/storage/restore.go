@@ -733,24 +733,12 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("[QUARANTINE][test_id:6053]should restore a vm from an online snapshot", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithBlockDataVolumeAndUserDataInStorageClass(
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
 					tests.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,
 				))
-
-				Eventually(func() error {
-					return libnet.WithIPv6(console.LoginToCirros)(vmi)
-				}, 360, 10).Should(Succeed())
-
-				b := append([]expect.Batcher{
-					&expect.BSnd{S: "cat /var/run/resize.rootfs | grep resized\n"},
-					&expect.BExp{R: "resized successfully"},
-				})
-				Eventually(func() error {
-					return console.SafeExpectBatch(vmi, b, 10)
-				}, 60, 20).Should(Succeed())
 
 				doRestore("", true)
 
