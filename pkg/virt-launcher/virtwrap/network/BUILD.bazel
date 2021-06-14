@@ -11,6 +11,7 @@ go_library(
     deps = [
         "//pkg/network:go_default_library",
         "//pkg/network/cache:go_default_library",
+        "//pkg/network/consts:go_default_library",
         "//pkg/network/dhcp:go_default_library",
         "//pkg/network/driver:go_default_library",
         "//pkg/network/errors:go_default_library",
@@ -36,6 +37,7 @@ go_test(
         "//pkg/network:go_default_library",
         "//pkg/network/cache:go_default_library",
         "//pkg/network/cache/fake:go_default_library",
+        "//pkg/network/consts:go_default_library",
         "//pkg/network/dhcp:go_default_library",
         "//pkg/network/driver:go_default_library",
         "//pkg/network/errors:go_default_library",

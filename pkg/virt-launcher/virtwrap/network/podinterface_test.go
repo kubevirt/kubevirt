@@ -27,6 +27,8 @@ import (
 	"runtime"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/network/consts"
+
 	"github.com/coreos/go-iptables/iptables"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -618,7 +620,7 @@ var _ = Describe("Pod Network", func() {
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vm.Annotations = map[string]string{
-					IstioInjectAnnotation: "true",
+					consts.ISTIO_INJECT_ANNOTATION: "true",
 				}
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -660,7 +662,7 @@ var _ = Describe("Pod Network", func() {
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 				vm.Annotations = map[string]string{
-					IstioInjectAnnotation: "true",
+					consts.ISTIO_INJECT_ANNOTATION: "true",
 				}
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)

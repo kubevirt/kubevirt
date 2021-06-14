@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/precond"
 	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/network/consts"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/errors"
@@ -54,10 +55,6 @@ const (
 	EnvoyMergedPrometheusTelemetryPort = 15020
 	EnvoyHealthCheckPort               = 15021
 	EnvoyPrometheusTelemetryPort       = 15090
-)
-
-const (
-	IstioInjectAnnotation = "sidecar.istio.io/inject"
 )
 
 type BindMechanism interface {
@@ -1235,7 +1232,7 @@ func (b *MasqueradeBindMechanism) getDstAddressesToDnat(proto iptables.Protocol)
 }
 
 func hasIstioSidecarInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {
-	if val, ok := vmi.GetAnnotations()[IstioInjectAnnotation]; ok {
+	if val, ok := vmi.GetAnnotations()[consts.ISTIO_INJECT_ANNOTATION]; ok {
 		return strings.ToLower(val) == "true"
 	}
 	return false
