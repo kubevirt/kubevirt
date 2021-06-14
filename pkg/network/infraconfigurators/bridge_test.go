@@ -30,6 +30,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
 
@@ -611,6 +612,89 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					withLinkUp(podLink),
 					withErrorSettingLinkLearningOff(podLink, errorString))
 				Expect(bridgeConfigurator.PreparePodNetworkInterface()).To(MatchError(errorString))
+			})
+		})
+	})
+
+	Context("DHCP configuration generation", func() {
+		const (
+			ifaceName   = "eth0"
+			launcherPID = 1000
+		)
+
+		var (
+			iface              *v1.Interface
+			vmi                *v1.VirtualMachineInstance
+		)
+
+		BeforeEach(func() {
+			iface = v1.DefaultBridgeNetworkInterface()
+			vmi = newVMIWithBridgeInterface("default", "vm1")
+		})
+
+		When("IPAM is not enabled", func() {
+			createBridgeConfiguratorWithoutIPAM := func() *BridgePodNetworkConfigurator {
+				bc := NewBridgePodNetworkConfigurator(vmi, iface, bridgeIfaceName, launcherPID, handler)
+				bc.podNicLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName}}
+				return bc
+			}
+
+			It("should generate a minimal dhcp configuration", func() {
+				expectedDhcpConfig := cache.DHCPConfig{IPAMDisabled: true}
+				Expect(createBridgeConfiguratorWithoutIPAM().GenerateNonRecoverableDHCPConfig()).To(Equal(&expectedDhcpConfig))
+			})
+		})
+
+		When("IPAM is enabled", func() {
+			var (
+				mac   net.HardwareAddr
+				podIP netlink.Addr
+			)
+
+			createBridgeConfiguratorWithIPAM := func(mac net.HardwareAddr, podIP netlink.Addr, routes ...netlink.Route) *BridgePodNetworkConfigurator {
+				bc := NewBridgePodNetworkConfigurator(vmi, iface, bridgeIfaceName, launcherPID, handler)
+				bc.podNicLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName}}
+				bc.vmMac = &mac
+				bc.ipamEnabled = true
+				bc.podIfaceIP = podIP
+				bc.podIfaceRoutes = routes
+				return bc
+			}
+
+			BeforeEach(func() {
+				podIP = netlink.Addr{IPNet: &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}}
+				mac, _ = net.ParseMAC("AF:B3:1F:78:2A:CA")
+			})
+
+			When("routes are installed", func() {
+				var (
+					defaultGwRoute     netlink.Route
+				)
+
+				BeforeEach(func() {
+					defaultGwRoute = netlink.Route{Gw: net.IPv4(10, 35, 0, 1)}
+				})
+
+				It("generate a DHCP config also featuring the routes", func() {
+					expectedDhcpConfig := cache.DHCPConfig{
+						IPAMDisabled: false,
+						MAC:          mac,
+						IP:           podIP,
+						Gateway:      defaultGwRoute.Gw,
+					}
+					Expect(createBridgeConfiguratorWithIPAM(
+						mac, podIP, defaultGwRoute).GenerateNonRecoverableDHCPConfig()).To(Equal(&expectedDhcpConfig))
+				})
+			})
+
+			It("generate a DHCP config only with MAC / IP address information, when the pod does not feature routes", func() {
+				expectedDhcpConfig := cache.DHCPConfig{
+					IPAMDisabled: false,
+					MAC:          mac,
+					IP:           podIP,
+				}
+				Expect(createBridgeConfiguratorWithIPAM(
+					mac, podIP).GenerateNonRecoverableDHCPConfig()).To(Equal(&expectedDhcpConfig))
 			})
 		})
 	})
