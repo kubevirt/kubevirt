@@ -62,7 +62,7 @@ spec:
         - name: CDI_VERSION
           value: v1.34.1
         - name: NETWORK_ADDONS_VERSION
-          value: v0.55.0
+          value: v0.56.0
         - name: SSP_VERSION
           value: v0.11.2
         - name: NMO_VERSION
@@ -209,19 +209,19 @@ spec:
         - name: NMSTATE_HANDLER_IMAGE
           value: quay.io/nmstate/kubernetes-nmstate-handler@sha256:12628286c41b56a63a5aaa4f174bd3b836a5b9b7c1b8ea3c66de8ea4616ca71a
         - name: OVS_CNI_IMAGE
-          value: quay.io/kubevirt/ovs-cni-plugin@sha256:9ea002a51fd6cd706064a13e4eb79618e286f31be291ea4485de92675f26daa1
+          value: quay.io/kubevirt/ovs-cni-plugin@sha256:bc39215d0108659f8f05ebc9cfd55a161dc8885583612c37e4151f0417eb6e6f
         - name: OVS_MARKER_IMAGE
-          value: quay.io/kubevirt/ovs-cni-marker@sha256:dca0d0432eacb1e97ea49c755df1c232159fe4267e7f872222ef0ef77e3d8915
+          value: quay.io/kubevirt/ovs-cni-marker@sha256:8443bd0e283bc01cd67f50f5da741f70014d2661811c13258dee6a9e56059fc2
         - name: KUBEMACPOOL_IMAGE
           value: quay.io/kubevirt/kubemacpool@sha256:89de9849fd8b96fe2590f74c4972a8382aa2bcb4fc3e610daadc3175f6f4cafe
         - name: MACVTAP_CNI_IMAGE
           value: quay.io/kubevirt/macvtap-cni@sha256:f20d5e56f8b8c1ab7e5a64e536b66f65aa688b2d1dc0b37e3c26c2af2b481266
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:f991d0a9071c0cb806ab588eacf557265e4b2e19cd51f19316d8cd868c565d26
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:a0c81027953eb1f6cb9eb0b7d484545cdbd3f9dddac0561a92f367aa991ee3b1
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.55.0
+          value: v0.56.0
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -235,7 +235,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:f991d0a9071c0cb806ab588eacf557265e4b2e19cd51f19316d8cd868c565d26
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:a0c81027953eb1f6cb9eb0b7d484545cdbd3f9dddac0561a92f367aa991ee3b1
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources: {}
