@@ -872,21 +872,29 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 		}
 
 		hasHotplug = d.updateVolumeStatusesFromDomain(vmi, domain)
-		if len(vmi.Status.Interfaces) == 0 {
+
+		domainPodInterfacesByName := map[string]api.InterfaceStatus{}
+
+		if domain.Spec.Metadata.KubeVirt.PodInterfaces != nil {
+			for _, podInterfaceStatus := range domain.Spec.Metadata.KubeVirt.PodInterfaces {
+				domainPodInterfacesByName[podInterfaceStatus.Name] = podInterfaceStatus
+			}
+		}
+
+		if len(vmi.Status.Interfaces) == 0 && len(domainPodInterfacesByName) > 0 {
 			// Set Pod Interface
 			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			for _, network := range vmi.Spec.Networks {
 				if network.NetworkSource.Pod != nil {
-					podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
-					if err != nil {
-						return err
+					podIface, ok := domainPodInterfacesByName[network.Name]
+					if ok {
+						ifc := v1.VirtualMachineInstanceNetworkInterface{
+							Name: network.Name,
+							IP:   podIface.Ip,
+							IPs:  podIface.IPs,
+						}
+						interfaces = append(interfaces, ifc)
 					}
-					ifc := v1.VirtualMachineInstanceNetworkInterface{
-						Name: network.Name,
-						IP:   podIface.PodIP,
-						IPs:  podIface.PodIPs,
-					}
-					interfaces = append(interfaces, ifc)
 				}
 			}
 			vmi.Status.Interfaces = interfaces
@@ -940,15 +948,11 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 
 					// If it is a Combination of Masquerade+Pod network, check IP from file cache
 					if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil && existingNetworksByName[domainInterface.Alias.GetName()].NetworkSource.Pod != nil {
-						iface, err := d.getPodInterfacefromFileCache(vmi, domainInterface.Alias.GetName())
-						if err != nil {
-							return err
-						}
-
-						if !reflect.DeepEqual(iface.PodIPs, existingInterfaceStatusByName[domainInterface.Alias.GetName()].IPs) {
+						iface, ok := domainPodInterfacesByName[domainInterface.Alias.GetName()]
+						if ok && !reflect.DeepEqual(iface.IPs, existingInterfaceStatusByName[domainInterface.Alias.GetName()].IPs) {
 							newInterface.Name = domainInterface.Alias.GetName()
-							newInterface.IP = iface.PodIP
-							newInterface.IPs = iface.PodIPs
+							newInterface.IP = iface.Ip
+							newInterface.IPs = iface.IPs
 						}
 					}
 				} else {
