@@ -42,33 +42,30 @@ import (
 var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", func() {
 
 	var virtClient kubecli.KubevirtClient
-	var CheckIsoVolumeSizes func(vmi *v1.VirtualMachineInstance)
 
-	tests.BeforeAll(func() {
-		CheckIsoVolumeSizes = func(vmi *v1.VirtualMachineInstance) {
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	var CheckIsoVolumeSizes = func(vmi *v1.VirtualMachineInstance) {
+		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
-			for _, volume := range vmi.Spec.Volumes {
-				var path = ""
-				if volume.ConfigMap != nil {
-					path = config.GetConfigMapDiskPath(volume.Name)
-					By(fmt.Sprintf("Checking ConfigMap at '%s' is 4k-block fs compatible", path))
-				}
-				if volume.Secret != nil {
-					path = config.GetSecretDiskPath(volume.Name)
-					By(fmt.Sprintf("Checking Secret at '%s' is 4k-block fs compatible", path))
-				}
-				if len(path) > 0 {
-					cmdCheck := []string{"stat", "--printf='%s'", path}
-					out, err := tests.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
-					Expect(err).NotTo(HaveOccurred())
-					size, err := strconv.Atoi(strings.Trim(out, "'"))
-					Expect(err).NotTo(HaveOccurred())
-					Expect(size % 4096).To(Equal(0))
-				}
+		for _, volume := range vmi.Spec.Volumes {
+			var path = ""
+			if volume.ConfigMap != nil {
+				path = config.GetConfigMapDiskPath(volume.Name)
+				By(fmt.Sprintf("Checking ConfigMap at '%s' is 4k-block fs compatible", path))
+			}
+			if volume.Secret != nil {
+				path = config.GetSecretDiskPath(volume.Name)
+				By(fmt.Sprintf("Checking Secret at '%s' is 4k-block fs compatible", path))
+			}
+			if len(path) > 0 {
+				cmdCheck := []string{"stat", "--printf='%s'", path}
+				out, err := tests.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
+				Expect(err).NotTo(HaveOccurred())
+				size, err := strconv.Atoi(strings.Trim(out, "'"))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(size % 4096).To(Equal(0))
 			}
 		}
-	})
+	}
 
 	BeforeEach(func() {
 		var err error
