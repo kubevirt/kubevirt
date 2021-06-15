@@ -22,6 +22,7 @@ package main
 import (
 	goflag "flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -55,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -495,6 +497,7 @@ func main() {
 // in case of virt-launcher crashes
 func ForkAndMonitor(containerDiskDir string) (int, error) {
 	defer cleanupContainerDiskDirectory(containerDiskDir)
+	defer terminateIstioProxy()
 	cmd := exec.Command(os.Args[0], append(os.Args[1:], "--no-fork", "true")...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -600,4 +603,24 @@ func RemoveContents(dir string) error {
 		}
 	}
 	return nil
+}
+
+func terminateIstioProxy() {
+	if istioProxyPresent() {
+		resp, err := http.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", network.EnvoyMergedPrometheusTelemetryPort), "", nil)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			log.Log.Error("Failed to request Istio proxy termination")
+		}
+	}
+}
+
+func istioProxyPresent() bool {
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", network.EnvoyHealthCheckPort))
+	if err != nil {
+		return false
+	}
+	if resp.Header.Get("server") == "envoy" {
+		return true
+	}
+	return false
 }

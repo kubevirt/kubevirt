@@ -125,6 +125,50 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			By("Waiting for VMI to be ready")
 			tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 		})
+		Describe("Live Migration", func() {
+			var (
+				sourcePodName string
+			)
+			migrationCompleted := func(migration *v1.VirtualMachineInstanceMigration) error {
+				migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if migration.Status.Phase == v1.MigrationSucceeded {
+					return nil
+				}
+				return fmt.Errorf("migration is in phase %s", migration.Status.Phase)
+			}
+			allContainersCompleted := func(podName string) error {
+				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				for _, containerStatus := range pod.Status.ContainerStatuses {
+					if containerStatus.State.Terminated == nil {
+						return fmt.Errorf("container %s is not terminated, state: %s", containerStatus.Name, containerStatus.State.String())
+					}
+				}
+				return nil
+			}
+			BeforeEach(func() {
+				tests.SkipIfMigrationIsNotPossible()
+			})
+			JustBeforeEach(func() {
+				sourcePodName = tests.GetVmPodName(virtClient, vmi)
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return migrationCompleted(migration)
+				}, tests.MigrationWaitTime, time.Second).Should(Succeed(), fmt.Sprintf(" migration should succeed"))
+			})
+			It("All containers should complete in source virt-launcher pod after migration", func() {
+				Eventually(func() error {
+					return allContainersCompleted(sourcePodName)
+				}, tests.ContainerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod"))
+			})
+		})
 		Describe("Inbound traffic", func() {
 			checkVMIReachability := func(vmi *v1.VirtualMachineInstance, targetPort int) error {
 				job, err := createJobCheckingVMIReachability(vmi, targetPort)
