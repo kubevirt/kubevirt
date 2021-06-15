@@ -126,11 +126,11 @@ type GuestOSInfo struct {
 }
 
 type InterfaceStatus struct {
-	Name          string
-	Mac           string
-	Ip            string
-	IPs           []string
-	InterfaceName string
+	Name          string   `xml:"name"`
+	Mac           string   `xml:"mac,omitempty"`
+	Ip            string   `xml:"ip,omitempty"`
+	IPs           []string `xml:"ips,omitempty"`
+	InterfaceName string   `xml:"interfaceName"`
 }
 
 type Timezone struct {
@@ -313,6 +313,7 @@ type KubeVirtMetadata struct {
 	GracePeriod      *GracePeriodMetadata      `xml:"graceperiod,omitempty"`
 	Migration        *MigrationMetadata        `xml:"migration,omitempty"`
 	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
+	PodInterfaces    []InterfaceStatus         `xml:"podInterfaces"`
 }
 
 type AccessCredentialMetadata struct {

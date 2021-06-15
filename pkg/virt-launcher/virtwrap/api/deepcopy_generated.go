@@ -1928,6 +1928,13 @@ func (in *KubeVirtMetadata) DeepCopyInto(out *KubeVirtMetadata) {
 		*out = new(AccessCredentialMetadata)
 		**out = **in
 	}
+	if in.PodInterfaces != nil {
+		in, out := &in.PodInterfaces, &out.PodInterfaces
+		*out = make([]InterfaceStatus, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 

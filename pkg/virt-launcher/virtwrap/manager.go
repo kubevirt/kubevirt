@@ -27,6 +27,7 @@ package virtwrap
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"os"
@@ -741,6 +742,17 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
+
+	// Store the pod interfaces as metadata on libvirt so it's persisted there
+	// and can be retrieved in case of virt-handler reboot/upgrade
+	// TODO: Do this as a part of the converter
+	if options.PodInterfaces != nil {
+		err := json.Unmarshal(options.PodInterfaces, &domain.Spec.Metadata.KubeVirt.PodInterfaces)
+		if err != nil {
+			logger.Reason(err).Error("failed to unmarshaling pod interfaces")
+			return nil, err
+		}
+	}
 
 	c, err := l.generateConverterContext(vmi, useEmulation, options, false)
 	if err != nil {
