@@ -191,7 +191,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 					}
 				}
 				return nil
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		sanityCheckDeploymentsExist = func() {
@@ -208,7 +208,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 					}
 				}
 				return nil
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		allPodsAreTerminated = func(kv *v1.KubeVirt) {
@@ -542,7 +542,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 				_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), "virt-operator", types.JSONPatchType, []byte(op), metav1.PatchOptions{})
 
 				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			return modified
 		}
