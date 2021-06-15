@@ -114,6 +114,13 @@ type ServiceAccountVolumeSource struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
+// DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest
+// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+//
+// +k8s:openapi-gen=true
+type DownwardMetricsVolumeSource struct {
+}
+
 // Represents a Sysprep volume source.
 //
 // +k8s:openapi-gen=true
@@ -189,7 +196,7 @@ type DomainSpec struct {
 	Memory *Memory `json:"memory,omitempty"`
 	// Machine type.
 	// +optional
-	Machine Machine `json:"machine,omitempty"`
+	Machine *Machine `json:"machine,omitempty"`
 	// Firmware.
 	// +optional
 	Firmware *Firmware `json:"firmware,omitempty"`
@@ -254,6 +261,41 @@ type EFI struct {
 	// Defaults to true
 	// +optional
 	SecureBoot *bool `json:"secureBoot,omitempty"`
+}
+
+// If set, the VM will be booted from the defined kernel / initrd.
+//
+// +k8s:openapi-gen=true
+type KernelBootContainer struct {
+	// Image that container initrd / kernel files.
+	Image string `json:"image"`
+	// ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
+	//+optional
+	ImagePullSecret string `json:"imagePullSecret,omitempty"`
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	// +optional
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// The fully-qualified path to the kernel image in the host OS
+	//+optional
+	KernelPath string `json:"kernelPath,omitempty"`
+	// the fully-qualified path to the ramdisk image in the host OS
+	//+optional
+	InitrdPath string `json:"initrdPath,omitempty"`
+}
+
+// Represents the firmware blob used to assist in the kernel boot process.
+// Used for setting the kernel, initrd and command line arguments
+//
+// +k8s:openapi-gen=true
+type KernelBoot struct {
+	// Arguments to be passed to the kernel at boot time
+	KernelArgs string `json:"kernelArgs,omitempty"`
+	// Container defines the container that containes kernel artifacts
+	Container *KernelBootContainer `json:"container,omitempty"`
 }
 
 //
@@ -349,6 +391,7 @@ type Hugepages struct {
 // +k8s:openapi-gen=true
 type Machine struct {
 	// QEMU machine type is the actual chipset of the VirtualMachineInstance.
+	// +optional
 	Type string `json:"type"`
 }
 
@@ -363,6 +406,9 @@ type Firmware struct {
 	Bootloader *Bootloader `json:"bootloader,omitempty"`
 	// The system-serial-number in SMBIOS
 	Serial string `json:"serial,omitempty"`
+	// Settings to set the kernel for booting.
+	// +optional
+	KernelBoot *KernelBoot `json:"kernelBoot,omitempty"`
 }
 
 //
@@ -667,6 +713,9 @@ type VolumeSource struct {
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	// +optional
 	ServiceAccount *ServiceAccountVolumeSource `json:"serviceAccount,omitempty"`
+	// DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest
+	// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
+	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable

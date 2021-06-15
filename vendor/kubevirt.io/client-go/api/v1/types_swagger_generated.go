@@ -285,6 +285,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"snapshotInProgress":     "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
 		"created":                "Created indicates if the virtual machine is created in the cluster",
 		"ready":                  "Ready indicates if the virtual machine is running and ready",
+		"printableStatus":        "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",
 		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
 		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
 		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
@@ -413,6 +414,13 @@ func (CustomizeComponents) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":        "+k8s:openapi-gen=true",
 		"patches": "+listType=atomic",
+		"flags":   "Configure the value used for deployment and daemonset resources",
+	}
+}
+
+func (Flags) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Flags will create a patch that will replace all flags for the container's\ncommand field. The only flags that will be used are those define. There are no\nguarantees around forward/backward compatibility.  If set incorrectly this will\ncause the resource when rolled out to error until flags are updated.\n\n+k8s:openapi-gen=true",
 	}
 }
 
@@ -504,12 +512,6 @@ func (VirtualMachineInstanceFileSystemList) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VirtualMachineInstanceFileSystem represents guest os disk\n+k8s:openapi-gen=true",
-	}
-}
-
-func (RenameOptions) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "Options for a rename operation",
 	}
 }
 

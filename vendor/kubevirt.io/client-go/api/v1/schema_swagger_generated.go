@@ -44,6 +44,12 @@ func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 	}
 }
 
+func (DownwardMetricsVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.\n\n+k8s:openapi-gen=true",
+	}
+}
+
 func (SysprepSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":          "Represents a Sysprep volume source.\n\n+k8s:openapi-gen=true",
@@ -120,6 +126,25 @@ func (EFI) SwaggerDoc() map[string]string {
 	}
 }
 
+func (KernelBootContainer) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "If set, the VM will be booted from the defined kernel / initrd.\n\n+k8s:openapi-gen=true",
+		"image":           "Image that container initrd / kernel files.",
+		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.\n+optional",
+		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
+		"kernelPath":      "The fully-qualified path to the kernel image in the host OS\n+optional",
+		"initrdPath":      "the fully-qualified path to the ramdisk image in the host OS\n+optional",
+	}
+}
+
+func (KernelBoot) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "Represents the firmware blob used to assist in the kernel boot process.\nUsed for setting the kernel, initrd and command line arguments\n\n+k8s:openapi-gen=true",
+		"kernelArgs": "Arguments to be passed to the kernel at boot time",
+		"container":  "Container defines the container that containes kernel artifacts",
+	}
+}
+
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                        "+k8s:openapi-gen=true",
@@ -168,7 +193,7 @@ func (Hugepages) SwaggerDoc() map[string]string {
 func (Machine) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "+k8s:openapi-gen=true",
-		"type": "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
+		"type": "QEMU machine type is the actual chipset of the VirtualMachineInstance.\n+optional",
 	}
 }
 
@@ -178,6 +203,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 		"uuid":       "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
 		"bootloader": "Settings to control the bootloader that is used.\n+optional",
 		"serial":     "The system-serial-number in SMBIOS",
+		"kernelBoot": "Settings to set the kernel for booting.\n+optional",
 	}
 }
 
@@ -333,6 +359,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"secret":                "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
 		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
+		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
 	}
 }
 

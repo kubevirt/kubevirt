@@ -220,6 +220,21 @@ spec:
                 type: object
               customizeComponents:
                 properties:
+                  flags:
+                    properties:
+                      api:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      controller:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      handler:
+                        additionalProperties:
+                          type: string
+                        type: object
+                    type: object
                   patches:
                     items:
                       properties:
@@ -1171,6 +1186,23 @@ spec:
                 type: object
               customizeComponents:
                 properties:
+                  flags:
+                    description: Configure the value used for deployment and daemonset
+                      resources
+                    properties:
+                      api:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      controller:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      handler:
+                        additionalProperties:
+                          type: string
+                        type: object
+                    type: object
                   patches:
                     items:
                       properties:

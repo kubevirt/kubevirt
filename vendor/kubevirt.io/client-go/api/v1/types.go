@@ -293,6 +293,10 @@ func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
 
+func (v *VirtualMachineInstance) IsMarkedForDeletion() bool {
+	return v.ObjectMeta.DeletionTimestamp != nil
+}
+
 func (v *VirtualMachineInstance) IsUnknown() bool {
 	return v.Status.Phase == Unknown
 }
@@ -582,6 +586,8 @@ const (
 	CreatedByLabel string = "kubevirt.io/created-by"
 	// This label is used to indicate that this pod is the target of a migration job.
 	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
+	// This label indicates the migration name that a PDB is protecting.
+	MigrationNameLabel string = "kubevirt.io/migrationName"
 	// This label describes which cluster node runs the virtual machine
 	// instance. Needed because with CRDs we can't use field selectors. Used on
 	// VirtualMachineInstance.
@@ -656,13 +662,15 @@ const (
 	CPUFeatureLabel = "cpu-feature.node.kubevirt.io/"
 	// This laberepresents supported cpu models on the node
 	CPUModelLabel = "cpu-model.node.kubevirt.io/"
+	CPUTimerLabel = "cpu-timer.node.kubevirt.io/"
 	// This label represents supported HyperV features on the node
 	HypervLabel = "hyperv.node.kubevirt.io/"
 	// This label represents vendor of cpu model on the node
 	CPUModelVendorLabel = "cpu-vendor.node.kubevirt.io/"
-
-	VirtualMachineLabel        = AppLabel + "/vm"
-	MemfdMemoryBackend  string = "kubevirt.io/memfd"
+	//
+	LabellerSkipNodeAnnotation        = "node-labeller.kubevirt.io/skip-node"
+	VirtualMachineLabel               = AppLabel + "/vm"
+	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 )
@@ -1116,9 +1124,39 @@ type StateChangeRequestAction string
 
 // These are the currently defined state change requests
 const (
-	StartRequest  StateChangeRequestAction = "Start"
-	StopRequest   StateChangeRequestAction = "Stop"
-	RenameRequest                          = "Rename"
+	StartRequest StateChangeRequestAction = "Start"
+	StopRequest  StateChangeRequestAction = "Stop"
+)
+
+// VirtualMachinePrintableStatus is a human readable, high-level representation of the status of the virtual machine.
+//
+// +k8s:openapi-gen=true
+type VirtualMachinePrintableStatus string
+
+// A list of statuses defined for virtual machines
+const (
+	// VirtualMachineStatusStopped indicates that the virtual machine is currently stopped and isn't expected to start.
+	VirtualMachineStatusStopped VirtualMachinePrintableStatus = "Stopped"
+	// VirtualMachineStatusProvisioning indicates that cluster resources associated with the virtual machine
+	// (e.g., DataVolumes) are being provisioned and prepared.
+	VirtualMachineStatusProvisioning VirtualMachinePrintableStatus = "Provisioning"
+	// VirtualMachineStatusStarting indicates that the virtual machine is being prepared for running.
+	VirtualMachineStatusStarting VirtualMachinePrintableStatus = "Starting"
+	// VirtualMachineStatusRunning indicates that the virtual machine is running.
+	VirtualMachineStatusRunning VirtualMachinePrintableStatus = "Running"
+	// VirtualMachineStatusPaused indicates that the virtual machine is paused.
+	VirtualMachineStatusPaused VirtualMachinePrintableStatus = "Paused"
+	// VirtualMachineStatusStopping indicates that the virtual machine is in the process of being stopped.
+	VirtualMachineStatusStopping VirtualMachinePrintableStatus = "Stopping"
+	// VirtualMachineStatusTerminating indicates that the virtual machine is in the process of deletion,
+	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
+	VirtualMachineStatusTerminating VirtualMachinePrintableStatus = "Terminating"
+	// VirtualMachineStatusMigrating indicates that the virtual machine is in the process of being migrated
+	// to another host.
+	VirtualMachineStatusMigrating VirtualMachinePrintableStatus = "Migrating"
+	// VirtualMachineStatusUnknown indicates that the state of the virtual machine could not be obtained,
+	// typically due to an error in communicating with the host on which it's running.
+	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
 )
 
 // VirtualMachineStatus represents the status returned by the
@@ -1132,6 +1170,8 @@ type VirtualMachineStatus struct {
 	Created bool `json:"created,omitempty"`
 	// Ready indicates if the virtual machine is running and ready
 	Ready bool `json:"ready,omitempty"`
+	// PrintableStatus is a human readable, high-level representation of the status of the virtual machine
+	PrintableStatus VirtualMachinePrintableStatus `json:"printableStatus,omitempty"`
 	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
 	Conditions []VirtualMachineCondition `json:"conditions,omitempty" optional:"true"`
 	// StateChangeRequests indicates a list of actions that should be taken on a VMI
@@ -1207,9 +1247,6 @@ const (
 	// VirtualMachinePaused is added in a virtual machine when its vmi
 	// signals with its own condition that it is paused.
 	VirtualMachinePaused VirtualMachineConditionType = "Paused"
-
-	// This condition indicates that the VM was renamed
-	RenameConditionType VirtualMachineConditionType = "RenameOperation"
 )
 
 //
@@ -1473,6 +1510,21 @@ type KubeVirtSpec struct {
 type CustomizeComponents struct {
 	// +listType=atomic
 	Patches []CustomizeComponentsPatch `json:"patches,omitempty"`
+
+	// Configure the value used for deployment and daemonset resources
+	Flags *Flags `json:"flags,omitempty"`
+}
+
+// Flags will create a patch that will replace all flags for the container's
+// command field. The only flags that will be used are those define. There are no
+// guarantees around forward/backward compatibility.  If set incorrectly this will
+// cause the resource when rolled out to error until flags are updated.
+//
+// +k8s:openapi-gen=true
+type Flags struct {
+	API        map[string]string `json:"api,omitempty"`
+	Controller map[string]string `json:"controller,omitempty"`
+	Handler    map[string]string `json:"handler,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -1685,13 +1737,6 @@ type VirtualMachineInstanceFileSystem struct {
 	FileSystemType string `json:"fileSystemType"`
 	UsedBytes      int    `json:"usedBytes"`
 	TotalBytes     int    `json:"totalBytes"`
-}
-
-// Options for a rename operation
-type RenameOptions struct {
-	metav1.TypeMeta `json:",inline"`
-	NewName         string  `json:"newName"`
-	OldName         *string `json:"oldName,omitempty"`
 }
 
 // AddVolumeOptions is provided when dynamically hot plugging a volume and disk
