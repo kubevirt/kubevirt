@@ -1,7 +1,7 @@
 # Local Storage Placement for VM Disks
 
 This document describes a special handling of `DataVolumes` in the `WaitForFirstConsumer` state. 
-`WaitForFirstConsumer` state is available from [CDI v1.21.0](https://github.com/kubevirt/containerized-data-importer/releases/tag/v1.21.0), and the logic to handle this is available from [Kubevirt v0.36.0](https://github.com/kubevirt/kubevirt/releases/tag/v0.36.0)
+`WaitForFirstConsumer` state is available from [CDI v1.21.0](https://github.com/kubevirt/containerized-data-importer/releases/tag/v1.21.0), and the logic to handle this is available from [KubeVirt v0.36.0](https://github.com/kubevirt/kubevirt/releases/tag/v0.36.0)
 
 ## Use-case
 
@@ -22,9 +22,9 @@ This is especially problematic when using a VM with DataVolumeTemplate with many
 
 The solution is to leverage Kubernetes pod scheduler to bind the PVC to a PV on a correct node.
 By using a StorageClass with `volumeBindingMode` set to `WaitForFirstConsumer` the binding and provisioning of PV is delayed until a Pod using the PersistentVolumeClaim is created. 
-Kubevirt can schedule a special ephemeral pod that becomes a first consumer of the PersistentVolumeClaim.
+KubeVirt can schedule a special ephemeral pod that becomes a first consumer of the PersistentVolumeClaim.
 Its only purpose is to be scheduled to a node capable of running VM and by using PVCs to trigger kubernetes to provision and bind PV's on the same node.
-After PVC are bound the `CDI` can do its work and Kubevirt can start the actual VM. 
+After PVC are bound the `CDI` can do its work and KubeVirt can start the actual VM. 
   
 ## Implementation
 
@@ -32,16 +32,16 @@ After PVC are bound the `CDI` can do its work and Kubevirt can start the actual 
 
 1. A StorageClass with volumeBindingMode=WaitForFirstConsumer is created
 2. User creates the VM with DataVolumeTemplate containing 
-3. `Kubevirt` creates DataVolume
+3. `KubeVirt` creates DataVolume
 4. The `CDI` sees that new DV has unbound PVC with storage class with volumeBindingMode=WaitForFirstConsumer, sets the phase of DV to `WaitForFirstConsumer` and waits for PVC to be bound by some external action. 
-5. `Kubevirt` sees the DV in phase `WaitForFirstConsumer`, so it creates an ephemeral pod (basically a virtlauncher pod
+5. `KubeVirt` sees the DV in phase `WaitForFirstConsumer`, so it creates an ephemeral pod (basically a virtlauncher pod
 without a VM payload and with `kubevirt.io/ephemeral-provisioning` annotation) only used to force PV provisioning 
 6. Kubernetes schedules the ephemeral pod, (the node selected meets all the VM requirements), pod requires 
  the same PVC as the VM so kubenertes has to provision and bind the PV to PVC on a correct node before the pod can be started
 7. `CDI` sees that PVC is Bound, changes DV status to "ImportScheduled" (or clone/upload), and tries to start worker pods
-8. `Kubevirt` sees DV status is `ImportScheduled`, it can terminate the ephemeral provisioning pod
+8. `KubeVirt` sees DV status is `ImportScheduled`, it can terminate the ephemeral provisioning pod
 8. `CDI` does the Import, marks DV as `Succeeded`
-9. `Kubevirt` creates the virtlauncher pod to start a VM 
+9. `KubeVirt` creates the virtlauncher pod to start a VM 
 
 This flow differs from standard scenario (import/upload/clone on storage with Immediate binding) by steps 4, 5, 6 and 8. 
 

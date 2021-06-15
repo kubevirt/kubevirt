@@ -139,7 +139,7 @@ spec:
 ```
 
 The file specification follows the Kubernetes guide. The apiVersion is linked
-with the Kubevirt release cycle.
+with the KubeVirt release cycle.
 
 In the metadata section, there is a *required* field, the **name**. Then
 following the spec section, there are two important parts. The **running**, which

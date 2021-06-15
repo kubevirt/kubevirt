@@ -444,7 +444,7 @@ spec:
 
 #### Hotplug
 
-By default Kubevirt will now add a virtio-scsi controller to support hotplugging disks into a running VM. If for whatever reason you do not want this controller, you can stop KubeVirt from adding it by adding DisableHotplug to the devices section of the VM(I) spec
+By default KubeVirt will now add a virtio-scsi controller to support hotplugging disks into a running VM. If for whatever reason you do not want this controller, you can stop KubeVirt from adding it by adding DisableHotplug to the devices section of the VM(I) spec
 
 ```yaml
 spec:

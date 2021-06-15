@@ -59,7 +59,7 @@ are in a non-final state and which match `spec.selector` in the
 replicas meet the ready condition.
 
 *Note* that at the moment when writing this proposal, there exist no
-readiness checks for VirtualMachineInstances in Kubevirt. Therefore a `VirtualMachineInstance` is
+readiness checks for VirtualMachineInstances in KubeVirt. Therefore a `VirtualMachineInstance` is
 considered to be ready, when reported by virt-handler as running or migrating.
 
 In case of a delete failure:

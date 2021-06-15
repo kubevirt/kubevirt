@@ -69,7 +69,7 @@ achieve the same, and provide IP addresses to VMIs, not just a interface.
 
 During this document we call each of these _new_ pod interfaces _VMI interface_,
 in order to differentiate them from the originally-allocated pod interface
-(`eth0`). The original pod interface (`eth0`) is never modified by Kubevirt,
+(`eth0`). The original pod interface (`eth0`) is never modified by KubeVirt,
 and can be used to access libvirtd (through the libvirtd pod IP) or to provide
 VMI-centric services through the VMI pod IP.
 

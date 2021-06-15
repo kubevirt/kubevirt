@@ -19,7 +19,7 @@ For Example, see the following Kubernetes network metrics:
 
 The KubeVirt metrics for vmi should be:
 - **kubevirt_vmi**_network_receive_packets_total
-- **Kubevirt_vmi**_network_transmit_packets_total
+- **kubevirt_vmi**_network_transmit_packets_total
 
 ### KubeVirt Recording Rules
 
