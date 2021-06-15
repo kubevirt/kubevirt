@@ -130,6 +130,9 @@ spec:
                         type: object
                       memoryOvercommit:
                         type: integer
+                      minimumReservePVCBytes:
+                        format: int64
+                        type: integer
                       nodeSelectors:
                         additionalProperties:
                           type: string
@@ -1990,6 +1993,9 @@ spec:
                             type: integer
                         type: object
                       memoryOvercommit:
+                        type: integer
+                      minimumReservePVCBytes:
+                        format: int64
                         type: integer
                       nodeSelectors:
                         additionalProperties:

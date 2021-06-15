@@ -538,6 +538,9 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 memoryOvercommit:
                   type: integer
+                minimumReservePVCBytes:
+                  format: int64
+                  type: integer
                 nodeSelectors:
                   additionalProperties:
                     type: string
