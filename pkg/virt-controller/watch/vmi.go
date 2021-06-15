@@ -365,6 +365,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		return fmt.Errorf("Error detecting vmi pods: %v", err)
 	}
 
+	c.syncReadyConditionFromPod(vmiCopy, pod)
+
 	switch {
 	case vmi.IsUnprocessed():
 		if vmiPodExists {
@@ -477,36 +479,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.LauncherContainerImageVersion = ""
 		}
 
-		conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-
 	case vmi.IsRunning():
-		// Keep PodReady condition in sync with the VMI
-		if !vmiPodExists {
-			// Remove PodScheduling condition from the VM
-			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-		} else if isPodDownOrGoingDown(pod) {
-			cond := conditionManager.GetPodCondition(pod, k8sv1.PodReady)
-			if cond == nil || cond.Reason != virtv1.PodTerminatingReason {
-				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-				conditionManager.AddPodCondition(vmiCopy, &k8sv1.PodCondition{
-					Type:               k8sv1.PodReady,
-					Status:             k8sv1.ConditionFalse,
-					LastProbeTime:      v1.Now(),
-					LastTransitionTime: v1.Now(),
-					Reason:             virtv1.PodTerminatingReason,
-					Message:            "The Pod is terminating",
-				})
-				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, virtv1.PodTerminatingReason, "Pod %s is terminating, marking VMI as not ready.", pod.Name)
-				log.Log.Object(vmi).Infof("Pod %s is terminating, marking VMI as not ready.", pod.Name)
-			}
-		} else if cond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); cond != nil {
-			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-			conditionManager.AddPodCondition(vmiCopy, cond)
-		} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady)) {
-			// Remove PodScheduling condition from the VM
-			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-		}
-
 		patchOps := []string{}
 		if vmiPodExists {
 			c.updateVolumeStatus(vmiCopy, pod)
@@ -650,6 +623,65 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	return nil
+}
+
+func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+
+	vmiReadyCond := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
+	if vmiReadyCond == nil {
+		newCond := virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceReady}
+		vmi.Status.Conditions = append(vmi.Status.Conditions, newCond)
+		vmiReadyCond = &vmi.Status.Conditions[len(vmi.Status.Conditions)-1]
+	}
+
+	setVMICondition := func(status k8sv1.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
+		if vmiReadyCond.Status == status && vmiReadyCond.Reason == reason {
+			return
+		}
+
+		vmiReadyCond.Status = status
+		vmiReadyCond.Reason = reason
+		vmiReadyCond.Message = message
+		vmiReadyCond.LastProbeTime = lastProbeTime
+		vmiReadyCond.LastTransitionTime = lastTransitionTime
+
+		logMessage := "marking VMI as not ready"
+		if status == k8sv1.ConditionTrue {
+			logMessage = "Marking VMI as ready"
+		}
+		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, reason, logMessage)
+		log.Log.Object(vmi).Infof(logMessage + ":" + message)
+	}
+
+	// Keep PodReady condition in sync with the VMI
+	if pod == nil || isTempPod(pod) {
+		setVMICondition(k8sv1.ConditionFalse,
+			virtv1.PodConditionMissingReason,
+			"virt-launcher pod does not exist",
+			v1.Now(),
+			v1.Now())
+
+	} else if isPodDownOrGoingDown(pod) {
+		setVMICondition(k8sv1.ConditionFalse,
+			virtv1.PodTerminatingReason,
+			"virt-launcher pod is terminating",
+			v1.Now(),
+			v1.Now())
+
+	} else if podReadyCond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); podReadyCond != nil {
+		setVMICondition(podReadyCond.Status,
+			podReadyCond.Reason,
+			podReadyCond.Message,
+			podReadyCond.LastProbeTime,
+			podReadyCond.LastTransitionTime)
+	} else {
+		setVMICondition(k8sv1.ConditionFalse,
+			virtv1.PodConditionMissingReason,
+			"virt-launcher pod is missing the Ready condition",
+			v1.Now(),
+			v1.Now())
+	}
 }
 
 // isPodReady treats the pod as ready to be handed over to virt-handler, as soon as all pods except

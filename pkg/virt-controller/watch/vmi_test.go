@@ -1243,20 +1243,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("and in pending state", k8sv1.PodPending),
 		)
 
-		It("should remove ready condition when VMI is in a finalized state", func() {
-			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = v1.Succeeded
-
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceReady}}
-			addVirtualMachine(vmi)
-
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Conditions)).To(Equal(0))
-			}).Return(vmi, nil)
-
-			controller.Execute()
-		})
-
 		It("should add outdated label if pod's image is outdated and VMI is in running state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Running

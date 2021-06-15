@@ -1422,7 +1422,7 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 	vmReadyCond := controller.NewVirtualMachineConditionManager().
 		GetCondition(vm, virtv1.VirtualMachineReady)
 	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
-		GetCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady))
+		GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
 
 	if vmReadyCond == nil {
 		newCond := virtv1.VirtualMachineCondition{Type: virtv1.VirtualMachineReady}

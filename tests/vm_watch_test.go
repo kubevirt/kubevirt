@@ -131,7 +131,7 @@ func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) 
 		if prevStatusOrPhase != newStatusOrPhase {
 			return newStatus, nil
 		}
-		
+
 		prevStatus = newStatus
 		remainingTimeout -= time.Now().Sub(start)
 		if remainingTimeout <= 0 {
