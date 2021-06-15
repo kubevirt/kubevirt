@@ -10365,6 +10365,9 @@
      "imagePullPolicy": {
       "type": "string"
      },
+     "launcherRuntimeClass": {
+      "type": "string"
+     },
      "machineType": {
       "type": "string"
      },

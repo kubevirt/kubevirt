@@ -563,6 +563,8 @@ var CRDsValidation map[string]string = map[string]string{
               description: PullPolicy describes a policy for if/when to pull a container
                 image
               type: string
+            launcherRuntimeClass:
+              type: string
             machineType:
               type: string
             memBalloonStatsPeriod:

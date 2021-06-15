@@ -2809,6 +2809,43 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("Using launcherRuntimeClass", func() {
+			It("Should set a runtimeClassName on launcher pod, if configured", func() {
+				runtimeClassName := "customRuntime"
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.LauncherRuntimeClass = runtimeClassName
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "namespace",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
+			})
+
+			It("Should leave runtimeClassName unset on pod, if not configured", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "namespace",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.RuntimeClassName).To(BeNil())
+			})
+		})
+
 	})
 
 	Describe("ServiceAccountName", func() {

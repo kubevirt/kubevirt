@@ -1304,6 +1304,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		alignPodMultiCategorySecurity(&pod, selinuxType)
 	}
 
+	// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
+	runtimeClassName := t.clusterConfig.GetLauncherRuntimeClass()
+	if runtimeClassName != "" {
+		pod.Spec.RuntimeClassName = &runtimeClassName
+	}
+
 	if vmi.Spec.PriorityClassName != "" {
 		pod.Spec.PriorityClassName = vmi.Spec.PriorityClassName
 	}
