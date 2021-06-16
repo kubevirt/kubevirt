@@ -106,42 +106,42 @@ var _ = Describe("Isolation Detector", func() {
 		})
 
 		It("Should detect the PID of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Pid()).To(Equal(os.Getpid()))
 		})
 
 		It("Should not detect any slice if there is no matching controller", func() {
-			_, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"not_existing_slice"}).Detect(vm)
+			_, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"not_existing_slice"}).Detect(vm)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("Should detect the 'devices' controller slice of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Slice()).To(HavePrefix("/"))
 		})
 
 		It("Should detect the PID namespace of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.PIDNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/pid", os.Getpid())))
 		})
 
 		It("Should detect the Parent PID of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.PPid()).To(Equal(os.Getppid()))
 		})
 
 		It("Should detect the Mount root of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.MountRoot()).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
 		})
 
 		It("Should detect the Network namespace of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir, cgroupParser).Whitelist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.NetNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/net", os.Getpid())))
 		})

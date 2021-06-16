@@ -255,7 +255,7 @@ var _ = FDescribe("HotplugVolume block devices", func() {
 		Expect(res).To(BeEquivalentTo(""))
 	})
 
-	FIt("mountBlockHotplugVolume and unmountBlockHotplugVolumes should make appropriate calls", func() {
+	It("mountBlockHotplugVolume and unmountBlockHotplugVolumes should make appropriate calls", func() {
 		blockSourcePodUID := types.UID("fghij")
 		mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
 			Expect(os.MkdirAll(deviceName, 0755)).To(Succeed())
