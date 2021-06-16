@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -60,6 +61,7 @@ var _ = Describe("Migration watcher", func() {
 	var vmiInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
+	var nodeInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
@@ -152,11 +154,13 @@ var _ = Describe("Migration watcher", func() {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
 		go migrationInformer.Run(stop)
+		go nodeInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			podInformer.HasSynced,
-			migrationInformer.HasSynced)).To(BeTrue())
+			migrationInformer.HasSynced,
+			nodeInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -170,6 +174,7 @@ var _ = Describe("Migration watcher", func() {
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
+		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
 
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
@@ -179,6 +184,7 @@ var _ = Describe("Migration watcher", func() {
 			vmiInformer,
 			podInformer,
 			migrationInformer,
+			nodeInformer,
 			recorder,
 			virtClient,
 			config,
@@ -227,6 +233,11 @@ var _ = Describe("Migration watcher", func() {
 		mockQueue.ExpectAdds(1)
 		migrationSource.Add(migration)
 		mockQueue.Wait()
+	}
+
+	addNode := func(node *k8sv1.Node) {
+		err := nodeInformer.GetIndexer().Add(node)
+		Expect(err).ShouldNot(HaveOccurred())
 	}
 
 	Context("Migration object in pending state", func() {
@@ -845,6 +856,55 @@ var _ = Describe("Migration watcher", func() {
 			table.Entry("in failed state before pod is created", v1.MigrationFailed, false, k8sv1.PodFailed, false),
 			table.Entry("in failed state and pod does not exist", v1.MigrationFailed, false, k8sv1.PodFailed, false),
 		)
+		table.DescribeTable("with CPU mode which is", func(toDefineHostModelCPU bool) {
+			const nodeName = "testNode"
+
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = nodeName
+			if toDefineHostModelCPU {
+				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+			}
+
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			node := newNode(nodeName)
+			if toDefineHostModelCPU {
+				node.ObjectMeta.Labels = map[string]string{
+					v1.HostModelCPULabel + "fake":              "true",
+					v1.HostModelRequiredFeaturesLabel + "fake": "true",
+				}
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addNode(node)
+
+			expectPodToHaveProperNodeSelector := func(pod *k8sv1.Pod) {
+				podHasCpuModeLabelSelector := false
+				for key, _ := range pod.Spec.NodeSelector {
+					if strings.Contains(key, v1.HostModelCPULabel) {
+						podHasCpuModeLabelSelector = true
+						break
+					}
+				}
+
+				Expect(podHasCpuModeLabelSelector).To(Equal(toDefineHostModelCPU))
+			}
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				creation, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				pod := creation.GetObject().(*k8sv1.Pod)
+				expectPodToHaveProperNodeSelector(pod)
+				return true, creation.GetObject(), nil
+			})
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvent(recorder, successfulCreatePodDisruptionBudgetReason) // for temporal migration PDB
+		},
+			table.Entry("host-model should be targeted only to nodes which support the model", true),
+			table.Entry("non-host-model should not be targeted to nodes which support the model", false),
+		)
 	})
 })
 
@@ -853,7 +913,7 @@ func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMi
 	migration := &v1.VirtualMachineInstanceMigration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "default",
+			Namespace: k8sv1.NamespaceDefault,
 			Annotations: map[string]string{
 				v1.ControllerAPILatestVersionObservedAnnotation:  v1.ApiLatestVersion,
 				v1.ControllerAPIStorageVersionObservedAnnotation: v1.ApiStorageVersion,
@@ -903,4 +963,20 @@ func newTargetPodForVirtualMachine(vmi *v1.VirtualMachineInstance, migration *v1
 			},
 		},
 	}
+}
+
+func newNode(name string) *k8sv1.Node {
+	node := &k8sv1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Node",
+			APIVersion: v1.GroupVersion.String(),
+		},
+	}
+
+	node.Status.Phase = k8sv1.NodeRunning
+
+	return node
 }

@@ -24,6 +24,12 @@ type supportedFeatures struct {
 	items []string
 }
 
+type hostCPUModel struct {
+	name             string
+	fallback         string
+	requiredFeatures cpuFeatures
+}
+
 //hostCapabilities holds informations which provides libvirt,
 //so we don't have to call libvirt at every request
 type cpuInfo struct {
@@ -42,9 +48,11 @@ type CPU struct {
 
 //Mode represents slice of cpu models
 type Mode struct {
-	Vendor  Vendor        `xml:"vendor"`
-	Feature []HostFeature `xml:"feature"`
-	Model   []Model       `xml:"model"`
+	Name      string        `xml:"name,attr"`
+	Supported string        `xml:"supported,attr"`
+	Vendor    Vendor        `xml:"vendor"`
+	Feature   []HostFeature `xml:"feature"`
+	Model     []Model       `xml:"model"`
 }
 
 type SupportedHostFeature struct {
@@ -63,8 +71,9 @@ type Vendor struct {
 
 //Model represents cpu model
 type Model struct {
-	Name   string `xml:",chardata"`
-	Usable string `xml:"usable,attr"`
+	Name     string `xml:",chardata"`
+	Usable   string `xml:"usable,attr"`
+	Fallback string `xml:"fallback,attr"`
 }
 
 //Structures needed to parse cpu features

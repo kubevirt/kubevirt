@@ -361,6 +361,8 @@ const (
 	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
 	// Reason means that VMI is not live migratioable because of it's network interfaces collection
 	VirtualMachineInstanceReasonHotplugNotMigratable = "HotplugNotLiveMigratable"
+	// Reason means that VMI is not live migratioable because of it's CPU mode
+	VirtualMachineInstanceReasonCPUModeNotMigratable = "CPUModeLiveMigratable"
 )
 
 const (
@@ -660,14 +662,19 @@ const (
 
 	// This label represents supported cpu features on the node
 	CPUFeatureLabel = "cpu-feature.node.kubevirt.io/"
-	// This laberepresents supported cpu models on the node
+	// This label represents supported cpu models on the node
 	CPUModelLabel = "cpu-model.node.kubevirt.io/"
 	CPUTimerLabel = "cpu-timer.node.kubevirt.io/"
 	// This label represents supported HyperV features on the node
 	HypervLabel = "hyperv.node.kubevirt.io/"
 	// This label represents vendor of cpu model on the node
 	CPUModelVendorLabel = "cpu-vendor.node.kubevirt.io/"
-	//
+
+	// This label represents the host model CPU name
+	HostModelCPULabel = "host-model-cpu.node.kubevirt.io/"
+	// This label represents the host model required features
+	HostModelRequiredFeaturesLabel = "host-model-required-features.node.kubevirt.io/"
+
 	LabellerSkipNodeAnnotation        = "node-labeller.kubevirt.io/skip-node"
 	VirtualMachineLabel               = AppLabel + "/vm"
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"

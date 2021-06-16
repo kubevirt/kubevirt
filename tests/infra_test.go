@@ -1172,12 +1172,14 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}, 15*time.Second, 1*time.Second).Should(Equal(true))
 			})
 
-			It("[test_id:6246] label nodes with cpu model and cpu features", func() {
+			It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", func() {
 				for _, node := range nodesWithKVM {
 					Expect(err).ToNot(HaveOccurred())
 					cpuModelLabelPresent := false
 					cpuFeatureLabelPresent := false
 					hyperVLabelPresent := false
+					hostCpuModelPresent := false
+					hostCpuRequiredFeaturesPresent := false
 					for key := range node.Labels {
 						if strings.Contains(key, v1.CPUModelLabel) {
 							cpuModelLabelPresent = true
@@ -1188,14 +1190,25 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 						if strings.Contains(key, v1.HypervLabel) {
 							hyperVLabelPresent = true
 						}
+						if strings.Contains(key, v1.HostModelCPULabel) {
+							hostCpuModelPresent = true
+						}
+						if strings.Contains(key, v1.HostModelRequiredFeaturesLabel) {
+							hostCpuRequiredFeaturesPresent = true
+						}
 
-						if cpuModelLabelPresent && cpuFeatureLabelPresent && hyperVLabelPresent {
+						if cpuModelLabelPresent && cpuFeatureLabelPresent && hyperVLabelPresent && hostCpuModelPresent &&
+							hostCpuRequiredFeaturesPresent {
 							break
 						}
 					}
-					Expect(cpuModelLabelPresent).To(Equal(true), "node "+node.Name+" doesn't contain cpu label")
-					Expect(cpuFeatureLabelPresent).To(Equal(true), "node "+node.Name+" doesn't contain feature label")
-					Expect(hyperVLabelPresent).To(Equal(true), "node "+node.Name+" doesn't contain hyperV label")
+
+					errorMessageTemplate := "node " + node.Name + " does not contain %s label"
+					Expect(cpuModelLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "cpu"))
+					Expect(cpuFeatureLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "feature"))
+					Expect(hyperVLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "hyperV"))
+					Expect(hostCpuModelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
+					Expect(hostCpuRequiredFeaturesPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu required featuers"))
 				}
 			})
 

@@ -48,11 +48,24 @@ var _ = Describe("Node-labeller ", func() {
 	var kubeClient *fake.Clientset
 	var mockQueue *testutils.MockWorkQueue
 	var config *virtconfig.ClusterConfig
+	var addedNode *v1.Node
 
 	addNode := func(node *v1.Node) {
 		mockQueue.ExpectAdds(1)
 		nlController.queue.Add(node)
+		addedNode = node
 		mockQueue.Wait()
+	}
+
+	expectNodePatch := func(expectedPatches ...string) {
+		kubeClient.Fake.PrependReactor("patch", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patch, ok := action.(testing.PatchAction)
+			Expect(ok).To(BeTrue())
+			for _, expectedPatch := range expectedPatches {
+				Expect(string(patch.GetPatch())).To(ContainSubstring(expectedPatch))
+			}
+			return true, nil, nil
+		})
 	}
 
 	BeforeEach(func() {
@@ -64,7 +77,7 @@ var _ = Describe("Node-labeller ", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
 		kubeClient.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			return true, newNode("testNode"), nil
+			return true, addedNode, nil
 		})
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
@@ -90,14 +103,24 @@ var _ = Describe("Node-labeller ", func() {
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
 
 		nlController.queue = mockQueue
+		addNode(newNode("testNode"))
 	})
 
 	It("should run node-labelling", func() {
-		addNode(newNode("testNode"))
-
 		res := nlController.execute()
-		Expect(res).To(Equal(true), "labeller should end with true result")
+		Expect(res).To(BeTrue(), "labeller should end with true result")
 		Expect(nlController.queue.Len()).To(Equal(0), "labeller should process all nodes from queue")
+	})
+
+	It("should add host cpu model label", func() {
+		expectNodePatch(kubevirtv1.HostModelCPULabel)
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+	})
+	It("should add host cpu required features", func() {
+		expectNodePatch(kubevirtv1.HostModelRequiredFeaturesLabel)
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
 	})
 
 	AfterEach(func() {

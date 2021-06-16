@@ -1252,30 +1252,29 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		Type:   v1.VirtualMachineInstanceIsMigratable,
 		Status: k8sv1.ConditionTrue,
 	}
-	isBlockMigration, err := d.checkVolumesForMigration(vmi)
-	if err != nil {
+
+	setNonMigratable := func(err error, reason string) {
 		liveMigrationCondition.Status = k8sv1.ConditionFalse
 		liveMigrationCondition.Message = err.Error()
-		liveMigrationCondition.Reason = v1.VirtualMachineInstanceReasonDisksNotMigratable
+		liveMigrationCondition.Reason = reason
+	}
+
+	isBlockMigration, err := d.checkVolumesForMigration(vmi)
+	if err != nil {
+		setNonMigratable(err, v1.VirtualMachineInstanceReasonDisksNotMigratable)
 		return &liveMigrationCondition, isBlockMigration
 	}
 	err = d.checkNetworkInterfacesForMigration(vmi)
 	if err != nil {
-		liveMigrationCondition = v1.VirtualMachineInstanceCondition{
-			Type:    v1.VirtualMachineInstanceIsMigratable,
-			Status:  k8sv1.ConditionFalse,
-			Message: err.Error(),
-			Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
-		}
+		setNonMigratable(err, v1.VirtualMachineInstanceReasonInterfaceNotMigratable)
 		return &liveMigrationCondition, isBlockMigration
 	}
 	if hasHotplug {
-		liveMigrationCondition = v1.VirtualMachineInstanceCondition{
-			Type:    v1.VirtualMachineInstanceIsMigratable,
-			Status:  k8sv1.ConditionFalse,
-			Message: "VMI has hotplugged disks",
-			Reason:  v1.VirtualMachineInstanceReasonHotplugNotMigratable,
-		}
+		setNonMigratable(fmt.Errorf("VMI has hotplugged disks"), v1.VirtualMachineInstanceReasonHotplugNotMigratable)
+		return &liveMigrationCondition, isBlockMigration
+	}
+	if err := d.isHostModelMigratable(vmi); err != nil {
+		setNonMigratable(err, v1.VirtualMachineInstanceReasonCPUModeNotMigratable)
 		return &liveMigrationCondition, isBlockMigration
 	}
 	return &liveMigrationCondition, isBlockMigration
@@ -2709,4 +2708,30 @@ func setMissingSRIOVInterfacesNames(interfacesSpecByName map[string]v1.Interface
 			interfacesStatusByMac[ifaceSpec.MacAddress] = domainIfaceStatus
 		}
 	}
+}
+
+func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineInstance) error {
+	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == v1.CPUModeHostModel {
+		node, err := d.clientset.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if !nodeHasHostModelLabel(node) {
+			err = fmt.Errorf("the node \"%s\" has no (%s/...) label to allow migration with host-model", node.Name, v1.HostModelCPULabel)
+			log.Log.Object(vmi).Errorf(err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+func nodeHasHostModelLabel(node *k8sv1.Node) bool {
+	for key, _ := range node.Labels {
+		if strings.HasPrefix(key, v1.HostModelCPULabel) {
+			return true
+		}
+	}
+	return false
 }
