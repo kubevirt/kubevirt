@@ -20,8 +20,6 @@ import (
 	"github.com/opencontainers/runc/libcontainer/userns"
 	"golang.org/x/sys/unix"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups"
-
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -91,12 +89,13 @@ var (
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type volumeMounter struct {
-	podIsolationDetector isolation.PodIsolationDetector
-	mountStateDir        string
-	mountRecords         map[types.UID]*vmiMountTargetRecord
-	mountRecordsLock     sync.Mutex
-	skipSafetyCheck      bool
-	hotplugDiskManager   hotplugdisk.HotplugDiskManagerInterface
+	//podIsolationDetector isolation.PodIsolationDetector // ihol3 remove
+	cgroupManager      cgroup.Manager
+	mountStateDir      string
+	mountRecords       map[types.UID]*vmiMountTargetRecord
+	mountRecordsLock   sync.Mutex
+	skipSafetyCheck    bool
+	hotplugDiskManager hotplugdisk.HotplugDiskManagerInterface
 }
 
 // VolumeMounter is the interface used to mount and unmount volumes to/from a running virtlauncher pod.
@@ -121,12 +120,12 @@ type vmiMountTargetRecord struct {
 }
 
 // NewVolumeMounter creates a new VolumeMounter
-func NewVolumeMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string) VolumeMounter {
+func NewVolumeMounter( /*isoDetector isolation.PodIsolationDetector,*/ mountStateDir string) VolumeMounter {
 	return &volumeMounter{
-		podIsolationDetector: isoDetector,
-		mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
-		mountStateDir:        mountStateDir,
-		hotplugDiskManager:   hotplugdisk.NewHotplugDiskManager(),
+		//podIsolationDetector: isoDetector, // ihol3 remove
+		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
+		mountStateDir:      mountStateDir,
+		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(),
 	}
 }
 
@@ -329,8 +328,13 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 
 	isMigrationInProgress := vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.Completed
 
+	cgroupsManager, err := getCgroupsManager(vmi, sourceUID)
+	if err != nil {
+		return fmt.Errorf("could not create cgroup manager. err: %v", err)
+	}
+
 	if isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists {
-		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
+		//computeCGroupPath, err := m.getTargetCgroupPath(vmi)
 		if err != nil {
 			return err
 		}
@@ -342,15 +346,16 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 			return err
 		}
 		// allow block devices
-		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, computeCGroupPath); err != nil {
+		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, "computeCGroupPath", cgroupsManager); err != nil {
 			return err
 		}
+
 		if _, err = m.createBlockDeviceFile(deviceName, sourceMajor, sourceMinor, permissions); err != nil {
 			return err
 		}
 	} else if isBlockExists && (!m.volumeStatusReady(volume, vmi) || isMigrationInProgress) {
 		// Block device exists already, but the volume is not ready yet, ensure that the device is allowed.
-		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
+		//computeCGroupPath, err := m.getTargetCgroupPath(vmi)
 		if err != nil {
 			return err
 		}
@@ -358,7 +363,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, computeCGroupPath); err != nil {
+		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, "computeCGroupPath", cgroupsManager); err != nil {
 			return err
 		}
 	}
@@ -467,50 +472,50 @@ func (m *volumeMounter) getBlockFileMajorMinor(fileName string) (int64, int64, s
 	return int64(result[0]), int64(result[1]), split[2], nil
 }
 
-// getTargetCgroupPath returns the container cgroup path of the compute container in the pod.
-func (m *volumeMounter) getTargetCgroupPath(vmi *v1.VirtualMachineInstance) (string, error) {
-	basePath := cgroupsBasePath()
-	isoRes, err := m.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return "", err
-	}
+//// getTargetCgroupPath returns the container cgroup path of the compute container in the pod.
+//func (m *volumeMounter) getTargetCgroupPath(vmi *v1.VirtualMachineInstance) (string, error) {
+//	basePath := cgroupsBasePath()
+//	isoRes, err := m.podIsolationDetector.Detect(vmi)
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	virtlauncherCgroupPath := filepath.Join(basePath, )//isoRes.Slice())
+//	fileInfo, err := os.Stat(virtlauncherCgroupPath)
+//	if err != nil {
+//		return "", err
+//	}
+//	if !fileInfo.IsDir() {
+//		return "", fmt.Errorf("detected path %s, but it is not a directory", virtlauncherCgroupPath)
+//	}
+//	return virtlauncherCgroupPath, nil
+//}
 
-	virtlauncherCgroupPath := filepath.Join(basePath, isoRes.Slice())
-	fileInfo, err := os.Stat(virtlauncherCgroupPath)
-	if err != nil {
-		return "", err
-	}
-	if !fileInfo.IsDir() {
-		return "", fmt.Errorf("detected path %s, but it is not a directory", virtlauncherCgroupPath)
-	}
-	return virtlauncherCgroupPath, nil
-}
-
-func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, path string) error {
+func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, path string, manager cgroup.Manager) error {
 	idx := strings.Index(path, "/sys/fs/cgroup/")
 	chrootPath := path[:idx] // ihol3 rename me
 	newPath := path[idx:]
 
 	update := func() error {
-		return m.updateBlockMajorMinor(major, minor, newPath, false)
+		return m.updateBlockMajorMinor(major, minor, newPath, false, manager)
 	}
 
 	return cgroup.RunWithChroot(chrootPath, update)
 }
 
-func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, path string) error {
+func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, path string, manager cgroup.Manager) error {
 	idx := strings.Index(path, "/sys/fs/cgroup/")
 	chrootPath := path[:idx] // ihol3 rename me
 	newPath := path[idx:]
 
 	update := func() error {
-		return m.updateBlockMajorMinor(major, minor, newPath, true)
+		return m.updateBlockMajorMinor(major, minor, newPath, true, manager)
 	}
 	return cgroup.RunWithChroot(chrootPath, update)
 	//return m.updateBlockMajorMinor(major, minor, path, true)
 }
 
-func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, allow bool) error {
+func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, _ string, allow bool, manager cgroup.Manager) error {
 	deviceRule := &devices.Rule{
 		Type:        devices.BlockDevice,
 		Major:       major,
@@ -519,6 +524,14 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, a
 		Allow:       allow,
 	}
 
+	err := manager.Set(&configs.Resources{
+		Devices: []*devices.Rule{deviceRule},
+	})
+
+	log.Log.Infof("setting rule. err: %v", err)
+
+	return err
+
 	//var manager cgroups.Manager
 	//var err error
 	//var config *configs.Cgroup
@@ -526,32 +539,32 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, a
 	//var rootless bool
 	//dirPath = path
 
-	if !cgroups.IsCgroup2UnifiedMode() {
-		// ihol3
-		// key is cgroup. how do I get it?
-		//cgroups.cgrou
-		//manager = fs.NewManager(config, map[string]string{"devices": dirPath}, rootless)
-		//deviceManager := manager.(*fs.DevicesGroup)
-
-		//m.podIsolationDetector.De
-
-		if err := m.updateDevicesList(path, deviceRule); err != nil {
-			return err
-		} else {
-			return nil
-		}
-	} else {
-		//manager, err = fs2.NewManager(config, dirPath, rootless)
-		resourceConfig := &configs.Resources{
-			Devices:     []*devices.Rule{deviceRule},
-			SkipDevices: false,
-		}
-		if err := m.setDevices(path, resourceConfig); err != nil {
-			return err
-		} else {
-			return nil
-		}
-	}
+	//if !cgroups.IsCgroup2UnifiedMode() {
+	//	// ihol3
+	//	// key is cgroup. how do I get it?
+	//	//cgroups.cgrou
+	//	//manager = fs.NewManager(config, map[string]string{"devices": dirPath}, rootless)
+	//	//deviceManager := manager.(*fs.DevicesGroup)
+	//
+	//	//m.podIsolationDetector.De
+	//
+	//	if err := m.updateDevicesList(path, deviceRule); err != nil {
+	//		return err
+	//	} else {
+	//		return nil
+	//	}
+	//} else {
+	//	//manager, err = fs2.NewManager(config, dirPath, rootless)
+	//	resourceConfig := &configs.Resources{
+	//		Devices:     []*devices.Rule{deviceRule},
+	//		SkipDevices: false,
+	//	}
+	//	if err := m.setDevices(path, resourceConfig); err != nil {
+	//		return err
+	//	} else {
+	//		return nil
+	//	}
+	//}
 	//path_cgroups := manager.Path()
 	//
 	//if err != nil {
@@ -799,6 +812,11 @@ func (m *volumeMounter) unmountFileSystemHotplugVolumes(diskPath string) error {
 }
 
 func (m *volumeMounter) unmountBlockHotplugVolumes(diskPath string, vmi *v1.VirtualMachineInstance) error {
+	cgroupsManager, err := getCgroupsManager(vmi, "")
+	if err != nil {
+		return fmt.Errorf("could not create cgroup manager. err: %v", err)
+	}
+
 	// Get major and minor so we can deny the container.
 	major, minor, _, err := m.getBlockFileMajorMinor(diskPath)
 	if err != nil {
@@ -809,11 +827,11 @@ func (m *volumeMounter) unmountBlockHotplugVolumes(diskPath string, vmi *v1.Virt
 	if err != nil {
 		return err
 	}
-	path, err := m.getTargetCgroupPath(vmi)
-	if err != nil {
-		return err
-	}
-	if err := m.removeBlockMajorMinor(major, minor, path); err != nil {
+	//path, err := m.getTargetCgroupPath(vmi)
+	//if err != nil {
+	//	return err
+	//}
+	if err := m.removeBlockMajorMinor(major, minor, "path", cgroupsManager); err != nil {
 		return err
 	}
 	return nil
@@ -947,4 +965,18 @@ func isRWM(perms devices.Permissions) bool {
 		}
 	}
 	return r && w && m
+}
+
+// ihol3 consider to delete
+func getCgroupsManager(vmi *v1.VirtualMachineInstance, sourceUID types.UID) (manager cgroup.Manager, err error) {
+	if sourceUID == "" {
+		manager, err = cgroup.NewManagerFromVM(vmi)
+		log.Log.Object(vmi).Infof("creating new manager. err: %v", err)
+	} else {
+		socketPath := socketPath(sourceUID) // ihol3 refactor to getSocketPath
+		manager, err = cgroup.NewManagerFromVMAndSocket(vmi, socketPath)
+		log.Log.Object(vmi).Infof("creating new manager. socket: \"%s\", err: %v", socketPath, err)
+	}
+
+	return manager, err
 }

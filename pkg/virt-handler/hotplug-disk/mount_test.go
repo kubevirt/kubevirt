@@ -1141,12 +1141,12 @@ type mockIsolationDetector struct {
 }
 
 func (i *mockIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
-	return isolation.NewIsolationResult(i.pid, i.ppid, i.slice, i.controller), i.err
+	return isolation.NewIsolationResult(i.pid, i.ppid), i.err
 }
 
 func (i *mockIsolationDetector) DetectForSocket(_ *v1.VirtualMachineInstance, _ string) (isolation.IsolationResult, error) {
 	if i.pid == 1 {
-		return isolation.NewIsolationResult(i.pid, i.ppid, tempDir, []string{}), nil
+		return isolation.NewIsolationResult(i.pid, i.ppid), nil
 	}
 	return nil, fmt.Errorf("isolation error")
 }

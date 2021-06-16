@@ -173,7 +173,7 @@ func NewController(
 		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
 		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state", clusterConfig),
-		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
+		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter( /*podIsolationDetector,*/ virtPrivateDir + "/hotplug-volume-mount-state"), // ihol3
 		clusterConfig:               clusterConfig,
 		networkCacheStoreFactory:    netcache.NewInterfaceCacheFactory(),
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",

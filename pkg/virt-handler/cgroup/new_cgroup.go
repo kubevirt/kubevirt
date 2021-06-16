@@ -41,29 +41,24 @@ type Manager interface {
 }
 
 func NewManagerFromPid(pid int) (Manager, error) {
-	const rootless = false
+	const isRootless = false
 	config := &configs.Cgroup{}
 
 	cgroupBasePath := getCgroupBasePath(pid)
+	controllerPaths, err := cgroups.ParseCgroupFile(cgroupBasePath)
+	if err != nil {
+		return nil, err
+	}
 
 	if cgroups.IsCgroup2UnifiedMode() {
-		slices, err := cgroups.ParseCgroupFile(cgroupBasePath)
-		if err != nil {
-			return nil, err
-		}
-
-		slicePath := slices[""] // ihol3 is it different than cgroupBasePath?...
+		slicePath := controllerPaths[""] // ihol3 is it different than cgroupBasePath?...
 		log.Log.Infof("cgroupBasePath: %s", cgroupBasePath)
 		log.Log.Infof("slicePath: %s", slicePath)
 
-		return newV2Manager(config, slicePath, rootless)
+		return newV2Manager(config, slicePath, isRootless)
 	} else {
-		controllerPaths, err := cgroups.ParseCgroupFile(cgroupBasePath)
-		if err != nil {
-			return nil, err
-		}
 
-		return newV1Manager(config, controllerPaths, rootless)
+		return newV1Manager(config, controllerPaths, isRootless)
 	}
 }
 
