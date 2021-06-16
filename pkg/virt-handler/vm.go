@@ -792,8 +792,7 @@ func (d *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 	return volumeStatus, needsRefresh
 }
 
-func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
-	hasHotplug := false
+func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if len(vmi.Status.VolumeStatus) > 0 {
 		diskDeviceMap := make(map[string]string)
 		for _, disk := range domain.Spec.Devices.Disks {
@@ -811,7 +810,6 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 				volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 			}
 			if volumeStatus.HotplugVolume != nil {
-				hasHotplug = true
 				volumeStatus, needsRefresh = d.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
 			}
 			newStatuses = append(newStatuses, volumeStatus)
@@ -826,12 +824,10 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 		d.generateEventsForVolumeStatusChange(vmi, newStatusMap)
 		vmi.Status.VolumeStatus = newStatuses
 	}
-	return hasHotplug
 }
 
 func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
-	hasHotplug := false
 
 	// Don't update the VirtualMachineInstance if it is already in a final state
 	if origVMI.IsFinal() {
@@ -869,7 +865,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 			}
 		}
 
-		hasHotplug = d.updateVolumeStatusesFromDomain(vmi, domain)
+		d.updateVolumeStatusesFromDomain(vmi, domain)
 		if len(vmi.Status.Interfaces) == 0 {
 			// Set Pod Interface
 			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
@@ -1031,7 +1027,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	}
 
 	// Cacluate whether the VM is migratable
-	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi, hasHotplug)
+	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi)
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		// Set VMI Migration Method
@@ -1247,7 +1243,7 @@ func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateCh
 	}
 }
 
-func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance, hasHotplug bool) (*v1.VirtualMachineInstanceCondition, bool) {
+func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceCondition, bool) {
 	liveMigrationCondition := v1.VirtualMachineInstanceCondition{
 		Type:   v1.VirtualMachineInstanceIsMigratable,
 		Status: k8sv1.ConditionTrue,
@@ -1269,6 +1265,7 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		}
 		return &liveMigrationCondition, isBlockMigration
 	}
+	hasHotplug := d.checkVolumesForHotplug(vmi)
 	if hasHotplug {
 		liveMigrationCondition = v1.VirtualMachineInstanceCondition{
 			Type:    v1.VirtualMachineInstanceIsMigratable,
@@ -2211,6 +2208,15 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 		}
 	}
 	return
+}
+
+func (d *VirtualMachineController) checkVolumesForHotplug(vmi *v1.VirtualMachineInstance) bool {
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.HotplugVolume != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
