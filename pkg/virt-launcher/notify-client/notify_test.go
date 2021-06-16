@@ -250,6 +250,7 @@ var _ = Describe("Notify", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			recorder = record.NewFakeRecorder(10)
+			recorder.IncludeObject = true
 			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmiStore = vmiInformer.GetStore()
 
@@ -284,7 +285,7 @@ var _ = Describe("Notify", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			event := <-recorder.Events
-			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
+			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 			close(done)
 		}, 5)
 
@@ -319,7 +320,7 @@ var _ = Describe("Notify", func() {
 			eventMessage := "VM Paused due to not enough space on volume: "
 			eventCallback(mockCon, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi)
 			event := <-recorder.Events
-			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
+			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 			close(done)
 
 		}, 20)

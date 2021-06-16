@@ -62,6 +62,7 @@ var _ = Describe("Replicaset", func() {
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			rsInformer, rsSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
 			recorder = record.NewFakeRecorder(100)
+			recorder.IncludeObject = true
 
 			controller = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 			// Wrap our workqueue to have a way to detect when we are done processing updates

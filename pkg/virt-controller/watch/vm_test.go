@@ -68,6 +68,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			recorder = record.NewFakeRecorder(100)
+			recorder.IncludeObject = true
 
 			controller = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, pvcInformer, recorder, virtClient)
 			// Wrap our workqueue to have a way to detect when we are done processing updates

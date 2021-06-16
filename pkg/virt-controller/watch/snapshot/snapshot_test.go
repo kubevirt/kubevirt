@@ -272,6 +272,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1alpha1.DataVolume{})
 
 			recorder = record.NewFakeRecorder(100)
+			recorder.IncludeObject = true
 
 			controller = &VMSnapshotController{
 				Client:                    virtClient,

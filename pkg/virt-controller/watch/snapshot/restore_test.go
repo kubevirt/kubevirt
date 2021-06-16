@@ -246,6 +246,7 @@ var _ = Describe("Restore controlleer", func() {
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 
 			recorder = record.NewFakeRecorder(100)
+			recorder.IncludeObject = true
 
 			controller = &VMRestoreController{
 				Client:                    virtClient,
