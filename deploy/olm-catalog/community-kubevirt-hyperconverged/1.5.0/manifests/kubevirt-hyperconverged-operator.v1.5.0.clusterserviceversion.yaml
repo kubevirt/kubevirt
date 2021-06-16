@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
-    createdAt: "2021-06-15 10:58:56"
+    createdAt: "2021-06-16 05:16:49"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -1849,7 +1849,7 @@ spec:
                 - name: HPPO_VERSION
                   value: v0.8.0
                 - name: VM_IMPORT_VERSION
-                  value: v0.3.4
+                  value: v0.3.6
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -2324,9 +2324,9 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
-                  value: v0.3.4
+                  value: v0.3.6
                 - name: CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/vm-import-controller@sha256:6dc222d159b5bc50ed9f82a946cb6178c23653aaea8816365b6aadcb159adb55
+                  value: quay.io/kubevirt/vm-import-controller@sha256:bfabce29781a03f3c0af39728c46c47a54cccd39f1f0fc6803494271d2a9e5a1
                 - name: PULL_POLICY
                   value: IfNotPresent
                 - name: WATCH_NAMESPACE
@@ -2607,7 +2607,7 @@ spec:
     name: virt-operator
   - image: quay.io/kubevirt/virtio-container-disk@sha256:77c448875247bf4dbeaa0b9b1b720c0f30bb8177628061c592ce7a68863a96c2
     name: virtio-container-disk
-  - image: quay.io/kubevirt/vm-import-controller@sha256:6dc222d159b5bc50ed9f82a946cb6178c23653aaea8816365b6aadcb159adb55
+  - image: quay.io/kubevirt/vm-import-controller@sha256:bfabce29781a03f3c0af39728c46c47a54cccd39f1f0fc6803494271d2a9e5a1
     name: vm-import-controller
   - image: quay.io/kubevirt/vm-import-operator@sha256:5648506367cfcd06b8690e7c6f16322515d26ab09a7fc539329eb12dc4f30617
     name: vm-import-operator
