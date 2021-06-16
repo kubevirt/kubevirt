@@ -375,14 +375,18 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 	args = append(args, volumeID)
 	args = append(args, "-joliet")
 	args = append(args, "-rock")
+	args = append(args, "-partition_cyl_align")
+	args = append(args, "on")
 	args = append(args, inDir)
 
+	isoBinary := "xorrisofs"
+
 	// #nosec No risk for attacket injection. Parameters are predefined strings
-	cmd := exec.Command("genisoimage", args...)
+	cmd := exec.Command(isoBinary, args...)
 
 	err := cmd.Start()
 	if err != nil {
-		log.Log.V(2).Reason(err).Errorf("genisoimage cmd failed to start while generating iso file %s", isoOutFile)
+		log.Log.V(2).Reason(err).Errorf("%s cmd failed to start while generating iso file %s", isoBinary, isoOutFile)
 		return err
 	}
 
@@ -398,7 +402,7 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 			cmd.Process.Kill()
 		case err := <-done:
 			if err != nil {
-				log.Log.V(2).Reason(err).Errorf("genisoimage returned non-zero exit code while generating iso file %s", isoOutFile)
+				log.Log.V(2).Reason(err).Errorf("%s returned non-zero exit code while generating iso file %s with args '%s'", isoBinary, isoOutFile, strings.Join(cmd.Args, " "))
 				return err
 			}
 			return nil
