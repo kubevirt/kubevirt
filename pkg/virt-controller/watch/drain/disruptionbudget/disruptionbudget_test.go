@@ -96,6 +96,7 @@ var _ = Describe("Disruptionbudget", func() {
 		vmimInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		podInformer, _ = testutils.NewFakeInformerFor(&v12.Pod{})
 		recorder = record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
 
 		controller = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -159,6 +160,17 @@ var _ = Describe("Disruptionbudget", func() {
 			controller.Execute()
 
 			vmiFeeder.Delete(vmi)
+			shouldExpectPDBDeletion(pdb)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
+		})
+
+		It("should remove the pdb if VMI doesn't exist", func() {
+			vmi := newVirtualMachine()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+			pdb := newPodDisruptionBudget(vmi)
+			pdbFeeder.Add(pdb)
+
 			shouldExpectPDBDeletion(pdb)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
