@@ -12,9 +12,7 @@ type v2Manager struct {
 
 func newV2Manager(config *runc_configs.Cgroup, dirPath string, rootless bool) (Manager, error) {
 	runcManager, err := runc_fs.NewManager(config, dirPath, rootless)
-	manager := v2Manager{
-		runcManager,
-	}
+	manager := v2Manager{runcManager}
 
 	return manager, err
 }

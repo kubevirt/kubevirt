@@ -116,11 +116,12 @@ var _ = Describe("Isolation Detector", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Should detect the 'devices' controller slice of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Slice()).To(HavePrefix("/"))
-		})
+		//It("Should detect the 'devices' controller slice of the test suite", func() {
+		//	result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+		//	Expect(err).ToNot(HaveOccurred())
+		//	Expect(result.Slice()).To(HavePrefix("/"))
+		//})
+		// ihol3 think about commented tests. might move to finctional.
 
 		It("Should detect the PID namespace of the test suite", func() {
 			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
