@@ -203,6 +203,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			config,
 			mockIsolationDetector,
 			migrationProxy,
+			nil,
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 		controller.networkCacheStoreFactory = fakenetcache.NewFakeInMemoryNetworkCacheFactory()

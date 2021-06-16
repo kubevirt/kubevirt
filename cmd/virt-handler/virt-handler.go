@@ -45,6 +45,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
+
 	"kubevirt.io/kubevirt/pkg/monitoring/domainstats/downwardmetrics"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
@@ -291,6 +293,26 @@ func (app *virtHandlerApp) Run() {
 
 	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.clientTLSConfig)
 
+	stop := make(chan struct{})
+	defer close(stop)
+	// Currently nodeLabeller only support x86_64
+	var capabilities *api.Capabilities
+	arch := virtconfig.NewDefaultArch(runtime.GOARCH)
+	if !arch.IsARM64() && !arch.IsPPC64() {
+		deviceController := &devicemanager.DeviceController{}
+		if deviceController.NodeHasDevice(nodelabellerutil.KVMPath) {
+			nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
+			if err != nil {
+				panic(err)
+			}
+			capabilities = nodeLabellerController.HostCapabilities()
+
+			go nodeLabellerController.Run(10, stop)
+		} else {
+			logger.V(1).Level(log.INFO).Log("node-labeller is disabled, cannot work without KVM device.")
+		}
+	}
+
 	vmController := virthandler.NewController(
 		recorder,
 		app.virtCli,
@@ -307,6 +329,7 @@ func (app *virtHandlerApp) Run() {
 		app.clusterConfig,
 		podIsolationDetector,
 		migrationProxy,
+		capabilities,
 	)
 
 	promErrCh := make(chan error)
@@ -331,8 +354,6 @@ func (app *virtHandlerApp) Run() {
 	go app.servercertmanager.Start()
 
 	// Bootstrapping. From here on the startup order matters
-	stop := make(chan struct{})
-	defer close(stop)
 
 	factory.Start(stop)
 	go gracefulShutdownInformer.Run(stop)
@@ -361,22 +382,6 @@ func (app *virtHandlerApp) Run() {
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiSourceInformer.HasSynced, factory.CRD().HasSynced)
 
 	go vmController.Run(10, stop)
-
-	// Currently nodeLabeller only support x86_64
-	arch := virtconfig.NewDefaultArch(runtime.GOARCH)
-	if !arch.IsARM64() && !arch.IsPPC64() {
-		deviceController := &devicemanager.DeviceController{}
-		if deviceController.NodeHasDevice(nodelabellerutil.KVMPath) {
-			nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
-			if err != nil {
-				panic(err)
-			}
-
-			go nodeLabellerController.Run(10, stop)
-		} else {
-			logger.V(1).Level(log.INFO).Log("node-labeller is disabled, cannot work without KVM device.")
-		}
-	}
 
 	doneCh := make(chan string)
 	defer close(doneCh)

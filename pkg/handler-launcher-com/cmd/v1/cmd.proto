@@ -28,6 +28,38 @@ message VMI {
   bytes vmiJson = 1;
 }
 
+message CPU {
+  uint32 id = 1;
+}
+
+message Sibling {
+  uint32 id = 1;
+  uint64 value = 2;
+}
+
+message Pages {
+    uint64 count = 1;
+    string unit = 2;
+    uint32 size = 3;
+}
+
+message Memory {
+  uint64 amount = 1;
+  string unit = 2;
+}
+
+message Cell {
+  uint32 id = 1;
+  Memory memory = 2;
+  repeated Pages pages = 3;
+  repeated Sibling distances = 4;
+  repeated CPU cpus = 5;
+}
+
+message Topology {
+  repeated Cell numa_cells = 1;
+}
+
 message SMBios {
   string manufacturer = 1;
   string product = 2;
@@ -40,6 +72,7 @@ message VirtualMachineOptions {
   SMBios VirtualMachineSMBios = 1;
   uint32 MemBalloonStatsPeriod = 2;
   repeated string PreallocatedVolumes = 3;
+  Topology topology = 4;
 }
 
 message VMIRequest {
