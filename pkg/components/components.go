@@ -3,6 +3,7 @@ package components
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"strconv"
 	"time"
 
@@ -244,6 +245,12 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 								Value: params.VMImportVersion,
 							},
 						}, params.Env...),
+						Resources: v1.ResourceRequirements{
+							Requests: map[v1.ResourceName]resource.Quantity{
+								v1.ResourceCPU:    resource.MustParse("10m"),
+								v1.ResourceMemory: resource.MustParse("96Mi"),
+							},
+						},
 					},
 				},
 			},
@@ -336,6 +343,12 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 								Value: "",
 							},
 						}, env...),
+						Resources: v1.ResourceRequirements{
+							Requests: map[v1.ResourceName]resource.Quantity{
+								v1.ResourceCPU:    resource.MustParse("5m"),
+								v1.ResourceMemory: resource.MustParse("48Mi"),
+							},
+						},
 					},
 				},
 			},

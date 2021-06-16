@@ -1869,7 +1869,10 @@ spec:
                     scheme: HTTP
                   initialDelaySeconds: 5
                   periodSeconds: 5
-                resources: {}
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 96Mi
               serviceAccountName: hyperconverged-cluster-operator
       - label:
           app.kubernetes.io/component: deployment
@@ -1932,7 +1935,10 @@ spec:
                     scheme: HTTP
                   initialDelaySeconds: 5
                   periodSeconds: 5
-                resources: {}
+                resources:
+                  requests:
+                    cpu: 5m
+                    memory: 48Mi
               serviceAccountName: hyperconverged-cluster-operator
       - label:
           app.kubernetes.io/component: network

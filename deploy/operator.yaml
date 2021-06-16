@@ -90,7 +90,10 @@ spec:
             scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 5
-        resources: {}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 96Mi
       serviceAccountName: hyperconverged-cluster-operator
 ---
 apiVersion: apps/v1
@@ -155,7 +158,10 @@ spec:
             scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 5
-        resources: {}
+        resources:
+          requests:
+            cpu: 5m
+            memory: 48Mi
         volumeMounts:
         - mountPath: /apiserver.local.config/certificates
           name: apiservice-cert
