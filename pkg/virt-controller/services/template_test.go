@@ -61,15 +61,31 @@ var _ = Describe("Template", func() {
 
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
-	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+
+	kv := &v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
+		},
+		Spec: v1.KubeVirtSpec{
+			Configuration: v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{},
+			},
+		},
+		Status: v1.KubeVirtStatus{
+			Phase: v1.KubeVirtPhaseDeploying,
+		},
+	}
+
+	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
-		})
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{})
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 	}
 
 	BeforeEach(func() {
@@ -301,9 +317,10 @@ var _ = Describe("Template", func() {
 				}
 			})
 			It("should run under the corresponding SELinux type if specified", func() {
-				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
-					Data: map[string]string{virtconfig.SELinuxLauncherTypeKey: "spc_t"},
-				})
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.SELinuxLauncherType = "spc_t"
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
@@ -321,9 +338,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("spc_t"))
 			})
 			It("should have a level of s0 on all but compute if a type is specified", func() {
-				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
-					Data: map[string]string{virtconfig.SELinuxLauncherTypeKey: "spc_t"},
-				})
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.SELinuxLauncherType = "spc_t"
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
 				volumes := []v1.Volume{
 					{
 						Name: "containerdisk",
@@ -990,9 +1008,11 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should add node selectors from kubevirt-config configMap", func() {
-				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
-					Data: map[string]string{virtconfig.NodeSelectorsKey: "kubernetes.io/hostname=node02\nnode-role.kubernetes.io/compute=true\n"},
-				})
+				kvConfig := kv.DeepCopy()
+				nodeSelectors := map[string]string{"kubernetes.io/hostname": "node02", "node-role.kubernetes.io/compute": "true"}
+				kvConfig.Spec.Configuration.DeveloperConfiguration.NodeSelectors = nodeSelectors
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
@@ -1595,10 +1615,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("300m"))
 			})
 			It("should allocate equal amount of cpus to vmipod as vcpus with allocation_ratio set to 1", func() {
-				allocationRatio := "1"
-				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
-					Data: map[string]string{virtconfig.CPUAllocationRatio: allocationRatio},
-				})
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio = 1
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -1620,10 +1640,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("3"))
 			})
 			It("should override the calculated amount of cpus if the user has explicitly specified cpu request", func() {
-				allocationRatio := "16"
-				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
-					Data: map[string]string{virtconfig.CPUAllocationRatio: allocationRatio},
-				})
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio = 16
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -2624,10 +2644,9 @@ var _ = Describe("Template", func() {
 		})
 
 		It("should add the lessPVCSpaceToleration argument to the template", func() {
-			expectedToleration := "42"
-			testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
-				Data: map[string]string{virtconfig.LessPVCSpaceTolerationKey: expectedToleration},
-			})
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.LessPVCSpaceToleration = 42
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2647,10 +2666,9 @@ var _ = Describe("Template", func() {
 		})
 
 		It("should add the minimum PVC reserve argument to the template", func() {
-			expectedReserve := "1048576"
-			testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
-				Data: map[string]string{virtconfig.MinimumReservePVCBytesKey: expectedReserve},
-			})
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{MinimumReservePVCBytes: 1048576}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2666,7 +2684,7 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--minimum-pvc-reserve-bytes"), "command arg key should be correct")
-			Expect(pod.Spec.Containers[0].Command).To(ContainElement(expectedReserve), "command arg value should be correct")
+			Expect(pod.Spec.Containers[0].Command).To(ContainElement("1048576"), "command arg value should be correct")
 		})
 
 		Context("with specified priorityClass", func() {
