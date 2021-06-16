@@ -58,7 +58,7 @@ var _ = Describe("DHCP configurator", func() {
 		)
 
 		table.DescribeTable("should succeed when cache file present", func(configurator *Configurator) {
-			dhcpConfig := cache.DhcpConfig{
+			dhcpConfig := cache.DHCPConfig{
 				Name:         ifaceName,
 				IP:           netlink.Addr{},
 				Mtu:          1400,
@@ -77,7 +77,7 @@ var _ = Describe("DHCP configurator", func() {
 
 	Context("start DHCP function", func() {
 		var advertisingAddr netlink.Addr
-		var dhcpConfig cache.DhcpConfig
+		var dhcpConfig cache.DHCPConfig
 		var dhcpOptions *v1.DHCPOptions
 
 		BeforeEach(func() {
@@ -87,7 +87,7 @@ var _ = Describe("DHCP configurator", func() {
 		})
 
 		BeforeEach(func() {
-			dhcpConfig = cache.DhcpConfig{
+			dhcpConfig = cache.DHCPConfig{
 				Name:              ifaceName,
 				IP:                netlink.Addr{},
 				AdvertisingIPAddr: advertisingAddr.IP,
@@ -99,7 +99,7 @@ var _ = Describe("DHCP configurator", func() {
 		table.DescribeTable("should succeed when DHCP server started", func(configurator *Configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(nil)
 
-			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
+			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 		},
 			table.Entry("with active client filtering", newConfiguratorWithClientFilter(launcherPID, bridgeName)),
 			table.Entry("without client filtering", newConfigurator(launcherPID, bridgeName)),
@@ -108,8 +108,8 @@ var _ = Describe("DHCP configurator", func() {
 		table.DescribeTable("should succeed when DHCP server is started multiple times", func(configurator *Configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(nil)
 
-			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
-			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
+			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
+			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 		},
 			table.Entry("with active client filtering", newConfiguratorWithClientFilter(launcherPID, bridgeName)),
 			table.Entry("without client filtering", newConfigurator(launcherPID, bridgeName)),
@@ -118,15 +118,15 @@ var _ = Describe("DHCP configurator", func() {
 		table.DescribeTable("should fail when DHCP server failed", func(configurator *Configurator) {
 			configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(fmt.Errorf("failed to start DHCP server"))
 
-			Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(HaveOccurred())
+			Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(HaveOccurred())
 		},
 			table.Entry("with active client filtering", newConfiguratorWithClientFilter(launcherPID, bridgeName)),
 			table.Entry("without client filtering", newConfigurator(launcherPID, bridgeName)),
 		)
 
-		When("IPAM is disabled on the DhcpConfig", func() {
+		When("IPAM is disabled on the DHCPConfig", func() {
 			BeforeEach(func() {
-				dhcpConfig = cache.DhcpConfig{
+				dhcpConfig = cache.DHCPConfig{
 					Name:              ifaceName,
 					IP:                netlink.Addr{},
 					AdvertisingIPAddr: advertisingAddr.IP,
@@ -138,7 +138,7 @@ var _ = Describe("DHCP configurator", func() {
 			table.DescribeTable("should fail when DHCP server failed", func(configurator *Configurator) {
 				configurator.handler.(*netdriver.MockNetworkHandler).EXPECT().StartDHCP(&dhcpConfig, bridgeName, nil, configurator.filterByMac).Return(nil).Times(0)
 
-				Expect(configurator.EnsureDhcpServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
+				Expect(configurator.EnsureDHCPServerStarted(ifaceName, dhcpConfig, dhcpOptions)).To(Succeed())
 			},
 				table.Entry("with active client filtering", newConfiguratorWithClientFilter(launcherPID, bridgeName)),
 				table.Entry("without client filtering", newConfigurator(launcherPID, bridgeName)),

@@ -64,7 +64,7 @@ type BindMechanism interface {
 	discoverPodNetworkInterface(podIfaceName string) error
 	preparePodNetworkInterface() error
 	generateDomainIfaceSpec() api.Interface
-	generateDhcpConfig() *cache.DhcpConfig
+	generateDHCPConfig() *cache.DHCPConfig
 
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
@@ -239,7 +239,7 @@ func (l *podNIC) PlugPhase1() error {
 		}
 
 		if l.dhcpConfigurator != nil {
-			dhcpConfig := bindMechanism.generateDhcpConfig()
+			dhcpConfig := bindMechanism.generateDHCPConfig()
 			log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
 			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
 				log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
@@ -300,7 +300,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 			log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
 		}
 		log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
-		if err := l.dhcpConfigurator.EnsureDhcpServerStarted(l.podInterfaceName, *dhcpConfig, l.iface.DHCPOptions); err != nil {
+		if err := l.dhcpConfigurator.EnsureDHCPServerStarted(l.podInterfaceName, *dhcpConfig, l.iface.DHCPOptions); err != nil {
 			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
 			panic(err)
 		}
@@ -436,9 +436,9 @@ func (b *BridgeBindMechanism) discoverPodNetworkInterface(podIfaceName string) e
 	return nil
 }
 
-func (b *BridgeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
+func (b *BridgeBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
 	if !b.ipamEnabled {
-		return &cache.DhcpConfig{Name: b.podNicLink.Attrs().Name, IPAMDisabled: true}
+		return &cache.DHCPConfig{Name: b.podNicLink.Attrs().Name, IPAMDisabled: true}
 	}
 	fakeBridgeIP, err := b.getFakeBridgeIP()
 	if err != nil {
@@ -448,7 +448,7 @@ func (b *BridgeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
 	if err != nil || fakeServerAddr == nil {
 		return nil
 	}
-	dhcpConfig := &cache.DhcpConfig{
+	dhcpConfig := &cache.DHCPConfig{
 		MAC:               *b.mac,
 		Name:              b.podNicLink.Attrs().Name,
 		IPAMDisabled:      !b.ipamEnabled,
@@ -460,8 +460,8 @@ func (b *BridgeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
 	}
 
 	if b.ipamEnabled && len(b.routes) > 0 {
-		log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.routes))
-		b.decorateDhcpConfigRoutes(dhcpConfig)
+		log.Log.V(4).Infof("got to add %d routes to the DHCPConfig", len(b.routes))
+		b.decorateDHCPConfigRoutes(dhcpConfig)
 	}
 	return dhcpConfig
 }
@@ -594,7 +594,7 @@ func (b *BridgeBindMechanism) learnInterfaceRoutes() error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) decorateDhcpConfigRoutes(dhcpConfig *cache.DhcpConfig) {
+func (b *BridgeBindMechanism) decorateDHCPConfigRoutes(dhcpConfig *cache.DHCPConfig) {
 	log.Log.V(4).Infof("the default route is: %s", b.routes[0].String())
 	dhcpConfig.Gateway = b.routes[0].Gw
 	if len(b.routes) > 1 {
@@ -766,8 +766,8 @@ func (b *MasqueradeBindMechanism) configureIPv6Addresses() error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
-	dhcpConfig := &cache.DhcpConfig{
+func (b *MasqueradeBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
+	dhcpConfig := &cache.DHCPConfig{
 		Name: b.podNicLink.Attrs().Name,
 		IP:   b.podIfaceIPv4Addr,
 		IPv6: b.podIfaceIPv6Addr,
@@ -1318,7 +1318,7 @@ func (b *SlirpBindMechanism) decorateConfig(api.Interface) error {
 	return nil
 }
 
-func (b *SlirpBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
+func (b *SlirpBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
 	return nil
 }
 
@@ -1380,7 +1380,7 @@ func (b *MacvtapBindMechanism) decorateConfig(domainIface api.Interface) error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) generateDhcpConfig() *cache.DhcpConfig {
+func (b *MacvtapBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
 	return nil
 }
 

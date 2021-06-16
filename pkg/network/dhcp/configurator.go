@@ -21,7 +21,7 @@ type Configurator struct {
 }
 
 // NewConfiguratorWithClientFilter should be used when the DHCP server is
-// expected to only reply to the MAC specified in the `cache.DhcpConfig` struct
+// expected to only reply to the MAC specified in the `cache.DHCPConfig` struct
 func NewConfiguratorWithClientFilter(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler) *Configurator {
 	return &Configurator{
 		advertisingIfaceName: advertisingIfaceName,
@@ -46,8 +46,8 @@ func NewConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID strin
 	}
 }
 
-func (d Configurator) ImportConfiguration(ifaceName string) (*cache.DhcpConfig, error) {
-	dhcpConfig, err := d.cacheFactory.CacheDhcpConfigForPid(d.launcherPID).Read(ifaceName)
+func (d Configurator) ImportConfiguration(ifaceName string) (*cache.DHCPConfig, error) {
+	dhcpConfig, err := d.cacheFactory.CacheDHCPConfigForPid(d.launcherPID).Read(ifaceName)
 	if err != nil {
 		return nil, err
 	}
@@ -57,15 +57,15 @@ func (d Configurator) ImportConfiguration(ifaceName string) (*cache.DhcpConfig, 
 	return dhcpConfig, nil
 }
 
-func (d Configurator) ExportConfiguration(config cache.DhcpConfig) error {
-	return d.cacheFactory.CacheDhcpConfigForPid(d.launcherPID).Write(config.Name, &config)
+func (d Configurator) ExportConfiguration(config cache.DHCPConfig) error {
+	return d.cacheFactory.CacheDHCPConfigForPid(d.launcherPID).Write(config.Name, &config)
 }
 
-func (d Configurator) EnsureDhcpServerStarted(podInterfaceName string, dhcpConfig cache.DhcpConfig, dhcpOptions *v1.DHCPOptions) error {
+func (d Configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
 	if dhcpConfig.IPAMDisabled {
 		return nil
 	}
-	dhcpStartedFile := d.getDhcpStartedFilePath(podInterfaceName)
+	dhcpStartedFile := d.getDHCPStartedFilePath(podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
 		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions, d.filterByMac); err != nil {
@@ -80,6 +80,6 @@ func (d Configurator) EnsureDhcpServerStarted(podInterfaceName string, dhcpConfi
 	return nil
 }
 
-func (d Configurator) getDhcpStartedFilePath(podInterfaceName string) string {
+func (d Configurator) getDHCPStartedFilePath(podInterfaceName string) string {
 	return fmt.Sprintf("%s/dhcp_started-%s", d.dhcpStartedDirectory, podInterfaceName)
 }

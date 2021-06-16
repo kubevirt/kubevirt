@@ -40,7 +40,7 @@ var dhcpConfigCachedPattern = "/proc/%s/root/var/run/kubevirt-private/vif-cache-
 type InterfaceCacheFactory interface {
 	CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore
 	CacheDomainInterfaceForPID(pid string) DomainInterfaceStore
-	CacheDhcpConfigForPid(pid string) DhcpConfigStore
+	CacheDHCPConfigForPid(pid string) DHCPConfigStore
 }
 
 func NewInterfaceCacheFactory() *interfaceCacheFactory {
@@ -59,8 +59,8 @@ func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInt
 	return newDomainInterfaceStore(pid, i.baseDir, virtLauncherCachedPattern)
 }
 
-func (i *interfaceCacheFactory) CacheDhcpConfigForPid(pid string) DhcpConfigStore {
-	return newDhcpConfigCacheStore(pid, i.baseDir, dhcpConfigCachedPattern)
+func (i *interfaceCacheFactory) CacheDHCPConfigForPid(pid string) DHCPConfigStore {
+	return newDHCPConfigCacheStore(pid, i.baseDir, dhcpConfigCachedPattern)
 }
 
 type DomainInterfaceStore interface {
@@ -74,9 +74,9 @@ type PodInterfaceCacheStore interface {
 	Remove() error
 }
 
-type DhcpConfigStore interface {
-	Read(ifaceName string) (*DhcpConfig, error)
-	Write(ifaceName string, cacheInterface *DhcpConfig) error
+type DHCPConfigStore interface {
+	Read(ifaceName string) (*DHCPConfig, error)
+	Write(ifaceName string, cacheInterface *DHCPConfig) error
 }
 
 type domainInterfaceStore struct {
@@ -131,13 +131,13 @@ type dhcpConfigCacheStore struct {
 	baseDir string
 }
 
-func (d dhcpConfigCacheStore) Read(ifaceName string) (*DhcpConfig, error) {
-	cachedIface := &DhcpConfig{}
+func (d dhcpConfigCacheStore) Read(ifaceName string) (*DHCPConfig, error) {
+	cachedIface := &DHCPConfig{}
 	err := readFromCachedFile(cachedIface, d.getInterfaceCacheFile(ifaceName))
 	return cachedIface, err
 }
 
-func (d dhcpConfigCacheStore) Write(ifaceName string, ifaceToCache *DhcpConfig) error {
+func (d dhcpConfigCacheStore) Write(ifaceName string, ifaceToCache *DHCPConfig) error {
 	return writeToCachedFile(ifaceToCache, d.getInterfaceCacheFile(ifaceName))
 }
 
@@ -145,7 +145,7 @@ func (d dhcpConfigCacheStore) getInterfaceCacheFile(ifaceName string) string {
 	return getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, ifaceName)
 }
 
-func newDhcpConfigCacheStore(pid string, baseDir, pattern string) dhcpConfigCacheStore {
+func newDHCPConfigCacheStore(pid string, baseDir, pattern string) dhcpConfigCacheStore {
 	return dhcpConfigCacheStore{pid: pid, baseDir: baseDir, pattern: pattern}
 }
 

@@ -62,9 +62,9 @@ var _ = Describe("Pod Network", func() {
 	var bridgeTest *netlink.Bridge
 	var masqueradeBridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
-	var testNic *cache.DhcpConfig
+	var testNic *cache.DHCPConfig
 	var tmpDir string
-	var masqueradeTestNic *cache.DhcpConfig
+	var masqueradeTestNic *cache.DHCPConfig
 	var masqueradeDummyName string
 	var masqueradeDummy *netlink.Dummy
 	var masqueradeGwStr string
@@ -141,7 +141,7 @@ var _ = Describe("Pod Network", func() {
 
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		tapDeviceName = "tap0"
-		testNic = &cache.DhcpConfig{Name: primaryPodInterfaceName,
+		testNic = &cache.DHCPConfig{Name: primaryPodInterfaceName,
 			IP:                fakeAddr,
 			MAC:               fakeMac,
 			Mtu:               uint16(mtu),
@@ -162,7 +162,7 @@ var _ = Describe("Pod Network", func() {
 		masqueradeVmIpv6 = masqueradeIpv6VmAddr.IP.String()
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
 		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName, MTU: mtu}}
-		masqueradeTestNic = &cache.DhcpConfig{Name: primaryPodInterfaceName,
+		masqueradeTestNic = &cache.DHCPConfig{Name: primaryPodInterfaceName,
 			IP:                  *masqueradeVmAddr,
 			IPv6:                *masqueradeIpv6VmAddr,
 			MAC:                 fakeMac,
@@ -341,7 +341,7 @@ var _ = Describe("Pod Network", func() {
 	}
 
 	Context("on successful setup", func() {
-		It("should define a new DhcpConfig bind to a bridge", func() {
+		It("should define a new DHCPConfig bind to a bridge", func() {
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 			domain := NewDomainWithBridgeInterface()
@@ -451,7 +451,7 @@ var _ = Describe("Pod Network", func() {
 					Expect(ok).To(BeTrue())
 					bridgeBinding.ipamEnabled = true
 					bridgeBinding.podNicLink = primaryPodInterface
-					Expect(driver.generateDhcpConfig().MAC.String()).To(Equal("de:ad:00:00:be:af"))
+					Expect(driver.generateDHCPConfig().MAC.String()).To(Equal("de:ad:00:00:be:af"))
 				})
 			})
 		})

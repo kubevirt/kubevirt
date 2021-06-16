@@ -15,7 +15,7 @@ type PodCacheInterface struct {
 	PodIPs []string      `json:"podIPs,omitempty"`
 }
 
-type DhcpConfig struct {
+type DHCPConfig struct {
 	Name                string
 	IP                  netlink.Addr
 	IPv6                netlink.Addr
@@ -28,9 +28,9 @@ type DhcpConfig struct {
 	Gateway             net.IP
 }
 
-func (d DhcpConfig) String() string {
+func (d DHCPConfig) String() string {
 	return fmt.Sprintf(
-		"DhcpConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: %t}",
+		"DHCPConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: %t}",
 		d.Name,
 		d.IP,
 		d.IPv6,
