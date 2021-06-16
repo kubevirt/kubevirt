@@ -342,7 +342,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Fetch the latest Vm state from cache
-	obj, exists, err := c.vmiInformer.GetStore().GetByKey(key)
+	obj, vmiExists, err := c.vmiInformer.GetStore().GetByKey(key)
 
 	if err != nil {
 		return err
@@ -350,8 +350,14 @@ func (c *DisruptionBudgetController) execute(key string) error {
 
 	var vmi *virtv1.VirtualMachineInstance
 	// Once all finalizers are removed the vmi gets deleted and we can clean all expectations
-	if exists {
+	if vmiExists {
 		vmi = obj.(*virtv1.VirtualMachineInstance)
+	} else {
+		namespace, name, err := cache.SplitMetaNamespaceKey(key)
+		if err != nil {
+			return err
+		}
+		vmi = virtv1.NewVMIReferenceFromNameWithNS(namespace, name)
 	}
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -370,11 +376,11 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	if len(pdbs) == 0 {
-		return c.sync(key, vmi, nil)
+		return c.sync(key, vmiExists, vmi, nil)
 	}
 
 	for i := range pdbs {
-		if syncErr := c.sync(key, vmi, pdbs[i]); syncErr != nil {
+		if syncErr := c.sync(key, vmiExists, vmi, pdbs[i]); syncErr != nil {
 			err = syncErr
 		}
 	}
@@ -473,12 +479,12 @@ func isPDBFromOldVMI(vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisrupt
 	return ownerRef != nil && ownerRef.UID != vmi.UID
 }
 
-func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
-	migratableOnDrain := vmiMigratableOnDrain(vmi)
+func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
+	migratableOnDrain := vmiMigratableOnDrain(vmiExists, vmi)
 
 	// check for deletions if pod exists
 	if pdb != nil {
-		if vmi == nil || vmi.DeletionTimestamp != nil {
+		if !vmiExists || vmi.DeletionTimestamp != nil {
 			// being deleted
 			log.Log.Infof("deleting pdb %s/%s due to VMI deletion", pdb.Namespace, pdb.Name)
 			return c.deletePDB(key, pdb, vmi)
@@ -527,8 +533,8 @@ func (c *DisruptionBudgetController) pdbsForVMI(namespace, name string) ([]*v1be
 	return pdbs, nil
 }
 
-func vmiMigratableOnDrain(vmi *virtv1.VirtualMachineInstance) bool {
-	if vmi == nil || vmi.DeletionTimestamp != nil || vmi.Spec.EvictionStrategy == nil {
+func vmiMigratableOnDrain(vmiExists bool, vmi *virtv1.VirtualMachineInstance) bool {
+	if !vmiExists || vmi.DeletionTimestamp != nil || vmi.Spec.EvictionStrategy == nil {
 		return false
 	}
 	return *vmi.Spec.EvictionStrategy == virtv1.EvictionStrategyLiveMigrate
