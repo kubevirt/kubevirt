@@ -132,8 +132,17 @@ type dhcpConfigCacheStore struct {
 }
 
 func (d dhcpConfigCacheStore) Read(ifaceName string) (*DHCPConfig, error) {
+	interfaceCacheFile := d.getInterfaceCacheFile(ifaceName)
+
+	_, err := os.Stat(interfaceCacheFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
 	cachedIface := &DHCPConfig{}
-	err := readFromCachedFile(cachedIface, d.getInterfaceCacheFile(ifaceName))
+	err = readFromCachedFile(cachedIface, interfaceCacheFile)
 	return cachedIface, err
 }
 

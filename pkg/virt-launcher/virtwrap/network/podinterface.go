@@ -65,6 +65,7 @@ type BindMechanism interface {
 	preparePodNetworkInterface() error
 	generateDomainIfaceSpec() api.Interface
 	generateDHCPConfig() *cache.DHCPConfig
+	discoverDHCPConfig(podIfaceName string) (*cache.DHCPConfig, error)
 
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
@@ -240,10 +241,12 @@ func (l *podNIC) PlugPhase1() error {
 
 		if l.dhcpConfigurator != nil {
 			dhcpConfig := bindMechanism.generateDHCPConfig()
-			log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
-			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
-				log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
-				return errors.CreateCriticalNetworkError(err)
+			if dhcpConfig != nil {
+				log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
+				if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
+					log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
+					return errors.CreateCriticalNetworkError(err)
+				}
 			}
 		}
 
@@ -296,10 +299,16 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 
 	if l.dhcpConfigurator != nil {
 		dhcpConfig, err := l.dhcpConfigurator.ImportConfiguration(l.podInterfaceName)
-		if err != nil || dhcpConfig == nil {
+		if err != nil {
 			log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
 		}
-		log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
+		if dhcpConfig == nil {
+			dhcpConfig, err = bindMechanism.discoverDHCPConfig(l.podInterfaceName)
+			if err != nil || dhcpConfig == nil {
+				log.Log.Reason(err).Critical("failed discovering DHCP configuration")
+			}
+		}
+		log.Log.V(4).Infof("DHCP configuration: %s", dhcpConfig.String())
 		if err := l.dhcpConfigurator.EnsureDHCPServerStarted(l.podInterfaceName, *dhcpConfig, l.iface.DHCPOptions); err != nil {
 			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
 			panic(err)
@@ -464,6 +473,10 @@ func (b *BridgeBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
 		b.decorateDHCPConfigRoutes(dhcpConfig)
 	}
 	return dhcpConfig
+}
+
+func (b *BridgeBindMechanism) discoverDHCPConfig(podIfaceName string) (*cache.DHCPConfig, error) {
+	return nil, nil
 }
 
 func (b *BridgeBindMechanism) getFakeBridgeIP() (string, error) {
@@ -767,16 +780,35 @@ func (b *MasqueradeBindMechanism) configureIPv6Addresses() error {
 }
 
 func (b *MasqueradeBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
+	return nil
+}
+
+func (b *MasqueradeBindMechanism) discoverDHCPConfig(podIfaceName string) (*cache.DHCPConfig, error) {
+
+	link, err := b.handler.LinkByName(podIfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podIfaceName)
+		return nil, err
+	}
+
+	if err := b.configureIPv4Addresses(); err != nil {
+		return nil, err
+	}
+
+	if err := b.configureIPv6Addresses(); err != nil {
+		return nil, err
+	}
+
 	dhcpConfig := &cache.DHCPConfig{
-		Name: b.podNicLink.Attrs().Name,
+		Name: link.Attrs().Name,
 		IP:   b.podIfaceIPv4Addr,
 		IPv6: b.podIfaceIPv6Addr,
 	}
 	if b.mac != nil {
 		dhcpConfig.MAC = *b.mac
 	}
-	if b.podNicLink != nil {
-		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
+	if link != nil {
+		dhcpConfig.Mtu = uint16(link.Attrs().MTU)
 	}
 	if b.gatewayAddr != nil {
 		dhcpConfig.AdvertisingIPAddr = b.gatewayAddr.IP.To4()
@@ -786,7 +818,7 @@ func (b *MasqueradeBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
 		dhcpConfig.AdvertisingIPv6Addr = b.gatewayIpv6Addr.IP.To16()
 	}
 
-	return dhcpConfig
+	return dhcpConfig, nil
 }
 
 func (b *MasqueradeBindMechanism) setDefaultCidr(protocol iptables.Protocol) {
@@ -1318,6 +1350,9 @@ func (b *SlirpBindMechanism) decorateConfig(api.Interface) error {
 	return nil
 }
 
+func (b *SlirpBindMechanism) discoverDHCPConfig(podIfaceName string) (*cache.DHCPConfig, error) {
+	return nil, nil
+}
 func (b *SlirpBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
 	return nil
 }
@@ -1378,6 +1413,9 @@ func (b *MacvtapBindMechanism) decorateConfig(domainIface api.Interface) error {
 		}
 	}
 	return nil
+}
+func (b *MacvtapBindMechanism) discoverDHCPConfig(podIfaceName string) (*cache.DHCPConfig, error) {
+	return nil, nil
 }
 
 func (b *MacvtapBindMechanism) generateDHCPConfig() *cache.DHCPConfig {
