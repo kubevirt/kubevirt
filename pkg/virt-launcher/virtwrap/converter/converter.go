@@ -1561,7 +1561,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 			}
 			if vmi.Spec.Domain.CPU.NUMATopologyPassthrough {
-				if err := numaMapping(&domain.Spec, c.Topology); err != nil {
+				if err := numaMapping(vmi, &domain.Spec, c.Topology); err != nil {
 					log.Log.Reason(err).Error("failed to calculate passed through NUMA topology.")
 					return err
 				}

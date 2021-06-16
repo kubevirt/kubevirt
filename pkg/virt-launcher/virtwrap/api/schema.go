@@ -403,8 +403,9 @@ type HugePages struct {
 
 // HugePage mirroring libvirt XML under hugepages
 type HugePage struct {
-	Size string `xml:"size,attr"`
-	Unit string `xml:"unit,attr"`
+	Size    string `xml:"size,attr"`
+	Unit    string `xml:"unit,attr"`
+	NodeSet string `xml:"nodeset,attr"`
 }
 
 type MemoryBackingAccess struct {
