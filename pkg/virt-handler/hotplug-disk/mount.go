@@ -84,7 +84,7 @@ var (
 	}
 
 	isolationDetector = func(path string) isolation.PodIsolationDetector {
-		return isolation.NewSocketBasedIsolationDetector(path, cgroup.NewParser())
+		return isolation.NewSocketBasedIsolationDetector(path)
 	}
 )
 
@@ -532,7 +532,8 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, a
 		//cgroups.cgrou
 		//manager = fs.NewManager(config, map[string]string{"devices": dirPath}, rootless)
 		//deviceManager := manager.(*fs.DevicesGroup)
-		//manager.
+
+		//m.podIsolationDetector.De
 
 		if err := m.updateDevicesList(path, deviceRule); err != nil {
 			return err

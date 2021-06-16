@@ -37,7 +37,6 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -61,18 +60,19 @@ type PodIsolationDetector interface {
 const isolationDialTimeout = 5
 
 type socketBasedIsolationDetector struct {
-	socketDir    string
-	controller   []string
-	cgroupParser cgroup.Parser
+	socketDir  string
+	controller []string
+	//cgroupParser cgroup.Parser
 }
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
-func NewSocketBasedIsolationDetector(socketDir string, cgroupParser cgroup.Parser) PodIsolationDetector {
+// ihol3 - change the use of Slice here to Cgroup!
+func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
 	return &socketBasedIsolationDetector{
-		socketDir:    socketDir,
-		controller:   []string{"devices"},
-		cgroupParser: cgroupParser,
+		socketDir:  socketDir,
+		controller: []string{"devices"},
+		//cgroupParser: cgroupParser,
 	}
 }
 
@@ -269,29 +269,30 @@ func getPPid(pid int) (int, error) {
 }
 
 func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, slice string, err error) {
-	slices, err := s.cgroupParser.Parse(pid)
-	if err != nil {
-		return
-	}
-
-	// Skip not supported cgroup controller
-	for _, c := range s.controller {
-		if s, ok := slices[c]; ok {
-			// Set and check cgroup slice
-			if slice == "" {
-				slice = s
-			} else if slice != s {
-				err = fmt.Errorf("process is part of more than one slice. Expected %s, found %s", slice, s)
-				return
-			}
-			// Add controller
-			controllers = append(controllers, c)
-		}
-	}
-
-	if slice == "" {
-		err = fmt.Errorf("could not detect slice of whitelisted controllers: %v", s.controller)
-	}
-
 	return
+	//slices, err := s.cgroupParser.Parse(pid)
+	//if err != nil {
+	//	return
+	//}
+	//
+	//// Skip not supported cgroup controller
+	//for _, c := range s.controller {
+	//	if s, ok := slices[c]; ok {
+	//		// Set and check cgroup slice
+	//		if slice == "" {
+	//			slice = s
+	//		} else if slice != s {
+	//			err = fmt.Errorf("Process is part of more than one slice. Expected %s, found %s", slice, s)
+	//			return
+	//		}
+	//		// Add controller
+	//		controllers = append(controllers, c)
+	//	}
+	//}
+	//
+	//if slice == "" {
+	//	err = fmt.Errorf("Could not detect slice of whitelisted controllers: %v", s.controller)
+	//}
+	//
+	//return
 }

@@ -74,7 +74,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	devicemanager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -161,6 +160,9 @@ var (
 	_                service.Service = &virtHandlerApp{}
 	apiHealthVersion                 = new(healthz.KubeApiHealthzVersion)
 )
+
+// ihol3 rethink
+var GetHandlerLauncherSharedDir func() string
 
 func (app *virtHandlerApp) prepareCertManager() (err error) {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
@@ -296,7 +298,8 @@ func (app *virtHandlerApp) Run() {
 		0,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir, cgroup.NewParser())
+	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
+	GetHandlerLauncherSharedDir = func() string { return app.VirtShareDir }
 	app.clusterConfig = virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), factory.KubeVirt(), app.namespace)
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
