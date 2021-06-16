@@ -2292,7 +2292,7 @@ func (d *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMac
 	return nil
 }
 
-func (d *VirtualMachineController) getLauncherClinetInfo(vmi *v1.VirtualMachineInstance) *launcherClientInfo {
+func (d *VirtualMachineController) getLauncherClientInfo(vmi *v1.VirtualMachineInstance) *launcherClientInfo {
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 	return d.launcherClients[vmi.UID]
@@ -2374,7 +2374,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// give containerDisks some time to become ready before throwing errors on retries
-	info := d.getLauncherClinetInfo(vmi)
+	info := d.getLauncherClientInfo(vmi)
 	if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
 		if err != nil {
 			return err
@@ -2451,7 +2451,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	if !vmi.IsRunning() && !vmi.IsFinal() {
 
 		// give containerDisks some time to become ready before throwing errors on retries
-		info := d.getLauncherClinetInfo(vmi)
+		info := d.getLauncherClientInfo(vmi)
 		if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
 			if err != nil {
 				return err
