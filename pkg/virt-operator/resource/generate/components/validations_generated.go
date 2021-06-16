@@ -3597,6 +3597,12 @@ var CRDsValidation map[string]string = map[string]string{
                             to get the same CPU as the node and "host-model" to get
                             CPU closest to the node one. Defaults to host-model.
                           type: string
+                        numaTopologyPassthrough:
+                          description: NUMATopologyPassthrough instructs kubevirt
+                            to model the passed through CPUs with the same NUMA topology
+                            like on the host. Requires dedicatedCpuPlacement to be
+                            true.
+                          type: boolean
                         sockets:
                           description: Sockets specifies the number of sockets inside
                             the vmi. Must be a value greater or equal 1.
@@ -6259,6 +6265,11 @@ var CRDsValidation map[string]string = map[string]string{
                     to get the same CPU as the node and "host-model" to get CPU closest
                     to the node one. Defaults to host-model.
                   type: string
+                numaTopologyPassthrough:
+                  description: NUMATopologyPassthrough instructs kubevirt to model
+                    the passed through CPUs with the same NUMA topology like on the
+                    host. Requires dedicatedCpuPlacement to be true.
+                  type: boolean
                 sockets:
                   description: Sockets specifies the number of sockets inside the
                     vmi. Must be a value greater or equal 1.
@@ -8162,6 +8173,11 @@ var CRDsValidation map[string]string = map[string]string{
                     to get the same CPU as the node and "host-model" to get CPU closest
                     to the node one. Defaults to host-model.
                   type: string
+                numaTopologyPassthrough:
+                  description: NUMATopologyPassthrough instructs kubevirt to model
+                    the passed through CPUs with the same NUMA topology like on the
+                    host. Requires dedicatedCpuPlacement to be true.
+                  type: boolean
                 sockets:
                   description: Sockets specifies the number of sockets inside the
                     vmi. Must be a value greater or equal 1.
@@ -9906,6 +9922,12 @@ var CRDsValidation map[string]string = map[string]string{
                             to get the same CPU as the node and "host-model" to get
                             CPU closest to the node one. Defaults to host-model.
                           type: string
+                        numaTopologyPassthrough:
+                          description: NUMATopologyPassthrough instructs kubevirt
+                            to model the passed through CPUs with the same NUMA topology
+                            like on the host. Requires dedicatedCpuPlacement to be
+                            true.
+                          type: boolean
                         sockets:
                           description: Sockets specifies the number of sockets inside
                             the vmi. Must be a value greater or equal 1.
@@ -13292,6 +13314,12 @@ var CRDsValidation map[string]string = map[string]string{
                                         the node and "host-model" to get CPU closest
                                         to the node one. Defaults to host-model.
                                       type: string
+                                    numaTopologyPassthrough:
+                                      description: NUMATopologyPassthrough instructs
+                                        kubevirt to model the passed through CPUs
+                                        with the same NUMA topology like on the host.
+                                        Requires dedicatedCpuPlacement to be true.
+                                      type: boolean
                                     sockets:
                                       description: Sockets specifies the number of
                                         sockets inside the vmi. Must be a value greater

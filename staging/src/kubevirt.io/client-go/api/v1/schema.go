@@ -342,6 +342,10 @@ type CPU struct {
 	// with enough dedicated pCPUs and pin the vCPUs to it.
 	// +optional
 	DedicatedCPUPlacement bool `json:"dedicatedCpuPlacement,omitempty"`
+	// NUMATopologyPassthrough instructs kubevirt to model the passed through CPUs with the same NUMA topology like on the host.
+	// Requires dedicatedCpuPlacement to be true.
+	// +optional
+	NUMATopologyPassthrough bool `json:"numaTopologyPassthrough,omitempty"`
 	// IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place
 	// the emulator thread on it.
 	// +optional

@@ -2250,11 +2250,28 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			)
 		})
 	})
+
 	Context("with cpu pinning", func() {
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			vmi = v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+		})
+		It("should reject NUMA passthrough without DedicatedCPUPlacement", func() {
+			vmi.Spec.Domain.CPU.NUMATopologyPassthrough = true
+			vmi.Spec.Domain.CPU.DedicatedCPUPlacement = false
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numaTopologyPassthrough"))
+		})
+		It("should accept NUMA passthrough with DedicatedCPUPlacement", func() {
+			vmi.Spec.Domain.CPU.Cores = 4
+			vmi.Spec.Domain.CPU.NUMATopologyPassthrough = true
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("4"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
 		})
 		It("should reject specs without cpu reqirements", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -2498,8 +2515,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-
-			fmt.Printf("%v\n", causes)
 
 			Expect(len(causes)).To(Equal(1))
 		})

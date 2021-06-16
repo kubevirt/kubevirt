@@ -156,14 +156,15 @@ func (ResourceRequirements) SwaggerDoc() map[string]string {
 
 func (CPU) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                      "CPU allows specifying the CPU topology.\n\n+k8s:openapi-gen=true",
-		"cores":                 "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
-		"sockets":               "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
-		"threads":               "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
-		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
-		"features":              "Features specifies the CPU features list inside the VMI.\n+optional",
-		"dedicatedCpuPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
-		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
+		"":                        "CPU allows specifying the CPU topology.\n\n+k8s:openapi-gen=true",
+		"cores":                   "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
+		"sockets":                 "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
+		"threads":                 "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
+		"model":                   "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
+		"features":                "Features specifies the CPU features list inside the VMI.\n+optional",
+		"dedicatedCpuPlacement":   "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
+		"numaTopologyPassthrough": "NUMATopologyPassthrough instructs kubevirt to model the passed through CPUs with the same NUMA topology like on the host.\nRequires dedicatedCpuPlacement to be true.\n+optional",
+		"isolateEmulatorThread":   "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
 	}
 }
 

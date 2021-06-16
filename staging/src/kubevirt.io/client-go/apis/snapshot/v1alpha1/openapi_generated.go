@@ -14005,6 +14005,13 @@ func schema_kubevirtio_client_go_api_v1_CPU(ref common.ReferenceCallback) common
 							Format:      "",
 						},
 					},
+					"numaTopologyPassthrough": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NUMATopologyPassthrough instructs kubevirt to model the passed through CPUs with the same NUMA topology like on the host. Requires dedicatedCpuPlacement to be true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"isolateEmulatorThread": {
 						SchemaProps: spec.SchemaProps{
 							Description: "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place the emulator thread on it.",
