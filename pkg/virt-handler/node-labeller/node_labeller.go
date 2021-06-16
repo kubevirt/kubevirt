@@ -277,6 +277,10 @@ func (n *NodeLabeller) addLabellerLabels(node *v1.Node, labels map[string]string
 	}
 }
 
+func (n *NodeLabeller) HostCapabilities() *api.Capabilities {
+	return n.capabilities
+}
+
 // removeLabellerLabels removes labels from node
 func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 	for label := range node.Labels {
