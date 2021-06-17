@@ -155,7 +155,7 @@ func (mon *monitor) refresh() {
 	return
 }
 
-func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan struct{}) {
+func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan struct{}) {
 	// random value, no real rationale
 	rate := 1 * time.Second
 
@@ -186,11 +186,6 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 	}
 
 	ticker.Stop()
-}
-
-func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan struct{}) {
-
-	mon.monitorLoop(startTimeout, signalStopChan)
 }
 
 func pidExists(pid int) (bool, error) {

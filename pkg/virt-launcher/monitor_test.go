@@ -167,7 +167,7 @@ var _ = Describe("VirtLauncher", func() {
 				done := make(chan string)
 
 				go func() {
-					mon.monitorLoop(1*time.Second, stopChan)
+					mon.RunForever(1*time.Second, stopChan)
 					done <- "exit"
 				}()
 
@@ -195,7 +195,7 @@ var _ = Describe("VirtLauncher", func() {
 				go func() { CleanupProcess() }()
 
 				go func() {
-					mon.monitorLoop(1*time.Second, stopChan)
+					mon.RunForever(1*time.Second, stopChan)
 					done <- "exit"
 				}()
 
@@ -213,7 +213,7 @@ var _ = Describe("VirtLauncher", func() {
 				go func() { CleanupProcess() }()
 				go func() {
 					mon.gracePeriod = 1
-					mon.monitorLoop(1*time.Second, stopChan)
+					mon.RunForever(1*time.Second, stopChan)
 					done <- "exit"
 				}()
 

@@ -131,6 +131,8 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	readStop := make(chan error)
 
 	go func() {
+		defer pipeOutWriter.Close()
+
 		// transfer data from/to the VM
 		k8ResChan <- vnc.Stream(kubecli.StreamOptions{
 			In:  pipeInReader,
@@ -165,6 +167,8 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 		// read from FD -> pipeInWriter
 		go func() {
+			defer pipeInWriter.Close()
+
 			_, err := io.Copy(pipeInWriter, fd)
 			writeStop <- err
 		}()
