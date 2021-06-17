@@ -8,6 +8,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -59,7 +61,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	AfterEach(func() {
@@ -90,7 +92,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
 			vm = tests.NewRandomVirtualMachine(vmi, false)
-			vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -164,7 +166,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				running := false
 				vm = tests.NewRandomVMWithDataVolumeInStorageClass(
 					tests.GetUrl(tests.AlpineHttpUrl),
-					tests.NamespaceTestDefault,
+					util.NamespaceTestDefault,
 					sc,
 				)
 				vm.Spec.Running = &running

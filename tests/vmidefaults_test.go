@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -41,7 +43,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	Context("Disk defaults", func() {
@@ -77,10 +79,10 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create the VMI first
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+			newVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// check defaults
@@ -99,7 +101,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 			// create VMI with missing disk target
 			vmi = tests.NewRandomVMI()
 
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 			kvConfiguration = kv.Spec.Configuration
 		})
 
@@ -109,7 +111,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 
 		It("[test_id:4556]Should be present in domain", func() {
 			By("Creating a virtual machine")
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -143,7 +145,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 			tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
 
 			By("Creating a virtual machine")
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -185,7 +187,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", func() {
 			By("Creating a virtual machine with autoAttachmemballoon set to false")
 			f := false
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &f
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")

@@ -29,6 +29,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
 	expect "github.com/google/goexpect"
@@ -85,7 +87,7 @@ var _ = SIGDescribe("Storage", func() {
 			// Prepare a NFS backed PV
 			By("Starting an NFS POD")
 			nfsPod := storageframework.RenderNFSServer("nfsserver", targetImage)
-			nfsPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), nfsPod, metav1.CreateOptions{})
+			nfsPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), nfsPod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisPod(nfsPod), 180).Should(BeInPhase(k8sv1.PodRunning))
 			nfsPod, err = ThisPod(nfsPod)()
@@ -101,12 +103,12 @@ var _ = SIGDescribe("Storage", func() {
 			nfsIP := libnet.GetPodIpByFamily(nfsPod, ipFamily)
 			ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
 			os := string(cd.ContainerDiskAlpine)
-			tests.CreateNFSPvAndPvc(pvName, tests.NamespaceTestDefault, "5Gi", nfsIP, os)
+			tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
 			return pvName
 		}
 
 		runHostPathJobAndExpectCompletion := func(pod *k8sv1.Pod) {
-			pod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+			pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 			_, err = ThisPod(pod)()
@@ -153,7 +155,7 @@ var _ = SIGDescribe("Storage", func() {
 				nodeName = tests.NodeNameWithHandler()
 				tests.CreateFaultyDisk(nodeName, deviceName)
 				var err error
-				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, deviceName, tests.NamespaceTestDefault)
+				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, deviceName, util.NamespaceTestDefault)
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 			})
 
@@ -167,7 +169,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := tests.NewRandomVMIWithPVC(pvc.Name)
-				_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil(), "Failed to create vmi")
 
 				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 120)
@@ -187,7 +189,7 @@ var _ = SIGDescribe("Storage", func() {
 						return false
 					}, 60*time.Second, time.Second).Should(BeTrue())
 
-				err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil(), "Failed to delete VMI")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
@@ -381,7 +383,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					pod,
@@ -398,7 +400,7 @@ var _ = SIGDescribe("Storage", func() {
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
-				dataVolume = tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume = tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			})
 			AfterEach(func() {
 				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
@@ -447,7 +449,7 @@ var _ = SIGDescribe("Storage", func() {
 				}, 30*time.Second)).To(Succeed(), "Should be able to access the mounted virtiofs file")
 
 				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					pod,
@@ -620,7 +622,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = tests.NewRandomVMIWithHostDisk("somepath", v1.HostDiskExistsOrCreate, "")
 				virtClient, err := kubecli.GetKubevirtClient()
 				Expect(err).ToNot(HaveOccurred())
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
 			})
@@ -629,7 +631,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi := tests.NewRandomVMIWithFSFromDataVolume("something")
 				virtClient, err := kubecli.GetKubevirtClient()
 				Expect(err).ToNot(HaveOccurred())
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
 			})
@@ -680,7 +682,7 @@ var _ = SIGDescribe("Storage", func() {
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img has been created")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 						nodeName = vmiPod.Spec.NodeName
 						output, err := tests.ExecuteCommandOnPod(
 							virtClient,
@@ -703,7 +705,7 @@ var _ = SIGDescribe("Storage", func() {
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if another.img has been created")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 						nodeName = vmiPod.Spec.NodeName
 						output, err := tests.ExecuteCommandOnPod(
 							virtClient,
@@ -735,10 +737,10 @@ var _ = SIGDescribe("Storage", func() {
 						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
 						job := tests.CreateHostDiskImage(diskPath)
-						job, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), job, metav1.CreateOptions{})
+						job, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), job, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						getStatus := func() k8sv1.PodPhase {
-							pod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Get(context.Background(), job.Name, metav1.GetOptions{})
+							pod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), job.Name, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
 							if pod.Spec.NodeName != "" && nodeName == "" {
 								nodeName = pod.Spec.NodeName
@@ -754,7 +756,7 @@ var _ = SIGDescribe("Storage", func() {
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img exists")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 						output, err := tests.ExecuteCommandOnPod(
 							virtClient,
 							vmiPod,
@@ -774,7 +776,7 @@ var _ = SIGDescribe("Storage", func() {
 								break
 							}
 						}
-						_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+						_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -783,7 +785,7 @@ var _ = SIGDescribe("Storage", func() {
 					It("[test_id:852]Should fail to start VMI", func() {
 						By("Starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithHostDisk("/data/unknown.img", "unknown", "")
-						_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+						_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -815,7 +817,7 @@ var _ = SIGDescribe("Storage", func() {
 						tests.RunVMIAndExpectLaunch(vmi, 90)
 
 						By("Checking if disk.img exists")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 						output, err := tests.ExecuteCommandOnPod(
 							virtClient,
 							vmiPod,
@@ -852,12 +854,12 @@ var _ = SIGDescribe("Storage", func() {
 							},
 						},
 					}
-					pod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+					pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					By("Waiting for hostPath pod to prepare the mounted directory")
 					Eventually(func() k8sv1.ConditionStatus {
-						p, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Get(context.Background(), pod.Name, metav1.GetOptions{})
+						p, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), pod.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						for _, c := range p.Status.Conditions {
 							if c.Type == k8sv1.PodReady {
@@ -878,7 +880,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				configureToleration := func(toleration int) {
 					By("By configuring toleration")
-					cfg := tests.GetCurrentKv(virtClient).Spec.Configuration
+					cfg := util.GetCurrentKv(virtClient).Spec.Configuration
 					cfg.DeveloperConfiguration.LessPVCSpaceToleration = toleration
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 				}

@@ -23,6 +23,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -42,7 +44,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 	Context("with external alpine-based kernel & initrd images", func() {
 		It("ensure successful boot", func() {
 			vmi := utils.GetVMIKernelBoot()
-			obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(obj)
 		})
@@ -54,7 +56,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			vmi := utils.GetVMIKernelBoot()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.Image = ""
-			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with an image"))
 		})
@@ -64,7 +66,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", func() {
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.KernelPath = ""
 			kernelBoot.Container.InitrdPath = ""
-			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with at least one of the following: kernelPath, initrdPath"))
 		})

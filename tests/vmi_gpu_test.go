@@ -12,6 +12,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -58,7 +60,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	Context("with ephemeral disk", func() {
@@ -72,10 +74,10 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 				},
 			}
 			randomVMI.Spec.Domain.Devices.GPUs = gpus
-			vmi, apiErr := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
+			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 
-			pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			pod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			Expect(pod.Status.Phase).To(Equal(k8sv1.PodPending))
 			Expect(pod.Status.Conditions[0].Type).To(Equal(k8sv1.PodScheduled))
 			Expect(strings.Contains(pod.Status.Conditions[0].Message, "Insufficient "+gpuName)).To(Equal(true))
@@ -106,7 +108,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 				},
 			}
 			randomVMI.Spec.Domain.Devices.GPUs = gpus
-			vmi, apiErr := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
+			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -114,7 +116,7 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 
-			readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 
 			gpuOutput, err := tests.ExecuteCommandOnPod(
 				virtClient,

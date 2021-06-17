@@ -28,6 +28,7 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	"fmt"
@@ -132,9 +133,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
-		originalKubeVirtConfig = tests.GetCurrentKv(virtClient)
+		originalKubeVirtConfig = util.GetCurrentKv(virtClient)
 	})
 
 	defaultKVConfig := func() v1.KubeVirtConfiguration {
@@ -171,7 +172,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	})
 
 	AfterEach(func() {
-		currKubeVirt := tests.GetCurrentKv(virtClient)
+		currKubeVirt := util.GetCurrentKv(virtClient)
 
 		// if revision changed, patch data and reload everything
 		if currKubeVirt.ResourceVersion != originalKubeVirtConfig.ResourceVersion {
@@ -566,7 +567,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 					By("Check if Migrated VMI has updated IP and IPs fields")
 					Eventually(func() error {
-						newvmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+						newvmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, newvmi.Namespace)
 						return libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)
@@ -702,7 +703,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(isPaused).To(BeTrue(), "The VMI should be paused after migration, but it is not.")
 
 				By("verify that VMI can be unpaused after migration")
-				command := tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
+				command := tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", util.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed(), "should successfully unpause tthe vmi")
 				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
@@ -834,7 +835,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				_, err = virtClient.CoreV1().PersistentVolumes().Create(context.Background(), tests.NewISCSIPV(pvName, "2Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				volMode := k8sv1.PersistentVolumeFilesystem
 				dataVolume.Spec.PVC.VolumeMode = &volMode
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -878,7 +879,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 			It("[test_id:3239]should reject a migration of a vmi with a non-shared data volume", func() {
-				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -920,7 +921,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 			})
 			It("[test_id:1479] should migrate a vmi with a shared OCS disk", func() {
-				vmi, dv := tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				vmi, dv := tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 				defer deleteDataVolume(dv)
 
 				By("Starting the VirtualMachineInstance")
@@ -1117,7 +1118,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				quantity, err := resource.ParseQuantity("5Gi")
 				Expect(err).ToNot(HaveOccurred())
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-				dv := tests.NewRandomDataVolumeWithRegistryImport(url, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dv := tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				dv.Spec.PVC.Resources.Requests["storage"] = quantity
 				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1142,7 +1143,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				By("pinning the wffc dv")
-				wffcPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), wffcPod, metav1.CreateOptions{})
+				wffcPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), wffcPod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisPod(wffcPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 
@@ -1153,7 +1154,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// Prepare a NFS backed PV
 				By("Starting an NFS POD to serve the PVC contents")
 				nfsPod := storageframework.RenderNFSServerWithPVC("nfsserver", dv.Name)
-				nfsPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), nfsPod, metav1.CreateOptions{})
+				nfsPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), nfsPod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisPod(nfsPod), 120).Should(BeInPhase(k8sv1.PodRunning))
 				nfsPod, err = ThisPod(nfsPod)()
@@ -1163,7 +1164,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
 				os := string(cd.ContainerDiskFedora)
-				tests.CreateNFSPvAndPvc(pvName, tests.NamespaceTestDefault, "5Gi", nfsIP, os)
+				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
 			})
 
 			AfterEach(func() {
@@ -1178,7 +1179,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 				if wffcPod != nil {
 					By("Deleting the wffc pod")
-					err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(context.Background(), wffcPod.Name, metav1.DeleteOptions{})
+					err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), wffcPod.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					wffcPod = nil
 				}
@@ -1242,7 +1243,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Checking that the service account is mounted")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
-					&expect.BExp{R: tests.NamespaceTestDefault},
+					&expect.BExp{R: util.NamespaceTestDefault},
 				}, 30)).To(Succeed(), "Should be able to access the mounted service account file")
 
 				By("Deleting the VMI")
@@ -1276,7 +1277,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("Agent stays connected")
 				Consistently(func() error {
-					updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, condition := range updatedVmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
@@ -1436,7 +1437,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			AfterEach(func() {
 				for _, podName := range createdPods {
 					Eventually(func() error {
-						err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(context.Background(), podName, metav1.DeleteOptions{})
+						err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), podName, metav1.DeleteOptions{})
 
 						if err != nil && errors.IsNotFound(err) {
 							return nil
@@ -1505,7 +1506,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// launch killer pod on every node that isn't the vmi's node
 				By("Starting our migration killer pods")
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := util.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for idx, entry := range nodes.Items {
 					if entry.Name == vmi.Status.NodeName {
@@ -1518,7 +1519,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					pod := tests.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep \"%s\" && pkill -9 virt-handler && exit 0; done", emulator)})
 
 					pod.Spec.NodeName = entry.Name
-					createdPod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+					createdPod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
 					createdPods = append(createdPods, createdPod.Name)
 				}
@@ -1760,7 +1761,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				volMode := k8sv1.PersistentVolumeBlock
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-				dv := tests.NewRandomDataVolumeWithRegistryImport(url, tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				dv := tests.NewRandomDataVolumeWithRegistryImport(url, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				dv.Spec.PVC.StorageClassName = &sc
 				dv.Spec.PVC.Resources.Requests["storage"] = quantity
 				dv.Spec.PVC.VolumeMode = &volMode
@@ -1898,7 +1899,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				return others
 			}
 			isHeterogeneousCluster := func() bool {
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := util.GetAllSchedulableNodes(virtClient)
 				for _, node := range nodes.Items {
 					hostModel := getNodeHostModel(&node)
 					otherNodes := getOtherNodes(nodes, &node)
@@ -2073,12 +2074,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
-					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("checking that the PDB appeared")
 					Eventually(func() []v1beta1.PodDisruptionBudget {
-						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(tests.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						return pdbs.Items
 					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
@@ -2086,15 +2087,15 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
 
 					By("deleting the VMI")
-					Expect(virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+					Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 					By("checking that the PDB disappeared")
 					Eventually(func() []v1beta1.PodDisruptionBudget {
-						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(tests.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						return pdbs.Items
 					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(0))
 					Eventually(func() bool {
-						_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+						_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						return errors.IsNotFound(err)
 					}, 60*time.Second, 500*time.Millisecond).Should(BeTrue())
 				}
@@ -2346,11 +2347,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vm_noevict := tests.NewRandomVirtualMachine(vmi_noevict, false)
 
 					// post VMs
-					vm_evict1, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm_evict1)
+					vm_evict1, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm_evict1)
 					Expect(err).ToNot(HaveOccurred())
-					vm_evict2, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm_evict2)
+					vm_evict2, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm_evict2)
 					Expect(err).ToNot(HaveOccurred())
-					vm_noevict, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm_noevict)
+					vm_noevict, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm_noevict)
 					Expect(err).ToNot(HaveOccurred())
 
 					// Start VMs
@@ -2426,12 +2427,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				By("selecting a node as the source")
-				sourceNode := tests.GetAllSchedulableNodes(virtClient).Items[0]
+				sourceNode := util.GetAllSchedulableNodes(virtClient).Items[0]
 				tests.AddLabelToNode(sourceNode.Name, "tests.kubevirt.io", "target")
 
 				By("starting four VMIs on that node")
 				for _, vmi := range vmis {
-					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).ToNot(HaveOccurred())
 				}
 
@@ -2441,7 +2442,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				By("selecting a node as the target")
-				targetNode := tests.GetAllSchedulableNodes(virtClient).Items[1]
+				targetNode := util.GetAllSchedulableNodes(virtClient).Items[1]
 				tests.AddLabelToNode(targetNode.Name, "tests.kubevirt.io", "target")
 
 				By("tainting the source node as non-schedulabele")
@@ -2461,7 +2462,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Eventually(func() []string {
 					var nodes []string
 					for _, vmi := range vmis {
-						vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+						vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						nodes = append(nodes, vmi.Status.NodeName)
 					}
 
@@ -2482,7 +2483,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Checking that all migrated VMIs have the new pod IP address on VMI status")
 				for _, vmi := range vmis {
 					Eventually(func() error {
-						newvmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+						newvmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, newvmi.Namespace)
 						return libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)
@@ -2534,7 +2535,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			}
 
 			By("Starting hugepages VMI")
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(hugepagesVmi)
+			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(hugepagesVmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(hugepagesVmi)
 

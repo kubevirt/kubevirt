@@ -28,6 +28,8 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	expect "github.com/google/goexpect"
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +53,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
 
@@ -71,7 +73,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 		It("[test_id:6220]should propagate public ssh keys", func() {
 			secretID := "my-pub-key"
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-			vmi.Namespace = tests.NamespaceTestDefault
+			vmi.Namespace = util.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
 					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
@@ -120,7 +122,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
 			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, cond := range vmi.Status.Conditions {
 					if cond.Type == v1.VirtualMachineInstanceAccessCredentialsSynchronized && cond.Status == kubev1.ConditionTrue {
@@ -151,7 +153,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 		It("[test_id:6221]should propagate user password", func() {
 			secretID := "my-user-pass"
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-			vmi.Namespace = tests.NamespaceTestDefault
+			vmi.Namespace = util.NamespaceTestDefault
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
@@ -197,7 +199,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
 			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, cond := range vmi.Status.Conditions {
 					if cond.Type == v1.VirtualMachineInstanceAccessCredentialsSynchronized && cond.Status == kubev1.ConditionTrue {
@@ -221,7 +223,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 		It("[test_id:6222]should update guest agent for public ssh keys", func() {
 			secretID := "my-pub-key"
 			vmi := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec")
-			vmi.Namespace = tests.NamespaceTestDefault
+			vmi.Namespace = util.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
 					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
@@ -265,11 +267,11 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
 			By("Checking that blacklisted commands triggered unsupported guest agent condition")
 			getOptions := metav1.GetOptions{}
-			freshVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
 			Eventually(func() []v1.VirtualMachineInstanceCondition {
-				freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+				freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 				return freshVMI.Status.Conditions
 			}, 240*time.Second, 2).Should(
@@ -283,7 +285,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 		It("[test_id:6223]should update guest agent for user password", func() {
 			secretID := "my-user-pass"
 			vmi := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-set-user-password")
-			vmi.Namespace = tests.NamespaceTestDefault
+			vmi.Namespace = util.NamespaceTestDefault
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
@@ -326,11 +328,11 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
 			By("Checking that blacklisted commands triggered unsupported guest agent condition")
 			getOptions := metav1.GetOptions{}
-			freshVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
 			Eventually(func() []v1.VirtualMachineInstanceCondition {
-				freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+				freshVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 				return freshVMI.Status.Conditions
 			}, 240*time.Second, 2).Should(
@@ -350,7 +352,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				fedoraPassword,
 			)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData)
-			vmi.Namespace = tests.NamespaceTestDefault
+			vmi.Namespace = util.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
 					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{

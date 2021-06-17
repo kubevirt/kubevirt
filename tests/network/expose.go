@@ -18,6 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
@@ -39,10 +41,10 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 
 	var err error
 	if createVMI {
-		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 		tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &k8smetav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 	}
@@ -76,7 +78,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
@@ -220,12 +222,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
-					_, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+					_, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
 				Eventually(getEndpoint, 60, 1).Should(BeNil())
 
-				endpoints, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				endpoints, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(endpoints.Subsets)).To(Equal(1))
@@ -275,12 +277,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
-					_, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+					_, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
 				Eventually(getEndpoint, 60, 1).Should(BeNil())
 
-				endpoints, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				endpoints, err := virtClient.CoreV1().Endpoints(util.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(endpoints.Subsets)).To(Equal(1))
@@ -577,12 +579,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")
-			vmrs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(vmrs)
+			vmrs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(vmrs)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking the number of ready replicas")
 			Eventually(func() int {
-				rs, err := virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
+				rs, err := virtClient.ReplicaSet(util.NamespaceTestDefault).Get(vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return int(rs.Status.ReadyReplicas)
 			}, 120*time.Second, 1*time.Second).Should(Equal(numberOfVMs))
@@ -703,7 +705,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			BeforeEach(tests.BeforeTestCleanup)
 
 			BeforeEach(func() {
-				vm, err = createStoppedVM(virtClient, tests.NamespaceTestDefault)
+				vm, err = createStoppedVM(virtClient, util.NamespaceTestDefault)
 				Expect(err).NotTo(HaveOccurred(), "should create a stopped VM.")
 			})
 

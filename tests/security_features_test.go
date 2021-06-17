@@ -28,6 +28,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -42,7 +44,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
@@ -51,7 +53,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 		var kubevirtConfiguration *v1.KubeVirtConfiguration
 
 		tests.BeforeAll(func() {
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 			kubevirtConfiguration = &kv.Spec.Configuration
 		})
 
@@ -77,24 +79,24 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 			It("[test_id:2953]Ensure virt-launcher pod securityContext type is correctly set", func() {
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Check virt-launcher pod SecurityContext values")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions).To(Equal(&k8sv1.SELinuxOptions{Type: "container_t"}))
 			})
 
 			It("[test_id:2895]Make sure the virt-launcher pod is not priviledged", func() {
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Check virt-launcher pod SecurityContext values")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				for _, containerSpec := range vmiPod.Spec.Containers {
 					if containerSpec.Name == "compute" {
 						container = containerSpec
@@ -107,7 +109,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 			It("[test_id:4297]Make sure qemu processes are MCS constrained", func() {
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -115,7 +117,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				Expect(err).ToNot(HaveOccurred())
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				qemuProcessSelinuxContext, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					pod,
@@ -130,7 +132,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				By("Checking that qemu-kvm process has SELinux category_set")
 				Expect(len(strings.Split(qemuProcessSelinuxContext, ":"))).To(Equal(5))
 
-				err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -146,7 +148,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Starting a New VMI")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -154,13 +156,13 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 
 				By("Verifying SELinux context contains custom type")
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(superPrivilegedType))
 
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -176,7 +178,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Starting a New VMI")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -188,7 +190,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				Expect(err).ToNot(HaveOccurred())
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
-				pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				qemuProcessSelinuxContext, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					pod,
@@ -204,7 +206,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(launcherType))
 
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -218,7 +220,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 			By("Starting a New VMI")
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -226,7 +228,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By("Fetching virt-launcher Pod")
-			pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			pod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 
 			for _, containerSpec := range pod.Spec.Containers {
 				if containerSpec.Name == "compute" {

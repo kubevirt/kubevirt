@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +48,7 @@ var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
@@ -71,7 +73,7 @@ var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
@@ -94,7 +96,7 @@ var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
 			tests.AddEphemeralDisk(vmi, "disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
-			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
@@ -104,7 +106,7 @@ var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching VMI from cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
@@ -132,7 +134,7 @@ var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &multiQueue
 
 			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 

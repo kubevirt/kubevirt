@@ -40,6 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -110,27 +112,27 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 
-		nodes = tests.GetAllSchedulableNodes(virtClient)
+		nodes = util.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items) > 0).To(BeTrue())
 
 		configureNodeNetwork(virtClient)
 
 		result := virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "linux-bridge-net-vlan100")).
-			Body([]byte(fmt.Sprintf(linuxBridgeConfCRD, "linux-bridge-net-vlan100", tests.NamespaceTestDefault))).
+			RequestURI(fmt.Sprintf(postUrl, util.NamespaceTestDefault, "linux-bridge-net-vlan100")).
+			Body([]byte(fmt.Sprintf(linuxBridgeConfCRD, "linux-bridge-net-vlan100", util.NamespaceTestDefault))).
 			Do(context.Background())
 		Expect(result.Error()).NotTo(HaveOccurred())
 
 		// Create ptp crds with tuning plugin enabled in two different namespaces
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf-1")).
-			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-1", tests.NamespaceTestDefault, ptpSubnet))).
+			RequestURI(fmt.Sprintf(postUrl, util.NamespaceTestDefault, "ptp-conf-1")).
+			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-1", util.NamespaceTestDefault, ptpSubnet))).
 			Do(context.Background())
 		Expect(result.Error()).NotTo(HaveOccurred())
 
@@ -144,10 +146,10 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 	BeforeEach(func() {
 		// Multus tests need to ensure that old VMIs are gone
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
+		Expect(virtClient.RestClient().Delete().Namespace(util.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
 		Eventually(func() int {
-			list1, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v13.ListOptions{})
+			list1, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -181,7 +183,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					}},
 				}
 
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
+				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
@@ -199,7 +201,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					}},
 				}
 
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
+				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
@@ -220,7 +222,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					}},
 				}
 
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
+				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
@@ -250,12 +252,12 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
-							NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestDefault, "ptp-conf-1"),
+							NetworkName: fmt.Sprintf("%s/%s", util.NamespaceTestDefault, "ptp-conf-1"),
 							Default:     true,
 						}}},
 				}
 
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
+				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
@@ -317,7 +319,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, util.NamespaceTestDefault)
 				out, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
@@ -448,7 +450,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
-				updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmiOne.Name, &metav1.GetOptions{})
+				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiOne.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(2))
@@ -499,7 +501,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 				)
 
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -525,7 +527,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					linuxBridgeNetwork,
 				}
 
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred())
 				testErr := err.(*errors.StatusError)
 				Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
@@ -578,7 +580,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 				By("Starting a VirtualMachineInstance")
-				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+				agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				tests.WaitForSuccessfulVMIStart(agentVMI)
 
@@ -587,14 +589,14 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				getOptions := &metav1.GetOptions{}
 				Eventually(func() bool {
-					updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 					if err != nil {
 						return false
 					}
 					return len(updatedVmi.Status.Interfaces) == 4
 				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
 
-				updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+				updatedVmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(4))
@@ -643,7 +645,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 		// Check if the hardware supports SRIOV
@@ -651,17 +653,17 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Skip("Sriov is not enabled in this environment. Skip these tests using - export FUNC_TEST_ARGS='--ginkgo.skip=SRIOV'")
 		}
 
-		Expect(createNetworkAttachementDefinition(sriovnet1, tests.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
-		Expect(createNetworkAttachementDefinition(sriovnet2, tests.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
-		Expect(createNetworkAttachementDefinition(sriovnet3, tests.NamespaceTestDefault, sriovLinkEnableConfCRD)).To((Succeed()), "should successfully create the network")
+		Expect(createNetworkAttachementDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
+		Expect(createNetworkAttachementDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
+		Expect(createNetworkAttachementDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).To((Succeed()), "should successfully create the network")
 	})
 
 	BeforeEach(func() {
 		// Multus tests need to ensure that old VMIs are gone
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
+		Expect(virtClient.RestClient().Delete().Namespace(util.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
 		Eventually(func() int {
-			list1, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v13.ListOptions{})
+			list1, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -689,7 +691,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 
 		startVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			return vmi
 		}
@@ -952,7 +954,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				var err error
 				ipVlaned1, err = cidrToIP(cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
-				createNetworkAttachementDefinition(sriovVlanNetworkName, tests.NamespaceTestDefault, sriovConfVlanCRD)
+				createNetworkAttachementDefinition(sriovVlanNetworkName, util.NamespaceTestDefault, sriovConfVlanCRD)
 			})
 
 			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
@@ -1049,7 +1051,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		macvtapLowerDevice = "eth0"
 		macvtapNetworkName = "net1"
@@ -1065,8 +1067,8 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 	BeforeEach(func() {
 		result := virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, macvtapNetworkName)).
-			Body([]byte(fmt.Sprintf(macvtapNetworkConf, macvtapNetworkName, tests.NamespaceTestDefault, macvtapLowerDevice, macvtapNetworkName))).
+			RequestURI(fmt.Sprintf(postUrl, util.NamespaceTestDefault, macvtapNetworkName)).
+			Body([]byte(fmt.Sprintf(macvtapNetworkConf, macvtapNetworkName, util.NamespaceTestDefault, macvtapLowerDevice, macvtapNetworkName))).
 			Do(context.Background())
 		Expect(result.Error()).NotTo(HaveOccurred(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
 	})
@@ -1142,7 +1144,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 		var serverIP string
 
 		BeforeEach(func() {
-			nodeList = tests.GetAllSchedulableNodes(virtClient)
+			nodeList = util.GetAllSchedulableNodes(virtClient)
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName = nodeList.Items[0].Name
 			chosenMAC = "de:ad:00:00:be:af"
@@ -1437,7 +1439,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 	}
 
 	// Make sure that all pods in the Daemon Set finished the configuration
-	nodes := tests.GetAllSchedulableNodes(virtClient)
+	nodes := util.GetAllSchedulableNodes(virtClient)
 	Eventually(func() int {
 		daemonSet := getNetworkConfigDaemonSet()
 		return int(daemonSet.Status.NumberAvailable)
@@ -1445,7 +1447,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 }
 
 func validateSRIOVSetup(virtClient kubecli.KubevirtClient, sriovResourceName string, minRequiredNodes int) error {
-	nodes := tests.GetAllSchedulableNodes(virtClient)
+	nodes := util.GetAllSchedulableNodes(virtClient)
 	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 	var sriovEnabledNode int

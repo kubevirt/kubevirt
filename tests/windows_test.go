@@ -35,6 +35,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -122,7 +124,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 		tests.BeforeTestCleanup()
 		tests.SkipIfNoWindowsImage(virtClient)
 		tests.CreatePVC(tests.OSWindows, "30Gi", tests.Config.StorageClassWindows, true)
@@ -133,19 +135,19 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 	})
 
 	It("[test_id:487]should succeed to start a vmi", func() {
-		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
+		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 	}, 300)
 
 	It("[test_id:488]should succeed to stop a running vmi", func() {
 		By("Starting the vmi")
-		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
+		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 		By("Stopping the vmi")
-		err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+		err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 		Expect(err).To(BeNil())
 	}, 300)
 
@@ -170,15 +172,15 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					},
 				},
 			}
-			winrmcliPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
+			winrmcliPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), winrmcliPod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the windows VirtualMachineInstance")
-			windowsVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
+			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
-			windowsVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(windowsVMI.Name, &metav1.GetOptions{})
+			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(windowsVMI.Name, &metav1.GetOptions{})
 			vmiIp = windowsVMI.Status.Interfaces[0].IP
 			cli = []string{
 				winrmCliCmd,
@@ -311,7 +313,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 
 			By("Checking that the vmi pod terminated")
 			Eventually(func() int {
-				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(context.Background(), podSelector)
+				pods, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).List(context.Background(), podSelector)
 				Expect(err).ToNot(HaveOccurred())
 				return len(pods.Items)
 			}, 75, 0.5).Should(Equal(0))

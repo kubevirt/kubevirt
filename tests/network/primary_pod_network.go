@@ -25,6 +25,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -49,7 +51,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 	Describe("Status", func() {
 		AssertReportedIP := func(vmi *v1.VirtualMachineInstance) {
 			By("Getting pod of the VMI")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 
 			By("Making sure IP/s reported on the VMI matches the ones on the pod")
 			Expect(libnet.ValidateVMIandPodIPMatch(vmi, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
@@ -93,7 +95,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding())
 					Expect(err).NotTo(HaveOccurred())
 
-					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 					Expect(err).NotTo(HaveOccurred())
 					tests.WaitForSuccessfulVMIStart(vmi)
 					tests.WaitAgentConnected(virtClient, vmi)
@@ -136,7 +138,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
 					Expect(err).NotTo(HaveOccurred())
 
-					tmpVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(tmpVmi)
+					tmpVmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(tmpVmi)
 					Expect(err).NotTo(HaveOccurred())
 					vmi = tests.WaitUntilVMIReady(tmpVmi, console.LoginToFedora)
 
@@ -180,7 +182,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	By("Creating the VMI")
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 	Expect(err).NotTo(HaveOccurred(), "VMI should be successfully created")
 
 	By("Waiting until the VMI gets ready")
@@ -192,11 +194,11 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 func cleanupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
 	if vmi != nil {
 		By("Deleting the VMI")
-		Expect(virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.GetName(), &metav1.DeleteOptions{})).To(Succeed())
+		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.GetName(), &metav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for the VMI to be gone")
 		Eventually(func() error {
-			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.GetName(), &metav1.GetOptions{})
+			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.GetName(), &metav1.GetOptions{})
 			return err
 		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 	}

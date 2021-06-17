@@ -25,6 +25,8 @@ import (
 
 	expect "github.com/google/goexpect"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -46,7 +48,7 @@ var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", fu
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -63,7 +65,7 @@ var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", fu
 				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
 
 				By("starting a VMI with bridged network on a node")
-				bridgeVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(bridgeVMI)
+				bridgeVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(bridgeVMI)
 				Expect(err).To(BeNil(), "Should submit VMI successfully")
 
 				// Start a VirtualMachineInstance with bridged networking
@@ -74,14 +76,14 @@ var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", fu
 				By("restarting kubelet")
 				pod := renderPkillAllPod("kubelet")
 				pod.Spec.NodeName = nodeName
-				_, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+				_, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
 				newVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				Eventually(func() error {
-					newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(newVMI)
+					newVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(newVMI)
 					Expect(err).To(BeNil())
 					return nil
 				}, 100, 10).Should(Succeed(), "Should be able to start a new VM")

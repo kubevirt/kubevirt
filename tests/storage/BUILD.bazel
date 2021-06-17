@@ -30,6 +30,7 @@ go_library(
         "//tests/framework/storage:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libvmi:go_default_library",
+        "//tests/util:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

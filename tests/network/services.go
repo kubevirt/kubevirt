@@ -29,6 +29,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -64,7 +66,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 	}
 
 	readyVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-		createdVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
 		return tests.WaitUntilVMIReady(createdVMI, libnet.WithIPv6(console.LoginToCirros))
@@ -72,11 +74,11 @@ var _ = SIGDescribe("[Serial]Services", func() {
 
 	cleanupVMI := func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
 		By("Deleting the VMI")
-		Expect(virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.GetName(), &k8smetav1.DeleteOptions{})).To(Succeed())
+		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.GetName(), &k8smetav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for the VMI to be gone")
 		Eventually(func() error {
-			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.GetName(), &k8smetav1.GetOptions{})
+			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.GetName(), &k8smetav1.GetOptions{})
 			return err
 		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 	}
@@ -94,7 +96,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		By(fmt.Sprintf("waiting for the job to report a SUCCESSFUL connection attempt to service %s on port %d", serviceFQDN, servicePort))
 		err := tests.WaitForJobToSucceed(job, 90*time.Second)
 		return func() error {
-			return virtClient.BatchV1().Jobs(tests.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
+			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
 		}, err
 	}
 
@@ -107,7 +109,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		By(fmt.Sprintf("waiting for the job to report a FAILED connection attempt to service %s on port %d", serviceFQDN, servicePort))
 		err := tests.WaitForJobToFail(job, 90*time.Second)
 		return func() error {
-			return virtClient.BatchV1().Jobs(tests.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
+			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
 		}, err
 	}
 
