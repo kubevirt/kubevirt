@@ -40,6 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -801,6 +803,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 
 		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {
+			checks.SkipTestIfNoCPUManager()
 			// In addition to verifying that we can start a VMI with CPU pinning
 			// this also tests if we've correctly calculated the overhead for VFIO devices.
 			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())

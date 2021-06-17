@@ -29,6 +29,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
@@ -645,7 +647,7 @@ var _ = SIGDescribe("Storage", func() {
 				var nodeName string
 
 				BeforeEach(func() {
-					if !tests.HasFeature(virtconfig.HostDiskGate) {
+					if !checks.HasFeature(virtconfig.HostDiskGate) {
 						Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 					}
 					hostDiskDir = tests.RandTmpDir()

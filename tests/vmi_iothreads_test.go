@@ -28,6 +28,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -229,6 +231,8 @@ var _ = Describe("[Serial][sig-compute]IOThreads", func() {
 		// IOThread with Emulator Thread
 
 		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", func() {
+			checks.SkipTestIfNoCPUManager()
+
 			policy := v1.IOThreadsPolicyAuto
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 			vmi.Spec.Domain.CPU = &v1.CPU{

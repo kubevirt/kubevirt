@@ -41,6 +41,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -2122,13 +2124,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		}
 
 		BeforeEach(func() {
+			checks.SkipTestIfNoCPUManager()
 			nodes, err = virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-			util.PanicOnError(err)
+			Expect(err).ToNot(HaveOccurred())
 			if len(nodes.Items) == 1 {
 				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
-			}
-			if !tests.HasFeature(virtconfig.CPUManager) {
-				Skip("Skip tests requiring CPUManager if feature gate is not enabled.")
 			}
 		})
 

@@ -34,6 +34,7 @@ go_library(
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
         "//tests/flags:go_default_library",
+        "//tests/framework/checks:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/util:go_default_library",

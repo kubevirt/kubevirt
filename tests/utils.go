@@ -79,6 +79,8 @@ import (
 	"k8s.io/client-go/transport/spdy"
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	util2 "kubevirt.io/kubevirt/tests/util"
 
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
@@ -4185,27 +4187,8 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	return updatedVM
 }
 
-func HasFeature(feature string) bool {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	featureGates := []string{}
-	kv := util2.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration != nil {
-		featureGates = kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-	}
-
-	for _, fg := range featureGates {
-		if fg == feature {
-			return true
-		}
-	}
-
-	return false
-}
-
 func DisableFeatureGate(feature string) {
-	if !HasFeature(feature) {
+	if !checks.HasFeature(feature) {
 		return
 	}
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -4238,7 +4221,7 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	Expect(err).ToNot(HaveOccurred())
 
 	kv := util2.GetCurrentKv(virtClient)
-	if HasFeature(feature) {
+	if checks.HasFeature(feature) {
 		return kv
 	}
 
@@ -4299,11 +4282,11 @@ func GetCephStorageClass() (string, bool) {
 }
 
 func HasExperimentalIgnitionSupport() bool {
-	return HasFeature("ExperimentalIgnitionSupport")
+	return checks.HasFeature("ExperimentalIgnitionSupport")
 }
 
 func HasLiveMigration() bool {
-	return HasFeature("LiveMigration")
+	return checks.HasFeature("LiveMigration")
 }
 
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
