@@ -52,6 +52,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/perfscale"
 	vmiprom "kubevirt.io/kubevirt/pkg/monitoring/vmistats" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -412,6 +413,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.disruptionBudgetControllerThreads)
 
 		vmiprom.SetupVMICollector(vca.vmiInformer)
+		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
