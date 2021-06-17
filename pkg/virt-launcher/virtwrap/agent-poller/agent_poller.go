@@ -38,13 +38,14 @@ type AgentCommand string
 // Aliases are also used as keys to the store, it does not matter how the keys are named,
 // only whether it relates to the right data
 const (
-	GET_OSINFO     AgentCommand = "guest-get-osinfo"
-	GET_HOSTNAME   AgentCommand = "guest-get-host-name"
-	GET_INTERFACES AgentCommand = "guest-network-get-interfaces"
-	GET_TIMEZONE   AgentCommand = "guest-get-timezone"
-	GET_USERS      AgentCommand = "guest-get-users"
-	GET_FILESYSTEM AgentCommand = "guest-get-fsinfo"
-	GET_AGENT      AgentCommand = "guest-info"
+	GET_OSINFO          AgentCommand = "guest-get-osinfo"
+	GET_HOSTNAME        AgentCommand = "guest-get-host-name"
+	GET_INTERFACES      AgentCommand = "guest-network-get-interfaces"
+	GET_TIMEZONE        AgentCommand = "guest-get-timezone"
+	GET_USERS           AgentCommand = "guest-get-users"
+	GET_FILESYSTEM      AgentCommand = "guest-get-fsinfo"
+	GET_AGENT           AgentCommand = "guest-info"
+	GET_FSFREEZE_STATUS AgentCommand = "guest-fsfreeze-status"
 
 	pollInitialInterval = 10 * time.Second
 )
@@ -90,6 +91,9 @@ func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 			domainInfo.OSInfo = &info
 		case GET_INTERFACES:
 			domainInfo.Interfaces = value.([]api.InterfaceStatus)
+		case GET_FSFREEZE_STATUS:
+			status := value.(api.FSFreeze)
+			domainInfo.FSFreezeStatus = &status
 		}
 
 		s.AgentUpdated <- AgentUpdatedEvent{
@@ -161,6 +165,18 @@ func (s *AsyncAgentStore) GetGA() AgentInfo {
 
 	agent = data.(AgentInfo)
 	return agent
+}
+
+// GetFSFreezeStatus returns the Guest fsfreeze status
+func (s *AsyncAgentStore) GetFSFreezeStatus() api.FSFreeze {
+	data, ok := s.store.Load(GET_FSFREEZE_STATUS)
+	status := api.FSFreeze{}
+	if !ok {
+		return status
+	}
+
+	fsfreezeStatus := data.(api.FSFreeze)
+	return fsfreezeStatus
 }
 
 // GetFS returns the filesystem list limited to the limit set
@@ -274,6 +290,7 @@ func CreatePoller(
 	qemuAgentFileInterval time.Duration,
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
+	qemuAgentFSFreezeStatusInterval time.Duration,
 ) *AgentPoller {
 	p := &AgentPoller{
 		Connection: connecton,
@@ -302,6 +319,11 @@ func CreatePoller(
 	p.workers = append(p.workers, PollerWorker{
 		CallTick:      qemuAgentUserInterval,
 		AgentCommands: []AgentCommand{GET_USERS},
+	})
+	// fsfreeze command group
+	p.workers = append(p.workers, PollerWorker{
+		CallTick:      qemuAgentFSFreezeStatusInterval,
+		AgentCommands: []AgentCommand{GET_FSFREEZE_STATUS},
 	})
 
 	return p
@@ -373,6 +395,12 @@ func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStor
 				log.Log.Errorf("Cannot parse guest agent users %s", err.Error())
 			}
 			agentStore.Store(GET_USERS, users)
+		case GET_FSFREEZE_STATUS:
+			fsfreezeStatus, err := parseFSFreezeStatus(cmdResult)
+			if err != nil {
+				log.Log.Errorf("Cannot parse guest agent fsfreeze status %s", err.Error())
+			}
+			agentStore.Store(GET_FSFREEZE_STATUS, fsfreezeStatus)
 		case GET_FILESYSTEM:
 			filesystems, err := parseFilesystem(cmdResult)
 			if err != nil {

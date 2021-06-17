@@ -2526,6 +2526,54 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, VMIStarted)
 		})
 
+		It("should update Guest FSFreeze Status in VMI status if fs frozen", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			guestFSFreeezeStatus := "frozen"
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			domain.Status.FSFreezeStatus = api.FSFreeze{Status: guestFSFreeezeStatus}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.FSFreezeStatus).To(Equal(guestFSFreeezeStatus))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, VMIStarted)
+		})
+
+		It("should not show Guest FSFreeze Status in VMI status if fs not frozen", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			guestFSFreeezeStatus := api.FSThawed
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			domain.Status.FSFreezeStatus = api.FSFreeze{Status: guestFSFreeezeStatus}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.FSFreezeStatus).To(BeEmpty())
+			}).Return(vmi, nil)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, VMIStarted)
+		})
+
 		It("should add new vmi interfaces for new domain interfaces", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID

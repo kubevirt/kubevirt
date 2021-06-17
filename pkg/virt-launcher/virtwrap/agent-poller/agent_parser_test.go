@@ -257,6 +257,28 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(err).To(HaveOccurred(), "Should not parse the info")
 		})
 
+		It("should parse FSFreezeStatus", func() {
+			jsonInput := `{"return":"frozen"}`
+
+			fsFreezeStatus, err := parseFSFreezeStatus(jsonInput)
+			expectedFSFreezeStatus := api.FSFreeze{Status: "frozen"}
+
+			Expect(err).ToNot(HaveOccurred(), "FSFreezeStatus should be parsed normally")
+			Expect(fsFreezeStatus).To(Equal(expectedFSFreezeStatus))
+		})
+
+		It("should not parse FSFreezeStatus", func() {
+			malformedJSONInput := `{"return": {{frozen}`
+
+			_, err := parseFSFreezeStatus(malformedJSONInput)
+			Expect(err).To(HaveOccurred(), "FSFreezeStatus should not be parsed")
+
+			malformedJSONInput = `{"return": frozen}`
+
+			_, err = parseFSFreezeStatus(malformedJSONInput)
+			Expect(err).To(HaveOccurred(), "FSFreezeStatus should not be parsed")
+		})
+
 		It("should parse Hostname", func() {
 			jsonInput := `{
                 "return":{

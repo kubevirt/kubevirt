@@ -40,6 +40,36 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(agent).To(Equal(agentVersion))
 		})
 
+		It("should fire an event for new fsfreezestatus", func() {
+			var agentStore = NewAsyncAgentStore()
+
+			fakeFSFreezeStatus := api.FSFreeze{
+				Status: "frozen",
+			}
+			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
+
+			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
+				Type:       GET_FSFREEZE_STATUS,
+				DomainInfo: api.DomainGuestInfo{FSFreezeStatus: &fakeFSFreezeStatus},
+			})))
+		})
+
+		It("should not fire an event for the same fsfreezestatus", func() {
+			var agentStore = NewAsyncAgentStore()
+			fakeFSFreezeStatus := api.FSFreeze{
+				Status: "frozen",
+			}
+			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
+
+			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
+				Type:       GET_FSFREEZE_STATUS,
+				DomainInfo: api.DomainGuestInfo{FSFreezeStatus: &fakeFSFreezeStatus},
+			})))
+
+			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
+			Expect(agentStore.AgentUpdated).ToNot(Receive())
+		})
+
 		It("should fire an event for new sysinfo data", func() {
 			var agentStore = NewAsyncAgentStore()
 

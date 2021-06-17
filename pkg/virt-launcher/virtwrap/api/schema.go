@@ -91,6 +91,8 @@ const (
 	ReasonPausedPostcopyFailed StateChangeReason = "PostcopyFailed"
 
 	UserAliasPrefix = "ua-"
+
+	FSThawed = "thawed"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -102,10 +104,11 @@ type Domain struct {
 }
 
 type DomainStatus struct {
-	Status     LifeCycle
-	Reason     StateChangeReason
-	Interfaces []InterfaceStatus
-	OSInfo     GuestOSInfo
+	Status         LifeCycle
+	Reason         StateChangeReason
+	Interfaces     []InterfaceStatus
+	OSInfo         GuestOSInfo
+	FSFreezeStatus FSFreeze
 }
 
 type DomainSysInfo struct {
@@ -138,6 +141,10 @@ type Timezone struct {
 	Offset int
 }
 
+type FSFreeze struct {
+	Status string
+}
+
 type Filesystem struct {
 	Name       string
 	Mountpoint string
@@ -154,8 +161,9 @@ type User struct {
 
 // DomainGuestInfo represent guest agent info for specific domain
 type DomainGuestInfo struct {
-	Interfaces []InterfaceStatus
-	OSInfo     *GuestOSInfo
+	Interfaces     []InterfaceStatus
+	OSInfo         *GuestOSInfo
+	FSFreezeStatus *FSFreeze
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

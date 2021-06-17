@@ -211,6 +211,11 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	// +listType=atomic
 	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
+
+	// FSFreezeStatus is the state of the fs of the guest
+	// it can be either frozen or thawed
+	// +optional
+	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
 }
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
@@ -1717,6 +1722,9 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	UserList []VirtualMachineInstanceGuestOSUser `json:"userList,omitempty"`
 	// FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage
 	FSInfo VirtualMachineInstanceFileSystemInfo `json:"fsInfo,omitempty"`
+	// FSFreezeStatus is the state of the fs of the guest
+	// it can be either frozen or thawed
+	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
 }
 
 // List of commands that QEMU guest agent supports

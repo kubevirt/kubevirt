@@ -2,6 +2,7 @@ package agentpoller
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 
 	"kubevirt.io/client-go/log"
@@ -37,12 +38,26 @@ type IP struct {
 }
 
 var stripRE = regexp.MustCompile(`{\s*\"return\":\s*([{\[][\s\S]*[}\]])\s*}`)
+var stripStringRE = regexp.MustCompile(`{\s*\"return\":\s*\"([\s\S]*)\"\s*}`)
 
 // stripAgentResponse use regex to strip the wrapping item and returns the
 // embedded object.
 // It is a workaround so the amount of copy paste code is limited
 func stripAgentResponse(agentReply string) string {
 	return stripRE.FindStringSubmatch(agentReply)[1]
+}
+
+// stripAgentStringResponse use regex to stip the wrapping item
+// and returns the embedded string response
+// unlike stripAgentResponse the response is a simple string
+// rather then a complex object
+func stripAgentStringResponse(agentReply string) string {
+	result := stripStringRE.FindStringSubmatch(agentReply)
+	if len(result) < 2 {
+		return ""
+	}
+
+	return result[1]
 }
 
 // Hostname of the guest vm
@@ -131,6 +146,18 @@ func parseHostname(agentReply string) (string, error) {
 	}
 
 	return result.Hostname, nil
+}
+
+// parseFSFreezeStatus from the agent response
+func parseFSFreezeStatus(agentReply string) (api.FSFreeze, error) {
+	response := stripAgentStringResponse(agentReply)
+	if response == "" {
+		return api.FSFreeze{}, fmt.Errorf("Failed to strip FSFreeze status: %v", agentReply)
+	}
+
+	return api.FSFreeze{
+		Status: response,
+	}, nil
 }
 
 // parseTimezone from the agent response
