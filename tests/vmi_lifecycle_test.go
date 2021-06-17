@@ -103,7 +103,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Context("when virt-handler is deleted", func() {
-		It("[QUARANTINE][Serial][test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
+		It("[Serial][test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
 			pods, err := virtClient.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"),
 			})
