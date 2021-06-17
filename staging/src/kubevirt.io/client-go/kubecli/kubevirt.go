@@ -32,7 +32,9 @@ import (
 	autov1 "k8s.io/api/autoscaling/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -161,6 +163,7 @@ type VirtualMachineInstanceInterface interface {
 	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
+	Watch(opts metav1.ListOptions) (watch.Interface, error)
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
 	Pause(name string) error
@@ -209,6 +212,7 @@ type VirtualMachineInterface interface {
 	ForceRestart(name string, graceperiod int) error
 	Start(name string, startOptions *v1.StartOptions) error
 	Stop(name string) error
+	ForceStop(name string, graceperiod int) error
 	Migrate(name string) error
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error

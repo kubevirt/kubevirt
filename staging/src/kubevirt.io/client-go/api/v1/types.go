@@ -1701,6 +1701,17 @@ const (
 	StartRequestDataPausedTrue string = "true"
 )
 
+// StopOptions may be provided when deleting an API object.
+//
+// +k8s:openapi-gen=true
+type StopOptions struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// this updates the VMIs terminationGracePeriodSeconds during shutdown
+	// +optional
+	GracePeriod *int64 `json:"gracePeriod,omitempty" protobuf:"varint,1,opt,name=gracePeriod"`
+}
+
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

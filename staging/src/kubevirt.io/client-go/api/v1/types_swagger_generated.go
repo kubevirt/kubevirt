@@ -475,6 +475,13 @@ func (StartOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (StopOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "StopOptions may be provided when deleting an API object.\n\n+k8s:openapi-gen=true",
+		"gracePeriod": "this updates the VMIs terminationGracePeriodSeconds during shutdown\n+optional",
+	}
+}
+
 func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",

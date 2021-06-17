@@ -196,6 +196,16 @@ func (v *vm) Stop(name string) error {
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
+func (v *vm) ForceStop(name string, graceperiod int) error {
+	data := map[string]int{"gracePeriod": graceperiod}
+	body, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
+	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "stop")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+}
+
 func (v *vm) Migrate(name string) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "migrate")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()

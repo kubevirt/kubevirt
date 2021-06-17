@@ -42,6 +42,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/watch"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -816,6 +817,65 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 				Expect(oldCreationTime).ToNot(Equal(newVMI.ObjectMeta.CreationTimestamp))
 				Expect(oldVMIUuid).ToNot(Equal(newVMI.ObjectMeta.UID))
+			})
+
+			It("Should force stop a VMI", func() {
+
+				By("getting a VM with high TerminationGracePeriod")
+				newVMI := tests.NewRandomVMI()
+				gracePeriod := int64(1600)
+				newVMI.Spec.TerminationGracePeriodSeconds = &gracePeriod
+
+				newVM := tests.NewRandomVirtualMachine(newVMI, true)
+				_, err := virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VM to be ready")
+				Eventually(func() bool {
+					virtualMachine, err := virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return virtualMachine.Status.Ready
+				}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("setting up a watch for vmi")
+				lw, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Watch(metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				terminatationGracePeriodUpdated := func(stopCn <-chan bool, eventsCn <-chan watch.Event, updated chan<- bool) {
+					for {
+						select {
+						case <-stopCn:
+							return
+						case e := <-eventsCn:
+							vmi, ok := e.Object.(*v1.VirtualMachineInstance)
+							Expect(ok).To(BeTrue())
+							if vmi.Name != newVMI.Name {
+								continue
+							}
+
+							if *vmi.Spec.TerminationGracePeriodSeconds == 0 {
+								updated <- true
+							}
+						}
+					}
+				}
+				stopCn := make(chan bool, 1)
+				updated := make(chan bool, 1)
+				go terminatationGracePeriodUpdated(stopCn, lw.ResultChan(), updated)
+
+				By("Invoking virtctl --force stop")
+				forceStop := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, newVM.Name, "--namespace", newVM.Namespace, "--force", "--grace-period=0")
+				Expect(forceStop()).ToNot(HaveOccurred())
+
+				By("Ensuring the VirtualMachineInstance is removed")
+				Eventually(func() error {
+					_, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+					// Expect a 404 error
+					return err
+				}, 240*time.Second, 1*time.Second).Should(HaveOccurred())
+
+				Expect(updated).To(Receive(), "vmi should be updated")
+				stopCn <- true
 			})
 
 			Context("Using RunStrategyAlways", func() {
