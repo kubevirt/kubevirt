@@ -141,8 +141,9 @@ var _ = Describe("[sig-compute][serial]NUMA", func() {
 func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
 	stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, handlerPod, "virt-handler",
 		[]string{
-			"ps",
-			"ax",
+			"/bin/bash",
+			"-c",
+			"trap '' URG && ps ax",
 		})
 	Expect(err).ToNot(HaveOccurred(), stderr)
 
@@ -168,8 +169,9 @@ func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v
 func getNUMAMapping(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, pid string) string {
 	stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "virt-handler",
 		[]string{
-			"cat",
-			fmt.Sprintf("/proc/%v/numa_maps", pid),
+			"/bin/bash",
+			"-c",
+			fmt.Sprintf("trap '' URG && cat /proc/%v/numa_maps", pid),
 		})
 	Expect(err).ToNot(HaveOccurred(), stderr)
 	return stdout
