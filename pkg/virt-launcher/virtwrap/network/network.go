@@ -74,7 +74,7 @@ func (v VMNetworkConfigurator) getNICsWithLauncherPID(launcherPID *int) ([]podNI
 func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) error {
 	nics, err := n.getNICsWithLauncherPID(&pid)
 	if err != nil {
-		return nil
+		return err
 	}
 	for _, nic := range nics {
 		if err := nic.PlugPhase1(); err != nil {
@@ -87,7 +87,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) error {
 func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error {
 	nics, err := n.getNICs()
 	if err != nil {
-		return nil
+		return err
 	}
 	for _, nic := range nics {
 		if err := nic.PlugPhase2(domain); err != nil {
