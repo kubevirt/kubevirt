@@ -40,6 +40,11 @@ func involvedCells(cpumap map[uint32]*cmdv1.Cell, cpuTune *api.CPUTune) (map[uin
 // numaMapping maps numa nodes based on already applied VCPU pinning. The sort result is stable compared to the order
 // of provided host numa nodes.
 func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topology *cmdv1.Topology) error {
+	if topology == nil || len(topology.NumaCells) == 0 {
+		// If there is no numa topology reported, we don't do anything.
+		// this also means that emualted numa for e.g. memfd will keep intact
+		return nil
+	}
 	cpumap := cpuToCell(topology)
 	numamap, err := involvedCells(cpumap, domain.CPUTune)
 	if err != nil {

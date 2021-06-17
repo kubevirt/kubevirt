@@ -2,6 +2,7 @@ package converter
 
 import (
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -80,6 +81,17 @@ var _ = Describe("NumaPlacement", func() {
 		Expect(givenSpec.CPU).To(Equal(expectedSpec.CPU))
 	})
 
+	table.DescribeTable("it should do nothing", func(givenTopology *cmdv1.Topology) {
+		expectedSpec := givenSpec.DeepCopy()
+		Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
+		Expect(givenSpec.CPUTune).To(Equal(expectedSpec.CPUTune))
+		Expect(givenSpec.NUMATune).To(Equal(expectedSpec.NUMATune))
+		Expect(givenSpec.CPU).To(Equal(expectedSpec.CPU))
+	},
+		table.Entry("if no topology is provided", nil),
+		table.Entry("if no numa cells are reported", &cmdv1.Topology{NumaCells: nil}),
+	)
+
 	It("should detect invalid cpu pinning", func() {
 		givenSpec.CPUTune.VCPUPin = append(givenSpec.CPUTune.VCPUPin, api.CPUTuneVCPUPin{
 			VCPU:   4,
@@ -113,9 +125,20 @@ var _ = Describe("NumaPlacement", func() {
 			Expect(givenSpec.MemoryBacking).To(Equal(expectedMemoryBacking))
 		})
 
+		It("should detect if not enough memory is requested", func() {
+			var err error
+			memory := resource.MustParse("2Mi")
+			givenSpec.Memory, err = QuantityToByte(memory)
+			Expect(err).ToNot(HaveOccurred())
+			givenVMI.Spec.Domain.Memory.Guest = &memory
+			Expect(err).ToNot(HaveOccurred())
+			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).ToNot(Succeed())
+		})
+
 		It("should detect not divisable hugepages and shuffle the memory", func() {
 			var err error
 			givenSpec.Memory, err = QuantityToByte(resource.MustParse("66Mi"))
+			Expect(err).ToNot(HaveOccurred())
 			givenSpec.CPUTune.VCPUPin = append(givenSpec.CPUTune.VCPUPin, api.CPUTuneVCPUPin{
 				VCPU: 4, CPUSet: "40",
 			})
@@ -148,7 +171,6 @@ var _ = Describe("NumaPlacement", func() {
 				{ID: "2", CPUs: "4", Memory: 20, Unit: "MiB"},
 			}
 
-			Expect(err).ToNot(HaveOccurred())
 			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
 			Expect(givenSpec.CPUTune).To(Equal(expectedSpec.CPUTune))
 			Expect(givenSpec.NUMATune).To(Equal(expectedSpec.NUMATune))
