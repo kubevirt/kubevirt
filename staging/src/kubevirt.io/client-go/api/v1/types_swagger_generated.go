@@ -296,6 +296,12 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineStartFailure) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineStartFailure tracks VMIs which failed to transition successfully\nto running using the VM status\n\n+k8s:openapi-gen=true",
+	}
+}
+
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                       "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing\n\n+k8s:openapi-gen=true",
@@ -307,6 +313,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
 		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
 		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
+		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
 	}
 }
 

@@ -12737,6 +12737,22 @@
      }
     }
    },
+   "v1.VirtualMachineStartFailure": {
+    "description": "VirtualMachineStartFailure tracks VMIs which failed to transition successfully to running using the VM status",
+    "type": "object",
+    "properties": {
+     "consecutiveFailCount": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "lastFailedVMIUID": {
+      "type": "string"
+     },
+     "retryAfterTimestamp": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     }
+    }
+   },
    "v1.VirtualMachineStateChangeRequest": {
     "type": "object",
     "required": [
@@ -12787,6 +12803,10 @@
      "snapshotInProgress": {
       "description": "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
       "type": "string"
+     },
+     "startFailure": {
+      "description": "StartFailure tracks consecutive VMI startup failures for the purposes of crash loop backoffs",
+      "$ref": "#/definitions/v1.VirtualMachineStartFailure"
      },
      "stateChangeRequests": {
       "description": "StateChangeRequests indicates a list of actions that should be taken on a VMI e.g. stop a specific VMI then start a new one.",

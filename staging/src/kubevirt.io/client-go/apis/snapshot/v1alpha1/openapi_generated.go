@@ -445,6 +445,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec":                    schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceTemplateSpec(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineList":                                    schema_kubevirtio_client_go_api_v1_VirtualMachineList(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineSpec":                                    schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref),
+		"kubevirt.io/client-go/api/v1.VirtualMachineStartFailure":                            schema_kubevirtio_client_go_api_v1_VirtualMachineStartFailure(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineStateChangeRequest":                      schema_kubevirtio_client_go_api_v1_VirtualMachineStateChangeRequest(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineStatus":                                  schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineVolumeRequest":                           schema_kubevirtio_client_go_api_v1_VirtualMachineVolumeRequest(ref),
@@ -20111,6 +20112,38 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_VirtualMachineStartFailure(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineStartFailure tracks VMIs which failed to transition successfully to running using the VM status",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"consecutiveFailCount": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"lastFailedVMIUID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"retryAfterTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_VirtualMachineStateChangeRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20245,11 +20278,17 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref common.Referenc
 							},
 						},
 					},
+					"startFailure": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartFailure tracks consecutive VMI startup failures for the purposes of crash loop backoffs",
+							Ref:         ref("kubevirt.io/client-go/api/v1.VirtualMachineStartFailure"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineCondition", "kubevirt.io/client-go/api/v1.VirtualMachineStateChangeRequest", "kubevirt.io/client-go/api/v1.VirtualMachineVolumeRequest", "kubevirt.io/client-go/api/v1.VolumeSnapshotStatus"},
+			"kubevirt.io/client-go/api/v1.VirtualMachineCondition", "kubevirt.io/client-go/api/v1.VirtualMachineStartFailure", "kubevirt.io/client-go/api/v1.VirtualMachineStateChangeRequest", "kubevirt.io/client-go/api/v1.VirtualMachineVolumeRequest", "kubevirt.io/client-go/api/v1.VolumeSnapshotStatus"},
 	}
 }
 

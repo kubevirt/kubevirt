@@ -1215,6 +1215,16 @@ const (
 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
 )
 
+// VirtualMachineStartFailure tracks VMIs which failed to transition successfully
+// to running using the VM status
+//
+// +k8s:openapi-gen=true
+type VirtualMachineStartFailure struct {
+	ConsecutiveFailCount int          `json:"consecutiveFailCount,omitempty"`
+	LastFailedVMIUID     types.UID    `json:"lastFailedVMIUID,omitempty"`
+	RetryAfterTimestamp  *metav1.Time `json:"retryAfterTimestamp,omitempty"`
+}
+
 // VirtualMachineStatus represents the status returned by the
 // controller to describe how the VirtualMachine is doing
 //
@@ -1241,6 +1251,12 @@ type VirtualMachineStatus struct {
 	// VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is
 	// supported by each volume.
 	VolumeSnapshotStatuses []VolumeSnapshotStatus `json:"volumeSnapshotStatuses,omitempty" optional:"true"`
+
+	// StartFailure tracks consecutive VMI startup failures for the purposes of
+	// crash loop backoffs
+	// +nullable
+	// +optional
+	StartFailure *VirtualMachineStartFailure `json:"startFailure,omitempty" optional:"true"`
 }
 
 // +k8s:openapi-gen=true
