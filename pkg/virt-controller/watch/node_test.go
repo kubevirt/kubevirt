@@ -59,6 +59,7 @@ var _ = Describe("Node controller with", func() {
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&k8sv1.Node{})
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
 		recorder = record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
 
 		controller = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
 		// Wrap our workqueue to have a way to detect when we are done processing updates

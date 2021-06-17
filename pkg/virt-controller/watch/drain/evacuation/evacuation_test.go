@@ -79,6 +79,7 @@ var _ = Describe("Evacuation", func() {
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&v12.Node{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&v12.Pod{})
 		recorder = record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
 		config, _, _, _ := testutils.NewFakeClusterConfig(&v12.ConfigMap{})
 
 		controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)

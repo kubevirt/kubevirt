@@ -79,6 +79,7 @@ var _ = Describe("Application", func() {
 		migrationInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		nodeInformer, _ := testutils.NewFakeInformerFor(&kubev1.Node{})
 		recorder := record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
 		config, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 		pdbInformer, _ := testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})

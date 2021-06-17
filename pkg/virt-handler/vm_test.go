@@ -163,6 +163,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
 
 		clientTest = fake.NewSimpleClientset()
 		ctrl = gomock.NewController(GinkgoT())
@@ -2943,6 +2944,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			recorder = record.NewFakeRecorder(10)
+			recorder.IncludeObject = true
 			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmiStore = vmiInformer.GetStore()
 
@@ -2996,7 +2998,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			case <-timeout:
 				timedOut = true
 			case event := <-recorder.Events:
-				Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
+				Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 			}
 
 			Expect(timedOut).To(BeFalse(), "should not time out")
@@ -3088,7 +3090,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 				case <-timeout:
 					timedOut = true
 				case event := <-recorder.Events:
-					Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
+					Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 				}
 				Expect(timedOut).To(BeFalse(), "should not time out")
 			}
