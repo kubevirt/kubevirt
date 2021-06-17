@@ -320,7 +320,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
 		podnic := createDefaultPodNIC(vm)
 		podnic.launcherPID = &pid
-		err := podnic.PlugPhase1()
+		err := podnic.SetupNetworkInfrastructure()
 		Expect(err).To(BeNil())
 
 		// Calling SetupPhase1 a second time should result in
@@ -328,7 +328,7 @@ var _ = Describe("Pod Network", func() {
 		// limited number of calls expected for each mocked entry point.
 		podnic = createDefaultPodNIC(vm)
 		podnic.launcherPID = &pid
-		err = podnic.PlugPhase1()
+		err = podnic.SetupNetworkInfrastructure()
 		Expect(err).To(BeNil())
 	}
 
@@ -381,7 +381,7 @@ var _ = Describe("Pod Network", func() {
 
 			podnic := createDefaultPodNIC(vm)
 			podnic.launcherPID = &pid
-			err := podnic.PlugPhase1()
+			err := podnic.SetupNetworkInfrastructure()
 			Expect(err).To(HaveOccurred(), "SetupPhase1 should return an error")
 
 			_, ok := err.(*neterrors.CriticalNetworkError)
@@ -404,7 +404,7 @@ var _ = Describe("Pod Network", func() {
 
 			podnic := createDefaultPodNIC(vm)
 			podnic.launcherPID = &pid
-			err := podnic.PlugPhase1()
+			err := podnic.SetupNetworkInfrastructure()
 			Expect(err).To(HaveOccurred())
 		})
 		Context("func filterPodNetworkRoutes()", func() {
@@ -434,7 +434,7 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("failed to open file"))
 				podnic := createDefaultPodNIC(vm)
-				Expect(podnic.PlugPhase2(domain)).To(Succeed())
+				Expect(podnic.UnpriviligedSetup(domain)).To(Succeed())
 			}
 			Expect(testDhcpPanic).To(Panic())
 		})
@@ -474,10 +474,10 @@ var _ = Describe("Pod Network", func() {
 				podnic.network = net
 				podnic.podInterfaceName = "fakeiface"
 				podnic.launcherPID = &pid
-				err := podnic.PlugPhase1()
+				err := podnic.SetupNetworkInfrastructure()
 				Expect(err).ToNot(HaveOccurred())
 
-				err = podnic.PlugPhase2(domain)
+				err = podnic.UnpriviligedSetup(domain)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})

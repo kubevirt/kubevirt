@@ -30,30 +30,38 @@ import (
 
 const primaryPodInterfaceName = "eth0"
 
-type VMNetworkConfigurator struct {
+// NetworkingConfigurator is responsible for extending the pod network into the
+// Virtual Machines.
+type NetworkingConfigurator interface {
+	Setup() error
+}
+
+// InfraNetworkingConfigurator creates and configures networking infrastructure
+// for the VMI in the virt-launcher's network namespace, which is reached via
+// the PID.
+type InfraNetworkingConfigurator struct {
+	vmi          *v1.VirtualMachineInstance
+	launcherPID  int
+	NicGenerator
+}
+
+// NetworkingSpecGenerator generates the required libvirt Dom XML for the
+// desired virtual machine.
+type NetworkingSpecGenerator struct {
+	vmi          *v1.VirtualMachineInstance
+	domXML       api.Domain
+	NicGenerator
+}
+
+// NicGenerator generates the required podNIC structs, which are responsible
+// for extending networking from the pod into the Virtual Machine.
+type NicGenerator struct {
 	vmi          *v1.VirtualMachineInstance
 	handler      netdriver.NetworkHandler
 	cacheFactory cache.InterfaceCacheFactory
 }
 
-func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
-	return &VMNetworkConfigurator{
-		vmi:          vmi,
-		handler:      handler,
-		cacheFactory: cacheFactory,
-	}
-}
-
-func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
-	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheFactory)
-}
-
-func (v VMNetworkConfigurator) getNICs() ([]podNIC, error) {
-	return v.getNICsWithLauncherPID(nil)
-
-}
-
-func (v VMNetworkConfigurator) getNICsWithLauncherPID(launcherPID *int) ([]podNIC, error) {
+func (v NicGenerator) getNICs(launcherPID *int) ([]podNIC, error) {
 	nics := []podNIC{}
 
 	if len(v.vmi.Spec.Domain.Devices.Interfaces) == 0 {
@@ -68,31 +76,66 @@ func (v VMNetworkConfigurator) getNICsWithLauncherPID(launcherPID *int) ([]podNI
 		nics = append(nics, *nic)
 	}
 	return nics, nil
-
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) error {
-	nics, err := n.getNICsWithLauncherPID(&pid)
+// NewInfraNetworkingConfigurator returns a InfraNetworkingConfigurator.
+func NewInfraNetworkingConfigurator(vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory, launcherPID int) InfraNetworkingConfigurator {
+	networkDriver := &netdriver.NetworkUtilsHandler{}
+	return InfraNetworkingConfigurator{
+		vmi:          vmi,
+		launcherPID:  launcherPID,
+		NicGenerator: newNicGeneratorWithHandlerAndCache(vmi, networkDriver, cacheFactory),
+	}
+}
+
+// Setup will create the auxiliary networking infrastructure to enxtend the
+// pod networking into the Virtual Machine.
+func (v InfraNetworkingConfigurator) Setup() error {
+	nics, err := v.getNICs(&v.launcherPID)
 	if err != nil {
 		return nil
 	}
 	for _, nic := range nics {
-		if err := nic.PlugPhase1(); err != nil {
+		if err := nic.SetupNetworkInfrastructure(); err != nil {
 			return fmt.Errorf("failed plugging phase1 at nic '%s': %w", nic.podInterfaceName, err)
 		}
 	}
 	return nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error {
-	nics, err := n.getNICs()
+// NewNetworkingSpecGenerator returns a NetworkingSpecGenerator.
+func NewNetworkingSpecGenerator(vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory, domain api.Domain) NetworkingSpecGenerator {
+	networkDriver := &netdriver.NetworkUtilsHandler{}
+	return NetworkingSpecGenerator{
+		vmi:          vmi,
+		domXML:       domain,
+		NicGenerator: newNicGeneratorWithHandlerAndCache(vmi, networkDriver, cacheFactory),
+	}
+}
+
+// Setup will decorate the DOM XML Devices.Interfaces with the data Libvirt
+// requires to extend networking from the pod into the Virtual Machine.
+func (v NetworkingSpecGenerator) Setup() error {
+	nics, err := v.getNICs(nil)
 	if err != nil {
 		return nil
 	}
 	for _, nic := range nics {
-		if err := nic.PlugPhase2(domain); err != nil {
-			return fmt.Errorf("failed plugging phase2 at nic '%s': %w", nic.podInterfaceName, err)
+		if err := nic.UnpriviligedSetup(&v.domXML); err != nil {
+			return fmt.Errorf("failed plugging phase1 at nic '%s': %w", nic.podInterfaceName, err)
 		}
 	}
 	return nil
+}
+
+func newNicGeneratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory) NicGenerator {
+	return NicGenerator{
+		vmi:          vmi,
+		handler:      handler,
+		cacheFactory: cacheFactory,
+	}
+}
+
+func newNicGenerator(vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory) NicGenerator {
+	return newNicGeneratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheFactory)
 }

@@ -513,7 +513,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	}
 
 	err = res.DoNetNS(func() error {
-		return network.NewVMNetworkConfigurator(vmi, d.networkCacheStoreFactory).SetupPodNetworkPhase1(pid)
+		return network.NewInfraNetworkingConfigurator(vmi, d.networkCacheStoreFactory, pid).Setup()
 	})
 	if err != nil {
 		_, critical := err.(*neterrors.CriticalNetworkError)

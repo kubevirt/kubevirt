@@ -28,17 +28,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/dhcp"
 )
 
-var _ = Describe("VMNetworkConfigurator", func() {
+var _ = Describe("NicGenerator", func() {
 	Context("interface configuration", func() {
 		var launcherPID *int
 
 		It("should configure bridged pod networking by default", func() {
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
+			vmNetworkConfigurator := newNicGenerator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
 			iface := v1.DefaultBridgeNetworkInterface()
 			defaultNet := v1.DefaultPodNetwork()
-			nics, err := vmNetworkConfigurator.getNICs()
+			nics, err := vmNetworkConfigurator.getNICs(nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nics).To(ConsistOf([]podNIC{{
 				vmi:              vm,
@@ -56,8 +56,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		})
 		It("should accept empty network list", func() {
 			vmi := newVMI("testnamespace", "testVmName")
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
-			nics, err := vmNetworkConfigurator.getNICs()
+			vmNetworkConfigurator := newNicGenerator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
+			nics, err := vmNetworkConfigurator.getNICs(nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nics).To(BeEmpty())
 		})
@@ -72,8 +72,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				},
 			}
 			vmi.Spec.Networks = []v1.Network{*cniNet}
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
-			nics, err := vmNetworkConfigurator.getNICs()
+			vmNetworkConfigurator := newNicGenerator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
+			nics, err := vmNetworkConfigurator.getNICs(nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nics).To(ConsistOf([]podNIC{{
 				vmi:              vmi,
@@ -136,8 +136,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 			vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
 
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
-			nics, err := vmNetworkConfigurator.getNICs()
+			vmNetworkConfigurator := newNicGenerator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
+			nics, err := vmNetworkConfigurator.getNICs(nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nics).To(ContainElements([]podNIC{
 				{
