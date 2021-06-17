@@ -12,7 +12,7 @@ spec:
       duration: 24h0m0s
       renewBefore: 12h0m0s
   featureGates:
-    sriovLiveMigration: false
+    sriovLiveMigration: true
     withHostPassthroughCPU: false
   infra: {}
   liveMigrationConfig:

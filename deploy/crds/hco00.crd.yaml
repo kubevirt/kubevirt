@@ -52,7 +52,7 @@ spec:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
               featureGates:
-                sriovLiveMigration: false
+                sriovLiveMigration: true
                 withHostPassthroughCPU: false
               liveMigrationConfig:
                 bandwidthPerMigration: 64Mi
@@ -117,18 +117,15 @@ spec:
                 type: object
               featureGates:
                 default:
-                  sriovLiveMigration: false
+                  sriovLiveMigration: true
                   withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
                 properties:
                   sriovLiveMigration:
-                    default: false
+                    default: true
                     description: Allow migrating a virtual machine with SRIOV interfaces.
-                      When enabled virt-launcher pods of virtual machines with SRIOV
-                      interfaces run with CAP_SYS_RESOURCE capability. This may degrade
-                      virt-launcher security.
                     type: boolean
                   withHostPassthroughCPU:
                     default: false

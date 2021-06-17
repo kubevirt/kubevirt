@@ -144,7 +144,7 @@ Set the `sriovLiveMigration` feature gate in order to allow migrating a virtual 
 When enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability.
 This may degrade virt-launcher security.
 
-**Default**: `false`
+**Default**: `true`
 
 ### Feature Gates Example
 ```yaml
