@@ -1188,6 +1188,12 @@ var _ = Describe("VirtualMachine", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = phase
+				vmi.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstancePhaseTransitionTimestamp{
+					{
+						Phase:                    v1.Running,
+						PhaseTransitionTimestamp: metav1.Now(),
+					},
+				}
 				vmi.ObjectMeta.DeletionTimestamp = deletionTimestamp
 
 				addVirtualMachine(vm)
