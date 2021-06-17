@@ -24,3 +24,20 @@ func SkipTestIfNoCPUManager() {
 	}
 	ginkgo.Skip("no node with CPUManager detected", 1)
 }
+
+func SkipTestIfNoCPUManagerWith2MiHugepages() {
+	if !HasFeature(virtconfig.CPUManager) {
+		ginkgo.Skip("the CPUManager feature gate is not enabled.")
+	}
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+	nodes := util.GetAllSchedulableNodes(virtClient)
+
+	for _, node := range nodes.Items {
+		if IsCPUManagerPresent(&node) && Has2MiHugepages(&node) {
+			return
+		}
+	}
+	ginkgo.Skip("no node with CPUManager and 2Mi hugepages detected", 1)
+}

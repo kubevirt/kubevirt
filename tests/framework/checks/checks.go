@@ -23,6 +23,12 @@ func IsCPUManagerPresent(node *v1.Node) bool {
 	return nodeHaveCpuManagerLabel
 }
 
+func Has2MiHugepages(node *v1.Node) bool {
+	gomega.Expect(node).ToNot(gomega.BeNil())
+	_, exists := node.Status.Capacity[v1.ResourceHugePagesPrefix+"2Mi"]
+	return exists
+}
+
 func HasFeature(feature string) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
