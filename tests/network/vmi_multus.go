@@ -1236,9 +1236,13 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
 			})
 
-			It("should keep connectivity after a migration", func() {
+			FIt("should keep connectivity after a migration", func() {
 				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
 				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				flush_cmd := strings.Join([]string{"sudo", "ip", "-s", "-s", "neigh", "flush", "all"}, " ")
+				err := console.RunCommand(clientVMI, flush_cmd, time.Second*20)
+				Expect(err).ToNot(HaveOccurred())
 
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
 			})
