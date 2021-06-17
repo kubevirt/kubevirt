@@ -40,6 +40,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/network/consts"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -48,11 +49,10 @@ import (
 )
 
 const (
-	istioInjectSidecarAnnotation = "sidecar.istio.io/inject"
-	istioDeployedEnvVariable     = "KUBEVIRT_DEPLOY_ISTIO"
-	vmiAppSelector               = "istio-vmi-app"
-	svcDeclaredTestPort          = 1500
-	svcUndeclaredTestPort        = 1501
+	istioDeployedEnvVariable = "KUBEVIRT_DEPLOY_ISTIO"
+	vmiAppSelector           = "istio-vmi-app"
+	svcDeclaredTestPort      = 1500
+	svcUndeclaredTestPort    = 1501
 	// Istio uses certain ports for it's own purposes, this port server to verify that traffic is not routed
 	// into the VMI for these ports. https://istio.io/latest/docs/ops/deployment/requirements/
 	istioRestrictedPort = network.EnvoyTunnelPort
@@ -374,10 +374,8 @@ func newVMIWithIstioSidecar(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 		libvmi.WithLabel("app", vmiAppSelector),
-		libvmi.WithAnnotation(istioInjectSidecarAnnotation, "true"),
+		libvmi.WithAnnotation(consts.ISTIO_INJECT_ANNOTATION, "true"),
 	)
-	// Istio-proxy requires service account token to be mounted
-	tests.AddServiceAccountDisk(vmi, "default")
 	return vmi
 }
 

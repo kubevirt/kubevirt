@@ -48,6 +48,7 @@ import (
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	networkconsts "kubevirt.io/kubevirt/pkg/network/consts"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -875,6 +876,30 @@ var _ = Describe("Template", func() {
 				value, ok := pod.Annotations[ISTIO_KUBEVIRT_ANNOTATION]
 				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("k6t-eth0"))
+			})
+		})
+		Context("With Istio sidecar.istio.io/inject annotation", func() {
+			var (
+				vmi v1.VirtualMachineInstance
+				pod *kubev1.Pod
+			)
+			BeforeEach(func() {
+				vmi = v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+						Annotations: map[string]string{
+							networkconsts.ISTIO_INJECT_ANNOTATION: "true",
+						},
+					},
+				}
+				var err error
+				pod, err = svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should mount default serviceAccountToken", func() {
+				Expect(*pod.Spec.AutomountServiceAccountToken).To(Equal(true))
 			})
 		})
 		Context("with node selectors", func() {
