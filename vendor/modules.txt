@@ -338,6 +338,7 @@ github.com/pborman/uuid
 # github.com/pkg/diff v0.0.0-20190930165518-531926345625
 github.com/pkg/diff
 # github.com/pkg/errors v0.9.1
+## explicit
 github.com/pkg/errors
 # github.com/prometheus/client_golang v1.7.1
 ## explicit
@@ -352,7 +353,6 @@ github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.2.0
-## explicit
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util

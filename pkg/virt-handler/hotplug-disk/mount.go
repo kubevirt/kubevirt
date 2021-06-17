@@ -26,7 +26,6 @@ import (
 	"github.com/opencontainers/runc/libcontainer/cgroups/devices"
 	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
 	"github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/prometheus/procfs"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -77,14 +76,6 @@ var (
 
 	isolationDetector = func(path string) isolation.PodIsolationDetector {
 		return isolation.NewSocketBasedIsolationDetector(path, cgroup.NewParser())
-	}
-
-	procMounts = func(pid int) ([]*procfs.MountInfo, error) {
-		return procfs.GetProcMounts(pid)
-	}
-
-	findMnt = func(device string) ([]byte, error) {
-		return exec.Command("/usr/bin/findmnt", "-S", device, "-o", "TARGET").CombinedOutput()
 	}
 )
 
@@ -250,7 +241,6 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		return err
 	}
-	logger.Infof("record for: %s, %v", vmi.UID, record)
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
@@ -284,7 +274,6 @@ func (m *volumeMounter) isBlockVolume(sourceUID types.UID, volumeName string) bo
 		devicePath := filepath.Join(deviceBasePath(sourceUID), volumeName)
 		info, err := os.Stat(devicePath)
 		if err != nil {
-			log.Log.V(1).Infof("%s pod does not contain a block device %s, %v", sourceUID, volumeName, err)
 			return false
 		}
 		return info.IsDir()
@@ -345,7 +334,7 @@ func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMach
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.Name == volumeName && volumeStatus.HotplugVolume != nil {
 			if volumeStatus.Phase != v1.VolumeReady {
-				log.DefaultLogger().Infof("Volume %s is not ready, but the target block device exists", volumeName)
+				log.DefaultLogger().V(4).Infof("Volume %s is not ready, but the target block device exists", volumeName)
 			}
 			return volumeStatus.Phase == v1.VolumeReady
 		}
@@ -541,12 +530,6 @@ func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor in
 }
 
 func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
-	sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
-	if err != nil {
-		log.DefaultLogger().Infof("Error finding source path: %v", err)
-		return nil
-	}
-
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
@@ -560,7 +543,10 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	if isMounted, err := isMounted(targetPath); err != nil {
 		return fmt.Errorf("failed to determine if %s is already mounted: %v", targetPath, err)
 	} else if !isMounted {
-		log.DefaultLogger().Infof("%s is not mounted", targetPath)
+		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
+		if err != nil {
+			return nil
+		}
 		if err := m.writePathToMountRecord(targetPath, vmi, record); err != nil {
 			return err
 		}
@@ -595,23 +581,23 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 	if err != nil {
 		return "", err
 	}
-	mounts, err := procMounts(isoRes.Pid())
+	findmounts, err := LookupFindmntInfoByVolume(volume, isoRes.Pid())
 	if err != nil {
 		return "", err
 	}
-	for _, mount := range mounts {
-		if filepath.Base(mount.MountPoint) == volume {
-			if mount.Root == "/" {
-				target, err := findMnt(mount.Source)
+	for _, findmnt := range findmounts {
+		if filepath.Base(findmnt.Target) == volume {
+			source := findmnt.GetSource()
+			isBlock, _ := isBlockDevice(filepath.Join(util.HostRootMount, source))
+			if _, err := os.Stat(filepath.Join(util.HostRootMount, source)); os.IsNotExist(err) || isBlock {
+				// file not found, or block device, or directory check if we can find the mount.
+				deviceFindMnt, err := LookupFindmntInfoByDevice(source)
 				if err != nil {
 					return "", err
 				}
-				split := strings.Split(string(target), "\n")
-				if len(split) > 0 {
-					return split[1], nil
-				}
+				return deviceFindMnt[0].Target, nil
 			} else {
-				return mount.Root, nil
+				return source, nil
 			}
 		}
 	}

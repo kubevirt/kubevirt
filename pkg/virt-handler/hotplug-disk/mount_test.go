@@ -31,7 +31,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"github.com/prometheus/procfs"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -41,10 +40,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
+const (
+	findmntByVolumeRes = "{\"filesystems\": [{\"target\":\"/%s\", \"source\":\"/dev/testvolume[%s]\", \"fstype\":\"xfs\", \"options\":\"rw,relatime,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota\"}]}"
+)
+
 var (
 	tempDir              string
 	orgIsoDetector       = isolationDetector
-	orgProcMounts        = procMounts
 	orgDeviceBasePath    = deviceBasePath
 	orgStatCommand       = statCommand
 	orgCgroupsBasePath   = cgroupsBasePath
@@ -54,6 +56,8 @@ var (
 	orgUnMountCommand    = unmountCommand
 	orgIsMounted         = isMounted
 	orgIsBlockDevice     = isBlockDevice
+	orgFindMntByVolume   = findMntByVolume
+	orgFindMntByDevice   = findMntByDevice
 )
 
 var _ = Describe("HotplugVolume mount target records", func() {
@@ -620,25 +624,16 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 				pid: 1,
 			}
 		}
-		procMounts = func(pid int) ([]*procfs.MountInfo, error) {
-			Expect(pid).To(Equal(1))
-			res := make([]*procfs.MountInfo, 0)
-			res = append(res, &procfs.MountInfo{
-				Root:       "/test/result",
-				MountPoint: "/pvc",
-			})
-			return res, nil
-		}
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(tempDir)
+		findMntByVolume = orgFindMntByVolume
 		deviceBasePath = orgDeviceBasePath
 		sourcePodBasePath = orgSourcePodBasePath
 		mountCommand = orgMountCommand
 		unmountCommand = orgUnMountCommand
 		isMounted = orgIsMounted
-		procMounts = orgProcMounts
 		isolationDetector = orgIsoDetector
 	})
 
@@ -648,17 +643,11 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		sourcePodBasePath = func(podUID types.UID) string {
 			return path
 		}
+		findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+			return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", path)), nil
+		}
 		diskFile := filepath.Join(path, "disk.img")
 		_, err := os.Create(diskFile)
-		procMounts = func(pid int) ([]*procfs.MountInfo, error) {
-			Expect(pid).To(Equal(1))
-			res := make([]*procfs.MountInfo, 0)
-			res = append(res, &procfs.MountInfo{
-				Root:       path,
-				MountPoint: "/pvc",
-			})
-			return res, nil
-		}
 		Expect(err).ToNot(HaveOccurred())
 		file, err := m.getSourcePodFilePath("ghfjk", vmi, "pvc")
 		Expect(err).ToNot(HaveOccurred())
@@ -699,35 +688,36 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		Expect(err.Error()).To(ContainSubstring("isolation error"))
 	})
 
-	It("getSourcePodFile should return error if proc mounts returns error", func() {
+	It("getSourcePodFile should return error if find mounts returns error", func() {
 		expectedPath := filepath.Join(tempDir, "ghfjk", "volumes")
 		err = os.MkdirAll(expectedPath, 0755)
 		sourcePodBasePath = func(podUID types.UID) string {
 			return expectedPath
 		}
-		procMounts = func(pid int) ([]*procfs.MountInfo, error) {
-			Expect(pid).To(Equal(1))
-			res := make([]*procfs.MountInfo, 0)
-			return res, fmt.Errorf("mount detection error")
+		findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+			return []byte(""), fmt.Errorf("findmnt error")
 		}
 
 		Expect(err).ToNot(HaveOccurred())
 		_, err := m.getSourcePodFilePath("ghfjk", vmi, "")
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("mount detection error"))
+		Expect(err.Error()).To(ContainSubstring("findmnt error"))
 	})
 
-	It("getSourcePodFile should return the mountinfo value", func() {
+	It("getSourcePodFile should return the findmnt value", func() {
 		expectedPath := filepath.Join(tempDir, "ghfjk", "volumes")
 		err = os.MkdirAll(expectedPath, 0755)
 		sourcePodBasePath = func(podUID types.UID) string {
 			return expectedPath
 		}
+		findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+			return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", expectedPath)), nil
+		}
 
 		Expect(err).ToNot(HaveOccurred())
 		res, err := m.getSourcePodFilePath("ghfjk", vmi, "pvc")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(Equal("/test/result"))
+		Expect(res).To(Equal(expectedPath))
 	})
 
 	It("should properly mount and unmount filesystem", func() {
@@ -740,24 +730,19 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		diskFile := filepath.Join(path, "disk.img")
 		_, err := os.Create(diskFile)
 		Expect(err).ToNot(HaveOccurred())
+		findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+			return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", path)), nil
+		}
 		targetFilePath := filepath.Join(targetPodPath, "testvolume")
 		mountCommand = func(sourcePath, targetPath string) ([]byte, error) {
 			Expect(sourcePath).To(Equal(path))
 			Expect(targetPath).To(Equal(targetFilePath))
 			return []byte("Success"), nil
 		}
-		procMounts = func(pid int) ([]*procfs.MountInfo, error) {
-			Expect(pid).To(Equal(1))
-			res := make([]*procfs.MountInfo, 0)
-			res = append(res, &procfs.MountInfo{
-				Root:       path,
-				MountPoint: "/testvolume",
-			})
-			return res, nil
-		}
 
 		err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID), record)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(len(record.MountTargetEntries)).To(Equal(1))
 		Expect(record.MountTargetEntries[0].TargetFile).To(Equal(targetFilePath))
 
 		unmountCommand = func(diskPath string) ([]byte, error) {
@@ -871,6 +856,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 		cgroupsBasePath = orgCgroupsBasePath
 		mknodCommand = orgMknodCommand
 		isBlockDevice = orgIsBlockDevice
+		findMntByVolume = orgFindMntByVolume
 	})
 
 	It("mount and umount should work for filesystem volumes", func() {
@@ -918,16 +904,6 @@ var _ = Describe("HotplugVolume volumes", func() {
 		err = os.MkdirAll(fileSystemPath, 0755)
 		Expect(err).ToNot(HaveOccurred())
 
-		procMounts = func(pid int) ([]*procfs.MountInfo, error) {
-			Expect(pid).To(Equal(1))
-			res := make([]*procfs.MountInfo, 0)
-			res = append(res, &procfs.MountInfo{
-				Root:       fileSystemPath,
-				MountPoint: "/filesystemvolume",
-			})
-			return res, nil
-		}
-
 		deviceFile := filepath.Join(blockDevicePath, "blockvolumefile")
 		slicePath := "slice"
 		m.podIsolationDetector = &mockIsolationDetector{
@@ -953,6 +929,10 @@ var _ = Describe("HotplugVolume volumes", func() {
 			}
 			return fileSystemPath
 		}
+		findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+			return []byte(fmt.Sprintf(findmntByVolumeRes, "filesystemvolume", fileSystemPath)), nil
+		}
+
 		diskFile := filepath.Join(fileSystemPath, "disk.img")
 		_, err = os.Create(diskFile)
 		Expect(err).ToNot(HaveOccurred())
@@ -1055,6 +1035,9 @@ var _ = Describe("HotplugVolume volumes", func() {
 			}
 			return false, fmt.Errorf("Not a block device")
 		}
+		findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+			return []byte(fmt.Sprintf(findmntByVolumeRes, "filesystemvolume", fileSystemPath)), nil
+		}
 
 		deviceFile := filepath.Join(blockDevicePath, "file")
 		slicePath := "slice"
@@ -1074,15 +1057,6 @@ var _ = Describe("HotplugVolume volumes", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = ioutil.WriteFile(deviceFile, []byte("test"), 0644)
 		Expect(err).ToNot(HaveOccurred())
-		procMounts = func(pid int) ([]*procfs.MountInfo, error) {
-			Expect(pid).To(Equal(1))
-			res := make([]*procfs.MountInfo, 0)
-			res = append(res, &procfs.MountInfo{
-				Root:       fileSystemPath,
-				MountPoint: "/filesystemvolume",
-			})
-			return res, nil
-		}
 		sourcePodBasePath = func(podUID types.UID) string {
 			if podUID == sourcePodUID {
 				return blockDevicePath
