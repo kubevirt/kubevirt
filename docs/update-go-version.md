@@ -1,8 +1,8 @@
 # How to update Go version 
-A quick guide to update Kubevirt's Go version.
+A quick guide to update KubeVirt's Go version.
 
 To update the Go version we need to update the builder image so that it uses the new version,
-push it to the registry and finally let Kubevirt use the new builder image.
+push it to the registry and finally let KubeVirt use the new builder image.
 
 In addition, [go rules for bazel](https://github.com/bazelbuild/rules_go) have to be updated if the current version does not support the target Go version.
 

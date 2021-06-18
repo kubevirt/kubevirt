@@ -40,7 +40,7 @@ Here is an example of an expected naming of the variables:
 ```
 PCI_RESOURCE_NVIDIA_COM_TU104GL_Tesla_T4=PCIADDRESS1
 ```
-This encodes a PCI device with its resource name (provided in the Kubevirt CR) "nvidia.com/TU104GL_Tesla_T4"
+This encodes a PCI device with its resource name (provided in the KubeVirt CR) "nvidia.com/TU104GL_Tesla_T4"
 ```
 PCI_RESOURCE_INTEL_QAT=PCIADDRESS2,PCIADDRESS3,...
 MDEV_PCI_RESOURCE_NVIDIA_COM_GRID_T4-1Q=UUID1,UUID2,UUID3,...

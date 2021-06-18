@@ -23,7 +23,7 @@ While the first two bullet points are easy to understand, the third needs some m
 Unresponsive metrics sources
 ----------------------------
 
-When we use QEMU on shared storage, like we want to do with Kubevirt, any network issue could cause
+When we use QEMU on shared storage, like we want to do with KubeVirt, any network issue could cause
 one or more storage operations to delay, or to be lost entirely.
 
 In that case, the userspace process that requested the operation can end up in the D state,
