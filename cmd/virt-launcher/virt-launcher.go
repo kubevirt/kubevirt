@@ -348,6 +348,7 @@ func main() {
 	qemuAgentUserInterval := pflag.Duration("qemu-agent-user-interval", 10, "Interval in seconds between consecutive qemu agent calls for user command")
 	qemuAgentVersionInterval := pflag.Duration("qemu-agent-version-interval", 300, "Interval in seconds between consecutive qemu agent calls for version command")
 	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5, "Interval in seconds between consecutive qemu agent calls for fsfreeze status command")
+	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
 
@@ -373,6 +374,10 @@ func main() {
 			os.Exit(1)
 		}
 		os.Exit(exitCode)
+	}
+
+	if *simulateCrash {
+		panic(fmt.Errorf("Simulated virt-launcher crash"))
 	}
 
 	// Block until all requested hookSidecars are ready
