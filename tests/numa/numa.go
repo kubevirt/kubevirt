@@ -38,9 +38,9 @@ var _ = Describe("[sig-compute][serial]NUMA", func() {
 		cpuVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 		cpuVMI.Spec.Domain.CPU = &v1.CPU{
-			Cores:                   3,
-			DedicatedCPUPlacement:   true,
-			NUMATopologyPassthrough: true,
+			Cores:                 3,
+			DedicatedCPUPlacement: true,
+			NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
 		}
 		By("Starting a VirtualMachineInstance")
 		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVMI)
@@ -75,9 +75,9 @@ var _ = Describe("[sig-compute][serial]NUMA", func() {
 		cpuVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 		cpuVMI.Spec.Domain.CPU = &v1.CPU{
-			Cores:                   3,
-			DedicatedCPUPlacement:   true,
-			NUMATopologyPassthrough: true,
+			Cores:                 3,
+			DedicatedCPUPlacement: true,
+			NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
 		}
 		cpuVMI.Spec.Domain.Memory = &v1.Memory{
 			Hugepages: &v1.Hugepages{PageSize: "2Mi"},

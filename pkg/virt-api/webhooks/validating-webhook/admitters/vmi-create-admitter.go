@@ -1009,14 +1009,14 @@ func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 		causes = append(causes, validateRequestLimitOrCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
 		causes = append(causes, validateRequestEqualsLimitOnDedicatedCPUPlacement(field, spec)...)
 		causes = append(causes, validateRequestOrLimitWithCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
-	} else if spec.Domain.CPU != nil && spec.Domain.CPU.NUMATopologyPassthrough {
+	} else if spec.Domain.CPU != nil && spec.Domain.CPU.NUMA != nil && spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s must be set to true when %s is set to true ",
+			Message: fmt.Sprintf("%s must be set to true when NUMA topology strategy is set in %s",
 				field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
-				field.Child("domain", "cpu", "numaTopologyPassthrough").String(),
+				field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
 			),
-			Field: field.Child("domain", "cpu", "numaTopologyPassthrough").String(),
+			Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
 		})
 	}
 	return causes

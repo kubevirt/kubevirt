@@ -2258,15 +2258,15 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
 		})
 		It("should reject NUMA passthrough without DedicatedCPUPlacement", func() {
-			vmi.Spec.Domain.CPU.NUMATopologyPassthrough = true
+			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
 			vmi.Spec.Domain.CPU.DedicatedCPUPlacement = false
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numaTopologyPassthrough"))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa.guestMappingPassthrough"))
 		})
 		It("should accept NUMA passthrough with DedicatedCPUPlacement", func() {
 			vmi.Spec.Domain.CPU.Cores = 4
-			vmi.Spec.Domain.CPU.NUMATopologyPassthrough = true
+			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
 				k8sv1.ResourceCPU: resource.MustParse("4"),
 			}
