@@ -433,7 +433,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// generate cloud-init data
 	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
 	if err != nil {
-		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
+		return domain, fmt.Errorf("ReadCloudInitVolumeDataSource failed: %v", err)
 	}
 
 	// Pass cloud-init data to PreCloudInitIso hook
@@ -445,6 +445,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	if cloudInitData != nil {
+		// need to prepare the local path for cloud-init in advance for proper
+		// detection of the disk driver cache mode
+		if err := cloudinit.PrepareLocalPath(vmi.Name, vmi.Namespace); err != nil {
+			return domain, fmt.Errorf("PrepareLocalPath failed: %v", err)
+		}
 		// store the generated cloud init metadata.
 		// cloud init ISO will be generated after the domain definition
 		l.cloudInitDataStore = cloudInitData

@@ -255,12 +255,23 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	return nil
 }
 
-func checkDirectIOFlag(path string) bool {
-	// check if fs where disk.img file is located or block device
-	// support direct i/o
+// check if fs or block device support direct i/o
+func checkDirectIOFlag(path string, isBlockDev bool) bool {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		// nothing else to do if the device does not exist
+		if isBlockDev {
+			return false
+		}
+		// try to create the file and perform the check
+		if err := util.WriteFileWithNosec(path, []byte("tmp")); err != nil {
+			log.Log.Reason(err).Errorf("Direct IO check failed for %s", path)
+			return false
+		}
+		defer os.Remove(path)
+	}
 	// #nosec No risk for path injection. No information can be exposed to attacker
 	f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
 		return false
 	}
 	defer util.CloseIOAndCheckErr(f, nil)
@@ -353,17 +364,19 @@ func SetDriverCacheMode(disk *api.Disk) error {
 	var path string
 	supportDirectIO := true
 	mode := v1.DriverCache(disk.Driver.Cache)
+	isBlockDev := false
 
 	if disk.Source.File != "" {
 		path = disk.Source.File
 	} else if disk.Source.Dev != "" {
 		path = disk.Source.Dev
+		isBlockDev = true
 	} else {
 		return fmt.Errorf("Unable to set a driver cache mode, disk is neither a block device nor a file")
 	}
 
 	if mode == "" || mode == v1.CacheNone {
-		supportDirectIO = checkDirectIOFlag(path)
+		supportDirectIO = checkDirectIOFlag(path, isBlockDev)
 		if !supportDirectIO {
 			log.Log.Infof("%s file system does not support direct I/O", path)
 		}
@@ -371,7 +384,7 @@ func SetDriverCacheMode(disk *api.Disk) error {
 		// file sits on a file system that supports direct I/O
 		if backingFile := disk.BackingStore; backingFile != nil {
 			backingFilePath := backingFile.Source.File
-			backFileDirectIOSupport := checkDirectIOFlag(backingFilePath)
+			backFileDirectIOSupport := checkDirectIOFlag(backingFilePath, false)
 			if !backFileDirectIOSupport {
 				log.Log.Infof("%s backing file system does not support direct I/O", backingFilePath)
 			}
