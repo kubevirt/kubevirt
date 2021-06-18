@@ -86,6 +86,7 @@ const (
 
 	defaultLauncherSubGid                 = 107
 	defaultSnapshotControllerResyncPeriod = 5 * time.Minute
+	defaultNodeTopologyUpdatePeriod       = 30 * time.Second
 
 	defaultPromCertFilePath = "/etc/virt-controller/certificates/tls.crt"
 	defaultPromKeyFilePath  = "/etc/virt-controller/certificates/tls.key"
@@ -194,10 +195,11 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 
-	caConfigMapName     string
-	promCertFilePath    string
-	promKeyFilePath     string
-	nodeTopologyUpdater topology.NodeTopologyUpdater
+	caConfigMapName          string
+	promCertFilePath         string
+	promKeyFilePath          string
+	nodeTopologyUpdater      topology.NodeTopologyUpdater
+	nodeTopologyUpdatePeriod time.Duration
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -428,7 +430,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
 		go vca.restoreController.Run(vca.restoreControllerThreads, stop)
 		go vca.workloadUpdateController.Run(stop)
-		go vca.nodeTopologyUpdater.Run(30*time.Second, stop)
+		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
 
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 		close(vca.readyChan)
@@ -665,6 +667,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.DurationVar(&vca.snapshotControllerResyncPeriod, "snapshot-controller-resync-period", defaultSnapshotControllerResyncPeriod,
 		"Number of goroutines to run for snapshot controller")
+
+	flag.DurationVar(&vca.nodeTopologyUpdatePeriod, "node-topology-update-period", defaultNodeTopologyUpdatePeriod,
+		"Update period for the node topology updater")
 
 	flag.StringVar(&vca.promCertFilePath, "prom-cert-file", defaultPromCertFilePath,
 		"Client certificate used to prove the identity of the virt-controller when it must call out Promethus during a request")
