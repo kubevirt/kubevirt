@@ -112,10 +112,10 @@ func getBasicDeployment() *BasicExpected {
 		},
 		Spec: hcov1beta1.HyperConvergedSpec{},
 		Status: hcov1beta1.HyperConvergedStatus{
-			Conditions: []conditionsv1.Condition{
+			Conditions: []metav1.Condition{
 				{
 					Type:    hcov1beta1.ConditionReconcileComplete,
-					Status:  corev1.ConditionTrue,
+					Status:  metav1.ConditionTrue,
 					Reason:  common.ReconcileCompleted,
 					Message: common.ReconcileCompletedMessage,
 				},
@@ -257,10 +257,10 @@ func checkHcoReady() bool {
 	return hcoutil.IsReady()
 }
 
-func checkAvailability(hco *hcov1beta1.HyperConverged, expected corev1.ConditionStatus) {
+func checkAvailability(hco *hcov1beta1.HyperConverged, expected metav1.ConditionStatus) {
 	found := false
 	for _, cond := range hco.Status.Conditions {
-		if cond.Type == conditionsv1.ConditionType(kubevirtv1.KubeVirtConditionAvailable) {
+		if cond.Type == hcov1beta1.ConditionAvailable {
 			found = true
 			ExpectWithOffset(1, cond.Status).To(Equal(expected))
 			break

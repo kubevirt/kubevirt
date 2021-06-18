@@ -154,7 +154,6 @@ github.com/openshift/api/console/v1
 ## explicit
 github.com/openshift/custom-resource-status/conditions/v1
 github.com/openshift/custom-resource-status/objectreferences/v1
-github.com/openshift/custom-resource-status/testlib
 # github.com/operator-framework/api v0.7.1
 ## explicit
 github.com/operator-framework/api/pkg/lib/version

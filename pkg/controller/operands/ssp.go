@@ -14,7 +14,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -129,8 +128,8 @@ func (h *sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 }
 func (h sspHooks) getEmptyCr() client.Object                          { return &sspv1beta1.SSP{} }
 func (h sspHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
-func (h sspHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
-	return cr.(*sspv1beta1.SSP).Status.Conditions
+func (h sspHooks) getConditions(cr runtime.Object) []metav1.Condition {
+	return osConditionsToK8s(cr.(*sspv1beta1.SSP).Status.Conditions)
 }
 func (h sspHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*sspv1beta1.SSP)

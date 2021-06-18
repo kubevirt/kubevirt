@@ -7,8 +7,8 @@ import (
 	"time"
 
 	consolev1 "github.com/openshift/api/console/v1"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
@@ -103,9 +103,9 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 		res := handler.ensure(req)
 		if res.Err != nil {
 			req.ComponentUpgradeInProgress = false
-			req.Conditions.SetStatusCondition(conditionsv1.Condition{
+			req.Conditions.SetStatusCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionReconcileComplete,
-				Status:  corev1.ConditionFalse,
+				Status:  metav1.ConditionFalse,
 				Reason:  reconcileFailed,
 				Message: fmt.Sprintf("Error while reconciling: %v", res.Err),
 			})

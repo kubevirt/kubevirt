@@ -4,7 +4,6 @@ import (
 	"errors"
 	"reflect"
 
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -60,8 +59,8 @@ func (h *cdiHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	return h.cache, nil
 }
 func (h cdiHooks) getEmptyCr() client.Object { return &cdiv1beta1.CDI{} }
-func (h cdiHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
-	return cr.(*cdiv1beta1.CDI).Status.Conditions
+func (h cdiHooks) getConditions(cr runtime.Object) []metav1.Condition {
+	return osConditionsToK8s(cr.(*cdiv1beta1.CDI).Status.Conditions)
 }
 func (h cdiHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*cdiv1beta1.CDI)

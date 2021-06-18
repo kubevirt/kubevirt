@@ -1,7 +1,6 @@
 package v1beta1
 
 import (
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
@@ -314,7 +313,7 @@ type HyperConvergedStatus struct {
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +optional
-	Conditions []conditionsv1.Condition `json:"conditions,omitempty"  patchStrategy:"merge" patchMergeKey:"type"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"  patchStrategy:"merge" patchMergeKey:"type"`
 
 	// RelatedObjects is a list of objects created and maintained by this
 	// operator. Object references will be added to this list after they have
@@ -371,15 +370,31 @@ func (vs *Versions) getVersion(name string) (string, bool) {
 }
 
 const (
+	ConditionAvailable = "Available"
+
+	// ConditionProgressing indicates that the operator is actively making changes to the resources maintained by the
+	// operator
+	ConditionProgressing = "Progressing"
+
+	// ConditionDegraded indicates that the resources maintained by the operator are not functioning completely.
+	// An example of a degraded state would be if not all pods in a deployment were running.
+	// It may still be available, but it is degraded
+	ConditionDegraded = "Degraded"
+
+	// ConditionUpgradeable indicates whether the resources maintained by the operator are in a state that is safe to upgrade.
+	// When `False`, the resources maintained by the operator should not be upgraded and the
+	// message field should contain a human readable description of what the administrator should do to
+	// allow the operator to successfully update the resources maintained by the operator.
+	ConditionUpgradeable = "Upgradeable"
 
 	// ConditionReconcileComplete communicates the status of the HyperConverged resource's
 	// reconcile functionality. Basically, is the Reconcile function running to completion.
-	ConditionReconcileComplete conditionsv1.ConditionType = "ReconcileComplete"
+	ConditionReconcileComplete = "ReconcileComplete"
 
 	// ConditionTaintedConfiguration indicates that a hidden/debug configuration
 	// has been applied to the HyperConverged resource via a specialized annotation.
 	// This condition is exposed only when its value is True, and is otherwise hidden.
-	ConditionTaintedConfiguration conditionsv1.ConditionType = "TaintedConfiguration"
+	ConditionTaintedConfiguration = "TaintedConfiguration"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

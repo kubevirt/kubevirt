@@ -2,26 +2,26 @@ package common
 
 import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
-	HcoConditionTypes = []conditionsv1.ConditionType{
+	HcoConditionTypes = []string{
 		hcov1beta1.ConditionReconcileComplete,
-		conditionsv1.ConditionAvailable,
-		conditionsv1.ConditionProgressing,
-		conditionsv1.ConditionDegraded,
-		conditionsv1.ConditionUpgradeable,
+		hcov1beta1.ConditionAvailable,
+		hcov1beta1.ConditionProgressing,
+		hcov1beta1.ConditionDegraded,
+		hcov1beta1.ConditionUpgradeable,
 	}
 )
 
-type HcoConditions map[conditionsv1.ConditionType]conditionsv1.Condition
+type HcoConditions map[string]metav1.Condition
 
 func NewHcoConditions() HcoConditions {
 	return HcoConditions{}
 }
 
-func (hc HcoConditions) SetStatusCondition(newCondition conditionsv1.Condition) {
+func (hc HcoConditions) SetStatusCondition(newCondition metav1.Condition) {
 	existingCondition, exists := hc[newCondition.Type]
 
 	if !exists {
@@ -38,7 +38,7 @@ func (hc HcoConditions) SetStatusCondition(newCondition conditionsv1.Condition) 
 	hc[newCondition.Type] = existingCondition
 }
 
-func (hc HcoConditions) SetStatusConditionIfUnset(newCondition conditionsv1.Condition) {
+func (hc HcoConditions) SetStatusConditionIfUnset(newCondition metav1.Condition) {
 	if !hc.HasCondition(newCondition.Type) {
 		hc.SetStatusCondition(newCondition)
 	}
@@ -48,7 +48,7 @@ func (hc HcoConditions) IsEmpty() bool {
 	return len(hc) == 0
 }
 
-func (hc HcoConditions) HasCondition(conditionType conditionsv1.ConditionType) bool {
+func (hc HcoConditions) HasCondition(conditionType string) bool {
 	_, exists := hc[conditionType]
 
 	return exists

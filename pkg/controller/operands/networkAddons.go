@@ -7,7 +7,6 @@ import (
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,8 +51,8 @@ func (h *cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 
 func (h cnaHooks) getEmptyCr() client.Object                          { return &networkaddonsv1.NetworkAddonsConfig{} }
 func (h cnaHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
-func (h cnaHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
-	return cr.(*networkaddonsv1.NetworkAddonsConfig).Status.Conditions
+func (h cnaHooks) getConditions(cr runtime.Object) []metav1.Condition {
+	return osConditionsToK8s(cr.(*networkaddonsv1.NetworkAddonsConfig).Status.Conditions)
 }
 func (h cnaHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*networkaddonsv1.NetworkAddonsConfig)

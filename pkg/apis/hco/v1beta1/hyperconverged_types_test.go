@@ -6,7 +6,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +27,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 	Describe("HyperConvergedStatus.UpdateVersion", func() {
 		Context("Should be able to add a new version to a nil version array", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 			}
 
@@ -49,7 +48,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("Should be able to add a new version to an empty version array", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions:       Versions{},
 			}
@@ -71,7 +70,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("Should be able to add a new version to an existing version array", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions: Versions{
 					{Name: "aaa", Version: "1.2.3"},
@@ -97,7 +96,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("Should be able to update a new version in an existing version array (first element)", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions: Versions{
 					{Name: testName, Version: testOldVersion},
@@ -123,7 +122,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("Should be able to update a new version in an existing version array (middle element)", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions: Versions{
 					{Name: "aaa", Version: "1.2.3"},
@@ -149,7 +148,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("Should be able to update a new version in an existing version array (last element)", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions: Versions{
 					{Name: "aaa", Version: "1.2.3"},
@@ -178,7 +177,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 	Describe("HyperConvergedStatus.GetVersion", func() {
 		Context("should return empty response for nil array", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 			}
 
@@ -194,7 +193,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("should return empty response for empty array", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions:       Versions{},
 			}
@@ -212,7 +211,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("should return empty response if the version is not in the versions array", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions: Versions{
 					{Name: "aaa", Version: "1.2.3"},
@@ -234,7 +233,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("should return a valid response if the version is in the versions array (first element)", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions: Versions{
 					{Name: testName, Version: testVersion},
@@ -256,7 +255,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("should return a valid response if the version is in the versions array (middle element)", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions: Versions{
 					{Name: "aaa", Version: "1.2.3"},
@@ -278,7 +277,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		Context("should return a valid response if the version is in the versions array (last element)", func() {
 			hcs := &HyperConvergedStatus{
-				Conditions:     []conditionsv1.Condition{},
+				Conditions:     []metav1.Condition{},
 				RelatedObjects: []corev1.ObjectReference{},
 				Versions: Versions{
 					{Name: "aaa", Version: "1.2.3"},
@@ -408,7 +407,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 				Version: "v1.2.3",
 			},
 			Status: HyperConvergedStatus{
-				Conditions: []conditionsv1.Condition{
+				Conditions: []metav1.Condition{
 					{
 						Type:   "a condition type",
 						Status: "True",

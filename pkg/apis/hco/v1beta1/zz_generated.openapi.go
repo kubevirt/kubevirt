@@ -356,7 +356,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/openshift/custom-resource-status/conditions/v1.Condition"),
+										Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
 									},
 								},
 							},
@@ -392,7 +392,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.Version", "github.com/openshift/custom-resource-status/conditions/v1.Condition", "k8s.io/api/core/v1.ObjectReference"},
+			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.Version", "k8s.io/api/core/v1.ObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 

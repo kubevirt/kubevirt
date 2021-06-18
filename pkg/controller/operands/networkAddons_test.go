@@ -13,7 +13,6 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-	"github.com/openshift/custom-resource-status/testlib"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,21 +74,21 @@ var _ = Describe("CNA Operand", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
+			Expect(req.Conditions[hcov1beta1.ConditionAvailable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionAvailable,
+				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigConditions",
 				Message: "NetworkAddonsConfig resource has no conditions",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
+			Expect(req.Conditions[hcov1beta1.ConditionProgressing]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionProgressing,
+				Status:  metav1.ConditionTrue,
 				Reason:  "NetworkAddonsConfigConditions",
 				Message: "NetworkAddonsConfig resource has no conditions",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionUpgradeable,
+				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigConditions",
 				Message: "NetworkAddonsConfig resource has no conditions",
 			}))
@@ -513,19 +512,19 @@ var _ = Describe("CNA Operand", func() {
 			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
-				conditionsv1.Condition{
+				{
 					Type:    conditionsv1.ConditionAvailable,
 					Status:  corev1.ConditionFalse,
 					Reason:  "Foo",
 					Message: "Bar",
 				},
-				conditionsv1.Condition{
+				{
 					Type:    conditionsv1.ConditionProgressing,
 					Status:  corev1.ConditionTrue,
 					Reason:  "Foo",
 					Message: "Bar",
 				},
-				conditionsv1.Condition{
+				{
 					Type:    conditionsv1.ConditionDegraded,
 					Status:  corev1.ConditionTrue,
 					Reason:  "Foo",
@@ -545,27 +544,27 @@ var _ = Describe("CNA Operand", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
+			Expect(req.Conditions[hcov1beta1.ConditionAvailable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionAvailable,
+				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigNotAvailable",
 				Message: "NetworkAddonsConfig is not available: Bar",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
+			Expect(req.Conditions[hcov1beta1.ConditionProgressing]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionProgressing,
+				Status:  metav1.ConditionTrue,
 				Reason:  "NetworkAddonsConfigProgressing",
 				Message: "NetworkAddonsConfig is progressing: Bar",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionUpgradeable,
+				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigProgressing",
 				Message: "NetworkAddonsConfig is progressing: Bar",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionDegraded,
-				Status:  corev1.ConditionTrue,
+			Expect(req.Conditions[hcov1beta1.ConditionDegraded]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionDegraded,
+				Status:  metav1.ConditionTrue,
 				Reason:  "NetworkAddonsConfigDegraded",
 				Message: "NetworkAddonsConfig is degraded: Bar",
 			}))

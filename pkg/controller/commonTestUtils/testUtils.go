@@ -8,6 +8,7 @@ import (
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	consolev1 "github.com/openshift/api/console/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -27,6 +28,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 )
 
 // Name and Namespace of our primary resource
@@ -145,4 +147,46 @@ func GetScheme() *runtime.Scheme {
 	}
 
 	return testScheme
+}
+
+// RepresentCondition - returns a GomegaMatcher useful for comparing conditions
+func RepresentCondition(expected metav1.Condition) gomegatypes.GomegaMatcher {
+	return &RepresentConditionMatcher{
+		expected: expected,
+	}
+}
+
+type RepresentConditionMatcher struct {
+	expected metav1.Condition
+}
+
+// Match - compares two conditions
+// two conditions are the same if they have the same type, status, reason, and message
+func (matcher *RepresentConditionMatcher) Match(actual interface{}) (success bool, err error) {
+	actualCondition, ok := actual.(metav1.Condition)
+	if !ok {
+		return false, fmt.Errorf("RepresentConditionMatcher expects a Condition")
+	}
+
+	if matcher.expected.Type != actualCondition.Type {
+		return false, nil
+	}
+	if matcher.expected.Status != actualCondition.Status {
+		return false, nil
+	}
+	if matcher.expected.Reason != actualCondition.Reason {
+		return false, nil
+	}
+	if matcher.expected.Message != actualCondition.Message {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (matcher *RepresentConditionMatcher) FailureMessage(actual interface{}) (message string) {
+	return fmt.Sprintf("Expected\n\t%#v\nto match the condition\n\t%#v", actual, matcher.expected)
+}
+
+func (matcher *RepresentConditionMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	return fmt.Sprintf("Expected\n\t%#v\nnot to match the condition\n\t%#v", actual, matcher.expected)
 }

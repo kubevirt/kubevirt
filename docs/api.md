@@ -142,7 +142,7 @@ HyperConvergedStatus defines the observed state of HyperConverged
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| conditions | Conditions describes the state of the HyperConverged resource. | []conditionsv1.Condition |  | false |
+| conditions | Conditions describes the state of the HyperConverged resource. | []metav1.Condition |  | false |
 | relatedObjects | RelatedObjects is a list of objects created and maintained by this operator. Object references will be added to this list after they have been created AND found in the cluster. | []corev1.ObjectReference |  | false |
 | versions | Versions is a list of HCO component versions, as name/version pairs. The version with a name of \"operator\" is the HCO version itself, as described here: https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusteroperator.md#version | Versions |  | false |
 

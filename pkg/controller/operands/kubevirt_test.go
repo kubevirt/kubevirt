@@ -9,8 +9,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-	"github.com/openshift/custom-resource-status/testlib"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -216,21 +214,21 @@ Version: 1.2.3`)
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
+			Expect(req.Conditions[hcov1beta1.ConditionAvailable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionAvailable,
+				Status:  metav1.ConditionFalse,
 				Reason:  "KubeVirtConditions",
 				Message: "KubeVirt resource has no conditions",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
+			Expect(req.Conditions[hcov1beta1.ConditionProgressing]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionProgressing,
+				Status:  metav1.ConditionTrue,
 				Reason:  "KubeVirtConditions",
 				Message: "KubeVirt resource has no conditions",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionUpgradeable,
+				Status:  metav1.ConditionFalse,
 				Reason:  "KubeVirtConditions",
 				Message: "KubeVirt resource has no conditions",
 			}))
@@ -1891,27 +1889,27 @@ Version: 1.2.3`)
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
+			Expect(req.Conditions[hcov1beta1.ConditionAvailable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionAvailable,
+				Status:  metav1.ConditionFalse,
 				Reason:  "KubeVirtNotAvailable",
 				Message: "KubeVirt is not available: Bar",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
+			Expect(req.Conditions[hcov1beta1.ConditionProgressing]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionProgressing,
+				Status:  metav1.ConditionTrue,
 				Reason:  "KubeVirtProgressing",
 				Message: "KubeVirt is progressing: Bar",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionUpgradeable,
+				Status:  metav1.ConditionFalse,
 				Reason:  "KubeVirtProgressing",
 				Message: "KubeVirt is progressing: Bar",
 			}))
-			Expect(req.Conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionDegraded,
-				Status:  corev1.ConditionTrue,
+			Expect(req.Conditions[hcov1beta1.ConditionDegraded]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionDegraded,
+				Status:  metav1.ConditionTrue,
 				Reason:  "KubeVirtDegraded",
 				Message: "KubeVirt is degraded: Bar",
 			}))

@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
@@ -192,7 +193,7 @@ var _ = Describe("Test operandHandler", func() {
 			Expect(req.ComponentUpgradeInProgress).To(BeFalse())
 			cond := req.Conditions[hcov1beta1.ConditionReconcileComplete]
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+			Expect(cond.Status).Should(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).Should(Equal(reconcileFailed))
 			Expect(cond.Message).Should(Equal(fmt.Sprintf("Error while reconciling: %v", fakeError)))
 

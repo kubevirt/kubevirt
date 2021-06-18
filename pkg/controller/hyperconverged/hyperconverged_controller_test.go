@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	apimetav1 "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"time"
@@ -25,7 +26,6 @@ import (
 
 	// TODO: Move to envtest to get an actual api server
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-	"github.com/openshift/custom-resource-status/testlib"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
@@ -75,7 +75,7 @@ var _ = Describe("HyperconvergedController", func() {
 					},
 					Spec: hcov1beta1.HyperConvergedSpec{},
 					Status: hcov1beta1.HyperConvergedStatus{
-						Conditions: []conditionsv1.Condition{},
+						Conditions: []metav1.Condition{},
 					},
 				}
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
@@ -100,9 +100,9 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).To(BeNil())
 				// Check conditions
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionReconcileComplete,
-					Status:  corev1.ConditionFalse,
+					Status:  metav1.ConditionFalse,
 					Reason:  invalidRequestReason,
 					Message: fmt.Sprintf(invalidRequestMessageFormat, name, namespace),
 				})))
@@ -130,33 +130,33 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).To(BeNil())
 				// Check conditions
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionReconcileComplete,
-					Status:  corev1.ConditionUnknown,
+					Status:  metav1.ConditionUnknown,
 					Reason:  reconcileInit,
 					Message: reconcileInitMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionFalse,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionAvailable,
+					Status:  metav1.ConditionFalse,
 					Reason:  reconcileInit,
 					Message: "Initializing HyperConverged cluster",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionProgressing,
-					Status:  corev1.ConditionTrue,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionProgressing,
+					Status:  metav1.ConditionTrue,
 					Reason:  reconcileInit,
 					Message: "Initializing HyperConverged cluster",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionDegraded,
-					Status:  corev1.ConditionFalse,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionDegraded,
+					Status:  metav1.ConditionFalse,
 					Reason:  reconcileInit,
 					Message: "Initializing HyperConverged cluster",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionUpgradeable,
-					Status:  corev1.ConditionUnknown,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionUpgradeable,
+					Status:  metav1.ConditionUnknown,
 					Reason:  reconcileInit,
 					Message: "Initializing HyperConverged cluster",
 				})))
@@ -189,10 +189,10 @@ var _ = Describe("HyperconvergedController", func() {
 
 				expected := getBasicDeployment()
 				expected.hco.Status = hcov1beta1.HyperConvergedStatus{
-					Conditions: []conditionsv1.Condition{
+					Conditions: []metav1.Condition{
 						{
 							Type:    hcov1beta1.ConditionReconcileComplete,
-							Status:  corev1.ConditionTrue,
+							Status:  metav1.ConditionTrue,
 							Reason:  reconcileCompleted,
 							Message: reconcileCompletedMessage,
 						},
@@ -221,28 +221,28 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).To(BeNil())
 				// Check conditions
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionReconcileComplete,
-					Status:  corev1.ConditionTrue,
+					Status:  metav1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
 				// Why SSP? Because it is the last to be checked, so the last missing overwrites everything
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionFalse,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionAvailable,
+					Status:  metav1.ConditionFalse,
 					Reason:  "SSPConditions",
 					Message: "SSP resource has no conditions",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionProgressing,
-					Status:  corev1.ConditionTrue,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionProgressing,
+					Status:  metav1.ConditionTrue,
 					Reason:  "SSPConditions",
 					Message: "SSP resource has no conditions",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionUpgradeable,
-					Status:  corev1.ConditionFalse,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionUpgradeable,
+					Status:  metav1.ConditionFalse,
 					Reason:  "SSPConditions",
 					Message: "SSP resource has no conditions",
 				})))
@@ -251,10 +251,10 @@ var _ = Describe("HyperconvergedController", func() {
 			It("should label all managed resources", func() {
 				expected := getBasicDeployment()
 				expected.hco.Status = hcov1beta1.HyperConvergedStatus{
-					Conditions: []conditionsv1.Condition{
+					Conditions: []metav1.Condition{
 						{
 							Type:    hcov1beta1.ConditionReconcileComplete,
-							Status:  corev1.ConditionTrue,
+							Status:  metav1.ConditionTrue,
 							Reason:  reconcileCompleted,
 							Message: reconcileCompletedMessage,
 						},
@@ -300,10 +300,10 @@ var _ = Describe("HyperconvergedController", func() {
 			It("should complete when components are finished", func() {
 				expected := getBasicDeployment()
 				expected.hco.Status = hcov1beta1.HyperConvergedStatus{
-					Conditions: []conditionsv1.Condition{
+					Conditions: []metav1.Condition{
 						{
 							Type:    hcov1beta1.ConditionReconcileComplete,
-							Status:  corev1.ConditionTrue,
+							Status:  metav1.ConditionTrue,
 							Reason:  reconcileCompleted,
 							Message: reconcileCompletedMessage,
 						},
@@ -326,33 +326,33 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).To(BeNil())
 				// Check conditions
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionReconcileComplete,
-					Status:  corev1.ConditionTrue,
+					Status:  metav1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionTrue,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionAvailable,
+					Status:  metav1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionProgressing,
-					Status:  corev1.ConditionFalse,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionProgressing,
+					Status:  metav1.ConditionFalse,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionDegraded,
-					Status:  corev1.ConditionFalse,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionDegraded,
+					Status:  metav1.ConditionFalse,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionUpgradeable,
-					Status:  corev1.ConditionTrue,
+				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionUpgradeable,
+					Status:  metav1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
@@ -475,58 +475,67 @@ var _ = Describe("HyperconvergedController", func() {
 			It(`should be not available when components with missing "Available" condition`, func() {
 				expected := getBasicDeployment()
 
-				origKvConds := expected.kv.Status.Conditions
-				expected.kv.Status.Conditions = expected.kv.Status.Conditions[1:]
+				var cl *commonTestUtils.HcoTestClient
+				By("Check KV", func() {
+					origKvConds := expected.kv.Status.Conditions
+					expected.kv.Status.Conditions = expected.kv.Status.Conditions[1:]
 
-				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+					cl = expected.initClient()
+					foundResource, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionFalse)
 
-				expected.kv.Status.Conditions = origKvConds
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+					expected.kv.Status.Conditions = origKvConds
+					cl = expected.initClient()
+					foundResource, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+				})
 
-				origConds := expected.cdi.Status.Conditions
-				expected.cdi.Status.Conditions = expected.cdi.Status.Conditions[1:]
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+				By("Check CDI", func() {
+					origConds := expected.cdi.Status.Conditions
+					expected.cdi.Status.Conditions = expected.cdi.Status.Conditions[1:]
+					cl = expected.initClient()
+					foundResource, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionFalse)
 
-				expected.cdi.Status.Conditions = origConds
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+					expected.cdi.Status.Conditions = origConds
+					cl = expected.initClient()
+					foundResource, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+				})
 
-				origConds = expected.cna.Status.Conditions
-				expected.cna.Status.Conditions = expected.cdi.Status.Conditions[1:]
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+				By("Check CNA", func() {
+					origConds := expected.cna.Status.Conditions
 
-				expected.cna.Status.Conditions = origConds
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+					expected.cna.Status.Conditions = expected.cna.Status.Conditions[1:]
+					cl = expected.initClient()
+					foundResource, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionFalse)
 
-				origConds = expected.ssp.Status.Conditions
-				expected.ssp.Status.Conditions = expected.cdi.Status.Conditions[1:]
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+					expected.cna.Status.Conditions = origConds
+					cl = expected.initClient()
+					foundResource, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+				})
+				By("Check KV", func() {
+					origConds := expected.ssp.Status.Conditions
+					expected.ssp.Status.Conditions = expected.cdi.Status.Conditions[1:]
+					cl = expected.initClient()
+					foundResource, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionFalse)
 
-				expected.ssp.Status.Conditions = origConds
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+					expected.ssp.Status.Conditions = origConds
+					cl = expected.initClient()
+					foundResource, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+				})
 			})
 
 			It(`should delete HCO`, func() {
@@ -643,7 +652,7 @@ var _ = Describe("HyperconvergedController", func() {
 				for _, cond := range foundResource.Status.Conditions {
 					if cond.Type == hcov1beta1.ConditionReconcileComplete {
 						foundCond = true
-						Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+						Expect(cond.Status).Should(Equal(metav1.ConditionFalse))
 						Expect(cond.Message).Should(ContainSubstring("fake create error"))
 						break
 					}
@@ -690,7 +699,7 @@ var _ = Describe("HyperconvergedController", func() {
 				for _, cond := range foundResource.Status.Conditions {
 					if cond.Type == hcov1beta1.ConditionReconcileComplete {
 						foundCond = true
-						Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+						Expect(cond.Status).Should(Equal(metav1.ConditionFalse))
 						Expect(cond.Message).Should(ContainSubstring("fake update error"))
 						break
 					}
@@ -725,7 +734,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				By("should not find the configMap")
 				res := &corev1.ConfigMap{}
@@ -747,7 +756,7 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("Validate OLM required fields", func() {
 			var (
 				expected  *BasicExpected
-				origConds []conditionsv1.Condition
+				origConds []metav1.Condition
 			)
 
 			BeforeEach(func() {
@@ -798,8 +807,8 @@ var _ = Describe("HyperconvergedController", func() {
 
 			var (
 				expected       *BasicExpected
-				origConditions []conditionsv1.Condition
-				okConds        []conditionsv1.Condition
+				origConditions []metav1.Condition
+				okConds        []metav1.Condition
 			)
 
 			BeforeEach(func() {
@@ -839,10 +848,10 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeTrue())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				for _, cond := range foundResource.Status.Conditions {
-					if cond.Type == conditionsv1.ConditionAvailable {
+					if cond.Type == hcov1beta1.ConditionAvailable {
 						Expect(cond.Reason).Should(Equal("Init"))
 						break
 					}
@@ -867,7 +876,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				// check that the HCO version is not set, because upgrade is not completed
 				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
@@ -881,26 +890,26 @@ var _ = Describe("HyperconvergedController", func() {
 				cl = expected.initClient()
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 				Expect(foundResource.Spec.Version).Should(Equal(oldVersion))
-				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 
 				// check that the image Id is set, now, when upgrade is completed
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo("False"))
 			})
 
@@ -913,7 +922,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				// check that the image Id is not set, because upgrade is not completed
 				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
@@ -927,17 +936,17 @@ var _ = Describe("HyperconvergedController", func() {
 				cl = expected.initClient()
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				_, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeFalse())
-				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
@@ -945,7 +954,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ver).Should(Equal(newVersion))
 				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
 
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo("False"))
 			})
 
@@ -963,14 +972,14 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				// check that the image Id is not set, because upgrade is not completed
 				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -983,14 +992,14 @@ var _ = Describe("HyperconvergedController", func() {
 				cl = expected.initClient()
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -1002,14 +1011,14 @@ var _ = Describe("HyperconvergedController", func() {
 				cl = expected.initClient()
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 
 				hcoReady = checkHcoReady()
@@ -1017,13 +1026,13 @@ var _ = Describe("HyperconvergedController", func() {
 
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo("False"))
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
@@ -1046,7 +1055,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				hcoReady := checkHcoReady()
 				Expect(hcoReady).To(BeFalse())
@@ -1055,8 +1064,8 @@ var _ = Describe("HyperconvergedController", func() {
 				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -1069,14 +1078,14 @@ var _ = Describe("HyperconvergedController", func() {
 				cl = expected.initClient()
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 
 				hcoReady = checkHcoReady()
@@ -1084,14 +1093,14 @@ var _ = Describe("HyperconvergedController", func() {
 
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
 
@@ -1113,14 +1122,14 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				// check that the image Id is not set, because upgrade is not completed
 				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -1130,26 +1139,26 @@ var _ = Describe("HyperconvergedController", func() {
 				cl = expected.initClient()
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
 			})
@@ -1168,14 +1177,14 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionFalse)
+				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				// check that the image Id is not set, because upgrade is not completed
 				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
@@ -1185,26 +1194,26 @@ var _ = Describe("HyperconvergedController", func() {
 				cl = expected.initClient()
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that HCO version is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 
 				foundResource, requeue = doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, corev1.ConditionTrue)
+				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				// check that HCO version is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
-				cond = conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
 			})
@@ -1238,7 +1247,7 @@ var _ = Describe("HyperconvergedController", func() {
 					cl := commonTestUtils.InitClient(resources)
 					foundResource, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundResource, corev1.ConditionTrue)
+					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					foundKvCm, foundBackup := searchKvConfigMaps(cl)
 					Expect(foundKvCm).To(BeFalse())
@@ -1276,7 +1285,7 @@ progressTimeout: 150`,
 					cl := commonTestUtils.InitClient(resources)
 					foundResource, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeTrue())
-					checkAvailability(foundResource, corev1.ConditionUnknown)
+					checkAvailability(foundResource, metav1.ConditionUnknown)
 
 					By("Check that the LifeMigrationConfig field contains the configmap values")
 					lmc := foundResource.Spec.LiveMigrationConfig
@@ -1305,7 +1314,7 @@ progressTimeout: 150`,
 					By("Run reconcile again")
 					foundResource, requeue = doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundResource, corev1.ConditionTrue)
+					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					By("Check that KV's MigrationConfiguration field contains the configmap values")
 					kv = operands.NewKubeVirtWithNameOnly(foundResource)
@@ -1358,7 +1367,7 @@ progressTimeout: 300`,
 					cl := commonTestUtils.InitClient(resources)
 					foundResource, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeTrue())
-					checkAvailability(foundResource, corev1.ConditionUnknown)
+					checkAvailability(foundResource, metav1.ConditionUnknown)
 
 					By("Check that the LifeMigrationConfig field contains the configmap values")
 					lmc := foundResource.Spec.LiveMigrationConfig
@@ -1387,7 +1396,7 @@ progressTimeout: 300`,
 					By("Run reconcile again")
 					foundResource, requeue = doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundResource, corev1.ConditionTrue)
+					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					By("Check that KV's MigrationConfiguration field contains the configmap values")
 					kv = operands.NewKubeVirtWithNameOnly(foundResource)
@@ -1431,7 +1440,7 @@ progressTimeout: 300`,
 					cl := commonTestUtils.InitClient(resources)
 					foundResource, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeTrue())
-					checkAvailability(foundResource, corev1.ConditionUnknown)
+					checkAvailability(foundResource, metav1.ConditionUnknown)
 
 					By("Check that the LifeMigrationConfig field contains the configmap values")
 					lmc := foundResource.Spec.LiveMigrationConfig
@@ -1460,7 +1469,7 @@ progressTimeout: 300`,
 					By("Run reconcile again")
 					foundResource, requeue = doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundResource, corev1.ConditionTrue)
+					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					By("Check that KV's MigrationConfiguration field contains the configmap values")
 					kv = operands.NewKubeVirtWithNameOnly(foundResource)
@@ -1512,7 +1521,7 @@ progressTimeout: 150`,
 					cl := commonTestUtils.InitClient(resources)
 					foundResource, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundResource, corev1.ConditionTrue)
+					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					By("Check that the LifeMigrationConfig field contains the configmap values")
 					lmc := foundResource.Spec.LiveMigrationConfig
@@ -1567,7 +1576,7 @@ progressTimeout: 150`,
 					cl := commonTestUtils.InitClient(resources)
 					foundHC, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeTrue())
-					checkAvailability(foundHC, corev1.ConditionUnknown)
+					checkAvailability(foundHC, metav1.ConditionUnknown)
 
 					By("Check that the spec.ScratchSpaceStorageClass is now populated")
 					Expect(foundHC.Spec.ScratchSpaceStorageClass).ShouldNot(BeNil())
@@ -1580,7 +1589,7 @@ progressTimeout: 150`,
 					By("Run reconcile again")
 					foundHC, requeue = doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundHC, corev1.ConditionTrue)
+					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that CDI's still contains the expected values")
 					cdi := operands.NewCDIWithNameOnly(foundHC)
@@ -1624,7 +1633,7 @@ progressTimeout: 150`,
 					cl := commonTestUtils.InitClient(expected.toArray())
 					foundHC, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundHC, corev1.ConditionTrue)
+					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that the spec.ScratchSpaceStorageClass is now populated")
 					Expect(foundHC.Spec.ScratchSpaceStorageClass).ShouldNot(BeNil())
@@ -1664,7 +1673,7 @@ progressTimeout: 150`,
 					cl := commonTestUtils.InitClient(expected.toArray())
 					foundHC, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundHC, corev1.ConditionTrue)
+					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that the spec.ScratchSpaceStorageClass is now populated")
 					Expect(foundHC.Spec.ScratchSpaceStorageClass).ShouldNot(BeNil())
@@ -1702,7 +1711,7 @@ progressTimeout: 150`,
 
 					foundHC, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeTrue())
-					checkAvailability(foundHC, corev1.ConditionUnknown)
+					checkAvailability(foundHC, metav1.ConditionUnknown)
 
 					By("Check that the spec.VddkInitImage is now populated")
 					Expect(foundHC.Spec.VddkInitImage).ShouldNot(BeNil())
@@ -1711,7 +1720,7 @@ progressTimeout: 150`,
 					By("Run reconcile again")
 					foundHC, requeue = doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundHC, corev1.ConditionTrue)
+					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that IMS cm still contains the expected values")
 					vmiCM, err := operands.NewIMSConfigForCR(foundHC, namespace)
@@ -1740,7 +1749,7 @@ progressTimeout: 150`,
 
 					foundHC, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundHC, corev1.ConditionTrue)
+					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that the spec.VddkInitImage has not been updated on HCO CR")
 					Expect(foundHC.Spec.VddkInitImage).ShouldNot(BeNil())
@@ -1774,7 +1783,7 @@ progressTimeout: 150`,
 
 					foundHC, requeue := doReconcile(cl, expected.hco)
 					Expect(requeue).To(BeFalse())
-					checkAvailability(foundHC, corev1.ConditionTrue)
+					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that the spec.VddkInitImage has not been updated on HCO CR")
 					Expect(foundHC.Spec.VddkInitImage).ShouldNot(BeNil())
@@ -1814,21 +1823,21 @@ progressTimeout: 150`,
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
 				Expect(cd.Message).Should(Equal("HCO is not available due to degraded components"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIDegraded"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
 				Expect(cd.Message).Should(Equal("HCO is not Upgradeable due to degraded components"))
 
@@ -1857,20 +1866,20 @@ progressTimeout: 150`,
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIDegraded"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
 			})
 
@@ -1897,20 +1906,20 @@ progressTimeout: 150`,
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDINotAvailable"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIDegraded"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(commonDegradedReason))
 			})
 
@@ -1931,20 +1940,20 @@ progressTimeout: 150`,
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
 			})
 
@@ -1971,20 +1980,20 @@ progressTimeout: 150`,
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDINotAvailable"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDIProgressing"))
 			})
 
@@ -2005,20 +2014,20 @@ progressTimeout: 150`,
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("CDINotAvailable"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 			})
 
@@ -2033,20 +2042,20 @@ progressTimeout: 150`,
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 			})
 
@@ -2058,6 +2067,7 @@ progressTimeout: 150`,
 					Reason:  "AvailableError",
 					Message: "CDI Test Error message",
 				})
+
 				conditionsv1.SetStatusCondition(&expected.cna.Status.Conditions, conditionsv1.Condition{
 					Type:    conditionsv1.ConditionAvailable,
 					Status:  corev1.ConditionFalse,
@@ -2073,20 +2083,20 @@ progressTimeout: 150`,
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal("NetworkAddonsConfigNotAvailable"))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionFalse))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
-				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(corev1.ConditionTrue))
+				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
+				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 			})
 		})
@@ -2171,9 +2181,9 @@ progressTimeout: 150`,
 				).To(BeNil())
 
 				By("Verify HC conditions", func() {
-					Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+					Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
-						Status:  corev1.ConditionTrue,
+						Status:  metav1.ConditionTrue,
 						Reason:  taintedConfigurationReason,
 						Message: taintedConfigurationMessage,
 					})))
@@ -2196,9 +2206,9 @@ progressTimeout: 150`,
 
 			It("Removes the TaintedConfiguration condition upon removal of such configuration", func() {
 				hco := commonTestUtils.NewHco()
-				hco.Status.Conditions = append(hco.Status.Conditions, conditionsv1.Condition{
+				hco.Status.Conditions = append(hco.Status.Conditions, metav1.Condition{
 					Type:    hcov1beta1.ConditionTaintedConfiguration,
-					Status:  corev1.ConditionTrue,
+					Status:  metav1.ConditionTrue,
 					Reason:  taintedConfigurationReason,
 					Message: taintedConfigurationMessage,
 				})
@@ -2223,9 +2233,9 @@ progressTimeout: 150`,
 
 				// Check conditions
 				// Check conditions
-				Expect(foundResource.Status.Conditions).To(Not(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionTaintedConfiguration,
-					Status:  corev1.ConditionTrue,
+					Status:  metav1.ConditionTrue,
 					Reason:  taintedConfigurationReason,
 					Message: taintedConfigurationMessage,
 				}))))

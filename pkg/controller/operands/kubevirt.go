@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -177,7 +176,7 @@ func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 
 func (h kubevirtHooks) getEmptyCr() client.Object                          { return &kubevirtv1.KubeVirt{} }
 func (h kubevirtHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
-func (h kubevirtHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
+func (h kubevirtHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return translateKubeVirtConds(cr.(*kubevirtv1.KubeVirt).Status.Conditions)
 }
 func (h kubevirtHooks) checkComponentVersion(cr runtime.Object) bool {
@@ -538,13 +537,13 @@ func NewKubeVirtPriorityClass(hc *hcov1beta1.HyperConverged) *schedulingv1.Prior
 
 // translateKubeVirtConds translates list of KubeVirt conditions to a list of custom resource
 // conditions.
-func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []conditionsv1.Condition {
-	translated := make([]conditionsv1.Condition, len(orig))
+func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []metav1.Condition {
+	translated := make([]metav1.Condition, len(orig))
 
 	for i, origCond := range orig {
-		translated[i] = conditionsv1.Condition{
-			Type:    conditionsv1.ConditionType(origCond.Type),
-			Status:  origCond.Status,
+		translated[i] = metav1.Condition{
+			Type:    string(origCond.Type),
+			Status:  metav1.ConditionStatus(origCond.Status),
 			Reason:  origCond.Reason,
 			Message: origCond.Message,
 		}

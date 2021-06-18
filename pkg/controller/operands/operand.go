@@ -4,15 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"os"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,7 +64,7 @@ type hcoResourceHooks interface {
 type hcoOperandHooks interface {
 	hcoResourceHooks
 	// get the CR conditions, if exists
-	getConditions(runtime.Object) []conditionsv1.Condition
+	getConditions(runtime.Object) []metav1.Condition
 	// on upgrade mode, check if the CR is already with the expected version
 	checkComponentVersion(runtime.Object) bool
 }
@@ -209,7 +208,7 @@ func (h *genericOperand) reset() {
 
 // handleComponentConditions - read and process a sub-component conditions.
 // returns true if the the conditions indicates "ready" state and false if not.
-func handleComponentConditions(req *common.HcoRequest, component string, componentConds []conditionsv1.Condition) bool {
+func handleComponentConditions(req *common.HcoRequest, component string, componentConds []metav1.Condition) bool {
 	if len(componentConds) == 0 {
 		getConditionsForNewCr(req, component)
 		return false
@@ -218,22 +217,22 @@ func handleComponentConditions(req *common.HcoRequest, component string, compone
 	return setConditionsByOperandConditions(req, component, componentConds)
 }
 
-func setConditionsByOperandConditions(req *common.HcoRequest, component string, componentConds []conditionsv1.Condition) bool {
+func setConditionsByOperandConditions(req *common.HcoRequest, component string, componentConds []metav1.Condition) bool {
 	isReady := true
 	foundAvailableCond := false
 	foundProgressingCond := false
 	foundDegradedCond := false
 	for _, condition := range componentConds {
 		switch condition.Type {
-		case conditionsv1.ConditionAvailable:
+		case hcov1beta1.ConditionAvailable:
 			foundAvailableCond = true
 			isReady = handleOperandAvailableCond(req, component, condition) && isReady
 
-		case conditionsv1.ConditionProgressing:
+		case hcov1beta1.ConditionProgressing:
 			foundProgressingCond = true
 			isReady = handleOperandProgressingCond(req, component, condition) && isReady
 
-		case conditionsv1.ConditionDegraded:
+		case hcov1beta1.ConditionDegraded:
 			foundDegradedCond = true
 			isReady = handleOperandDegradedCond(req, component, condition) && isReady
 		}
@@ -246,12 +245,12 @@ func setConditionsByOperandConditions(req *common.HcoRequest, component string, 
 	return isReady && foundAvailableCond && foundProgressingCond && foundDegradedCond
 }
 
-func handleOperandDegradedCond(req *common.HcoRequest, component string, condition conditionsv1.Condition) bool {
-	if condition.Status == corev1.ConditionTrue {
+func handleOperandDegradedCond(req *common.HcoRequest, component string, condition metav1.Condition) bool {
+	if condition.Status == metav1.ConditionTrue {
 		req.Logger.Info(fmt.Sprintf("%s is 'Degraded'", component))
-		req.Conditions.SetStatusCondition(conditionsv1.Condition{
-			Type:    conditionsv1.ConditionDegraded,
-			Status:  corev1.ConditionTrue,
+		req.Conditions.SetStatusCondition(metav1.Condition{
+			Type:    hcov1beta1.ConditionDegraded,
+			Status:  metav1.ConditionTrue,
 			Reason:  fmt.Sprintf("%sDegraded", component),
 			Message: fmt.Sprintf("%s is degraded: %v", component, condition.Message),
 		})
@@ -261,18 +260,18 @@ func handleOperandDegradedCond(req *common.HcoRequest, component string, conditi
 	return true
 }
 
-func handleOperandProgressingCond(req *common.HcoRequest, component string, condition conditionsv1.Condition) bool {
-	if condition.Status == corev1.ConditionTrue {
+func handleOperandProgressingCond(req *common.HcoRequest, component string, condition metav1.Condition) bool {
+	if condition.Status == metav1.ConditionTrue {
 		req.Logger.Info(fmt.Sprintf("%s is 'Progressing'", component))
-		req.Conditions.SetStatusCondition(conditionsv1.Condition{
-			Type:    conditionsv1.ConditionProgressing,
-			Status:  corev1.ConditionTrue,
+		req.Conditions.SetStatusCondition(metav1.Condition{
+			Type:    hcov1beta1.ConditionProgressing,
+			Status:  metav1.ConditionTrue,
 			Reason:  fmt.Sprintf("%sProgressing", component),
 			Message: fmt.Sprintf("%s is progressing: %v", component, condition.Message),
 		})
-		req.Conditions.SetStatusCondition(conditionsv1.Condition{
-			Type:    conditionsv1.ConditionUpgradeable,
-			Status:  corev1.ConditionFalse,
+		req.Conditions.SetStatusCondition(metav1.Condition{
+			Type:    hcov1beta1.ConditionUpgradeable,
+			Status:  metav1.ConditionFalse,
 			Reason:  fmt.Sprintf("%sProgressing", component),
 			Message: fmt.Sprintf("%s is progressing: %v", component, condition.Message),
 		})
@@ -282,8 +281,8 @@ func handleOperandProgressingCond(req *common.HcoRequest, component string, cond
 	return true
 }
 
-func handleOperandAvailableCond(req *common.HcoRequest, component string, condition conditionsv1.Condition) bool {
-	if condition.Status == corev1.ConditionFalse {
+func handleOperandAvailableCond(req *common.HcoRequest, component string, condition metav1.Condition) bool {
+	if condition.Status == metav1.ConditionFalse {
 		msg := fmt.Sprintf("%s is not available: %v", component, condition.Message)
 		componentNotAvailable(req, component, msg)
 		return false
@@ -295,21 +294,21 @@ func getConditionsForNewCr(req *common.HcoRequest, component string) {
 	reason := fmt.Sprintf("%sConditions", component)
 	message := fmt.Sprintf("%s resource has no conditions", component)
 	req.Logger.Info(fmt.Sprintf("%s's resource is not reporting Conditions on it's Status", component))
-	req.Conditions.SetStatusCondition(conditionsv1.Condition{
-		Type:    conditionsv1.ConditionAvailable,
-		Status:  corev1.ConditionFalse,
+	req.Conditions.SetStatusCondition(metav1.Condition{
+		Type:    hcov1beta1.ConditionAvailable,
+		Status:  metav1.ConditionFalse,
 		Reason:  reason,
 		Message: message,
 	})
-	req.Conditions.SetStatusCondition(conditionsv1.Condition{
-		Type:    conditionsv1.ConditionProgressing,
-		Status:  corev1.ConditionTrue,
+	req.Conditions.SetStatusCondition(metav1.Condition{
+		Type:    hcov1beta1.ConditionProgressing,
+		Status:  metav1.ConditionTrue,
 		Reason:  reason,
 		Message: message,
 	})
-	req.Conditions.SetStatusCondition(conditionsv1.Condition{
-		Type:    conditionsv1.ConditionUpgradeable,
-		Status:  corev1.ConditionFalse,
+	req.Conditions.SetStatusCondition(metav1.Condition{
+		Type:    hcov1beta1.ConditionUpgradeable,
+		Status:  metav1.ConditionFalse,
 		Reason:  reason,
 		Message: message,
 	})
@@ -317,9 +316,9 @@ func getConditionsForNewCr(req *common.HcoRequest, component string) {
 
 func componentNotAvailable(req *common.HcoRequest, component string, msg string) {
 	req.Logger.Info(fmt.Sprintf("%s is not 'Available'", component))
-	req.Conditions.SetStatusCondition(conditionsv1.Condition{
-		Type:    conditionsv1.ConditionAvailable,
-		Status:  corev1.ConditionFalse,
+	req.Conditions.SetStatusCondition(metav1.Condition{
+		Type:    hcov1beta1.ConditionAvailable,
+		Status:  metav1.ConditionFalse,
 		Reason:  fmt.Sprintf("%sNotAvailable", component),
 		Message: msg,
 	})
@@ -389,4 +388,26 @@ func applyPatchToSpec(hc *hcov1beta1.HyperConverged, annotationName string, obj 
 	}
 
 	return nil
+}
+
+func osConditionToK8s(condition conditionsv1.Condition) metav1.Condition {
+	return metav1.Condition{
+		Type:    string(condition.Type),
+		Reason:  condition.Reason,
+		Status:  metav1.ConditionStatus(condition.Status),
+		Message: condition.Message,
+	}
+}
+
+func osConditionsToK8s(conditions []conditionsv1.Condition) []metav1.Condition {
+	if len(conditions) == 0 {
+		return nil
+	}
+
+	newCond := make([]metav1.Condition, len(conditions))
+	for i, c := range conditions {
+		newCond[i] = osConditionToK8s(c)
+	}
+
+	return newCond
 }

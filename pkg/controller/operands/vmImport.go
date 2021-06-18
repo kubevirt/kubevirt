@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,8 +45,8 @@ func (h *vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 }
 func (h vmImportHooks) getEmptyCr() client.Object                              { return &vmimportv1beta1.VMImportConfig{} }
 func (h vmImportHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
-func (h vmImportHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
-	return cr.(*vmimportv1beta1.VMImportConfig).Status.Conditions
+func (h vmImportHooks) getConditions(cr runtime.Object) []metav1.Condition {
+	return osConditionsToK8s(cr.(*vmimportv1beta1.VMImportConfig).Status.Conditions)
 }
 func (h vmImportHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*vmimportv1beta1.VMImportConfig)
