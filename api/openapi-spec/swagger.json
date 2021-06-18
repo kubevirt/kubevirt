@@ -9427,6 +9427,10 @@
       "type": "integer",
       "format": "int32"
      },
+     "minimumReservePVCBytes": {
+      "type": "integer",
+      "format": "int64"
+     },
      "nodeSelectors": {
       "type": "object",
       "additionalProperties": {

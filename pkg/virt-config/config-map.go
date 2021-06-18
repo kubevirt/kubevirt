@@ -186,6 +186,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 			UseEmulation:           DefaultUseEmulation,
 			MemoryOvercommit:       DefaultMemoryOvercommit,
 			LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
+			MinimumReservePVCBytes: DefaultMinimumReservePVCBytes,
 			NodeSelectors:          nodeSelectorsDefault,
 			CPUAllocationRatio:     DefaultCPUAllocationRatio,
 			LogVerbosity: &v1.LogVerbosity{

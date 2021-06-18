@@ -97,13 +97,13 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 	return nil
 }
 
-func dirBytesAvailable(path string) (uint64, error) {
+func dirBytesAvailable(path string, reserve uint64) (uint64, error) {
 	var stat syscall.Statfs_t
 	err := syscall.Statfs(path, &stat)
 	if err != nil {
 		return 0, err
 	}
-	return stat.Bavail * uint64(stat.Bsize), nil
+	return stat.Bavail*uint64(stat.Bsize) - reserve, nil
 }
 
 func createSparseRaw(fullPath string, size int64) (err error) {
@@ -133,20 +133,22 @@ func GetMountedHostDiskDir(volumeName string) string {
 }
 
 type DiskImgCreator struct {
-	dirBytesAvailableFunc  func(path string) (uint64, error)
+	dirBytesAvailableFunc  func(path string, reserve uint64) (uint64, error)
 	notifier               k8sNotifier
 	lessPVCSpaceToleration int
+	minimumPVCReserveBytes uint64
 }
 
 type k8sNotifier interface {
 	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error
 }
 
-func NewHostDiskCreator(notifier k8sNotifier, lessPVCSpaceToleration int) DiskImgCreator {
+func NewHostDiskCreator(notifier k8sNotifier, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64) DiskImgCreator {
 	return DiskImgCreator{
 		dirBytesAvailableFunc:  dirBytesAvailable,
 		notifier:               notifier,
 		lessPVCSpaceToleration: lessPVCSpaceToleration,
+		minimumPVCReserveBytes: minimumPVCReserveBytes,
 	}
 }
 
@@ -190,7 +192,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 }
 
 func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
-	size, err := hdc.dirBytesAvailableFunc(diskDir)
+	size, err := hdc.dirBytesAvailableFunc(diskDir, hdc.minimumPVCReserveBytes)
 	availableSize := int64(size)
 	if err != nil {
 		return err
