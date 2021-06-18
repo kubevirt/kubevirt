@@ -12,6 +12,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
@@ -24,6 +27,20 @@ var _ = Describe("Hinter", func() {
 			NodeWithTSC("node1", 123, true),
 			NodeWithTSC("node2", 12345, false),
 		)
+		g.Expect(hinter.LowestTSCFrequencyOnCluster()).To(g.BeNumerically("==", 123))
+	})
+
+	It("should pick up when a minimum TSC frequency is set in the config", func() {
+		hinter := hinterWithNodes(
+			NodeWithInvalidTSC("node0"),
+			NodeWithTSC("node0", 1234, true),
+			NodeWithTSC("node1", 123, true),
+			NodeWithTSC("node2", 12345, false),
+		)
+		g.Expect(hinter.LowestTSCFrequencyOnCluster()).To(g.BeNumerically("==", 123))
+		hinter.clusterConfig = clusterConfigWithTSCFrequency(200)
+		g.Expect(hinter.LowestTSCFrequencyOnCluster()).To(g.BeNumerically("==", 200))
+		hinter.clusterConfig = clusterConfigWithoutTSCFrequency()
 		g.Expect(hinter.LowestTSCFrequencyOnCluster()).To(g.BeNumerically("==", 123))
 	})
 
@@ -72,8 +89,10 @@ var _ = Describe("Hinter", func() {
 })
 
 func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
+
 	return &topologyHinter{
-		arch: "amd64",
+		clusterConfig: clusterConfigWithoutTSCFrequency(),
+		arch:          "amd64",
 		nodeStore: &cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return NodesToObjects(nodes...)
@@ -179,4 +198,22 @@ func vmiWithTSCFrequencyOnNode(vmiName string, frequency int64, nodename string)
 			TopologyHints: &virtv1.TopologyHints{TSCFrequency: &frequency},
 		},
 	}
+}
+
+func clusterConfigWithTSCFrequency(freq int64) *virtconfig.ClusterConfig {
+	config, _, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{
+		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+			MinimumClusterTSCFrequency: &freq,
+		},
+	})
+	return config
+}
+
+func clusterConfigWithoutTSCFrequency() *virtconfig.ClusterConfig {
+	config, _, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{
+		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+			MinimumClusterTSCFrequency: nil,
+		},
+	})
+	return config
 }

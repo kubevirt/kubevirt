@@ -465,7 +465,7 @@ func (vca *VirtControllerApp) initCommon() {
 		runtime.GOARCH,
 	)
 
-	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH)
+	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH, vca.clusterConfig)
 
 	vca.vmiController = NewVMIController(
 		vca.templateService,

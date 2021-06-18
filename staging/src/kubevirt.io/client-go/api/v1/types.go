@@ -1891,7 +1891,10 @@ type DeveloperConfiguration struct {
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
 	UseEmulation           bool              `json:"useEmulation,omitempty"`
 	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
-	LogVerbosity           *LogVerbosity     `json:"logVerbosity,omitempty"`
+	// Allow overriding the automatically determined minimum TSC frequency of the cluster
+	// and fixate the minimum to this frequency.
+	MinimumClusterTSCFrequency *int64        `json:"minimumClusterTSCFrequency,omitempty"`
+	LogVerbosity               *LogVerbosity `json:"logVerbosity,omitempty"`
 }
 
 // LogVerbosity sets log verbosity level of  various components

@@ -538,6 +538,11 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 memoryOvercommit:
                   type: integer
+                minimumClusterTSCFrequency:
+                  description: Allow overriding the automatically determined minimum
+                    TSC frequency of the cluster and fixate the minimum to this frequency.
+                  format: int64
+                  type: integer
                 minimumReservePVCBytes:
                   format: int64
                   type: integer

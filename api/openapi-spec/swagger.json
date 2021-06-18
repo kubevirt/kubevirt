@@ -9427,6 +9427,11 @@
       "type": "integer",
       "format": "int32"
      },
+     "minimumClusterTSCFrequency": {
+      "description": "Allow overriding the automatically determined minimum TSC frequency of the cluster and fixate the minimum to this frequency.",
+      "type": "integer",
+      "format": "int64"
+     },
      "minimumReservePVCBytes": {
       "type": "integer",
       "format": "int64"

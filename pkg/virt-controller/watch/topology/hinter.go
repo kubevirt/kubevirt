@@ -8,6 +8,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	k6tv1 "kubevirt.io/client-go/api/v1"
 )
 
@@ -18,9 +20,10 @@ type Hinter interface {
 }
 
 type topologyHinter struct {
-	nodeStore cache.Store
-	vmiStore  cache.Store
-	arch      string
+	clusterConfig *virtconfig.ClusterConfig
+	nodeStore     cache.Store
+	vmiStore      cache.Store
+	arch          string
 }
 
 func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, err error) {
@@ -37,6 +40,14 @@ func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) 
 }
 
 func (t *topologyHinter) LowestTSCFrequencyOnCluster() (int64, error) {
+	configTSCFrequency := t.clusterConfig.GetMinimumClusterTSCFrequency()
+	if configTSCFrequency != nil {
+		if *configTSCFrequency > 0 {
+			return *configTSCFrequency, nil
+		} else {
+			return 0, fmt.Errorf("the configured minimumClusterTSCFrequency must be greater 0, but got %d", *configTSCFrequency)
+		}
+	}
 	nodes := FilterNodesFromCache(t.nodeStore.List(),
 		HasInvTSCFrequency,
 	)
@@ -62,6 +73,6 @@ func (t *topologyHinter) TSCFrequenciesInUse() []int64 {
 	return frequencies
 }
 
-func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, arch string) *topologyHinter {
-	return &topologyHinter{nodeStore: nodeStore, vmiStore: vmiStore, arch: arch}
+func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, arch string, clusterConfig *virtconfig.ClusterConfig) *topologyHinter {
+	return &topologyHinter{nodeStore: nodeStore, vmiStore: vmiStore, arch: arch, clusterConfig: clusterConfig}
 }

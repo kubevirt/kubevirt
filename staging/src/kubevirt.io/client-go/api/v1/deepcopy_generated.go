@@ -651,6 +651,11 @@ func (in *DeveloperConfiguration) DeepCopyInto(out *DeveloperConfiguration) {
 			(*out)[key] = val
 		}
 	}
+	if in.MinimumClusterTSCFrequency != nil {
+		in, out := &in.MinimumClusterTSCFrequency, &out.MinimumClusterTSCFrequency
+		*out = new(int64)
+		**out = **in
+	}
 	if in.LogVerbosity != nil {
 		in, out := &in.LogVerbosity, &out.LogVerbosity
 		*out = new(LogVerbosity)

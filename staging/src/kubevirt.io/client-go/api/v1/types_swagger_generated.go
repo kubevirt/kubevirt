@@ -585,7 +585,8 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 
 func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "DeveloperConfiguration holds developer options\n+k8s:openapi-gen=true",
+		"":                           "DeveloperConfiguration holds developer options\n+k8s:openapi-gen=true",
+		"minimumClusterTSCFrequency": "Allow overriding the automatically determined minimum TSC frequency of the cluster\nand fixate the minimum to this frequency.",
 	}
 }
 
