@@ -210,7 +210,7 @@ Similar to the [bridge bind mechanism](#bridge-binding-mechanism), triggering
 the masquerade `BindMechanism` requires a VMI configuration featuring a
 network with the `masquerade` interface type. KubeVirt provides an example of
 a
-[fedora based VMI](https://github.com/kubevirt/kubevirt/blob/master/examples/vmi-masquerade.yaml)
+[fedora based VMI](https://github.com/kubevirt/kubevirt/blob/main/examples/vmi-masquerade.yaml)
 in the project's examples folder.
 
 The masquerade bind mechanism has plenty in common with bridge binding; both

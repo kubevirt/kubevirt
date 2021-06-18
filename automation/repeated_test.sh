@@ -32,7 +32,7 @@ usage: [NUM_TESTS=x] [NEW_TESTS=test1_test|...|testn_test] $0 [kubevirtci_provid
         NEW_TESTS       what set of tests to run, defaults to all test files added or changed since
                         last merge commit
         TARGET_COMMIT   the commit id to use when fetching the changed test files
-                        note: leaving TARGET_COMMIT empty only works if on a git branch different from master.
+                        note: leaving TARGET_COMMIT empty only works if on a git branch different from main.
                         If /clonerefs is at work you need to provide a target commit, as then the latest commit is a
                         merge commit (resulting in no changes detected)
 

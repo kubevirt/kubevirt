@@ -1,6 +1,6 @@
 # Getting started with storage
 
-This document assumes you have a working [development environment](https://github.com/kubevirt/kubevirt/blob/master/docs/getting-started.md).
+This document assumes you have a working [development environment](https://github.com/kubevirt/kubevirt/blob/main/docs/getting-started.md).
 
 
 **We are using hostPath PVs, which are NOT suitable for a production environment, this document assumes you are setting up a SINGLE node development environment.**
@@ -102,4 +102,4 @@ spec:
 status: {}
 ```
 
-You can now use the steps described in the [development getting started guide](https://github.com/kubevirt/kubevirt/blob/master/docs/getting-started.md) to connect a VNC console to it.
+You can now use the steps described in the [development getting started guide](https://github.com/kubevirt/kubevirt/blob/main/docs/getting-started.md) to connect a VNC console to it.
