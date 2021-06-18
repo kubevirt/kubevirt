@@ -387,11 +387,15 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
+				gotExpectedCondition := false
 				for _, c := range vmi.Status.Conditions {
 					if c.Type == v1.VirtualMachineInstanceIsMigratable {
 						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
+						gotExpectedCondition = true
 					}
 				}
+
+				Expect(gotExpectedCondition).Should(BeTrue())
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -889,11 +893,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
+				gotExpectedCondition := false
 				for _, c := range vmi.Status.Conditions {
 					if c.Type == v1.VirtualMachineInstanceIsMigratable {
 						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
+						gotExpectedCondition = true
 					}
 				}
+				Expect(gotExpectedCondition).Should(BeTrue())
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -1698,17 +1705,20 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
+				vmi.Spec.Hostname = string(cd.ContainerDiskCirros)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
+				gotExpectedCondition := false
 				for _, c := range vmi.Status.Conditions {
 					if c.Type == v1.VirtualMachineInstanceIsMigratable {
 						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
+						gotExpectedCondition = true
 					}
 				}
+				Expect(gotExpectedCondition).Should(BeTrue())
 
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)

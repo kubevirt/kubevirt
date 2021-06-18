@@ -2158,6 +2158,22 @@ var _ = Describe("VirtualMachineInstance", func() {
 			table.Entry("don't exist migration should fail", false),
 		)
 
+		It("should not be allowed to live-migrate if the VMI uses virtiofs ", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
+				{
+					Name:     "VIRTIOFS",
+					Virtiofs: &v1.FilesystemVirtiofs{},
+				},
+			}
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, false)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable))
+		})
+
 		Context("with network configuration", func() {
 			It("should block migration for bridge binding assigned to the pod network", func() {
 				vmi := v1.NewMinimalVMI("testvmi")

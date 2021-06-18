@@ -1255,37 +1255,42 @@ func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateCh
 	}
 }
 
+func newNonMigratableCondition(msg string, reason string) *v1.VirtualMachineInstanceCondition {
+	return &v1.VirtualMachineInstanceCondition{
+		Type:    v1.VirtualMachineInstanceIsMigratable,
+		Status:  k8sv1.ConditionFalse,
+		Message: msg,
+		Reason:  reason,
+	}
+}
+
 func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance, hasHotplug bool) (*v1.VirtualMachineInstanceCondition, bool) {
-	liveMigrationCondition := v1.VirtualMachineInstanceCondition{
-		Type:   v1.VirtualMachineInstanceIsMigratable,
-		Status: k8sv1.ConditionTrue,
-	}
-
-	setNonMigratable := func(err error, reason string) {
-		liveMigrationCondition.Status = k8sv1.ConditionFalse
-		liveMigrationCondition.Message = err.Error()
-		liveMigrationCondition.Reason = reason
-	}
-
 	isBlockMigration, err := d.checkVolumesForMigration(vmi)
 	if err != nil {
-		setNonMigratable(err, v1.VirtualMachineInstanceReasonDisksNotMigratable)
-		return &liveMigrationCondition, isBlockMigration
+		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
 	}
+
 	err = d.checkNetworkInterfacesForMigration(vmi)
 	if err != nil {
-		setNonMigratable(err, v1.VirtualMachineInstanceReasonInterfaceNotMigratable)
-		return &liveMigrationCondition, isBlockMigration
+		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonInterfaceNotMigratable), isBlockMigration
 	}
+
 	if hasHotplug {
-		setNonMigratable(fmt.Errorf("VMI has hotplugged disks"), v1.VirtualMachineInstanceReasonHotplugNotMigratable)
-		return &liveMigrationCondition, isBlockMigration
+		return newNonMigratableCondition("VMI has hotplugged disks", v1.VirtualMachineInstanceReasonHotplugNotMigratable), isBlockMigration
 	}
+
 	if err := d.isHostModelMigratable(vmi); err != nil {
-		setNonMigratable(err, v1.VirtualMachineInstanceReasonCPUModeNotMigratable)
-		return &liveMigrationCondition, isBlockMigration
+		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
 	}
-	return &liveMigrationCondition, isBlockMigration
+
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		return newNonMigratableCondition("VMI uses virtiofs", v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable), isBlockMigration
+	}
+
+	return &v1.VirtualMachineInstanceCondition{
+		Type:   v1.VirtualMachineInstanceIsMigratable,
+		Status: k8sv1.ConditionTrue,
+	}, isBlockMigration
 }
 
 func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
