@@ -31,7 +31,7 @@ type nodeTopologyUpdater struct {
 	client       kubecli.KubevirtClient
 }
 
-type stats struct {
+type updateStats struct {
 	updated int
 	skipped int
 	error   int
@@ -40,31 +40,40 @@ type stats struct {
 func (n *nodeTopologyUpdater) Run(interval time.Duration, stopChan <-chan struct{}) {
 	cache.WaitForCacheSync(stopChan, n.nodeInformer.HasSynced)
 	wait.JitterUntil(func() {
-		requiredFrequencies := n.requiredFrequencies()
 		nodes := FilterNodesFromCache(n.nodeInformer.GetStore().List(),
 			HasInvTSCFrequency,
 		)
-		stats := &stats{}
-		for _, node := range nodes {
-			nodeCopy, err := calculateNodeLabelChanges(node, requiredFrequencies)
-			if err != nil {
-				stats.error++
-				log.DefaultLogger().Object(node).Reason(err).Error("Could not calculate TSC frequencies for node")
-				continue
-			}
-			if !reflect.DeepEqual(node.Labels, nodeCopy.Labels) {
-				if err := patchNode(n.client, node, nodeCopy); err != nil {
-					stats.error++
-					log.DefaultLogger().Object(node).Reason(err).Error("Could not patch TSC frequencies for node")
-					continue
-				}
-				stats.updated++
-			} else {
-				stats.skipped++
-			}
-		}
+		stats := n.sync(nodes)
 		log.DefaultLogger().Infof("TSC Freqency node update status: %d updated, %d skipped, %d errors", stats.updated, stats.skipped, stats.error)
 	}, interval, 1.2, true, stopChan)
+}
+
+func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
+	requiredFrequencies, err := n.requiredFrequencies()
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Skipping TSC frequency updates on all nodes")
+		return &updateStats{skipped: len(nodes)}
+	}
+	stats := &updateStats{}
+	for _, node := range nodes {
+		nodeCopy, err := calculateNodeLabelChanges(node, requiredFrequencies)
+		if err != nil {
+			stats.error++
+			log.DefaultLogger().Object(node).Reason(err).Error("Could not calculate TSC frequencies for node")
+			continue
+		}
+		if !reflect.DeepEqual(node.Labels, nodeCopy.Labels) {
+			if err := patchNode(n.client, node, nodeCopy); err != nil {
+				stats.error++
+				log.DefaultLogger().Object(node).Reason(err).Error("Could not patch TSC frequencies for node")
+				continue
+			}
+			stats.updated++
+		} else {
+			stats.skipped++
+		}
+	}
+	return stats
 }
 
 func patchNode(client kubecli.KubevirtClient, original *v1.Node, modified *v1.Node) error {
@@ -107,12 +116,12 @@ func calculateNodeLabelChanges(original *v1.Node, requiredFrequencies []int64) (
 	return nodeCopy, nil
 }
 
-func (n nodeTopologyUpdater) requiredFrequencies() []int64 {
+func (n nodeTopologyUpdater) requiredFrequencies() ([]int64, error) {
 	lowestFrequency, err := n.hinter.LowestTSCFrequencyOnCluster()
 	if err != nil {
-		log.DefaultLogger().Reason(err).Error("Failed to calculate lowest TSC frequency for nodes")
+		return nil, fmt.Errorf("failed to calculate lowest TSC frequency for nodes: %v", err)
 	}
-	return append(n.hinter.TSCFrequenciesInUse(), lowestFrequency)
+	return append(n.hinter.TSCFrequenciesInUse(), lowestFrequency), nil
 }
 
 func NewNodeTopologyUpdater(clientset kubecli.KubevirtClient, hinter Hinter, nodeInformer cache.SharedIndexInformer) NodeTopologyUpdater {

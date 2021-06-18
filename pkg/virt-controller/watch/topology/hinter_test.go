@@ -45,6 +45,17 @@ var _ = Describe("Hinter", func() {
 		))
 	})
 
+	It("should frequencies in use on VMIs", func() {
+		hinter := hinterWithVMIs(
+			vmiWithTSCFrequencyOnNode("myvm", 100, "node1"),
+			vmiWithTSCFrequencyOnNode("myvm1", 90, "node1"),
+			vmiWithoutTSCFrequency("irritateme"),
+			vmiWithTSCFrequencyOnNode("myvm2", 123, "node1"),
+			vmiWithTSCFrequencyOnNode("myvm3", 80, ""),
+		)
+		g.Expect(hinter.TSCFrequenciesInUse()).To(g.ConsistOf(int64(100), int64(90), int64(123), int64(80)))
+	})
+
 	table.DescribeTable("should not propose a TSC frequency on architectures like", func(arch string) {
 		hinter := hinterWithNodes(
 			NodeWithInvalidTSC("node0"),
@@ -65,28 +76,52 @@ func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 		arch: "amd64",
 		nodeStore: &cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
-				return ToObjects(nodes...)
+				return NodesToObjects(nodes...)
 			},
 		},
 	}
 }
 
-func ToObjects(nodes ...*v1.Node) (objs []interface{}) {
+func hinterWithVMIs(vmis ...*virtv1.VirtualMachineInstance) *topologyHinter {
+	return &topologyHinter{
+		arch: "amd64",
+		vmiStore: &cache.FakeCustomStore{
+			ListFunc: func() []interface{} {
+				return VMIsToObjects(vmis...)
+			},
+		},
+	}
+}
+
+func NodesToObjects(nodes ...*v1.Node) (objs []interface{}) {
 	for i := range nodes {
 		objs = append(objs, nodes[i])
 	}
 	return
 }
 
-func NodeWithTSC(name string, frequency int64, scalable bool) *v1.Node {
+func VMIsToObjects(vmis ...*virtv1.VirtualMachineInstance) (objs []interface{}) {
+	for i := range vmis {
+		objs = append(objs, vmis[i])
+	}
+	return
+}
+
+func NodeWithTSC(name string, frequency int64, scalable bool, schedulable ...int64) *v1.Node {
+	labels := map[string]string{
+		TSCFrequencyLabel:      fmt.Sprintf("%d", frequency),
+		TSCScalableLabel:       fmt.Sprintf("%v", scalable),
+		virtv1.NodeSchedulable: "true",
+	}
+
+	for _, freq := range schedulable {
+		labels[ToTSCSchedulableLabel(freq)] = "true"
+	}
+
 	return &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				TSCFrequencyLabel:      fmt.Sprintf("%d", frequency),
-				TSCScalableLabel:       fmt.Sprintf("%v", scalable),
-				virtv1.NodeSchedulable: "true",
-			},
+			Name:   name,
+			Labels: labels,
 		},
 	}
 }

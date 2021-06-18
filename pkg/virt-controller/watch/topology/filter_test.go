@@ -15,7 +15,7 @@ import (
 var _ = Describe("Filter", func() {
 
 	It("should filter out not schedulable nodes", func() {
-		nodes := topology.ToObjects(
+		nodes := topology.NodesToObjects(
 			node("node0", true),
 			node("node1", false),
 			node("node2", true),
@@ -30,7 +30,7 @@ var _ = Describe("Filter", func() {
 	})
 
 	It("should inverse the search result", func() {
-		nodes := topology.ToObjects(
+		nodes := topology.NodesToObjects(
 			node("node0", true),
 			node("node1", false),
 			node("node2", true),
@@ -43,7 +43,7 @@ var _ = Describe("Filter", func() {
 	})
 
 	It("should concatenate the filters", func() {
-		nodes := topology.ToObjects(
+		nodes := topology.NodesToObjects(
 			node("node0", true),
 			node("node1", false),
 			node("node2", true),
@@ -60,7 +60,7 @@ var _ = Describe("Filter", func() {
 	})
 
 	It("should filter nodes which have a TSC frequency", func() {
-		nodes := topology.ToObjects(
+		nodes := topology.NodesToObjects(
 			topology.NodeWithTSC("node0", 1234, true),
 			topology.NodeWithTSC("node1", 1234, true),
 			node("node2", true),
@@ -74,8 +74,8 @@ var _ = Describe("Filter", func() {
 		))
 	})
 
-	It("should filter nodes with compatible TSC frequencies", func() {
-		nodes := topology.ToObjects(
+	It("should filter nodes with compatible TSC frequencies with the TSCFrequencyGreaterEqual filter", func() {
+		nodes := topology.NodesToObjects(
 			topology.NodeWithTSC("node0", 12345, true),
 			topology.NodeWithTSC("node1", 1234, false),
 			topology.NodeWithTSC("node2", 1234, true),
@@ -96,8 +96,8 @@ var _ = Describe("Filter", func() {
 		))
 	})
 
-	It("should filter nodes with compatible TSC frequencies", func() {
-		nodes := topology.ToObjects(
+	It("should filter nodes with compatible TSC frequencies with the NodeOfVMI filter", func() {
+		nodes := topology.NodesToObjects(
 			topology.NodeWithTSC("node0", 12345, true),
 			topology.NodeWithTSC("node1", 1234, false),
 			topology.NodeWithTSC("node2", 1234, true),
