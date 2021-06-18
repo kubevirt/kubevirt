@@ -31,6 +31,7 @@ go_test(
     srcs = [
         "bridge_test.go",
         "infraconfigurators_suite_test.go",
+        "masquerade_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
