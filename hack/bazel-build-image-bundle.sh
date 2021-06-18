@@ -28,3 +28,7 @@ bazel build \
     --define image_prefix=${image_prefix} \
     --define container_tag=${docker_tag} \
     //:virt-components-bundle.tar
+
+if [ -n "$OUT_DIR" ] && [ -d "$OUT_DIR" ]; then
+    mv -fv bazel-bin/virt-components-bundle.tar ${OUT_DIR}
+fi
