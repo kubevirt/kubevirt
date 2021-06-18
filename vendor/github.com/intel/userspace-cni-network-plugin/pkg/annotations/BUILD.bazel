@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["annotations.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/intel/userspace-cni-network-plugin/pkg/annotations",
+    importpath = "github.com/intel/userspace-cni-network-plugin/pkg/annotations",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/go-logfmt/logfmt:go_default_library",
+        "//vendor/github.com/intel/userspace-cni-network-plugin/logging:go_default_library",
+        "//vendor/github.com/intel/userspace-cni-network-plugin/pkg/k8sclient:go_default_library",
+        "//vendor/github.com/intel/userspace-cni-network-plugin/pkg/types:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+    ],
+)

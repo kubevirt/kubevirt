@@ -19,6 +19,7 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -75,12 +76,12 @@ var _ = Describe("podNIC", func() {
 			vmi    *v1.VirtualMachineInstance
 		)
 		BeforeEach(func() {
-			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return("1.2.3.4", "169.254.0.0", nil)
+			mockNetwork.EXPECT().ReadIPAddressesFromLink(vmispec.PrimaryPodInterfaceName).Return("1.2.3.4", "169.254.0.0", nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil)
 		})
 
 		BeforeEach(func() {
-			mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(primaryPodInterfaceName)
+			mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(vmispec.PrimaryPodInterfaceName)
 			mockPodNetworkConfigurator.EXPECT().GenerateNonRecoverableDHCPConfig().Return(&cache.DHCPConfig{})
 			mockPodNetworkConfigurator.EXPECT().GenerateNonRecoverableDomainIfaceSpec()
 		})
@@ -153,7 +154,7 @@ var _ = Describe("podNIC", func() {
 			BeforeEach(func() {
 				dhcpConfig := &cache.DHCPConfig{}
 				mockDHCPConfigurator.EXPECT().Generate().Return(dhcpConfig, nil)
-				mockDHCPConfigurator.EXPECT().EnsureDHCPServerStarted(primaryPodInterfaceName, *dhcpConfig, vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions).Return(nil)
+				mockDHCPConfigurator.EXPECT().EnsureDHCPServerStarted(vmispec.PrimaryPodInterfaceName, *dhcpConfig, vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions).Return(nil)
 				podnic.domainGenerator = &fakeLibvirtSpecGenerator{
 					shouldGenerateFail: false,
 				}
@@ -246,7 +247,7 @@ var _ = Describe("podNIC", func() {
 			})
 
 			BeforeEach(func() {
-				mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return("1.2.3.4", "169.254.0.0", nil)
+				mockNetwork.EXPECT().ReadIPAddressesFromLink(vmispec.PrimaryPodInterfaceName).Return("1.2.3.4", "169.254.0.0", nil)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil)
 			})
 

@@ -459,6 +459,11 @@ func configureQemuConf(qemuFilename string) (err error) {
 		return err
 	}
 
+	_, err = qemuConf.WriteString("group = \"hugetlbfs\"\n")
+	if err != nil {
+		err = nil
+	}
+
 	if envVarValue, ok := os.LookupEnv("VIRTIOFSD_DEBUG_LOGS"); ok && (envVarValue == "1") {
 		_, err = qemuConf.WriteString("virtiofsd_debug = 1\n")
 		if err != nil {

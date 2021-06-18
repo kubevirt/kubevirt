@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["types.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/intel/network-resources-injector/pkg/types",
+    importpath = "github.com/intel/network-resources-injector/pkg/types",
+    visibility = ["//visibility:public"],
+)

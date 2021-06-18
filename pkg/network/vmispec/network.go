@@ -30,3 +30,21 @@ func lookupPodNetwork(networks []v1.Network) *v1.Network {
 	}
 	return nil
 }
+
+func findMultusIndex(vmi *v1.VirtualMachineInstance, networkToFind *v1.Network) int {
+	idxMultus := 0
+	for _, network := range vmi.Spec.Networks {
+		if isSecondaryMultusNetwork(network) {
+			// multus pod interfaces start from 1
+			idxMultus++
+			if network.Name == networkToFind.Name {
+				return idxMultus
+			}
+		}
+	}
+	return -1
+}
+
+func isSecondaryMultusNetwork(net v1.Network) bool {
+	return net.Multus != nil && !net.Multus.Default
+}

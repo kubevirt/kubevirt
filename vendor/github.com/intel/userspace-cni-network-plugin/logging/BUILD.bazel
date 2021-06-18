@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["logging.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/intel/userspace-cni-network-plugin/logging",
+    importpath = "github.com/intel/userspace-cni-network-plugin/logging",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/pkg/errors:go_default_library"],
+)

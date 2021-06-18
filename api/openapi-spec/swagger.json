@@ -14510,7 +14510,7 @@
     }
    },
    "v1.Port": {
-    "description": "Port represents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
+    "description": "Port repesents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
     "type": "object",
     "required": [
      "port"

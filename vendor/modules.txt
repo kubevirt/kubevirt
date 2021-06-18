@@ -32,6 +32,13 @@ github.com/blang/semver
 github.com/c9s/goprocinfo/linux
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
+# github.com/containernetworking/cni v0.8.1
+github.com/containernetworking/cni/pkg/skel
+github.com/containernetworking/cni/pkg/types
+github.com/containernetworking/cni/pkg/types/020
+github.com/containernetworking/cni/pkg/types/current
+github.com/containernetworking/cni/pkg/utils
+github.com/containernetworking/cni/pkg/version
 # github.com/containernetworking/plugins v0.9.1
 ## explicit
 github.com/containernetworking/plugins/pkg/ns
@@ -79,7 +86,7 @@ github.com/ghodss/yaml
 ## explicit
 github.com/go-kit/kit/endpoint
 github.com/go-kit/kit/log
-# github.com/go-logfmt/logfmt v0.4.0
+# github.com/go-logfmt/logfmt v0.5.0
 github.com/go-logfmt/logfmt
 # github.com/go-logr/logr v0.4.0
 github.com/go-logr/logr
@@ -192,16 +199,21 @@ github.com/insomniacslk/dhcp/dhcpv6/server6
 github.com/insomniacslk/dhcp/iana
 github.com/insomniacslk/dhcp/interfaces
 github.com/insomniacslk/dhcp/rfc1035label
+# github.com/intel/network-resources-injector v0.0.0-20201215195952-4f073638930a
+github.com/intel/network-resources-injector/pkg/types
+# github.com/intel/userspace-cni-network-plugin v0.0.0-20201116143459-807c52367c73
+github.com/intel/userspace-cni-network-plugin/logging
+github.com/intel/userspace-cni-network-plugin/pkg/annotations
+github.com/intel/userspace-cni-network-plugin/pkg/k8sclient
+github.com/intel/userspace-cni-network-plugin/pkg/types
 # github.com/josharian/intern v1.0.0
 github.com/josharian/intern
 # github.com/json-iterator/go v1.1.11
 github.com/json-iterator/go
-# github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
+# github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.1.1-0.20201119153432-9d213757d22d
 ## explicit
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1
-# github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
-github.com/kr/logfmt
 # github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 ## explicit
 github.com/krolaw/dhcp4
@@ -300,6 +312,12 @@ github.com/opencontainers/selinux/pkg/pwalk
 github.com/openshift/api/config/v1
 github.com/openshift/api/operator/v1
 github.com/openshift/api/security/v1
+# github.com/openshift/app-netutil v0.0.0-20210203214838-7a1305d414c3
+## explicit
+github.com/openshift/app-netutil/lib/v1alpha
+github.com/openshift/app-netutil/pkg/networkstatus
+github.com/openshift/app-netutil/pkg/types
+github.com/openshift/app-netutil/pkg/userspace
 # github.com/openshift/client-go v0.0.0 => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 ## explicit
 github.com/openshift/client-go/security/clientset/versioned/scheme

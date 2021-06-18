@@ -32,7 +32,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/imdario/mergo v0.3.11
 	github.com/insomniacslk/dhcp v0.0.0-20201112113307-4de412bc85d8
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.1.1-0.20201119153432-9d213757d22d
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
@@ -43,6 +43,7 @@ require (
 	github.com/opencontainers/runc v1.0.0
 	github.com/opencontainers/selinux v1.8.2
 	github.com/openshift/api v0.0.0
+	github.com/openshift/app-netutil v0.0.0-20210203214838-7a1305d414c3
 	github.com/openshift/client-go v0.0.0
 	github.com/openshift/library-go v0.0.0-20210205203934-9eb0d970f2f4
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
