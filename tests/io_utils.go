@@ -21,6 +21,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -45,32 +46,85 @@ func NodeNameWithHandler() string {
 	return node.ObjectMeta.Name
 }
 
-func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) error {
+func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
-		return err
+		return stdout, err
 	}
 
 	pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 	if err != nil {
-		return err
+		return stdout, err
 	}
 
 	stdout, stderr, err := ExecuteCommandOnPodV2(virtClient, pod, "virt-handler", args)
 	if err != nil {
-		return fmt.Errorf("Failed excuting command=%v, error=%v, stdout=%s, stderr=%s", args, err, stdout, stderr)
+		return stdout, fmt.Errorf("Failed excuting command=%v, error=%v, stdout=%s, stderr=%s", args, err, stdout, stderr)
 	}
-	return nil
+	return stdout, nil
+}
+
+func CreateErrorDisk(nodeName string) (address string, device string) {
+	By("Creating error disk")
+	args := []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/modprobe", "scsi_debug", "opts=2", "every_nth=4"}
+	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create faulty disk")
+
+	args = []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/bin/lsscsi"}
+	stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to find out address of  faulty disk")
+
+	// Example output
+	// [2:0:0:0]    cd/dvd  QEMU     QEMU DVD-ROM     2.5+  /dev/sr0
+	// [6:0:0:0]    disk    Linux    scsi_debug       0190  /dev/sda
+	lines := strings.Split(stdout, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "scsi_debug") {
+			line = strings.TrimSpace(line)
+			disk := strings.Split(line, " ")
+			address = disk[0]
+			address = address[1 : len(address)-1]
+			device = disk[len(disk)-1]
+			break
+		}
+	}
+
+	return address, device
+}
+
+func RemoveErrorDisk(nodeName, address string) {
+	By("Removing error disk")
+	args := []string{"/usr/bin/echo", "1", ">", fmt.Sprintf("/proc/1/root/sys/class/scsi_device/%s/device/delete", address)}
+	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable faulty disk")
+
+	args = []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/modprobe", "-r", "scsi_debug"}
+	_, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable faulty disk")
+}
+func FixErrorDevice(nodeName string) {
+	args := []string{"/usr/bin/bash", "-c", "echo 0 > /proc/1/root/sys/bus/pseudo/drivers/scsi_debug/opts"}
+	stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), fmt.Sprintf("Failed to fix faulty disk, %s", stdout))
+
+	args = []string{"/usr/bin/cat", "/proc/1/root/sys/bus/pseudo/drivers/scsi_debug/opts"}
+
+	By("Checking opts of scsi_debug")
+	stdout, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to fix faulty disk")
+	ExpectWithOffset(1, strings.Contains(stdout, "0x0")).To(BeTrue(), fmt.Sprintf("Failed to fix faulty disk, opts don't contains 0x0, opts: %s", stdout))
+	ExpectWithOffset(1, !strings.Contains(stdout, "0x02")).To(BeTrue(), fmt.Sprintf("Failed to fix faulty disk, opts contains 0x02, opts: %s", stdout))
+
 }
 
 func CreateFaultyDisk(nodeName, deviceName string) {
 	By(fmt.Sprintf("Creating faulty disk %s on %s node", deviceName, nodeName))
 	args := []string{"dmsetup", "create", deviceName, "--table", "0 204791 error"}
-	err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create faulty disk")
 }
 
-func CreatePVandPVCwithFaultyDisk(nodeName, deviceName, namespace string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
+func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return nil, nil, err
@@ -107,7 +161,7 @@ func CreatePVandPVCwithFaultyDisk(nodeName, deviceName, namespace string) (*core
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			PersistentVolumeSource: corev1.PersistentVolumeSource{
 				Local: &corev1.LocalVolumeSource{
-					Path: "/dev/mapper/" + deviceName,
+					Path: devicePath,
 				},
 			},
 		},
@@ -143,6 +197,7 @@ func RemoveFaultyDisk(nodeName, deviceName string) {
 	By(fmt.Sprintf("Removing faulty disk %s on %s node", deviceName, nodeName))
 	args := []string{"dmsetup", "remove", deviceName}
 	EventuallyWithOffset(1, func() error {
-		return ExecuteCommandInVirtHandlerPod(nodeName, args)
+		_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
+		return err
 	}, 30*time.Second, 5*time.Second).ShouldNot(HaveOccurred(), "Failed to remove faulty disk")
 }
