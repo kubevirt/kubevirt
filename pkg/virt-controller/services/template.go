@@ -1024,6 +1024,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		command = append(command, "--keep-after-failure")
 	}
 
+	_, ok := vmi.Annotations[v1.FuncTestLauncherFailFastAnnotation]
+	if ok {
+		command = append(command, "--simulate-crash")
+	}
+
 	// Add ports from interfaces to the pod manifest
 	ports := getPortsFromVMI(vmi)
 
