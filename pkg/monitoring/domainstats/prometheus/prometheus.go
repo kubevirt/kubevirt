@@ -29,7 +29,7 @@ import (
 
 	vms "kubevirt.io/kubevirt/pkg/monitoring/domainstats"
 
-	libvirt "libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

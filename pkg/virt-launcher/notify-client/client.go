@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	libvirt "libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

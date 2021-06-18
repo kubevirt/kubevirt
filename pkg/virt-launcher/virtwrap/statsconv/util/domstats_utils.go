@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	libvirt "libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 )
 
 var Testdata = `[

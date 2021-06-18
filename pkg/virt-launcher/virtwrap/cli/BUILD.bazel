@@ -17,7 +17,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
-        "//vendor/libvirt.org/libvirt-go:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )
 

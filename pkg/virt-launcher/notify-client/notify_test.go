@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	libvirt "libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"

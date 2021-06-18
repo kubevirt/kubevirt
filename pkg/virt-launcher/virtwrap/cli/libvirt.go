@@ -19,7 +19,7 @@
 
 package cli
 
-//go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+//go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/go/libvirt" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
 	"encoding/xml"
@@ -29,7 +29,7 @@ import (
 	"time"
 
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
-	libvirt "libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"

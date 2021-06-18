@@ -4,7 +4,7 @@ source hack/common.sh
 source hack/config.sh
 
 # remove libvirt BUILD file to regenerate it each time
-rm -f vendor/libvirt.org/libvirt-go/BUILD.bazel
+rm -f vendor/libvirt.org/go/libvirt/BUILD.bazel
 
 cat >vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign/BUILD.bazel <<EOT
 # gazelle:ignore
@@ -28,7 +28,7 @@ bazel run \
 # inject changes to libvirt BUILD file
 bazel run \
     --config=${ARCHITECTURE} \
-    -- @com_github_bazelbuild_buildtools//buildozer 'add cdeps //:libvirt-libs' //vendor/libvirt.org/libvirt-go:go_default_library
+    -- @com_github_bazelbuild_buildtools//buildozer 'add cdeps //:libvirt-libs' //vendor/libvirt.org/go/libvirt:go_default_library
 # allign BAZEL files to a single format
 bazel run \
     --config=${ARCHITECTURE} \

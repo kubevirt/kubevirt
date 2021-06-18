@@ -1000,9 +1000,9 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 ## explicit
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# libvirt.org/libvirt-go v7.3.0+incompatible
+# libvirt.org/go/libvirt v1.7005.0
 ## explicit
-libvirt.org/libvirt-go
+libvirt.org/go/libvirt
 # mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157
 mvdan.cc/editorconfig
 # mvdan.cc/sh/v3 v3.1.1

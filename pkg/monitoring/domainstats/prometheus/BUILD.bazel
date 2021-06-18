@@ -21,7 +21,7 @@ go_library(
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-        "//vendor/libvirt.org/libvirt-go:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )
 
@@ -41,6 +41,6 @@ go_test(
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/github.com/prometheus/client_model/go:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/libvirt.org/libvirt-go:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )

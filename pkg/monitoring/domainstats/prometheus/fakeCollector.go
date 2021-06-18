@@ -2,7 +2,7 @@ package prometheus
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	libvirt "libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 
 	k6tv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
