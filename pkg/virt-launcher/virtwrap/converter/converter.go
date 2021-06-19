@@ -255,27 +255,65 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	return nil
 }
 
-// check if fs or block device support direct i/o
-func checkDirectIOFlag(path string, isBlockDev bool) bool {
+type DirectIOChecker interface {
+	CheckBlockDevice(path string) (bool, error)
+	CheckFile(path string) (bool, error)
+}
+
+type directIOChecker struct{}
+
+func NewDirectIOChecker() DirectIOChecker {
+	return &directIOChecker{}
+}
+
+func (c *directIOChecker) CheckBlockDevice(path string) (bool, error) {
+	return c.check(path, syscall.O_RDONLY)
+}
+
+func (c *directIOChecker) CheckFile(path string) (bool, error) {
+	flags := syscall.O_RDONLY
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		// nothing else to do if the device does not exist
-		if isBlockDev {
-			return false
-		}
 		// try to create the file and perform the check
-		if err := util.WriteFileWithNosec(path, []byte("tmp")); err != nil {
-			log.Log.Reason(err).Errorf("Direct IO check failed for %s", path)
-			return false
-		}
+		flags = flags | syscall.O_CREAT
 		defer os.Remove(path)
 	}
+	return c.check(path, flags)
+}
+
+// based on https://gitlab.com/qemu-project/qemu/-/blob/master/util/osdep.c#L344
+func (c *directIOChecker) check(path string, flags int) (bool, error) {
 	// #nosec No risk for path injection. No information can be exposed to attacker
-	f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
+	f, err := os.OpenFile(path, flags|syscall.O_DIRECT, 0600)
 	if err != nil {
-		return false
+		// EINVAL is returned if the filesystem does not support the O_DIRECT flag
+		if err, ok := err.(*os.PathError); ok && err.Err == syscall.EINVAL {
+			// #nosec No risk for path injection. No information can be exposed to attacker
+			f, err := os.OpenFile(path, flags & ^syscall.O_DIRECT, 0600)
+			if err == nil {
+				defer util.CloseIOAndCheckErr(f, nil)
+				return false, nil
+			}
+		}
+		return false, err
 	}
 	defer util.CloseIOAndCheckErr(f, nil)
-	return true
+	return true, nil
+}
+
+// check if fs or block device support direct i/o
+func checkDirectIOFlag(path string, isBlockDev bool, checker DirectIOChecker) bool {
+	ok, err := func() (bool, error) {
+		if isBlockDev {
+			return checker.CheckBlockDevice(path)
+		} else {
+			return checker.CheckFile(path)
+		}
+	}()
+	if err != nil {
+		log.Log.Reason(err).Errorf("Direct IO check failed for %s", path)
+		return false
+	}
+	return ok
 }
 
 func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error {
@@ -360,7 +398,7 @@ func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
 	}, nil
 }
 
-func SetDriverCacheMode(disk *api.Disk) error {
+func SetDriverCacheMode(disk *api.Disk, checker DirectIOChecker) error {
 	var path string
 	supportDirectIO := true
 	mode := v1.DriverCache(disk.Driver.Cache)
@@ -376,7 +414,7 @@ func SetDriverCacheMode(disk *api.Disk) error {
 	}
 
 	if mode == "" || mode == v1.CacheNone {
-		supportDirectIO = checkDirectIOFlag(path, isBlockDev)
+		supportDirectIO = checkDirectIOFlag(path, isBlockDev, checker)
 		if !supportDirectIO {
 			log.Log.Infof("%s file system does not support direct I/O", path)
 		}
@@ -384,7 +422,7 @@ func SetDriverCacheMode(disk *api.Disk) error {
 		// file sits on a file system that supports direct I/O
 		if backingFile := disk.BackingStore; backingFile != nil {
 			backingFilePath := backingFile.Source.File
-			backFileDirectIOSupport := checkDirectIOFlag(backingFilePath, false)
+			backFileDirectIOSupport := checkDirectIOFlag(backingFilePath, false, checker)
 			if !backFileDirectIOSupport {
 				log.Log.Infof("%s backing file system does not support direct I/O", backingFilePath)
 			}

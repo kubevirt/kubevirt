@@ -128,6 +128,7 @@ type LibvirtDomainManager struct {
 	networkCacheStoreFactory cache.InterfaceCacheFactory
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 	minimumPVCReserveBytes   uint64
+	directIOChecker          converter.DirectIOChecker
 }
 
 type hostDeviceTypePrefix struct {
@@ -172,6 +173,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
 		minimumPVCReserveBytes:   minimumPVCReserveBytes,
+		directIOChecker:          converter.NewDirectIOChecker(),
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
@@ -521,7 +523,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
-		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
+		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
 		if err != nil {
 			return domain, err
 		}
