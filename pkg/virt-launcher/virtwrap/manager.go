@@ -160,6 +160,11 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
+	directIOChecker := converter.NewDirectIOChecker()
+	return newLibvirtDomainManager(connection, virtShareDir, notifier, lessPVCSpaceToleration, minimumPVCReserveBytes, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
+}
+
+func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:                connection,
 		virtShareDir:           virtShareDir,
@@ -173,7 +178,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
 		minimumPVCReserveBytes:   minimumPVCReserveBytes,
-		directIOChecker:          converter.NewDirectIOChecker(),
+		directIOChecker:          directIOChecker,
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
