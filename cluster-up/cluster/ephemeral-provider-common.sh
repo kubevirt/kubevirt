@@ -15,17 +15,34 @@ if [ -n "${KUBEVIRTCI_TAG}" ] && [ -n "${KUBEVIRTCI_GOCLI_CONTAINER}" ]; then
 fi
 
 if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
-    _cli="pack8s"
+	_cri_bin=podman
+	_docker_socket="${HOME}/podman.sock"
+elif [ "${KUBEVIRTCI_RUNTIME}" = "docker" ]; then
+	_cri_bin=docker
+	_docker_socket="/var/run/docker.sock"
 else
-    _cli_container="${KUBEVIRTCI_GOCLI_CONTAINER:-quay.io/kubevirtci/gocli:${KUBEVIRTCI_TAG}}"
-    _cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock"
-    # gocli will try to mount /lib/modules to make it accessible to dnsmasq in
-    # in case it exists
-    if [ -d /lib/modules ]; then
-        _cli="${_cli} -v /lib/modules/:/lib/modules/"
-    fi
-    _cli="${_cli} ${_cli_container}"
+	if curl --unix-socket /${HOME}/podman.sock http://d/v3.0.0/libpod/info > /dev/null 2>&1 ; then
+		_cri_bin=podman
+		_docker_socket="${HOME}/podman.sock"
+		echo "selecting podman as container runtime"
+	elif docker ps >/dev/null; then
+		_cri_bin=docker
+		_docker_socket="/var/run/docker.sock"
+		echo "selecting docker as container runtime"
+	else
+		echo "no working container runtime found. Neither docker nor podman seems to work."
+		exit 1
+	fi
 fi
+
+_cli_container="${KUBEVIRTCI_GOCLI_CONTAINER:-quay.io/kubevirtci/gocli:${KUBEVIRTCI_TAG}}"
+_cli="${_cri_bin} run --privileged --net=host --rm ${USE_TTY} -v ${_docker_socket}:/var/run/docker.sock"
+# gocli will try to mount /lib/modules to make it accessible to dnsmasq in
+# in case it exists
+if [ -d /lib/modules ]; then
+    _cli="${_cli} -v /lib/modules/:/lib/modules/"
+fi
+_cli="${_cli} ${_cli_container}"
 
 function _main_ip() {
     echo 127.0.0.1

@@ -50,6 +50,6 @@ function podpreset::expose_unique_product_uuid_per_node() {
     local -r namespace=$2
 
     podpreset::enable_admission_plugin "$cluster_name"
-    podpreset::validate_admission_plugin_is_enabled "$cluster_name" "10"
+    podpreset::validate_admission_plugin_is_enabled "$cluster_name" "30"
     podpreset::create_virt_launcher_fake_product_uuid_podpreset "$namespace"
 }

@@ -25,6 +25,7 @@ export KIND_MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/kind/manifests"
 export KIND_NODE_CLI="docker exec -it "
 export KUBEVIRTCI_PATH
 export KUBEVIRTCI_CONFIG_PATH
+KIND_DEFAULT_NETWORK="kind"
 
 KUBECTL="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl --kubeconfig=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
 
@@ -81,17 +82,22 @@ function _ssh_into_node() {
 }
 
 function _run_registry() {
+    local -r network=${1}
+
     until [ -z "$(docker ps -a | grep $REGISTRY_NAME)" ]; do
         docker stop $REGISTRY_NAME || true
         docker rm $REGISTRY_NAME || true
         sleep 5
     done
-    docker run -d -p $HOST_PORT:5000 --restart=always --name $REGISTRY_NAME registry:2
+    docker run -d --network=${network} -p $HOST_PORT:5000  --restart=always --name $REGISTRY_NAME registry:2
 }
 
 function _configure_registry_on_node() {
-    _configure-insecure-registry-and-reload "${NODE_CMD} $1 bash -c"
-    ${NODE_CMD} $1  sh -c "echo $(docker inspect --format '{{.NetworkSettings.IPAddress }}' $REGISTRY_NAME)'\t'registry >> /etc/hosts"
+    local -r node=${1}
+    local -r network=${2}
+
+    _configure-insecure-registry-and-reload "${NODE_CMD} ${node} bash -c"
+    ${NODE_CMD} ${node} sh -c "echo $(docker inspect --format "{{.NetworkSettings.Networks.${network}.IPAddress }}" $REGISTRY_NAME)'\t'registry >> /etc/hosts"
 }
 
 function _install_cnis {
@@ -237,10 +243,10 @@ function setup_kind() {
     done
 
     _wait_containers_ready
-    _run_registry
+    _run_registry "$KIND_DEFAULT_NETWORK"
 
     for node in $(_get_nodes | awk '{print $1}'); do
-        _configure_registry_on_node "$node"
+        _configure_registry_on_node "$node" "$KIND_DEFAULT_NETWORK"
         _configure_network "$node"
     done
     prepare_config
