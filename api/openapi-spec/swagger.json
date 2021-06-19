@@ -11763,6 +11763,20 @@
      }
     }
    },
+   "v1.VirtualMachineInstancePhaseTransitionTimestamp": {
+    "description": "VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi",
+    "type": "object",
+    "properties": {
+     "phase": {
+      "description": "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
+      "type": "string"
+     },
+     "phaseTransitionTimestamp": {
+      "description": "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     }
+    }
+   },
    "v1.VirtualMachineInstancePreset": {
     "description": "VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides",
     "type": "object",
@@ -12120,6 +12134,14 @@
      "phase": {
       "description": "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
       "type": "string"
+     },
+     "phaseTransitionTimestamps": {
+      "description": "PhaseTransitionTimestamp is the timestamp of when the last phase change occurred",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstancePhaseTransitionTimestamp"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "qosClass": {
       "description": "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements See PodQOSClass type for available QOS classes More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md",

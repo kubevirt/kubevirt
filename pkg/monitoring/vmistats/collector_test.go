@@ -46,7 +46,9 @@ var _ = Describe("VMI Stats Collector", func() {
 			defer close(ch)
 
 			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
-			updateVMIEvictionBlocker(vmis, ch)
+			for _, vmi := range vmis {
+				updateVMIEvictionBlocker(vmi, ch)
+			}
 
 			result := <-ch
 			dto := &io_prometheus_client.Metric{}

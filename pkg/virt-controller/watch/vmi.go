@@ -622,6 +622,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	conditionManager.CheckFailure(vmiCopy, syncErr, reason)
 
+	controller.SetVMIPhaseTransitionTimestamp(vmi, vmiCopy)
+
 	// If we detect a change on the vmi we update the vmi
 	vmiChanged := !reflect.DeepEqual(vmi.Status, vmiCopy.Status) || !reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels)
 	if vmiChanged {

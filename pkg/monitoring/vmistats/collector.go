@@ -74,14 +74,13 @@ func (co *VMICollector) Describe(_ chan<- *prometheus.Desc) {
 }
 
 // does VMI informer stuff
-func SetupVMICollector(vmiInformer cache.SharedIndexInformer) *VMICollector {
+func SetupVMICollector(vmiInformer cache.SharedIndexInformer) {
 	log.Log.Infof("Starting vmi collector")
 	co := &VMICollector{
 		vmiInformer: vmiInformer,
 	}
 
 	prometheus.MustRegister(co)
-	return co
 }
 
 // Note that Collect could be called concurrently
@@ -99,7 +98,7 @@ func (co *VMICollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	updateVMIsPhase(vmis, ch)
-	updateVMIEvictionBlocker(vmis, ch)
+	updateVMIMetrics(vmis, ch)
 	return
 }
 
@@ -171,16 +170,21 @@ func checkNonEvictableVMAndSetMetric(vmi *k6tv1.VirtualMachineInstance) float64 
 	return setVal
 }
 
-func updateVMIEvictionBlocker(vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+func updateVMIMetrics(vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
 	for _, vmi := range vmis {
-		mv, err := prometheus.NewConstMetric(
-			vmiEvictionBlockerDesc, prometheus.GaugeValue,
-			checkNonEvictableVMAndSetMetric(vmi),
-			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-		)
-		if err != nil {
-			continue
-		}
-		ch <- mv
+		updateVMIEvictionBlocker(vmi, ch)
 	}
+}
+
+func updateVMIEvictionBlocker(vmi *k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+	mv, err := prometheus.NewConstMetric(
+		vmiEvictionBlockerDesc, prometheus.GaugeValue,
+		checkNonEvictableVMAndSetMetric(vmi),
+		vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+	)
+	if err != nil {
+		return
+	}
+	ch <- mv
+
 }

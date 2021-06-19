@@ -93,6 +93,7 @@ var _ = Describe("Application", func() {
 
 		var qemuGid int64 = 107
 
+		app.vmiInformer = vmiInformer
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
 		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient)
