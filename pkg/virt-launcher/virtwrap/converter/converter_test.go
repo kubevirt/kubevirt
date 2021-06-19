@@ -32,6 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -3388,6 +3389,65 @@ var _ = Describe("direct IO checker", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(os.IsNotExist(err)).To(BeTrue())
 	})
+})
+
+var _ = Describe("SetDriverCacheMode", func() {
+	var ctrl *gomock.Controller
+	var mockDirectIOChecker *MockDirectIOChecker
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockDirectIOChecker = NewMockDirectIOChecker(ctrl)
+	})
+
+	AfterEach(func() {
+		ctrl.Finish()
+	})
+
+	expectCheckTrue := func() {
+		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(true, nil)
+		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(true, nil)
+	}
+
+	expectCheckFalse := func() {
+		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(false, nil)
+		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(false, nil)
+	}
+
+	expectCheckError := func() {
+		checkerError := fmt.Errorf("DirectIOChecker error")
+		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(false, checkerError)
+		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(false, checkerError)
+	}
+
+	table.DescribeTable("should correctly set driver cache mode", func(cache, expectedCache string, setExpectations func()) {
+		disk := &api.Disk{
+			Driver: &api.DiskDriver{
+				Cache: cache,
+			},
+			Source: api.DiskSource{
+				File: "file",
+			},
+		}
+		setExpectations()
+		err := SetDriverCacheMode(disk, mockDirectIOChecker)
+		if expectedCache == "" {
+			Expect(err).To(HaveOccurred())
+		} else {
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disk.Driver.Cache).To(Equal(expectedCache))
+		}
+	},
+		table.Entry("detect 'none' with direct io", string(""), string(v1.CacheNone), expectCheckTrue),
+		table.Entry("detect 'writethrough' without direct io", string(""), string(v1.CacheWriteThrough), expectCheckFalse),
+		table.Entry("fallback to 'writethrough' on error", string(""), string(v1.CacheWriteThrough), expectCheckError),
+		table.Entry("keep 'none' with direct io", string(v1.CacheNone), string(v1.CacheNone), expectCheckTrue),
+		table.Entry("return error without direct io", string(v1.CacheNone), string(""), expectCheckFalse),
+		table.Entry("return error on error", string(v1.CacheNone), string(""), expectCheckError),
+		table.Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckTrue),
+		table.Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
+		table.Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
+	)
 })
 
 func diskToDiskXML(disk *v1.Disk) string {
