@@ -161,13 +161,6 @@ rules:
   - get
   - watch
   - create
-- apiGroups:
-  - apps
-  resourceNames:
-  - hostpath-provisioner
-  resources:
-  - daemonsets
-  verbs:
   - delete
   - update
 - apiGroups:
@@ -185,21 +178,10 @@ rules:
   - create
 - apiGroups:
   - ""
-  resourceNames:
-  - hostpath-provisioner-admin
   resources:
   - serviceaccounts
   verbs:
   - '*'
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  verbs:
-  - list
-  - get
-  - watch
-  - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
