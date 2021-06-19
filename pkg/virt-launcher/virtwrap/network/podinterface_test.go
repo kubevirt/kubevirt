@@ -670,7 +670,7 @@ var _ = Describe("Pod Network", func() {
 			})
 
 		})
-		Context("Slirp Plug", func() {
+		XContext("Slirp Plug", func() {
 			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
 				domain := NewDomainWithSlirpInterface()
 				vmi := newVMISlirpInterface("testnamespace", "testVmName")

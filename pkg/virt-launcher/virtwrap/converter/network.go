@@ -96,6 +96,7 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
 		} else if iface.Slirp != nil {
+			domain.Spec.Devices.Emulator = "/usr/bin/qrap"
 			domainIface.Type = "user"
 
 			// Create network interface
@@ -103,10 +104,10 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 
 			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
 			// append the ports from all the interfaces connected to the same network
-			err := createSlirpNetwork(iface, *net, domain)
-			if err != nil {
-				return nil, err
-			}
+			//err := createSlirpNetwork(iface, *net, domain)
+			//if err != nil {
+			//	return nil, err
+			//}
 		} else if iface.Macvtap != nil {
 			if net.Multus == nil {
 				return nil, fmt.Errorf("macvtap interface %s requires Multus meta-cni", iface.Name)

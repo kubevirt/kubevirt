@@ -22,6 +22,7 @@ package network
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -38,17 +39,18 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial]Slirp Networking", func() {
+var _ = SIGDescribe("[Serial]Passt Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var currentConfiguration v1.KubeVirtConfiguration
 
 	var genericVmi *v1.VirtualMachineInstance
-	var deadbeafVmi *v1.VirtualMachineInstance
+	//	var deadbeafVmi *v1.VirtualMachineInstance
 	var container k8sv1.Container
 	setSlirpEnabled := func(enable bool) {
 		if currentConfiguration.NetworkConfiguration == nil {
@@ -78,17 +80,29 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		currentConfiguration = kv.Spec.Configuration
 
 		setSlirpEnabled(true)
-		ports := []v1.Port{{Name: "http", Port: 80}}
-		genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
-		deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
-		deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
-
-		for _, vmi := range []*v1.VirtualMachineInstance{genericVmi, deadbeafVmi} {
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-			tests.GenerateHelloWorldServer(vmi, 80, "tcp")
+		//ports := []v1.Port{{Name: "http", Port: 80}}
+		slirpIface := v1.Interface{
+			Name: "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				Slirp: &v1.InterfaceSlirp{},
+			},
 		}
+		genericVmi = libvmi.NewFedora(
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithInterface(slirpIface),
+		)
+		//genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+		genericVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2048M")
+
+		//	deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+		//	deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+
+			genericVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(genericVmi)
+			Expect(err).ToNot(HaveOccurred())
+
+		    genericVmi = tests.WaitUntilVMIReady(genericVmi, libnet.WithIPv6(console.LoginToFedora))
+
+			generateHelloWorldServer(genericVmi, 80, "tcp")
 	})
 	AfterEach(func() {
 		setSlirpEnabled(false)
@@ -111,18 +125,22 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		Expect(container.Ports[0].ContainerPort).To(Equal(int32(80)))
 
 		By("start the virtual machine with slirp interface")
-		output, err := tests.ExecuteCommandOnPod(
-			virtClient,
-			vmiPod,
-			vmiPod.Spec.Containers[0].Name,
-			[]string{"cat", "/proc/net/tcp"},
-		)
-		log.Log.Infof("%v", output)
-		Expect(err).ToNot(HaveOccurred())
-		// :0050 is port 80, 0A is listening
-		Expect(strings.Contains(output, "0: 00000000:0050 00000000:0000 0A")).To(BeTrue())
+
+		// Commented out since passt is bound to all free ports
+
+		//output, err := tests.ExecuteCommandOnPod(
+		//	virtClient,
+		//	vmiPod,
+		//	vmiPod.Spec.Containers[0].Name,
+		//	[]string{"cat", "/proc/net/tcp"},
+		//)
+		//log.Log.Infof("%v", output)
+		//Expect(err).ToNot(HaveOccurred())
+		//// :0050 is port 80, 0A is listening
+		//Expect(strings.Contains(output, "0: 00000000:0050 00000000:0000 0A")).To(BeTrue())
+
 		By("return \"Hello World!\" when connecting to localhost on port 80")
-		output, err = tests.ExecuteCommandOnPod(
+		output, err := tests.ExecuteCommandOnPod(
 			virtClient,
 			vmiPod,
 			vmiPod.Spec.Containers[0].Name,
@@ -143,7 +161,7 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		Expect(err).To(HaveOccurred())
 	},
 		table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
-		table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
+		//table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
 	)
 
 	table.DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
@@ -161,7 +179,8 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		}, 180)).To(Succeed())
 	},
 		table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
-		table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
+		// passt poc doesn't support custom MAC address
+		//table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
 	)
 
 	Context("vmi with default slirp interface", func() {
@@ -185,3 +204,20 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		})
 	})
 })
+
+func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string) {
+	Expect(console.RunCommand(vmi, "sudo yum -y install screen", 240*time.Second)).To(Succeed())
+	Expect(console.RunCommand(vmi, "sudo yum -y install nc", 240*time.Second)).To(Succeed())
+
+	serverCommand := fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e 'Hello World!'\n", testPort)
+	if protocol == "udp" {
+		// nc has to be in a while loop in case of UDP, since it exists after one message
+		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true; do nc -uklp %d -e echo -e 'Hello UDP World!';done\"\n", testPort)
+	}
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: serverCommand},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: console.RetValue("0")},
+	}, 60)).To(Succeed())
+}

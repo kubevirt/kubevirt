@@ -20,11 +20,14 @@
 package network
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
@@ -225,6 +228,22 @@ func (l *podNIC) PlugPhase1() error {
 			return err
 		}
 	}
+
+	if l.iface.Slirp != nil {
+		log.Log.Reason(err).Infof("Configuring ping group range")
+		err := l.handler.ConfigurePingGroupRange()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure ping group range")
+			return err
+		}
+		log.Log.Reason(err).Infof("Configuring fs.file-max on the node")
+		err = l.handler.ConfigureFsFileMax()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure fs.file-max on the node")
+			return err
+		}
+	}
+
 	if !doesExist {
 		bindMechanism, err := l.getPhase1Binding()
 		if err != nil {
@@ -1287,30 +1306,91 @@ func (b *SlirpBindMechanism) generateDomainIfaceSpec() api.Interface {
 	return api.Interface{}
 }
 
+// Passt
 func (b *SlirpBindMechanism) decorateConfig(api.Interface) error {
-	// remove slirp interface from domain spec devices interfaces
-	var foundIfaceModelType string
+	err := downloadPasstBinaries()
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command("/usr/bin/passt")
+	// connect passt's stderr to our own stdout in order to see the logs in the container logs
+	reader, err := cmd.StderrPipe()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to start passt cmd")
+	}
+
+	go func() {
+		scanner := bufio.NewScanner(reader)
+		scanner.Buffer(make([]byte, 1024), 512*1024)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if len(strings.TrimSpace(line)) == 0 {
+				continue
+			}
+			log.Log.Infof(line)
+			time.Sleep(30 * time.Second)
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.Log.Reason(err).Errorf("failed to read passt logs")
+		}
+	}()
+
+	err = cmd.Start()
+	// TODO: remove the sleep and change to a while waiting for the /tmp/passt_1.socket
+	time.Sleep(10 * time.Second)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to start passt")
+	}
+
+	output, err := exec.Command("ls", "/tmp/passt_1.socket").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s", string(output))
+	}
+
+	// remove passt interface from domain spec devices interfaces
+	foundDomainInterface := false
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {
 			b.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
-			foundIfaceModelType = iface.Model.Type
+			foundDomainInterface = true
 			break
 		}
 	}
 
-	if foundIfaceModelType == "" {
+	if !foundDomainInterface {
 		return fmt.Errorf("failed to find interface %s in vmi spec", b.iface.Name)
 	}
 
-	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", foundIfaceModelType, b.iface.Name, b.iface.Name)
-	if b.iface.MacAddress != "" {
-		// We assume address was already validated in API layer so just pass it to libvirt as-is.
-		qemuArg += fmt.Sprintf(",mac=%s", b.iface.MacAddress)
+	return nil
+}
+
+func downloadPasstBinaries() error {
+	//curl -k https://passt.top/builds/static/passt --output /usr/bin/passt
+	output, err := exec.Command("curl", "-k", "https://passt.top/builds/static/passt", "--output", "/usr/bin/passt").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s", string(output))
 	}
-	// Add interface configuration to qemuArgs
-	b.domain.Spec.QEMUCmd.QEMUArg = append(b.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
-	b.domain.Spec.QEMUCmd.QEMUArg = append(b.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: qemuArg})
+
+	//curl -k https://passt.top/builds/static/qrap --output /usr/bin/qrap
+	output, err = exec.Command("curl", "-k", "https://passt.top/builds/static/qrap", "--output", "/usr/bin/qrap").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s", string(output))
+	}
+
+	//chmod +x /usr/bin/passt
+	output, err = exec.Command("chmod", "+x", "/usr/bin/passt").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s", string(output))
+	}
+
+	//chmod +x /usr/bin/qrap
+	output, err = exec.Command("chmod", "+x", "/usr/bin/qrap").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s", string(output))
+	}
 
 	return nil
 }
