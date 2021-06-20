@@ -99,8 +99,8 @@ var _ = Describe("Pod Network", func() {
 	}
 	var createDefaultPodNIC = func(vmi *v1.VirtualMachineInstance) podNIC {
 		podnic := newPodNIC(vmi)
-		podnic.iface = &vmi.Spec.Domain.Devices.Interfaces[0]
-		podnic.network = &vmi.Spec.Networks[0]
+		podnic.vmiSpecIface = &vmi.Spec.Domain.Devices.Interfaces[0]
+		podnic.vmiSpecNetwork = &vmi.Spec.Networks[0]
 		podnic.podInterfaceName = primaryPodInterfaceName
 		return podnic
 	}
@@ -476,8 +476,8 @@ var _ = Describe("Pod Network", func() {
 				}
 				vmi := newVMI("testnamespace", "testVmName")
 				podnic := newPodNIC(vmi)
-				podnic.iface = iface
-				podnic.network = net
+				podnic.vmiSpecIface = iface
+				podnic.vmiSpecNetwork = net
 				podnic.podInterfaceName = "fakeiface"
 				podnic.launcherPID = &pid
 				err := podnic.PlugPhase1()
@@ -781,7 +781,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 		podnic := newPodNIC(vmi)
-		podnic.iface = iface
+		podnic.vmiSpecIface = iface
 		podnic.podInterfaceName = primaryPodInterfaceName
 		err := podnic.setPodInterfaceCache()
 		Expect(err).ToNot(HaveOccurred())
