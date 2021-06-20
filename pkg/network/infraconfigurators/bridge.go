@@ -85,14 +85,10 @@ func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
 	if !b.ipamEnabled {
 		return &cache.DHCPConfig{Name: b.podNicLink.Attrs().Name, IPAMDisabled: true}
 	}
-	fakeBridgeIP, err := b.getFakeBridgeIP()
-	if err != nil {
-		return nil
-	}
-	fakeServerAddr, err := netlink.ParseAddr(fakeBridgeIP)
-	if err != nil || fakeServerAddr == nil {
-		return nil
-	}
+
+	fakeBridgeIP := b.getFakeBridgeIP()
+	fakeServerAddr, _ := netlink.ParseAddr(fakeBridgeIP)
+
 	dhcpConfig := &cache.DHCPConfig{
 		MAC:               *b.vmMac,
 		Name:              b.podNicLink.Attrs().Name,
@@ -111,14 +107,14 @@ func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
 	return dhcpConfig
 }
 
-func (b *BridgePodNetworkConfigurator) getFakeBridgeIP() (string, error) {
+func (b *BridgePodNetworkConfigurator) getFakeBridgeIP() string {
 	ifaces := b.vmi.Spec.Domain.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Name == b.vmiSpecIface.Name {
-			return fmt.Sprintf(bridgeFakeIP, i), nil
+			return fmt.Sprintf(bridgeFakeIP, i)
 		}
 	}
-	return "", fmt.Errorf("failed to generate bridge fake address for interface %s", b.vmiSpecIface.Name)
+	return ""
 }
 
 func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
@@ -236,15 +232,8 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 	}
 
 	// set fake ip on a bridge
-	addr, err := b.getFakeBridgeIP()
-	if err != nil {
-		return err
-	}
-	fakeaddr, err := b.handler.ParseAddr(addr)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
-		return err
-	}
+	addr := b.getFakeBridgeIP()
+	fakeaddr, _ := b.handler.ParseAddr(addr)
 
 	if err := b.handler.AddrAdd(bridge, fakeaddr); err != nil {
 		log.Log.Reason(err).Errorf("failed to set bridge IP")
