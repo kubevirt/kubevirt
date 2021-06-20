@@ -364,12 +364,8 @@ func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfra
 	}
 	if l.vmiSpecIface.Macvtap != nil {
 		return infraconfigurators.NewMacvtapPodNetworkConfigurator(
-			l.vmi,
-			l.vmiSpecIface,
 			l.podInterfaceName,
 			mac,
-			l.cacheFactory,
-			l.launcherPID,
 			l.handler), nil
 	}
 	return nil, fmt.Errorf("Not implemented")

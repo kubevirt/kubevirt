@@ -6,7 +6,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -14,24 +13,17 @@ import (
 )
 
 type MacvtapPodNetworkConfigurator struct {
-	vmi              *v1.VirtualMachineInstance
-	vmiSpecIface     *v1.Interface
 	podInterfaceName string
 	podNicLink       netlink.Link
 	vmMac            *net.HardwareAddr
-	storeFactory     cache.InterfaceCacheFactory
 	launcherPID      int
 	handler          netdriver.NetworkHandler
 }
 
-func NewMacvtapPodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, podIfaceName string, vmMac *net.HardwareAddr, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) *MacvtapPodNetworkConfigurator {
+func NewMacvtapPodNetworkConfigurator(podIfaceName string, vmMac *net.HardwareAddr, handler netdriver.NetworkHandler) *MacvtapPodNetworkConfigurator {
 	return &MacvtapPodNetworkConfigurator{
-		vmi:              vmi,
-		vmiSpecIface:     vmiSpecIface,
 		podInterfaceName: podIfaceName,
 		vmMac:            vmMac,
-		storeFactory:     cacheFactory,
-		launcherPID:      *launcherPID,
 		handler:          handler,
 	}
 }
