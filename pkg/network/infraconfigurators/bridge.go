@@ -17,7 +17,6 @@ import (
 const bridgeFakeIP = "169.254.75.1%d/32"
 
 type BridgePodNetworkConfigurator struct {
-	arpIgnore           bool
 	bridgeInterfaceName string
 	vmiSpecIface        *v1.Interface
 	ipamEnabled         bool
@@ -135,6 +134,15 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 			log.Log.Reason(err).Error("failed to switch pod interface with a dummy")
 			return err
 		}
+
+		// Set arp_ignore=1 to avoid
+		// the dummy interface being seen by Duplicate Address Detection (DAD).
+		// Without this, some VMs will lose their ip address after a few
+		// minutes.
+		if err := b.handler.ConfigureIpv4ArpIgnore(); err != nil {
+			log.Log.Reason(err).Errorf("failed to set arp_ignore=1")
+			return err
+		}
 	}
 
 	if _, err := b.handler.SetRandomMac(b.podNicLink.Attrs().Name); err != nil {
@@ -149,13 +157,6 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
 		return err
-	}
-
-	if b.arpIgnore {
-		if err := b.handler.ConfigureIpv4ArpIgnore(); err != nil {
-			log.Log.Reason(err).Errorf("failed to set arp_ignore=1 on interface %s", b.bridgeInterfaceName)
-			return err
-		}
 	}
 
 	if err := b.handler.LinkSetUp(b.podNicLink); err != nil {
@@ -250,12 +251,6 @@ func (b *BridgePodNetworkConfigurator) switchPodInterfaceWithDummy() error {
 	originalPodInterfaceName := b.podNicLink.Attrs().Name
 	newPodInterfaceName := fmt.Sprintf("%s-nic", originalPodInterfaceName)
 	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
-
-	// Set arp_ignore=1 on the bridge interface to avoid
-	// the interface being seen by Duplicate Address Detection (DAD).
-	// Without this, some VMs will lose their ip address after a few
-	// minutes.
-	b.arpIgnore = true
 
 	// Rename pod interface to free the original name for a new dummy interface
 	err := b.handler.LinkSetName(b.podNicLink, newPodInterfaceName)
