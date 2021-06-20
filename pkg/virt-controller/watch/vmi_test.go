@@ -392,6 +392,32 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 		})
 
+		It("should only get WFFC pods that are associated with current VMI", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Annotations[v1.EphemeralProvisioningObject] = "true"
+			podInformer.GetIndexer().Add(pod)
+
+			// Non owned pod that shouldn't be found by waitForFirstConsumerTemporaryPods
+			nonOwnedPod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "unowned-test-pod",
+					Namespace: vmi.Namespace,
+					Annotations: map[string]string{
+						v1.EphemeralProvisioningObject: "true",
+					},
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+			podInformer.GetIndexer().Add(nonOwnedPod)
+
+			res, err := controller.waitForFirstConsumerTemporaryPods(vmi, pod)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(res)).To(Equal(1))
+		})
+
 		table.DescribeTable("VMI should handle doppleganger Pod status while DV is in WaitForFirstConsumer phase",
 			func(phase k8sv1.PodPhase, conditions []k8sv1.PodCondition, expectedPhase v1.VirtualMachineInstancePhase) {
 				vmi := NewPendingVirtualMachine("testvmi")
