@@ -19,31 +19,29 @@ const bridgeFakeIP = "169.254.75.1%d/32"
 type BridgePodNetworkConfigurator struct {
 	arpIgnore           bool
 	bridgeInterfaceName string
-	iface               *v1.Interface
+	vmiSpecIface        *v1.Interface
 	ipamEnabled         bool
 	handler             netdriver.NetworkHandler
 	launcherPID         int
-	mac                 *net.HardwareAddr
+	vmMac               *net.HardwareAddr
 	podIfaceIP          netlink.Addr
-	podInterfaceName    string
 	podNicLink          netlink.Link
 	queueCount          uint32
-	routes              []netlink.Route
+	podIfaceRoutes      []netlink.Route
 	storeFactory        cache.InterfaceCacheFactory
 	tapDeviceName       string
-	virtIface           *api.Interface
 	vmi                 *v1.VirtualMachineInstance
 }
 
-func NewBridgePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, bridgeIfaceName string, mac *net.HardwareAddr, cacheFactory cache.InterfaceCacheFactory, launcherPID int, handler netdriver.NetworkHandler) *BridgePodNetworkConfigurator {
+func NewBridgePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmMac *net.HardwareAddr, cacheFactory cache.InterfaceCacheFactory, launcherPID int, handler netdriver.NetworkHandler) *BridgePodNetworkConfigurator {
 	return &BridgePodNetworkConfigurator{
 		vmi:                 vmi,
-		iface:               iface,
+		vmiSpecIface:        vmiSpecIface,
 		bridgeInterfaceName: bridgeIfaceName,
 		storeFactory:        cacheFactory,
 		launcherPID:         launcherPID,
 		queueCount:          calculateNetworkQueues(vmi),
-		mac:                 mac,
+		vmMac:               vmMac,
 		handler:             handler,
 	}
 }
@@ -72,8 +70,8 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 	}
 
 	b.tapDeviceName = generateTapDeviceName(podIfaceName)
-	if b.mac == nil {
-		b.mac = &b.podNicLink.Attrs().HardwareAddr
+	if b.vmMac == nil {
+		b.vmMac = &b.podNicLink.Attrs().HardwareAddr
 	}
 
 	if err := validateMTU(b.podNicLink.Attrs().MTU); err != nil {
@@ -96,7 +94,7 @@ func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
 		return nil
 	}
 	dhcpConfig := &cache.DHCPConfig{
-		MAC:               *b.mac,
+		MAC:               *b.vmMac,
 		Name:              b.podNicLink.Attrs().Name,
 		IPAMDisabled:      !b.ipamEnabled,
 		IP:                b.podIfaceIP,
@@ -106,8 +104,8 @@ func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
 		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
 	}
 
-	if b.ipamEnabled && len(b.routes) > 0 {
-		log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.routes))
+	if b.ipamEnabled && len(b.podIfaceRoutes) > 0 {
+		log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.podIfaceRoutes))
 		b.decorateDhcpConfigRoutes(dhcpConfig)
 	}
 	return dhcpConfig
@@ -116,11 +114,11 @@ func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
 func (b *BridgePodNetworkConfigurator) getFakeBridgeIP() (string, error) {
 	ifaces := b.vmi.Spec.Domain.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Name == b.iface.Name {
+		if iface.Name == b.vmiSpecIface.Name {
 			return fmt.Sprintf(bridgeFakeIP, i), nil
 		}
 	}
-	return "", fmt.Errorf("ailed to generate bridge fake address for interface %s", b.iface.Name)
+	return "", fmt.Errorf("failed to generate bridge fake address for interface %s", b.vmiSpecIface.Name)
 }
 
 func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
@@ -181,7 +179,7 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 
 func (b *BridgePodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interface {
 	return api.Interface{
-		MAC: &api.MAC{MAC: b.mac.String()},
+		MAC: &api.MAC{MAC: b.vmMac.String()},
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
 		Target: &api.InterfaceTarget{
 			Device:  b.tapDeviceName,
@@ -197,17 +195,17 @@ func (b *BridgePodNetworkConfigurator) learnInterfaceRoutes() error {
 		return err
 	}
 	if len(routes) == 0 {
-		return fmt.Errorf("No gateway address found in routes for %s", b.podNicLink.Attrs().Name)
+		return fmt.Errorf("no gateway address found in routes for %s", b.podNicLink.Attrs().Name)
 	}
-	b.routes = routes
+	b.podIfaceRoutes = routes
 	return nil
 }
 
 func (b *BridgePodNetworkConfigurator) decorateDhcpConfigRoutes(dhcpConfig *cache.DHCPConfig) {
-	log.Log.V(4).Infof("the default route is: %s", b.routes[0].String())
-	dhcpConfig.Gateway = b.routes[0].Gw
-	if len(b.routes) > 1 {
-		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.routes, dhcpConfig)
+	log.Log.V(4).Infof("the default route is: %s", b.podIfaceRoutes[0].String())
+	dhcpConfig.Gateway = b.podIfaceRoutes[0].Gw
+	if len(b.podIfaceRoutes) > 1 {
+		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.podIfaceRoutes, dhcpConfig)
 		dhcpConfig.Routes = &dhcpRoutes
 	}
 }

@@ -15,22 +15,21 @@ import (
 
 type MacvtapPodNetworkConfigurator struct {
 	vmi              *v1.VirtualMachineInstance
-	iface            *v1.Interface
-	virtIface        *api.Interface
+	vmiSpecIface     *v1.Interface
 	podInterfaceName string
 	podNicLink       netlink.Link
-	mac              *net.HardwareAddr
+	vmMac            *net.HardwareAddr
 	storeFactory     cache.InterfaceCacheFactory
 	launcherPID      int
 	handler          netdriver.NetworkHandler
 }
 
-func NewMacvtapPodNetworkConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podIfaceName string, mac *net.HardwareAddr, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) *MacvtapPodNetworkConfigurator {
+func NewMacvtapPodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, podIfaceName string, vmMac *net.HardwareAddr, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) *MacvtapPodNetworkConfigurator {
 	return &MacvtapPodNetworkConfigurator{
 		vmi:              vmi,
-		iface:            iface,
+		vmiSpecIface:     vmiSpecIface,
 		podInterfaceName: podIfaceName,
-		mac:              mac,
+		vmMac:            vmMac,
 		storeFactory:     cacheFactory,
 		launcherPID:      *launcherPID,
 		handler:          handler,
@@ -74,8 +73,8 @@ func (b *MacvtapPodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName
 }
 
 func (b *MacvtapPodNetworkConfigurator) podIfaceMAC() string {
-	if b.mac != nil {
-		return b.mac.String()
+	if b.vmMac != nil {
+		return b.vmMac.String()
 	} else {
 		return b.podNicLink.Attrs().HardwareAddr.String()
 	}
