@@ -42,7 +42,6 @@ type MasqueradePodNetworkConfigurator struct {
 	vmGatewayIpv6Addr   *netlink.Addr
 	cacheFactory        cache.InterfaceCacheFactory
 	launcherPID         int
-	queueCount          uint32
 	handler             netdriver.NetworkHandler
 	vmIPv4Addr          netlink.Addr
 	vmIPv6Addr          netlink.Addr
@@ -58,7 +57,6 @@ func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpec
 		bridgeInterfaceName: bridgeIfaceName,
 		cacheFactory:        factory,
 		launcherPID:         launcherPID,
-		queueCount:          calculateNetworkQueues(vmi),
 		vmMac:               vmMac,
 		handler:             handler,
 	}
@@ -181,7 +179,7 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podNicLink.Attrs().Name)
-	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId, b.vmi)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err

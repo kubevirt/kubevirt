@@ -18,8 +18,8 @@ type PodNetworkInfraConfigurator interface {
 	GenerateDHCPConfig() *cache.DHCPConfig
 }
 
-func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
-	err := handler.CreateTapDevice(deviceName, queueNumber, launcherPID, mtu, tapOwner)
+func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName string, bridgeIfaceName string, launcherPID int, mtu int, tapOwner string, vmi *v1.VirtualMachineInstance) error {
+	err := handler.CreateTapDevice(deviceName, calculateNetworkQueues(vmi), launcherPID, mtu, tapOwner)
 	if err != nil {
 		return err
 	}
