@@ -2263,6 +2263,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DisableTLS != nil {
+		in, out := &in.DisableTLS, &out.DisableTLS
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
