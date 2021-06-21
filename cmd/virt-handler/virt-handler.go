@@ -289,7 +289,7 @@ func (app *virtHandlerApp) Run() {
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 
-	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.clientTLSConfig)
+	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.clientTLSConfig, app.clusterConfig)
 
 	vmController := virthandler.NewController(
 		recorder,

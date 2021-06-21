@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -64,6 +65,7 @@ type migrationProxyManager struct {
 	clientTLSConfig *tls.Config
 
 	isShuttingDown bool
+	config         *virtconfig.ClusterConfig
 }
 
 type MigrationProxyListener interface {
@@ -110,12 +112,13 @@ func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
 	return
 }
 
-func NewMigrationProxyManager(serverTLSConfig *tls.Config, clientTLSConfig *tls.Config) ProxyManager {
+func NewMigrationProxyManager(serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, config *virtconfig.ClusterConfig) ProxyManager {
 	return &migrationProxyManager{
 		sourceProxies:   make(map[string][]*migrationProxy),
 		targetProxies:   make(map[string][]*migrationProxy),
 		serverTLSConfig: serverTLSConfig,
 		clientTLSConfig: clientTLSConfig,
+		config:          config,
 	}
 }
 
@@ -164,9 +167,15 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 
 	zeroAddress := ip.GetIPZeroAddress()
 	proxiesList := []*migrationProxy{}
+	serverTLSConfig := m.serverTLSConfig
+	clientTLSConfig := m.clientTLSConfig
+	if m.config.GetMigrationConfiguration().DisableTLS != nil && *m.config.GetMigrationConfiguration().DisableTLS {
+		serverTLSConfig = nil
+		clientTLSConfig = nil
+	}
 	for _, targetUnixFile := range targetUnixFiles {
 		// 0 means random port is used
-		proxy := NewTargetProxy(zeroAddress, 0, m.serverTLSConfig, m.clientTLSConfig, targetUnixFile, key)
+		proxy := NewTargetProxy(zeroAddress, 0, serverTLSConfig, clientTLSConfig, targetUnixFile, key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -285,7 +294,12 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 			}
 		}
 	}
-
+	serverTLSConfig := m.serverTLSConfig
+	clientTLSConfig := m.clientTLSConfig
+	if m.config.GetMigrationConfiguration().DisableTLS != nil && *m.config.GetMigrationConfiguration().DisableTLS {
+		serverTLSConfig = nil
+		clientTLSConfig = nil
+	}
 	proxiesList := []*migrationProxy{}
 	for destPort, srcPort := range destSrcPortMap {
 		proxyKey := ConstructProxyKey(key, srcPort)
@@ -293,7 +307,8 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		filePath := SourceUnixFile(baseDir, proxyKey)
 
 		os.RemoveAll(filePath)
-		proxy := NewSourceProxy(filePath, targetFullAddr, m.serverTLSConfig, m.clientTLSConfig, key)
+
+		proxy := NewSourceProxy(filePath, targetFullAddr, serverTLSConfig, clientTLSConfig, key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -368,10 +383,8 @@ func (m *migrationProxy) createTcpListener() error {
 	laddr := net.JoinHostPort(m.tcpBindAddress, strconv.Itoa(m.tcpBindPort))
 	if m.serverTLSConfig != nil {
 		listener, err = tls.Listen("tcp", laddr, m.serverTLSConfig)
-	} else if ip.IsLoopbackAddress(m.tcpBindAddress) {
-		listener, err = net.Listen("tcp", laddr)
 	} else {
-		return fmt.Errorf("Unsecured tcp migration proxy listeners are not permitted")
+		listener, err = net.Listen("tcp", laddr)
 	}
 	if err != nil {
 		m.logger.Reason(err).Error("failed to create unix socket for proxy service")
