@@ -46,6 +46,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -1116,6 +1117,23 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 		return vmi
 	}
 
+	createAffinityPreferringNode := func(nodeName string) *k8sv1.Affinity {
+		return &k8sv1.Affinity{
+			NodeAffinity: &k8sv1.NodeAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
+					{
+						Preference: k8sv1.NodeSelectorTerm{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeName}},
+							},
+						},
+						Weight: 1,
+					},
+				},
+			},
+		}
+	}
+
 	createCirrosVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
 		runningVMI := tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(
 			newCirrosVMIWithExplicitMac(networkName, mac),
@@ -1125,9 +1143,11 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 		return runningVMI, err
 	}
 
-	createFedoraVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
+	createFedoraVMIPreferringNode := func(nodeName string, networkName string, mac string) (*v1.VirtualMachineInstance, error) {
+		vmi := newFedoraVMIWithExplicitMacAndGuestAgent(networkName, mac)
+		vmi.Spec.Affinity = createAffinityPreferringNode(nodeName)
 		runningVMI := tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(
-			newFedoraVMIWithExplicitMacAndGuestAgent(networkName, mac),
+			vmi,
 			180,
 			false)
 		err := console.LoginToFedora(runningVMI)
@@ -1194,8 +1214,14 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 		})
 
 		Context("with live traffic", func() {
-			var serverVMI *v1.VirtualMachineInstance
-			var serverIP string
+			var (
+				serverVMI              *v1.VirtualMachineInstance
+				serverVMIPreferredNode string
+				serverIP               string
+			)
+			const (
+				serverVMIMacAddress = "02:03:04:05:06:aa"
+			)
 
 			getVMMacvtapIfaceIP := func(vmi *v1.VirtualMachineInstance, macAddress string) (string, error) {
 				var vmiIP string
@@ -1222,25 +1248,45 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 			}
 
 			BeforeEach(func() {
-				macAddress := "02:03:04:05:06:aa"
-
-				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
+				clientVMI, err = virtClient.VirtualMachineInstance(clientVMI.Namespace).Get(clientVMI.Name, &metav1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+			})
+			JustBeforeEach(func() {
+				serverVMI, err = createFedoraVMIPreferringNode(serverVMIPreferredNode, macvtapNetworkName, serverVMIMacAddress)
 				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
 
-				serverIP, err = getVMMacvtapIfaceIP(serverVMI, macAddress)
+				serverIP, err = getVMMacvtapIfaceIP(serverVMI, serverVMIMacAddress)
 				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
-			})
 
-			BeforeEach(func() {
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
-			})
 
-			It("[QUARANTINE] should keep connectivity after a migration", func() {
 				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
 				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-
-				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
+			})
+			Context("With client and server on the same node before server migration", func() {
+				BeforeEach(func() {
+					serverVMIPreferredNode = clientVMI.Status.NodeName
+				})
+				It("[QUARANTINE] should keep connectivity after a migration", func() {
+					assert.XFail("https://github.com/kubevirt/kubevirt/issues/5912", func() {
+						Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
+					})
+				})
+			})
+			Context("With client and server on different nodes before server migration", func() {
+				BeforeEach(func() {
+					workers, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: `node-role.kubernetes.io/worker`})
+					Expect(err).ShouldNot(HaveOccurred())
+					for _, worker := range workers.Items {
+						if worker.Name != clientVMI.Status.NodeName {
+							serverVMIPreferredNode = worker.Name
+						}
+					}
+				})
+				It("[QUARANTINE] should keep connectivity after a migration", func() {
+					Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
+				})
 			})
 		})
 	})
