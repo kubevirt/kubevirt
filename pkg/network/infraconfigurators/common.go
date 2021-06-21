@@ -2,6 +2,7 @@ package infraconfigurators
 
 import (
 	"fmt"
+	"net"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -47,4 +48,15 @@ func calculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
 func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) &&
 		(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
+}
+
+func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.HardwareAddr, error) {
+	if vmiSpecIface.MacAddress != "" {
+		macAddress, err := net.ParseMAC(vmiSpecIface.MacAddress)
+		if err != nil {
+			return nil, err
+		}
+		return &macAddress, nil
+	}
+	return nil, nil
 }

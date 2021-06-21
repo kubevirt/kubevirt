@@ -333,7 +333,6 @@ func newBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *Bri
 }
 
 func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfraConfigurator, error) {
-	mac, err := retrieveMacAddressFromVMISpecIface(l.vmiSpecIface)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +341,6 @@ func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfra
 			l.vmi,
 			l.vmiSpecIface,
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
-			mac,
 			l.cacheFactory,
 			*l.launcherPID,
 			l.handler), nil
@@ -352,7 +350,6 @@ func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfra
 			l.vmi,
 			l.vmiSpecIface,
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
-			mac,
 			l.vmiSpecNetwork.Pod.VMNetworkCIDR,
 			l.vmiSpecNetwork.Pod.VMIPv6NetworkCIDR,
 			l.cacheFactory,
@@ -365,21 +362,10 @@ func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfra
 	if l.vmiSpecIface.Macvtap != nil {
 		return infraconfigurators.NewMacvtapPodNetworkConfigurator(
 			l.podInterfaceName,
-			mac,
+			l.vmiSpecIface,
 			l.handler), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
-}
-
-func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.HardwareAddr, error) {
-	if vmiSpecIface.MacAddress != "" {
-		macAddress, err := net.ParseMAC(vmiSpecIface.MacAddress)
-		if err != nil {
-			return nil, err
-		}
-		return &macAddress, nil
-	}
-	return nil, nil
 }
 
 type BridgeLibvirtSpecGenerator struct {

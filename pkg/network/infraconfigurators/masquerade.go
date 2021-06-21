@@ -48,7 +48,7 @@ type MasqueradePodNetworkConfigurator struct {
 	vmMac               *net.HardwareAddr
 }
 
-func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmMac *net.HardwareAddr, vmNetworkCIDR string, vmIPv6NetworkCIDR string, factory cache.InterfaceCacheFactory, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
+func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmNetworkCIDR string, vmIPv6NetworkCIDR string, factory cache.InterfaceCacheFactory, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
 	return &MasqueradePodNetworkConfigurator{
 		vmi:                 vmi,
 		vmiSpecIface:        vmiSpecIface,
@@ -57,7 +57,6 @@ func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpec
 		bridgeInterfaceName: bridgeIfaceName,
 		cacheFactory:        factory,
 		launcherPID:         launcherPID,
-		vmMac:               vmMac,
 		handler:             handler,
 	}
 }
@@ -87,6 +86,11 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 		if err := b.configureIPv6Addresses(); err != nil {
 			return err
 		}
+	}
+
+	b.vmMac, err = retrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
+	if err != nil {
+		return err
 	}
 
 	return nil
