@@ -53,4 +53,8 @@
     (allow process nfs_t (dir (mounton)))
     (allow process proc_t (dir (mounton)))
     (allow process proc_t (filesystem (mount unmount)))
+
+    ;TODO
+    (allow process lib_t (file (read)))
+    (allow process var_lib_t (file (read)))
 )
