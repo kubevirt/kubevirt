@@ -18,3 +18,7 @@ func newV1Manager(config *runc_configs.Cgroup, paths map[string]string, rootless
 
 	return manager, nil
 }
+
+func (v v1Manager) GetBasePathToHostController(controller string) (string, error) {
+	return getBasePathToHostController(controller)
+}

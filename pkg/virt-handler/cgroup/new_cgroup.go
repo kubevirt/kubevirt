@@ -24,7 +24,13 @@ const (
 
 // DEFINE INTERFACE HERE
 
-var isolationDetector *isolation.PodIsolationDetector
+var (
+	isolationDetector *isolation.PodIsolationDetector
+)
+
+const (
+	hostBasePath = "/proc/1/root/sys/fs/cgroup"
+)
 
 // ihol3 Change name?
 type Manager interface {
@@ -32,6 +38,10 @@ type Manager interface {
 	//cpuManager
 
 	cgroups.Manager
+
+	// ihol3 doc!
+	// ihol3 add validation for controller name (save Paths() keys once?)
+	GetBasePathToHostController(controller string) (string, error)
 
 	// GetControllersAndPaths ... returns key: controller, value: path.
 	//GetControllersAndPaths(pid int) (map[string]string, error)
@@ -115,4 +125,14 @@ func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationR
 	}
 
 	return isolationRes, nil
+}
+
+func getBasePathToHostController(controller string) (string, error) {
+	// ihol3
+	// if controller not supported -> error?
+
+	if cgroups.IsCgroup2UnifiedMode() {
+		return hostBasePath, nil
+	}
+	return filepath.Join(hostBasePath, controller), nil
 }

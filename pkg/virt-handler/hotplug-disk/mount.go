@@ -503,15 +503,49 @@ func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, path string, m
 	return cgroup.RunWithChroot(chrootPath, update)
 }
 
-func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, path string, manager cgroup.Manager) error {
-	idx := strings.Index(path, "/sys/fs/cgroup/")
-	chrootPath := path[:idx] // ihol3 rename me
-	newPath := path[idx:]
-
-	update := func() error {
-		return m.updateBlockMajorMinor(major, minor, newPath, true, manager)
+// DELETE ME!!!!!!! ihol3
+func logRootFiles(name string, path string) {
+	const filePattern = " (name: %s, is dir? %v) "
+	filesStr := ""
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		log.Log.Infof("hotplug [%s]. ERR READING FILES: %v", name, err)
 	}
-	return cgroup.RunWithChroot(chrootPath, update)
+
+	for _, f := range files {
+		filesStr += fmt.Sprintf(filePattern, f.Name(), f.IsDir())
+	}
+
+	log.Log.Infof("hotplug [%s]. ls on %s: [%s]", name, path, filesStr)
+}
+
+func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, path string, manager cgroup.Manager) error {
+	//const cgroupBase = "/sys/fs/cgroup/devices/"
+	cgroupBase, err := manager.GetBasePathToHostController("devices")
+	if err != nil {
+		// ihol3 maybe expand error
+		return err
+	}
+
+	//idx := strings.Index(path, cgroupBase)
+	//var newPath string
+	//
+	//if idx > -1 {
+	//	newPath = path[idx:]
+	//} else {
+	//	//newPath := filepath.Join("/sys/fs/cgroup/", path)
+	//	//_, err := os.Stat(newPath)
+	//	//return m.updateBlockMajorMinor(major, minor, "", true, manager)
+	//	newPath = path
+	//}
+	log.Log.Infof("hotplug [allowBlockMajorMinor]. PATHS=%s", manager.GetPaths())
+	logRootFiles("allowBlockMajorMinor", "/")
+	logRootFiles("allowBlockMajorMinor", cgroupBase)
+
+	return cgroup.RunWithChroot(cgroupBase, func() error {
+		return m.updateBlockMajorMinor(major, minor, "", true, manager)
+	})
+
 	//return m.updateBlockMajorMinor(major, minor, path, true)
 }
 
@@ -527,6 +561,7 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, _ string, allo
 	err := manager.Set(&configs.Resources{
 		Devices: []*devices.Rule{deviceRule},
 	})
+	logRootFiles("updateBlockMajorMinor", "/")
 
 	log.Log.Infof("setting rule. err: %v", err)
 
