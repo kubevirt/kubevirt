@@ -91,6 +91,12 @@ var _ = Describe("VirtualMachine", func() {
 
 		})
 
+		shouldExpectVMIFinalizerRemoval := func(vmi *v1.VirtualMachineInstance) {
+			patch := `[{ "op": "test", "path": "/metadata/finalizers", "value": ["kubevirt.io/virtualMachineControllerFinalize"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+		}
+
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
 			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.CreateAction)
@@ -672,6 +678,214 @@ var _ = Describe("VirtualMachine", func() {
 			table.Entry("when dv priorityclass is defined and VM priorityclass is not defined", "dvpriority", "", "dvpriority"),
 			table.Entry("when dv priorityclass is not defined and VM priorityclass is not defined", "", "", ""),
 		)
+
+		Context("crashloop backoff tests", func() {
+
+			It("should track start failures when VMIs fail without hitting running state", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vmi.UID = "123"
+				vmi.Status.Phase = v1.Failed
+
+				addVirtualMachine(vm)
+				vmiFeeder.Add(vmi)
+
+				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.ConsecutiveFailCount).To(Equal(1))
+				}).Return(nil, nil)
+
+				shouldExpectVMIFinalizerRemoval(vmi)
+
+				controller.Execute()
+
+				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			})
+
+			It("should track a new start failures when a new VMI fails without hitting running state", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vmi.UID = "456"
+				vmi.Status.Phase = v1.Failed
+
+				oldRetry := time.Now().Add(-300 * time.Second)
+				vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+					LastFailedVMIUID:     "123",
+					ConsecutiveFailCount: 1,
+					RetryAfterTimestamp: &metav1.Time{
+						Time: oldRetry,
+					},
+				}
+
+				addVirtualMachine(vm)
+				vmiFeeder.Add(vmi)
+
+				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(Equal(oldRetry))
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.ConsecutiveFailCount).To(Equal(2))
+				}).Return(nil, nil)
+
+				shouldExpectVMIFinalizerRemoval(vmi)
+
+				controller.Execute()
+
+				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			})
+
+			It("should clear start failures when VMI hits running state", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vmi.UID = "456"
+				vmi.Status.Phase = v1.Running
+				vmi.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstancePhaseTransitionTimestamp{
+					{
+						Phase:                    v1.Running,
+						PhaseTransitionTimestamp: metav1.Now(),
+					},
+				}
+
+				oldRetry := time.Now().Add(-300 * time.Second)
+				vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+					LastFailedVMIUID:     "123",
+					ConsecutiveFailCount: 1,
+					RetryAfterTimestamp: &metav1.Time{
+						Time: oldRetry,
+					},
+				}
+
+				addVirtualMachine(vm)
+				vmiFeeder.Add(vmi)
+
+				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					Expect(arg.(*v1.VirtualMachine).Status.StartFailure).To(BeNil())
+				}).Return(nil, nil)
+
+				controller.Execute()
+
+			})
+
+			table.DescribeTable("should clear existing start failures when runStrategy is halted or manual", func(runStrategy v1.VirtualMachineRunStrategy) {
+				vm, vmi := DefaultVirtualMachine(true)
+				vmi.UID = "456"
+				vmi.Status.Phase = v1.Failed
+				vm.Spec.Running = nil
+				vm.Spec.RunStrategy = &runStrategy
+
+				oldRetry := time.Now().Add(300 * time.Second)
+				vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+					LastFailedVMIUID:     "123",
+					ConsecutiveFailCount: 1,
+					RetryAfterTimestamp: &metav1.Time{
+						Time: oldRetry,
+					},
+				}
+
+				addVirtualMachine(vm)
+				vmiFeeder.Add(vmi)
+
+				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
+					if runStrategy == v1.RunStrategyHalted || runStrategy == v1.RunStrategyManual {
+						Expect(arg.(*v1.VirtualMachine).Status.StartFailure).To(BeNil())
+					} else {
+						Expect(arg.(*v1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
+
+					}
+				}).Return(nil, nil)
+
+				//	if runStrategy != v1.RunStrategyManual {
+				shouldExpectVMIFinalizerRemoval(vmi)
+				//	}
+
+				controller.Execute()
+
+				if runStrategy != v1.RunStrategyManual {
+					testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				}
+			},
+
+				table.Entry("runStrategyHalted", v1.RunStrategyHalted),
+				table.Entry("always", v1.RunStrategyAlways),
+				table.Entry("manual", v1.RunStrategyManual),
+				table.Entry("rerunOnFailure", v1.RunStrategyRerunOnFailure),
+			)
+
+			table.DescribeTable("should calculated expected backoff delay", func(failCount, minExpectedDelay int, maxExpectedDelay int) {
+
+				for i := 0; i < 1000; i++ {
+					delay := calculateStartBackoffTime(failCount, defaultMaxCrashLoopBackoffDelay)
+
+					if delay > maxExpectedDelay {
+						Expect(fmt.Errorf("delay: %d: failCount %d should not result in a delay greater than %d", delay, failCount, maxExpectedDelay)).To(BeNil())
+					} else if delay < minExpectedDelay {
+						Expect(fmt.Errorf("delay: %d: failCount %d should not result in a delay less than than %d", delay, failCount, minExpectedDelay)).To(BeNil())
+
+					}
+				}
+			},
+
+				table.Entry("failCount 0", 0, 10, 15),
+				table.Entry("failCount 1", 1, 10, 15),
+				table.Entry("failCount 2", 2, 40, 60),
+				table.Entry("failCount 3", 3, 90, 135),
+				table.Entry("failCount 4", 4, 160, 240),
+				table.Entry("failCount 5", 5, 250, 300),
+				table.Entry("failCount 6", 6, 300, 300),
+			)
+
+			table.DescribeTable("has start failure backoff expired", func(vm *v1.VirtualMachine, expected int64) {
+				seconds := hasStartFailureBackoffExpired(vm)
+
+				if expected > 0 {
+					// since the tests all run in parallel, it's difficult to
+					// do precise timing. We set the `retryAfter` time but the test
+					// execution may happen seconds later. We use big numbers and
+					// account for some jitter to make sure the calculation falls within
+					// the ballpark of what we expect.
+					parallelTestJitter := expected / 10
+					if (expected - seconds) > parallelTestJitter {
+						Expect(seconds).To(Equal(expected))
+					}
+				}
+
+			},
+
+				table.Entry("no vm start failures",
+					&v1.VirtualMachine{},
+					int64(0)),
+				table.Entry("vm failure waiting 300 seconds",
+					&v1.VirtualMachine{
+						Status: v1.VirtualMachineStatus{
+							StartFailure: &v1.VirtualMachineStartFailure{
+								RetryAfterTimestamp: &metav1.Time{
+									Time: time.Now().Add(300 * time.Second),
+								},
+							},
+						},
+					},
+					int64(300)),
+				table.Entry("vm failure 300 seconds past retry time",
+					&v1.VirtualMachine{
+						Status: v1.VirtualMachineStatus{
+							StartFailure: &v1.VirtualMachineStartFailure{
+								RetryAfterTimestamp: &metav1.Time{
+									Time: time.Now().Add(-300 * time.Second),
+								},
+							},
+						},
+					},
+					int64(0)),
+			)
+		})
 
 		Context("clone authorization tests", func() {
 			dv1 := &v1.DataVolumeTemplateSpec{
@@ -1269,6 +1483,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
 				})
 
+				shouldExpectVMIFinalizerRemoval(vmi)
+
 				controller.Execute()
 			},
 
@@ -1672,6 +1888,7 @@ func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string)
 	vmi := v1.NewMinimalVMI(vmiName)
 	vmi.GenerateName = "prettyrandom"
 	vmi.Status.Phase = v1.Running
+	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 	vm := VirtualMachineFromVMI(vmName, vmi, started)
 	t := true
 	vmi.OwnerReferences = []metav1.OwnerReference{{
