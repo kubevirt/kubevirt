@@ -52,14 +52,14 @@ func (_mr *_MockPodIsolationDetectorRecorder) DetectForSocket(arg0, arg1 interfa
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetectForSocket", arg0, arg1)
 }
 
-func (_m *MockPodIsolationDetector) Whitelist(controller []string) PodIsolationDetector {
-	ret := _m.ctrl.Call(_m, "Whitelist", controller)
+func (_m *MockPodIsolationDetector) Allowlist(controller []string) PodIsolationDetector {
+	ret := _m.ctrl.Call(_m, "Allowlist", controller)
 	ret0, _ := ret[0].(PodIsolationDetector)
 	return ret0
 }
 
-func (_mr *_MockPodIsolationDetectorRecorder) Whitelist(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Whitelist", arg0)
+func (_mr *_MockPodIsolationDetectorRecorder) Allowlist(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Allowlist", arg0)
 }
 
 func (_m *MockPodIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {

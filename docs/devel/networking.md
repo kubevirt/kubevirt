@@ -228,7 +228,7 @@ the relevant knobs should be described.
 
 There are 2 knobs that impact the configuration of the masquerade binding:
   - `ports`: an attribute of the interface, described in the
-    `spec::domain::interfaces` subtree. Here the user indicates the white-list
+    `spec::domain::interfaces` subtree. Here the user indicates the allowlist
      of ports and protocols. It is important to mention that when the list is
      omitted, **all** ports are implicitly included.
   - `vmNetworkCIDR`: the CIDR from which the in-pod bridge **and** the VM will
@@ -287,7 +287,7 @@ KUBEVIRT_PREINBOUND  all  --  eth0 anywhere             anywhere
 
 On the `KUBEVIRT_PREINBOUND` chain, packets will be DNAT'ed (have their
 destination address changed) to the IP address of the VM - e.g. `10.11.12.2`.
-This can be subject to a whitelist of ports (if one was provided by the user,
+This can be subject to an allowlist of ports (if one was provided by the user,
 in the masquerade interface specification) or simply have all ports accepted -
 when the port configuration is omitted.
 
