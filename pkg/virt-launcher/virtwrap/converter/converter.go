@@ -306,22 +306,6 @@ func (c *directIOChecker) check(path string, flags int) (bool, error) {
 	return true, nil
 }
 
-// check if fs or block device support direct i/o
-func checkDirectIOFlag(path string, isBlockDev bool, checker DirectIOChecker) bool {
-	ok, err := func() (bool, error) {
-		if isBlockDev {
-			return checker.CheckBlockDevice(path)
-		} else {
-			return checker.CheckFile(path)
-		}
-	}()
-	if err != nil {
-		log.Log.Reason(err).Errorf("Direct IO check failed for %s", path)
-		return false
-	}
-	return ok
-}
-
 func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error {
 	if source.BlockSize == nil {
 		return nil
@@ -404,8 +388,9 @@ func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
 	}, nil
 }
 
-func SetDriverCacheMode(disk *api.Disk, checker DirectIOChecker) error {
+func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 	var path string
+	var err error
 	supportDirectIO := true
 	mode := v1.DriverCache(disk.Driver.Cache)
 	isBlockDev := false
@@ -420,16 +405,24 @@ func SetDriverCacheMode(disk *api.Disk, checker DirectIOChecker) error {
 	}
 
 	if mode == "" || mode == v1.CacheNone {
-		supportDirectIO = checkDirectIOFlag(path, isBlockDev, checker)
-		if !supportDirectIO {
+		if isBlockDev {
+			supportDirectIO, err = directIOChecker.CheckBlockDevice(path)
+		} else {
+			supportDirectIO, err = directIOChecker.CheckFile(path)
+		}
+		if err != nil {
+			log.Log.Reason(err).Errorf("Direct IO check failed for %s", path)
+		} else if !supportDirectIO {
 			log.Log.Infof("%s file system does not support direct I/O", path)
 		}
 		// when the disk is backed-up by another file, we need to also check if that
 		// file sits on a file system that supports direct I/O
 		if backingFile := disk.BackingStore; backingFile != nil {
 			backingFilePath := backingFile.Source.File
-			backFileDirectIOSupport := checkDirectIOFlag(backingFilePath, false, checker)
-			if !backFileDirectIOSupport {
+			backFileDirectIOSupport, err := directIOChecker.CheckFile(backingFilePath)
+			if err != nil {
+				log.Log.Reason(err).Errorf("Direct IO check failed for %s", backingFilePath)
+			} else if !backFileDirectIOSupport {
 				log.Log.Infof("%s backing file system does not support direct I/O", backingFilePath)
 			}
 			supportDirectIO = supportDirectIO && backFileDirectIOSupport
