@@ -5,7 +5,15 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 container_image(
     name = "kubevirt-testing-base",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
     tars = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": [
+            ":passwd-tar",
+            "//rpm:testimage_aarch64",
+        ],
         "//conditions:default": [
             ":passwd-tar",
             "//rpm:testimage_x86_64",
