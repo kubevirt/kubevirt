@@ -41,7 +41,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/network/consts"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
+	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -55,7 +55,7 @@ const (
 	svcUndeclaredTestPort    = 1501
 	// Istio uses certain ports for it's own purposes, this port server to verify that traffic is not routed
 	// into the VMI for these ports. https://istio.io/latest/docs/ops/deployment/requirements/
-	istioRestrictedPort = network.EnvoyTunnelPort
+	istioRestrictedPort = infraconfigurators.EnvoyTunnelPort
 )
 
 var _ = SIGDescribe("[Serial] Istio", func() {
