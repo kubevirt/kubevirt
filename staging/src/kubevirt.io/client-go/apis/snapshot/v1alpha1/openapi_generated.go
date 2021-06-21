@@ -17365,20 +17365,23 @@ func schema_kubevirtio_client_go_api_v1_PciHostDevice(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"pciVendorSelector": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The vendor_id:product_id tupple of the PCI device",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"resourceName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The name of the resource that is representing the device. Exposed by a device plugin and requested by VMs. Typically of the form vendor.com/product_nameThe name of the resource that is representing the device. Exposed by a device plugin and requested by VMs. Typically of the form vendor.com/product_name",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"externalResourceProvider": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "If true, KubeVirt will leave the allocation and monitoring to an external device plugin",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
