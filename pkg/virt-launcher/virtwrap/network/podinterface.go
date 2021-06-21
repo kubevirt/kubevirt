@@ -21,26 +21,34 @@ package network
 
 import (
 	"fmt"
+	"strconv"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type LibvirtSpecGenerator interface {
-	generate(domainIface api.Interface) error
+	generate() error
 }
 
-func newMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *MacvtapLibvirtSpecGenerator {
+func newMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, cachedDomainInterface api.Interface) *MacvtapLibvirtSpecGenerator {
 	return &MacvtapLibvirtSpecGenerator{
-		vmiSpecIface: iface,
-		domain:       domain,
+		vmiSpecIface:          iface,
+		domain:                domain,
+		cachedDomainInterface: cachedDomainInterface,
 	}
 }
 
-func newMasqueradeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *MasqueradeLibvirtSpecGenerator {
+func newMasqueradeLibvirtSpecGenerator(iface *v1.Interface, vmiSpecNetwork *v1.Network, domain *api.Domain, podInterfaceName string, handler netdriver.NetworkHandler) *MasqueradeLibvirtSpecGenerator {
 	return &MasqueradeLibvirtSpecGenerator{
-		vmiSpecIface: iface,
-		domain:       domain,
+		vmiSpecIface:     iface,
+		vmiSpecNetwork:   vmiSpecNetwork,
+		domain:           domain,
+		podInterfaceName: podInterfaceName,
+		handler:          handler,
 	}
 }
 
@@ -51,19 +59,25 @@ func newSlirpLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *Slir
 	}
 }
 
-func newBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *BridgeLibvirtSpecGenerator {
+func newBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, cachedDomainInterface api.Interface) *BridgeLibvirtSpecGenerator {
 	return &BridgeLibvirtSpecGenerator{
-		vmiSpecIface: iface,
-		domain:       domain,
+		vmiSpecIface:          iface,
+		domain:                domain,
+		cachedDomainInterface: cachedDomainInterface,
 	}
 }
 
 type BridgeLibvirtSpecGenerator struct {
-	vmiSpecIface *v1.Interface
-	domain       *api.Domain
+	vmiSpecIface          *v1.Interface
+	domain                *api.Domain
+	cachedDomainInterface api.Interface
 }
 
-func (b *BridgeLibvirtSpecGenerator) generate(domainIface api.Interface) error {
+func (b *BridgeLibvirtSpecGenerator) generate() error {
+	domainIface, err := b.discoverDomainIfaceSpec()
+	if err != nil {
+		return err
+	}
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.vmiSpecIface.Name {
@@ -74,14 +88,25 @@ func (b *BridgeLibvirtSpecGenerator) generate(domainIface api.Interface) error {
 		}
 	}
 	return nil
+}
+
+func (b *BridgeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
+	return &b.cachedDomainInterface, nil
 }
 
 type MasqueradeLibvirtSpecGenerator struct {
-	vmiSpecIface *v1.Interface
-	domain       *api.Domain
+	vmiSpecIface     *v1.Interface
+	vmiSpecNetwork   *v1.Network
+	domain           *api.Domain
+	handler          netdriver.NetworkHandler
+	podInterfaceName string
 }
 
-func (b *MasqueradeLibvirtSpecGenerator) generate(domainIface api.Interface) error {
+func (b *MasqueradeLibvirtSpecGenerator) generate() error {
+	domainIface, err := b.discoverDomainIfaceSpec()
+	if err != nil {
+		return err
+	}
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.vmiSpecIface.Name {
@@ -92,6 +117,31 @@ func (b *MasqueradeLibvirtSpecGenerator) generate(domainIface api.Interface) err
 		}
 	}
 	return nil
+}
+
+func (b *MasqueradeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
+	var domainIface api.Interface
+	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		return nil, err
+	}
+
+	mac, err := virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
+	if err != nil {
+		return nil, err
+	}
+
+	domainIface.MTU = &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)}
+	domainIface.Target = &api.InterfaceTarget{
+		Device:  virtnetlink.GenerateTapDeviceName(podNicLink.Attrs().Name),
+		Managed: "no",
+	}
+
+	if mac != nil {
+		domainIface.MAC = &api.MAC{MAC: mac.String()}
+	}
+	return &domainIface, nil
 }
 
 type SlirpLibvirtSpecGenerator struct {
@@ -99,7 +149,7 @@ type SlirpLibvirtSpecGenerator struct {
 	domain       *api.Domain
 }
 
-func (b *SlirpLibvirtSpecGenerator) generate(api.Interface) error {
+func (b *SlirpLibvirtSpecGenerator) generate() error {
 	// remove slirp interface from domain spec devices interfaces
 	var foundIfaceModelType string
 	ifaces := b.domain.Spec.Devices.Interfaces
@@ -128,11 +178,16 @@ func (b *SlirpLibvirtSpecGenerator) generate(api.Interface) error {
 }
 
 type MacvtapLibvirtSpecGenerator struct {
-	vmiSpecIface *v1.Interface
-	domain       *api.Domain
+	vmiSpecIface          *v1.Interface
+	domain                *api.Domain
+	cachedDomainInterface api.Interface
 }
 
-func (b *MacvtapLibvirtSpecGenerator) generate(domainIface api.Interface) error {
+func (b *MacvtapLibvirtSpecGenerator) generate() error {
+	domainIface, err := b.discoverDomainIfaceSpec()
+	if err != nil {
+		return err
+	}
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.vmiSpecIface.Name {
@@ -143,4 +198,8 @@ func (b *MacvtapLibvirtSpecGenerator) generate(domainIface api.Interface) error 
 		}
 	}
 	return nil
+}
+
+func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
+	return &b.cachedDomainInterface, nil
 }

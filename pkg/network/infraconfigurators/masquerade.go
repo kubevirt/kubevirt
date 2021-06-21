@@ -172,17 +172,8 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 }
 
 func (b *MasqueradePodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interface {
-	domainIface := api.Interface{
-		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
-		Target: &api.InterfaceTarget{
-			Device:  virtnetlink.GenerateTapDeviceName(b.podNicLink.Attrs().Name),
-			Managed: "no",
-		},
-	}
-	if b.vmMac != nil {
-		domainIface.MAC = &api.MAC{MAC: b.vmMac.String()}
-	}
-	return domainIface
+	// The method is left here since currently the DomainIfaceSpec cache is used as a marker that phase1 was completed
+	return api.Interface{}
 }
 
 func (b *MasqueradePodNetworkConfigurator) createBridge() error {

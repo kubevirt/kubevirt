@@ -15,6 +15,7 @@ go_library(
         "//pkg/network/driver:go_default_library",
         "//pkg/network/errors:go_default_library",
         "//pkg/network/infraconfigurators:go_default_library",
+        "//pkg/network/link:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

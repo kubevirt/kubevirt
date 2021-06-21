@@ -181,49 +181,46 @@ func (l *podNIC) PlugPhase1() error {
 	}
 
 	doesExist := cachedDomainIface != nil
-	// ignore the bindMechanism.cachedDomainInterface for slirp and set the Pod interface cache
-	if !doesExist {
-		if err := l.setPodInterfaceCache(); err != nil {
-			return err
-		}
-	}
-
-	isSlirpIface := l.vmiSpecIface.Slirp != nil
-	if isSlirpIface {
+	if doesExist {
 		return nil
 	}
 
-	if !doesExist {
-		if err := l.infraConfigurator.DiscoverPodNetworkInterface(l.podInterfaceName); err != nil {
-			return err
-		}
+	if err := l.setPodInterfaceCache(); err != nil {
+		return err
+	}
 
-		if l.dhcpConfigurator != nil {
-			dhcpConfig := l.infraConfigurator.GenerateDHCPConfig()
-			log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
-			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
-				log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
-				return errors.CreateCriticalNetworkError(err)
-			}
-		}
+	if l.infraConfigurator == nil {
+		return nil
+	}
 
-		domainIface := l.infraConfigurator.GenerateDomainIfaceSpec()
-		// preparePodNetworkInterface must be called *after* the generate
-		// methods since it mutates the pod interface from which those
-		// generator methods get their info from.
-		if err := l.infraConfigurator.PreparePodNetworkInterface(); err != nil {
-			log.Log.Reason(err).Error("failed to prepare pod networking")
+	if err := l.infraConfigurator.DiscoverPodNetworkInterface(l.podInterfaceName); err != nil {
+		return err
+	}
+
+	if l.dhcpConfigurator != nil {
+		dhcpConfig := l.infraConfigurator.GenerateDHCPConfig()
+		log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
+		if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
+			log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
 			return errors.CreateCriticalNetworkError(err)
 		}
+	}
 
-		// caching the domain interface *must* be the last thing done in phase
-		// 1, since retrieving it is the criteria to configure the pod
-		// networking infrastructure.
-		if err := l.storeCachedDomainIface(domainIface); err != nil {
-			log.Log.Reason(err).Error("failed to save interface configuration")
-			return errors.CreateCriticalNetworkError(err)
-		}
+	domainIface := l.infraConfigurator.GenerateDomainIfaceSpec()
+	// preparePodNetworkInterface must be called *after* the generate
+	// methods since it mutates the pod interface from which those
+	// generator methods get their info from.
+	if err := l.infraConfigurator.PreparePodNetworkInterface(); err != nil {
+		log.Log.Reason(err).Error("failed to prepare pod networking")
+		return errors.CreateCriticalNetworkError(err)
+	}
 
+	// caching the domain interface *must* be the last thing done in phase
+	// 1, since retrieving it is the criteria to configure the pod
+	// networking infrastructure.
+	if err := l.storeCachedDomainIface(domainIface); err != nil {
+		log.Log.Reason(err).Error("failed to save interface configuration")
+		return errors.CreateCriticalNetworkError(err)
 	}
 
 	return nil
@@ -242,7 +239,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return err
 	}
 
-	if err := libvirtSpecGenerator.generate(l.getInfoForLibvirtDomainInterface()); err != nil {
+	if err := libvirtSpecGenerator.generate(); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
@@ -261,32 +258,26 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	return nil
 }
 
-func (l *podNIC) getInfoForLibvirtDomainInterface() api.Interface {
-	if l.vmiSpecIface.Slirp == nil {
-		domainIface, err := l.cachedDomainInterface()
-		if err != nil {
-			log.Log.Reason(err).Critical("failed to load cached interface configuration")
-		}
-		if domainIface == nil {
-			log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
-		}
-		return *domainIface
-	}
-	return api.Interface{}
-}
-
 func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) (LibvirtSpecGenerator, error) {
 	if l.vmiSpecIface.Bridge != nil {
-		return newBridgeLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
+		cachedDomainIface, err := l.cachedDomainInterface()
+		if err != nil {
+			return nil, err
+		}
+		return newBridgeLibvirtSpecGenerator(l.vmiSpecIface, domain, *cachedDomainIface), nil
 	}
 	if l.vmiSpecIface.Masquerade != nil {
-		return newMasqueradeLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
+		return newMasqueradeLibvirtSpecGenerator(l.vmiSpecIface, l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler), nil
 	}
 	if l.vmiSpecIface.Slirp != nil {
 		return newSlirpLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
 	}
 	if l.vmiSpecIface.Macvtap != nil {
-		return newMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
+		cachedDomainIface, err := l.cachedDomainInterface()
+		if err != nil {
+			return nil, err
+		}
+		return newMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, *cachedDomainIface), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
