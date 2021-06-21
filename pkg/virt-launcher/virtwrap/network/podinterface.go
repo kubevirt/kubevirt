@@ -21,7 +21,6 @@ package network
 
 import (
 	"fmt"
-	"net"
 	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -333,15 +332,11 @@ func newBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *Bri
 }
 
 func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfraConfigurator, error) {
-	if err != nil {
-		return nil, err
-	}
 	if l.vmiSpecIface.Bridge != nil {
 		return infraconfigurators.NewBridgePodNetworkConfigurator(
 			l.vmi,
 			l.vmiSpecIface,
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
-			l.cacheFactory,
 			*l.launcherPID,
 			l.handler), nil
 	}
@@ -352,7 +347,6 @@ func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfra
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
 			l.vmiSpecNetwork.Pod.VMNetworkCIDR,
 			l.vmiSpecNetwork.Pod.VMIPv6NetworkCIDR,
-			l.cacheFactory,
 			*l.launcherPID,
 			l.handler), nil
 	}

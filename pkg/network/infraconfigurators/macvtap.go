@@ -80,7 +80,7 @@ func (b *MacvtapPodNetworkConfigurator) PreparePodNetworkInterface() error {
 
 func (b *MacvtapPodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interface {
 	return api.Interface{
-		MAC: &api.MAC{MAC: b.vmMac},
+		MAC: &api.MAC{MAC: b.vmMac.String()},
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
 		Target: &api.InterfaceTarget{
 			Device:  b.podNicLink.Attrs().Name,

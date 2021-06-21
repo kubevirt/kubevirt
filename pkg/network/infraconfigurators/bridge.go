@@ -26,17 +26,15 @@ type BridgePodNetworkConfigurator struct {
 	podIfaceIP          netlink.Addr
 	podNicLink          netlink.Link
 	podIfaceRoutes      []netlink.Route
-	storeFactory        cache.InterfaceCacheFactory
 	tapDeviceName       string
 	vmi                 *v1.VirtualMachineInstance
 }
 
-func NewBridgePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, cacheFactory cache.InterfaceCacheFactory, launcherPID int, handler netdriver.NetworkHandler) *BridgePodNetworkConfigurator {
+func NewBridgePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, launcherPID int, handler netdriver.NetworkHandler) *BridgePodNetworkConfigurator {
 	return &BridgePodNetworkConfigurator{
 		vmi:                 vmi,
 		vmiSpecIface:        vmiSpecIface,
 		bridgeInterfaceName: bridgeIfaceName,
-		storeFactory:        cacheFactory,
 		launcherPID:         launcherPID,
 		handler:             handler,
 	}

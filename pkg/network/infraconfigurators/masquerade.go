@@ -40,7 +40,6 @@ type MasqueradePodNetworkConfigurator struct {
 	vmIPv6NetworkCIDR   string
 	vmGatewayAddr       *netlink.Addr
 	vmGatewayIpv6Addr   *netlink.Addr
-	cacheFactory        cache.InterfaceCacheFactory
 	launcherPID         int
 	handler             netdriver.NetworkHandler
 	vmIPv4Addr          netlink.Addr
@@ -48,14 +47,13 @@ type MasqueradePodNetworkConfigurator struct {
 	vmMac               *net.HardwareAddr
 }
 
-func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmNetworkCIDR string, vmIPv6NetworkCIDR string, factory cache.InterfaceCacheFactory, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
+func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmNetworkCIDR string, vmIPv6NetworkCIDR string, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
 	return &MasqueradePodNetworkConfigurator{
 		vmi:                 vmi,
 		vmiSpecIface:        vmiSpecIface,
 		vmNetworkCIDR:       vmNetworkCIDR,
 		vmIPv6NetworkCIDR:   vmIPv6NetworkCIDR,
 		bridgeInterfaceName: bridgeIfaceName,
-		cacheFactory:        factory,
 		launcherPID:         launcherPID,
 		handler:             handler,
 	}
