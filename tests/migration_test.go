@@ -1289,106 +1289,195 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		})
 
 		Context("migration security", func() {
-			BeforeEach(func() {
-				cfg := defaultKVConfig()
-				cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
-				tests.UpdateKubeVirtConfigValueAndWait(cfg)
-			})
+			Context("with TLS disabled", func() {
+				It("should be successfully migrated", func() {
+					cfg := defaultKVConfig()
+					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
+					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
-			It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
-				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+					tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
-				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
+					By("Starting the VirtualMachineInstance")
+					vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				// Run
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
+					By("Checking that the VirtualMachineInstance console has expected output")
+					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+					By("starting the migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
-				// execute a migration, wait for finalized state
-				By("Starting the Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+					// check VMI, confirm migration state
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 
-				By("Waiting for the proxy connection details to appear")
-				Eventually(func() bool {
-					migratingVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					if migratingVMI.Status.MigrationState == nil {
-						return false
-					}
+					// delete VMI
+					By("Deleting the VMI")
+					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
-					if migratingVMI.Status.MigrationState.TargetNodeAddress == "" || len(migratingVMI.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 {
-						return false
-					}
-					vmi = migratingVMI
-					return true
-				}, 60*time.Second, 1*time.Second).Should(BeTrue())
+					By("Waiting for VMI to disappear")
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				})
 
-				By("checking if we fail to connect with our own cert")
-				// Generate new certs if secret doesn't already exist
-				caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour)
+				It("should not secure migrations with TLS", func() {
+					cfg := defaultKVConfig()
+					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
+					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
+					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
-				clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
-					"kubevirt.io:system:node:virt-handler",
-					nil,
-					time.Hour,
-				)
+					By("Starting the VirtualMachineInstance")
+					vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				certPEM := cert.EncodeCertPEM(clientKeyPair.Cert)
-				keyPEM := cert.EncodePrivateKeyPEM(clientKeyPair.Key)
-				cert, err := tls.X509KeyPair(certPEM, keyPEM)
-				Expect(err).ToNot(HaveOccurred())
-				tlsConfig := &tls.Config{
-					InsecureSkipVerify: true,
-					GetClientCertificate: func(info *tls.CertificateRequestInfo) (certificate *tls.Certificate, e error) {
-						return &cert, nil
-					},
-				}
-				handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
-				Expect(err).ToNot(HaveOccurred())
+					// Need to wait for cloud init to finish and start the agent inside the vmi.
+					tests.WaitAgentConnected(virtClient, vmi)
 
-				var wg sync.WaitGroup
-				wg.Add(len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
+					// Run
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				i := 0
-				errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
-				for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
-					portI, _ := strconv.Atoi(port)
-					go func(i int, port int) {
-						defer GinkgoRecover()
-						defer wg.Done()
-						stopChan := make(chan struct{})
-						defer close(stopChan)
-						Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
-						conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
-						if conn != nil {
-							b := make([]byte, 1)
-							_, err = conn.Read(b)
+					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+
+					// execute a migration, wait for finalized state
+					By("Starting the Migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+
+					By("Waiting for the proxy connection details to appear")
+					Eventually(func() bool {
+						migratingVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						if migratingVMI.Status.MigrationState == nil {
+							return false
 						}
-						Expect(err).To(HaveOccurred())
-						errors <- err
-					}(i, portI)
-					i++
-				}
-				wg.Wait()
-				close(errors)
 
-				By("checking that we were never able to connect")
-				tlsErrorFound := false
-				for err := range errors {
-					if strings.Contains(err.Error(), "remote error: tls: bad certificate") {
-						tlsErrorFound = true
+						if migratingVMI.Status.MigrationState.TargetNodeAddress == "" || len(migratingVMI.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 {
+							return false
+						}
+						vmi = migratingVMI
+						return true
+					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("checking if we fail to connect with our own cert")
+					tlsConfig := temporaryTLSConfig()
+
+					handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
+					Expect(err).ToNot(HaveOccurred())
+
+					var wg sync.WaitGroup
+					wg.Add(len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
+
+					i := 0
+					errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
+					for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+						portI, _ := strconv.Atoi(port)
+						go func(i int, port int) {
+							defer GinkgoRecover()
+							defer wg.Done()
+							stopChan := make(chan struct{})
+							defer close(stopChan)
+							Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
+							_, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
+							Expect(err).To(HaveOccurred())
+							errors <- err
+						}(i, portI)
+						i++
 					}
-					Expect(err.Error()).To(Or(ContainSubstring("remote error: tls: bad certificate"), ContainSubstring("EOF")))
-				}
+					wg.Wait()
+					close(errors)
 
-				Expect(tlsErrorFound).To(BeTrue())
+					By("checking that we were never able to connect")
+					for err := range errors {
+						Expect(err.Error()).To(Or(ContainSubstring("EOF"), ContainSubstring("first record does not look like a TLS handshake")))
+					}
+				})
+			})
+			Context("with TLS enabled", func() {
+				BeforeEach(func() {
+					cfg := defaultKVConfig()
+					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
+					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+				})
+
+				It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
+					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+					By("Starting the VirtualMachineInstance")
+					vmi = runVMIAndExpectLaunch(vmi, 240)
+
+					// Need to wait for cloud init to finish and start the agent inside the vmi.
+					tests.WaitAgentConnected(virtClient, vmi)
+
+					// Run
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+
+					// execute a migration, wait for finalized state
+					By("Starting the Migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+
+					By("Waiting for the proxy connection details to appear")
+					Eventually(func() bool {
+						migratingVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						if migratingVMI.Status.MigrationState == nil {
+							return false
+						}
+
+						if migratingVMI.Status.MigrationState.TargetNodeAddress == "" || len(migratingVMI.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 {
+							return false
+						}
+						vmi = migratingVMI
+						return true
+					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("checking if we fail to connect with our own cert")
+					tlsConfig := temporaryTLSConfig()
+
+					handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
+					Expect(err).ToNot(HaveOccurred())
+
+					var wg sync.WaitGroup
+					wg.Add(len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
+
+					i := 0
+					errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
+					for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+						portI, _ := strconv.Atoi(port)
+						go func(i int, port int) {
+							defer GinkgoRecover()
+							defer wg.Done()
+							stopChan := make(chan struct{})
+							defer close(stopChan)
+							Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
+							conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
+							if conn != nil {
+								b := make([]byte, 1)
+								_, err = conn.Read(b)
+							}
+							Expect(err).To(HaveOccurred())
+							errors <- err
+						}(i, portI)
+						i++
+					}
+					wg.Wait()
+					close(errors)
+
+					By("checking that we were never able to connect")
+					tlsErrorFound := false
+					for err := range errors {
+						if strings.Contains(err.Error(), "remote error: tls: bad certificate") {
+							tlsErrorFound = true
+						}
+						Expect(err.Error()).To(Or(ContainSubstring("remote error: tls: bad certificate"), ContainSubstring("EOF")))
+					}
+
+					Expect(tlsErrorFound).To(BeTrue())
+				})
 			})
 		})
 
@@ -2571,4 +2660,26 @@ func cirrosVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 	vmi.Spec.EvictionStrategy = &strategy
 	return vmi
+}
+
+func temporaryTLSConfig() *tls.Config {
+	// Generate new certs if secret doesn't already exist
+	caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour)
+
+	clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
+		"kubevirt.io:system:node:virt-handler",
+		nil,
+		time.Hour,
+	)
+
+	certPEM := cert.EncodeCertPEM(clientKeyPair.Cert)
+	keyPEM := cert.EncodePrivateKeyPEM(clientKeyPair.Key)
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	Expect(err).ToNot(HaveOccurred())
+	return &tls.Config{
+		InsecureSkipVerify: true,
+		GetClientCertificate: func(info *tls.CertificateRequestInfo) (certificate *tls.Certificate, e error) {
+			return &cert, nil
+		},
+	}
 }
