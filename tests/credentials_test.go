@@ -265,7 +265,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			By("Waiting for agent to connect")
 			tests.WaitAgentConnected(virtClient, vmi)
 
-			By("Checking that blacklisted commands triggered unsupported guest agent condition")
+			By("Checking that denylisted commands triggered unsupported guest agent condition")
 			getOptions := metav1.GetOptions{}
 			freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
@@ -326,7 +326,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 			By("Waiting for agent to connect")
 			tests.WaitAgentConnected(virtClient, vmi)
 
-			By("Checking that blacklisted commands triggered unsupported guest agent condition")
+			By("Checking that denylisted commands triggered unsupported guest agent condition")
 			getOptions := metav1.GetOptions{}
 			freshVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")

@@ -1125,7 +1125,7 @@ func (i *mockIsolationDetector) DetectForSocket(_ *v1.VirtualMachineInstance, _ 
 	return nil, fmt.Errorf("isolation error")
 }
 
-func (i *mockIsolationDetector) Whitelist(_ []string) isolation.PodIsolationDetector {
+func (i *mockIsolationDetector) Allowlist(_ []string) isolation.PodIsolationDetector {
 	return i
 }
 

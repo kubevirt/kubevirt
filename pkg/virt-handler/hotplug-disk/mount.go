@@ -531,6 +531,7 @@ func (m *volumeMounter) updateDevicesList(path string, rule *configs.DeviceRule)
 		return err
 	}
 	if !m.skipSafetyCheck {
+		// Reference to Blacklist is in external API
 		if !target.IsBlacklist() && !reflect.DeepEqual(currentAfter, target) {
 			return errors.New("resulting devices cgroup doesn't precisely match target")
 		} else if target.IsBlacklist() != currentAfter.IsBlacklist() {

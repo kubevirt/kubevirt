@@ -143,7 +143,7 @@ spec:
         #   value: "role=storage-node; storage=rook, ceph"
         # Allow rook to create multiple file systems. Note: This is considered
         # an experimental feature in Ceph as described at
-        # http://docs.ceph.com/docs/master/cephfs/experimental-features/#multiple-filesystems-within-a-ceph-cluster
+        # http://docs.ceph.com/docs/latest/cephfs/experimental-features/#multiple-filesystems-within-a-ceph-cluster
         # which might cause mons to crash as seen in https://github.com/rook/rook/issues/1027
         - name: ROOK_ALLOW_MULTIPLE_FILESYSTEMS
           value: "false"
@@ -193,7 +193,7 @@ spec:
         # Provide customised regex as the values using comma. For eg. regex for rbd based volume, value will be like "(?i)rbd[0-9]+".
         # In case of more than one regex, use comma to seperate between them.
         # Default regex will be "(?i)dm-[0-9]+,(?i)rbd[0-9]+,(?i)nbd[0-9]+"
-        # Add regex expression after putting a comma to blacklist a disk
+        # Add regex expression after putting a comma to denylist a disk
         # If value is empty, the default regex will be used.
         - name: DISCOVER_DAEMON_UDEV_BLACKLIST
           value: "(?i)dm-[0-9]+,(?i)rbd[0-9]+,(?i)nbd[0-9]+"

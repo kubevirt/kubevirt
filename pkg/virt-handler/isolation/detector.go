@@ -48,9 +48,9 @@ type PodIsolationDetector interface {
 
 	DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error)
 
-	// Whitelist allows specifying cgroup controller which should be considered to detect the cgroup slice
+	// Allowlist allows specifying cgroup controller which should be considered to detect the cgroup slice
 	// It returns a PodIsolationDetector to allow configuring the PodIsolationDetector via the builder pattern.
-	Whitelist(controller []string) PodIsolationDetector
+	Allowlist(controller []string) PodIsolationDetector
 
 	// Adjust system resources to run the passed VM
 	AdjustResources(vm *v1.VirtualMachineInstance) error
@@ -101,7 +101,7 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 		return nil, err
 	}
 
-	// Look up the cgroup slice based on the whitelisted controller
+	// Look up the cgroup slice based on the alowlisted controller
 	if controller, slice, err = s.getSlice(pid); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get cgroup slice for Pid %d", pid)
 		return nil, err
@@ -110,7 +110,7 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 	return NewIsolationResult(pid, ppid, slice, controller), nil
 }
 
-func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolationDetector {
+func (s *socketBasedIsolationDetector) Allowlist(controller []string) PodIsolationDetector {
 	s.controller = controller
 	return s
 }
@@ -286,7 +286,7 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, 
 	}
 
 	if slice == "" {
-		err = fmt.Errorf("Could not detect slice of whitelisted controllers: %v", s.controller)
+		err = fmt.Errorf("Could not detect slice of alowlisted controllers: %v", s.controller)
 	}
 
 	return
