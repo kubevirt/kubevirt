@@ -104,7 +104,10 @@ fi
 
 _deploy_infra_for_tests
 
-_ensure_cdi_deployment
+# TODO: Remove it when cdi is supported on ARM
+if [[ ${ARCHITECTURE} != *aarch64 ]]; then
+    _ensure_cdi_deployment
+fi
 
 # Deploy kubevirt operator
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
