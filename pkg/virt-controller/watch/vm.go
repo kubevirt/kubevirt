@@ -1515,6 +1515,7 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
+		{virtv1.VirtualMachineStatusCrashLoop, c.isVirtualMachineStatusCrashLoop},
 		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
 	}
 
@@ -1526,6 +1527,29 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 	}
 
 	vm.Status.PrintableStatus = virtv1.VirtualMachineStatusUnknown
+}
+
+// isVirtualMachineStatusCrashLoop determines whether the VM status field should be set to "CrashLoop".
+func (c *VMController) isVirtualMachineStatusCrashLoop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi != nil && !vmi.IsFinal() {
+		return false
+	} else if c.isVMIStartExpected(vm) {
+		return false
+	}
+
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		return false
+	}
+
+	if vm.Status.StartFailure != nil &&
+		vm.Status.StartFailure.ConsecutiveFailCount > 0 &&
+		(runStrategy == virtv1.RunStrategyAlways || runStrategy == virtv1.RunStrategyRerunOnFailure) {
+		return true
+	}
+
+	return false
 }
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Stopped".
