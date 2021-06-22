@@ -44,6 +44,7 @@ const (
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	NonRoot                    = "NonRootExperimental"
 	ClusterProfiler            = "ClusterProfiler"
+	LaunchSecurityGate         = "LaunchSecurity"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -130,4 +131,8 @@ func (config *ClusterConfig) NonRootEnabled() bool {
 
 func (config *ClusterConfig) ClusterProfilerEnabled() bool {
 	return config.isFeatureGateEnabled(ClusterProfiler)
+}
+
+func (config *ClusterConfig) LaunchSecurityEnabled() bool {
+	return config.isFeatureGateEnabled(LaunchSecurityGate)
 }

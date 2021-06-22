@@ -202,6 +202,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
+	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 
 	return causes
 }
@@ -780,6 +781,25 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 				Field:   field.Child("Sound").String(),
 			})
 		}
+	}
+	return causes
+}
+
+func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	launchSecurity := spec.Domain.LaunchSecurity
+	firmware := spec.Domain.Firmware
+	if launchSecurity != nil && !config.LaunchSecurityEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("LaunchSecurity feature gate is not enabled in kubevirt-config"),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	} else if launchSecurity != nil && launchSecurity.SEV != nil && (firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("SEV requires OVMF (UEFI)"),
+			Field:   field.Child("launchSecurity").String(),
+		})
 	}
 	return causes
 }
