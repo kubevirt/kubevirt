@@ -1530,6 +1530,91 @@ var _ = Describe("VirtualMachine", func() {
 				table.Entry("VMI is in Scheduled phase", v1.Scheduled),
 			)
 
+			table.DescribeTable("Should set a CrashLoop status when VMI is deleted and VM is in crash loop backoff", func(status v1.VirtualMachineStatus, runStrategy v1.VirtualMachineRunStrategy, hasVMI bool, expectCrashloop bool) {
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Spec.Running = nil
+				vm.Spec.RunStrategy = &runStrategy
+				vm.Status = status
+
+				addVirtualMachine(vm)
+				if hasVMI {
+					vmi.Status.Phase = v1.Running
+					vmiFeeder.Add(vmi)
+				}
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					objVM := obj.(*v1.VirtualMachine)
+					if expectCrashloop {
+						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusCrashLoop))
+					} else {
+						Expect(objVM.Status.PrintableStatus).ToNot(Equal(v1.VirtualMachineStatusCrashLoop))
+					}
+				})
+
+				controller.Execute()
+			},
+
+				table.Entry("vm with runStrategy always and crash loop",
+					v1.VirtualMachineStatus{
+						StartFailure: &v1.VirtualMachineStartFailure{
+							ConsecutiveFailCount: 1,
+							RetryAfterTimestamp: &metav1.Time{
+								Time: time.Now().Add(300 * time.Second),
+							},
+						},
+					},
+					v1.RunStrategyAlways,
+					false,
+					true),
+				table.Entry("vm with runStrategy rerun on failure and crash loop",
+					v1.VirtualMachineStatus{
+						StartFailure: &v1.VirtualMachineStartFailure{
+							ConsecutiveFailCount: 1,
+							RetryAfterTimestamp: &metav1.Time{
+								Time: time.Now().Add(300 * time.Second),
+							},
+						},
+					},
+					v1.RunStrategyRerunOnFailure,
+					false,
+					true),
+				table.Entry("vm with runStrategy halt should not report crash loop",
+					v1.VirtualMachineStatus{
+						StartFailure: &v1.VirtualMachineStartFailure{
+							ConsecutiveFailCount: 1,
+							RetryAfterTimestamp: &metav1.Time{
+								Time: time.Now().Add(300 * time.Second),
+							},
+						},
+					},
+					v1.RunStrategyHalted,
+					false,
+					false),
+				table.Entry("vm with runStrategy manual should not report crash loop",
+					v1.VirtualMachineStatus{
+						StartFailure: &v1.VirtualMachineStartFailure{
+							ConsecutiveFailCount: 1,
+							RetryAfterTimestamp: &metav1.Time{
+								Time: time.Now().Add(300 * time.Second),
+							},
+						},
+					},
+					v1.RunStrategyManual,
+					false,
+					false),
+				table.Entry("vm with runStrategy always and VMI still exists should not report crash loop",
+					v1.VirtualMachineStatus{
+						StartFailure: &v1.VirtualMachineStartFailure{
+							ConsecutiveFailCount: 1,
+							RetryAfterTimestamp: &metav1.Time{
+								Time: time.Now().Add(300 * time.Second),
+							},
+						},
+					},
+					v1.RunStrategyAlways,
+					true,
+					false),
+			)
 			Context("VM with DataVolumes", func() {
 				var vm *v1.VirtualMachine
 				var vmi *v1.VirtualMachineInstance
