@@ -31,7 +31,12 @@ import (
 
 var _ = Describe("VMNetworkConfigurator", func() {
 	Context("interface configuration", func() {
-
+		resetPodNetworkConfiguratorFactory := func(nics []podNIC) []podNIC {
+			for i, _ := range nics {
+				nics[i].podNetworkConfiguratorFactory = nil
+			}
+			return nics
+		}
 		Context("when vm has no network source", func() {
 			var (
 				vmi                   *v1.VirtualMachineInstance
@@ -66,7 +71,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				defaultNet := v1.DefaultPodNetwork()
 				nics, err := vmNetworkConfigurator.getNICs()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(ConsistOf([]podNIC{{
+				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ConsistOf(podNIC{
 					vmi:              vm,
 					podInterfaceName: primaryPodInterfaceName,
 					iface:            iface,
@@ -78,7 +83,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						getPIDString(launcherPID),
 						generateInPodBridgeInterfaceName(primaryPodInterfaceName),
 						vmNetworkConfigurator.handler),
-				}}))
+				})))
 			})
 			It("should accept empty network list", func() {
 				vmi := newVMI("testnamespace", "testVmName")
@@ -101,7 +106,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
 				nics, err := vmNetworkConfigurator.getNICs()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(ConsistOf([]podNIC{{
+				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ConsistOf([]podNIC{{
 					vmi:              vmi,
 					iface:            iface,
 					network:          cniNet,
@@ -113,7 +118,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						getPIDString(launcherPID),
 						generateInPodBridgeInterfaceName(multusInterfaceName),
 						vmNetworkConfigurator.handler),
-				}}))
+				}})))
 			})
 			It("should configure networking with multus and a default multus network", func() {
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -165,7 +170,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
 				nics, err := vmNetworkConfigurator.getNICs()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(ContainElements([]podNIC{
+				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ContainElements([]podNIC{
 					{
 						vmi:              vm,
 						iface:            &vm.Spec.Domain.Devices.Interfaces[0],
@@ -205,7 +210,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 							generateInPodBridgeInterfaceName("net2"),
 							vmNetworkConfigurator.handler),
 					},
-				}))
+				})))
 			})
 		})
 	})

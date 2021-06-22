@@ -20,14 +20,15 @@ type LibvirtSpecGenerator interface {
 }
 
 type podNIC struct {
-	vmi              *v1.VirtualMachineInstance
-	podInterfaceName string
-	launcherPID      *int
-	iface            *v1.Interface
-	network          *v1.Network
-	handler          netdriver.NetworkHandler
-	cacheFactory     cache.InterfaceCacheFactory
-	dhcpConfigurator *dhcpconfigurator.Configurator
+	vmi                           *v1.VirtualMachineInstance
+	podInterfaceName              string
+	launcherPID                   *int
+	iface                         *v1.Interface
+	network                       *v1.Network
+	handler                       netdriver.NetworkHandler
+	cacheFactory                  cache.InterfaceCacheFactory
+	dhcpConfigurator              *dhcpconfigurator.Configurator
+	podNetworkConfiguratorFactory func(*podNIC) (infraconfigurators.PodNetworkInfraConfigurator, error)
 }
 
 func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
@@ -60,14 +61,15 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 			handler)
 	}
 	return &podNIC{
-		cacheFactory:     cacheFactory,
-		handler:          handler,
-		vmi:              vmi,
-		network:          network,
-		podInterfaceName: podInterfaceName,
-		iface:            correspondingNetworkIface,
-		launcherPID:      launcherPID,
-		dhcpConfigurator: dhcpConfigurator,
+		cacheFactory:                  cacheFactory,
+		handler:                       handler,
+		vmi:                           vmi,
+		network:                       network,
+		podInterfaceName:              podInterfaceName,
+		iface:                         correspondingNetworkIface,
+		launcherPID:                   launcherPID,
+		dhcpConfigurator:              dhcpConfigurator,
+		podNetworkConfiguratorFactory: (*podNIC).newPodNetworkConfigurator,
 	}, nil
 }
 
@@ -144,7 +146,7 @@ func (l *podNIC) PlugPhase1() error {
 	}
 
 	if !doesExist {
-		podNetworkingConfigurator, err := l.newPodNetworkConfigurator()
+		podNetworkingConfigurator, err := l.podNetworkConfiguratorFactory(l)
 		if err != nil {
 			return err
 		}
