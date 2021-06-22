@@ -46,7 +46,7 @@ elif [[ $TARGET =~ cnao ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_PROVIDER=${TARGET/-cnao/}
 elif [[ $TARGET =~ sig-network ]]; then
-  export KUBEVIRT_WITH_CNAO=true
+  #export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
   export KUBEVIRT_DEPLOY_ISTIO=true
   if [[ $TARGET =~ k8s-1\.1.* ]]; then
@@ -310,7 +310,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ (cnao|multus) ]]; then
     export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose|Macvtap"
   elif [[ $TARGET =~ sig-network ]]; then
-    export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
+    export KUBEVIRT_E2E_FOCUS="\\[sig-expose\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]"
   elif [[ $TARGET =~ sig-compute ]]; then
