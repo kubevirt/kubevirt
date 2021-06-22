@@ -418,6 +418,8 @@ rules:
   resources:
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/freeze
+  - virtualmachineinstances/unfreeze
   verbs:
   - get
   - update
