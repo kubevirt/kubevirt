@@ -18,6 +18,9 @@ bazel-generate:
 bazel-build:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && hack/bazel-build.sh"
 
+bazel-build-image-bundle:
+	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PREFIX=${IMAGE_PREFIX} hack/bazel-build-image-bundle.sh"
+
 bazel-build-verify: bazel-build
 	./hack/dockerized "hack/bazel-fmt.sh"
 	./hack/verify-generate.sh
@@ -177,6 +180,7 @@ bump-kubevirtci:
 	go-all \
 	bazel-generate \
 	bazel-build \
+	bazel-build-image-bundle \
 	bazel-build-images \
 	bazel-push-images \
 	bazel-test \

@@ -208,6 +208,18 @@ container_bundle(
     },
 )
 
+# This is for generating a bundle of the core components for external processing
+container_bundle(
+    name = "virt-components-bundle",
+    images = {
+        "$(container_prefix)/$(image_prefix)virt-api:$(container_tag)": "//cmd/virt-api:virt-api-image",
+        "$(container_prefix)/$(image_prefix)virt-controller:$(container_tag)": "//cmd/virt-controller:virt-controller-image",
+        "$(container_prefix)/$(image_prefix)virt-handler:$(container_tag)": "//cmd/virt-handler:virt-handler-image",
+        "$(container_prefix)/$(image_prefix)virt-launcher:$(container_tag)": "//cmd/virt-launcher:virt-launcher-image",
+        "$(container_prefix)/$(image_prefix)virt-operator:$(container_tag)": "//cmd/virt-operator:virt-operator-image",
+    },
+)
+
 # heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
 load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
 
