@@ -897,9 +897,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				// 	})
 				// }
 
-				By("Deleting the VM.")
+				By(fmt.Sprintf("Deleting the VM (vm.name %s) (vmi.name %s)", vm.Name, vmi.Name))
 				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 				By("Verifying the endpoints' single subset, which points to the VM's pod, is deleted once the VM was deleted.")
 				svcEndpoints, err = virtClient.CoreV1().Endpoints(vm.Namespace).Get(context.Background(), endpointsName, k8smetav1.GetOptions{})
@@ -913,9 +913,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(tests.WaitForJobToFail(job, 240*time.Second)).To(Succeed())
 			},
 				table.Entry("[test_id:343] over default IPv4 IP family", ipv4),
-				table.Entry("over IPv6 IP family", ipv6),
-				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
-				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+				// table.Entry("over IPv6 IP family", ipv6),
+				// table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				// table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
 			)
 		})
 	})
