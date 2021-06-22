@@ -48,10 +48,10 @@ elif [[ $TARGET =~ cnao ]]; then
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
-  export KUBEVIRT_DEPLOY_ISTIO=true
-  if [[ $TARGET =~ k8s-1\.1.* ]]; then
+  #export KUBEVIRT_DEPLOY_ISTIO=true
+  #if [[ $TARGET =~ k8s-1\.1.* ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
-  fi
+  #fi
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
 elif [[ $TARGET =~ sig-compute ]]; then
@@ -205,6 +205,13 @@ export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
 build_images
 
+echo DBGDBG
+echo $KUBEVIRT_DEPLOY_PROMETHEUS
+echo $KUBEVIRT_PROVIDER_EXTRA_ARGS
+echo $KUBEVIRT_DEPLOY_PROMETHEUS_ALERTMANAGER
+echo $KUBEVIRT_DEPLOY_GRAFANA
+echo $KUBEVIRT_DEPLOY_ISTIO
+echo DBGDBG-END
 trap '{ collect_debug_logs; echo "Dump kubevirt state:"; make dump; }' ERR
 make cluster-up
 trap - ERR
