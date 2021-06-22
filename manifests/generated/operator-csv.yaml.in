@@ -808,8 +808,6 @@ spec:
             type: RollingUpdate
           template:
             metadata:
-              annotations:
-                scheduler.alpha.kubernetes.io/critical-pod: ""
               labels:
                 kubevirt.io: virt-operator
                 prometheus.kubevirt.io: ""
@@ -876,7 +874,7 @@ spec:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
                   readOnly: true
-              priorityClassName: kubevirt-cluster-critical
+              priorityClassName: system-node-critical
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: kubevirt-operator
