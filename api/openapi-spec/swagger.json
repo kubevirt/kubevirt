@@ -13051,6 +13051,10 @@
       "description": "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
       "type": "string"
      },
+     "launchSecurity": {
+      "description": "Launch Security setting of the vmi.",
+      "$ref": "#/definitions/v1.LaunchSecurity"
+     },
      "machine": {
       "description": "Machine type.",
       "$ref": "#/definitions/v1.Machine"
@@ -14059,6 +14063,15 @@
      }
     }
    },
+   "v1.LaunchSecurity": {
+    "type": "object",
+    "properties": {
+     "sev": {
+      "description": "AMD Secure Encrypted Virtualization (SEV)",
+      "$ref": "#/definitions/v1.SEV"
+     }
+    }
+   },
    "v1.LogVerbosity": {
     "description": "LogVerbosity sets log verbosity level of  various components",
     "type": "object",
@@ -14670,6 +14683,33 @@
    "v1.Rng": {
     "description": "Rng represents the random device passed from host",
     "type": "object"
+   },
+   "v1.SEV": {
+    "type": "object",
+    "required": [
+     "cbitpos",
+     "reducedPhysBits"
+    ],
+    "properties": {
+     "cbitpos": {
+      "description": "CBit Position",
+      "type": "integer",
+      "format": "int32"
+     },
+     "policy": {
+      "description": "Guest SEV policy",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "set"
+     },
+     "reducedPhysBits": {
+      "description": "No. of physical bits in address space",
+      "type": "integer",
+      "format": "int32"
+     }
+    }
    },
    "v1.SMBiosConfiguration": {
     "type": "object",

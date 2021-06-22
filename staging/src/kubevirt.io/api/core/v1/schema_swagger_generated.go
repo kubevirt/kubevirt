@@ -94,6 +94,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"devices":         "Devices allows adding disks, network interfaces, and others",
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
+		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
 	}
 }
 
@@ -343,6 +344,22 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 		"bus":        "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly":   "ReadOnly.\nDefaults to false.",
 		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
+	}
+}
+
+func (LaunchSecurity) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":    "+k8s:openapi-gen=true",
+		"sev": "AMD Secure Encrypted Virtualization (SEV)",
+	}
+}
+
+func (SEV) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "+k8s:openapi-gen=true",
+		"cbitpos":         "CBit Position",
+		"reducedPhysBits": "No. of physical bits in address space",
+		"policy":          "Guest SEV policy\n+listType=set",
 	}
 }
 

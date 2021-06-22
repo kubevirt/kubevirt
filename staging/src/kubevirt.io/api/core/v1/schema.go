@@ -194,6 +194,9 @@ type DomainSpec struct {
 	// Chassis specifies the chassis info passed to the domain.
 	// +optional
 	Chassis *Chassis `json:"chassis,omitempty"`
+	// Launch Security setting of the vmi.
+	// +optional
+	LaunchSecurity *LaunchSecurity `json:"launchSecurity,omitempty"`
 }
 
 // Chassis specifies the chassis info passed to the domain.
@@ -597,6 +600,44 @@ type DiskTarget struct {
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
 }
+
+//
+// +k8s:openapi-gen=true
+type LaunchSecurity struct {
+	// AMD Secure Encrypted Virtualization (SEV)
+	SEV *SEV `json:"sev,omitempty"`
+}
+
+//
+// +k8s:openapi-gen=true
+type SEV struct {
+	// CBit Position
+	Cbitpos uint `json:"cbitpos"`
+	// No. of physical bits in address space
+	ReducedPhysBits uint `json:"reducedPhysBits"`
+	// Guest SEV policy
+	// +listType=set
+	Policy []SEVPolicy `json:"policy,omitempty"`
+}
+
+//
+// +k8s:openapi-gen=true
+type SEVPolicy string
+
+const (
+	// Debugging of the guest is disallowed.
+	SEVPolicyNoDebug SEVPolicy = "NoDebug"
+	// Sharing keys with other guests is disallowed.
+	SEVPolicyNoKeysSharing SEVPolicy = "NoKeysSharing"
+	// SEV-ES is required.
+	SEVPolicyEncryptedState SEVPolicy = "EncryptedState"
+	// Sending the guest to another platform is disallowed.
+	SEVPolicyNoSend SEVPolicy = "NoSend"
+	// The guest must not be transmitted to another platform that is not in the domain.
+	SEVPolicyDomain SEVPolicy = "Domain"
+	// The guest must not be transmitted to another platform that is not SEV capable.
+	SEVPolicySEV SEVPolicy = "SEV"
+)
 
 type LunTarget struct {
 	// Bus indicates the type of disk device to emulate.
