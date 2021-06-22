@@ -54,6 +54,7 @@ elif [[ $TARGET =~ sig-network ]]; then
   fi
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
+  export KUBEVIRT_STORAGE="rook-ceph-default"
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 else
@@ -313,7 +314,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[rook-ceph\\]"
-    export KUBEVIRT_STORAGE="rook-ceph-default"
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
     export KUBEVIRT_E2E_SKIP="GPU"
