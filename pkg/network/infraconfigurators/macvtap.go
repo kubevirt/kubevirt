@@ -30,31 +30,6 @@ func NewMacvtapPodNetworkConfigurator(podIfaceName string, vmiSpecIface *v1.Inte
 	}
 }
 
-func (b *MacvtapPodNetworkConfigurator) discoverPodNetworkInterface(podIfaceName string) error {
-	link, err := b.handler.LinkByName(b.podInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podIfaceName)
-		return err
-	}
-	b.podNicLink = link
-
-	return nil
-}
-
-func (b *MacvtapPodNetworkConfigurator) preparePodNetworkInterface() error {
-	return nil
-}
-
-func (b *MacvtapPodNetworkConfigurator) generateDomainIfaceSpec() api.Interface {
-	return api.Interface{
-		MAC: &api.MAC{MAC: b.vmMac},
-		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
-		Target: &api.InterfaceTarget{
-			Device:  b.podNicLink.Attrs().Name,
-			Managed: "no",
-		},
-	}
-}
 func (b *MacvtapPodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName string) error {
 	link, err := b.handler.LinkByName(b.podInterfaceName)
 	if err != nil {
