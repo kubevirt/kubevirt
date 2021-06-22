@@ -225,6 +225,40 @@ func (l *Launcher) UnpauseVirtualMachine(_ context.Context, request *cmdv1.VMIRe
 	return response, nil
 }
 
+func (l *Launcher) FreezeVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.FreezeVMI(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to freeze vmi")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("Freezed vmi")
+	return response, nil
+}
+
+func (l *Launcher) UnfreezeVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.UnfreezeVMI(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to unfreeze vmi")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("Unfreezed vmi")
+	return response, nil
+}
+
 func (l *Launcher) KillVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)

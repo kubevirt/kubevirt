@@ -93,6 +93,7 @@ const (
 	UserAliasPrefix = "ua-"
 
 	FSThawed = "thawed"
+	FSFrozen = "frozen"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
