@@ -63,6 +63,26 @@ func (_mr *_MockLauncherClientRecorder) UnpauseVirtualMachine(arg0 interface{}) 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVirtualMachine", arg0)
 }
 
+func (_m *MockLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "FreezeVirtualMachine", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) FreezeVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FreezeVirtualMachine", arg0)
+}
+
+func (_m *MockLauncherClient) UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "UnfreezeVirtualMachine", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) UnfreezeVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVirtualMachine", arg0)
+}
+
 func (_m *MockLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "SyncMigrationTarget", vmi)
 	ret0, _ := ret[0].(error)
