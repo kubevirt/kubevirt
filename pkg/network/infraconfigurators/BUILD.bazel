@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "bridge.go",
         "common.go",
+        "generated_mock_common.go",
         "macvtap.go",
         "masquerade.go",
     ],
@@ -20,6 +21,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/coreos/go-iptables/iptables:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
     ],
 )
