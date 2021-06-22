@@ -44,6 +44,7 @@ const (
 	VirtControllerShasumEnvName = "VIRT_CONTROLLER_SHASUM"
 	VirtHandlerShasumEnvName    = "VIRT_HANDLER_SHASUM"
 	VirtLauncherShasumEnvName   = "VIRT_LAUNCHER_SHASUM"
+	GsEnvShasumName             = "GS_SHASUM"
 	KubeVirtVersionEnvName      = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
 	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
@@ -103,6 +104,7 @@ type KubeVirtDeploymentConfig struct {
 	VirtControllerSha string `json:"virtControllerSha,omitempty" optional:"true"`
 	VirtHandlerSha    string `json:"virtHandlerSha,omitempty" optional:"true"`
 	VirtLauncherSha   string `json:"virtLauncherSha,omitempty" optional:"true"`
+	GsSha             string `json:"gsSha,omitempty" optional:"true"`
 
 	// everything else, which can e.g. come from KubeVirt CR spec
 	AdditionalProperties map[string]string `json:"additionalProperties,omitempty" optional:"true"`
@@ -238,9 +240,10 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	controllerSha := os.Getenv(VirtControllerShasumEnvName)
 	handlerSha := os.Getenv(VirtHandlerShasumEnvName)
 	launcherSha := os.Getenv(VirtLauncherShasumEnvName)
+	gsSha := os.Getenv(GsEnvShasumName)
 	kubeVirtVersion := os.Getenv(KubeVirtVersionEnvName)
 	if operatorSha != "" && apiSha != "" && controllerSha != "" && handlerSha != "" && launcherSha != "" && kubeVirtVersion != "" {
-		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace, additionalProperties, passthroughEnv)
+		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, gsSha, namespace, additionalProperties, passthroughEnv)
 	}
 
 	return config
@@ -301,7 +304,7 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace string, kv
 	return c
 }
 
-func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, gsSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:             registry,
 		ImagePrefix:          imagePrefix,
@@ -311,6 +314,7 @@ func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, oper
 		VirtControllerSha:    controllerSha,
 		VirtHandlerSha:       handlerSha,
 		VirtLauncherSha:      launcherSha,
+		GsSha:                gsSha,
 		Namespace:            namespace,
 		AdditionalProperties: additionalProperties,
 		PassthroughEnvVars:   passthroughEnv,

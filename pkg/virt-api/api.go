@@ -61,6 +61,7 @@ import (
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	virtoperatorutils "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
@@ -286,6 +287,11 @@ func (app *virtAPIApp) composeSubresources() {
 			To(func(request *restful.Request, response *restful.Response) {
 				response.WriteAsJson(virtversion.Get())
 			}).Operation(version.Version + "Version"))
+		subws.Route(subws.GET(rest.SubResourcePath("guestfs")).Produces(restful.MIME_JSON).
+			To(app.GetGsInfo()).
+			Operation(version.Version+"Guestfs").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 		subws.Route(subws.GET(rest.SubResourcePath("healthz")).
 			To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).
 			Consumes(restful.MIME_JSON).
@@ -843,4 +849,32 @@ func (app *virtAPIApp) AddFlags() {
 		"Private key for the client certificate used to prove the identity of the virt-api when it must call virt-handler during a request")
 	flag.BoolVar(&app.externallyManaged, "externally-managed", false,
 		"Allow intermediate certificates to be used in building up the chain of trust when certificates are externally managed")
+}
+
+// GetGsInfo returns the libguestfs-tools image information based on the KubeVirt installation in the namespace.
+func (app *virtAPIApp) GetGsInfo() func(_ *restful.Request, response *restful.Response) {
+	return func(_ *restful.Request, response *restful.Response) {
+		var kvConfig virtoperatorutils.KubeVirtDeploymentConfig
+		kv := app.clusterConfig.GetConfigFromKubeVirtCR()
+		if kv == nil {
+			error_guestfs(fmt.Errorf("Failed getting KubeVirt config"), response)
+		}
+		err := json.Unmarshal([]byte(kv.Status.ObservedDeploymentConfig), &kvConfig)
+		if err != nil {
+			error_guestfs(err, response)
+			return
+		}
+		response.WriteAsJson(kubecli.GuestfsInfo{
+			Registry: kv.Status.ObservedKubeVirtRegistry,
+			Tag:      kv.Status.ObservedKubeVirtVersion,
+			Digest:   kvConfig.GsSha,
+		})
+		return
+	}
+}
+
+func error_guestfs(err error, response *restful.Response) {
+	res := map[string]interface{}{}
+	res["guestfs"] = map[string]interface{}{"status": "failed", "error": fmt.Sprintf("%v", err)}
+	response.WriteHeaderAndJson(http.StatusInternalServerError, res, restful.MIME_JSON)
 }
