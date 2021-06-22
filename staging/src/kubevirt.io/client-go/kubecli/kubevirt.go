@@ -173,6 +173,8 @@ type VirtualMachineInstanceInterface interface {
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	Pause(name string) error
 	Unpause(name string) error
+	Freeze(name string) error
+	Unfreeze(name string) error
 	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
 	FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error)
