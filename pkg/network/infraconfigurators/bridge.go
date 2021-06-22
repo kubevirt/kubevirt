@@ -11,6 +11,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -155,7 +156,11 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 		return err
 	}
 
-	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId, b.vmi)
+	tapOwner := netdriver.LibvirtUserAndGroupId
+	if util.IsNonRootVMI(b.vmi) {
+		tapOwner = strconv.Itoa(util.NonRootUID)
+	}
+	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, tapOwner, b.vmi)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
 		return err
