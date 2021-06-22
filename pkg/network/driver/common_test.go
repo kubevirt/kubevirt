@@ -21,16 +21,12 @@ package driver
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/onsi/ginkgo/extensions/table"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/vishvananda/netlink"
-
-	"kubevirt.io/kubevirt/pkg/network/cache"
 )
 
 var _ = Describe("Common Methods", func() {
@@ -74,49 +70,4 @@ var _ = Describe("Common Methods", func() {
 			table.Entry("ipv6", iptables.ProtocolIPv6, "6"),
 		)
 	})
-})
-
-var _ = Describe("DhcpConfig", func() {
-	const ipv4Cidr = "10.0.0.200/24"
-	const ipv4Address = "10.0.0.200"
-	const ipv4Mask = "ffffff00"
-	const ipv6Cidr = "fd10:0:2::2/120"
-	const mac = "de:ad:00:00:be:ef"
-	const ipv4Gateway = "10.0.0.1"
-	const mtu = 1450
-	const vifName = "test-vif"
-
-	Context("String", func() {
-		It("returns correct string representation", func() {
-			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, "", mac, mtu)
-			Expect(vif.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IP: %s, Mask: %s, IPv6: <nil>, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Address, ipv4Mask, mac, ipv4Gateway, mtu)))
-		})
-		It("returns correct string representation with ipv6", func() {
-			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac, mtu)
-			Expect(vif.String()).To(Equal(fmt.Sprintf("DhcpConfig: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Address, ipv4Mask, ipv6Cidr, mac, ipv4Gateway, mtu)))
-		})
-	})
-})
-
-func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu uint16) *cache.DhcpConfig {
-	addr, _ := netlink.ParseAddr(ipv4cidr)
-	mac, _ := net.ParseMAC(macStr)
-	gw := net.ParseIP(ipv4gateway)
-	vif := &cache.DhcpConfig{
-		Name:              vifName,
-		IP:                *addr,
-		MAC:               mac,
-		AdvertisingIPAddr: gw,
-		Mtu:               mtu,
-	}
-	if ipv6cidr != "" {
-		ipv6Addr, _ := netlink.ParseAddr(ipv6cidr)
-		vif.IPv6 = *ipv6Addr
-	}
-
-	return vif
-}
-
-var _ = Describe("infocache", func() {
-
 })
