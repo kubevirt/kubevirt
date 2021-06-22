@@ -1221,7 +1221,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = "default"
 		})
 
-		table.DescribeTable("should fail with any strategy if VMI does not exist", func(runStrategy v1.VirtualMachineRunStrategy, msg string) {
+		table.DescribeTable("should handle VMI does not exist per run strategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string, expectError bool) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
 
 			server.AppendHandlers(
@@ -1238,16 +1238,31 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 
+			if !expectError {
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+			}
+
 			app.StopVMRequestHandler(request, response)
 
-			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-			// check the msg string that would be presented to virtctl output
-			Expect(statusErr.Error()).To(ContainSubstring(msg))
+			if expectError {
+				statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+				// check the msg string that would be presented to virtctl output
+				Expect(statusErr.Error()).To(ContainSubstring(msg))
+			} else {
+
+				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			}
+
 		},
-			table.Entry("RunStrategyAlways", v1.RunStrategyAlways, "VM has no associated VMI running"),
-			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM has no associated VMI running"),
-			table.Entry("RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure, "VM has no associated VMI running"),
-			table.Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM has no associated VMI running"),
+			table.Entry("RunStrategyAlways", v1.RunStrategyAlways, "", false),
+			table.Entry("RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure, "", false),
+			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM has no associated VMI running", true),
+			table.Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM has no associated VMI running", true),
 		)
 
 		It("should fail on VM with VMI in Unknown Phase", func() {
