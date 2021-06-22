@@ -518,7 +518,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("rook-ceph", func() {
+	Context("[rook-ceph]", func() {
 		Context("Online VM", func() {
 			var (
 				vm *kubevirtv1.VirtualMachine
