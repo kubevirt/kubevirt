@@ -851,6 +851,8 @@ spec:
                   value: {{if .VirtHandlerSha}}{{.VirtHandlerSha}}{{end}}
                 - name: VIRT_LAUNCHER_SHASUM
                   value: {{if .VirtLauncherSha}}{{.VirtLauncherSha}}{{end}}
+                - name: GS_SHASUM
+                  value: {{if .GsSha}}{{.GsSha}}{{end}}
                 image: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
                 imagePullPolicy: {{.ImagePullPolicy}}
                 name: virt-operator
