@@ -119,6 +119,7 @@ type ConverterContext struct {
 	Topology              *cmdv1.Topology
 	CpuScheduler          *api.VCPUScheduler
 	ExpandDisksEnabled    bool
+	UseLaunchSecurity     bool
 }
 
 func contains(volumes []string, name string) bool {
@@ -233,6 +234,9 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	disk.Alias = api.NewUserDefinedAlias(diskDevice.Name)
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
+	}
+	if c.UseLaunchSecurity && disk.Target.Bus == "virtio" {
+		disk.Driver.IOMMU = "on"
 	}
 
 	return nil
@@ -882,6 +886,12 @@ func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) err
 	// the default source for rng is dev urandom
 	rng.Backend.Source = "/dev/urandom"
 
+	if c.UseLaunchSecurity {
+		rng.Driver = &api.RngDriver{
+			IOMMU: "on",
+		}
+	}
+
 	return nil
 }
 
@@ -1106,7 +1116,11 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
-
+		if c.UseLaunchSecurity {
+			ballooning.Driver = &api.MemBalloonDriver{
+				IOMMU: "on",
+			}
+		}
 	}
 }
 
@@ -1121,6 +1135,8 @@ func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 }
 
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
+	var controllerDriver *api.ControllerDriver
+
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
@@ -1241,6 +1257,34 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 	}
+	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
+	if c.UseLaunchSecurity {
+		sevPolicyBits := map[v1.SEVPolicy]uint{
+			v1.SEVPolicyNoDebug:        (1 << 0),
+			v1.SEVPolicyNoKeysSharing:  (1 << 1),
+			v1.SEVPolicyEncryptedState: (1 << 2),
+			v1.SEVPolicyNoSend:         (1 << 3),
+			v1.SEVPolicyDomain:         (1 << 4),
+			v1.SEVPolicySEV:            (1 << 5),
+		}
+		sevPolicy := uint(0)
+		for _, p := range vmi.Spec.Domain.LaunchSecurity.SEV.Policy {
+			if bit, ok := sevPolicyBits[p]; ok {
+				sevPolicy = sevPolicy | bit
+			} else {
+				return fmt.Errorf("Unknown SEV policy item: %s", p)
+			}
+		}
+		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
+			Type:            "sev",
+			Cbitpos:         strconv.FormatUint(uint64(vmi.Spec.Domain.LaunchSecurity.SEV.Cbitpos), 10),
+			ReducedPhysBits: strconv.FormatUint(uint64(vmi.Spec.Domain.LaunchSecurity.SEV.ReducedPhysBits), 10),
+			Policy:          "0x" + strconv.FormatUint(uint64(sevPolicy), 16),
+		}
+		controllerDriver = &api.ControllerDriver{
+			IOMMU: "on",
+		}
+	}
 	if c.SMBios != nil {
 		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
 			api.Entry{
@@ -1340,6 +1384,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			},
 		}
+	}
+
+	// Lock encrypted pages in host memory for SEV: https://libvirt.org/kbase/launch_security_sev.html#memory
+	if c.UseLaunchSecurity {
+		if domain.Spec.MemoryBacking == nil {
+			domain.Spec.MemoryBacking = &api.MemoryBacking{}
+		}
+		domain.Spec.MemoryBacking.Locked = &api.MemoryBackingLocked{}
 	}
 
 	volumeIndices := map[string]int{}
@@ -1582,15 +1634,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if needsSCSIControler(vmi) {
 		scsiController := api.Controller{
-			Type:  "scsi",
-			Index: "0",
-			Model: translateModel(c, "virtio"),
+			Type:   "scsi",
+			Index:  "0",
+			Model:  translateModel(c, "virtio"),
+			Driver: controllerDriver,
 		}
 		if useIOThreads {
-			scsiController.Driver = &api.ControllerDriver{
-				IOThread: &currentAutoThread,
-				Queues:   &vcpus,
+			if scsiController.Driver == nil {
+				scsiController.Driver = &api.ControllerDriver{}
 			}
+			scsiController.Driver.IOThread = &currentAutoThread
+			scsiController.Driver.Queues = &vcpus
 		}
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
@@ -1725,9 +1779,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole == true {
 		// Add mandatory console device
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
-			Type:  "virtio-serial",
-			Index: "0",
-			Model: translateModel(c, "virtio"),
+			Type:   "virtio-serial",
+			Index:  "0",
+			Model:  translateModel(c, "virtio"),
+			Driver: controllerDriver,
 		})
 
 		var serialPort uint = 0

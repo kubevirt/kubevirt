@@ -75,6 +75,11 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+// Check if a VMI spec requests AMD SEV
+func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
+}
+
 // WantVirtioNetDevice checks whether a VMI references at least one "virtio" network interface.
 // Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
 func WantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {

@@ -66,6 +66,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	kutil "kubevirt.io/kubevirt/pkg/util"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -713,6 +714,15 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 
+	useLaunchSecurity := kutil.IsSEVVMI(vmi)
+	if useLaunchSecurity {
+		if _, err := os.Stat("/dev/sev"); os.IsNotExist(err) {
+			return nil, fmt.Errorf("SEV device '/dev/sev' not present")
+		} else if err != nil {
+			return nil, err
+		}
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
 		Architecture:          runtime.GOARCH,
@@ -725,6 +735,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
+		UseLaunchSecurity:     useLaunchSecurity,
 	}
 
 	if options != nil {

@@ -37,6 +37,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
@@ -45,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvapi "kubevirt.io/client-go/api"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
@@ -3181,6 +3183,139 @@ var _ = Describe("Converter", func() {
 			table.Entry("filesystem DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-fs-dv", false, false),
 			table.Entry("block mode DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
 			table.Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
+		)
+	})
+
+	Context("with AMD SEV LaunchSecurity", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.BoolPtr(true)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultBridgeNetworkInterface(), *v1.DefaultSlirpNetworkInterface(),
+			}
+			vmi.Spec.Networks = []v1.Network{
+				*v1.DefaultPodNetwork(), *v1.DefaultPodNetwork(),
+			}
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				SEV: &v1.SEV{},
+			}
+			vmi.Spec.Domain.Features = &v1.Features{
+				SMM: &v1.FeatureState{
+					Enabled: pointer.BoolPtr(false),
+				},
+			}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.BoolPtr(false),
+					},
+				},
+			}
+			c = &ConverterContext{
+				AllowEmulation:    true,
+				EFIConfiguration:  &EFIConfiguration{},
+				UseLaunchSecurity: true,
+			}
+		})
+
+		It("should set IOMMU attribute of the RngDriver", func() {
+			rng := &api.Rng{}
+			Expect(Convert_v1_Rng_To_api_Rng(&v1.Rng{}, rng, c)).To(Succeed())
+			Expect(rng.Driver).ToNot(BeNil())
+			Expect(rng.Driver.IOMMU).To(Equal("on"))
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Rng).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Rng.Driver).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Rng.Driver.IOMMU).To(Equal("on"))
+		})
+
+		It("should set IOMMU attribute of the MemBalloonDriver", func() {
+			memBaloon := &api.MemBalloon{}
+			ConvertV1ToAPIBalloning(&v1.Devices{}, memBaloon, c)
+			Expect(memBaloon.Driver).ToNot(BeNil())
+			Expect(memBaloon.Driver.IOMMU).To(Equal("on"))
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning.Driver).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning.Driver.IOMMU).To(Equal("on"))
+		})
+
+		It("should set Locked attribute of the MemoryBacking", func() {
+			domain := &api.Domain{}
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+			Expect(domain.Spec.MemoryBacking).ToNot(BeNil())
+			Expect(domain.Spec.MemoryBacking.Locked).ToNot(BeNil())
+		})
+
+		It("should set IOMMU attribute of the virtio-net driver", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces[0].Driver).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces[0].Driver.IOMMU).To(Equal("on"))
+			Expect(domain.Spec.Devices.Interfaces[1].Driver).To(BeNil())
+		})
+
+		It("should disable the iPXE option ROM", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces[0].Rom).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces[0].Rom.Enabled).To(Equal("no"))
+			Expect(domain.Spec.Devices.Interfaces[1].Rom).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces[1].Rom.Enabled).To(Equal("no"))
+		})
+
+		table.DescribeTable("convertion", func(expectErr bool, sev *v1.SEV, expectation *api.LaunchSecurity) {
+			domain := &api.Domain{}
+			vmi.Spec.Domain.LaunchSecurity.SEV = sev
+			if expectErr {
+				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).ToNot(Succeed())
+				Expect(domain.Spec.LaunchSecurity).To(BeNil())
+			} else {
+				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+				Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
+				Expect(*domain.Spec.LaunchSecurity).To(Equal(*expectation))
+			}
+		},
+			table.Entry("should succeed with default values", false,
+				&v1.SEV{},
+				&api.LaunchSecurity{
+					Type:            "sev",
+					Cbitpos:         "0",
+					ReducedPhysBits: "0",
+					Policy:          "0x0",
+				}),
+			table.Entry("should succeed with correct values", false,
+				&v1.SEV{
+					Cbitpos:         1,
+					ReducedPhysBits: 2,
+					Policy:          []v1.SEVPolicy{v1.SEVPolicyNoDebug, v1.SEVPolicyNoKeysSharing},
+				},
+				&api.LaunchSecurity{
+					Type:            "sev",
+					Cbitpos:         "1",
+					ReducedPhysBits: "2",
+					Policy:          "0x3",
+				}),
+			table.Entry("should fail with wrong values", true,
+				&v1.SEV{
+					Cbitpos:         1,
+					ReducedPhysBits: 2,
+					Policy:          []v1.SEVPolicy{v1.SEVPolicy("WrongPolicy")},
+				},
+				nil),
 		)
 	})
 })
