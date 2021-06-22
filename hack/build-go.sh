@@ -116,7 +116,7 @@ for arg in $args; do
             LINUX_NAME=${ARCH_BASENAME}-linux-${ARCH}
 
             echo "building dynamic binary $BIN_NAME"
-            GOOS=linux GOARCH=${ARCH} go_build -tags selinux -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux ${ARCH})
+            GOOS=linux GOARCH=${ARCH} go_build -tags selinux -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux ${ARCH})
 
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${LINUX_NAME} ${BIN_NAME})
 
@@ -124,9 +124,9 @@ for arg in $args; do
             echo "$KUBEVIRT_GIT_VERSION" >${CMD_OUT_DIR}/${BIN_NAME}/.version
 
             # build virtctl also for darwin and windows on amd64
-            if [ "${BIN_NAME}" = "virtctl" -a "${ARCH}" = "amd64" ]; then
-                GOOS=darwin GOARCH=amd64 go_build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir darwin amd64)
-                GOOS=windows GOARCH=amd64 go_build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir windows amd64)
+            if [ "${BIN_NAME}" = "virtctl" -a "${ARCH}" = "amd64" -a -z "${LINUX_ONLY}" ]; then
+                GOOS=darwin GOARCH=amd64 go_build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir darwin amd64)
+                GOOS=windows GOARCH=amd64 go_build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir windows amd64)
                 # Create symlinks to the latest binary of each architecture
                 (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-darwin-amd64 ${BIN_NAME}-darwin)
                 (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-windows-amd64.exe ${BIN_NAME}-windows.exe)

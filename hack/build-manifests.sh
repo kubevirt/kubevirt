@@ -32,9 +32,13 @@ rm -rf "${TESTS_OUT_DIR}/tools"
 mkdir -p "${TESTS_OUT_DIR}/tools"
 templator=${TESTS_OUT_DIR}/tools/manifest-templator
 
-bazel run \
-    --config=${HOST_ARCHITECTURE} \
-    //:build-manifest-templator -- ${templator}
+if [ -z "${GO_BUILD}" ]; then
+    bazel run \
+        --config=${HOST_ARCHITECTURE} \
+        //:build-manifest-templator -- ${templator}
+else
+    (cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go_build && cp manifest-templator ${templator})
+fi
 
 # first process file includes only
 args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in" -not -path "./generated/*")
