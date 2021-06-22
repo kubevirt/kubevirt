@@ -531,36 +531,24 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		return
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			writeError(errors.NewInternalError(err), response)
-			return
-		}
-
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM has no associated VMI running")), response)
-		return
-	}
-
-	if vmi == nil || vmi.Status.Phase == v1.Succeeded || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM has status %q and is not running", vmi.Status.Phase)), response)
-		return
-	}
-
-	if (vmi.Status.Phase == v1.Failed && bodyStruct.GracePeriod == nil) || (vmi.Status.Phase == v1.Failed && *bodyStruct.GracePeriod != 0) {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is Failed. Use `--force --grace-period=0` to stop the VM")), response)
-		return
-	}
-
-	patchType := types.MergePatchType
-	var patchErr error
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
 
-	if bodyStruct.GracePeriod != nil {
+	hasVMI := true
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		hasVMI = false
+	} else if err != nil {
+		writeError(errors.NewInternalError(err), response)
+		return
+	}
+
+	patchType := types.MergePatchType
+	var patchErr error
+	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
 		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
 		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
 		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(vmi.GetName(), patchType, []byte(bodyString))
@@ -572,9 +560,17 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 
 	switch runStrategy {
 	case v1.RunStrategyHalted:
+		if !hasVMI || vmi.IsFinal() {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is not running")), response)
+			return
+		}
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual stop requests", v1.RunStrategyHalted)), response)
 		return
 	case v1.RunStrategyManual:
+		if !hasVMI || vmi.IsFinal() {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is not running")), response)
+			return
+		}
 		// pass the buck and ask virt-controller to stop the VM. this way the
 		// VM will retain RunStrategy = manual
 		patchType = types.JSONPatchType
