@@ -2650,6 +2650,13 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return fmt.Errorf("preparing host-disks failed: %v", err)
 		}
 
+		if virtutil.IsSEVVMI(vmi) {
+			sevDevice := path.Join(virtLauncherRootMount, "dev", "sev")
+			if err := diskutils.DefaultOwnershipManager.SetFileOwnership(sevDevice); err != nil {
+				return fmt.Errorf("failed to set SEV device owner: %v", err)
+			}
+		}
+
 		if virtutil.IsNonRootVMI(vmi) {
 			if err := d.nonRootSetup(origVMI, vmi); err != nil {
 				return err

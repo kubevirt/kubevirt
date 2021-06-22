@@ -34,6 +34,7 @@ var permanentDevicePluginPaths = map[string]string{
 	"kvm":       "/dev/kvm",
 	"tun":       "/dev/net/tun",
 	"vhost-net": "/dev/vhost-net",
+	"sev":       "/dev/sev",
 }
 
 type DeviceControllerInterface interface {
