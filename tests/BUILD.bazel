@@ -118,7 +118,6 @@ go_test(
         "console_test.go",
         "container_disk_test.go",
         "credentials_test.go",
-        "events_test.go",
         "infra_test.go",
         "kubectl_test.go",
         "kubevirt_configmap_test.go",
