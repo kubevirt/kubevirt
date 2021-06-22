@@ -19,7 +19,10 @@
 
 set -e
 
-if [[ ! -f "${KUBEVIRT_DIR}/bazel-bin/push-virt-operator.digest" ]]; then
+source hack/common.sh
+source hack/config.sh
+
+if [[ ! -f "${DIGESTS_DIR}/bazel-bin/push-virt-operator.digest" ]]; then
     echo "digest files not found: won't use shasums, falling back to tags"
     return
 fi
@@ -31,8 +34,8 @@ fi
 
 # bazel push images creates digest files in bazel-bin/push-<image-name>.digest
 
-VIRT_OPERATOR_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-operator.digest)
-VIRT_API_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-api.digest)
-VIRT_CONTROLLER_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-controller.digest)
-VIRT_HANDLER_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-handler.digest)
-VIRT_LAUNCHER_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-launcher.digest)
+VIRT_OPERATOR_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-operator.digest)
+VIRT_API_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-api.digest)
+VIRT_CONTROLLER_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-controller.digest)
+VIRT_HANDLER_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-handler.digest)
+VIRT_LAUNCHER_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-virt-launcher.digest)

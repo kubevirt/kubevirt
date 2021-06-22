@@ -21,8 +21,6 @@ function wait_for() {
     wait_for_rollout $1 $2
 }
 
-PUSH_TARGETS="virt-api virt-controller virt-handler virt-launcher" ./hack/bazel-push-images.sh
-
 source ./hack/parse-shasums.sh
 
 _kubectl set env deployment -n $namespace virt-operator \
