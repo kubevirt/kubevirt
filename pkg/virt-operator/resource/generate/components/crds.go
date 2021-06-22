@@ -25,7 +25,6 @@ import (
 	"github.com/coreos/prometheus-operator/pkg/apis/monitoring"
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -947,22 +946,4 @@ func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates 
 	}
 
 	return cr
-}
-
-// NewKubeVirtPriorityClassCR is used for manifest generation
-func NewKubeVirtPriorityClassCR() *schedulingv1.PriorityClass {
-	return &schedulingv1.PriorityClass{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "scheduling.k8s.io/v1",
-			Kind:       "PriorityClass",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-cluster-critical",
-		},
-		// 1 billion is the highest value we can set
-		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-		Value:         1000000000,
-		GlobalDefault: false,
-		Description:   "This priority class should be used for KubeVirt core components only.",
-	}
 }

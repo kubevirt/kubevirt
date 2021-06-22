@@ -32,7 +32,7 @@ import (
 )
 
 func main() {
-	resourceType := flag.String("type", "", "Type of resource to generate. kv | kv-cr | operator-rbac | priorityclass")
+	resourceType := flag.String("type", "", "Type of resource to generate. kv | kv-cr | operator-rbac")
 	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	featureGates := flag.String("featureGates", "", "Feature gates to enable.")
@@ -55,9 +55,6 @@ func main() {
 		for _, r := range all {
 			util.MarshallObject(r, os.Stdout)
 		}
-	case "priorityclass":
-		priorityClass := components.NewKubeVirtPriorityClassCR()
-		util.MarshallObject(priorityClass, os.Stdout)
 	default:
 		panic(fmt.Errorf("unknown resource type %s", *resourceType))
 	}
