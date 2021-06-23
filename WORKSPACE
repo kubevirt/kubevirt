@@ -6340,6 +6340,17 @@ rpm(
 )
 
 rpm(
+    name = "strace-0__5.12-1.fc32.x86_64",
+    sha256 = "f2e29d8f6df95c8c230939b478a3476926586ac96570c0877f90cb8ffafc9326",
+    urls = [
+        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/s/strace-5.12-1.fc32.x86_64.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/s/strace-5.12-1.fc32.x86_64.rpm",
+        "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/s/strace-5.12-1.fc32.x86_64.rpm",
+        "https://mirror.telepoint.bg/fedora/updates/32/Everything/x86_64/Packages/s/strace-5.12-1.fc32.x86_64.rpm",
+    ],
+)
+
+rpm(
     name = "swtpm-0__0.5.2-0.20201226gite59c0c1.fc32.aarch64",
     sha256 = "fdb5d54e2337a3c4227fb8a72c55dc9ee8c9e850e81f11c31c3b2f86cc2f1c3f",
     urls = [

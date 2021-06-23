@@ -171,6 +171,15 @@ func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 }
 
 func (app *virtHandlerApp) Run() {
+	// out, erro := exec.Command(
+	// 	"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--",
+	// 	"/usr/sbin/setenforce", "0",
+	// ).Output()
+	// if erro != nil {
+	// 	panic(erro)
+	// }
+	// fmt.Print(out)
+
 	// HostOverride should default to os.Hostname(), to make sure we handle errors ensure it here.
 	if app.HostOverride == "" {
 		defaultHostName, err := os.Hostname()
