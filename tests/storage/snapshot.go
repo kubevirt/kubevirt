@@ -151,7 +151,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 		})
 	})
 
-	Context("rook-ceph", func() {
+	Context("[rook-ceph]", func() {
 		Context("With more complicated VM", func() {
 			BeforeEach(func() {
 				sc, err := getSnapshotStorageClass(virtClient)

@@ -348,7 +348,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		})
 	})
 
-	Context("rook-ceph", func() {
+	Context("[rook-ceph]", func() {
 		Context("With a more complicated VM", func() {
 			var (
 				vm                   *v1.VirtualMachine

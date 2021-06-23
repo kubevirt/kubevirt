@@ -1737,114 +1737,113 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
-		Context("rook-ceph", func() {
-			Context("live migration cancelation", func() {
-				type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
+		Context("live migration cancelation", func() {
+			type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
 
-				newVirtualMachineInstanceWithFedoraContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					return tests.NewRandomFedoraVMIWithGuestAgent(), nil
+			newVirtualMachineInstanceWithFedoraContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+				return tests.NewRandomFedoraVMIWithGuestAgent(), nil
+			}
+
+			newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+				// It could have been cleaner to import cd.ContainerDiskFedora from cdi-http-server but that does
+				// not work so as a temporary workaround the following imports the image from an ISCSI target pod
+				if !tests.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+				sc, exists := tests.GetCephStorageClass()
+				if !exists {
+					Skip("Skip OCS tests when Ceph is not present")
 				}
 
-				newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					// It could have been cleaner to import cd.ContainerDiskFedora from cdi-http-server but that does
-					// not work so as a temporary workaround the following imports the image from an ISCSI target pod
-					if !tests.HasCDI() {
-						Skip("Skip DataVolume tests when CDI is not present")
-					}
-					sc, exists := tests.GetCephStorageClass()
-					if !exists {
-						Skip("Skip OCS tests when Ceph is not present")
-					}
+				quantity, err := resource.ParseQuantity("5Gi")
+				Expect(err).ToNot(HaveOccurred())
 
-					quantity, err := resource.ParseQuantity("5Gi")
-					Expect(err).ToNot(HaveOccurred())
+				volMode := k8sv1.PersistentVolumeBlock
+				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
+				dv := tests.NewRandomDataVolumeWithRegistryImport(url, tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				dv.Spec.PVC.StorageClassName = &sc
+				dv.Spec.PVC.Resources.Requests["storage"] = quantity
+				dv.Spec.PVC.VolumeMode = &volMode
 
-					volMode := k8sv1.PersistentVolumeBlock
-					url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
-					dv := tests.NewRandomDataVolumeWithRegistryImport(url, tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
-					dv.Spec.PVC.StorageClassName = &sc
-					dv.Spec.PVC.Resources.Requests["storage"] = quantity
-					dv.Spec.PVC.VolumeMode = &volMode
+				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
+				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
+				tests.AddUserData(vmi, "disk1", tests.GetFedoraToolsGuestAgentUserData())
+				return vmi, dv
+			}
 
-					_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					tests.WaitForSuccessfulDataVolumeImport(dv, 600)
-					vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
-					tests.AddUserData(vmi, "disk1", tests.GetFedoraToolsGuestAgentUserData())
-					return vmi, dv
-				}
+			table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder) {
+				vmi, dv := createVMI()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				defer deleteDataVolume(dv)
 
-				table.DescribeTable("should be able to cancel a migration", func(createVMI vmiBuilder) {
-					vmi, dv := createVMI()
-					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-					defer deleteDataVolume(dv)
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 240)
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
-					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
 
-					// Need to wait for cloud init to finish and start the agent inside the vmi.
-					tests.WaitAgentConnected(virtClient, vmi)
+				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
 
-					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
-					// execute a migration, wait for finalized state
-					By("Starting the Migration")
-					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration = runAndCancelMigration(migration, vmi, 180)
+				migrationUID := string(migration.UID)
 
-					migration = runAndCancelMigration(migration, vmi, 180)
-					migrationUID := string(migration.UID)
+				// check VMI, confirm migration state
+				confirmVMIPostMigrationAborted(vmi, migrationUID, 180)
 
-					// check VMI, confirm migration state
-					confirmVMIPostMigrationAborted(vmi, migrationUID, 180)
+				By("Waiting for the migration object to disappear")
+				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
 
-					By("Waiting for the migration object to disappear")
-					tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
-					// delete VMI
-					By("Deleting the VMI")
-					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			},
+				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
+				table.Entry("[sig-storage][rook-ceph][test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
+			)
+			It("[sig-compute][test_id:3241]should be able to cancel a migration right after posting it", func() {
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
-					By("Waiting for VMI to disappear")
-					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-				},
-					table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-					table.Entry("[sig-storage][sig-compute][test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
-				)
-				It("[sig-compute][test_id:3241]should be able to cancel a migration right after posting it", func() {
-					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-					By("Starting the VirtualMachineInstance")
-					vmi = runVMIAndExpectLaunch(vmi, 240)
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(console.LoginToFedora(vmi)).To(Succeed())
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
-					// execute a migration, wait for finalized state
-					By("Starting the Migration")
-					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration = runAndImmediatelyCancelMigration(migration, vmi, 180)
 
-					migration = runAndImmediatelyCancelMigration(migration, vmi, 180)
+				// check VMI, confirm migration state
+				confirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
 
-					// check VMI, confirm migration state
-					confirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
+				By("Waiting for the migration object to disappear")
+				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
 
-					By("Waiting for the migration object to disappear")
-					tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
-					// delete VMI
-					By("Deleting the VMI")
-					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
-					By("Waiting for VMI to disappear")
-					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-				})
 			})
 		})
+
 		Context("with a host-model cpu", func() {
 			getNodeHostModel := func(node *k8sv1.Node) (hostModel string) {
 				for key, _ := range node.Labels {

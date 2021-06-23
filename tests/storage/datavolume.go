@@ -807,7 +807,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				}
 			})
 
-			table.DescribeTable("deny then allow clone request on rook-ceph", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
+			table.DescribeTable("[rook-ceph] deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
 				vm := tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, tests.NamespaceTestDefault)
 				const volumeName = "sa"
 				saVol := v1.Volume{
