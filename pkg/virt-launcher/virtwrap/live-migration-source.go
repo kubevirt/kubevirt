@@ -904,6 +904,10 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
 			migrationErrorChan <- err
+
+			if err := l.hotPlugHostDevices(vmi); err != nil {
+				log.Log.Error("failed to hot-plug host-devices after migration failure")
+			}
 			return
 		}
 

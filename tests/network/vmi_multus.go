@@ -1020,20 +1020,25 @@ var _ = Describe("[Serial]SRIOV", func() {
 			const mac = "de:ad:00:00:be:ef"
 
 			const attachSRIOVDeviceTimeout = 30
+			const reattachSRIOVDeviceTimeout = 90
 
-			BeforeEach(func() {
+			getVmiWithSriovNetAndCustomMac := func(networks []string, mac string) *v1.VirtualMachineInstance {
 				// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
-				vmi = getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
+				return vmi
+			}
 
+			It("should be successful with a running VMI on the target", func() {
+				vmi := getVmiWithSriovNetAndCustomMac([]string{sriovnet1}, mac)
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
 				expectInterfaceToExistByMac(virtClient, vmi, mac, attachSRIOVDeviceTimeout,
-					"SR-IOV VF is expected to exist in the guest before migration")
-			})
+					"SR-IOV VF is expected to exist in the guest")
 
-			It("should be successful with a running VMI on the target", func() {
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
@@ -1041,6 +1046,93 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 				expectInterfaceToExistByMac(virtClient, vmi, mac, attachSRIOVDeviceTimeout,
 					"SR-IOV VF is expected to exist in the guest after migration")
+			})
+
+			When("aborted", func() {
+				const migrationRunningTimeout = 180 * time.Second
+				const migrationCompleteTimeout = 180
+
+				const targetPodDisposalTimeout = 120
+
+				const vmiMemoryStressSizeSmall = 200
+				const vmiMemoryStressSize = 400
+				const vmiStressTimeout = 600
+
+				var migration *v1.VirtualMachineInstanceMigration
+
+				failMigration := func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
+					// simulate migration target node shutdown by deleting the target pod
+					By("Cause migration failure")
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					migrationTargetPod := vmi.Status.MigrationState.TargetPod
+					Expect(virtClient.CoreV1().Pods(migration.Namespace).Delete(context.Background(), migrationTargetPod, metav1.DeleteOptions{})).
+						To(Succeed())
+
+					tests.WaitForPodToDisappearWithTimeout(migrationTargetPod, targetPodDisposalTimeout)
+				}
+
+				BeforeEach(func() {
+					// slow down migration in order to assert on migration phase
+					// running by putting pressure on VMI memory
+					kubevirts := util.GetCurrentKv(virtClient)
+					if kubevirts.Spec.Configuration.MigrationConfiguration == nil {
+						kubevirts.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{}
+					}
+					var timeout int64 = int64(migrationRunningTimeout.Seconds())
+					kubevirts.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
+						ProgressTimeout:         &timeout,
+						CompletionTimeoutPerGiB: &timeout,
+						BandwidthPerMigration:   resource.NewMilliQuantity(1, resource.BinarySI),
+					}
+					tests.UpdateKubeVirtConfigValueAndWait(kubevirts.Spec.Configuration)
+				})
+
+				BeforeEach(func() {
+					// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
+					vmi = getVmiWithSriovNetAndCustomMac([]string{sriovnet1}, mac)
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+					vmi = startVmi(vmi)
+					vmi = waitVmi(vmi)
+
+					expectInterfaceToExistByMac(virtClient, vmi, mac, attachSRIOVDeviceTimeout,
+						"SR-IOV VF is expected to exist in the guest")
+				})
+
+				It("should re-attach SRIOV host-devices to the source VM when failed", func() {
+					tests.RunStressTest(vmi, vmiMemoryStressSize, vmiStressTimeout)
+
+					By("Starting a migration")
+					migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+					Expect(tests.WaitForMigrationRunning(virtClient, migration, vmi, migrationRunningTimeout)).To(Succeed())
+
+					failMigration(virtClient, vmi)
+
+					tests.ConfirmVMIPostMigrationFailed(virtClient, vmi, string(migration.UID))
+
+					expectInterfaceToExistByMac(virtClient, vmi, mac, reattachSRIOVDeviceTimeout,
+						"SR-IOV VF is expected to exist on source after migration failed")
+				})
+
+				It("should re-attach SRIOV host-devices to the source VM when is canceled by the client", func() {
+					tests.RunStressTest(vmi, vmiMemoryStressSizeSmall, vmiStressTimeout)
+
+					By("Starting a migration")
+					migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+					Expect(tests.WaitForMigrationRunning(virtClient, migration, vmi, migrationRunningTimeout)).To(Succeed())
+
+					By("Cancel migration")
+					Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).
+						To(Succeed())
+
+					tests.ConfirmVMIPostMigrationAborted(virtClient, vmi, string(migration.UID), migrationCompleteTimeout)
+
+					expectInterfaceToExistByMac(virtClient, vmi, mac, reattachSRIOVDeviceTimeout,
+						"SR-IOV VF is expected to exist in the guest after migration was canceled")
+				})
 			})
 		})
 	})
