@@ -466,9 +466,9 @@ func (vca *VirtControllerApp) initCommon() {
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH, vca.clusterConfig)
 
-	vca.vmiController = NewVMIController(
-		vca.templateService,
+	vca.vmiController = NewVMIController(vca.templateService,
 		vca.vmiInformer,
+		vca.vmInformer,
 		vca.kvPodInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.vmiRecorder,
@@ -476,6 +476,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.dataVolumeInformer,
 		topologyHinter,
 	)
+
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
 	vca.migrationController = NewMigrationController(

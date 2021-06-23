@@ -118,6 +118,7 @@ const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest:
 
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
+	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
@@ -130,6 +131,7 @@ func NewVMIController(templateService services.TemplateService,
 		templateService:    templateService,
 		Queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
 		vmiInformer:        vmiInformer,
+		vmInformer:         vmInformer,
 		podInformer:        podInformer,
 		pvcInformer:        pvcInformer,
 		recorder:           recorder,
@@ -184,6 +186,7 @@ type VMIController struct {
 	clientset          kubecli.KubevirtClient
 	Queue              workqueue.RateLimitingInterface
 	vmiInformer        cache.SharedIndexInformer
+	vmInformer         cache.SharedIndexInformer
 	podInformer        cache.SharedIndexInformer
 	pvcInformer        cache.SharedIndexInformer
 	topologyHinter     topology.Hinter
@@ -199,7 +202,7 @@ func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting vmi controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -347,6 +350,25 @@ func (c *VMIController) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInsta
 
 }
 
+func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
+	controllerRef := v1.GetControllerOf(vmi)
+	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
+		return false
+	}
+
+	obj, exists, _ := c.vmInformer.GetStore().GetByKey(vmi.Namespace + "/" + controllerRef.Name)
+	if !exists {
+		return false
+	}
+
+	ownerVM := obj.(*virtv1.VirtualMachine)
+	if controllerRef.UID == ownerVM.UID {
+		return true
+	}
+
+	return false
+}
+
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
 
 	hasFailedDataVolume := false
@@ -488,6 +510,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				delete(vmiCopy.Labels, virtv1.OutdatedLauncherImageLabel)
 			}
 			vmiCopy.Status.LauncherContainerImageVersion = ""
+		}
+
+		if !c.hasOwnerVM(vmi) && len(vmiCopy.Finalizers) > 0 {
+			// if there's no owner VM around still, then remove the VM controller's finalizer if it exists
+			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineControllerFinalizer)
 		}
 
 	case vmi.IsRunning():
