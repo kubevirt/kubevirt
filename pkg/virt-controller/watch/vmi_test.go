@@ -62,8 +62,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var ctrl *gomock.Controller
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var vmiSource *framework.FakeControllerSource
+	var vmSource *framework.FakeControllerSource
 	var podSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
+	var vmInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *VMIController
@@ -178,12 +180,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
+		go vmInformer.Run(stop)
 		go podInformer.Run(stop)
 		go pvcInformer.Run(stop)
 
 		go dataVolumeInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
+			vmInformer.HasSynced,
 			podInformer.HasSynced,
 			pvcInformer.HasSynced,
 			dataVolumeInformer.HasSynced)).To(BeTrue())
@@ -196,6 +200,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		recorder = record.NewFakeRecorder(100)
@@ -206,6 +211,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		controller = NewVMIController(
 			services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, runtime.GOARCH),
 			vmiInformer,
+			vmInformer,
 			podInformer,
 			pvcInformer,
 			recorder,
@@ -1225,7 +1231,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 		})
-		table.DescribeTable("should remove the finalizer if no pod is present and the vmi is in ", func(phase v1.VirtualMachineInstancePhase) {
+		table.DescribeTable("should remove the fore ground finalizer if no pod is present and the vmi is in ", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
 			vmi.Status.LauncherContainerImageVersion = "madeup"
@@ -1253,6 +1259,49 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("failed state", v1.Succeeded),
 			table.Entry("succeeded state", v1.Failed),
 		)
+
+		table.DescribeTable("VM controller finalizer", func(hasOwner, vmExists, expectFinalizer bool) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineControllerFinalizer, v1.VirtualMachineInstanceFinalizer)
+			vmi.Status.Phase = v1.Succeeded
+			Expect(vmi.Finalizers).To(ContainElement(v1.VirtualMachineControllerFinalizer))
+
+			vm := VirtualMachineFromVMI(vmi.Name, vmi, true)
+			vm.UID = "123"
+			if hasOwner {
+				t := true
+				vmi.OwnerReferences = []metav1.OwnerReference{{
+					APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+					Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+					Name:               vm.ObjectMeta.Name,
+					UID:                vm.ObjectMeta.UID,
+					Controller:         &t,
+					BlockOwnerDeletion: &t,
+				}}
+			}
+
+			if vmExists {
+				vmSource.Add(vm)
+			}
+
+			addVirtualMachine(vmi)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				if !expectFinalizer {
+					Expect(arg.(*v1.VirtualMachineInstance).Finalizers).ToNot(ContainElement(v1.VirtualMachineControllerFinalizer))
+				} else {
+					Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineControllerFinalizer))
+				}
+				Expect(arg.(*v1.VirtualMachineInstance).Finalizers).ToNot(ContainElement(v1.VirtualMachineInstanceFinalizer))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		},
+			table.Entry("should be removed if no owner exists", false, false, false),
+			table.Entry("should be removed if VM owner is set but VM is deleted", false, true, false),
+			table.Entry("should be left if VM owner is present", true, true, true),
+		)
+
 		table.DescribeTable("should do nothing if pod is handed to virt-handler", func(phase k8sv1.PodPhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Scheduled
