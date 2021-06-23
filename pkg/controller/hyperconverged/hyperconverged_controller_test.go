@@ -11,6 +11,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -56,11 +57,12 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
 				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
+				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 			})
 
 			It("should handle not found", func() {
 				cl := commonTestUtils.InitClient([]runtime.Object{})
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
@@ -79,7 +81,7 @@ var _ = Describe("HyperconvergedController", func() {
 					},
 				}
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				// Do the reconcile
 				var invalidRequest = reconcile.Request{
@@ -115,7 +117,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -188,16 +190,6 @@ var _ = Describe("HyperconvergedController", func() {
 			It("should find all managed resources", func() {
 
 				expected := getBasicDeployment()
-				expected.hco.Status = hcov1beta1.HyperConvergedStatus{
-					Conditions: []metav1.Condition{
-						{
-							Type:    hcov1beta1.ConditionReconcileComplete,
-							Status:  metav1.ConditionTrue,
-							Reason:  reconcileCompleted,
-							Message: reconcileCompletedMessage,
-						},
-					},
-				}
 
 				expected.kv.Status.Conditions = nil
 				expected.cdi.Status.Conditions = nil
@@ -206,7 +198,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.vmi.Status.Conditions = nil
 				cl := expected.initClient()
 
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -250,19 +242,9 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("should label all managed resources", func() {
 				expected := getBasicDeployment()
-				expected.hco.Status = hcov1beta1.HyperConvergedStatus{
-					Conditions: []metav1.Condition{
-						{
-							Type:    hcov1beta1.ConditionReconcileComplete,
-							Status:  metav1.ConditionTrue,
-							Reason:  reconcileCompleted,
-							Message: reconcileCompletedMessage,
-						},
-					},
-				}
 
 				cl := expected.initClient()
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -299,19 +281,9 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("should complete when components are finished", func() {
 				expected := getBasicDeployment()
-				expected.hco.Status = hcov1beta1.HyperConvergedStatus{
-					Conditions: []metav1.Condition{
-						{
-							Type:    hcov1beta1.ConditionReconcileComplete,
-							Status:  metav1.ConditionTrue,
-							Reason:  reconcileCompleted,
-							Message: reconcileCompletedMessage,
-						},
-					},
-				}
 
 				cl := expected.initClient()
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -379,7 +351,7 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				// mock a reconciliation triggered by a change in secondary CR
 				ph, err := getSecondaryCRPlaceholder()
@@ -439,7 +411,7 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
 				Expect(err).To(BeNil())
@@ -481,13 +453,13 @@ var _ = Describe("HyperconvergedController", func() {
 					expected.kv.Status.Conditions = expected.kv.Status.Conditions[1:]
 
 					cl = expected.initClient()
-					foundResource, requeue := doReconcile(cl, expected.hco)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionFalse)
 
 					expected.kv.Status.Conditions = origKvConds
 					cl = expected.initClient()
-					foundResource, requeue = doReconcile(cl, expected.hco)
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 				})
@@ -496,13 +468,13 @@ var _ = Describe("HyperconvergedController", func() {
 					origConds := expected.cdi.Status.Conditions
 					expected.cdi.Status.Conditions = expected.cdi.Status.Conditions[1:]
 					cl = expected.initClient()
-					foundResource, requeue := doReconcile(cl, expected.hco)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionFalse)
 
 					expected.cdi.Status.Conditions = origConds
 					cl = expected.initClient()
-					foundResource, requeue = doReconcile(cl, expected.hco)
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 				})
@@ -512,13 +484,13 @@ var _ = Describe("HyperconvergedController", func() {
 
 					expected.cna.Status.Conditions = expected.cna.Status.Conditions[1:]
 					cl = expected.initClient()
-					foundResource, requeue := doReconcile(cl, expected.hco)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionFalse)
 
 					expected.cna.Status.Conditions = origConds
 					cl = expected.initClient()
-					foundResource, requeue = doReconcile(cl, expected.hco)
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 				})
@@ -526,13 +498,13 @@ var _ = Describe("HyperconvergedController", func() {
 					origConds := expected.ssp.Status.Conditions
 					expected.ssp.Status.Conditions = expected.cdi.Status.Conditions[1:]
 					cl = expected.initClient()
-					foundResource, requeue := doReconcile(cl, expected.hco)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionFalse)
 
 					expected.ssp.Status.Conditions = origConds
 					cl = expected.initClient()
-					foundResource, requeue = doReconcile(cl, expected.hco)
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 				})
@@ -543,7 +515,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// First, create HCO and check it
 				expected := getBasicDeployment()
 				cl := expected.initClient()
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
@@ -565,7 +537,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.ObjectMeta.Finalizers = []string{FinalizerName}
 				cl = expected.initClient()
 
-				r = initReconciler(cl)
+				r = initReconciler(cl, nil)
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
@@ -585,7 +557,7 @@ var _ = Describe("HyperconvergedController", func() {
 			It(`should set a finalizer on HCO CR`, func() {
 				expected := getBasicDeployment()
 				cl := expected.initClient()
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
@@ -605,10 +577,10 @@ var _ = Describe("HyperconvergedController", func() {
 				expected := getBasicDeployment()
 				expected.hco.ObjectMeta.Finalizers = []string{badFinalizerName}
 				cl := expected.initClient()
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
 				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
@@ -632,7 +604,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					return nil
 				})
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -679,7 +651,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(checkHcoReady()).To(BeTrue())
 
 				hco := commonTestUtils.NewHco()
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -732,7 +704,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(res.Data["fakeKey"]).Should(Equal("fakeValue"))
 				})
 
-				foundResource, requeue := doReconcile(cl, expected.hco)
+				foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
 				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
@@ -774,7 +746,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.Status.Conditions = nil
 
 				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
+				foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
 				Expect(requeue).To(BeTrue())
 
 				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcoutil.HyperConvergedName))
@@ -784,7 +756,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.Status.Conditions = origConds
 				// old HCO Version is set
 				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
+				foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
 				Expect(requeue).To(BeFalse())
 
 				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcoutil.HyperConvergedName))
@@ -846,7 +818,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.Status.Conditions = nil
 
 				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
+				foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
 				Expect(requeue).To(BeTrue())
 				checkAvailability(foundResource, metav1.ConditionFalse)
 
@@ -874,12 +846,22 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.cdi.Status.Conditions = getGenericProgressingConditions()
 
 				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
+				foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+				Expect(requeue).To(BeTrue())
+				checkAvailability(foundResource, metav1.ConditionFalse)
+				// check that the HCO version is not set, because upgrade is not completed
+				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
+				Expect(ok).To(BeTrue())
+				Expect(ver).Should(Equal(oldVersion))
+
+				Expect(foundResource.Spec.Version).Should(Equal(oldVersion))
+				// Call again - requeue
+				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
 				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, metav1.ConditionFalse)
 
 				// check that the HCO version is not set, because upgrade is not completed
-				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
+				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 
@@ -888,11 +870,11 @@ var _ = Describe("HyperconvergedController", func() {
 				// now, complete the upgrade
 				expected.cdi.Status.Conditions = getGenericCompletedConditions()
 				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
+				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeTrue())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
-				// check that the image Id is set, now, when upgrade is completed
+				// Call again, to start complete the upgrade
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
@@ -901,16 +883,25 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 
 				// check that the image Id is set, now, when upgrade is completed
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
+				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeTrue())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
-				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
+				Expect(foundResource.Spec.Version).Should(Equal(oldVersion))
 				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("False"))
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+
+				// call again, because of the requeue - to update spec.version
+				foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeTrue())
+				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
+
+				// call again, because of the requeue - should be false now
+				_, _, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeFalse())
 			})
 
 			It("detect upgrade w/o HCO Version", func() {
@@ -920,7 +911,13 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.Spec.Version = ""
 
 				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
+				foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+				Expect(requeue).To(BeTrue())
+				checkAvailability(foundResource, metav1.ConditionFalse)
+
+				expected.hco = foundResource
+				cl = expected.initClient()
+				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
 				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, metav1.ConditionFalse)
 
@@ -933,20 +930,30 @@ var _ = Describe("HyperconvergedController", func() {
 
 				// now, complete the upgrade
 				expected.cdi.Status.Conditions = getGenericCompletedConditions()
+				expected.hco = foundResource
 				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
+				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeTrue())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
-				// check that the image Id is set, now, when upgrade is completed
 				_, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeFalse())
+				Expect(ok).To(BeTrue())
 				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
+				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+				Expect(ok).To(BeTrue())
+				Expect(ver).Should(Equal(newVersion))
+				Expect(foundResource.Spec.Version).Should(BeEmpty())
+
+				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+
+				// call again because of the requeue, expect another requeue, to update spec.version
+				expected.hco = foundResource
+				cl = expected.initClient()
+				foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeTrue())
 
 				// check that the image Id is set, now, when upgrade is completed
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
@@ -954,269 +961,153 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ver).Should(Equal(newVersion))
 				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
 
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("False"))
+				// and, last time, now expect requeue = false
+				expected.hco = foundResource
+				cl = expected.initClient()
+				_, _, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeFalse())
 			})
 
-			It("don't complete upgrade if kubevirt version is not match to the kubevirt version env ver", func() {
-				_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
+			DescribeTable(
+				"don't complete upgrade if a component version is not match to the component's version env ver",
+				func(makeComponentNotReady, makeComponentReady, updateComponentVersion func()) {
+					_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
-				// old HCO Version is set
-				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					// old HCO Version is set
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
 
-				expected.kv.Status.ObservedKubeVirtVersion = oldComponentVersion
+					makeComponentNotReady()
 
-				// CDI is not ready
-				expected.cdi.Status.Conditions = getGenericProgressingConditions()
+					cl := expected.initClient()
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, metav1.ConditionFalse)
 
-				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionFalse)
+					expected.hco = foundResource
+					cl = expected.initClient()
+					foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionFalse)
 
-				// check that the image Id is not set, because upgrade is not completed
-				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
-				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
+					// check that the image Id is not set, because upgrade is not completed
+					ver, ok := foundResource.Status.GetVersion(hcoVersionName)
+					Expect(ok).To(BeTrue())
+					Expect(ver).Should(Equal(oldVersion))
+					cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+					Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+					Expect(cond.Reason).Should(Equal("HCOUpgrading"))
+					Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
-				hcoReady := checkHcoReady()
-				Expect(hcoReady).To(BeFalse())
+					hcoReady := checkHcoReady()
+					Expect(hcoReady).To(BeFalse())
 
-				// check that the upgrade is not done if the not all the versions are match.
-				// Conditions are valid
-				expected.cdi.Status.Conditions = getGenericCompletedConditions()
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
+					// check that the upgrade is not done if the not all the versions are match.
+					// Conditions are valid
+					makeComponentReady()
 
-				// check that the image Id is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
+					expected.hco = foundResource
+					cl = expected.initClient()
+					foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
 
-				hcoReady = checkHcoReady()
-				Expect(hcoReady).To(BeFalse())
+					// check that the image Id is set, now, when upgrade is completed
+					ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+					Expect(ok).To(BeTrue())
+					Expect(ver).Should(Equal(oldVersion))
+					cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+					Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+					Expect(cond.Reason).Should(Equal("HCOUpgrading"))
+					Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
-				// now, complete the upgrade
-				expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
+					hcoReady = checkHcoReady()
+					Expect(hcoReady).To(BeFalse())
 
-				// check that the image Id is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
+					// now, complete the upgrade
+					updateComponentVersion()
 
-				hcoReady = checkHcoReady()
-				Expect(hcoReady).To(BeFalse())
+					expected.hco = foundResource
+					cl = expected.initClient()
+					foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, metav1.ConditionTrue)
 
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
+					expected.hco = foundResource
+					cl = expected.initClient()
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
 
-				// check that the image Id is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(newVersion))
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo("False"))
-				Expect(cond.Reason).Should(Equal(reconcileCompleted))
-				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
+					// check that the image Id is set, now, when upgrade is completed
+					ver, ok = foundResource.Status.GetVersion(hcoVersionName)
+					Expect(ok).To(BeTrue())
+					Expect(ver).Should(Equal(newVersion))
+					cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
+					Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+					Expect(cond.Reason).Should(Equal("ReconcileCompleted"))
 
-				hcoReady = checkHcoReady()
-				Expect(hcoReady).To(BeTrue())
-			})
-
-			It("don't complete upgrade if CDI version is not match to the CDI version env ver", func() {
-				_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
-
-				// old HCO Version is set
-				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-
-				expected.cdi.Status.ObservedVersion = oldComponentVersion
-
-				// CDI is not ready
-				expected.cdi.Status.Conditions = getGenericProgressingConditions()
-
-				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionFalse)
-
-				hcoReady := checkHcoReady()
-				Expect(hcoReady).To(BeFalse())
-
-				// check that the image Id is not set, because upgrade is not completed
-				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
-				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
-
-				hcoReady = checkHcoReady()
-				Expect(hcoReady).To(BeFalse())
-
-				// now, complete the upgrade
-				expected.cdi.Status.Conditions = getGenericCompletedConditions()
-				expected.cdi.Status.ObservedVersion = newComponentVersion
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
-
-				// check that the image Id is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-
-				hcoReady = checkHcoReady()
-				Expect(hcoReady).To(BeFalse())
-
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
-
-				// check that the image Id is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(newVersion))
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cond.Reason).Should(Equal(reconcileCompleted))
-				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
-
-				hcoReady = checkHcoReady()
-				Expect(hcoReady).To(BeTrue())
-			})
-
-			It("don't complete upgrade if CNA version is not match to the CNA version env ver", func() {
-				_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
-
-				// old HCO Version is set
-				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-
-				expected.cna.Status.ObservedVersion = oldComponentVersion
-
-				// CDI is not ready
-				expected.cdi.Status.Conditions = getGenericProgressingConditions()
-
-				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionFalse)
-
-				// check that the image Id is not set, because upgrade is not completed
-				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
-				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
-
-				// now, complete the upgrade
-				expected.cdi.Status.Conditions = getGenericCompletedConditions()
-				expected.cna.Status.ObservedVersion = newComponentVersion
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
-
-				// check that the image Id is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
-
-				// check that the image Id is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(newVersion))
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cond.Reason).Should(Equal(reconcileCompleted))
-				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
-			})
-
-			It("don't complete upgrade if VM-Import version is not match to the VM-Import version env ver", func() {
-				_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
-
-				// old HCO Version is set
-				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-
-				expected.vmi.Status.ObservedVersion = ""
-
-				// CDI is not ready
-				expected.cdi.Status.Conditions = getGenericProgressingConditions()
-
-				cl := expected.initClient()
-				foundResource, requeue := doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionFalse)
-
-				// check that the image Id is not set, because upgrade is not completed
-				ver, ok := foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
-				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
-
-				// now, complete the upgrade
-				expected.cdi.Status.Conditions = getGenericCompletedConditions()
-				expected.vmi.Status.ObservedVersion = newComponentVersion
-				cl = expected.initClient()
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
-
-				// check that HCO version is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-
-				foundResource, requeue = doReconcile(cl, expected.hco)
-				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionTrue)
-
-				// check that HCO version is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(newVersion))
-				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cond.Reason).Should(Equal(reconcileCompleted))
-				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
-			})
+					hcoReady = checkHcoReady()
+					Expect(hcoReady).To(BeTrue())
+				},
+				Entry(
+					"don't complete upgrade if kubevirt version is not match to the kubevirt version env ver",
+					func() {
+						expected.kv.Status.ObservedKubeVirtVersion = oldComponentVersion
+						expected.kv.Status.Conditions[0].Status = "False"
+					},
+					func() {
+						expected.kv.Status.Conditions[0].Status = "True"
+					},
+					func() {
+						expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion
+					},
+				),
+				Entry(
+					"don't complete upgrade if CDI version is not match to the CDI version env ver",
+					func() {
+						expected.cdi.Status.ObservedVersion = oldComponentVersion
+						// CDI is not ready
+						expected.cdi.Status.Conditions = getGenericProgressingConditions()
+					},
+					func() {
+						// CDI is now ready
+						expected.cdi.Status.Conditions = getGenericCompletedConditions()
+					},
+					func() {
+						expected.cdi.Status.ObservedVersion = newComponentVersion
+					},
+				),
+				Entry(
+					"don't complete upgrade if CNA version is not match to the CNA version env ver",
+					func() {
+						expected.cna.Status.ObservedVersion = oldComponentVersion
+						// CNA is not ready
+						expected.cna.Status.Conditions = getGenericProgressingConditions()
+					},
+					func() {
+						// CNA is now ready
+						expected.cna.Status.Conditions = getGenericCompletedConditions()
+					},
+					func() {
+						expected.cna.Status.ObservedVersion = newComponentVersion
+					},
+				),
+				Entry(
+					"don't complete upgrade if VM-Import version is not match to the VM-Import version env ver",
+					func() {
+						expected.vmi.Status.ObservedVersion = ""
+						// VM-Import is not ready
+						expected.vmi.Status.Conditions = getGenericProgressingConditions()
+					},
+					func() {
+						// VM-Import is now ready
+						expected.vmi.Status.Conditions = getGenericCompletedConditions()
+					},
+					func() {
+						expected.vmi.Status.ObservedVersion = newComponentVersion
+					},
+				),
+			)
 
 			Context("Drop KubeVirt configMap", func() {
 				bandwidthPerMigration := "64Mi"
@@ -1245,8 +1136,8 @@ var _ = Describe("HyperconvergedController", func() {
 					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
-					foundResource, requeue := doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					foundKvCm, foundBackup := searchKvConfigMaps(cl)
@@ -1283,7 +1174,7 @@ progressTimeout: 150`,
 					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
-					foundResource, requeue := doReconcile(cl, expected.hco)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionUnknown)
 
@@ -1312,8 +1203,8 @@ progressTimeout: 150`,
 					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeTrue())
 
 					By("Run reconcile again")
-					foundResource, requeue = doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					By("Check that KV's MigrationConfiguration field contains the configmap values")
@@ -1331,7 +1222,6 @@ progressTimeout: 150`,
 					Expect(foundBackup).To(BeTrue())
 
 					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeFalse())
-
 				})
 
 				It("should adopt KubeVirt configMap into HC CR if the values are different, drop the cm and create backup", func() {
@@ -1365,7 +1255,7 @@ progressTimeout: 300`,
 					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
-					foundResource, requeue := doReconcile(cl, expected.hco)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionUnknown)
 
@@ -1394,8 +1284,8 @@ progressTimeout: 300`,
 					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeTrue())
 
 					By("Run reconcile again")
-					foundResource, requeue = doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					By("Check that KV's MigrationConfiguration field contains the configmap values")
@@ -1438,7 +1328,7 @@ progressTimeout: 300`,
 					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
-					foundResource, requeue := doReconcile(cl, expected.hco)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionUnknown)
 
@@ -1467,8 +1357,8 @@ progressTimeout: 300`,
 					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeTrue())
 
 					By("Run reconcile again")
-					foundResource, requeue = doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					By("Check that KV's MigrationConfiguration field contains the configmap values")
@@ -1519,8 +1409,8 @@ progressTimeout: 150`,
 					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
-					foundResource, requeue := doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					By("Check that the LifeMigrationConfig field contains the configmap values")
@@ -1574,7 +1464,7 @@ progressTimeout: 150`,
 
 					resources := expected.toArray()
 					cl := commonTestUtils.InitClient(resources)
-					foundHC, requeue := doReconcile(cl, expected.hco)
+					foundHC, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundHC, metav1.ConditionUnknown)
 
@@ -1587,8 +1477,8 @@ progressTimeout: 150`,
 					Expect(*foundHC.Spec.ResourceRequirements.StorageWorkloads).Should(Equal(*testResourceReqs))
 
 					By("Run reconcile again")
-					foundHC, requeue = doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundHC, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that CDI's still contains the expected values")
@@ -1631,8 +1521,8 @@ progressTimeout: 150`,
 					}
 
 					cl := commonTestUtils.InitClient(expected.toArray())
-					foundHC, requeue := doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundHC, _, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that the spec.ScratchSpaceStorageClass is now populated")
@@ -1671,8 +1561,8 @@ progressTimeout: 150`,
 					}
 
 					cl := commonTestUtils.InitClient(expected.toArray())
-					foundHC, requeue := doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundHC, _, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that the spec.ScratchSpaceStorageClass is now populated")
@@ -1706,10 +1596,8 @@ progressTimeout: 150`,
 
 					expected.imsConfig.Data[vddkk] = vddkInitImageValue
 
-					resources := expected.toArray()
-					cl := commonTestUtils.InitClient(resources)
-
-					foundHC, requeue := doReconcile(cl, expected.hco)
+					cl := expected.initClient()
+					foundHC, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundHC, metav1.ConditionUnknown)
 
@@ -1718,8 +1606,10 @@ progressTimeout: 150`,
 					Expect(*foundHC.Spec.VddkInitImage).Should(Equal(vddkInitImageValue))
 
 					By("Run reconcile again")
-					foundHC, requeue = doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					expected.hco = foundHC
+					cl = expected.initClient()
+					foundHC, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that IMS cm still contains the expected values")
@@ -1730,6 +1620,27 @@ progressTimeout: 150`,
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vmiCM.Data).ShouldNot(BeNil())
 					Expect(vmiCM.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
+
+					// call again, make sure this time the requeue is true
+					foundHC, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
+					ver, ok := foundHC.Status.GetVersion(hcoVersionName)
+					Expect(ok).To(BeTrue())
+					Expect(ver).Should(Equal(newVersion))
+					Expect(foundHC.Spec.Version).Should(Equal(oldVersion))
+
+					// call again, make sure this time the requeue is true
+					foundHC, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
+					ver, ok = foundHC.Status.GetVersion(hcoVersionName)
+					Expect(ok).To(BeTrue())
+					Expect(ver).Should(Equal(newVersion))
+					Expect(foundHC.Spec.Version).Should(Equal(newVersion))
+
+					// call last time, make sure this time the requeue is false
+					foundHC, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					Expect(foundHC.Spec.Version).Should(Equal(newVersion))
 				})
 
 				It("should ignore IMS value if already exists in HC CR", func() {
@@ -1747,8 +1658,8 @@ progressTimeout: 150`,
 					resources := expected.toArray()
 					cl := commonTestUtils.InitClient(resources)
 
-					foundHC, requeue := doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundHC, _, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that the spec.VddkInitImage has not been updated on HCO CR")
@@ -1781,8 +1692,8 @@ progressTimeout: 150`,
 					resources := expected.toArray()
 					cl := commonTestUtils.InitClient(resources)
 
-					foundHC, requeue := doReconcile(cl, expected.hco)
-					Expect(requeue).To(BeFalse())
+					foundHC, _, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
 					checkAvailability(foundHC, metav1.ConditionTrue)
 
 					By("Check that the spec.VddkInitImage has not been updated on HCO CR")
@@ -1815,7 +1726,7 @@ progressTimeout: 150`,
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _ := doReconcile(cl, expected.hco)
+				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -1858,7 +1769,7 @@ progressTimeout: 150`,
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _ := doReconcile(cl, expected.hco)
+				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -1898,7 +1809,7 @@ progressTimeout: 150`,
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _ := doReconcile(cl, expected.hco)
+				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -1932,7 +1843,7 @@ progressTimeout: 150`,
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _ := doReconcile(cl, expected.hco)
+				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -1972,7 +1883,7 @@ progressTimeout: 150`,
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _ := doReconcile(cl, expected.hco)
+				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -2006,7 +1917,7 @@ progressTimeout: 150`,
 					Message: "CDI Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _ := doReconcile(cl, expected.hco)
+				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -2034,7 +1945,7 @@ progressTimeout: 150`,
 			It("should be with all positive condition when all components working properly", func() {
 				expected := getBasicDeployment()
 				cl := expected.initClient()
-				foundResource, _ := doReconcile(cl, expected.hco)
+				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -2075,7 +1986,7 @@ progressTimeout: 150`,
 					Message: "CNA Test Error message",
 				})
 				cl := expected.initClient()
-				foundResource, _ := doReconcile(cl, expected.hco)
+				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
 
 				conditions := foundResource.Status.Conditions
 				_, _ = fmt.Fprintln(GinkgoWriter, "\nActual Conditions:")
@@ -2104,7 +2015,8 @@ progressTimeout: 150`,
 		Context("Update Conflict Error", func() {
 			It("Should requeue in case of update conflict", func() {
 				expected := getBasicDeployment()
-				expected.hco.Status.Conditions = nil
+				//expected.hco.Status.Conditions = nil
+				expected.hco.Spec.Version = ""
 				cl := expected.initClient()
 				rsc := schema.GroupResource{Group: hcoutil.APIVersionGroup, Resource: "hyperconvergeds.hco.kubevirt.io"}
 				cl.InitiateUpdateErrors(func(obj client.Object) error {
@@ -2113,7 +2025,7 @@ progressTimeout: 150`,
 					}
 					return nil
 				})
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
 				if r.ownVersion == "" {
@@ -2122,7 +2034,7 @@ progressTimeout: 150`,
 
 				res, err := r.Reconcile(context.TODO(), request)
 
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(HaveOccurred())
 				Expect(apierrors.IsConflict(err)).To(BeTrue())
 				Expect(res.Requeue).To(BeTrue())
 			})
@@ -2133,7 +2045,7 @@ progressTimeout: 150`,
 				cl := expected.initClient()
 				rs := schema.GroupResource{Group: hcoutil.APIVersionGroup, Resource: "hyperconvergeds.hco.kubevirt.io"}
 				cl.Status().(*commonTestUtils.HcoTestStatusWriter).InitiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
 				if r.ownVersion == "" {
@@ -2165,7 +2077,7 @@ progressTimeout: 150`,
 				}
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				By("Reconcile", func() {
 					res, err := r.Reconcile(context.TODO(), request)
@@ -2214,14 +2126,14 @@ progressTimeout: 150`,
 				})
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
-				r := initReconciler(cl)
+				r := initReconciler(cl, nil)
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 
 				// Expecting "Requeue: false" since the conditions aren't empty
-				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
 				// Get the HCO
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -2283,7 +2195,7 @@ progressTimeout: 150`,
 					})
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 
 					req := commonTestUtils.NewReq(expected.hco)
 
@@ -2316,7 +2228,7 @@ progressTimeout: 150`,
 				It("Should do nothing if the kv configMap does not exists", func() {
 					cl := expected.initClient()
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2371,7 +2283,7 @@ progressTimeout: 150`,
 
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2423,7 +2335,7 @@ progressTimeout: 150`,
 					})
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2482,7 +2394,7 @@ progressTimeout: 150`,
 					resources := append(expected.toArray(), cm)
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2545,7 +2457,7 @@ unknownKey: 42`,
 					})
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2595,7 +2507,7 @@ progressTimeout: 150`,
 					})
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2654,7 +2566,7 @@ progressTimeout: 150`,
 
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2698,7 +2610,7 @@ progressTimeout: 300`,
 
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2755,7 +2667,7 @@ progressTimeout: 300`,
 
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2809,7 +2721,7 @@ progressTimeout: 300`,
 						return nil
 					})
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2858,7 +2770,7 @@ progressTimeout: 300`,
 						return nil
 					})
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2902,7 +2814,7 @@ progressTimeout: 300`,
 					})
 					cl := commonTestUtils.InitClient(resources)
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)
@@ -2950,7 +2862,7 @@ progressTimeout: 300`,
 						return nil
 					})
 
-					r := initReconciler(cl)
+					r := initReconciler(cl, nil)
 					req := commonTestUtils.NewReq(expected.hco)
 
 					modified, err := r.migrateBeforeUpgrade(req)

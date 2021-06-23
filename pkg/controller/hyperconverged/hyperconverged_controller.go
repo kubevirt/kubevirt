@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -93,7 +92,6 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconc
 	return &ReconcileHyperConverged{
 		client:         mgr.GetClient(),
 		scheme:         mgr.GetScheme(),
-		recorder:       mgr.GetEventRecorderFor(hcoutil.HyperConvergedName),
 		operandHandler: operands.NewOperandHandler(mgr.GetClient(), mgr.GetScheme(), ci.IsOpenshift(), hcoutil.GetEventEmitter()),
 		upgradeMode:    false,
 		ownVersion:     ownVersion,
@@ -176,7 +174,6 @@ type ReconcileHyperConverged struct {
 	// that reads objects from the cache and writes to the apiserver
 	client         client.Client
 	scheme         *runtime.Scheme
-	recorder       record.EventRecorder
 	operandHandler *operands.OperandHandler
 	upgradeMode    bool
 	ownVersion     string
@@ -227,8 +224,8 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 		return reconcile.Result{}, err
 	}
 
-	err = r.updateHyperConverged(hcoRequest)
-	if apierrors.IsConflict(err) {
+	requeue, err := r.updateHyperConverged(hcoRequest)
+	if requeue || apierrors.IsConflict(err) {
 		result.Requeue = true
 	}
 
@@ -317,6 +314,7 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}
+	r.recoverHCOVersion(req)
 
 	return r.EnsureOperandAndComplete(req, init)
 }
@@ -336,9 +334,12 @@ func (r *ReconcileHyperConverged) EnsureOperandAndComplete(req *common.HcoReques
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	r.completeReconciliation(req)
+	// we want to requeue if we just exited from upgrade mode, trigger the update of the spec.version field. This is
+	// done because we never write both to the spec/metadata and to the status in the same call, so we want to update
+	// this spec filed in the next call.
+	exitedUpgradeMode := r.completeReconciliation(req)
 
-	return reconcile.Result{}, nil
+	return reconcile.Result{Requeue: exitedUpgradeMode}, nil
 }
 
 // getHyperConverged gets the HyperConverged resource from the Kubernetes API.
@@ -366,7 +367,7 @@ func (r *ReconcileHyperConverged) getHyperConverged(req *common.HcoRequest) (*hc
 }
 
 // updateHyperConverged updates the HyperConverged resource according to its state in the request.
-func (r *ReconcileHyperConverged) updateHyperConverged(request *common.HcoRequest) error {
+func (r *ReconcileHyperConverged) updateHyperConverged(request *common.HcoRequest) (bool, error) {
 
 	// Since the status subresource is enabled for the HyperConverged kind,
 	// we need to update the status and the metadata separately.
@@ -374,32 +375,22 @@ func (r *ReconcileHyperConverged) updateHyperConverged(request *common.HcoReques
 	// In addition, spec changes are removed by status update, but since status update done first, we need
 	// to store the spec and recover it after status update
 
-	var spec hcov1beta1.HyperConvergedSpec
 	if request.Dirty {
-		request.Instance.Spec.DeepCopyInto(&spec)
+		err := r.updateHyperConvergedSpecMetadata(request)
+		if err != nil {
+			r.logHyperConvergedUpdateError(request, err, "Failed to update HCO CR")
+			return false, err
+		}
+		return true, nil
 	}
 
 	err := r.updateHyperConvergedStatus(request)
 	if err != nil {
 		r.logHyperConvergedUpdateError(request, err, "Failed to update HCO Status")
-		return err
+		return false, err
 	}
 
-	// restore spec
-	if request.Dirty {
-		request.Instance.Spec = spec
-	}
-
-	// Doing it here because status.update overrides spec for some reason
-	r.recoverHCOVersion(request)
-
-	err = r.updateHyperConvergedSpecMetadata(request)
-	if err != nil {
-		r.logHyperConvergedUpdateError(request, err, "Failed to update HCO CR")
-		return err
-	}
-
-	return nil
+	return false, nil
 }
 
 // updateHyperConvergedSpecMetadata updates the HyperConverged resource's spec and metadata.
@@ -456,8 +447,6 @@ func (r *ReconcileHyperConverged) validateNamespace(req *common.HcoRequest) (boo
 
 func (r *ReconcileHyperConverged) setInitialConditions(req *common.HcoRequest) {
 	req.Instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
-	req.Instance.Spec.Version = r.ownVersion
-	req.Dirty = true
 
 	req.Conditions.SetStatusCondition(metav1.Condition{
 		Type:               hcov1beta1.ConditionReconcileComplete,
@@ -727,22 +716,22 @@ func (r *ReconcileHyperConverged) aggregateComponentConditions(req *common.HcoRe
 	return allComponentsAreUp
 }
 
-func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest) {
+func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest) bool {
 	allComponentsAreUp := r.aggregateComponentConditions(req)
 
 	hcoReady := false
+	exitedUpgradeMode := false
 
 	if allComponentsAreUp {
 		req.Logger.Info("No component operator reported negatively")
 
 		// if in upgrade mode, and all the components are upgraded, and nothing pending to be written - upgrade is completed
 		if r.upgradeMode && req.ComponentUpgradeInProgress && !req.Dirty {
+			exitedUpgradeMode = true
+
 			// update the new version only when upgrade is completed
 			req.Instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
 			req.StatusDirty = true
-
-			req.Instance.Spec.Version = r.ownVersion
-			req.Dirty = true
 
 			r.upgradeMode = false
 			req.ComponentUpgradeInProgress = false
@@ -781,6 +770,7 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 	}
 
 	r.updateConditions(req)
+	return exitedUpgradeMode
 }
 
 // This function is used to exit from the reconcile function, updating the conditions and returns the reconcile result

@@ -33,7 +33,7 @@ def get_env_file(outdir, file_format='txt'):
         for row in reader:
             if row['image_var'] in ['VMWARE_IMAGE', 'CONVERSION_IMAGE', 'KUBEVIRT_VIRTIO_IMAGE']:
                 image = f"{row['name']}@sha256:{row['digest']}"
-                env = 'VIRTIOWIN_CONTAINER' if row['image_var'] == 'KUBEVIRT_VIRTIO_IMAGE' else row['image_var']
+                env = 'VIRTIOWIN_CONTAINER' if row['image_var'] == 'KUBEVIRT_VIRTIO_IMAGE' else row['image_var'].replace("_IMAGE", "_CONTAINER")
                 vars_list.append(f"{env}={image}")
 
     vars_list.extend([

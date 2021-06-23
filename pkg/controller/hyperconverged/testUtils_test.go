@@ -45,17 +45,25 @@ var (
 	}
 )
 
-func initReconciler(client client.Client) *ReconcileHyperConverged {
+func initReconciler(client client.Client, old *ReconcileHyperConverged) *ReconcileHyperConverged {
 	s := commonTestUtils.GetScheme()
 	eventEmitter := commonTestUtils.NewEventEmitterMock()
 	operandHandler := operands.NewOperandHandler(client, s, true, eventEmitter)
+	upgradeMode := false
+	firstLoop := true
+	if old != nil {
+		upgradeMode = old.upgradeMode
+		firstLoop = old.firstLoop
+	}
 	// Create a ReconcileHyperConverged object with the scheme and fake client
 	return &ReconcileHyperConverged{
 		client:         client,
 		scheme:         s,
 		operandHandler: operandHandler,
 		eventEmitter:   eventEmitter,
-		firstLoop:      true,
+		firstLoop:      firstLoop,
+		ownVersion:     version.Version,
+		upgradeMode:    upgradeMode,
 	}
 }
 
@@ -109,8 +117,11 @@ func getBasicDeployment() *BasicExpected {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    map[string]string{hcoutil.AppLabel: name},
 		},
-		Spec: hcov1beta1.HyperConvergedSpec{},
+		Spec: hcov1beta1.HyperConvergedSpec{
+			Version: version.Version,
+		},
 		Status: hcov1beta1.HyperConvergedStatus{
 			Conditions: []metav1.Condition{
 				{
@@ -198,9 +209,10 @@ func getBasicDeployment() *BasicExpected {
 }
 
 // returns the HCO after reconcile, and the returned requeue
-func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged) (*hcov1beta1.HyperConverged, bool) {
-	r := initReconciler(cl)
+func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged, old *ReconcileHyperConverged) (*hcov1beta1.HyperConverged, *ReconcileHyperConverged, bool) {
+	r := initReconciler(cl, old)
 
+	r.firstLoop = false
 	r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
 	if r.ownVersion == "" {
 		r.ownVersion = version.Version
@@ -216,7 +228,7 @@ func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged) (*hcov1beta1.
 			foundResource),
 	).To(BeNil())
 
-	return foundResource, res.Requeue
+	return foundResource, r, res.Requeue
 }
 
 func getGenericCompletedConditions() []conditionsv1.Condition {
