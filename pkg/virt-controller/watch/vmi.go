@@ -628,30 +628,31 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 
-	vmiReadyCond := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
-	if vmiReadyCond == nil {
-		newCond := virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceReady}
-		vmi.Status.Conditions = append(vmi.Status.Conditions, newCond)
-		vmiReadyCond = &vmi.Status.Conditions[len(vmi.Status.Conditions)-1]
-	}
-
 	setVMICondition := func(status k8sv1.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
-		if vmiReadyCond.Status == status && vmiReadyCond.Reason == reason {
+		vmiReadyCond := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
+		if vmiReadyCond != nil &&
+			vmiReadyCond.Status == status &&
+			vmiReadyCond.Reason == reason &&
+			vmiReadyCond.Message == message {
 			return
 		}
 
-		vmiReadyCond.Status = status
-		vmiReadyCond.Reason = reason
-		vmiReadyCond.Message = message
-		vmiReadyCond.LastProbeTime = lastProbeTime
-		vmiReadyCond.LastTransitionTime = lastTransitionTime
+		conditionManager.RemoveCondition(vmi, virtv1.VirtualMachineInstanceReady)
+		vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+			Type:               virtv1.VirtualMachineInstanceReady,
+			Status:             status,
+			Reason:             reason,
+			Message:            message,
+			LastProbeTime:      lastProbeTime,
+			LastTransitionTime: lastTransitionTime,
+		})
 
 		logMessage := "marking VMI as not ready"
 		if status == k8sv1.ConditionTrue {
 			logMessage = "Marking VMI as ready"
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, reason, logMessage)
-		log.Log.Object(vmi).Infof(logMessage + ":" + message)
+		log.Log.Object(vmi).Infof(logMessage + ": " + message)
 	}
 
 	now := v1.Now()
@@ -660,7 +661,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 	if pod == nil || isTempPod(pod) {
 		setVMICondition(k8sv1.ConditionFalse,
 			virtv1.PodConditionMissingReason,
-			"virt-launcher pod does not exist",
+			"virt-launcher pod has not yet been scheduled",
 			now,
 			now)
 

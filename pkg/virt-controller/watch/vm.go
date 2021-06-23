@@ -1419,28 +1419,28 @@ func (c *VMController) isVirtualMachineStatusMigrating(vm *virtv1.VirtualMachine
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-	vmReadyCond := controller.NewVirtualMachineConditionManager().
-		GetCondition(vm, virtv1.VirtualMachineReady)
-	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
-		GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
-
-	if vmReadyCond == nil {
-		newCond := virtv1.VirtualMachineCondition{Type: virtv1.VirtualMachineReady}
-		vm.Status.Conditions = append(vm.Status.Conditions, newCond)
-		vmReadyCond = &vm.Status.Conditions[len(vm.Status.Conditions)-1]
-	}
-
 	setVMCondition := func(status k8score.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
-		if vmReadyCond.Status == status && vmReadyCond.Reason == reason {
+		vmReadyCond := controller.NewVirtualMachineConditionManager().GetCondition(vm, virtv1.VirtualMachineReady)
+		if vmReadyCond != nil &&
+			vmReadyCond.Status == status &&
+			vmReadyCond.Reason == reason &&
+			vmReadyCond.Message == message {
 			return
 		}
 
-		vmReadyCond.Status = status
-		vmReadyCond.Reason = reason
-		vmReadyCond.Message = message
-		vmReadyCond.LastProbeTime = lastProbeTime
-		vmReadyCond.LastTransitionTime = lastTransitionTime
+		controller.NewVirtualMachineConditionManager().RemoveCondition(vm, virtv1.VirtualMachineReady)
+		vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineReady,
+			Status:             status,
+			Reason:             reason,
+			Message:            message,
+			LastProbeTime:      lastProbeTime,
+			LastTransitionTime: lastTransitionTime,
+		})
 	}
+
+	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
+		GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
 
 	now := v1.Now()
 	if vmi == nil {
