@@ -10,6 +10,7 @@ import (
 	clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	watch "k8s.io/apimachinery/pkg/watch"
 	discovery "k8s.io/client-go/discovery"
 	dynamic "k8s.io/client-go/dynamic"
 	v12 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
@@ -859,6 +860,17 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Patch(arg0, arg1, arg2 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) Watch(opts v11.ListOptions) (watch.Interface, error) {
+	ret := _m.ctrl.Call(_m, "Watch", opts)
+	ret0, _ := ret[0].(watch.Interface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Watch(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Watch", arg0)
+}
+
 func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
 	ret := _m.ctrl.Call(_m, "SerialConsole", name, options)
 	ret0, _ := ret[0].(StreamInterface)
@@ -1331,6 +1343,16 @@ func (_m *MockVirtualMachineInterface) Stop(name string) error {
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stop", arg0)
+}
+
+func (_m *MockVirtualMachineInterface) ForceStop(name string, graceperiod int) error {
+	ret := _m.ctrl.Call(_m, "ForceStop", name, graceperiod)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) ForceStop(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForceStop", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInterface) Migrate(name string) error {
