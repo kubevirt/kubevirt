@@ -226,8 +226,6 @@ kubectl get nodes
 
 make cluster-sync
 
-hack/dockerized bazel shutdown
-
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)
 if [[ $NAMESPACE != "kubevirt" ]]; then
