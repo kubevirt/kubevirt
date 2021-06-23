@@ -160,7 +160,7 @@ if [[ $TARGET =~ windows.* ]]; then
   safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
 fi
 
-kubectl() { cluster-up/kubectl.sh "$@"; }
+kubectl() { KUBEVIRTCI_VERBOSE=false cluster-up/kubectl.sh "$@"; }
 cli() { cluster-up/cli.sh "$@"; }
 
 collect_debug_logs() {
