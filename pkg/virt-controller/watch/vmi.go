@@ -654,20 +654,22 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 		log.Log.Object(vmi).Infof(logMessage + ":" + message)
 	}
 
+	now := v1.Now()
+
 	// Keep PodReady condition in sync with the VMI
 	if pod == nil || isTempPod(pod) {
 		setVMICondition(k8sv1.ConditionFalse,
 			virtv1.PodConditionMissingReason,
 			"virt-launcher pod does not exist",
-			v1.Now(),
-			v1.Now())
+			now,
+			now)
 
 	} else if isPodDownOrGoingDown(pod) {
 		setVMICondition(k8sv1.ConditionFalse,
 			virtv1.PodTerminatingReason,
 			"virt-launcher pod is terminating",
-			v1.Now(),
-			v1.Now())
+			now,
+			now)
 
 	} else if podReadyCond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); podReadyCond != nil {
 		setVMICondition(podReadyCond.Status,
@@ -679,8 +681,8 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 		setVMICondition(k8sv1.ConditionFalse,
 			virtv1.PodConditionMissingReason,
 			"virt-launcher pod is missing the Ready condition",
-			v1.Now(),
-			v1.Now())
+			now,
+			now)
 	}
 }
 

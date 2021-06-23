@@ -1442,19 +1442,20 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 		vmReadyCond.LastTransitionTime = lastTransitionTime
 	}
 
+	now := v1.Now()
 	if vmi == nil {
 		setVMCondition(k8score.ConditionFalse,
 			"VMIConditionMissing",
 			"VMI does not exist",
-			v1.Now(),
-			v1.Now())
+			now,
+			now)
 
 	} else if vmiReadyCond == nil {
 		setVMCondition(k8score.ConditionFalse,
 			"VMIConditionMissing",
 			"VMI is missing the Ready condition",
-			v1.Now(),
-			v1.Now())
+			now,
+			now)
 
 	} else {
 		log.Log.Object(vm).V(4).Info("Syncing VM Ready condition from VMI")
