@@ -289,7 +289,9 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			if err != nil {
 				log.Log.Reason(err).Error(fmt.Sprintf("Could not send k8s event"))
 			}
-			client.SendDomainEvent(newWatchEventError(fmt.Errorf(reasonError)))
+			event := watch.Event{Type: watch.Modified, Object: domain}
+			client.SendDomainEvent(event)
+			updateEvents(event, domain, events)
 		}
 	default:
 		if libvirtEvent.Event != nil {
