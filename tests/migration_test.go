@@ -75,7 +75,7 @@ const (
 	fedoraVMSize         = "256M"
 	secretDiskSerial     = "D23YZ9W6WA5DJ487"
 	stressDefaultVMSize  = "100"
-	stressLargeVMSize    = "800"
+	stressLargeVMSize    = "400"
 	stressDefaultTimeout = 1600
 )
 
@@ -1252,7 +1252,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			},
 				table.Entry("[test_id:2653] with default migration configuration", nil, v1.MigrationPreCopy),
-				table.Entry("[QUARANTINE][test_id:5004] with postcopy", &v1.MigrationConfiguration{
+				table.Entry("[test_id:5004] with postcopy", &v1.MigrationConfiguration{
 					AllowPostCopy:           pointer.BoolPtr(true),
 					CompletionTimeoutPerGiB: pointer.Int64Ptr(1),
 				}, v1.MigrationPostCopy),
