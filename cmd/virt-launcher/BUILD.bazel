@@ -140,6 +140,7 @@ container_image(
             ":libvirt-config",
             ":passwd-tar",
             "//rpm:launcherbase_x86_64",
+            ":helper",
         ],
     }),
 )
@@ -159,6 +160,18 @@ container_image(
         "//cmd/container-disk-v2alpha:container-disk",
         "//cmd/virt-probe",
     ],
-    tars = [":setcaps"],
+    tars = [
+        ":setcaps",
+        
+    ],
     visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "helper",
+    srcs = [
+        ":helper.sh",
+    ],
+    mode = "0777",
+    package_dir = "/usr/bin",
 )

@@ -747,7 +747,7 @@ var _ = SIGDescribe("Storage", func() {
 						Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 					})
 
-					It("[test_id:2306]Should use existing disk image and start", func() {
+					FIt("[test_id:2306]Should use existing disk image and start", func() {
 						By("Starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
 						tests.RunVMIAndExpectLaunch(vmi, 30)

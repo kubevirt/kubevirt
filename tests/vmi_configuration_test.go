@@ -2012,7 +2012,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(expectedDiskSizes)
 		})
 
-		It("Should set BlockIO when set to match volume block sizes on files", func() {
+		FIt("Should set BlockIO when set to match volume block sizes on files", func() {
 			originalConfig := tests.GetCurrentKv(virtClient).Spec.Configuration
 			tests.EnableFeatureGate(virtconfig.HostDiskGate)
 			defer tests.UpdateKubeVirtConfigValueAndWait(originalConfig)

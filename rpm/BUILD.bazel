@@ -479,6 +479,7 @@ rpmtree(
         "@shadow-utils-2__4.8.1-3.fc32.x86_64//rpm",
         "@snappy-0__1.1.8-2.fc32.x86_64//rpm",
         "@sqlite-libs-0__3.34.0-1.fc32.x86_64//rpm",
+        "@strace-0__5.12-1.fc32.x86_64//rpm",
         "@swtpm-0__0.5.2-0.20201226gite59c0c1.fc32.x86_64//rpm",
         "@swtpm-libs-0__0.5.2-0.20201226gite59c0c1.fc32.x86_64//rpm",
         "@swtpm-tools-0__0.5.2-0.20201226gite59c0c1.fc32.x86_64//rpm",

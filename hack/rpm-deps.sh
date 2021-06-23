@@ -81,7 +81,8 @@ bazel run \
     findutils \
     procps-ng \
     iptables \
-    tar
+    tar \
+    strace
 
 bazel run \
     --config=${ARCHITECTURE} \

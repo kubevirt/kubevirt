@@ -1001,7 +1001,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	} else {
 		command = []string{"/usr/bin/virt-launcher"}
 		if nonRoot {
-			command = []string{"/usr/bin/virt-launcher-cap", command[0]}
+			command = []string{"/usr/bin/helper.sh", "/usr/bin/virt-launcher-cap", command[0]}
 		}
 		command = append(command, []string{
 			"--qemu-timeout", "5m",
