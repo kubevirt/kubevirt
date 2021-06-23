@@ -8,9 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/time/rate"
-
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/time/rate"
 	k8sv1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -57,7 +56,7 @@ var (
 const periodicReEnqueueIntervalSeconds = 30
 
 // ensures we don't execute more than once every 5 seconds
-const defaultThrottleIntervalSeconds = 5
+const defaultThrottleIntervalSeconds = 5 * time.Second
 
 const defaultBatchDeletionIntervalSeconds = 60
 const defaultBatchDeletionCount = 10
@@ -168,7 +167,7 @@ func (c *WorkloadUpdateController) addMigration(obj interface{}) {
 		}
 	}
 
-	c.queue.Add(key)
+	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
 }
 
 func (c *WorkloadUpdateController) deleteMigration(_ interface{}) {
@@ -177,7 +176,7 @@ func (c *WorkloadUpdateController) deleteMigration(_ interface{}) {
 		return
 	}
 
-	c.queue.Add(key)
+	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
 }
 
 func (c *WorkloadUpdateController) updateMigration(_, _ interface{}) {
@@ -186,7 +185,7 @@ func (c *WorkloadUpdateController) updateMigration(_, _ interface{}) {
 		return
 	}
 
-	c.queue.Add(key)
+	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
 }
 
 func (c *WorkloadUpdateController) addKubeVirt(obj interface{}) {
@@ -211,7 +210,7 @@ func (c *WorkloadUpdateController) enqueueKubeVirt(obj interface{}) {
 	if err != nil {
 		logger.Object(kv).Reason(err).Error("Failed to extract key from KubeVirt.")
 	}
-	c.queue.Add(key)
+	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
 }
 
 // Run runs the passed in NodeController.
