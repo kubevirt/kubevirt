@@ -1247,15 +1247,11 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 				return vmiIP, nil
 			}
 
-			BeforeEach(func() {
-				clientVMI, err = virtClient.VirtualMachineInstance(clientVMI.Namespace).Get(clientVMI.Name, &metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-			})
 			JustBeforeEach(func() {
 				serverVMI, err = createFedoraVMIPreferringNode(serverVMIPreferredNode, macvtapNetworkName, serverVMIMacAddress)
 				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
-
+				Expect(serverVMI.Status.NodeName).To(Equal(serverVMIPreferredNode), "serverVMI should be running on preferred node")
 				serverIP, err = getVMMacvtapIfaceIP(serverVMI, serverVMIMacAddress)
 				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
 
@@ -1268,7 +1264,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 				BeforeEach(func() {
 					serverVMIPreferredNode = clientVMI.Status.NodeName
 				})
-				It("[QUARANTINE] should keep connectivity after a migration", func() {
+				It("should keep connectivity after a migration", func() {
 					assert.XFail("https://github.com/kubevirt/kubevirt/issues/5912", func() {
 						Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
 					})
@@ -1284,7 +1280,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 						}
 					}
 				})
-				It("[QUARANTINE] should keep connectivity after a migration", func() {
+				It("should keep connectivity after a migration", func() {
 					Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
 				})
 			})
