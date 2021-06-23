@@ -19,6 +19,7 @@ import (
 	expect "github.com/google/goexpect"
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -302,4 +303,30 @@ func ConfirmVMIPostMigrationAborted(virtClient kubecli.KubevirtClient, vmi *v1.V
 	By("Verifying the VMI's is in the running state")
 	Expect(vmi.Status.Phase).To(Equal(v1.Running))
 	return vmi
+}
+
+func WaitForMigrationRunning(virtClient kubecli.KubevirtClient, vmim *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout time.Duration) error {
+	return wait.PollImmediate(1*time.Second, timeout, func() (bool, error) {
+		migration, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("failed to get VirtualMachineInstanceMigration %s/%s: %v", migration.Namespace, migration.Name, err)
+		}
+
+		migrationPhase := migration.Status.Phase
+		switch migrationPhase {
+		case v1.MigrationFailed, v1.MigrationSucceeded:
+			return false, fmt.Errorf("migration is final with phase: %s instead of %s", migrationPhase, v1.MigrationRunning)
+		case v1.MigrationRunning:
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			if err != nil {
+				return false, fmt.Errorf("failed to get VMI %s/%s: %v", vmi.Namespace, vmi.Name, err)
+			}
+
+			if vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.Completed {
+				return true, nil
+			}
+		}
+
+		return false, nil
+	})
 }
