@@ -3979,7 +3979,12 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 	dir := filepath.Dir(diskPath)
 
-	args := []string{fmt.Sprintf(`dd if=/dev/zero of=%s bs=1 count=0 seek=1G && ls -l %s`, diskPath, dir)}
+	command := fmt.Sprintf(`dd if=/dev/zero of=%s bs=1 count=0 seek=1G && ls -l %s`, diskPath, dir)
+	if checks.HasFeature(virtconfig.NonRoot) {
+		command = command + fmt.Sprintf(" && chown 107:107 %s", diskPath)
+	}
+
+	args := []string{command}
 	pod := RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
 	return pod
