@@ -373,7 +373,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
-			if vmi.Status.TopologyHints == nil {
+			if vmi.Status.TopologyHints == nil && c.topologyHinter.TopologyHintsRequiredForVMI(vmi) {
 				if topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
 					return &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}
@@ -746,15 +746,9 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return nil
 		}
 		// let's check if we already have topology hints or if we are still waiting for them
-		if vmi.Status.TopologyHints == nil {
-			if topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil {
-				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
-				return &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}
-			} else if topologyHints != nil {
-				log.Log.V(3).Object(vmi).Infof("Delaying pod creation until topology hints are set")
-				// no hints in the status yet, but apparently the VMI requires some, let's retry when they are there
-				return nil
-			}
+		if vmi.Status.TopologyHints == nil && c.topologyHinter.TopologyHintsRequiredForVMI(vmi) {
+			log.Log.V(3).Object(vmi).Infof("Delaying pod creation until topology hints are set")
+			return nil
 		}
 
 		// ensure that all dataVolumes associated with the VMI are ready before creating the pod

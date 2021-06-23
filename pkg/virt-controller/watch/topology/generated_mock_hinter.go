@@ -41,6 +41,16 @@ func (_mr *_MockHinterRecorder) TopologyHintsForVMI(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "TopologyHintsForVMI", arg0)
 }
 
+func (_m *MockHinter) TopologyHintsRequiredForVMI(vmi *v1.VirtualMachineInstance) bool {
+	ret := _m.ctrl.Call(_m, "TopologyHintsRequiredForVMI", vmi)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockHinterRecorder) TopologyHintsRequiredForVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "TopologyHintsRequiredForVMI", arg0)
+}
+
 func (_m *MockHinter) TSCFrequenciesInUse() []int64 {
 	ret := _m.ctrl.Call(_m, "TSCFrequenciesInUse")
 	ret0, _ := ret[0].([]int64)
