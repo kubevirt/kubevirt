@@ -78,9 +78,7 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     fi
     extra_args="-junit-output ${ARTIFACTS}/partial.junit.functest.xml"
     functest ${serial_test_args} ${FUNC_TEST_ARGS}
-    if [ "$return_value" -ne 0 ]; then
-        exit "$return_value"
-    fi
+    exit "$return_value"
 else
     additional_test_args=""
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
