@@ -10,7 +10,7 @@ function up() {
         echo -e $params
         exit 1
     fi
-    ${_cli} run $params
+    eval ${_cli} run $params
 
     # Copy k8s config and kubectl
     ${_cli} scp --prefix $provider_prefix /usr/bin/kubectl - >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
