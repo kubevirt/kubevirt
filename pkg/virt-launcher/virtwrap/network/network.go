@@ -26,9 +26,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/podnic"
 )
-
-const primaryPodInterfaceName = "eth0"
 
 type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
@@ -48,20 +47,20 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheFactory cache
 	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheFactory)
 }
 
-func (v VMNetworkConfigurator) getNICs() ([]podNIC, error) {
+func (v VMNetworkConfigurator) getNICs() ([]podnic.PodNIC, error) {
 	return v.getNICsWithLauncherPID(nil)
 
 }
 
-func (v VMNetworkConfigurator) getNICsWithLauncherPID(launcherPID *int) ([]podNIC, error) {
-	nics := []podNIC{}
+func (v VMNetworkConfigurator) getNICsWithLauncherPID(launcherPID *int) ([]podnic.PodNIC, error) {
+	nics := []podnic.PodNIC{}
 
 	if len(v.vmi.Spec.Domain.Devices.Interfaces) == 0 {
 		return nics, nil
 	}
 
 	for i, _ := range v.vmi.Spec.Networks {
-		nic, err := newPodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, launcherPID)
+		nic, err := podnic.New(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, launcherPID)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +77,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) error {
 	}
 	for _, nic := range nics {
 		if err := nic.PlugPhase1(); err != nil {
-			return fmt.Errorf("failed plugging phase1 at nic '%s': %w", nic.podInterfaceName, err)
+			return fmt.Errorf("failed plugging phase1 at nic '%s': %w", nic.PodInterfaceName(), err)
 		}
 	}
 	return nil
@@ -91,7 +90,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error 
 	}
 	for _, nic := range nics {
 		if err := nic.PlugPhase2(domain); err != nil {
-			return fmt.Errorf("failed plugging phase2 at nic '%s': %w", nic.podInterfaceName, err)
+			return fmt.Errorf("failed plugging phase2 at nic '%s': %w", nic.PodInterfaceName(), err)
 		}
 	}
 	return nil

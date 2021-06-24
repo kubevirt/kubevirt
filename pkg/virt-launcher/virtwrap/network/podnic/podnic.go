@@ -1,7 +1,8 @@
-package network
+package podnic
 
 import (
 	"fmt"
+	"net"
 	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -13,13 +14,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/libvirt"
 )
 
-type LibvirtSpecGenerator interface {
-	generate(domainIface api.Interface) error
-}
+const primaryPodInterfaceName = "eth0"
 
-type podNIC struct {
+type PodNIC struct {
 	vmi                           *v1.VirtualMachineInstance
 	podInterfaceName              string
 	launcherPID                   *int
@@ -28,10 +28,10 @@ type podNIC struct {
 	handler                       netdriver.NetworkHandler
 	cacheFactory                  cache.InterfaceCacheFactory
 	dhcpConfigurator              *dhcpconfigurator.Configurator
-	podNetworkConfiguratorFactory func(*podNIC) (infraconfigurators.PodNetworkInfraConfigurator, error)
+	podNetworkConfiguratorFactory func(*PodNIC) (infraconfigurators.PodNetworkInfraConfigurator, error)
 }
 
-func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
+func New(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*PodNIC, error) {
 	if network.Pod == nil && network.Multus == nil {
 		return nil, fmt.Errorf("Network not implemented")
 	}
@@ -60,7 +60,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 			generateInPodBridgeInterfaceName(podInterfaceName),
 			handler)
 	}
-	return &podNIC{
+	return &PodNIC{
 		cacheFactory:                  cacheFactory,
 		handler:                       handler,
 		vmi:                           vmi,
@@ -69,11 +69,11 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		iface:                         correspondingNetworkIface,
 		launcherPID:                   launcherPID,
 		dhcpConfigurator:              dhcpConfigurator,
-		podNetworkConfiguratorFactory: (*podNIC).newPodNetworkConfigurator,
+		podNetworkConfiguratorFactory: (*PodNIC).newPodNetworkConfigurator,
 	}, nil
 }
 
-func (l *podNIC) setPodInterfaceCache() error {
+func (l *PodNIC) setPodInterfaceCache() error {
 	ifCache := &cache.PodCacheInterface{Iface: l.iface}
 
 	ipv4, ipv6, err := l.handler.ReadIPAddressesFromLink(l.podInterfaceName)
@@ -107,7 +107,7 @@ func (l *podNIC) setPodInterfaceCache() error {
 
 // sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
 // The operation clones the Pod status IP list order logic.
-func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
+func (l *PodNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 	ipv4Primary, err := l.handler.IsIpv4Primary()
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 	return []string{ipv6, ipv4}, nil
 }
 
-func (l *podNIC) PlugPhase1() error {
+func (l *PodNIC) PlugPhase1() error {
 
 	// There is nothing to plug for SR-IOV devices
 	if l.iface.SRIOV != nil {
@@ -186,7 +186,7 @@ func (l *podNIC) PlugPhase1() error {
 	return nil
 }
 
-func (l *podNIC) PlugPhase2(domain *api.Domain) error {
+func (l *PodNIC) PlugPhase2(domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
 
 	// There is nothing to plug for SR-IOV devices
@@ -199,7 +199,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return err
 	}
 
-	if err := libvirtSpecGenerator.generate(l.getInfoForLibvirtDomainInterface()); err != nil {
+	if err := libvirtSpecGenerator.Generate(l.getInfoForLibvirtDomainInterface()); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
@@ -218,7 +218,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	return nil
 }
 
-func (l *podNIC) getInfoForLibvirtDomainInterface() api.Interface {
+func (l *PodNIC) getInfoForLibvirtDomainInterface() api.Interface {
 	if l.iface.Slirp == nil {
 		domainIface, err := l.cachedDomainInterface()
 		if err != nil {
@@ -232,23 +232,23 @@ func (l *podNIC) getInfoForLibvirtDomainInterface() api.Interface {
 	return api.Interface{}
 }
 
-func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) (LibvirtSpecGenerator, error) {
+func (l *PodNIC) newLibvirtSpecGenerator(domain *api.Domain) (libvirt.SpecGenerator, error) {
 	if l.iface.Bridge != nil {
-		return newBridgeLibvirtSpecGenerator(l.iface, domain), nil
+		return libvirt.NewBridgeSpecGenerator(l.iface, domain), nil
 	}
 	if l.iface.Masquerade != nil {
-		return newMasqueradeLibvirtSpecGenerator(l.iface, domain), nil
+		return libvirt.NewMasqueradeSpecGenerator(l.iface, domain), nil
 	}
 	if l.iface.Slirp != nil {
-		return newSlirpLibvirtSpecGenerator(l.iface, domain), nil
+		return libvirt.NewSlirpSpecGenerator(l.iface, domain), nil
 	}
 	if l.iface.Macvtap != nil {
-		return newMacvtapLibvirtSpecGenerator(l.iface, domain), nil
+		return libvirt.NewMacvtapSpecGenerator(l.iface, domain), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfraConfigurator, error) {
+func (l *PodNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfraConfigurator, error) {
 	mac, err := retrieveMacAddressFromVMISpecIface(l.iface)
 	if err != nil {
 		return nil, err
@@ -291,7 +291,7 @@ func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfra
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
+func (l *PodNIC) cachedDomainInterface() (*api.Interface, error) {
 	ifaceConfig, err := l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Read(l.iface.Name)
 
 	if os.IsNotExist(err) {
@@ -305,8 +305,12 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 	return ifaceConfig, nil
 }
 
-func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
+func (l *PodNIC) storeCachedDomainIface(domainIface api.Interface) error {
 	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
+}
+
+func (l *PodNIC) PodInterfaceName() string {
+	return l.podInterfaceName
 }
 
 func composePodInterfaceName(vmi *v1.VirtualMachineInstance, network *v1.Network) (string, error) {
@@ -356,4 +360,15 @@ func getPIDString(pid *int) string {
 
 func generateInPodBridgeInterfaceName(podInterfaceName string) string {
 	return fmt.Sprintf("k6t-%s", podInterfaceName)
+}
+
+func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.HardwareAddr, error) {
+	if vmiSpecIface.MacAddress != "" {
+		macAddress, err := net.ParseMAC(vmiSpecIface.MacAddress)
+		if err != nil {
+			return nil, err
+		}
+		return &macAddress, nil
+	}
+	return nil, nil
 }

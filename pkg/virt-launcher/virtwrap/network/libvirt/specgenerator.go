@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package libvirt
 
 import (
 	"fmt"
@@ -27,29 +27,33 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-func newMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *MacvtapLibvirtSpecGenerator {
-	return &MacvtapLibvirtSpecGenerator{
+type SpecGenerator interface {
+	Generate(domainIface api.Interface) error
+}
+
+func NewMacvtapSpecGenerator(iface *v1.Interface, domain *api.Domain) *MacvtapSpecGenerator {
+	return &MacvtapSpecGenerator{
 		iface:  iface,
 		domain: domain,
 	}
 }
 
-func newMasqueradeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *MasqueradeLibvirtSpecGenerator {
-	return &MasqueradeLibvirtSpecGenerator{
+func NewMasqueradeSpecGenerator(iface *v1.Interface, domain *api.Domain) *MasqueradeSpecGenerator {
+	return &MasqueradeSpecGenerator{
 		iface:  iface,
 		domain: domain,
 	}
 }
 
-func newSlirpLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *SlirpLibvirtSpecGenerator {
-	return &SlirpLibvirtSpecGenerator{
+func NewSlirpSpecGenerator(iface *v1.Interface, domain *api.Domain) *SlirpSpecGenerator {
+	return &SlirpSpecGenerator{
 		iface:  iface,
 		domain: domain,
 	}
 }
 
-func newBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *BridgeLibvirtSpecGenerator {
-	return &BridgeLibvirtSpecGenerator{
+func NewBridgeSpecGenerator(iface *v1.Interface, domain *api.Domain) *BridgeSpecGenerator {
+	return &BridgeSpecGenerator{
 		iface:  iface,
 		domain: domain,
 	}
@@ -66,12 +70,12 @@ func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.Hardwa
 	return nil, nil
 }
 
-type BridgeLibvirtSpecGenerator struct {
+type BridgeSpecGenerator struct {
 	iface  *v1.Interface
 	domain *api.Domain
 }
 
-func (b *BridgeLibvirtSpecGenerator) generate(domainIface api.Interface) error {
+func (b *BridgeSpecGenerator) Generate(domainIface api.Interface) error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {
@@ -84,12 +88,12 @@ func (b *BridgeLibvirtSpecGenerator) generate(domainIface api.Interface) error {
 	return nil
 }
 
-type MasqueradeLibvirtSpecGenerator struct {
+type MasqueradeSpecGenerator struct {
 	iface  *v1.Interface
 	domain *api.Domain
 }
 
-func (b *MasqueradeLibvirtSpecGenerator) generate(domainIface api.Interface) error {
+func (b *MasqueradeSpecGenerator) Generate(domainIface api.Interface) error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {
@@ -102,12 +106,12 @@ func (b *MasqueradeLibvirtSpecGenerator) generate(domainIface api.Interface) err
 	return nil
 }
 
-type SlirpLibvirtSpecGenerator struct {
+type SlirpSpecGenerator struct {
 	iface  *v1.Interface
 	domain *api.Domain
 }
 
-func (b *SlirpLibvirtSpecGenerator) generate(api.Interface) error {
+func (b *SlirpSpecGenerator) Generate(api.Interface) error {
 	// remove slirp interface from domain spec devices interfaces
 	var foundIfaceModelType string
 	ifaces := b.domain.Spec.Devices.Interfaces
@@ -135,12 +139,12 @@ func (b *SlirpLibvirtSpecGenerator) generate(api.Interface) error {
 	return nil
 }
 
-type MacvtapLibvirtSpecGenerator struct {
+type MacvtapSpecGenerator struct {
 	iface  *v1.Interface
 	domain *api.Domain
 }
 
-func (b *MacvtapLibvirtSpecGenerator) generate(domainIface api.Interface) error {
+func (b *MacvtapSpecGenerator) Generate(domainIface api.Interface) error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {

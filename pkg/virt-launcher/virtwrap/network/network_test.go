@@ -27,11 +27,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	"kubevirt.io/kubevirt/pkg/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/podnic"
 )
 
 var _ = Describe("VMNetworkConfigurator", func() {
 	Context("interface configuration", func() {
-		resetPodNetworkConfiguratorFactory := func(nics []podNIC) []podNIC {
+		resetPodNetworkConfiguratorFactory := func(nics []podnic.PodNIC) []podnic.PodNIC {
 			for i, _ := range nics {
 				nics[i].podNetworkConfiguratorFactory = nil
 			}
@@ -61,7 +62,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Expect(err).To(MatchError("Network not implemented"))
 			})
 		})
-		Context("when calling []podNIC factory functions", func() {
+		Context("when calling []podnic.PodNIC factory functions", func() {
 			var launcherPID *int
 			It("should configure bridged pod networking by default", func() {
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -71,7 +72,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				defaultNet := v1.DefaultPodNetwork()
 				nics, err := vmNetworkConfigurator.getNICs()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ConsistOf(podNIC{
+				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ConsistOf(podnic.PodNIC{
 					vmi:              vm,
 					podInterfaceName: primaryPodInterfaceName,
 					iface:            iface,
@@ -106,7 +107,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
 				nics, err := vmNetworkConfigurator.getNICs()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ConsistOf([]podNIC{{
+				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ConsistOf([]podnic.PodNIC{{
 					vmi:              vmi,
 					iface:            iface,
 					network:          cniNet,
@@ -170,7 +171,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
 				nics, err := vmNetworkConfigurator.getNICs()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ContainElements([]podNIC{
+				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ContainElements([]podnic.PodNIC{
 					{
 						vmi:              vm,
 						iface:            &vm.Spec.Domain.Devices.Interfaces[0],

@@ -1,4 +1,4 @@
-package network
+package podnic
 
 import (
 	"errors"
@@ -24,24 +24,61 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-var _ = Describe("podNIC", func() {
+var _ = Describe("PodNIC", func() {
 	var (
 		mockNetwork                   *netdriver.MockNetworkHandler
 		cacheFactory                  cache.InterfaceCacheFactory
 		mockPodNetworkConfigurator    *infraconfigurators.MockPodNetworkInfraConfigurator
 		ctrl                          *gomock.Controller
 		vmi                           *kubevirtv1.VirtualMachineInstance
-		newPodNetworkConfiguratorMock = func(*podNIC) (infraconfigurators.PodNetworkInfraConfigurator, error) {
+		newPodNetworkConfiguratorMock = func(*PodNIC) (infraconfigurators.PodNetworkInfraConfigurator, error) {
 			return mockPodNetworkConfigurator, nil
 		}
-		newPodNICWithMocks = func(vmi *v1.VirtualMachineInstance) *podNIC {
-			podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, nil)
+		NewWithMocks = func(vmi *v1.VirtualMachineInstance) *PodNIC {
+			podnic, err := New(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, nil)
 			Expect(err).ToNot(HaveOccurred())
 			podnic.podNetworkConfiguratorFactory = newPodNetworkConfiguratorMock
 			podnic.podInterfaceName = primaryPodInterfaceName
 			return podnic
 		}
 	)
+
+	NewDomainWithBridgeInterface := func() *api.Domain {
+		domain := &api.Domain{}
+		domain.Spec.Devices.Interfaces = []api.Interface{{
+			Model: &api.Model{
+				Type: "virtio",
+			},
+			Type: "bridge",
+			Source: api.InterfaceSource{
+				Bridge: api.DefaultBridgeName,
+			},
+			Alias: api.NewUserDefinedAlias("default"),
+		},
+		}
+		return domain
+	}
+
+	newVMI := func(namespace, name string) *v1.VirtualMachineInstance {
+		vmi := v1.NewMinimalVMIWithNS(namespace, name)
+		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		return vmi
+	}
+
+	newVMIBridgeInterface := func(namespace string, name string) *v1.VirtualMachineInstance {
+		vmi := newVMI(namespace, name)
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		return vmi
+	}
+
+	newVMIMasqueradeInterface := func(namespace string, name string) *v1.VirtualMachineInstance {
+		vmi := newVMI(namespace, name)
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
+		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		return vmi
+	}
+
 	BeforeEach(func() {
 		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
 
@@ -49,9 +86,11 @@ var _ = Describe("podNIC", func() {
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
 		mockPodNetworkConfigurator = infraconfigurators.NewMockPodNetworkInfraConfigurator(ctrl)
 	})
+
 	AfterEach(func() {
 		ctrl.Finish()
 	})
+
 	Context("when pod networking setup fails", func() {
 		BeforeEach(func() {
 			address1 := &net.IPNet{IP: net.IPv4(1, 2, 3, 4)}
@@ -72,7 +111,7 @@ var _ = Describe("podNIC", func() {
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
-			podnic := newPodNICWithMocks(vmi)
+			podnic := NewWithMocks(vmi)
 			//podnic.launcherPID = &pid
 			err := podnic.PlugPhase1()
 			Expect(err).To(HaveOccurred(), "SetupPhase1 should return an error")
@@ -91,7 +130,7 @@ var _ = Describe("podNIC", func() {
 				domain := NewDomainWithBridgeInterface()
 				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				podnic := newPodNICWithMocks(vmi)
+				podnic := NewWithMocks(vmi)
 				podnic.launcherPID = &launcherPID
 				podnic.storeCachedDomainIface(domain.Spec.Devices.Interfaces[0])
 				podnic.dhcpConfigurator.ExportConfiguration(cache.DHCPConfig{Name: "eth0"})
@@ -102,7 +141,7 @@ var _ = Describe("podNIC", func() {
 	})
 	Context("when setPodInterfaceCache is called with a configured nic", func() {
 		var (
-			podnic *podNIC
+			podnic *PodNIC
 		)
 		BeforeEach(func() {
 			vmi = newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -115,7 +154,7 @@ var _ = Describe("podNIC", func() {
 			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr1.IP.String(), fakeAddr2.IP.String(), nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
-			podnic = newPodNICWithMocks(vmi)
+			podnic = NewWithMocks(vmi)
 			err := podnic.setPodInterfaceCache()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -129,7 +168,7 @@ var _ = Describe("podNIC", func() {
 	Context("when interface binding is SRIOV", func() {
 		var (
 			vmi    *v1.VirtualMachineInstance
-			podnic *podNIC
+			podnic *PodNIC
 		)
 		BeforeEach(func() {
 			launcherPID := 1
@@ -140,7 +179,7 @@ var _ = Describe("podNIC", func() {
 					SRIOV: &v1.InterfaceSRIOV{},
 				},
 			}}
-			podnic = newPodNICWithMocks(vmi)
+			podnic = NewWithMocks(vmi)
 			podnic.podInterfaceName = "fakeiface"
 			podnic.launcherPID = &launcherPID
 
