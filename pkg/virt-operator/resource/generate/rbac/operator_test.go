@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("RBAC", func() {
@@ -86,7 +87,7 @@ var _ = Describe("RBAC", func() {
 
 })
 
-func getFirstItemOfType(items []interface{}, tp reflect.Type) interface{} {
+func getFirstItemOfType(items []runtime.Object, tp reflect.Type) runtime.Object {
 	for _, item := range items {
 		typeOf := reflect.TypeOf(item)
 		if typeOf == tp {

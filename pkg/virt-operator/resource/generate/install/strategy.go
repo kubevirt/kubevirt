@@ -389,6 +389,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	rbaclist = append(rbaclist, rbac.GetAllApiServer(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)
+	rbaclist = append(rbaclist, rbac.GetAllOperator(config.GetNamespace())...)
 
 	if monitorNamespace != "" {
 

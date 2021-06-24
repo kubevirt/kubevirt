@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
@@ -31,8 +32,8 @@ import (
 const OperatorServiceAccountName = "kubevirt-operator"
 
 // Used for manifest generation only, not by the operator itself
-func GetAllOperator(namespace string) []interface{} {
-	return []interface{}{
+func GetAllOperator(namespace string) []runtime.Object {
+	return []runtime.Object{
 		newOperatorServiceAccount(namespace),
 		NewOperatorRole(namespace),
 		newOperatorRoleBinding(namespace),

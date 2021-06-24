@@ -78,9 +78,9 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 53
-	patchCount    = 34
-	updateCount   = 20
+	resourceCount = 58
+	patchCount    = 35
+	updateCount   = 24
 )
 
 type KubeVirtTestData struct {
@@ -1083,6 +1083,8 @@ func (k *KubeVirtTestData) addAll(config *util.KubeVirtDeploymentConfig, kv *v1.
 	all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
 	all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 	all = append(all, rbac.GetAllController(NAMESPACE)...)
+	all = append(all, rbac.GetAllOperator(NAMESPACE)...)
+
 	// crds
 	functions := []func() (*extv1.CustomResourceDefinition, error){
 		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
@@ -2053,11 +2055,11 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
 
-			Expect(len(kvTestData.controller.stores.ServiceAccountCache.List())).To(Equal(3))
-			Expect(len(kvTestData.controller.stores.ClusterRoleCache.List())).To(Equal(7))
-			Expect(len(kvTestData.controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
-			Expect(len(kvTestData.controller.stores.RoleCache.List())).To(Equal(3))
-			Expect(len(kvTestData.controller.stores.RoleBindingCache.List())).To(Equal(3))
+			Expect(len(kvTestData.controller.stores.ServiceAccountCache.List())).To(Equal(4))
+			Expect(len(kvTestData.controller.stores.ClusterRoleCache.List())).To(Equal(8))
+			Expect(len(kvTestData.controller.stores.ClusterRoleBindingCache.List())).To(Equal(6))
+			Expect(len(kvTestData.controller.stores.RoleCache.List())).To(Equal(4))
+			Expect(len(kvTestData.controller.stores.RoleBindingCache.List())).To(Equal(4))
 			Expect(len(kvTestData.controller.stores.CrdCache.List())).To(Equal(8))
 			Expect(len(kvTestData.controller.stores.ServiceCache.List())).To(Equal(3))
 			Expect(len(kvTestData.controller.stores.DeploymentCache.List())).To(Equal(1))
@@ -2574,8 +2576,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			Expect(len(kvTestData.controller.stores.RoleCache.List())).To(Equal(2))
-			Expect(len(kvTestData.controller.stores.RoleBindingCache.List())).To(Equal(2))
+			Expect(len(kvTestData.controller.stores.RoleCache.List())).To(Equal(3))
+			Expect(len(kvTestData.controller.stores.RoleBindingCache.List())).To(Equal(3))
 			Expect(len(kvTestData.controller.stores.ServiceMonitorCache.List())).To(Equal(0))
 		}, 30)
 	})
