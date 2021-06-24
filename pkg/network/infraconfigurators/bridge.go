@@ -17,33 +17,25 @@ import (
 const bridgeFakeIP = "169.254.75.1%d/32"
 
 type BridgePodNetworkConfigurator struct {
-	arpIgnore           bool
 	bridgeInterfaceName string
-	iface               *v1.Interface
+	vmiSpecIface        *v1.Interface
 	ipamEnabled         bool
 	handler             netdriver.NetworkHandler
 	launcherPID         int
-	mac                 *net.HardwareAddr
+	vmMac               *net.HardwareAddr
 	podIfaceIP          netlink.Addr
-	podInterfaceName    string
 	podNicLink          netlink.Link
-	queueCount          uint32
-	routes              []netlink.Route
-	storeFactory        cache.InterfaceCacheFactory
+	podIfaceRoutes      []netlink.Route
 	tapDeviceName       string
-	virtIface           *api.Interface
 	vmi                 *v1.VirtualMachineInstance
 }
 
-func NewBridgePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, bridgeIfaceName string, mac *net.HardwareAddr, cacheFactory cache.InterfaceCacheFactory, launcherPID int, handler netdriver.NetworkHandler) *BridgePodNetworkConfigurator {
+func NewBridgePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, launcherPID int, handler netdriver.NetworkHandler) *BridgePodNetworkConfigurator {
 	return &BridgePodNetworkConfigurator{
 		vmi:                 vmi,
-		iface:               iface,
+		vmiSpecIface:        vmiSpecIface,
 		bridgeInterfaceName: bridgeIfaceName,
-		storeFactory:        cacheFactory,
 		launcherPID:         launcherPID,
-		queueCount:          calculateNetworkQueues(vmi),
-		mac:                 mac,
 		handler:             handler,
 	}
 }
@@ -72,8 +64,13 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 	}
 
 	b.tapDeviceName = generateTapDeviceName(podIfaceName)
-	if b.mac == nil {
-		b.mac = &b.podNicLink.Attrs().HardwareAddr
+
+	b.vmMac, err = retrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
+	if err != nil {
+		return err
+	}
+	if b.vmMac == nil {
+		b.vmMac = &b.podNicLink.Attrs().HardwareAddr
 	}
 
 	if err := validateMTU(b.podNicLink.Attrs().MTU); err != nil {
@@ -87,16 +84,12 @@ func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
 	if !b.ipamEnabled {
 		return &cache.DHCPConfig{Name: b.podNicLink.Attrs().Name, IPAMDisabled: true}
 	}
-	fakeBridgeIP, err := b.getFakeBridgeIP()
-	if err != nil {
-		return nil
-	}
-	fakeServerAddr, err := netlink.ParseAddr(fakeBridgeIP)
-	if err != nil || fakeServerAddr == nil {
-		return nil
-	}
+
+	fakeBridgeIP := b.getFakeBridgeIP()
+	fakeServerAddr, _ := netlink.ParseAddr(fakeBridgeIP)
+
 	dhcpConfig := &cache.DHCPConfig{
-		MAC:               *b.mac,
+		MAC:               *b.vmMac,
 		Name:              b.podNicLink.Attrs().Name,
 		IPAMDisabled:      !b.ipamEnabled,
 		IP:                b.podIfaceIP,
@@ -106,21 +99,21 @@ func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
 		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
 	}
 
-	if b.ipamEnabled && len(b.routes) > 0 {
-		log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.routes))
+	if b.ipamEnabled && len(b.podIfaceRoutes) > 0 {
+		log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.podIfaceRoutes))
 		b.decorateDhcpConfigRoutes(dhcpConfig)
 	}
 	return dhcpConfig
 }
 
-func (b *BridgePodNetworkConfigurator) getFakeBridgeIP() (string, error) {
+func (b *BridgePodNetworkConfigurator) getFakeBridgeIP() string {
 	ifaces := b.vmi.Spec.Domain.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Name == b.iface.Name {
-			return fmt.Sprintf(bridgeFakeIP, i), nil
+		if iface.Name == b.vmiSpecIface.Name {
+			return fmt.Sprintf(bridgeFakeIP, i)
 		}
 	}
-	return "", fmt.Errorf("ailed to generate bridge fake address for interface %s", b.iface.Name)
+	return ""
 }
 
 func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
@@ -143,6 +136,15 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 			log.Log.Reason(err).Error("failed to switch pod interface with a dummy")
 			return err
 		}
+
+		// Set arp_ignore=1 to avoid
+		// the dummy interface being seen by Duplicate Address Detection (DAD).
+		// Without this, some VMs will lose their ip address after a few
+		// minutes.
+		if err := b.handler.ConfigureIpv4ArpIgnore(); err != nil {
+			log.Log.Reason(err).Errorf("failed to set arp_ignore=1")
+			return err
+		}
 	}
 
 	if _, err := b.handler.SetRandomMac(b.podNicLink.Attrs().Name); err != nil {
@@ -153,17 +155,10 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 		return err
 	}
 
-	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.queueCount, b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId, b.vmi)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
 		return err
-	}
-
-	if b.arpIgnore {
-		if err := b.handler.ConfigureIpv4ArpIgnore(); err != nil {
-			log.Log.Reason(err).Errorf("failed to set arp_ignore=1 on interface %s", b.bridgeInterfaceName)
-			return err
-		}
 	}
 
 	if err := b.handler.LinkSetUp(b.podNicLink); err != nil {
@@ -181,7 +176,7 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 
 func (b *BridgePodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interface {
 	return api.Interface{
-		MAC: &api.MAC{MAC: b.mac.String()},
+		MAC: &api.MAC{MAC: b.vmMac.String()},
 		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
 		Target: &api.InterfaceTarget{
 			Device:  b.tapDeviceName,
@@ -197,17 +192,17 @@ func (b *BridgePodNetworkConfigurator) learnInterfaceRoutes() error {
 		return err
 	}
 	if len(routes) == 0 {
-		return fmt.Errorf("No gateway address found in routes for %s", b.podNicLink.Attrs().Name)
+		return fmt.Errorf("no gateway address found in routes for %s", b.podNicLink.Attrs().Name)
 	}
-	b.routes = routes
+	b.podIfaceRoutes = routes
 	return nil
 }
 
 func (b *BridgePodNetworkConfigurator) decorateDhcpConfigRoutes(dhcpConfig *cache.DHCPConfig) {
-	log.Log.V(4).Infof("the default route is: %s", b.routes[0].String())
-	dhcpConfig.Gateway = b.routes[0].Gw
-	if len(b.routes) > 1 {
-		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.routes, dhcpConfig)
+	log.Log.V(4).Infof("the default route is: %s", b.podIfaceRoutes[0].String())
+	dhcpConfig.Gateway = b.podIfaceRoutes[0].Gw
+	if len(b.podIfaceRoutes) > 1 {
+		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.podIfaceRoutes, dhcpConfig)
 		dhcpConfig.Routes = &dhcpRoutes
 	}
 }
@@ -238,15 +233,8 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 	}
 
 	// set fake ip on a bridge
-	addr, err := b.getFakeBridgeIP()
-	if err != nil {
-		return err
-	}
-	fakeaddr, err := b.handler.ParseAddr(addr)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
-		return err
-	}
+	addr := b.getFakeBridgeIP()
+	fakeaddr, _ := b.handler.ParseAddr(addr)
 
 	if err := b.handler.AddrAdd(bridge, fakeaddr); err != nil {
 		log.Log.Reason(err).Errorf("failed to set bridge IP")
@@ -265,12 +253,6 @@ func (b *BridgePodNetworkConfigurator) switchPodInterfaceWithDummy() error {
 	originalPodInterfaceName := b.podNicLink.Attrs().Name
 	newPodInterfaceName := fmt.Sprintf("%s-nic", originalPodInterfaceName)
 	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
-
-	// Set arp_ignore=1 on the bridge interface to avoid
-	// the interface being seen by Duplicate Address Detection (DAD).
-	// Without this, some VMs will lose their ip address after a few
-	// minutes.
-	b.arpIgnore = true
 
 	// Rename pod interface to free the original name for a new dummy interface
 	err := b.handler.LinkSetName(b.podNicLink, newPodInterfaceName)

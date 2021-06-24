@@ -21,7 +21,6 @@ package network
 
 import (
 	"fmt"
-	"net"
 	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -43,8 +42,8 @@ type podNIC struct {
 	vmi              *v1.VirtualMachineInstance
 	podInterfaceName string
 	launcherPID      *int
-	iface            *v1.Interface
-	network          *v1.Network
+	vmiSpecIface     *v1.Interface
+	vmiSpecNetwork   *v1.Network
 	handler          netdriver.NetworkHandler
 	cacheFactory     cache.InterfaceCacheFactory
 	dhcpConfigurator *dhcpconfigurator.Configurator
@@ -83,9 +82,9 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		cacheFactory:     cacheFactory,
 		handler:          handler,
 		vmi:              vmi,
-		network:          network,
+		vmiSpecNetwork:   network,
 		podInterfaceName: podInterfaceName,
-		iface:            correspondingNetworkIface,
+		vmiSpecIface:     correspondingNetworkIface,
 		launcherPID:      launcherPID,
 		dhcpConfigurator: dhcpConfigurator,
 	}, nil
@@ -130,7 +129,7 @@ func isSecondaryMultusNetwork(net v1.Network) bool {
 }
 
 func (l *podNIC) setPodInterfaceCache() error {
-	ifCache := &cache.PodCacheInterface{Iface: l.iface}
+	ifCache := &cache.PodCacheInterface{Iface: l.vmiSpecIface}
 
 	ipv4, ipv6, err := l.handler.ReadIPAddressesFromLink(l.podInterfaceName)
 	if err != nil {
@@ -152,7 +151,7 @@ func (l *podNIC) setPodInterfaceCache() error {
 	}
 
 	ifCache.PodIP = ifCache.PodIPs[0]
-	err = l.cacheFactory.CacheForVMI(l.vmi).Write(l.iface.Name, ifCache)
+	err = l.cacheFactory.CacheForVMI(l.vmi).Write(l.vmiSpecIface.Name, ifCache)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
 		return err
@@ -179,7 +178,7 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 func (l *podNIC) PlugPhase1() error {
 
 	// There is nothing to plug for SR-IOV devices
-	if l.iface.SRIOV != nil {
+	if l.vmiSpecIface.SRIOV != nil {
 		return nil
 	}
 
@@ -196,7 +195,7 @@ func (l *podNIC) PlugPhase1() error {
 		}
 	}
 
-	isSlirpIface := l.iface.Slirp != nil
+	isSlirpIface := l.vmiSpecIface.Slirp != nil
 	if isSlirpIface {
 		return nil
 	}
@@ -246,7 +245,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
 
 	// There is nothing to plug for SR-IOV devices
-	if l.iface.SRIOV != nil {
+	if l.vmiSpecIface.SRIOV != nil {
 		return nil
 	}
 
@@ -265,7 +264,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 			log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
 		}
 		log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
-		if err := l.dhcpConfigurator.EnsureDHCPServerStarted(l.podInterfaceName, *dhcpConfig, l.iface.DHCPOptions); err != nil {
+		if err := l.dhcpConfigurator.EnsureDHCPServerStarted(l.podInterfaceName, *dhcpConfig, l.vmiSpecIface.DHCPOptions); err != nil {
 			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
 			panic(err)
 		}
@@ -275,7 +274,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 }
 
 func (l *podNIC) getInfoForLibvirtDomainInterface() api.Interface {
-	if l.iface.Slirp == nil {
+	if l.vmiSpecIface.Slirp == nil {
 		domainIface, err := l.cachedDomainInterface()
 		if err != nil {
 			log.Log.Reason(err).Critical("failed to load cached interface configuration")
@@ -289,112 +288,89 @@ func (l *podNIC) getInfoForLibvirtDomainInterface() api.Interface {
 }
 
 func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) (LibvirtSpecGenerator, error) {
-	if l.iface.Bridge != nil {
-		return newBridgeLibvirtSpecGenerator(l.iface, domain), nil
+	if l.vmiSpecIface.Bridge != nil {
+		return newBridgeLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
 	}
-	if l.iface.Masquerade != nil {
-		return newMasqueradeLibvirtSpecGenerator(l.iface, domain), nil
+	if l.vmiSpecIface.Masquerade != nil {
+		return newMasqueradeLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
 	}
-	if l.iface.Slirp != nil {
-		return newSlirpLibvirtSpecGenerator(l.iface, domain), nil
+	if l.vmiSpecIface.Slirp != nil {
+		return newSlirpLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
 	}
-	if l.iface.Macvtap != nil {
-		return newMacvtapLibvirtSpecGenerator(l.iface, domain), nil
+	if l.vmiSpecIface.Macvtap != nil {
+		return newMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
 
 func newMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *MacvtapLibvirtSpecGenerator {
 	return &MacvtapLibvirtSpecGenerator{
-		iface:  iface,
-		domain: domain,
+		vmiSpecIface: iface,
+		domain:       domain,
 	}
 }
 
 func newMasqueradeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *MasqueradeLibvirtSpecGenerator {
 	return &MasqueradeLibvirtSpecGenerator{
-		iface:  iface,
-		domain: domain,
+		vmiSpecIface: iface,
+		domain:       domain,
 	}
 }
 
 func newSlirpLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *SlirpLibvirtSpecGenerator {
 	return &SlirpLibvirtSpecGenerator{
-		iface:  iface,
-		domain: domain,
+		vmiSpecIface: iface,
+		domain:       domain,
 	}
 }
 
 func newBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *BridgeLibvirtSpecGenerator {
 	return &BridgeLibvirtSpecGenerator{
-		iface:  iface,
-		domain: domain,
+		vmiSpecIface: iface,
+		domain:       domain,
 	}
 }
 
 func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfraConfigurator, error) {
-	mac, err := retrieveMacAddressFromVMISpecIface(l.iface)
-	if err != nil {
-		return nil, err
-	}
-	if l.iface.Bridge != nil {
+	if l.vmiSpecIface.Bridge != nil {
 		return infraconfigurators.NewBridgePodNetworkConfigurator(
 			l.vmi,
-			l.iface,
+			l.vmiSpecIface,
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
-			mac,
-			l.cacheFactory,
 			*l.launcherPID,
 			l.handler), nil
 	}
-	if l.iface.Masquerade != nil {
+	if l.vmiSpecIface.Masquerade != nil {
 		return infraconfigurators.NewMasqueradePodNetworkConfigurator(
 			l.vmi,
-			l.iface,
+			l.vmiSpecIface,
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
-			mac,
-			l.network.Pod.VMNetworkCIDR,
-			l.network.Pod.VMIPv6NetworkCIDR,
-			l.cacheFactory,
+			l.vmiSpecNetwork.Pod.VMNetworkCIDR,
+			l.vmiSpecNetwork.Pod.VMIPv6NetworkCIDR,
 			*l.launcherPID,
 			l.handler), nil
 	}
-	if l.iface.Slirp != nil {
+	if l.vmiSpecIface.Slirp != nil {
 		return nil, nil
 	}
-	if l.iface.Macvtap != nil {
+	if l.vmiSpecIface.Macvtap != nil {
 		return infraconfigurators.NewMacvtapPodNetworkConfigurator(
-			l.vmi,
-			l.iface,
 			l.podInterfaceName,
-			mac,
-			l.cacheFactory,
-			l.launcherPID,
+			l.vmiSpecIface,
 			l.handler), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.HardwareAddr, error) {
-	if vmiSpecIface.MacAddress != "" {
-		macAddress, err := net.ParseMAC(vmiSpecIface.MacAddress)
-		if err != nil {
-			return nil, err
-		}
-		return &macAddress, nil
-	}
-	return nil, nil
-}
-
 type BridgeLibvirtSpecGenerator struct {
-	iface  *v1.Interface
-	domain *api.Domain
+	vmiSpecIface *v1.Interface
+	domain       *api.Domain
 }
 
 func (b *BridgeLibvirtSpecGenerator) generate(domainIface api.Interface) error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Alias.GetName() == b.iface.Name {
+		if iface.Alias.GetName() == b.vmiSpecIface.Name {
 			ifaces[i].MTU = domainIface.MTU
 			ifaces[i].MAC = domainIface.MAC
 			ifaces[i].Target = domainIface.Target
@@ -412,7 +388,7 @@ func getPIDString(pid *int) string {
 }
 
 func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
-	ifaceConfig, err := l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Read(l.iface.Name)
+	ifaceConfig, err := l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Read(l.vmiSpecIface.Name)
 
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -426,18 +402,18 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 }
 
 func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
-	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
+	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.vmiSpecIface.Name, &domainIface)
 }
 
 type MasqueradeLibvirtSpecGenerator struct {
-	iface  *v1.Interface
-	domain *api.Domain
+	vmiSpecIface *v1.Interface
+	domain       *api.Domain
 }
 
 func (b *MasqueradeLibvirtSpecGenerator) generate(domainIface api.Interface) error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Alias.GetName() == b.iface.Name {
+		if iface.Alias.GetName() == b.vmiSpecIface.Name {
 			ifaces[i].MTU = domainIface.MTU
 			ifaces[i].MAC = domainIface.MAC
 			ifaces[i].Target = domainIface.Target
@@ -448,8 +424,8 @@ func (b *MasqueradeLibvirtSpecGenerator) generate(domainIface api.Interface) err
 }
 
 type SlirpLibvirtSpecGenerator struct {
-	iface  *v1.Interface
-	domain *api.Domain
+	vmiSpecIface *v1.Interface
+	domain       *api.Domain
 }
 
 func (b *SlirpLibvirtSpecGenerator) generate(api.Interface) error {
@@ -457,7 +433,7 @@ func (b *SlirpLibvirtSpecGenerator) generate(api.Interface) error {
 	var foundIfaceModelType string
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Alias.GetName() == b.iface.Name {
+		if iface.Alias.GetName() == b.vmiSpecIface.Name {
 			b.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
 			foundIfaceModelType = iface.Model.Type
 			break
@@ -465,13 +441,13 @@ func (b *SlirpLibvirtSpecGenerator) generate(api.Interface) error {
 	}
 
 	if foundIfaceModelType == "" {
-		return fmt.Errorf("failed to find interface %s in vmi spec", b.iface.Name)
+		return fmt.Errorf("failed to find interface %s in vmi spec", b.vmiSpecIface.Name)
 	}
 
-	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", foundIfaceModelType, b.iface.Name, b.iface.Name)
-	if b.iface.MacAddress != "" {
+	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", foundIfaceModelType, b.vmiSpecIface.Name, b.vmiSpecIface.Name)
+	if b.vmiSpecIface.MacAddress != "" {
 		// We assume address was already validated in API layer so just pass it to libvirt as-is.
-		qemuArg += fmt.Sprintf(",mac=%s", b.iface.MacAddress)
+		qemuArg += fmt.Sprintf(",mac=%s", b.vmiSpecIface.MacAddress)
 	}
 	// Add interface configuration to qemuArgs
 	b.domain.Spec.QEMUCmd.QEMUArg = append(b.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
@@ -481,14 +457,14 @@ func (b *SlirpLibvirtSpecGenerator) generate(api.Interface) error {
 }
 
 type MacvtapLibvirtSpecGenerator struct {
-	iface  *v1.Interface
-	domain *api.Domain
+	vmiSpecIface *v1.Interface
+	domain       *api.Domain
 }
 
 func (b *MacvtapLibvirtSpecGenerator) generate(domainIface api.Interface) error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Alias.GetName() == b.iface.Name {
+		if iface.Alias.GetName() == b.vmiSpecIface.Name {
 			ifaces[i].MTU = domainIface.MTU
 			ifaces[i].MAC = domainIface.MAC
 			ifaces[i].Target = domainIface.Target

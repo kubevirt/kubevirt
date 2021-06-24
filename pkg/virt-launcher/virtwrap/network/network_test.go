@@ -69,8 +69,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Expect(nics).To(ConsistOf([]podNIC{{
 					vmi:              vm,
 					podInterfaceName: primaryPodInterfaceName,
-					iface:            iface,
-					network:          defaultNet,
+					vmiSpecIface:     iface,
+					vmiSpecNetwork:   defaultNet,
 					handler:          vmNetworkConfigurator.handler,
 					cacheFactory:     vmNetworkConfigurator.cacheFactory,
 					dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
@@ -103,8 +103,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ConsistOf([]podNIC{{
 					vmi:              vmi,
-					iface:            iface,
-					network:          cniNet,
+					vmiSpecIface:     iface,
+					vmiSpecNetwork:   cniNet,
 					podInterfaceName: multusInterfaceName,
 					handler:          vmNetworkConfigurator.handler,
 					cacheFactory:     vmNetworkConfigurator.cacheFactory,
@@ -168,8 +168,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Expect(nics).To(ContainElements([]podNIC{
 					{
 						vmi:              vm,
-						iface:            &vm.Spec.Domain.Devices.Interfaces[0],
-						network:          additionalCNINet1,
+						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[0],
+						vmiSpecNetwork:   additionalCNINet1,
 						podInterfaceName: "net1",
 						handler:          vmNetworkConfigurator.handler,
 						cacheFactory:     vmNetworkConfigurator.cacheFactory,
@@ -181,8 +181,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					},
 					{
 						vmi:              vm,
-						iface:            &vm.Spec.Domain.Devices.Interfaces[1],
-						network:          cniNet,
+						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[1],
+						vmiSpecNetwork:   cniNet,
 						podInterfaceName: "eth0",
 						handler:          vmNetworkConfigurator.handler,
 						cacheFactory:     vmNetworkConfigurator.cacheFactory,
@@ -194,8 +194,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					},
 					{
 						vmi:              vm,
-						iface:            &vm.Spec.Domain.Devices.Interfaces[2],
-						network:          additionalCNINet2,
+						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[2],
+						vmiSpecNetwork:   additionalCNINet2,
 						podInterfaceName: "net2",
 						handler:          vmNetworkConfigurator.handler,
 						cacheFactory:     vmNetworkConfigurator.cacheFactory,

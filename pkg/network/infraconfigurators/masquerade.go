@@ -33,34 +33,28 @@ const (
 
 type MasqueradePodNetworkConfigurator struct {
 	vmi                 *v1.VirtualMachineInstance
-	iface               *v1.Interface
+	vmiSpecIface        *v1.Interface
 	podNicLink          netlink.Link
-	domain              *api.Domain
 	bridgeInterfaceName string
 	vmNetworkCIDR       string
 	vmIPv6NetworkCIDR   string
-	gatewayAddr         *netlink.Addr
-	gatewayIpv6Addr     *netlink.Addr
-	cacheFactory        cache.InterfaceCacheFactory
+	vmGatewayAddr       *netlink.Addr
+	vmGatewayIpv6Addr   *netlink.Addr
 	launcherPID         int
-	queueCount          uint32
 	handler             netdriver.NetworkHandler
-	podIfaceIPv4Addr    netlink.Addr
-	podIfaceIPv6Addr    netlink.Addr
-	mac                 *net.HardwareAddr
+	vmIPv4Addr          netlink.Addr
+	vmIPv6Addr          netlink.Addr
+	vmMac               *net.HardwareAddr
 }
 
-func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, bridgeIfaceName string, mac *net.HardwareAddr, vmNetworkCIDR string, vmIPv6NetworkCIDR string, factory cache.InterfaceCacheFactory, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
+func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmNetworkCIDR string, vmIPv6NetworkCIDR string, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
 	return &MasqueradePodNetworkConfigurator{
 		vmi:                 vmi,
-		iface:               iface,
+		vmiSpecIface:        vmiSpecIface,
 		vmNetworkCIDR:       vmNetworkCIDR,
 		vmIPv6NetworkCIDR:   vmIPv6NetworkCIDR,
 		bridgeInterfaceName: bridgeIfaceName,
-		cacheFactory:        factory,
 		launcherPID:         launcherPID,
-		queueCount:          calculateNetworkQueues(vmi),
-		mac:                 mac,
 		handler:             handler,
 	}
 }
@@ -92,6 +86,11 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 		}
 	}
 
+	b.vmMac, err = retrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -101,8 +100,8 @@ func (b *MasqueradePodNetworkConfigurator) configureIPv4Addresses() error {
 	if err != nil {
 		return err
 	}
-	b.podIfaceIPv4Addr = *vmIPv4Addr
-	b.gatewayAddr = gatewayIPv4
+	b.vmIPv4Addr = *vmIPv4Addr
+	b.vmGatewayAddr = gatewayIPv4
 	return nil
 }
 
@@ -112,8 +111,8 @@ func (b *MasqueradePodNetworkConfigurator) configureIPv6Addresses() error {
 	if err != nil {
 		return err
 	}
-	b.podIfaceIPv6Addr = *vmIPv6Addr
-	b.gatewayIpv6Addr = gatewayIPv6
+	b.vmIPv6Addr = *vmIPv6Addr
+	b.vmGatewayIpv6Addr = gatewayIPv6
 	return nil
 
 }
@@ -156,21 +155,21 @@ func (b *MasqueradePodNetworkConfigurator) generateGatewayAndVmIPAddrs(protocol 
 func (b *MasqueradePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
 	dhcpConfig := &cache.DHCPConfig{
 		Name: b.podNicLink.Attrs().Name,
-		IP:   b.podIfaceIPv4Addr,
-		IPv6: b.podIfaceIPv6Addr,
+		IP:   b.vmIPv4Addr,
+		IPv6: b.vmIPv6Addr,
 	}
-	if b.mac != nil {
-		dhcpConfig.MAC = *b.mac
+	if b.vmMac != nil {
+		dhcpConfig.MAC = *b.vmMac
 	}
 	if b.podNicLink != nil {
 		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
 	}
-	if b.gatewayAddr != nil {
-		dhcpConfig.AdvertisingIPAddr = b.gatewayAddr.IP.To4()
-		dhcpConfig.Gateway = b.gatewayAddr.IP.To4()
+	if b.vmGatewayAddr != nil {
+		dhcpConfig.AdvertisingIPAddr = b.vmGatewayAddr.IP.To4()
+		dhcpConfig.Gateway = b.vmGatewayAddr.IP.To4()
 	}
-	if b.gatewayIpv6Addr != nil {
-		dhcpConfig.AdvertisingIPv6Addr = b.gatewayIpv6Addr.IP.To16()
+	if b.vmGatewayIpv6Addr != nil {
+		dhcpConfig.AdvertisingIPv6Addr = b.vmGatewayIpv6Addr.IP.To16()
 	}
 
 	return dhcpConfig
@@ -182,7 +181,7 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podNicLink.Attrs().Name)
-	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.queueCount, b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId)
+	err := createAndBindTapToBridge(b.handler, tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, netdriver.LibvirtUserAndGroupId, b.vmi)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -218,8 +217,8 @@ func (b *MasqueradePodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interfa
 			Managed: "no",
 		},
 	}
-	if b.mac != nil {
-		domainIface.MAC = &api.MAC{MAC: b.mac.String()}
+	if b.vmMac != nil {
+		domainIface.MAC = &api.MAC{MAC: b.vmMac.String()}
 	}
 	return domainIface
 }
@@ -248,7 +247,7 @@ func (b *MasqueradePodNetworkConfigurator) createBridge() error {
 		return err
 	}
 
-	if err := b.handler.AddrAdd(bridge, b.gatewayAddr); err != nil {
+	if err := b.handler.AddrAdd(bridge, b.vmGatewayAddr); err != nil {
 		log.Log.Reason(err).Errorf("failed to set bridge IP")
 		return err
 	}
@@ -258,7 +257,7 @@ func (b *MasqueradePodNetworkConfigurator) createBridge() error {
 		return err
 	}
 	if ipv6Enabled {
-		if err := b.handler.AddrAdd(bridge, b.gatewayIpv6Addr); err != nil {
+		if err := b.handler.AddrAdd(bridge, b.vmGatewayIpv6Addr); err != nil {
 			log.Log.Reason(err).Errorf("failed to set bridge IPv6")
 			return err
 		}
@@ -359,7 +358,7 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingIptables(protocol 
 		return err
 	}
 
-	if len(b.iface.Ports) == 0 {
+	if len(b.vmiSpecIface.Ports) == 0 {
 		err = b.handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
 			"-j",
 			"DNAT",
@@ -389,7 +388,7 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingIptables(protocol 
 		return nil
 	}
 
-	for _, port := range b.iface.Ports {
+	for _, port := range b.vmiSpecIface.Ports {
 		if port.Protocol == "" {
 			port.Protocol = "tcp"
 		}
@@ -488,7 +487,7 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 		return err
 	}
 
-	if len(b.iface.Ports) == 0 {
+	if len(b.vmiSpecIface.Ports) == 0 {
 		if hasIstioSidecarInjectionEnabled(b.vmi) {
 			err = b.skipForwardingForPortsUsingNftables(proto, PortsUsedByIstio())
 			if err != nil {
@@ -521,7 +520,7 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 		return nil
 	}
 
-	for _, port := range b.iface.Ports {
+	for _, port := range b.vmiSpecIface.Ports {
 		if port.Protocol == "" {
 			port.Protocol = "tcp"
 		}
@@ -578,17 +577,17 @@ func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingNftables(p
 
 func (b *MasqueradePodNetworkConfigurator) getGatewayByProtocol(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv4 {
-		return b.gatewayAddr.IP.String()
+		return b.vmGatewayAddr.IP.String()
 	} else {
-		return b.gatewayIpv6Addr.IP.String()
+		return b.vmGatewayIpv6Addr.IP.String()
 	}
 }
 
 func (b *MasqueradePodNetworkConfigurator) geVmIfaceIpByProtocol(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv4 {
-		return b.podIfaceIPv4Addr.IP.String()
+		return b.vmIPv4Addr.IP.String()
 	} else {
-		return b.podIfaceIPv6Addr.IP.String()
+		return b.vmIPv6Addr.IP.String()
 	}
 }
 
