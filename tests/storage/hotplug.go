@@ -299,17 +299,20 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 
 			foundVolume := 0
+			notReady := []string{}
 			for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
 				log.Log.Infof("Volume Status, name: %s, target [%s], phase:%s, reason: %s", volumeStatus.Name, volumeStatus.Target, volumeStatus.Phase, volumeStatus.Reason)
 				if _, ok := nameMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil {
 					if volumeStatus.Phase == phase {
 						foundVolume++
+					} else {
+						notReady = append(notReady, volumeStatus.Name)
 					}
 				}
 			}
 
 			if foundVolume != len(volumeNames) {
-				return fmt.Errorf("waiting on volume statuses for hotplug disks to be ready")
+				return fmt.Errorf("waiting on volume statuses for hotplug disks to be ready, volumes not ready: %s", notReady)
 			}
 
 			return nil

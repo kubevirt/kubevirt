@@ -261,7 +261,6 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 					return err
 				}
 			} else {
-				logger.V(4).Infof("Mounting file system volume: %s", volumeStatus.Name)
 				if err := m.mountFileSystemHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
 					return err
 				}
@@ -537,9 +536,11 @@ func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor in
 }
 
 func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
+	logger := log.DefaultLogger().Object(vmi)
+
 	sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
 	if err != nil {
-		log.DefaultLogger().Infof("Error finding source path: %v", err)
+		logger.Infof("Error finding source path: %v", err)
 		return nil
 	}
 
@@ -559,10 +560,12 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		if err := m.writePathToMountRecord(targetPath, vmi, record); err != nil {
 			return err
 		}
+		logger.V(4).Infof("Mounting block volume: %s on %s", volume, targetPath)
 		if out, err := mountCommand(sourcePath, targetPath); err != nil {
 			return fmt.Errorf("failed to bindmount hotplug-disk %v: %v : %v", volume, string(out), err)
 		}
 	} else {
+		logger.V(9).Infof("Already mounted %s on %s", volume, targetPath)
 		return nil
 	}
 	return nil
