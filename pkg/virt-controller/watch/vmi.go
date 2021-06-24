@@ -37,6 +37,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -91,6 +93,8 @@ const (
 	// FailedGuaranteePodResourcesReason is added in an event and in a vmi controller condition
 	// when a pod has been created without a Guaranteed resources.
 	FailedGuaranteePodResourcesReason = "FailedGuaranteeResources"
+	// FailedGatherhingClusterTopologyHints is added if the cluster topology hints can't be collected for a VMI by virt-controller
+	FailedGatherhingClusterTopologyHints = "FailedGatherhingClusterTopologyHints"
 	// FailedPvcNotFoundReason is added in an event
 	// when a PVC for a volume was not found.
 	FailedPvcNotFoundReason = "FailedPvcNotFound"
@@ -118,7 +122,9 @@ func NewVMIController(templateService services.TemplateService,
 	pvcInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
-	dataVolumeInformer cache.SharedIndexInformer) *VMIController {
+	dataVolumeInformer cache.SharedIndexInformer,
+	topologyHinter topology.Hinter,
+) *VMIController {
 
 	c := &VMIController{
 		templateService:    templateService,
@@ -130,6 +136,7 @@ func NewVMIController(templateService services.TemplateService,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeInformer: dataVolumeInformer,
+		topologyHinter:     topologyHinter,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -178,6 +185,7 @@ type VMIController struct {
 	vmiInformer        cache.SharedIndexInformer
 	podInformer        cache.SharedIndexInformer
 	pvcInformer        cache.SharedIndexInformer
+	topologyHinter     topology.Hinter
 	recorder           record.EventRecorder
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	dataVolumeInformer cache.SharedIndexInformer
@@ -365,6 +373,14 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
+			if vmi.Status.TopologyHints == nil && c.topologyHinter.TopologyHintsRequiredForVMI(vmi) {
+				if topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil {
+					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
+					return &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}
+				} else if topologyHints != nil {
+					vmiCopy.Status.TopologyHints = topologyHints
+				}
+			}
 			if hasWffcDataVolume {
 				condition := virtv1.VirtualMachineInstanceCondition{
 					Type:   virtv1.VirtualMachineInstanceProvisioning,
@@ -428,17 +444,17 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
 					syncErr = &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}
-				} else {
-
-					// vmi is still owned by the controller but pod is already ready,
-					// so let's hand over the vmi too
-					vmiCopy.Status.Phase = virtv1.Scheduled
-					if vmiCopy.Labels == nil {
-						vmiCopy.Labels = map[string]string{}
-					}
-					vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
-					vmiCopy.Status.NodeName = pod.Spec.NodeName
+					break
 				}
+
+				// vmi is still owned by the controller but pod is already ready,
+				// so let's hand over the vmi too
+				vmiCopy.Status.Phase = virtv1.Scheduled
+				if vmiCopy.Labels == nil {
+					vmiCopy.Labels = map[string]string{}
+				}
+				vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
+				vmiCopy.Status.NodeName = pod.Spec.NodeName
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
@@ -727,6 +743,11 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	if !podExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
+			return nil
+		}
+		// let's check if we already have topology hints or if we are still waiting for them
+		if vmi.Status.TopologyHints == nil && c.topologyHinter.TopologyHintsRequiredForVMI(vmi) {
+			log.Log.V(3).Object(vmi).Infof("Delaying pod creation until topology hints are set")
 			return nil
 		}
 

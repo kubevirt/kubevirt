@@ -208,6 +208,10 @@ func (c *ClusterConfig) GetCPUAllocationRatio() int {
 	return c.GetConfig().DeveloperConfiguration.CPUAllocationRatio
 }
 
+func (c *ClusterConfig) GetMinimumClusterTSCFrequency() *int64 {
+	return c.GetConfig().DeveloperConfiguration.MinimumClusterTSCFrequency
+}
+
 func (c *ClusterConfig) GetPermittedHostDevices() *v1.PermittedHostDevices {
 	return c.GetConfig().PermittedHostDevices
 }

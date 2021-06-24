@@ -505,6 +505,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.SyNICTimer":                                                 schema_kubevirtio_client_go_api_v1_SyNICTimer(ref),
 		"kubevirt.io/client-go/api/v1.SysprepSource":                                              schema_kubevirtio_client_go_api_v1_SysprepSource(ref),
 		"kubevirt.io/client-go/api/v1.Timer":                                                      schema_kubevirtio_client_go_api_v1_Timer(ref),
+		"kubevirt.io/client-go/api/v1.TopologyHints":                                              schema_kubevirtio_client_go_api_v1_TopologyHints(ref),
 		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredential":                               schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredential(ref),
 		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialPropagationMethod":              schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredentialPropagationMethod(ref),
 		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialSource":                         schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredentialSource(ref),
@@ -19657,6 +19658,13 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 							Format: "int32",
 						},
 					},
+					"minimumClusterTSCFrequency": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allow overriding the automatically determined minimum TSC frequency of the cluster and fixate the minimum to this frequency.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"logVerbosity": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/client-go/api/v1.LogVerbosity"),
@@ -23011,6 +23019,24 @@ func schema_kubevirtio_client_go_api_v1_Timer(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_TopologyHints(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"tscFrequency": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredential(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -24751,11 +24777,16 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Format:      "",
 						},
 					},
+					"topologyHints": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.TopologyHints"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/client-go/api/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/client-go/api/v1.VolumeStatus"},
+			"kubevirt.io/client-go/api/v1.TopologyHints", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/client-go/api/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/client-go/api/v1.VolumeStatus"},
 	}
 }
 

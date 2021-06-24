@@ -830,6 +830,7 @@ type Timer struct {
 	TickPolicy string `xml:"tickpolicy,attr,omitempty"`
 	Present    string `xml:"present,attr,omitempty"`
 	Track      string `xml:"track,attr,omitempty"`
+	Frequency  string `xml:"frequency,attr,omitempty"`
 }
 
 //END Clock --------------------

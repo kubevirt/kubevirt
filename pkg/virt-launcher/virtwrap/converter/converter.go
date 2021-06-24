@@ -31,6 +31,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -1535,6 +1537,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 					Policy: feature.Policy,
 				})
 			}
+		}
+
+		// Make use of the tsc frequency topology hint
+		if topology.VMIHasInvTSCFeature(vmi) && vmi.Status.TopologyHints != nil && vmi.Status.TopologyHints.TSCFrequency != nil {
+			freq := *vmi.Status.TopologyHints.TSCFrequency
+			clock := domain.Spec.Clock
+			if clock == nil {
+				clock = &api.Clock{}
+			}
+			clock.Timer = append(clock.Timer, api.Timer{Name: "tsc", Frequency: strconv.FormatInt(freq, 10)})
+			domain.Spec.Clock = clock
 		}
 
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning

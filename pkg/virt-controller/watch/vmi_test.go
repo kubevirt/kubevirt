@@ -44,6 +44,8 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -209,6 +211,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			recorder,
 			virtClient,
 			dataVolumeInformer,
+			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", nil),
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)

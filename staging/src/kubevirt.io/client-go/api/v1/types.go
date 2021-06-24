@@ -177,6 +177,11 @@ type VirtualMachineInstancePhaseTransitionTimestamp struct {
 	PhaseTransitionTimestamp metav1.Time `json:"phaseTransitionTimestamp,omitempty"`
 }
 
+// +k8s:openapi-gen=true
+type TopologyHints struct {
+	TSCFrequency *int64 `json:"tscFrequency,omitempty"`
+}
+
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual
 // state of a system.
 //
@@ -230,6 +235,9 @@ type VirtualMachineInstanceStatus struct {
 	// it can be either frozen or thawed
 	// +optional
 	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
+
+	// +optional
+	TopologyHints *TopologyHints `json:"topologyHints,omitempty"`
 }
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
@@ -1883,7 +1891,10 @@ type DeveloperConfiguration struct {
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
 	UseEmulation           bool              `json:"useEmulation,omitempty"`
 	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
-	LogVerbosity           *LogVerbosity     `json:"logVerbosity,omitempty"`
+	// Allow overriding the automatically determined minimum TSC frequency of the cluster
+	// and fixate the minimum to this frequency.
+	MinimumClusterTSCFrequency *int64        `json:"minimumClusterTSCFrequency,omitempty"`
+	LogVerbosity               *LogVerbosity `json:"logVerbosity,omitempty"`
 }
 
 // LogVerbosity sets log verbosity level of  various components

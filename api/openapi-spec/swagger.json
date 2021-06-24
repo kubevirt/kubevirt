@@ -9427,6 +9427,11 @@
       "type": "integer",
       "format": "int32"
      },
+     "minimumClusterTSCFrequency": {
+      "description": "Allow overriding the automatically determined minimum TSC frequency of the cluster and fixate the minimum to this frequency.",
+      "type": "integer",
+      "format": "int64"
+     },
      "minimumReservePVCBytes": {
       "type": "integer",
       "format": "int64"
@@ -11167,6 +11172,15 @@
      }
     }
    },
+   "v1.TopologyHints": {
+    "type": "object",
+    "properties": {
+     "tscFrequency": {
+      "type": "integer",
+      "format": "int64"
+     }
+    }
+   },
    "v1.UserPasswordAccessCredential": {
     "description": "UserPasswordAccessCredential represents a source and propagation method for injecting user passwords into a vm guest Only one of its members may be specified.",
     "type": "object",
@@ -12150,6 +12164,9 @@
      "reason": {
       "description": "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'",
       "type": "string"
+     },
+     "topologyHints": {
+      "$ref": "#/definitions/v1.TopologyHints"
      },
      "volumeStatus": {
       "description": "VolumeStatus contains the statuses of all the volumes",

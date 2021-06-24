@@ -42,6 +42,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	"kubevirt.io/kubevirt/pkg/healthz"
 
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
@@ -84,6 +86,7 @@ const (
 
 	defaultLauncherSubGid                 = 107
 	defaultSnapshotControllerResyncPeriod = 5 * time.Minute
+	defaultNodeTopologyUpdatePeriod       = 30 * time.Second
 
 	defaultPromCertFilePath = "/etc/virt-controller/certificates/tls.crt"
 	defaultPromKeyFilePath  = "/etc/virt-controller/certificates/tls.key"
@@ -192,9 +195,11 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 
-	caConfigMapName  string
-	promCertFilePath string
-	promKeyFilePath  string
+	caConfigMapName          string
+	promCertFilePath         string
+	promKeyFilePath          string
+	nodeTopologyUpdater      topology.NodeTopologyUpdater
+	nodeTopologyUpdatePeriod time.Duration
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -425,6 +430,8 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
 		go vca.restoreController.Run(vca.restoreControllerThreads, stop)
 		go vca.workloadUpdateController.Run(stop)
+		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
+
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 		close(vca.readyChan)
 		leaderGauge.Set(1)
@@ -460,10 +467,32 @@ func (vca *VirtControllerApp) initCommon() {
 		runtime.GOARCH,
 	)
 
-	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.persistentVolumeClaimInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
+	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH, vca.clusterConfig)
+
+	vca.vmiController = NewVMIController(
+		vca.templateService,
+		vca.vmiInformer,
+		vca.kvPodInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.vmiRecorder,
+		vca.clientSet,
+		vca.dataVolumeInformer,
+		topologyHinter,
+	)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.migrationInformer, vca.nodeInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
+	vca.migrationController = NewMigrationController(
+		vca.templateService,
+		vca.vmiInformer,
+		vca.kvPodInformer,
+		vca.migrationInformer,
+		vca.nodeInformer,
+		vca.vmiRecorder,
+		vca.clientSet,
+		vca.clusterConfig,
+	)
+
+	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.clientSet, topologyHinter, vca.nodeInformer)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -638,6 +667,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.DurationVar(&vca.snapshotControllerResyncPeriod, "snapshot-controller-resync-period", defaultSnapshotControllerResyncPeriod,
 		"Number of goroutines to run for snapshot controller")
+
+	flag.DurationVar(&vca.nodeTopologyUpdatePeriod, "node-topology-update-period", defaultNodeTopologyUpdatePeriod,
+		"Update period for the node topology updater")
 
 	flag.StringVar(&vca.promCertFilePath, "prom-cert-file", defaultPromCertFilePath,
 		"Client certificate used to prove the identity of the virt-controller when it must call out Promethus during a request")
