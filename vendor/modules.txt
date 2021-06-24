@@ -82,7 +82,7 @@ github.com/imdario/mergo
 github.com/josharian/intern
 # github.com/json-iterator/go v1.1.11
 github.com/json-iterator/go
-# github.com/kubevirt/cluster-network-addons-operator v0.56.0
+# github.com/kubevirt/cluster-network-addons-operator v0.57.0
 ## explicit
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared
