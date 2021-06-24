@@ -74,11 +74,8 @@ var _ = Describe("NumaPlacement", func() {
 		givenVMI.Spec.Domain.Memory = &v1.Memory{Guest: &memory}
 	})
 
-	It("should map a basic valid system", func() {
-		Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
-		Expect(givenSpec.CPUTune).To(Equal(expectedSpec.CPUTune))
-		Expect(givenSpec.NUMATune).To(Equal(expectedSpec.NUMATune))
-		Expect(givenSpec.CPU).To(Equal(expectedSpec.CPU))
+	It("should not map the numa topology without hugepages requested", func() {
+		Expect(numaMapping(givenVMI, givenSpec, givenTopology)).ToNot(Succeed())
 	})
 
 	table.DescribeTable("it should do nothing", func(givenTopology *cmdv1.Topology) {

@@ -68,7 +68,9 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 
 	hugepagesSize, hugepagesUnit, hugepagesEnabled, err := hugePagesInfo(vmi, domain)
 	if err != nil {
-		return fmt.Errorf("failed to determine if hugepages are neabled: %v", err)
+		return fmt.Errorf("failed to determine if hugepages are enabled: %v", err)
+	} else if !hugepagesEnabled {
+		return fmt.Errorf("passing through a numa topology is restricted to VMIs with hugepages enabled")
 	}
 
 	memory, err := QuantityToMebiByte(*getVirtualMemory(vmi))
@@ -76,17 +78,15 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 		return fmt.Errorf("could not convert VMI memory to quantity: %v", err)
 	}
 	var mod uint64
-	if hugepagesEnabled {
-		cellCount := uint64(len(involvedCellIDs))
-		if memory < cellCount*hugepagesSize {
-			return fmt.Errorf("not enough memory requested to allocate at least one hugepage per numa node: %v < %v", memory, cellCount*(hugepagesSize*1024*1024))
-		} else if memory%hugepagesSize != 0 {
-			return fmt.Errorf("requested memory can't be divided through the numa page size: %v mod %v != 0", memory, hugepagesSize)
-		}
-		mod = (memory % (hugepagesSize * cellCount) / hugepagesSize)
-		if mod != 0 {
-			memory = memory - mod*hugepagesSize
-		}
+	cellCount := uint64(len(involvedCellIDs))
+	if memory < cellCount*hugepagesSize {
+		return fmt.Errorf("not enough memory requested to allocate at least one hugepage per numa node: %v < %v", memory, cellCount*(hugepagesSize*1024*1024))
+	} else if memory%hugepagesSize != 0 {
+		return fmt.Errorf("requested memory can't be divided through the numa page size: %v mod %v != 0", memory, hugepagesSize)
+	}
+	mod = (memory % (hugepagesSize * cellCount) / hugepagesSize)
+	if mod != 0 {
+		memory = memory - mod*hugepagesSize
 	}
 
 	virtualCellID := -1
@@ -109,13 +109,11 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 				Mode:    "strict",
 				NodeSet: strconv.Itoa(int(cell.Id)),
 			})
-			if hugepagesEnabled {
-				domain.MemoryBacking.HugePages.HugePage = append(domain.MemoryBacking.HugePages.HugePage, api.HugePage{
-					Size:    strconv.Itoa(int(hugepagesSize)),
-					Unit:    hugepagesUnit,
-					NodeSet: strconv.Itoa(virtualCellID),
-				})
-			}
+			domain.MemoryBacking.HugePages.HugePage = append(domain.MemoryBacking.HugePages.HugePage, api.HugePage{
+				Size:    strconv.Itoa(int(hugepagesSize)),
+				Unit:    hugepagesUnit,
+				NodeSet: strconv.Itoa(virtualCellID),
+			})
 		}
 	}
 
