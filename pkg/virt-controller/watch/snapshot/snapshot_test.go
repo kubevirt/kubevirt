@@ -662,6 +662,23 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 			})
 
+			It("should init VirtualMachineSnapshotStatus online indication if vm is running", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Finalizers = nil
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
+				updatedSnapshot.Status.Indications = append(updatedSnapshot.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
+				updatedSnapshot.Status.Indications = append(updatedSnapshot.Status.Indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+				vm := createLockedVM()
+				vm.Spec.Running = &t
+
+				vmSource.Add(vm)
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
 			It("should create VirtualMachineSnapshotContent", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createLockedVM()
@@ -703,37 +720,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				vm := createLockedVM()
-
-				vmSource.Add(vm)
-				vmSnapshotContentSource.Add(vmSnapshotContent)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-			})
-
-			It("should update VirtualMachineSnapshotStatus Indications if vm is running", func() {
-				vmSnapshotContent := createVMSnapshotContent()
-				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					CreationTime: timeFunc(),
-					ReadyToUse:   &t,
-				}
-
-				vmSnapshot := createVMSnapshotInProgress()
-				updatedSnapshot := vmSnapshot.DeepCopy()
-				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Status.SourceUID = &vmUID
-				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
-				updatedSnapshot.Status.CreationTime = timeFunc()
-				updatedSnapshot.Status.ReadyToUse = &t
-				updatedSnapshot.Status.Indications = append(updatedSnapshot.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
-				updatedSnapshot.Status.Indications = append(updatedSnapshot.Status.Indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
-				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
-					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
-				}
-
-				vm := createLockedVM()
-				vm.Spec.Running = &t
 
 				vmSource.Add(vm)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
