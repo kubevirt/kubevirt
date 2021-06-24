@@ -423,6 +423,20 @@ var _ = SIGDescribe("Hotplug", func() {
 		return targets
 	}
 
+	verifySingleAttachmentPod := func(vmi *kubevirtv1.VirtualMachineInstance) {
+		podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		attachmentPodCount := 0
+		for _, pod := range podList.Items {
+			for _, ownerRef := range pod.GetOwnerReferences() {
+				if ownerRef.UID == vmi.GetUID() {
+					attachmentPodCount++
+				}
+			}
+		}
+		Expect(attachmentPodCount).To(Equal(1), "Number of attachment pods is not 1: %s", attachmentPodCount)
+	}
+
 	getVmiConsoleAndLogin := func(vmi *kubevirtv1.VirtualMachineInstance) {
 		By("Obtaining the serial console")
 		Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -505,6 +519,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, dvNames...)
 			getVmiConsoleAndLogin(vmi)
 			verifyHotplugAttachedAndUseable(vmi, dvNames)
+			verifySingleAttachmentPod(vmi)
 			for _, volumeName := range dvNames {
 				By("removing volume " + volumeName + " from VM")
 				removeVolumeFunc(vm.Name, vm.Namespace, volumeName)
@@ -583,6 +598,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
 				getVmiConsoleAndLogin(vmi)
 				targets := verifyHotplugAttachedAndUseable(vmi, []string{"testvolume"})
+				verifySingleAttachmentPod(vmi)
 				By("removing volume from VM")
 				removeVolumeFunc(vm.Name, vm.Namespace, "testvolume")
 				if !vmiOnly {
@@ -622,6 +638,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumeAndDiskVMIAdded(vmi, testVolumes...)
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes...)
 				targets := verifyHotplugAttachedAndUseable(vmi, testVolumes)
+				verifySingleAttachmentPod(vmi)
 				for _, volumeName := range testVolumes {
 					By("removing volume " + volumeName + " from VM")
 					removeVolumeFunc(vm.Name, vm.Namespace, volumeName)
@@ -665,7 +682,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, testVolumes[:len(testVolumes)-1]...)
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes[:len(testVolumes)-1]...)
-
+				verifySingleAttachmentPod(vmi)
 				By("removing volume sdc, with dv" + dvNames[2])
 				Eventually(func() string {
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -709,7 +726,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					}
 					return ""
 				}, 40*time.Second, 2*time.Second).Should(Equal("sde"))
-
+				verifySingleAttachmentPod(vmi)
 				for _, volumeName := range testVolumes {
 					By("removing volume from VM")
 					removeVolumeFunc(vm.Name, vm.Namespace, volumeName)
@@ -739,6 +756,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+				verifySingleAttachmentPod(vmi)
 
 				By("stopping VM")
 				vm = tests.StopVirtualMachine(vm)
@@ -787,7 +805,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				for i := 0; i < 2; i++ {
 					verifyVolumeAccessible(vmi, targets[i])
 				}
-
+				verifySingleAttachmentPod(vmi)
 				removeVolumeVMI(vmi.Name, vmi.Namespace, "block")
 				removeVolumeVMI(vmi.Name, vmi.Namespace, "fs")
 
@@ -907,6 +925,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			getVmiConsoleAndLogin(vmi)
 			targets := getTargetsFromVolumeStatus(vmi, "testvolume")
 			verifyVolumeAccessible(vmi, targets[0])
+			verifySingleAttachmentPod(vmi)
 			By("removing volume from VM")
 			removeVolumeVMI(vm.Name, vm.Namespace, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, targets[0])
@@ -946,6 +965,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			getVmiConsoleAndLogin(vmi)
 			targets := getTargetsFromVolumeStatus(vmi, dv.Name)
 			verifyVolumeAccessible(vmi, targets[0])
+			verifySingleAttachmentPod(vmi)
 
 			By("Invoking virtlctl removevolume")
 			removeVolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_REMOVEVOLUME, vmi.Name, fmt.Sprintf(virtCtlVolumeName, dv.Name), virtCtlNamespace, vmi.Namespace)
