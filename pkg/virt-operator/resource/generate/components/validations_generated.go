@@ -643,10 +643,19 @@ var CRDsValidation map[string]string = map[string]string{
                       for passthrough
                     properties:
                       externalResourceProvider:
+                        description: If true, KubeVirt will leave the allocation and
+                          monitoring to an external device plugin
                         type: boolean
                       pciVendorSelector:
+                        description: The vendor_id:product_id tupple of the PCI device
                         type: string
                       resourceName:
+                        description: The name of the resource that is representing
+                          the device. Exposed by a device plugin and requested by
+                          VMs. Typically of the form vendor.com/product_nameThe name
+                          of the resource that is representing the device. Exposed
+                          by a device plugin and requested by VMs. Typically of the
+                          form vendor.com/product_name
                         type: string
                     required:
                     - pciVendorSelector
