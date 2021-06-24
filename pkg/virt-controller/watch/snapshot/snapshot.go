@@ -371,6 +371,17 @@ func (ctrl *VMSnapshotController) initVMSnapshot(vmSnapshot *snapshotv1.VirtualM
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	controller.AddFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
 
+	onlineSnapshot, err := ctrl.checkOnlineSnapshotting(vmSnapshotCpy)
+	if err != nil {
+		return false, err
+	}
+
+	if onlineSnapshot {
+		log.Log.V(3).Infof("Updating snapshot indications that the vm is online during the snapshot")
+		vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
+		vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+	}
+
 	if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshot.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 		return false, err
 	}
@@ -588,19 +599,6 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 
 		if content != nil && content.Status != nil {
 			// content exists and is initialized
-			if !vmSnapshotReady(vmSnapshotCpy) && vmSnapshotContentReady(content) {
-				onlineSnapshot, err := ctrl.checkOnlineSnapshotting(vmSnapshotCpy)
-				if err != nil {
-					return err
-				}
-
-				if onlineSnapshot {
-					log.Log.V(3).Infof("Updating snapshot indications that the vm was online")
-					vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
-					log.Log.V(3).Infof("Updating snapshot indications that it was taken without guest agent participation")
-					vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
-				}
-			}
 			vmSnapshotCpy.Status.VirtualMachineSnapshotContentName = &content.Name
 			vmSnapshotCpy.Status.CreationTime = content.Status.CreationTime
 			vmSnapshotCpy.Status.ReadyToUse = content.Status.ReadyToUse
