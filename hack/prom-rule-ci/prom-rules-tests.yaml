@@ -68,16 +68,22 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "All virt-api servers are down."
+            exp_labels:
+              severity: "critical"
       - eval_time: 5m
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
               summary: "No running virt-controller was detected for the last 5 min."
+            exp_labels:
+              severity: "critical"
       - eval_time: 5m
         alertname: VirtOperatorDown
         exp_alerts:
           - exp_annotations:
               summary: "All virt-operator servers are down."
+            exp_labels:
+              severity: "critical"
 
     # vmi running on a node without a virt-handler pod
   - interval: 1m
@@ -122,6 +128,8 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "Some virt controllers are running but not ready."
+            exp_labels:
+              severity: "warning"
 
   # All virt controllers are not ready
   - interval: 1m
@@ -135,6 +143,8 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "No ready virt-controller was detected for the last 5 min."
+            exp_labels:
+              severity: "critical"
 
   - interval: 1m
     input_series:
@@ -147,6 +157,8 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "No ready virt-controller was detected for the last 5 min."
+            exp_labels:
+              severity: "critical"
 
   # High REST errors
   - interval: 1m
@@ -172,6 +184,7 @@ tests:
               summary: "More than 5% of the rest calls failed in virt-controller for the last hour"
             exp_labels:
               pod: "virt-controller-1"
+              severity: "warning"
       - eval_time: 5m
         alertname: VirtControllerRESTErrorsBurst
         exp_alerts:
@@ -179,6 +192,7 @@ tests:
               summary: "More than 80% of the rest calls failed in virt-controller for the last 5 minutes"
             exp_labels:
               pod: "virt-controller-1"
+              severity: "critical"
       - eval_time: 5m
         alertname: VirtOperatorRESTErrorsHigh
         exp_alerts:
@@ -186,6 +200,7 @@ tests:
               summary: "More than 5% of the rest calls failed in virt-operator for the last hour"
             exp_labels:
               pod: "virt-operator-1"
+              severity: "warning"
       - eval_time: 5m
         alertname: VirtOperatorRESTErrorsBurst
         exp_alerts:
@@ -193,6 +208,7 @@ tests:
               summary: "More than 80% of the rest calls failed in virt-operator for the last 5 minutes"
             exp_labels:
               pod: "virt-operator-1"
+              severity: "critical"
       - eval_time: 5m
         alertname: VirtHandlerRESTErrorsHigh
         exp_alerts:
@@ -200,6 +216,7 @@ tests:
               summary: "More than 5% of the rest calls failed in virt-handler for the last hour"
             exp_labels:
               pod: "virt-handler-1"
+              severity: "warning"
       - eval_time: 5m
         alertname: VirtHandlerRESTErrorsBurst
         exp_alerts:
@@ -207,6 +224,7 @@ tests:
               summary: "More than 80% of the rest calls failed in virt-handler for the last 5 minutes"
             exp_labels:
               pod: "virt-handler-1"
+              severity: "critical"
 
   # Some nodes without KVM resources
   - interval: 1m
