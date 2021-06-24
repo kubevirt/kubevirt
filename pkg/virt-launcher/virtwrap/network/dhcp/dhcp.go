@@ -108,15 +108,20 @@ func prepareDHCPOptions(
 	binary.BigEndian.PutUint16(mtuArray, mtu)
 
 	dhcpOptions := dhcp.Options{
-		dhcp.OptionSubnetMask:       []byte(clientMask),
-		dhcp.OptionRouter:           []byte(routerIP),
 		dhcp.OptionDomainNameServer: bytes.Join(dnsIPs, nil),
 		dhcp.OptionInterfaceMTU:     mtuArray,
 	}
 
+	if len(clientMask) != 0 {
+		dhcpOptions[dhcp.OptionSubnetMask] = clientMask
+	}
+	if len(routerIP) != 0 {
+		dhcpOptions[dhcp.OptionRouter] = routerIP
+	}
+
 	netRoutes := formClasslessRoutes(routes)
 
-	if netRoutes != nil {
+	if len(netRoutes) != 0 {
 		dhcpOptions[dhcp.OptionClasslessRouteFormat] = netRoutes
 	}
 

@@ -244,5 +244,35 @@ var _ = Describe("DHCP", func() {
 			}))
 			Expect(options[240]).To(Equal([]byte("private.options.kubevirt.io")))
 		})
+
+		Context("Options set to invalid value", func() {
+			var (
+				err           error
+				clientMask    []byte
+				routerIP      net.IP
+				dnsIPs        [][]byte
+				routes        *[]netlink.Route
+				hostname      string
+				searchDomains []string
+				dhcpOptions   *v1.DHCPOptions
+				options       dhcp4.Options
+			)
+			BeforeEach(func() {
+				options, err = prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, 1500, hostname, dhcpOptions)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should omit RouterIP Option", func() {
+				_, ok := options[dhcp4.OptionRouter]
+				Expect(ok).To(BeFalse())
+			})
+			It("should omit Classless Static Route Option", func() {
+				_, ok := options[dhcp4.OptionClasslessRouteFormat]
+				Expect(ok).To(BeFalse())
+			})
+			It("should omit Subnet Mask Option", func() {
+				_, ok := options[dhcp4.OptionSubnetMask]
+				Expect(ok).To(BeFalse())
+			})
+		})
 	})
 })
