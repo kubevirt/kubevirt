@@ -68,6 +68,7 @@ type Indication string
 const (
 	VMSnapshotOnlineSnapshotIndication Indication = "Online"
 	VMSnapshotNoGuestAgentIndication   Indication = "NoGuestAgent"
+	VMSnapshotGuestAgentIndication     Indication = "GuestAgent"
 )
 
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource
