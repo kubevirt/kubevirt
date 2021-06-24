@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"time"
 
@@ -884,6 +885,13 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 	})
 
 	Context("Fedora VMI tests", func() {
+		imageSizeEqual := func(a, b int64) bool {
+			// Our OCS image size method probe is very precise and can show a few
+			// bytes of difference.
+			// A VM cannot do sub-512 byte accesses anyway, so such small size
+			// differences are practically equal.
+			return math.Abs((float64)(a-b)) < 512
+		}
 		getImageSize := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, withOCS bool) int64 {
 			var imageSize int64
 			var unused string
@@ -984,7 +992,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 
 			if preallocated {
 				// Preallocation means no changes to disk size
-				Eventually(getImageSize(vmi, dataVolume, withOCS), 120*time.Second).Should(Equal(imageSizeAfterBoot))
+				Eventually(imageSizeEqual(getImageSize(vmi, dataVolume, withOCS), imageSizeAfterBoot), 120*time.Second).Should(BeTrue())
 			} else {
 				Eventually(getImageSize(vmi, dataVolume, withOCS), 120*time.Second).Should(BeNumerically(">", imageSizeAfterBoot))
 			}
@@ -1021,7 +1029,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 					return currentImageSize < imageSizeBeforeTrim
 				} else if preallocated {
 					By(fmt.Sprintf("Trim shouldn't do anything, and preallocation should mean no change to disk usage.\nIt is currently %d and was previously %d", currentImageSize, imageSizeBeforeTrim))
-					return currentImageSize == imageSizeBeforeTrim
+					return imageSizeEqual(currentImageSize, imageSizeBeforeTrim)
 
 				} else {
 					By(fmt.Sprintf("Trim shouldn't do anything, but we expect size usage to go up, because we wrote another small file.\nIt is currently %d and was previously %d", currentImageSize, imageSizeBeforeTrim))
