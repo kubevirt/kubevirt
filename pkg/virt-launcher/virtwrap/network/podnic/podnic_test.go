@@ -18,6 +18,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
+	"kubevirt.io/kubevirt/pkg/network/dhcp"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
@@ -191,4 +192,63 @@ var _ = Describe("PodNIC", func() {
 			Expect(podnic.PlugPhase2(&api.Domain{})).To(Succeed())
 		})
 	})
+	Context("when podnic is constructed with a VMI with bridge binding", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			nic *PodNIC
+		)
+		BeforeEach(func() {
+			vmi = newVMIBridgeInterface("testnamespace", "testVmName")
+			nic = NewWithMocks(vmi)
+		})
+		It("should fill in usual fields", func() {
+			Expect(nic).ToNot(BeNil())
+			Expect(nic.vmi).To(Equal(vmi))
+			Expect(nic.podInterfaceName).To(Equal(primaryPodInterfaceName))
+			Expect(nic.iface).ToNot(BeNil())
+			Expect(*nic.iface).To(Equal(vmi.Spec.Domain.Devices.Interfaces[0]))
+			Expect(nic.network).ToNot(BeNil())
+			Expect(*nic.network).To(Equal(vmi.Spec.Networks[0]))
+			Expect(nic.handler).To(Equal(mockNetwork))
+			Expect(nic.cacheFactory).To(Equal(cacheFactory))
+		})
+		It("should select DHCP configurator with client filter", func() {
+			Expect(nic.dhcpConfigurator).To(Equal(dhcp.NewConfiguratorWithClientFilter(
+				cacheFactory,
+				getPIDString(nil),
+				generateInPodBridgeInterfaceName(primaryPodInterfaceName),
+				mockNetwork,
+			)))
+		})
+	})
+	Context("when podnic is constructed with a VMI with masquerade binding", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			nic *PodNIC
+		)
+		BeforeEach(func() {
+			vmi = newVMIMasqueradeInterface("testnamespace", "testVmName")
+			nic = NewWithMocks(vmi)
+		})
+		It("should fill in usual fields", func() {
+			Expect(nic).ToNot(BeNil())
+			Expect(nic.vmi).To(Equal(vmi))
+			Expect(nic.podInterfaceName).To(Equal(primaryPodInterfaceName))
+			Expect(nic.iface).ToNot(BeNil())
+			Expect(*nic.iface).To(Equal(vmi.Spec.Domain.Devices.Interfaces[0]))
+			Expect(nic.network).ToNot(BeNil())
+			Expect(*nic.network).To(Equal(vmi.Spec.Networks[0]))
+			Expect(nic.handler).To(Equal(mockNetwork))
+			Expect(nic.cacheFactory).To(Equal(cacheFactory))
+		})
+		It("should select DHCP configurator with client filter", func() {
+			Expect(nic.dhcpConfigurator).To(Equal(dhcp.NewConfigurator(
+				cacheFactory,
+				getPIDString(nil),
+				generateInPodBridgeInterfaceName(primaryPodInterfaceName),
+				mockNetwork,
+			)))
+		})
+	})
+
 })

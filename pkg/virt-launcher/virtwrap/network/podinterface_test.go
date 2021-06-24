@@ -19,6 +19,8 @@
 
 package network
 
+/*
+
 import (
 	"fmt"
 	"net"
@@ -674,3 +676,4 @@ func NewDomainWithMacvtapInterface(macvtapName string) *api.Domain {
 	}}
 	return domain
 }
+*/

@@ -17,6 +17,8 @@
  *
  */
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
 package network
 
 import (
@@ -30,16 +32,28 @@ import (
 )
 
 type VMNetworkConfigurator struct {
-	vmi          *v1.VirtualMachineInstance
-	handler      netdriver.NetworkHandler
-	cacheFactory cache.InterfaceCacheFactory
+	vmi           *v1.VirtualMachineInstance
+	handler       netdriver.NetworkHandler
+	cacheFactory  cache.InterfaceCacheFactory
+	podNICFactory podNICFactory
+}
+
+type podNICFactory interface {
+	NewPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podnic.PodNIC, error)
+}
+
+type defaultPodNICFactory struct{}
+
+func (defaultPodNICFactory) NewPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podnic.PodNIC, error) {
+	return podnic.New(vmi, network, handler, cacheFactory, launcherPID)
 }
 
 func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory) *VMNetworkConfigurator {
 	return &VMNetworkConfigurator{
-		vmi:          vmi,
-		handler:      handler,
-		cacheFactory: cacheFactory,
+		vmi:           vmi,
+		handler:       handler,
+		cacheFactory:  cacheFactory,
+		podNICFactory: defaultPodNICFactory{},
 	}
 }
 
@@ -60,7 +74,7 @@ func (v VMNetworkConfigurator) getNICsWithLauncherPID(launcherPID *int) ([]podni
 	}
 
 	for i, _ := range v.vmi.Spec.Networks {
-		nic, err := podnic.New(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, launcherPID)
+		nic, err := v.podNICFactory.NewPodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, launcherPID)
 		if err != nil {
 			return nil, err
 		}

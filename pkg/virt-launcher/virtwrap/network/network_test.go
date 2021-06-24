@@ -20,199 +20,146 @@
 package network
 
 import (
+	"fmt"
+
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	cache "kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
-	"kubevirt.io/kubevirt/pkg/network/dhcp"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/podnic"
+	podnic "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/podnic"
 )
 
 var _ = Describe("VMNetworkConfigurator", func() {
-	Context("interface configuration", func() {
-		resetPodNetworkConfiguratorFactory := func(nics []podnic.PodNIC) []podnic.PodNIC {
-			for i, _ := range nics {
-				nics[i].podNetworkConfiguratorFactory = nil
-			}
-			return nics
-		}
-		Context("when vm has no network source", func() {
-			var (
-				vmi                   *v1.VirtualMachineInstance
-				vmNetworkConfigurator *VMNetworkConfigurator
-			)
+	var (
+		mockNetworkHandler *netdriver.MockNetworkHandler
+		mockpodNICFactory  *MockpodNICFactory
+		ctrl               *gomock.Controller
+		cacheFactory       cache.InterfaceCacheFactory
+	)
+
+	newVMNetworkConfiguratorWithMocks := func(vmi *v1.VirtualMachineInstance) *VMNetworkConfigurator {
+		vmNetworkConfigurator := newVMNetworkConfiguratorWithHandlerAndCache(vmi, mockNetworkHandler, cacheFactory)
+		vmNetworkConfigurator.podNICFactory = mockpodNICFactory
+		return vmNetworkConfigurator
+	}
+
+	newVMI := func(namespace, name string) *v1.VirtualMachineInstance {
+		vmi := v1.NewMinimalVMIWithNS(namespace, name)
+		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		return vmi
+	}
+
+	newVMIBridgeInterface := func(namespace string, name string) *v1.VirtualMachineInstance {
+		vmi := newVMI(namespace, name)
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		return vmi
+	}
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockpodNICFactory = NewMockpodNICFactory(ctrl)
+		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
+		mockNetworkHandler = netdriver.NewMockNetworkHandler(ctrl)
+	})
+
+	AfterEach(func() {
+		ctrl.Finish()
+	})
+
+	Context("when PodNIC constructor returns an error", func() {
+		var (
+			expectedError = fmt.Errorf("netdriver_test: forcing failure at NewPodNIC")
+			vmi           *v1.VirtualMachineInstance
+		)
+		BeforeEach(func() {
+			vmi = newVMIBridgeInterface("testnamespace", "testVmName")
+		})
+		Context("and phase1 is called", func() {
+			var err error
 			BeforeEach(func() {
-				vmi = newVMIBridgeInterface("testnamespace", "testVmName")
-				vmi.Spec.Networks = []v1.Network{{
-					Name:          "default",
-					NetworkSource: v1.NetworkSource{},
-				}}
-				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
+				pid := 1
+				mockpodNICFactory.EXPECT().NewPodNIC(vmi, &vmi.Spec.Networks[0], mockNetworkHandler, cacheFactory, gomock.Eq(&pid)).Times(1).Return(nil, expectedError)
+				err = newVMNetworkConfiguratorWithMocks(vmi).SetupPodNetworkPhase1(pid)
 			})
-			It("should propagate errors when phase1 is called", func() {
-				launcherPID := 0
-				err := vmNetworkConfigurator.SetupPodNetworkPhase1(launcherPID)
-				Expect(err).To(MatchError("Network not implemented"))
-			})
-			It("should propagate errors when phase2 is called", func() {
-				var domain *api.Domain
-				err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain)
-				Expect(err).To(MatchError("Network not implemented"))
+			It("should propagate the error", func() {
+				Expect(err).To(MatchError(expectedError))
 			})
 		})
-		Context("when calling []podnic.PodNIC factory functions", func() {
-			var launcherPID *int
-			It("should configure bridged pod networking by default", func() {
-				vm := newVMIBridgeInterface("testnamespace", "testVmName")
-
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
-				iface := v1.DefaultBridgeNetworkInterface()
-				defaultNet := v1.DefaultPodNetwork()
-				nics, err := vmNetworkConfigurator.getNICs()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ConsistOf(podnic.PodNIC{
-					vmi:              vm,
-					podInterfaceName: primaryPodInterfaceName,
-					iface:            iface,
-					network:          defaultNet,
-					handler:          vmNetworkConfigurator.handler,
-					cacheFactory:     vmNetworkConfigurator.cacheFactory,
-					dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-						vmNetworkConfigurator.cacheFactory,
-						getPIDString(launcherPID),
-						generateInPodBridgeInterfaceName(primaryPodInterfaceName),
-						vmNetworkConfigurator.handler),
-				})))
+		Context("and phase2 is called", func() {
+			var err error
+			BeforeEach(func() {
+				mockpodNICFactory.EXPECT().NewPodNIC(vmi, &vmi.Spec.Networks[0], mockNetworkHandler, cacheFactory, gomock.Nil()).Times(1).Return(nil, expectedError)
+				var domain *api.Domain
+				err = newVMNetworkConfiguratorWithMocks(vmi).SetupPodNetworkPhase2(domain)
 			})
-			It("should accept empty network list", func() {
-				vmi := newVMI("testnamespace", "testVmName")
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
-				nics, err := vmNetworkConfigurator.getNICs()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(BeEmpty())
+			It("should propagate the error", func() {
+				Expect(err).To(MatchError(expectedError))
 			})
-			It("should configure networking with multus", func() {
-				const multusInterfaceName = "net1"
-				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-				iface := v1.DefaultBridgeNetworkInterface()
-				cniNet := &v1.Network{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "default"},
-					},
-				}
-				vmi.Spec.Networks = []v1.Network{*cniNet}
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
-				nics, err := vmNetworkConfigurator.getNICs()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ConsistOf([]podnic.PodNIC{{
-					vmi:              vmi,
-					iface:            iface,
-					network:          cniNet,
-					podInterfaceName: multusInterfaceName,
-					handler:          vmNetworkConfigurator.handler,
-					cacheFactory:     vmNetworkConfigurator.cacheFactory,
-					dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-						vmNetworkConfigurator.cacheFactory,
-						getPIDString(launcherPID),
-						generateInPodBridgeInterfaceName(multusInterfaceName),
-						vmNetworkConfigurator.handler),
-				}})))
-			})
-			It("should configure networking with multus and a default multus network", func() {
-				vm := newVMIBridgeInterface("testnamespace", "testVmName")
+		})
+	})
+	Context("when calling []podnic.PodNIC factory functions", func() {
+		It("should accept empty network list", func() {
+			vmi := newVMI("testnamespace", "testVmName")
+			nics, err := newVMNetworkConfiguratorWithMocks(vmi).getNICs()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nics).To(BeEmpty())
+		})
 
-				// We plug three multus interfaces in, with the default being second, to ensure the netN
-				// interfaces are numbered correctly
-				vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					{
-						Name: "additional1",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
-					},
-					{
-						Name: "default",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
-					},
-					{
-						Name: "additional2",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
-					},
-				}
-
-				cniNet := &v1.Network{
+		It("should configure networking with multus and a default multus network", func() {
+			vmi := newVMI("testnamespace", "testVmName")
+			vmi.Spec.Networks = []v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "default", Default: true},
 					},
-				}
-				additionalCNINet1 := &v1.Network{
+				},
+				{
 					Name: "additional1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "additional1"},
 					},
-				}
-				additionalCNINet2 := &v1.Network{
+				},
+				{
 					Name: "additional2",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "additional2"},
 					},
-				}
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{
+					Name: "additional1",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+				{
+					Name: "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+				{
+					Name: "additional2",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+			}
+			for i, _ := range vmi.Spec.Networks {
+				mockpodNICFactory.EXPECT().NewPodNIC(vmi, &vmi.Spec.Networks[i], mockNetworkHandler, cacheFactory, gomock.Nil()).Times(1).Return(&podnic.PodNIC{}, nil).Times(1)
+			}
 
-				vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
-
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
-				nics, err := vmNetworkConfigurator.getNICs()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(WithTransform(resetPodNetworkConfiguratorFactory, ContainElements([]podnic.PodNIC{
-					{
-						vmi:              vm,
-						iface:            &vm.Spec.Domain.Devices.Interfaces[0],
-						network:          additionalCNINet1,
-						podInterfaceName: "net1",
-						handler:          vmNetworkConfigurator.handler,
-						cacheFactory:     vmNetworkConfigurator.cacheFactory,
-						dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-							vmNetworkConfigurator.cacheFactory,
-							getPIDString(launcherPID),
-							generateInPodBridgeInterfaceName("net1"),
-							vmNetworkConfigurator.handler),
-					},
-					{
-						vmi:              vm,
-						iface:            &vm.Spec.Domain.Devices.Interfaces[1],
-						network:          cniNet,
-						podInterfaceName: "eth0",
-						handler:          vmNetworkConfigurator.handler,
-						cacheFactory:     vmNetworkConfigurator.cacheFactory,
-						dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-							vmNetworkConfigurator.cacheFactory,
-							getPIDString(launcherPID),
-							generateInPodBridgeInterfaceName("eth0"),
-							vmNetworkConfigurator.handler),
-					},
-					{
-						vmi:              vm,
-						iface:            &vm.Spec.Domain.Devices.Interfaces[2],
-						network:          additionalCNINet2,
-						podInterfaceName: "net2",
-						handler:          vmNetworkConfigurator.handler,
-						cacheFactory:     vmNetworkConfigurator.cacheFactory,
-						dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-							vmNetworkConfigurator.cacheFactory,
-							getPIDString(launcherPID),
-							generateInPodBridgeInterfaceName("net2"),
-							vmNetworkConfigurator.handler),
-					},
-				})))
-			})
+			obtainedPodNICs, err := newVMNetworkConfiguratorWithMocks(vmi).getNICs()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(obtainedPodNICs).To(HaveLen(len(vmi.Spec.Networks)))
 		})
 	})
 })
