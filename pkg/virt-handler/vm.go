@@ -856,11 +856,12 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 			// Set Pod Interface
 			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			for _, network := range vmi.Spec.Networks {
-				if network.NetworkSource.Pod != nil {
-					podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
-					if err != nil {
-						return err
-					}
+				podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
+				if err != nil {
+					return err
+				}
+
+				if podIface != nil {
 					ifc := v1.VirtualMachineInstanceNetworkInterface{
 						Name: network.Name,
 						IP:   podIface.PodIP,
