@@ -418,8 +418,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
+			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
 		)
 
 		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
@@ -436,8 +436,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
+			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -564,8 +564,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			stopVM(vm)
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("[Serial]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
+			table.Entry("[Serial][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
