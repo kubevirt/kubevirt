@@ -33,41 +33,6 @@ var _ = Describe("[sig-compute][serial]NUMA", func() {
 		Expect(err).ToNot(HaveOccurred())
 		tests.BeforeTestCleanup()
 	})
-	It("topology should be mapped to the guest", func() {
-		var err error
-		cpuVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-		cpuVMI.Spec.Domain.CPU = &v1.CPU{
-			Cores:                 3,
-			DedicatedCPUPlacement: true,
-			NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
-		}
-		By("Starting a VirtualMachineInstance")
-		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVMI)
-		Expect(err).ToNot(HaveOccurred())
-		tests.WaitForSuccessfulVMIStart(cpuVMI)
-		By("Fetching the numa memory mapping")
-		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(cpuVMI.Name, &k8smetav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(cpuVMI.Status.NodeName).Pod()
-		Expect(err).ToNot(HaveOccurred())
-		pid := getQEMUPID(virtClient, handler, cpuVMI)
-
-		By("Checking if all memory is pinned")
-		scanner := bufio.NewScanner(strings.NewReader(getNUMAMapping(virtClient, handler, pid)))
-		for scanner.Scan() {
-			Expect(scanner.Text()).To(ContainSubstring("bind:"), scanner.Text())
-		}
-		By("Fetching the domain XML")
-		domSpec, err := tests.GetRunningVMIDomainSpec(cpuVMI)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("checking that we really deal with a domain with numa configured")
-		Expect(domSpec.CPU.NUMA.Cells).ToNot(BeEmpty())
-
-		By("checking if the guest came up and is healthy")
-		Expect(console.LoginToCirros(cpuVMI)).To(Succeed())
-	})
 
 	It("topology should be mapped to the guest and hugepages should be allocated", func() {
 		checks.SkipTestIfNoCPUManagerWith2MiHugepages()

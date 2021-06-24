@@ -112,6 +112,7 @@ var _ = Describe("NumaPlacement", func() {
 					{Size: "2", Unit: "M", NodeSet: "0"},
 					{Size: "2", Unit: "M", NodeSet: "1"},
 				}},
+				Allocation: &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate},
 			}
 		})
 		It("should detect hugepages and map them equally to nodes", func() {
@@ -161,6 +162,7 @@ var _ = Describe("NumaPlacement", func() {
 					{Size: "2", Unit: "M", NodeSet: "1"},
 					{Size: "2", Unit: "M", NodeSet: "2"},
 				}},
+				Allocation: &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate},
 			}
 			expectedSpec.CPU.NUMA.Cells = []api.NUMACell{
 				{ID: "0", CPUs: "0,1", Memory: 22, Unit: "MiB"},

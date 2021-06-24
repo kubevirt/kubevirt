@@ -72,6 +72,7 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 	} else if !hugepagesEnabled {
 		return fmt.Errorf("passing through a numa topology is restricted to VMIs with hugepages enabled")
 	}
+	domain.MemoryBacking.Allocation = &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate}
 
 	memory, err := QuantityToMebiByte(*getVirtualMemory(vmi))
 	if err != nil {

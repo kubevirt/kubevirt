@@ -387,9 +387,20 @@ type Memory struct {
 
 // MemoryBacking mirroring libvirt XML under https://libvirt.org/formatdomain.html#elementsMemoryBacking
 type MemoryBacking struct {
-	HugePages *HugePages           `xml:"hugepages,omitempty"`
-	Source    *MemoryBackingSource `xml:"source,omitempty"`
-	Access    *MemoryBackingAccess `xml:"access,omitempty"`
+	HugePages  *HugePages           `xml:"hugepages,omitempty"`
+	Source     *MemoryBackingSource `xml:"source,omitempty"`
+	Access     *MemoryBackingAccess `xml:"access,omitempty"`
+	Allocation *MemoryAllocation    `xml:"allocation,omitempty"`
+}
+
+type MemoryAllocationMode string
+
+const (
+	MemoryAllocationModeImmediate MemoryAllocationMode = "immediate"
+)
+
+type MemoryAllocation struct {
+	Mode MemoryAllocationMode `xml:"mode,attr"`
 }
 
 type MemoryBackingSource struct {
