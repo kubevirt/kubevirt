@@ -461,6 +461,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 func (vca *VirtControllerApp) getNewRecorder(namespace string, componentName string) record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: vca.clientSet.CoreV1().Events(namespace)})
+	eventBroadcaster.StartEventWatcher(log.EventLoggerSink)
 	return eventBroadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: componentName})
 }
 
