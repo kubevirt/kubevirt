@@ -32,7 +32,9 @@ import (
 	"github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -392,6 +394,15 @@ func (v *vmis) Patch(name string, pt types.PatchType, data []byte, subresources 
 		Do(context.Background()).
 		Into(result)
 	return
+}
+
+func (v *vmis) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+	opts.Watch = true
+	return v.restClient.Get().
+		Resource(v.resource).
+		Namespace(v.namespace).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Watch(context.Background())
 }
 
 // enrichError checks the response body for a k8s Status object and extracts the error from it.

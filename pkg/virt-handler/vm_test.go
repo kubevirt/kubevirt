@@ -406,8 +406,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockWatchdog.CreateFile(vmi)
 			mockGracefulShutdown.TriggerShutdown(vmi)
 
+			vmiFeeder.Add(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any())
+
 			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
+			client.EXPECT().ShutdownVirtualMachine(vmi)
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -417,6 +420,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
+
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 

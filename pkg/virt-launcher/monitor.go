@@ -128,6 +128,9 @@ func (mon *monitor) refresh() {
 			} else if expired {
 				log.Log.Infof("%s not found after grace period expired", mon.cmdlineMatchStr)
 				mon.isDone = true
+			} else if mon.gracePeriodStartTime != 0 {
+				log.Log.Infof("%s not found after shutdown initiated", mon.cmdlineMatchStr)
+				mon.isDone = true
 			}
 			return
 		}
@@ -189,7 +192,6 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 }
 
 func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan struct{}) {
-
 	mon.monitorLoop(startTimeout, signalStopChan)
 }
 
