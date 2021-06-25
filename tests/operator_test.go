@@ -560,6 +560,8 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 					}
 					deleteCount++
 					if kv.DeletionTimestamp == nil {
+
+						By("deleting the kv object")
 						err := virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &metav1.DeleteOptions{})
 						if err != nil {
 							return err
@@ -851,6 +853,7 @@ spec:
 
 		kvs := tests.GetKvList(virtClient)
 		if len(kvs) == 0 {
+			By("Re-creating the original KV to stabilize")
 			createKv(copyOriginalKv())
 		}
 
@@ -860,7 +863,8 @@ spec:
 			waitForUpdateCondition(originalKv)
 		}
 
-		waitForKv(originalKv)
+		By("Waiting for original KV to stabilize")
+		waitForKvWithTimeout(originalKv, 420)
 		allPodsAreReady(originalKv)
 
 		if workDir != "" {
