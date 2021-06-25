@@ -493,6 +493,22 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 
 		BeforeEach(func() {
+			pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			// Verify we have at least 3 available file system PVs
+			count := 0
+			for _, pv := range pvList.Items {
+				if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil || len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 || (pv.Spec.VolumeMode != nil && *pv.Spec.VolumeMode == corev1.PersistentVolumeBlock) {
+					// Not a local volume filesystem PV
+					continue
+				}
+				if pv.Spec.ClaimRef == nil {
+					count++
+				}
+			}
+			if count < 3 {
+				Skip("Not enough available filesystem local storage PVs available")
+			}
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
 
