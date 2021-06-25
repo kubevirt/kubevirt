@@ -762,13 +762,13 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	}
 
 	// stop it
-	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineKey(vmi)})
+	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineInstanceKey(vmi)})
 	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(vmi.ObjectMeta.Name, &v1.DeleteOptions{})
 
 	// Don't log an error if it is already deleted
 	if err != nil {
 		// We can't observe a delete if it was not accepted by the server
-		c.expectations.DeletionObserved(vmKey, controller.VirtualMachineKey(vmi))
+		c.expectations.DeletionObserved(vmKey, controller.VirtualMachineInstanceKey(vmi))
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", vmi.ObjectMeta.Name, err)
 		return err
 	}
@@ -1055,7 +1055,7 @@ func (c *VMController) deleteVirtualMachine(obj interface{}) {
 	if err != nil {
 		return
 	}
-	c.expectations.DeletionObserved(vmKey, controller.VirtualMachineKey(vmi))
+	c.expectations.DeletionObserved(vmKey, controller.VirtualMachineInstanceKey(vmi))
 	c.enqueueVm(vm)
 }
 

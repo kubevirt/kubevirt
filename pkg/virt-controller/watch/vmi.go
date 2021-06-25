@@ -771,7 +771,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedCreatePodReason}
 		}
 
-		vmiKey := controller.VirtualMachineKey(vmi)
+		vmiKey := controller.VirtualMachineInstanceKey(vmi)
 		c.podExpectations.ExpectCreations(vmiKey, 1)
 		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
 		if err != nil {
@@ -1176,7 +1176,7 @@ func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance
 		return err
 	}
 
-	vmiKey := controller.VirtualMachineKey(vmi)
+	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 
 	for _, pod := range pods {
 		if pod.DeletionTimestamp != nil {
@@ -1293,7 +1293,7 @@ func (c *VMIController) deleteRunningOrFinishedWFFCPods(vmi *virtv1.VirtualMachi
 func (c *VMIController) deleteRunningFinishedOrFailedPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	zero := int64(0)
 	if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
-		vmiKey := controller.VirtualMachineKey(vmi)
+		vmiKey := controller.VirtualMachineInstanceKey(vmi)
 		c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
 		err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Delete(context.Background(), pod.Name, v1.DeleteOptions{
 			GracePeriodSeconds: &zero,
@@ -1414,7 +1414,7 @@ func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, 
 	if attachmentPodTemplate == nil {
 		return nil
 	}
-	vmiKey := controller.VirtualMachineKey(vmi)
+	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 	c.podExpectations.ExpectCreations(vmiKey, 1)
 
 	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
@@ -1433,7 +1433,7 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 		return &syncErrorImpl{fmt.Errorf("Error creating trigger pod template %v", err), FailedCreatePodReason}
 	}
 	if populateHotplugPodTemplate != nil { // nil means the PVC is not populated yet.
-		vmiKey := controller.VirtualMachineKey(vmi)
+		vmiKey := controller.VirtualMachineInstanceKey(vmi)
 		c.podExpectations.ExpectCreations(vmiKey, 1)
 
 		_, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), populateHotplugPodTemplate, v1.CreateOptions{})
@@ -1525,7 +1525,7 @@ func (c *VMIController) getDeletedHotplugVolumes(hotplugPods []*k8sv1.Pod, hotpl
 }
 
 func (c *VMIController) deleteAttachmentPodForVolume(vmi *virtv1.VirtualMachineInstance, attachmentPod *k8sv1.Pod) error {
-	vmiKey := controller.VirtualMachineKey(vmi)
+	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 	zero := int64(0)
 
 	if attachmentPod.DeletionTimestamp != nil {

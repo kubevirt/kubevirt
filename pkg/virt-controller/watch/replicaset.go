@@ -264,7 +264,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 		// We have to delete VMIs, use a very simple selection strategy for now
 		// TODO: Possible deletion order: not yet running VMIs < migrating VMIs < other
 		deleteCandidates := vmis[0:diff]
-		c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineKeys(deleteCandidates))
+		c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineInstanceKeys(deleteCandidates))
 		for i := 0; i < diff; i++ {
 			go func(idx int) {
 				defer wg.Done()
@@ -273,7 +273,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 				// Don't log an error if it is already deleted
 				if err != nil {
 					// We can't observe a delete if it was not accepted by the server
-					c.expectations.DeletionObserved(rsKey, controller.VirtualMachineKey(deleteCandidate))
+					c.expectations.DeletionObserved(rsKey, controller.VirtualMachineInstanceKey(deleteCandidate))
 					c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", deleteCandidate.ObjectMeta.Name, err)
 					errChan <- err
 					return
@@ -553,7 +553,7 @@ func (c *VMIReplicaSet) deleteVirtualMachine(obj interface{}) {
 	if err != nil {
 		return
 	}
-	c.expectations.DeletionObserved(rsKey, controller.VirtualMachineKey(vmi))
+	c.expectations.DeletionObserved(rsKey, controller.VirtualMachineInstanceKey(vmi))
 	c.enqueueReplicaSet(rs)
 }
 
@@ -796,7 +796,7 @@ func (c *VMIReplicaSet) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceRepli
 
 	log.Log.V(4).Object(rs).Info("Delete finished VM's")
 	deleteCandidates := vmis[0:diff]
-	c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineKeys(deleteCandidates))
+	c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineInstanceKeys(deleteCandidates))
 	for i := 0; i < diff; i++ {
 		go func(idx int) {
 			defer wg.Done()
@@ -805,7 +805,7 @@ func (c *VMIReplicaSet) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceRepli
 			// Don't log an error if it is already deleted
 			if err != nil {
 				// We can't observe a delete if it was not accepted by the server
-				c.expectations.DeletionObserved(rsKey, controller.VirtualMachineKey(deleteCandidate))
+				c.expectations.DeletionObserved(rsKey, controller.VirtualMachineInstanceKey(deleteCandidate))
 				c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting finished virtual machine %s: %v", deleteCandidate.ObjectMeta.Name, err)
 				errChan <- err
 				return

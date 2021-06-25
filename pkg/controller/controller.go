@@ -104,7 +104,7 @@ func MigrationKey(migration *v1.VirtualMachineInstanceMigration) string {
 	return fmt.Sprintf("%v/%v", migration.ObjectMeta.Namespace, migration.ObjectMeta.Name)
 }
 
-func VirtualMachineKey(vmi *v1.VirtualMachineInstance) string {
+func VirtualMachineInstanceKey(vmi *v1.VirtualMachineInstance) string {
 	return fmt.Sprintf("%v/%v", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name)
 }
 
@@ -116,10 +116,10 @@ func DataVolumeKey(dataVolume *cdiv1.DataVolume) string {
 	return fmt.Sprintf("%v/%v", dataVolume.Namespace, dataVolume.Name)
 }
 
-func VirtualMachineKeys(vmis []*v1.VirtualMachineInstance) []string {
+func VirtualMachineInstanceKeys(vmis []*v1.VirtualMachineInstance) []string {
 	keys := []string{}
 	for _, vmi := range vmis {
-		keys = append(keys, VirtualMachineKey(vmi))
+		keys = append(keys, VirtualMachineInstanceKey(vmi))
 	}
 	return keys
 }
