@@ -1305,7 +1305,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	}
 
 	// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
-	runtimeClassName := t.clusterConfig.GetLauncherRuntimeClass()
+	runtimeClassName := t.clusterConfig.GetDefaultRuntimeClass()
 	if runtimeClassName != "" {
 		pod.Spec.RuntimeClassName = &runtimeClassName
 	}

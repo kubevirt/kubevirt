@@ -2809,11 +2809,11 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		Context("Using launcherRuntimeClass", func() {
+		Context("Using defaultRuntimeClass", func() {
 			It("Should set a runtimeClassName on launcher pod, if configured", func() {
 				runtimeClassName := "customRuntime"
 				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.LauncherRuntimeClass = runtimeClassName
+				kvConfig.Spec.Configuration.DefaultRuntimeClass = runtimeClassName
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 
 				vmi := v1.VirtualMachineInstance{

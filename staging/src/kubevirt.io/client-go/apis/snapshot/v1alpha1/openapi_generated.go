@@ -16540,7 +16540,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 							Format: "",
 						},
 					},
-					"launcherRuntimeClass": {
+					"defaultRuntimeClass": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

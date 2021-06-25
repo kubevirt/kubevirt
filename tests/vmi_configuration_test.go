@@ -1589,6 +1589,44 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 		})
+
+		Context("using defaultRuntimeClass configuration", func() {
+			It("should apply runtimeClassName to pod when set", func() {
+				By("Configuring a default runtime class")
+				runtimeClassName := "custom-runtime-class"
+				tests.CreateRuntimeClass(runtimeClassName, "custom-handler")
+				config := tests.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+				config.DefaultRuntimeClass = runtimeClassName
+				tests.UpdateKubeVirtConfigValueAndWait(*config)
+
+				By("Creating a new VMI")
+				var vmi = tests.NewRandomVMI()
+				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Checking for presence of runtimeClassName")
+				pod := tests.GetPodByVirtualMachineInstance(vmi)
+				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
+
+				By("Cleaning up runtime class")
+				err = tests.DeleteRuntimeClass(runtimeClassName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should not apply runtimeClassName to pod when not set", func() {
+				By("Creating a VMI")
+				var vmi = tests.NewRandomVMI()
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Waiting for successful start of VMI")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Checking for absence of runtimeClassName")
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				Expect(pod.Spec.RuntimeClassName).To(BeNil())
+			})
+		})
 	})
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec", func() {
