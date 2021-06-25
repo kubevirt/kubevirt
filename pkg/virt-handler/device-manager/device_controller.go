@@ -48,6 +48,7 @@ type DeviceController struct {
 	backoff            []time.Duration
 	virtConfig         *virtconfig.ClusterConfig
 	stop               chan struct{}
+    mdevTypesManager   *MDEVTypesManager
 }
 
 type ControlledDevice struct {
@@ -73,6 +74,7 @@ func NewDeviceController(host string, maxDevices int, permissions string, cluste
 		maxDevices:    maxDevices,
 		backoff:       []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 		virtConfig:    clusterConfig,
+        mdevTypesManager: NewMDEVTypesManager(),
 	}
 
 	return controller
@@ -148,7 +150,14 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 						stopChan:     make(chan struct{}),
 					}
 				} else {
-					delete(devicePluginsToStop, pciResourceName)
+		~.
+
+
+
+			delete(devicePluginsToStop, pciResourceName)
+~.
+
+
 				}
 			}
 		}
@@ -192,6 +201,13 @@ func removeSelectorSpaces(selectorName string) string {
 	return typeNameStr
 
 }
+
+func (c *DeviceController) c.refreshMediatedDevicesTypes() {
+    err := c.mdevTypesManager.updateMDEVTypesConfiguration()
+    //log
+    //event ?
+}
+
 func (c *DeviceController) refreshPermittedDevices() {
 	logger := log.DefaultLogger()
 	debugDevAdded := []string{}
@@ -232,6 +248,7 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	for _, dev := range c.devicePlugins {
 		go c.startDevicePlugin(dev)
 	}
+	c.virtConfig.SetConfigModifiedCallback(c.refreshMediatedDevicesTypes)
 	c.virtConfig.SetConfigModifiedCallback(c.refreshPermittedDevices)
 	c.refreshPermittedDevices()
 
