@@ -1590,7 +1590,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 		})
 
-		Context("using defaultRuntimeClass configuration", func() {
+		Context("[Serial]using defaultRuntimeClass configuration", func() {
 			It("should apply runtimeClassName to pod when set", func() {
 				By("Configuring a default runtime class")
 				runtimeClassName := "custom-runtime-class"
