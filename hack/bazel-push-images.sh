@@ -50,3 +50,12 @@ if [[ $image_prefix_alt ]]; then
 
     done
 fi
+
+rm -rf ${DIGESTS_DIR}
+mkdir -p ${DIGESTS_DIR}
+
+for f in $(find bazel-bin/ -name '*.digest'); do
+    dir=${DIGESTS_DIR}/$(dirname $f)
+    mkdir -p ${dir}
+    cp -f ${f} ${dir}/$(basename ${f})
+done

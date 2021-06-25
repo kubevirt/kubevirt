@@ -30,3 +30,12 @@ bazel build \
     --define container_tag= \
     //:build-other-images //cmd/virt-operator:virt-operator-image //cmd/virt-api:virt-api-image \
     //cmd/virt-controller:virt-controller-image //cmd/virt-handler:virt-handler-image //cmd/virt-launcher:virt-launcher-image //tests:conformance_image
+
+rm -rf ${DIGESTS_DIR}
+mkdir -p ${DIGESTS_DIR}
+
+for f in $(find bazel-bin/ -name '*.digest'); do
+    dir=${DIGESTS_DIR}/$(dirname $f)
+    mkdir -p ${dir}
+    cp -f ${f} ${dir}/$(basename ${f})
+done
