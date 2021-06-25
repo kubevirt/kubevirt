@@ -140,9 +140,9 @@ func NewVMIController(templateService services.TemplateService,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addVirtualMachine,
-		DeleteFunc: c.deleteVirtualMachine,
-		UpdateFunc: c.updateVirtualMachine,
+		AddFunc:    c.addVirtualMachineInstance,
+		DeleteFunc: c.deleteVirtualMachineInstance,
+		UpdateFunc: c.updateVirtualMachineInstance,
 	})
 
 	c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1033,15 +1033,15 @@ func (c *VMIController) deletePod(obj interface{}) {
 	c.enqueueVirtualMachine(vmi)
 }
 
-func (c *VMIController) addVirtualMachine(obj interface{}) {
+func (c *VMIController) addVirtualMachineInstance(obj interface{}) {
 	c.enqueueVirtualMachine(obj)
 }
 
-func (c *VMIController) deleteVirtualMachine(obj interface{}) {
+func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
 	c.enqueueVirtualMachine(obj)
 }
 
-func (c *VMIController) updateVirtualMachine(_, curr interface{}) {
+func (c *VMIController) updateVirtualMachineInstance(_, curr interface{}) {
 	c.enqueueVirtualMachine(curr)
 }
 

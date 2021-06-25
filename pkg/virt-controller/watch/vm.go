@@ -84,15 +84,15 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	}
 
 	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addVm,
-		DeleteFunc: c.deleteVm,
-		UpdateFunc: c.updateVm,
-	})
-
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: c.deleteVirtualMachine,
 		UpdateFunc: c.updateVirtualMachine,
+	})
+
+	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addVirtualMachineInstance,
+		DeleteFunc: c.deleteVirtualMachineInstance,
+		UpdateFunc: c.updateVirtualMachineInstance,
 	})
 
 	c.dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -908,7 +908,7 @@ func (c *VMController) getMatchingControllers(vmi *virtv1.VirtualMachineInstance
 }
 
 // When a vmi is created, enqueue the VirtualMachine that manages it and update its expectations.
-func (c *VMController) addVirtualMachine(obj interface{}) {
+func (c *VMController) addVirtualMachineInstance(obj interface{}) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 
 	log.Log.Object(vmi).V(4).Info("VirtualMachineInstance added.")
@@ -916,7 +916,7 @@ func (c *VMController) addVirtualMachine(obj interface{}) {
 	if vmi.DeletionTimestamp != nil {
 		// on a restart of the controller manager, it's possible a new vmi shows up in a state that
 		// is already pending deletion. Prevent the vmi from being a creation observation.
-		c.deleteVirtualMachine(vmi)
+		c.deleteVirtualMachineInstance(vmi)
 		return
 	}
 
@@ -957,7 +957,7 @@ func (c *VMController) addVirtualMachine(obj interface{}) {
 // When a vmi is updated, figure out what VirtualMachine manage it and wake them
 // up. If the labels of the vmi have changed we need to awaken both the old
 // and new VirtualMachine. old and cur must be *v1.VirtualMachineInstance types.
-func (c *VMController) updateVirtualMachine(old, cur interface{}) {
+func (c *VMController) updateVirtualMachineInstance(old, cur interface{}) {
 	curVMI := cur.(*virtv1.VirtualMachineInstance)
 	oldVMI := old.(*virtv1.VirtualMachineInstance)
 	if curVMI.ResourceVersion == oldVMI.ResourceVersion {
@@ -973,10 +973,10 @@ func (c *VMController) updateVirtualMachine(old, cur interface{}) {
 		// for modification of the deletion timestamp and expect an VirtualMachine to create newVMI asap, not wait
 		// until the virt-handler actually deletes the vmi. This is different from the Phase of a vmi changing, because
 		// an rs never initiates a phase change, and so is never asleep waiting for the same.
-		c.deleteVirtualMachine(curVMI)
+		c.deleteVirtualMachineInstance(curVMI)
 		if labelChanged {
 			// we don't need to check the oldVMI.DeletionTimestamp because DeletionTimestamp cannot be unset.
-			c.deleteVirtualMachine(oldVMI)
+			c.deleteVirtualMachineInstance(oldVMI)
 		}
 		return
 	}
@@ -1022,7 +1022,7 @@ func (c *VMController) updateVirtualMachine(old, cur interface{}) {
 
 // When a vmi is deleted, enqueue the VirtualMachine that manages the vmi and update its expectations.
 // obj could be an *v1.VirtualMachineInstance, or a DeletionFinalStateUnknown marker item.
-func (c *VMController) deleteVirtualMachine(obj interface{}) {
+func (c *VMController) deleteVirtualMachineInstance(obj interface{}) {
 	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 
 	// When a delete is dropped, the relist will notice a vmi in the store not
@@ -1160,15 +1160,15 @@ func (c *VMController) deleteDataVolume(obj interface{}) {
 	c.enqueueVm(vm)
 }
 
-func (c *VMController) addVm(obj interface{}) {
+func (c *VMController) addVirtualMachine(obj interface{}) {
 	c.enqueueVm(obj)
 }
 
-func (c *VMController) deleteVm(obj interface{}) {
+func (c *VMController) deleteVirtualMachine(obj interface{}) {
 	c.enqueueVm(obj)
 }
 
-func (c *VMController) updateVm(_, curr interface{}) {
+func (c *VMController) updateVirtualMachine(_, curr interface{}) {
 	c.enqueueVm(curr)
 }
 
