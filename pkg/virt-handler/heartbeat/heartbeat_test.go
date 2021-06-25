@@ -92,7 +92,7 @@ var _ = Describe("Heartbeat", func() {
 
 	table.DescribeTable("without deviceplugin and", func(deviceController device_manager.DeviceControllerInterface, initiallySchedulable string, finallySchedulable string) {
 		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode")
-		heartbeat.devicePluginWaitTimeout = 1 * time.Second
+		heartbeat.devicePluginWaitTimeout = 2 * time.Second
 		heartbeat.devicePluginPollIntervall = 10 * time.Millisecond
 		stopChan := make(chan struct{})
 		done := heartbeat.Run(100*time.Second, stopChan)
