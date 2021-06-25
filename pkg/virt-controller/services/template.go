@@ -1389,13 +1389,18 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 				},
 			},
 			Affinity: &k8sv1.Affinity{
-				PodAffinity: &k8sv1.PodAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
-						{
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: ownerPod.GetLabels(),
+				NodeAffinity: &k8sv1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+							{
+								MatchExpressions: []k8sv1.NodeSelectorRequirement{
+									{
+										Key:      "kubernetes.io/hostname",
+										Operator: k8sv1.NodeSelectorOpIn,
+										Values:   []string{ownerPod.Spec.NodeName},
+									},
+								},
 							},
-							TopologyKey: "kubernetes.io/hostname",
 						},
 					},
 				},
