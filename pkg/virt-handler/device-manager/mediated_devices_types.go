@@ -45,7 +45,9 @@ type MDEVTypesManager struct {
 }
 
 func NewMDEVTypesManager() *MDEVTypesManager {
-    manager := &MDEVTypesManager
+    return &MDEVTypesManager{
+        availableMdevTypesMap: make(map[string][]string)
+    }
 }
 // Not a const for static test purposes
 var mdevBasePath string = "/sys/bus/mdev/devices"
