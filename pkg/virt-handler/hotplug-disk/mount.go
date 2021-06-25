@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -27,7 +26,6 @@ import (
 	"github.com/opencontainers/runc/libcontainer/cgroups/devices"
 	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
 	"github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/prometheus/procfs"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -37,7 +35,7 @@ import (
 
 var (
 	deviceBasePath = func(podUID types.UID) string {
-		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumeDevices", string(podUID))
+		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID))
 	}
 
 	sourcePodBasePath = func(podUID types.UID) string {
@@ -78,10 +76,6 @@ var (
 
 	isolationDetector = func(path string) isolation.PodIsolationDetector {
 		return isolation.NewSocketBasedIsolationDetector(path, cgroup.NewParser())
-	}
-
-	procMounts = func(pid int) ([]*procfs.MountInfo, error) {
-		return procfs.GetProcMounts(pid)
 	}
 )
 
@@ -255,7 +249,7 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 		logger.V(4).Infof("Hotplug check volume name: %s", volumeStatus.Name)
 		sourceUID := volumeStatus.HotplugVolume.AttachPodUID
 		if sourceUID != types.UID("") {
-			if m.isBlockVolume(sourceUID) {
+			if m.isBlockVolume(sourceUID, volumeStatus.Name) {
 				logger.V(4).Infof("Mounting block volume: %s", volumeStatus.Name)
 				if err := m.mountBlockHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
 					return err
@@ -274,13 +268,12 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 
 // isBlockVolume checks if the volumeDevices directory exists in the pod path, we assume there is a single volume associated with
 // each pod, we use this knowledge to determine if we have a block volume or not.
-func (m *volumeMounter) isBlockVolume(sourceUID types.UID) bool {
+func (m *volumeMounter) isBlockVolume(sourceUID types.UID, volumeName string) bool {
 	// Check if the volumeDevices directory exists in the attachment pod, if so, its a block device, otherwise its file system.
 	if sourceUID != types.UID("") {
-		devicePath := deviceBasePath(sourceUID)
+		devicePath := filepath.Join(deviceBasePath(sourceUID), volumeName)
 		info, err := os.Stat(devicePath)
 		if err != nil {
-			log.Log.V(4).Infof("%s pod does not contain a block device %v", sourceUID, err)
 			return false
 		}
 		return info.IsDir()
@@ -306,7 +299,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(sourceUID)
+		sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(sourceUID, volume)
 		if err != nil {
 			return err
 		}
@@ -326,7 +319,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		sourceMajor, sourceMinor, _, err := m.getSourceMajorMinor(sourceUID)
+		sourceMajor, sourceMinor, _, err := m.getSourceMajorMinor(sourceUID, volume)
 		if err != nil {
 			return err
 		}
@@ -341,7 +334,7 @@ func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMach
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.Name == volumeName && volumeStatus.HotplugVolume != nil {
 			if volumeStatus.Phase != v1.VolumeReady {
-				log.DefaultLogger().Infof("Volume %s is not ready, but the target block device exists", volumeName)
+				log.DefaultLogger().V(4).Infof("Volume %s is not ready, but the target block device exists", volumeName)
 			}
 			return volumeStatus.Phase == v1.VolumeReady
 		}
@@ -350,11 +343,11 @@ func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMach
 	return true
 }
 
-func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID) (int64, int64, string, error) {
+func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID, volumeName string) (int64, int64, string, error) {
 	result := make([]int64, 2)
 	perms := ""
 	if sourceUID != types.UID("") {
-		basepath := deviceBasePath(sourceUID)
+		basepath := filepath.Join(deviceBasePath(sourceUID), volumeName)
 		err := filepath.Walk(basepath, func(filePath string, info os.FileInfo, err error) error {
 			if info != nil && !info.IsDir() {
 				// Walk doesn't follow symlinks which is good because I need to massage symlinks
@@ -537,12 +530,6 @@ func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor in
 }
 
 func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
-	sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
-	if err != nil {
-		log.DefaultLogger().Infof("Error finding source path: %v", err)
-		return nil
-	}
-
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
@@ -556,6 +543,10 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	if isMounted, err := isMounted(targetPath); err != nil {
 		return fmt.Errorf("failed to determine if %s is already mounted: %v", targetPath, err)
 	} else if !isMounted {
+		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
+		if err != nil {
+			return nil
+		}
 		if err := m.writePathToMountRecord(targetPath, vmi, record); err != nil {
 			return err
 		}
@@ -585,44 +576,33 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid
 }
 
 func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (string, error) {
-	diskPath := ""
-	if sourceUID != types.UID("") {
-		basepath := sourcePodBasePath(sourceUID)
-		err := filepath.Walk(basepath, func(filePath string, info os.FileInfo, err error) error {
-			if path.Base(filePath) == "disk.img" {
-				// Found disk image
-				diskPath = path.Dir(filePath)
-				return io.EOF
-			}
-			return nil
-		})
-		if err != nil && err != io.EOF {
-			return diskPath, err
-		}
+	iso := isolationDetector("/path")
+	isoRes, err := iso.DetectForSocket(vmi, socketPath(sourceUID))
+	if err != nil {
+		return "", err
 	}
-	if diskPath == "" {
-		// Unfortunately I cannot use this approach for all storage, for instance in ceph the mount.Root is / which is obviously
-		// not the path we want to mount. So we stick with try sourcePodBasePath first, then if not found try mountinfo.
-		iso := isolationDetector("/path")
-		isoRes, err := iso.DetectForSocket(vmi, socketPath(sourceUID))
-		if err != nil {
-			return "", err
-		}
-		mounts, err := procMounts(isoRes.Pid())
-		if err != nil {
-			return "", err
-		}
-		for _, mount := range mounts {
-			if mount.MountPoint == "/pvc" {
-				return mount.Root, nil
+	findmounts, err := LookupFindmntInfoByVolume(volume, isoRes.Pid())
+	if err != nil {
+		return "", err
+	}
+	for _, findmnt := range findmounts {
+		if filepath.Base(findmnt.Target) == volume {
+			source := findmnt.GetSource()
+			isBlock, _ := isBlockDevice(filepath.Join(util.HostRootMount, source))
+			if _, err := os.Stat(filepath.Join(util.HostRootMount, source)); os.IsNotExist(err) || isBlock {
+				// file not found, or block device, or directory check if we can find the mount.
+				deviceFindMnt, err := LookupFindmntInfoByDevice(source)
+				if err != nil {
+					return "", err
+				}
+				return deviceFindMnt[0].Target, nil
+			} else {
+				return source, nil
 			}
 		}
 	}
-	if diskPath == "" {
-		// Did not find the disk image file, return error
-		return diskPath, fmt.Errorf("Unable to find source disk image path for pod %s", sourceUID)
-	}
-	return diskPath, nil
+	// Did not find the disk image file, return error
+	return "", fmt.Errorf("unable to find source disk image path for pod %s", sourceUID)
 }
 
 // Unmount unmounts all hotplug disk that are no longer part of the VMI
@@ -650,7 +630,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			if volumeStatus.HotplugVolume == nil {
 				continue
 			}
-			if m.isBlockVolume(volumeStatus.HotplugVolume.AttachPodUID) {
+			if m.isBlockVolume(volumeStatus.HotplugVolume.AttachPodUID, volumeStatus.Name) {
 				path := filepath.Join(basePath, volumeStatus.Name)
 				currentHotplugPaths[path] = virtlauncherUID
 			} else {
@@ -778,7 +758,7 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 	if err != nil {
 		return false, err
 	}
-	if m.isBlockVolume(sourceUID) {
+	if m.isBlockVolume(sourceUID, volume) {
 		deviceName := filepath.Join(targetPath, volume)
 		isBlockExists, _ := isBlockDevice(deviceName)
 		return isBlockExists, nil
