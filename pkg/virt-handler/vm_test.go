@@ -2179,7 +2179,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, false)
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
 			Expect(isBlockMigration).To(BeFalse())
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
