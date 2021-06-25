@@ -59,7 +59,7 @@ const (
 )
 
 func NewVMController(vmiInformer cache.SharedIndexInformer,
-	vmiVMInformer cache.SharedIndexInformer,
+	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
@@ -70,7 +70,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	c := &VMController{
 		Queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		vmiInformer:            vmiInformer,
-		vmiVMInformer:          vmiVMInformer,
+		vmInformer:             vmInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
 		recorder:               recorder,
@@ -83,7 +83,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		statusUpdater: status.NewVMStatusUpdater(clientset),
 	}
 
-	c.vmiVMInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVm,
 		DeleteFunc: c.deleteVm,
 		UpdateFunc: c.updateVm,
@@ -116,7 +116,7 @@ type VMController struct {
 	clientset              kubecli.KubevirtClient
 	Queue                  workqueue.RateLimitingInterface
 	vmiInformer            cache.SharedIndexInformer
-	vmiVMInformer          cache.SharedIndexInformer
+	vmInformer             cache.SharedIndexInformer
 	dataVolumeInformer     cache.SharedIndexInformer
 	pvcInformer            cache.SharedIndexInformer
 	recorder               record.EventRecorder
@@ -132,7 +132,7 @@ func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting VirtualMachine controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmiVMInformer.HasSynced, c.dataVolumeInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmInformer.HasSynced, c.dataVolumeInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -170,7 +170,7 @@ func (c *VMController) Execute() bool {
 
 func (c *VMController) execute(key string) error {
 
-	obj, exists, err := c.vmiVMInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.vmInformer.GetStore().GetByKey(key)
 	if err != nil {
 		return nil
 	}
@@ -876,7 +876,7 @@ func (c *VMController) listVMIsFromNamespace(namespace string) ([]*virtv1.Virtua
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
 // from the VirtualMachine cache which run in this namespace
 func (c *VMController) listControllerFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
-	objs, err := c.vmiVMInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.vmInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -1491,7 +1491,7 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
 		return nil
 	}
-	vm, exists, err := c.vmiVMInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	vm, exists, err := c.vmInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
