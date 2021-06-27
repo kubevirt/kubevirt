@@ -249,10 +249,11 @@ func handleOperandDegradedCond(req *common.HcoRequest, component string, conditi
 	if condition.Status == metav1.ConditionTrue {
 		req.Logger.Info(fmt.Sprintf("%s is 'Degraded'", component))
 		req.Conditions.SetStatusCondition(metav1.Condition{
-			Type:    hcov1beta1.ConditionDegraded,
-			Status:  metav1.ConditionTrue,
-			Reason:  fmt.Sprintf("%sDegraded", component),
-			Message: fmt.Sprintf("%s is degraded: %v", component, condition.Message),
+			Type:               hcov1beta1.ConditionDegraded,
+			Status:             metav1.ConditionTrue,
+			Reason:             fmt.Sprintf("%sDegraded", component),
+			Message:            fmt.Sprintf("%s is degraded: %v", component, condition.Message),
+			ObservedGeneration: req.Instance.Generation,
 		})
 
 		return false
@@ -264,16 +265,18 @@ func handleOperandProgressingCond(req *common.HcoRequest, component string, cond
 	if condition.Status == metav1.ConditionTrue {
 		req.Logger.Info(fmt.Sprintf("%s is 'Progressing'", component))
 		req.Conditions.SetStatusCondition(metav1.Condition{
-			Type:    hcov1beta1.ConditionProgressing,
-			Status:  metav1.ConditionTrue,
-			Reason:  fmt.Sprintf("%sProgressing", component),
-			Message: fmt.Sprintf("%s is progressing: %v", component, condition.Message),
+			Type:               hcov1beta1.ConditionProgressing,
+			Status:             metav1.ConditionTrue,
+			Reason:             fmt.Sprintf("%sProgressing", component),
+			Message:            fmt.Sprintf("%s is progressing: %v", component, condition.Message),
+			ObservedGeneration: req.Instance.Generation,
 		})
 		req.Conditions.SetStatusCondition(metav1.Condition{
-			Type:    hcov1beta1.ConditionUpgradeable,
-			Status:  metav1.ConditionFalse,
-			Reason:  fmt.Sprintf("%sProgressing", component),
-			Message: fmt.Sprintf("%s is progressing: %v", component, condition.Message),
+			Type:               hcov1beta1.ConditionUpgradeable,
+			Status:             metav1.ConditionFalse,
+			Reason:             fmt.Sprintf("%sProgressing", component),
+			Message:            fmt.Sprintf("%s is progressing: %v", component, condition.Message),
+			ObservedGeneration: req.Instance.Generation,
 		})
 
 		return false
@@ -295,32 +298,36 @@ func getConditionsForNewCr(req *common.HcoRequest, component string) {
 	message := fmt.Sprintf("%s resource has no conditions", component)
 	req.Logger.Info(fmt.Sprintf("%s's resource is not reporting Conditions on it's Status", component))
 	req.Conditions.SetStatusCondition(metav1.Condition{
-		Type:    hcov1beta1.ConditionAvailable,
-		Status:  metav1.ConditionFalse,
-		Reason:  reason,
-		Message: message,
+		Type:               hcov1beta1.ConditionAvailable,
+		Status:             metav1.ConditionFalse,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: req.Instance.Generation,
 	})
 	req.Conditions.SetStatusCondition(metav1.Condition{
-		Type:    hcov1beta1.ConditionProgressing,
-		Status:  metav1.ConditionTrue,
-		Reason:  reason,
-		Message: message,
+		Type:               hcov1beta1.ConditionProgressing,
+		Status:             metav1.ConditionTrue,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: req.Instance.Generation,
 	})
 	req.Conditions.SetStatusCondition(metav1.Condition{
-		Type:    hcov1beta1.ConditionUpgradeable,
-		Status:  metav1.ConditionFalse,
-		Reason:  reason,
-		Message: message,
+		Type:               hcov1beta1.ConditionUpgradeable,
+		Status:             metav1.ConditionFalse,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: req.Instance.Generation,
 	})
 }
 
 func componentNotAvailable(req *common.HcoRequest, component string, msg string) {
 	req.Logger.Info(fmt.Sprintf("%s is not 'Available'", component))
 	req.Conditions.SetStatusCondition(metav1.Condition{
-		Type:    hcov1beta1.ConditionAvailable,
-		Status:  metav1.ConditionFalse,
-		Reason:  fmt.Sprintf("%sNotAvailable", component),
-		Message: msg,
+		Type:               hcov1beta1.ConditionAvailable,
+		Status:             metav1.ConditionFalse,
+		Reason:             fmt.Sprintf("%sNotAvailable", component),
+		Message:            msg,
+		ObservedGeneration: req.Instance.Generation,
 	})
 }
 

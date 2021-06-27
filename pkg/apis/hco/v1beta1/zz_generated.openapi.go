@@ -188,7 +188,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.Reference
 					},
 					"sriovLiveMigration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Allow migrating a virtual machine with SRIOV interfaces. When enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability. This may degrade virt-launcher security.",
+							Description: "Allow migrating a virtual machine with SRIOV interfaces.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -386,6 +386,13 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 									},
 								},
 							},
+						},
+					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservedGeneration reflects the HyperConverged resource generation. If the ObservedGeneration is less than the resource generation in metadata, the status is out of date",
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 				},

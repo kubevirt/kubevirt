@@ -723,6 +723,15 @@ var _ = Describe("HyperconvergedController", func() {
 
 				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			})
+
+			It("Should upgrade the status.observedGeneration field", func() {
+				expected := getBasicDeployment()
+				expected.hco.ObjectMeta.Generation = 10
+				cl := expected.initClient()
+				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
+
+				Expect(foundResource.Status.ObservedGeneration).Should(BeEquivalentTo(10))
+			})
 		})
 
 		Context("Validate OLM required fields", func() {

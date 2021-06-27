@@ -276,6 +276,8 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 
 	r.setLabels(req)
 
+	updateStatusGeneration(req)
+
 	// in-memory conditions should start off empty. It will only ever hold
 	// negative conditions (!Available, Degraded, Progressing)
 	req.Conditions = common.NewHcoConditions()
@@ -340,6 +342,13 @@ func (r *ReconcileHyperConverged) EnsureOperandAndComplete(req *common.HcoReques
 	exitedUpgradeMode := r.completeReconciliation(req)
 
 	return reconcile.Result{Requeue: exitedUpgradeMode}, nil
+}
+
+func updateStatusGeneration(req *common.HcoRequest) {
+	if req.Instance.ObjectMeta.Generation != req.Instance.Status.ObservedGeneration {
+		req.Instance.Status.ObservedGeneration = req.Instance.ObjectMeta.Generation
+		req.StatusDirty = true
+	}
 }
 
 // getHyperConverged gets the HyperConverged resource from the Kubernetes API.
@@ -775,6 +784,9 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 
 // This function is used to exit from the reconcile function, updating the conditions and returns the reconcile result
 func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) {
+	conditions := make([]metav1.Condition, len(req.Instance.Status.Conditions))
+	copy(conditions, req.Instance.Status.Conditions)
+
 	for _, condType := range common.HcoConditionTypes {
 		cond, found := req.Conditions[condType]
 		if !found {
@@ -782,17 +794,21 @@ func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) {
 				Type:               condType,
 				Status:             metav1.ConditionUnknown,
 				Message:            "Unknown Status",
+				Reason:             "StatusUnknown",
 				ObservedGeneration: req.Instance.ObjectMeta.Generation,
 			}
 		}
 
-		apimetav1.SetStatusCondition(&req.Instance.Status.Conditions, cond)
+		apimetav1.SetStatusCondition(&conditions, cond)
 	}
 
 	// Detect a "TaintedConfiguration" state, and raise a corresponding event
-	r.detectTaintedConfiguration(req)
+	r.detectTaintedConfiguration(req, &conditions)
 
-	req.StatusDirty = true
+	if !reflect.DeepEqual(conditions, req.Instance.Status.Conditions) {
+		req.Instance.Status.Conditions = conditions
+		req.StatusDirty = true
+	}
 }
 
 func (r *ReconcileHyperConverged) setLabels(req *common.HcoRequest) {
@@ -805,7 +821,7 @@ func (r *ReconcileHyperConverged) setLabels(req *common.HcoRequest) {
 	}
 }
 
-func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequest) {
+func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequest, conditions *[]metav1.Condition) {
 	conditionExists := apimetav1.IsStatusConditionTrue(req.Instance.Status.Conditions, hcov1beta1.ConditionTaintedConfiguration)
 
 	// A tainted configuration state is indicated by the
@@ -820,7 +836,7 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 	}
 
 	if tainted {
-		apimetav1.SetStatusCondition(&req.Instance.Status.Conditions, metav1.Condition{
+		apimetav1.SetStatusCondition(conditions, metav1.Condition{
 			Type:               hcov1beta1.ConditionTaintedConfiguration,
 			Status:             metav1.ConditionTrue,
 			Reason:             taintedConfigurationReason,
@@ -831,17 +847,15 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 		if !conditionExists {
 			// Only log at "first occurrence" of detection
 			req.Logger.Info("Detected tainted configuration state for HCO")
-			req.StatusDirty = true
 		}
 	} else { // !tainted
 
 		// For the sake of keeping the JSONPatch backdoor in low profile,
 		// we just remove the condition instead of False'ing it.
 		if conditionExists {
-			apimetav1.RemoveStatusCondition(&req.Instance.Status.Conditions, hcov1beta1.ConditionTaintedConfiguration)
+			apimetav1.RemoveStatusCondition(conditions, hcov1beta1.ConditionTaintedConfiguration)
 
 			req.Logger.Info("Detected untainted configuration state for HCO")
-			req.StatusDirty = true
 		}
 	}
 }

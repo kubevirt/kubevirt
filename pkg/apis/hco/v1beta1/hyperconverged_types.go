@@ -326,6 +326,11 @@ type HyperConvergedStatus struct {
 	// https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusteroperator.md#version
 	// +optional
 	Versions Versions `json:"versions,omitempty"`
+
+	// ObservedGeneration reflects the HyperConverged resource generation. If the ObservedGeneration is less than the
+	// resource generation in metadata, the status is out of date
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 func (hcs *HyperConvergedStatus) UpdateVersion(name, version string) {

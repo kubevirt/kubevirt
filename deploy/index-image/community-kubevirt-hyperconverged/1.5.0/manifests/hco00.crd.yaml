@@ -2377,6 +2377,12 @@ spec:
                   - type
                   type: object
                 type: array
+              observedGeneration:
+                description: ObservedGeneration reflects the HyperConverged resource
+                  generation. If the ObservedGeneration is less than the resource
+                  generation in metadata, the status is out of date
+                format: int64
+                type: integer
               relatedObjects:
                 description: RelatedObjects is a list of objects created and maintained
                   by this operator. Object references will be added to this list after

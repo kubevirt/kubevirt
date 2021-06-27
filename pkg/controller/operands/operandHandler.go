@@ -104,10 +104,11 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 		if res.Err != nil {
 			req.ComponentUpgradeInProgress = false
 			req.Conditions.SetStatusCondition(metav1.Condition{
-				Type:    hcov1beta1.ConditionReconcileComplete,
-				Status:  metav1.ConditionFalse,
-				Reason:  reconcileFailed,
-				Message: fmt.Sprintf("Error while reconciling: %v", res.Err),
+				Type:               hcov1beta1.ConditionReconcileComplete,
+				Status:             metav1.ConditionFalse,
+				Reason:             reconcileFailed,
+				Message:            fmt.Sprintf("Error while reconciling: %v", res.Err),
+				ObservedGeneration: req.Instance.Generation,
 			})
 			return res.Err
 		}
