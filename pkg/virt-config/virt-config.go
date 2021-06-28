@@ -199,6 +199,14 @@ func (c *ClusterConfig) GetPermittedHostDevices() *v1.PermittedHostDevices {
 	return c.GetConfig().PermittedHostDevices
 }
 
+func (c *ClusterConfig) GetDesiredMDEVTypes(nodeName string) uint {
+	mdevTypesConf := c.GetConfig().MediatedDevicesConfiguration
+	if nodeMdevTypes, exist := mdevTypesConf.NodeMediatedDevices[nodeName]; exist {
+		return nodeMdevTypes
+	}
+	return mdevTypesConf.MediatedDevicesTypes
+}
+
 func (c *ClusterConfig) GetVirtHandlerVerbosity(nodeName string) uint {
 	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
 	if level := logConf.NodeVerbosity[nodeName]; level != 0 {
