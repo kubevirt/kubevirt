@@ -177,6 +177,8 @@ spec:
                       completionTimeoutPerGiB:
                         format: int64
                         type: integer
+                      disableTLS:
+                        type: boolean
                       nodeDrainTaintKey:
                         type: string
                       parallelMigrationsPerCluster:
@@ -2057,6 +2059,8 @@ spec:
                       completionTimeoutPerGiB:
                         format: int64
                         type: integer
+                      disableTLS:
+                        type: boolean
                       nodeDrainTaintKey:
                         type: string
                       parallelMigrationsPerCluster:

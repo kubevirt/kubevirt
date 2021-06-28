@@ -10697,6 +10697,9 @@
       "type": "integer",
       "format": "int64"
      },
+     "disableTLS": {
+      "type": "boolean"
+     },
      "nodeDrainTaintKey": {
       "type": "string"
      },
