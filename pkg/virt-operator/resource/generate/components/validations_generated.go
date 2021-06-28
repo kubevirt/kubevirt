@@ -594,6 +594,22 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             machineType:
               type: string
+            mediatedDevicesConfiguration:
+              description: MediatedDevicesConfiguration holds inforamtion about MDEV
+                types to be defined, if available
+              properties:
+                mediatedDevicesTypes:
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
+                nodeMediatedDevices:
+                  additionalProperties:
+                    items:
+                      type: string
+                    type: array
+                  type: object
+              type: object
             memBalloonStatsPeriod:
               format: int32
               type: integer
