@@ -1569,6 +1569,7 @@ func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started 
 				{
 					Type:   v1.VirtualMachineReady,
 					Status: k8sv1.ConditionFalse,
+					Reason: "VMINotExists",
 				},
 			},
 		},
