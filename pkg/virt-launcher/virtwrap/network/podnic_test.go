@@ -12,9 +12,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/vishvananda/netlink"
 
-	"k8s.io/apimachinery/pkg/types"
-
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
@@ -30,7 +27,6 @@ var _ = Describe("podNIC", func() {
 		cacheFactory               cache.InterfaceCacheFactory
 		mockPodNetworkConfigurator *infraconfigurators.MockPodNetworkInfraConfigurator
 		ctrl                       *gomock.Controller
-		vmi                        *kubevirtv1.VirtualMachineInstance
 	)
 	newPodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
 		podnic, err := newPodNICWithoutInfraConfigurator(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, nil)
@@ -54,6 +50,7 @@ var _ = Describe("podNIC", func() {
 	When("reading networking configuration succeed", func() {
 		var (
 			podnic *podNIC
+			vmi    *v1.VirtualMachineInstance
 		)
 		BeforeEach(func() {
 			address1 := &net.IPNet{IP: net.IPv4(1, 2, 3, 4)}
@@ -66,7 +63,7 @@ var _ = Describe("podNIC", func() {
 			mockPodNetworkConfigurator.EXPECT().GenerateDHCPConfig().Return(&cache.DHCPConfig{}).Times(1)
 			mockPodNetworkConfigurator.EXPECT().GenerateDomainIfaceSpec().Times(1)
 			domain := NewDomainWithBridgeInterface()
-			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			vmi = newVMIBridgeInterface("testnamespace", "testVmName")
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
@@ -91,8 +88,12 @@ var _ = Describe("podNIC", func() {
 			BeforeEach(func() {
 				mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Times(1)
 			})
-			It("should return no error at phase1", func() {
+			It("should return no error at phase1 and store pod interface", func() {
 				Expect(podnic.PlugPhase1()).To(Succeed())
+				podData, err := podnic.cacheFactory.CacheForVMI(vmi).Read("default")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(podData.PodIP).To(Equal("1.2.3.4"))
+				Expect(podData.PodIPs).To(ConsistOf("1.2.3.4", "169.254.0.0"))
 			})
 		})
 	})
@@ -112,34 +113,6 @@ var _ = Describe("podNIC", func() {
 				Expect(podnic.PlugPhase2(domain)).To(Succeed())
 			}
 			Expect(testDhcpPanic).To(Panic())
-		})
-	})
-	Context("when setPodInterfaceCache is called with a configured nic", func() {
-		var (
-			podnic *podNIC
-		)
-		BeforeEach(func() {
-			vmi = newVMIMasqueradeInterface("testnamespace", "testVmName")
-			vmi.UID = types.UID("test-1234")
-			address1 := &net.IPNet{IP: net.IPv4(1, 2, 3, 4)}
-			address2 := &net.IPNet{IP: net.IPv4(169, 254, 0, 0)}
-			fakeAddr1 := netlink.Addr{IPNet: address1}
-			fakeAddr2 := netlink.Addr{IPNet: address2}
-
-			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr1.IP.String(), fakeAddr2.IP.String(), nil)
-			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
-
-			var err error
-			podnic, err = newPodNICWithMocks(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			err = podnic.setPodInterfaceCache()
-			Expect(err).ToNot(HaveOccurred())
-		})
-		It("should write interface to cache file", func() {
-			podData, err := podnic.cacheFactory.CacheForVMI(vmi).Read("default")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(podData.PodIP).To(Equal("1.2.3.4"))
-			Expect(podData.PodIPs).To(ConsistOf("1.2.3.4", "169.254.0.0"))
 		})
 	})
 	Context("when interface binding is SRIOV", func() {
