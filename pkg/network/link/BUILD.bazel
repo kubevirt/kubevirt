@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["address.go"],
+    srcs = [
+        "address.go",
+        "names.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/network/link",
     visibility = ["//visibility:public"],
     deps = [
@@ -19,6 +22,7 @@ go_test(
     srcs = [
         "address_test.go",
         "link_suite_test.go",
+        "names_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

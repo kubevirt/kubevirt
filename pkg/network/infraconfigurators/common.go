@@ -48,10 +48,6 @@ func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName strin
 	return handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
 }
 
-func generateTapDeviceName(podInterfaceName string) string {
-	return "tap" + podInterfaceName[3:]
-}
-
 func validateMTU(mtu int) error {
 	if mtu < 0 || mtu > 65535 {
 		return fmt.Errorf("MTU value out of range ")

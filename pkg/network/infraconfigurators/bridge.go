@@ -11,6 +11,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -63,7 +64,7 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 		}
 	}
 
-	b.tapDeviceName = generateTapDeviceName(podIfaceName)
+	b.tapDeviceName = virtnetlink.GenerateTapDeviceName(podIfaceName)
 
 	b.vmMac, err = retrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
 	if err != nil {
@@ -251,7 +252,7 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 
 func (b *BridgePodNetworkConfigurator) switchPodInterfaceWithDummy() error {
 	originalPodInterfaceName := b.podNicLink.Attrs().Name
-	newPodInterfaceName := fmt.Sprintf("%s-nic", originalPodInterfaceName)
+	newPodInterfaceName := virtnetlink.GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName)
 	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
 
 	// Rename pod interface to free the original name for a new dummy interface
