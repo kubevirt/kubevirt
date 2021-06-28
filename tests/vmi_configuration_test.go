@@ -1591,10 +1591,21 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		Context("[Serial]using defaultRuntimeClass configuration", func() {
+			runtimeClassName := "custom-runtime-class"
+
+			BeforeEach(func() {
+				By("Creating a runtime class")
+				tests.CreateRuntimeClass(runtimeClassName, "custom-handler")
+			})
+
+			AfterEach(func() {
+				By("Cleaning up runtime class")
+				err = tests.DeleteRuntimeClass(runtimeClassName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
 			It("should apply runtimeClassName to pod when set", func() {
 				By("Configuring a default runtime class")
-				runtimeClassName := "custom-runtime-class"
-				tests.CreateRuntimeClass(runtimeClassName, "custom-handler")
 				config := tests.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 				config.DefaultRuntimeClass = runtimeClassName
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
@@ -1607,10 +1618,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				By("Checking for presence of runtimeClassName")
 				pod := tests.GetPodByVirtualMachineInstance(vmi)
 				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
-
-				By("Cleaning up runtime class")
-				err = tests.DeleteRuntimeClass(runtimeClassName)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should not apply runtimeClassName to pod when not set", func() {
