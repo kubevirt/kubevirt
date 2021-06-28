@@ -1,6 +1,8 @@
 package checks
 
 import (
+	"fmt"
+
 	"github.com/onsi/ginkgo"
 
 	"kubevirt.io/client-go/kubecli"
@@ -23,6 +25,12 @@ func SkipTestIfNoCPUManager() {
 		}
 	}
 	ginkgo.Skip("no node with CPUManager detected", 1)
+}
+
+func SkipTestIfNoFeatureGate(featureGate string) {
+	if !HasFeature(featureGate) {
+		ginkgo.Skip(fmt.Sprintf("the %v feature gate is not enabled.", featureGate))
+	}
 }
 
 func SkipTestIfNoCPUManagerWith2MiHugepages() {

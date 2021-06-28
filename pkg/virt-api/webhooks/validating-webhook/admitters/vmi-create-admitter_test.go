@@ -2256,6 +2256,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		BeforeEach(func() {
 			vmi = v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+			enableFeatureGate(virtconfig.NUMAFeatureGate)
+		})
+		It("should reject NUMA passthrough without DedicatedCPUPlacement without the NUMA feature gate", func() {
+			disableFeatureGates()
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
+			vmi.Spec.Domain.CPU.Cores = 4
+			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa.guestMappingPassthrough"))
+			Expect(causes[0].Message).To(ContainSubstring("NUMA feature gate"))
 		})
 		It("should reject NUMA passthrough without DedicatedCPUPlacement", func() {
 			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}

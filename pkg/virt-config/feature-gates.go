@@ -25,6 +25,7 @@ package virtconfig
 
 const (
 	CPUManager        = "CPUManager"
+	NUMAFeatureGate   = "NUMA"
 	IgnitionGate      = "ExperimentalIgnitionSupport"
 	LiveMigrationGate = "LiveMigration"
 	// SRIOVLiveMigrationGate enable's Live Migration for VM's with SRIOV interfaces.
@@ -53,6 +54,10 @@ func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
 	return config.isFeatureGateEnabled(CPUManager)
+}
+
+func (config *ClusterConfig) NUMAEnabled() bool {
+	return config.isFeatureGateEnabled(NUMAFeatureGate)
 }
 
 func (config *ClusterConfig) DownwardMetricsEnabled() bool {
