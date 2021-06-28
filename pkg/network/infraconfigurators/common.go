@@ -36,7 +36,8 @@ type PodNetworkInfraConfigurator interface {
 	DiscoverPodNetworkInterface(podIfaceName string) error
 	PreparePodNetworkInterface() error
 	GenerateDomainIfaceSpec() api.Interface
-	GenerateDHCPConfig() *cache.DHCPConfig
+	// The method should return dhcp configuration that cannot be calculated in virt-launcher's phase2
+	GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig
 }
 
 func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName string, bridgeIfaceName string, launcherPID int, mtu int, tapOwner string, vmi *v1.VirtualMachineInstance) error {

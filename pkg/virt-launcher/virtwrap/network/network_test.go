@@ -25,7 +25,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
-	"kubevirt.io/kubevirt/pkg/network/dhcp"
+	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -57,14 +57,14 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			})
 		})
 		Context("when calling []podNIC factory functions", func() {
-			var launcherPID *int
 			It("should configure bridged pod networking by default", func() {
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
 				iface := v1.DefaultBridgeNetworkInterface()
 				defaultNet := v1.DefaultPodNetwork()
-				nics, err := vmNetworkConfigurator.getNICs(newPodNICWithoutInfraConfigurator, nil)
+				launcherPID := 0
+				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ConsistOf([]podNIC{{
 					vmi:              vm,
@@ -73,17 +73,20 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					vmiSpecNetwork:   defaultNet,
 					handler:          vmNetworkConfigurator.handler,
 					cacheFactory:     vmNetworkConfigurator.cacheFactory,
-					dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-						vmNetworkConfigurator.cacheFactory,
-						getPIDString(launcherPID),
+					launcherPID:      &launcherPID,
+					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
+						vm,
+						iface,
 						generateInPodBridgeInterfaceName(primaryPodInterfaceName),
+						launcherPID,
 						vmNetworkConfigurator.handler),
 				}}))
 			})
 			It("should accept empty network list", func() {
 				vmi := newVMI("testnamespace", "testVmName")
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
-				nics, err := vmNetworkConfigurator.getNICs(newPodNICWithoutInfraConfigurator, nil)
+				launcherPID := 0
+				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(BeEmpty())
 			})
@@ -99,7 +102,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				}
 				vmi.Spec.Networks = []v1.Network{*cniNet}
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
-				nics, err := vmNetworkConfigurator.getNICs(newPodNICWithoutInfraConfigurator, nil)
+				launcherPID := 0
+				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ConsistOf([]podNIC{{
 					vmi:              vmi,
@@ -108,10 +112,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					podInterfaceName: multusInterfaceName,
 					handler:          vmNetworkConfigurator.handler,
 					cacheFactory:     vmNetworkConfigurator.cacheFactory,
-					dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-						vmNetworkConfigurator.cacheFactory,
-						getPIDString(launcherPID),
+					launcherPID:      &launcherPID,
+					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
+						vmi,
+						iface,
 						generateInPodBridgeInterfaceName(multusInterfaceName),
+						launcherPID,
 						vmNetworkConfigurator.handler),
 				}}))
 			})
@@ -163,7 +169,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
 
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
-				nics, err := vmNetworkConfigurator.getNICs(newPodNICWithoutInfraConfigurator, nil)
+				launcherPID := 0
+				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ContainElements([]podNIC{
 					{
@@ -173,10 +180,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						podInterfaceName: "net1",
 						handler:          vmNetworkConfigurator.handler,
 						cacheFactory:     vmNetworkConfigurator.cacheFactory,
-						dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-							vmNetworkConfigurator.cacheFactory,
-							getPIDString(launcherPID),
+						launcherPID:      &launcherPID,
+						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
+							vm,
+							&vm.Spec.Domain.Devices.Interfaces[0],
 							generateInPodBridgeInterfaceName("net1"),
+							launcherPID,
 							vmNetworkConfigurator.handler),
 					},
 					{
@@ -186,10 +195,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						podInterfaceName: "eth0",
 						handler:          vmNetworkConfigurator.handler,
 						cacheFactory:     vmNetworkConfigurator.cacheFactory,
-						dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-							vmNetworkConfigurator.cacheFactory,
-							getPIDString(launcherPID),
+						launcherPID:      &launcherPID,
+						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
+							vm,
+							&vm.Spec.Domain.Devices.Interfaces[1],
 							generateInPodBridgeInterfaceName("eth0"),
+							launcherPID,
 							vmNetworkConfigurator.handler),
 					},
 					{
@@ -199,10 +210,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						podInterfaceName: "net2",
 						handler:          vmNetworkConfigurator.handler,
 						cacheFactory:     vmNetworkConfigurator.cacheFactory,
-						dhcpConfigurator: dhcp.NewConfiguratorWithClientFilter(
-							vmNetworkConfigurator.cacheFactory,
-							getPIDString(launcherPID),
+						launcherPID:      &launcherPID,
+						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
+							vm,
+							&vm.Spec.Domain.Devices.Interfaces[2],
 							generateInPodBridgeInterfaceName("net2"),
+							launcherPID,
 							vmNetworkConfigurator.handler),
 					},
 				}))

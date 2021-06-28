@@ -65,6 +65,6 @@ func (b *MacvtapPodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interface 
 	}
 }
 
-func (b *MacvtapPodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
+func (b *MacvtapPodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig {
 	return nil
 }

@@ -81,7 +81,7 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 	return nil
 }
 
-func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
+func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig {
 	if !b.ipamEnabled {
 		return &cache.DHCPConfig{Name: b.podNicLink.Attrs().Name, IPAMDisabled: true}
 	}

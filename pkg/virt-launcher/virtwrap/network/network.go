@@ -48,7 +48,7 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheFactory cache
 	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheFactory)
 }
 
-func (v VMNetworkConfigurator) getNICs(podNICFactory func(*v1.VirtualMachineInstance, *v1.Network, netdriver.NetworkHandler, cache.InterfaceCacheFactory, *int) (*podNIC, error), launcherPID *int) ([]podNIC, error) {
+func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int) ([]podNIC, error) {
 	nics := []podNIC{}
 
 	if len(v.vmi.Spec.Domain.Devices.Interfaces) == 0 {
@@ -56,7 +56,25 @@ func (v VMNetworkConfigurator) getNICs(podNICFactory func(*v1.VirtualMachineInst
 	}
 
 	for i, _ := range v.vmi.Spec.Networks {
-		nic, err := podNICFactory(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, launcherPID)
+		nic, err := newPhase1PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory, launcherPID)
+		if err != nil {
+			return nil, err
+		}
+		nics = append(nics, *nic)
+	}
+	return nics, nil
+
+}
+
+func (v VMNetworkConfigurator) getPhase2NICs() ([]podNIC, error) {
+	nics := []podNIC{}
+
+	if len(v.vmi.Spec.Domain.Devices.Interfaces) == 0 {
+		return nics, nil
+	}
+
+	for i, _ := range v.vmi.Spec.Networks {
+		nic, err := newPhase2PodNIC(v.vmi, &v.vmi.Spec.Networks[i], v.handler, v.cacheFactory)
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +86,7 @@ func (v VMNetworkConfigurator) getNICs(podNICFactory func(*v1.VirtualMachineInst
 
 func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) error {
 	launcherPID := &pid
-	nics, err := n.getNICs(newPodNIC, launcherPID)
+	nics, err := n.getPhase1NICs(launcherPID)
 	if err != nil {
 		return err
 	}
@@ -81,8 +99,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(pid int) error {
 }
 
 func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain) error {
-	var launcherPID *int
-	nics, err := n.getNICs(newPodNICWithoutInfraConfigurator, launcherPID)
+	nics, err := n.getPhase2NICs()
 	if err != nil {
 		return err
 	}

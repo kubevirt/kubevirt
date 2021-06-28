@@ -1,3 +1,24 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2021 Red Hat, Inc.
+ *
+ */
+
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
 package dhcp
 
 import (
@@ -11,69 +32,44 @@ import (
 
 const defaultDHCPStartedDirectory = "/var/run/kubevirt-private"
 
-type Configurator struct {
+type Configurator interface {
+	EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error
+	Generate() (*cache.DHCPConfig, error)
+}
+
+type configurator struct {
 	advertisingIfaceName string
-	cacheFactory         cache.InterfaceCacheFactory
+	configGenerator      ConfigGenerator
 	filterByMac          bool
 	handler              netdriver.NetworkHandler
-	launcherPID          string
 	dhcpStartedDirectory string
 }
 
-// NewConfiguratorWithClientFilter should be used when the DHCP server is
-// expected to only reply to the MAC specified in the `cache.DHCPConfig` struct
-func NewConfiguratorWithClientFilter(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler) *Configurator {
-	return &Configurator{
+type ConfigGenerator interface {
+	Generate() (*cache.DHCPConfig, error)
+}
+
+func NewBridgeConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler, podInterfaceName string) *configurator {
+	return &configurator{
 		advertisingIfaceName: advertisingIfaceName,
-		cacheFactory:         cacheFactory,
-		launcherPID:          launcherPID,
 		filterByMac:          true,
 		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
+		configGenerator:      &BridgeConfigGenerator{cacheFactory: cacheFactory, podInterfaceName: podInterfaceName, launcherPID: launcherPID},
 	}
 }
 
-// NewConfigurator should be used when the DHCP server is
-// expected to reply all client requests, independently of their MAC address
-func NewConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler) *Configurator {
-	return &Configurator{
+func NewMasqueradeConfigurator(advertisingIfaceName string, handler netdriver.NetworkHandler, vmiSpecIface *v1.Interface, vmiSpecNetwork *v1.Network, podInterfaceName string) *configurator {
+	return &configurator{
 		advertisingIfaceName: advertisingIfaceName,
-		cacheFactory:         cacheFactory,
-		launcherPID:          launcherPID,
+		configGenerator:      &MasqueradeConfigGenerator{handler: handler, vmiSpecIface: vmiSpecIface, vmiSpecNetwork: vmiSpecNetwork, podInterfaceName: podInterfaceName},
 		filterByMac:          false,
 		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
 	}
 }
 
-// NewConfiguratorWithDHCPStartedDirectory should be used when the DHCP server
-// lock file need to be placed in a custom directory.
-func NewConfiguratorWithDHCPStartedDirectory(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler, dhcpStartedDirectory string) *Configurator {
-	return &Configurator{
-		advertisingIfaceName: advertisingIfaceName,
-		cacheFactory:         cacheFactory,
-		launcherPID:          launcherPID,
-		handler:              handler,
-		dhcpStartedDirectory: dhcpStartedDirectory,
-	}
-}
-
-func (d Configurator) ImportConfiguration(ifaceName string) (*cache.DHCPConfig, error) {
-	dhcpConfig, err := d.cacheFactory.CacheDHCPConfigForPid(d.launcherPID).Read(ifaceName)
-	if err != nil {
-		return nil, err
-	}
-	dhcpConfig.AdvertisingIPAddr = dhcpConfig.AdvertisingIPAddr.To4()
-	dhcpConfig.Gateway = dhcpConfig.Gateway.To4()
-	dhcpConfig.AdvertisingIPv6Addr = dhcpConfig.AdvertisingIPv6Addr.To16()
-	return dhcpConfig, nil
-}
-
-func (d Configurator) ExportConfiguration(config cache.DHCPConfig) error {
-	return d.cacheFactory.CacheDHCPConfigForPid(d.launcherPID).Write(config.Name, &config)
-}
-
-func (d Configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
+func (d *configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
 	if dhcpConfig.IPAMDisabled {
 		return nil
 	}
@@ -92,6 +88,10 @@ func (d Configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfi
 	return nil
 }
 
-func (d Configurator) getDHCPStartedFilePath(podInterfaceName string) string {
+func (d *configurator) getDHCPStartedFilePath(podInterfaceName string) string {
 	return fmt.Sprintf("%s/dhcp_started-%s", d.dhcpStartedDirectory, podInterfaceName)
+}
+
+func (d *configurator) Generate() (*cache.DHCPConfig, error) {
+	return d.configGenerator.Generate()
 }

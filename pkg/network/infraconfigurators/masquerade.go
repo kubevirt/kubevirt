@@ -44,7 +44,6 @@ type MasqueradePodNetworkConfigurator struct {
 	handler             netdriver.NetworkHandler
 	vmIPv4Addr          netlink.Addr
 	vmIPv6Addr          netlink.Addr
-	vmMac               *net.HardwareAddr
 }
 
 func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmiSpecNetwork *v1.Network, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
@@ -85,11 +84,6 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 		}
 	}
 
-	b.vmMac, err = virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -114,27 +108,8 @@ func (b *MasqueradePodNetworkConfigurator) discoverIPv6GatewayAndVmIp() error {
 	return nil
 }
 
-func (b *MasqueradePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
-	dhcpConfig := &cache.DHCPConfig{
-		Name: b.podNicLink.Attrs().Name,
-		IP:   b.vmIPv4Addr,
-		IPv6: b.vmIPv6Addr,
-	}
-	if b.vmMac != nil {
-		dhcpConfig.MAC = *b.vmMac
-	}
-	if b.podNicLink != nil {
-		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
-	}
-	if b.vmGatewayAddr != nil {
-		dhcpConfig.AdvertisingIPAddr = b.vmGatewayAddr.IP.To4()
-		dhcpConfig.Gateway = b.vmGatewayAddr.IP.To4()
-	}
-	if b.vmGatewayIpv6Addr != nil {
-		dhcpConfig.AdvertisingIPv6Addr = b.vmGatewayIpv6Addr.IP.To16()
-	}
-
-	return dhcpConfig
+func (b *MasqueradePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig {
+	return nil
 }
 
 func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {

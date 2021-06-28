@@ -42,12 +42,12 @@ type podNIC struct {
 	vmiSpecNetwork    *v1.Network
 	handler           netdriver.NetworkHandler
 	cacheFactory      cache.InterfaceCacheFactory
-	dhcpConfigurator  *dhcpconfigurator.Configurator
+	dhcpConfigurator  dhcpconfigurator.Configurator
 	infraConfigurator infraconfigurators.PodNetworkInfraConfigurator
 }
 
-func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
-	podnic, err := newPodNICWithoutInfraConfigurator(vmi, network, handler, cacheFactory, launcherPID)
+func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
+	podnic, err := newPodNIC(vmi, network, handler, cacheFactory, launcherPID)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,36 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 	}
 	return podnic, nil
 }
-func newPodNICWithoutInfraConfigurator(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
+
+func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory) (*podNIC, error) {
+	podnic, err := newPodNIC(vmi, network, handler, cacheFactory, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var dhcpConfigurator dhcpconfigurator.Configurator
+	if podnic.vmiSpecIface.Bridge != nil {
+		dhcpConfigurator = dhcpconfigurator.NewBridgeConfigurator(
+			podnic.cacheFactory,
+			getPIDString(podnic.launcherPID),
+			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
+			podnic.handler,
+			podnic.podInterfaceName)
+	} else if podnic.vmiSpecIface.Masquerade != nil {
+		dhcpConfigurator = dhcpconfigurator.NewMasqueradeConfigurator(
+			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
+			podnic.handler,
+			podnic.vmiSpecIface,
+			podnic.vmiSpecNetwork,
+			podnic.podInterfaceName)
+	}
+
+	podnic.dhcpConfigurator = dhcpConfigurator
+
+	return podnic, nil
+}
+
+func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
 	if network.Pod == nil && network.Multus == nil {
 		return nil, fmt.Errorf("Network not implemented")
 	}
@@ -94,21 +123,6 @@ func newPodNICWithoutInfraConfigurator(vmi *v1.VirtualMachineInstance, network *
 		return nil, err
 	}
 
-	var dhcpConfigurator *dhcpconfigurator.Configurator
-	if correspondingNetworkIface.Bridge != nil {
-		dhcpConfigurator = dhcpconfigurator.NewConfiguratorWithClientFilter(
-			cacheFactory,
-			getPIDString(launcherPID),
-			generateInPodBridgeInterfaceName(podInterfaceName),
-			handler)
-	} else if correspondingNetworkIface.Masquerade != nil {
-		dhcpConfigurator = dhcpconfigurator.NewConfigurator(
-			cacheFactory,
-			getPIDString(launcherPID),
-			generateInPodBridgeInterfaceName(podInterfaceName),
-			handler)
-	}
-
 	return &podNIC{
 		cacheFactory:     cacheFactory,
 		handler:          handler,
@@ -117,7 +131,6 @@ func newPodNICWithoutInfraConfigurator(vmi *v1.VirtualMachineInstance, network *
 		podInterfaceName: podInterfaceName,
 		vmiSpecIface:     correspondingNetworkIface,
 		launcherPID:      launcherPID,
-		dhcpConfigurator: dhcpConfigurator,
 	}, nil
 }
 
@@ -197,10 +210,10 @@ func (l *podNIC) PlugPhase1() error {
 		return err
 	}
 
-	if l.dhcpConfigurator != nil {
-		dhcpConfig := l.infraConfigurator.GenerateDHCPConfig()
+	dhcpConfig := l.infraConfigurator.GenerateNonRecoverableDHCPConfig()
+	if dhcpConfig != nil {
 		log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
-		if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
+		if err := l.cacheFactory.CacheDHCPConfigForPid(getPIDString(l.launcherPID)).Write(l.podInterfaceName, dhcpConfig); err != nil {
 			log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
 			return errors.CreateCriticalNetworkError(err)
 		}
@@ -244,9 +257,10 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	}
 
 	if l.dhcpConfigurator != nil {
-		dhcpConfig, err := l.dhcpConfigurator.ImportConfiguration(l.podInterfaceName)
-		if err != nil || dhcpConfig == nil {
-			log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
+		dhcpConfig, err := l.dhcpConfigurator.Generate()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to get a dhcp configuration for: %s", l.podInterfaceName)
+			return err
 		}
 		log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
 		if err := l.dhcpConfigurator.EnsureDHCPServerStarted(l.podInterfaceName, *dhcpConfig, l.vmiSpecIface.DHCPOptions); err != nil {

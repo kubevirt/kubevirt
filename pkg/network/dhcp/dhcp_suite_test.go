@@ -6,6 +6,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestDhcpConfigurator(t *testing.T) {
+func TestDhcp(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

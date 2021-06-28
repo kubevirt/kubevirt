@@ -61,12 +61,12 @@ func (_mr *_MockPodNetworkInfraConfiguratorRecorder) GenerateDomainIfaceSpec() *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GenerateDomainIfaceSpec")
 }
 
-func (_m *MockPodNetworkInfraConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
-	ret := _m.ctrl.Call(_m, "GenerateDHCPConfig")
+func (_m *MockPodNetworkInfraConfigurator) GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig {
+	ret := _m.ctrl.Call(_m, "GenerateNonRecoverableDHCPConfig")
 	ret0, _ := ret[0].(*cache.DHCPConfig)
 	return ret0
 }
 
-func (_mr *_MockPodNetworkInfraConfiguratorRecorder) GenerateDHCPConfig() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GenerateDHCPConfig")
+func (_mr *_MockPodNetworkInfraConfiguratorRecorder) GenerateNonRecoverableDHCPConfig() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GenerateNonRecoverableDHCPConfig")
 }
