@@ -230,3 +230,13 @@ func (_m *MockDomainManager) Exec(_param0 string, _param1 string, _param2 []stri
 func (_mr *_MockDomainManagerRecorder) Exec(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Exec", arg0, arg1, arg2, arg3)
 }
+
+func (_m *MockDomainManager) GuestPing(_param0 string) error {
+	ret := _m.ctrl.Call(_m, "GuestPing", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) GuestPing(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestPing", arg0)
+}

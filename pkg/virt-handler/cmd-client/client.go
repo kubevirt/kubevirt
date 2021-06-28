@@ -95,6 +95,7 @@ type LauncherClient interface {
 	GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error)
 	Exec(string, string, []string, int32) (int, string, error)
 	Ping() error
+	GuestPing(string, int32) error
 	Close()
 }
 
@@ -657,4 +658,21 @@ func (c *VirtLauncherClient) Exec(domainName, command string, args []string, tim
 	stdOut = resp.StdOut
 
 	return exitCode, stdOut, err
+}
+
+func (c *VirtLauncherClient) GuestPing(domainName string, timeoutSeconds int32) error {
+	request := &cmdv1.GuestPingRequest{
+		DomainName:     domainName,
+		TimeoutSeconds: timeoutSeconds,
+	}
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		// we give the context a bit more time as the timeout should kick
+		// on the actual execution
+		time.Duration(timeoutSeconds)*time.Second+shortTimeout,
+	)
+	defer cancel()
+
+	_, err := c.v1client.GuestPing(ctx, request)
+	return err
 }

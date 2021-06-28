@@ -204,9 +204,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.ReadinessProbe = &v1.Probe{
 				InitialDelaySeconds: 2,
 				Handler: v1.Handler{
-					HTTPGet:   &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
-					TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
-					Exec:      &k8sv1.ExecAction{Command: []string{"uname", "-a"}},
+					HTTPGet:        &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+					TCPSocket:      &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+					Exec:           &k8sv1.ExecAction{Command: []string{"uname", "-a"}},
+					GuestAgentPing: &v1.GuestAgentPing{},
 				},
 			}
 			vmi.Spec.LivenessProbe = &v1.Probe{
@@ -1452,7 +1453,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject a masquerade interface with a specified MAC address which is reserved by the BindMechanism", func() {
 			vmi := v1.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Masquerade: &v1.InterfaceMasquerade{},
@@ -1461,7 +1462,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}}
 
 			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -2139,7 +2140,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}, 1, []string{"must not have more than 6 search paths"}),
 			table.Entry("with DNSPolicy None and search domain exceeding max length", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4"},
-				Searches:    []string{strings.Repeat("a", maxDNSSearchListChars/2), strings.Repeat("b", (maxDNSSearchListChars / 2))},
+				Searches:    []string{strings.Repeat("a", maxDNSSearchListChars/2), strings.Repeat("b", maxDNSSearchListChars/2)},
 			}, 1, []string{fmt.Sprintf("must not have more than %v characters (including spaces) in the search list", maxDNSSearchListChars)}),
 			table.Entry("with DNSPolicy None and bad IsDNS1123Subdomain", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4"},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -16,6 +17,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 )
@@ -60,6 +62,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
+		guestAgentPingProbe := createGuestAgentPingProbe(period, initialSeconds)
 
 		isVMIReady := func() bool {
 			readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -67,7 +70,12 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			return vmiReady(readVmi) == corev1.ConditionTrue
 		}
 
-		table.DescribeTable("should succeed", func(readinessProbe *v1.Probe, IPFamily corev1.IPFamily, isExecProbe bool) {
+		table.DescribeTable("should succeed", func(readinessProbe *v1.Probe, IPFamily corev1.IPFamily, isExecProbe bool, disableEnableCycle bool) {
+			checkStatus := func(ready bool, condition corev1.ConditionStatus, timeout int) {
+				By("Checking that the VMI and the pod will be marked as ready to receive traffic")
+				Eventually(isVMIReady, timeout, 1).Should(Equal(ready))
+				Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(condition))
+			}
 
 			if IPFamily == corev1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
@@ -101,15 +109,36 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 			}
 
-			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
-			Eventually(isVMIReady, 60, 1).Should(Equal(true))
-			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(corev1.ConditionTrue))
+			checkStatus(true, corev1.ConditionTrue, 120)
+
+			if disableEnableCycle {
+				By("Disabling the guest-agent")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "sudo systemctl stop qemu-guest-agent -\n"},
+					&expect.BExp{R: console.PromptExpression},
+				}, 120)).ToNot(HaveOccurred())
+
+				// Marking the status to not ready can take a little more time
+				checkStatus(false, corev1.ConditionFalse, 300)
+
+				By("Enabling the guest-agent again")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "sudo systemctl start qemu-guest-agent -\n"},
+					&expect.BExp{R: console.PromptExpression},
+				}, 120)).ToNot(HaveOccurred())
+
+				checkStatus(true, corev1.ConditionTrue, 120)
+			}
 		},
-			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false),
-			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
-			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false),
-			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false),
-			table.Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true),
+			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false, false),
+			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false, false),
+			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, corev1.IPv4Protocol, false, false),
+			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, corev1.IPv6Protocol, false, false),
+			table.Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily, true, false),
+			table.Entry("[test_id:6739]with GuestAgentPing", guestAgentPingProbe, blankIPFamily, true, false),
+			table.Entry("[test_id:6741]status change with guest-agent availability", guestAgentPingProbe, blankIPFamily, true, true),
 		)
 
 		table.DescribeTable("should fail", func(readinessProbe *v1.Probe, isExecProbe bool) {
@@ -272,6 +301,11 @@ func createTCPProbe(period int32, initialSeconds int32, port int) *v1.Probe {
 		},
 	}
 	return createProbeSpecification(period, initialSeconds, 1, httpHandler)
+}
+
+func createGuestAgentPingProbe(period int32, initialSeconds int32) *v1.Probe {
+	handler := v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}}
+	return createProbeSpecification(period, initialSeconds, 1, handler)
 }
 
 func patchProbeWithIPAddr(existingProbe *v1.Probe, ipHostIP string) *v1.Probe {

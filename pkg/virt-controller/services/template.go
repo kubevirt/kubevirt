@@ -405,7 +405,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	var volumes []k8sv1.Volume
 	var volumeDevices []k8sv1.VolumeDevice
 	var userId int64 = 0
-	var privileged bool = false
+	var privileged = false
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
@@ -1058,13 +1058,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	if vmi.Spec.ReadinessProbe != nil {
 		v1.SetDefaults_Probe(vmi.Spec.ReadinessProbe)
 		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
-		updateProbe(vmi, compute.ReadinessProbe)
+		updateReadinessProbe(vmi, compute.ReadinessProbe)
 	}
 
 	if vmi.Spec.LivenessProbe != nil {
 		v1.SetDefaults_Probe(vmi.Spec.LivenessProbe)
 		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
-		updateProbe(vmi, compute.LivenessProbe)
+		updateLivenessProbe(vmi, compute.LivenessProbe)
 	}
 
 	for networkName, resourceName := range networkToResourceMap {
@@ -1779,7 +1779,22 @@ func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) bool {
 	return false
 }
 
-func updateProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
+func updateReadinessProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
+	if vmi.Spec.ReadinessProbe.GuestAgentPing != nil {
+		wrapGuestAgentPingWithVirtProbe(vmi, computeProbe)
+		computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
+		return
+	}
+	wrapExecProbeWithVirtProbe(vmi, computeProbe)
+	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
+}
+
+func updateLivenessProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
+	if vmi.Spec.LivenessProbe.GuestAgentPing != nil {
+		wrapGuestAgentPingWithVirtProbe(vmi, computeProbe)
+		computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
+		return
+	}
 	wrapExecProbeWithVirtProbe(vmi, computeProbe)
 	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
 }
@@ -1906,6 +1921,19 @@ func copyProbe(probe *v1.Probe) *k8sv1.Probe {
 			TCPSocket: probe.TCPSocket,
 		},
 	}
+}
+
+func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Probe) {
+	pingCommand := []string{
+		"virt-probe",
+		"--domainName", api.VMINamespaceKeyFunc(vmi),
+		"--timeoutSeconds", strconv.FormatInt(int64(probe.TimeoutSeconds), 10),
+		"--guestAgentPing",
+	}
+	probe.Handler.Exec = &k8sv1.ExecAction{Command: pingCommand}
+	// we add 1s to the pod probe to compensate for the additional steps in probing
+	probe.TimeoutSeconds += 1
+	return
 }
 
 func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Probe) {

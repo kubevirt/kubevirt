@@ -1348,6 +1348,9 @@ type Handler struct {
 	// If the guest agent is not available, this probe will fail.
 	// +optional
 	Exec *k8sv1.ExecAction `json:"exec,omitempty" protobuf:"bytes,1,opt,name=exec"`
+	// GuestAgentPing contacts the qemu-guest-agent for availability checks.
+	// +optional
+	GuestAgentPing *GuestAgentPing `json:"guestAgentPing,omitempty"`
 	// HTTPGet specifies the http request to perform.
 	// +optional
 	HTTPGet *k8sv1.HTTPGetAction `json:"httpGet,omitempty"`
@@ -1955,4 +1958,9 @@ type NetworkConfiguration struct {
 	NetworkInterface                  string `json:"defaultNetworkInterface,omitempty"`
 	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,omitempty"`
 	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,omitempty"`
+}
+
+// GuestAgentPing configures the guest-agent based ping probe
+// +k8s:openapi-gen=true
+type GuestAgentPing struct {
 }

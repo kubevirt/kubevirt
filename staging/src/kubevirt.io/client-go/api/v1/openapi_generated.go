@@ -442,6 +442,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.GPU":                                                       schema_kubevirtio_client_go_api_v1_GPU(ref),
 		"kubevirt.io/client-go/api/v1.GenerationStatus":                                          schema_kubevirtio_client_go_api_v1_GenerationStatus(ref),
 		"kubevirt.io/client-go/api/v1.GuestAgentCommandInfo":                                     schema_kubevirtio_client_go_api_v1_GuestAgentCommandInfo(ref),
+		"kubevirt.io/client-go/api/v1.GuestAgentPing":                                            schema_kubevirtio_client_go_api_v1_GuestAgentPing(ref),
 		"kubevirt.io/client-go/api/v1.HPETTimer":                                                 schema_kubevirtio_client_go_api_v1_HPETTimer(ref),
 		"kubevirt.io/client-go/api/v1.HostDevice":                                                schema_kubevirtio_client_go_api_v1_HostDevice(ref),
 		"kubevirt.io/client-go/api/v1.HostDisk":                                                  schema_kubevirtio_client_go_api_v1_HostDisk(ref),
@@ -20756,6 +20757,17 @@ func schema_kubevirtio_client_go_api_v1_GuestAgentCommandInfo(ref common.Referen
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_GuestAgentPing(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GuestAgentPing configures the guest-agent based ping probe",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_HPETTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22503,6 +22515,12 @@ func schema_kubevirtio_client_go_api_v1_Probe(ref common.ReferenceCallback) comm
 							Ref:         ref("k8s.io/api/core/v1.ExecAction"),
 						},
 					},
+					"guestAgentPing": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.GuestAgentPing"),
+						},
+					},
 					"httpGet": {
 						SchemaProps: spec.SchemaProps{
 							Description: "HTTPGet specifies the http request to perform.",
@@ -22554,7 +22572,7 @@ func schema_kubevirtio_client_go_api_v1_Probe(ref common.ReferenceCallback) comm
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ExecAction", "k8s.io/api/core/v1.HTTPGetAction", "k8s.io/api/core/v1.TCPSocketAction"},
+			"k8s.io/api/core/v1.ExecAction", "k8s.io/api/core/v1.HTTPGetAction", "k8s.io/api/core/v1.TCPSocketAction", "kubevirt.io/client-go/api/v1.GuestAgentPing"},
 	}
 }
 

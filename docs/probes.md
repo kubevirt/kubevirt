@@ -11,6 +11,14 @@ To do that, we rely on the qemu-guest-agent to be available inside the VM.
 
 A command supplied to an exec probe, will be wrapped by `virt-probe` in the operator and forwarded to the guest.
 
+## Guest-Agent Ping Probe
+
+Another option to probe the VM is by doing a qemu-guest-agent based `guest-ping`. This will ping the guest and return an error if the guest is not up and running.
+To easily define this on VM spec, specify `guestAgentPing: {}` in VM's readiness probe spec; `virt-controller` will translate this into a corresponding command wrapped by `virt-probe`.
+
+> Note: You can only define one of the type of probe.
+
+
 **Important:** If the qemu-guest-agent is not installed **and** enabled inside the VM, the probe will fail. 
 Many images don't enabled the agent by default so make sure you either run one that does or enable it. 
 

@@ -222,6 +222,16 @@ func (_mr *_MockLauncherClientRecorder) Ping() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Ping")
 }
 
+func (_m *MockLauncherClient) GuestPing(_param0 string, _param1 int32) error {
+	ret := _m.ctrl.Call(_m, "GuestPing", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) GuestPing(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestPing", arg0, arg1)
+}
+
 func (_m *MockLauncherClient) Close() {
 	_m.ctrl.Call(_m, "Close")
 }
