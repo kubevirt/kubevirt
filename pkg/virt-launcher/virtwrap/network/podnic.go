@@ -35,17 +35,52 @@ import (
 )
 
 type podNIC struct {
-	vmi              *v1.VirtualMachineInstance
-	podInterfaceName string
-	launcherPID      *int
-	vmiSpecIface     *v1.Interface
-	vmiSpecNetwork   *v1.Network
-	handler          netdriver.NetworkHandler
-	cacheFactory     cache.InterfaceCacheFactory
-	dhcpConfigurator *dhcpconfigurator.Configurator
+	vmi               *v1.VirtualMachineInstance
+	podInterfaceName  string
+	launcherPID       *int
+	vmiSpecIface      *v1.Interface
+	vmiSpecNetwork    *v1.Network
+	handler           netdriver.NetworkHandler
+	cacheFactory      cache.InterfaceCacheFactory
+	dhcpConfigurator  *dhcpconfigurator.Configurator
+	infraConfigurator infraconfigurators.PodNetworkInfraConfigurator
 }
 
 func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
+	podnic, err := newPodNICWithoutInfraConfigurator(vmi, network, handler, cacheFactory, launcherPID)
+	if err != nil {
+		return nil, err
+	}
+
+	if launcherPID == nil {
+		return nil, fmt.Errorf("missing launcher PID to construct infra configurators")
+	}
+
+	if podnic.vmiSpecIface.Bridge != nil {
+		podnic.infraConfigurator = infraconfigurators.NewBridgePodNetworkConfigurator(
+			podnic.vmi,
+			podnic.vmiSpecIface,
+			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
+			*podnic.launcherPID,
+			handler)
+	} else if podnic.vmiSpecIface.Masquerade != nil {
+		podnic.infraConfigurator = infraconfigurators.NewMasqueradePodNetworkConfigurator(
+			podnic.vmi,
+			podnic.vmiSpecIface,
+			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
+			podnic.vmiSpecNetwork.Pod.VMNetworkCIDR,
+			podnic.vmiSpecNetwork.Pod.VMIPv6NetworkCIDR,
+			*podnic.launcherPID,
+			podnic.handler)
+	} else if podnic.vmiSpecIface.Macvtap != nil {
+		podnic.infraConfigurator = infraconfigurators.NewMacvtapPodNetworkConfigurator(
+			podnic.podInterfaceName,
+			podnic.vmiSpecIface,
+			podnic.handler)
+	}
+	return podnic, nil
+}
+func newPodNICWithoutInfraConfigurator(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
 	if network.Pod == nil && network.Multus == nil {
 		return nil, fmt.Errorf("Network not implemented")
 	}
@@ -74,6 +109,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 			generateInPodBridgeInterfaceName(podInterfaceName),
 			handler)
 	}
+
 	return &podNIC{
 		cacheFactory:     cacheFactory,
 		handler:          handler,
@@ -159,17 +195,12 @@ func (l *podNIC) PlugPhase1() error {
 	}
 
 	if !doesExist {
-		podNetworkingConfigurator, err := l.newPodNetworkConfigurator()
-		if err != nil {
-			return err
-		}
-
-		if err := podNetworkingConfigurator.DiscoverPodNetworkInterface(l.podInterfaceName); err != nil {
+		if err := l.infraConfigurator.DiscoverPodNetworkInterface(l.podInterfaceName); err != nil {
 			return err
 		}
 
 		if l.dhcpConfigurator != nil {
-			dhcpConfig := podNetworkingConfigurator.GenerateDHCPConfig()
+			dhcpConfig := l.infraConfigurator.GenerateDHCPConfig()
 			log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
 			if err := l.dhcpConfigurator.ExportConfiguration(*dhcpConfig); err != nil {
 				log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
@@ -177,11 +208,11 @@ func (l *podNIC) PlugPhase1() error {
 			}
 		}
 
-		domainIface := podNetworkingConfigurator.GenerateDomainIfaceSpec()
+		domainIface := l.infraConfigurator.GenerateDomainIfaceSpec()
 		// preparePodNetworkInterface must be called *after* the generate
 		// methods since it mutates the pod interface from which those
 		// generator methods get their info from.
-		if err := podNetworkingConfigurator.PreparePodNetworkInterface(); err != nil {
+		if err := l.infraConfigurator.PreparePodNetworkInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
 			return errors.CreateCriticalNetworkError(err)
 		}
@@ -257,37 +288,6 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) (LibvirtSpecGenerat
 	}
 	if l.vmiSpecIface.Macvtap != nil {
 		return newMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
-	}
-	return nil, fmt.Errorf("Not implemented")
-}
-
-func (l *podNIC) newPodNetworkConfigurator() (infraconfigurators.PodNetworkInfraConfigurator, error) {
-	if l.vmiSpecIface.Bridge != nil {
-		return infraconfigurators.NewBridgePodNetworkConfigurator(
-			l.vmi,
-			l.vmiSpecIface,
-			generateInPodBridgeInterfaceName(l.podInterfaceName),
-			*l.launcherPID,
-			l.handler), nil
-	}
-	if l.vmiSpecIface.Masquerade != nil {
-		return infraconfigurators.NewMasqueradePodNetworkConfigurator(
-			l.vmi,
-			l.vmiSpecIface,
-			generateInPodBridgeInterfaceName(l.podInterfaceName),
-			l.vmiSpecNetwork.Pod.VMNetworkCIDR,
-			l.vmiSpecNetwork.Pod.VMIPv6NetworkCIDR,
-			*l.launcherPID,
-			l.handler), nil
-	}
-	if l.vmiSpecIface.Slirp != nil {
-		return nil, nil
-	}
-	if l.vmiSpecIface.Macvtap != nil {
-		return infraconfigurators.NewMacvtapPodNetworkConfigurator(
-			l.podInterfaceName,
-			l.vmiSpecIface,
-			l.handler), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
