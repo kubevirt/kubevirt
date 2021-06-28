@@ -4,15 +4,14 @@ set -e
 
 KUBEVIRT_WITH_ETC_IN_MEMORY=${KUBEVIRT_WITH_ETC_IN_MEMORY:-false}
 KUBEVIRT_WITH_ETC_CAPACITY=${KUBEVIRT_WITH_ETC_CAPACITY:-none}
-KUBEVIRTCI_VERBOSE=${KUBEVIRTCI_VERBOSE:-true}
 
 if [ -z "${KUBEVIRTCI_TAG}" ] && [ -z "${KUBEVIRTCI_GOCLI_CONTAINER}" ]; then
-    echo "FATAL: either KUBEVIRTCI_TAG or KUBEVIRTCI_GOCLI_CONTAINER must be set"
+    >&2 echo "FATAL: either KUBEVIRTCI_TAG or KUBEVIRTCI_GOCLI_CONTAINER must be set"
     exit 1
 fi
 
 if [ -n "${KUBEVIRTCI_TAG}" ] && [ -n "${KUBEVIRTCI_GOCLI_CONTAINER}" ]; then
-    echo "WARNING: KUBEVIRTCI_GOCLI_CONTAINER is set and will take precedence over the also set KUBEVIRTCI_TAG"
+    >&2 echo "WARNING: KUBEVIRTCI_GOCLI_CONTAINER is set and will take precedence over the also set KUBEVIRTCI_TAG"
 fi
 
 if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
@@ -25,13 +24,13 @@ else
     if curl --unix-socket /${HOME}/podman.sock http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
         _cri_bin=podman
         _docker_socket="${HOME}/podman.sock"
-        [ "$KUBEVIRTCI_VERBOSE" = 'true' ] && echo "selecting podman as container runtime"
+        >&2 echo "selecting podman as container runtime"
     elif docker ps >/dev/null; then
         _cri_bin=docker
         _docker_socket="/var/run/docker.sock"
-        [ "$KUBEVIRTCI_VERBOSE" = 'true' ] && echo "selecting docker as container runtime"
+        >&2 echo "selecting docker as container runtime"
     else
-        echo "no working container runtime found. Neither docker nor podman seems to work."
+        >&2 echo "no working container runtime found. Neither docker nor podman seems to work."
         exit 1
     fi
 fi
