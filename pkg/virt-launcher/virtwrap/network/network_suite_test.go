@@ -25,9 +25,12 @@ func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInst
 	return vmi
 }
 
-func newVMIMasqueradeInterface(namespace string, name string) *v1.VirtualMachineInstance {
+func newVMIMasqueradeInterface(namespace, name, masqueradeCidr, masqueradeIpv6Cidr string) *v1.VirtualMachineInstance {
 	vmi := newVMI(namespace, name)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
+	network := vmi.Spec.Networks[0]
+	network.Pod.VMNetworkCIDR = masqueradeCidr
+	network.Pod.VMIPv6NetworkCIDR = masqueradeIpv6Cidr
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }

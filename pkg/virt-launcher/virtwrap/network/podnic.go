@@ -62,14 +62,13 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 			podnic.vmiSpecIface,
 			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
 			*podnic.launcherPID,
-			handler)
+			podnic.handler)
 	} else if podnic.vmiSpecIface.Masquerade != nil {
 		podnic.infraConfigurator = infraconfigurators.NewMasqueradePodNetworkConfigurator(
 			podnic.vmi,
 			podnic.vmiSpecIface,
 			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
-			podnic.vmiSpecNetwork.Pod.VMNetworkCIDR,
-			podnic.vmiSpecNetwork.Pod.VMIPv6NetworkCIDR,
+			podnic.vmiSpecNetwork,
 			*podnic.launcherPID,
 			podnic.handler)
 	} else if podnic.vmiSpecIface.Macvtap != nil {

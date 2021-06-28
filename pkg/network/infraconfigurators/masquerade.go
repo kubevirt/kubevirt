@@ -15,6 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/consts"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -34,10 +35,9 @@ const (
 type MasqueradePodNetworkConfigurator struct {
 	vmi                 *v1.VirtualMachineInstance
 	vmiSpecIface        *v1.Interface
+	vmiSpecNetwork      *v1.Network
 	podNicLink          netlink.Link
 	bridgeInterfaceName string
-	vmNetworkCIDR       string
-	vmIPv6NetworkCIDR   string
 	vmGatewayAddr       *netlink.Addr
 	vmGatewayIpv6Addr   *netlink.Addr
 	launcherPID         int
@@ -47,12 +47,11 @@ type MasqueradePodNetworkConfigurator struct {
 	vmMac               *net.HardwareAddr
 }
 
-func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmNetworkCIDR string, vmIPv6NetworkCIDR string, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
+func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmiSpecNetwork *v1.Network, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
 	return &MasqueradePodNetworkConfigurator{
 		vmi:                 vmi,
 		vmiSpecIface:        vmiSpecIface,
-		vmNetworkCIDR:       vmNetworkCIDR,
-		vmIPv6NetworkCIDR:   vmIPv6NetworkCIDR,
+		vmiSpecNetwork:      vmiSpecNetwork,
 		bridgeInterfaceName: bridgeIfaceName,
 		launcherPID:         launcherPID,
 		handler:             handler,
@@ -71,7 +70,7 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 		return err
 	}
 
-	if err := b.configureIPv4Addresses(); err != nil {
+	if err := b.computeIPv4GatewayAndVmIp(); err != nil {
 		return err
 	}
 
@@ -81,7 +80,7 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 		return err
 	}
 	if ipv6Enabled {
-		if err := b.configureIPv6Addresses(); err != nil {
+		if err := b.discoverIPv6GatewayAndVmIp(); err != nil {
 			return err
 		}
 	}
@@ -94,62 +93,25 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 	return nil
 }
 
-func (b *MasqueradePodNetworkConfigurator) configureIPv4Addresses() error {
-	b.setDefaultCidr(iptables.ProtocolIPv4)
-	vmIPv4Addr, gatewayIPv4, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv4)
+func (b *MasqueradePodNetworkConfigurator) computeIPv4GatewayAndVmIp() error {
+	ipv4Gateway, ipv4, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(b.vmiSpecNetwork, iptables.ProtocolIPv4)
 	if err != nil {
 		return err
 	}
-	b.vmIPv4Addr = *vmIPv4Addr
-	b.vmGatewayAddr = gatewayIPv4
+
+	b.vmGatewayAddr = ipv4Gateway
+	b.vmIPv4Addr = *ipv4
 	return nil
 }
 
-func (b *MasqueradePodNetworkConfigurator) configureIPv6Addresses() error {
-	b.setDefaultCidr(iptables.ProtocolIPv6)
-	vmIPv6Addr, gatewayIPv6, err := b.generateGatewayAndVmIPAddrs(iptables.ProtocolIPv6)
+func (b *MasqueradePodNetworkConfigurator) discoverIPv6GatewayAndVmIp() error {
+	ipv6Gateway, ipv6, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(b.vmiSpecNetwork, iptables.ProtocolIPv6)
 	if err != nil {
 		return err
 	}
-	b.vmIPv6Addr = *vmIPv6Addr
-	b.vmGatewayIpv6Addr = gatewayIPv6
+	b.vmGatewayIpv6Addr = ipv6Gateway
+	b.vmIPv6Addr = *ipv6
 	return nil
-
-}
-
-func (b *MasqueradePodNetworkConfigurator) setDefaultCidr(protocol iptables.Protocol) {
-	if protocol == iptables.ProtocolIPv4 {
-		if b.vmNetworkCIDR == "" {
-			b.vmNetworkCIDR = api.DefaultVMCIDR
-		}
-	} else {
-		if b.vmIPv6NetworkCIDR == "" {
-			b.vmIPv6NetworkCIDR = api.DefaultVMIpv6CIDR
-		}
-	}
-}
-
-func (b *MasqueradePodNetworkConfigurator) generateGatewayAndVmIPAddrs(protocol iptables.Protocol) (*netlink.Addr, *netlink.Addr, error) {
-	cidrToConfigure := b.vmNetworkCIDR
-	if protocol == iptables.ProtocolIPv6 {
-		cidrToConfigure = b.vmIPv6NetworkCIDR
-	}
-
-	vmIP, gatewayIP, err := b.handler.GetHostAndGwAddressesFromCIDR(cidrToConfigure)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get gw and vm available addresses from CIDR %s", cidrToConfigure)
-		return nil, nil, err
-	}
-
-	gatewayAddr, err := b.handler.ParseAddr(gatewayIP)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse gateway address %s err %v", gatewayAddr, err)
-	}
-	vmAddr, err := b.handler.ParseAddr(vmIP)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse vm address %s err %v", vmAddr, err)
-	}
-	return gatewayAddr, vmAddr, nil
 }
 
 func (b *MasqueradePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {

@@ -67,12 +67,14 @@ var _ = Describe("Pod Network", func() {
 	var masqueradeTestNic *cache.DHCPConfig
 	var masqueradeDummyName string
 	var masqueradeDummy *netlink.Dummy
+	var masqueradeCidr string
 	var masqueradeGwStr string
 	var masqueradeGwAddr *netlink.Addr
 	var masqueradeGwIp string
 	var masqueradeVmStr string
 	var masqueradeVmAddr *netlink.Addr
 	var masqueradeVmIp string
+	var masqueradeIpv6Cidr string
 	var masqueradeIpv6GwStr string
 	var masqueradeIpv6GwAddr *netlink.Addr
 	var masqueradeGwIpv6 string
@@ -153,12 +155,14 @@ var _ = Describe("Pod Network", func() {
 			AdvertisingIPAddr: gw,
 		}
 
+		masqueradeCidr = "10.0.2.0/30"
 		masqueradeGwStr = "10.0.2.1/30"
 		masqueradeGwAddr, _ = netlink.ParseAddr(masqueradeGwStr)
 		masqueradeGwIp = masqueradeGwAddr.IP.String()
 		masqueradeVmStr = "10.0.2.2/30"
 		masqueradeVmAddr, _ = netlink.ParseAddr(masqueradeVmStr)
 		masqueradeVmIp = masqueradeVmAddr.IP.String()
+		masqueradeIpv6Cidr = "fd10:0:2::0/120"
 		masqueradeIpv6GwStr = "fd10:0:2::1/120"
 		masqueradeIpv6GwAddr, _ = netlink.ParseAddr(masqueradeIpv6GwStr)
 		masqueradeGwIpv6 = masqueradeIpv6GwAddr.IP.String()
@@ -252,9 +256,6 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().AddrAdd(masqueradeBridgeTest, masqueradeGwAddr).Return(nil)
 		mockNetwork.EXPECT().AddrAdd(masqueradeBridgeTest, masqueradeIpv6GwAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, api.DefaultBridgeName, nil, false)
-		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMCIDR).Return(masqueradeGwStr, masqueradeVmStr, nil)
-		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMIpv6CIDR).Return(masqueradeIpv6GwStr, masqueradeIpv6VmStr, nil)
-		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu, libvirtUser).Return(nil)
 		mockNetwork.EXPECT().DisableTXOffloadChecksum(bridgeTest.Name).Return(nil)
 		// Global nat rules using iptables
 		for _, proto := range ipProtocols() {
@@ -419,7 +420,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				domain := NewDomainWithBridgeInterface()
-				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
+				vm := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
@@ -455,7 +456,7 @@ var _ = Describe("Pod Network", func() {
 				}
 
 				domain := NewDomainWithBridgeInterface()
-				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
+				vm := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -469,7 +470,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				domain := NewDomainWithBridgeInterface()
-				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
+				vm := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
@@ -504,7 +505,7 @@ var _ = Describe("Pod Network", func() {
 				}
 
 				domain := NewDomainWithBridgeInterface()
-				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
+				vm := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -544,7 +545,7 @@ var _ = Describe("Pod Network", func() {
 				}
 
 				domain := NewDomainWithBridgeInterface()
-				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
+				vm := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 				vm.Annotations = map[string]string{
 					consts.ISTIO_INJECT_ANNOTATION: "true",
 				}
@@ -585,7 +586,7 @@ var _ = Describe("Pod Network", func() {
 				}
 
 				domain := NewDomainWithBridgeInterface()
-				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
+				vm := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 				vm.Annotations = map[string]string{
 					consts.ISTIO_INJECT_ANNOTATION: "true",
