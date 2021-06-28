@@ -42,6 +42,7 @@ import (
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -124,6 +125,7 @@ type LibvirtDomainManager struct {
 	agentData                *agentpoller.AsyncAgentStore
 	cloudInitDataStore       *cloudinit.CloudInitData
 	setGuestTimeContextPtr   *contextStore
+	efiEnvironment           *efi.EFIEnvironment
 	ovmfPath                 string
 	networkCacheStoreFactory cache.InterfaceCacheFactory
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
@@ -174,7 +176,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 			paused: make(map[types.UID]bool, 0),
 		},
 		agentData:                agentStore,
-		ovmfPath:                 ovmfPath,
+		efiEnvironment:           efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
 		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
 		minimumPVCReserveBytes:   minimumPVCReserveBytes,
@@ -707,6 +709,22 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 
+	var efiConf *converter.EFIConfiguration
+	if vmi.IsBootloaderEFI() {
+		secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
+
+		if !l.efiEnvironment.Bootable(secureBoot) {
+			log.Log.Reason(err).Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v", secureBoot)
+			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v", secureBoot)
+		}
+
+		efiConf = &converter.EFIConfiguration{
+			EFICode:      l.efiEnvironment.EFICode(secureBoot),
+			EFIVars:      l.efiEnvironment.EFIVars(secureBoot),
+			SecureLoader: secureBoot,
+		}
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
 		Architecture:          runtime.GOARCH,
@@ -717,7 +735,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		IsBlockDV:             isBlockDVMap,
 		DiskType:              diskInfo,
 		EmulatorThreadCpu:     emulatorThreadCpu,
-		OVMFPath:              l.ovmfPath,
+		EFIConfiguration:      efiConf,
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
@@ -762,11 +780,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	c, err := l.generateConverterContext(vmi, useEmulation, options, false)
 	if err != nil {
 		logger.Reason(err).Error("failed to generate libvirt domain from VMI spec")
-		return nil, err
-	}
-
-	if err := converter.CheckEFI_OVMFRoms(vmi, c); err != nil {
-		logger.Error("EFI OVMF roms missing")
 		return nil, err
 	}
 

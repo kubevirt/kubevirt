@@ -2514,7 +2514,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 	err = client.SyncVirtualMachine(vmi, options)
 	if err != nil {
-		isSecbootError := strings.Contains(err.Error(), "EFI OVMF rom missing")
+		isSecbootError := strings.Contains(err.Error(), "EFI OVMF roms missing")
 		if isSecbootError {
 			return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
 		}

@@ -2804,18 +2804,6 @@ var _ = Describe("Converter", func() {
 		var vmi *v1.VirtualMachineInstance
 		var c *ConverterContext
 
-		createEFIRoms := func(createNoSBCodeROM bool) {
-			roms := []string{"OVMF_CODE.secboot.fd", "OVMF_VARS.fd", "OVMF_VARS.secboot.fd"}
-			if createNoSBCodeROM {
-				roms = append(roms, "OVMF_CODE.fd")
-			}
-
-			for i := range roms {
-				_, err := os.Create(path.Join(c.OVMFPath, roms[i]))
-				Expect(err).To(BeNil())
-			}
-		}
-
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -2826,18 +2814,10 @@ var _ = Describe("Converter", func() {
 
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
-			ovmfPath, err := os.MkdirTemp("", "kubevirt-ovmf")
-			Expect(err).To(BeNil())
-
 			c = &ConverterContext{
 				VirtualMachine: vmi,
 				UseEmulation:   true,
-				OVMFPath:       ovmfPath,
 			}
-		})
-
-		AfterEach(func() {
-			os.RemoveAll(c.OVMFPath)
 		})
 
 		Context("when bootloader is not set", func() {
@@ -2869,38 +2849,40 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.OS.BootLoader).To(BeNil())
 				Expect(domainSpec.OS.NVRam).To(BeNil())
 			})
-
-			table.DescribeTable("EFI bootloader",
-				func(secureBoot *bool, createNoSBCodeROM bool, efiCode string, efiVars string) {
-					secure := "yes"
-					if secureBoot != nil && !*secureBoot {
-						secure = "no"
-					}
-
-					createEFIRoms(createNoSBCodeROM)
-
-					vmi.Spec.Domain.Firmware = &v1.Firmware{
-						Bootloader: &v1.Bootloader{
-							EFI: &v1.EFI{
-								SecureBoot: secureBoot,
-							},
-						},
-					}
-					domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-					Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
-					Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
-					Expect(domainSpec.OS.BootLoader.Secure).To(Equal(secure))
-					Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(efiCode))
-					Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(efiVars))
-					Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
-				},
-				table.Entry("should use SecureBoot", True(), true, EFICodeSecureBoot, EFIVarsSecureBoot),
-				table.Entry("should use SecureBoot when SB not defined", nil, true, EFICodeSecureBoot, EFIVarsSecureBoot),
-				table.Entry("should use SecureBoot when OVMF_CODE.fd does not exist", True(), false, EFICodeSecureBoot, EFIVarsSecureBoot),
-				table.Entry("should not use SecureBoot", False(), true, EFICode, EFIVars),
-				table.Entry("should not use SecureBoot when OVMF_CODE.fd does not exist", False(), false, EFICodeSecureBoot, EFIVars),
-			)
 		})
+
+		table.DescribeTable("EFI bootloader", func(secureBoot *bool, efiCode, efiVars string) {
+			c.EFIConfiguration = &EFIConfiguration{
+				EFICode:      efiCode,
+				EFIVars:      efiVars,
+				SecureLoader: secureBoot == nil || *secureBoot,
+			}
+
+			secureLoader := "yes"
+			if secureBoot != nil && !*secureBoot {
+				secureLoader = "no"
+			}
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: secureBoot,
+					},
+				},
+			}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
+			Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
+			Expect(domainSpec.OS.BootLoader.Secure).To(Equal(secureLoader))
+			Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(efiCode))
+			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(efiVars))
+			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
+		},
+			table.Entry("should use SecureBoot", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
+			table.Entry("should use SecureBoot when SB not defined", nil, "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
+			table.Entry("should not use SecureBoot", False(), "OVMF_CODE.fd", "OVMF_VARS.fd"),
+			table.Entry("should not use SecureBoot when OVMF_CODE.fd not present", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.fd"),
+		)
 	})
 
 	Context("Kernel Boot", func() {
