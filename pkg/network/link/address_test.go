@@ -20,6 +20,8 @@
 package link
 
 import (
+	"net"
+
 	"github.com/coreos/go-iptables/iptables"
 
 	. "github.com/onsi/ginkgo"
@@ -71,6 +73,32 @@ var _ = Describe("Common Methods", func() {
 		It("Should fail when the IPV6 subnet is too small", func() {
 			_, _, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("", "fd10:0:2::/127"), iptables.ProtocolIPv6)
 			Expect(err).To(HaveOccurred())
+		})
+	})
+	Context("RetrieveMacAddressFromVMISpecIface function", func() {
+		It("Should return nil when the spec doesn't contain a MAC address", func() {
+			iface := &v1.Interface{}
+			mac, err := RetrieveMacAddressFromVMISpecIface(iface)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mac).To(BeNil())
+		})
+		It("Should return an error if the spec contain MAC address with wrong format", func() {
+			iface := &v1.Interface{
+				MacAddress: "abcd",
+			}
+			mac, err := RetrieveMacAddressFromVMISpecIface(iface)
+			Expect(err).To(HaveOccurred())
+			Expect(mac).To(BeNil())
+		})
+		It("Should return the spec parsed MAC address", func() {
+			macString := "de-ad-00-00-be-af"
+			iface := &v1.Interface{
+				MacAddress: macString,
+			}
+			mac, err := RetrieveMacAddressFromVMISpecIface(iface)
+			Expect(err).ToNot(HaveOccurred())
+			expectedMac, _ := net.ParseMAC(macString)
+			Expect(mac).To(Equal(&expectedMac))
 		})
 	})
 })

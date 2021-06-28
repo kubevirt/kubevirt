@@ -10,6 +10,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -38,7 +39,7 @@ func (b *MacvtapPodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName
 	}
 	b.podNicLink = link
 
-	b.vmMac, err = retrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
+	b.vmMac, err = virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
 	if err != nil {
 		return err
 	}

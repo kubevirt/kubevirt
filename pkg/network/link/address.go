@@ -96,3 +96,14 @@ func GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork *v1.Network, protocol 
 	}
 	return gatewayAddr, vmAddr, nil
 }
+
+func RetrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.HardwareAddr, error) {
+	if vmiSpecIface.MacAddress != "" {
+		macAddress, err := net.ParseMAC(vmiSpecIface.MacAddress)
+		if err != nil {
+			return nil, err
+		}
+		return &macAddress, nil
+	}
+	return nil, nil
+}

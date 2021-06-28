@@ -85,7 +85,7 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 		}
 	}
 
-	b.vmMac, err = retrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
+	b.vmMac, err = virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
 	if err != nil {
 		return err
 	}
