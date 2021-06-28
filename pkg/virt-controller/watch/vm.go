@@ -1423,8 +1423,7 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 		vmReadyCond := controller.NewVirtualMachineConditionManager().GetCondition(vm, virtv1.VirtualMachineReady)
 		if vmReadyCond != nil &&
 			vmReadyCond.Status == status &&
-			vmReadyCond.Reason == reason &&
-			vmReadyCond.Message == message {
+			vmReadyCond.Reason == reason {
 			return
 		}
 
@@ -1445,7 +1444,7 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 	now := v1.Now()
 	if vmi == nil {
 		setVMCondition(k8score.ConditionFalse,
-			"VMIConditionMissing",
+			"VMINotExists",
 			"VMI does not exist",
 			now,
 			now)

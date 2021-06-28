@@ -632,8 +632,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 		vmiReadyCond := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
 		if vmiReadyCond != nil &&
 			vmiReadyCond.Status == status &&
-			vmiReadyCond.Reason == reason &&
-			vmiReadyCond.Message == message {
+			vmiReadyCond.Reason == reason {
 			return
 		}
 
@@ -660,7 +659,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 	// Keep PodReady condition in sync with the VMI
 	if pod == nil || isTempPod(pod) {
 		setVMICondition(k8sv1.ConditionFalse,
-			virtv1.PodConditionMissingReason,
+			virtv1.PodNotExistsReason,
 			"virt-launcher pod has not yet been scheduled",
 			now,
 			now)

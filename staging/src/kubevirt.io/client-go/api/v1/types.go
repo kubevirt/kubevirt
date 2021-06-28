@@ -398,7 +398,10 @@ const (
 	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
 	PodTerminatingReason = "PodTerminating"
 
-	// 	PodConditionMissingReason = "PodConditionMissing" indicates on the Ready condition on the VMI if the underlying pod does not exist
+	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist
+	PodNotExistsReason = "PodNotExists"
+
+	// PodConditionMissingReason indicates on the Ready condition on the VMI if the underlying pod does not report a Ready condition
 	PodConditionMissingReason = "PodConditionMissing"
 )
 
