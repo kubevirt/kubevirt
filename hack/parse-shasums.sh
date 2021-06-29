@@ -20,7 +20,6 @@
 set -e
 
 source hack/common.sh
-source hack/config.sh
 
 if [[ ! -f "${DIGESTS_DIR}/bazel-bin/push-virt-operator.digest" ]]; then
     echo "digest files not found: won't use shasums, falling back to tags"
