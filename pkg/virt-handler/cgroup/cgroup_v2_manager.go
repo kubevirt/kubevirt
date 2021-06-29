@@ -20,3 +20,7 @@ func newV2Manager(config *runc_configs.Cgroup, dirPath string, rootless bool) (M
 func (v *v2Manager) GetBasePathToHostController(controller string) (string, error) {
 	return getBasePathToHostController(controller)
 }
+
+func (v *v2Manager) Set(r *runc_configs.Resources) error {
+	return v.Manager.Set(r)
+}

@@ -110,6 +110,8 @@ const (
 	VMISignalDeletion = "Signaled Deletion"
 )
 
+var cgroupsSet = false // ihol3 delete this ugly workaround
+
 var RequiredGuestAgentCommands = []string{
 	"guest-ping",
 	"guest-get-time",
@@ -1844,6 +1846,13 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		return syncErr
 	}
 
+	// Set default cgroups permissions
+	if vmiExists && vmi.Status.Phase == v1.Running {
+		if err = d.setDefaultCgroup(vmi); err != nil {
+			return err
+		}
+	}
+
 	log.Log.Object(vmi).V(3).Info("Synchronization loop succeeded.")
 	return nil
 
@@ -2966,4 +2975,53 @@ func nodeHasHostModelLabel(node *k8sv1.Node) bool {
 		}
 	}
 	return false
+}
+
+func (d *VirtualMachineController) setDefaultCgroup(vmi *v1.VirtualMachineInstance) error {
+	//if cgroups.IsCgroup2UnifiedMode() && !cgroupsSet { // ihol3 take care of that...
+	//	manager, err := cgroup.NewManagerFromVM(vmi)
+	//	if err != nil {
+	//		log.Log.Object(vmi).Infof("hotplug [setDefaultCgroup] manager created. err: %v", err)
+	//		return err
+	//	}
+	//
+	//	const permissions = "rwm"
+	//	const toAllow = true
+	//
+	//	defaultRules := []*devices.Rule{
+	//		{ // /dev/ptmx (PTY master multiplex)
+	//			Type:        devices.CharDevice,
+	//			Major:       5,
+	//			Minor:       2,
+	//			Permissions: permissions,
+	//			Allow:       toAllow,
+	//		},
+	//		{ // /dev/null (Null device)
+	//			Type:        devices.CharDevice,
+	//			Major:       1,
+	//			Minor:       3,
+	//			Permissions: permissions,
+	//			Allow:       toAllow,
+	//		},
+	//		{ // /dev/pts/... (PTY slaves)
+	//			Type:        devices.CharDevice,
+	//			Major:       136,
+	//			Minor:       -1,
+	//			Permissions: permissions,
+	//			Allow:       toAllow,
+	//		},
+	//	}
+	//
+	//	err = manager.Set(&configs.Resources{
+	//		Devices: defaultRules,
+	//	})
+	//
+	//	log.Log.Object(vmi).Infof("hotplug [setDefaultCgroup] rules are set. err: %v", err)
+	//	if err != nil {
+	//		return err // ihol3 "set" should have proper error or change that
+	//	}
+	//}
+	//
+	//cgroupsSet = true
+	return nil
 }

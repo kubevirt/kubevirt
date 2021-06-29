@@ -29,8 +29,9 @@ var (
 )
 
 const (
-	ProcMountPointNew = "/proc/1/root" // ihol3
-	hostBasePath      = ProcMountPointNew + "/sys/fs/cgroup"
+	HostRootPath       = "/proc/1/root" // ihol3
+	cgroupBasePath     = "/sys/fs/cgroup"
+	hostCgroupBasePath = HostRootPath + cgroupBasePath
 )
 
 // ihol3 Change name?
@@ -53,6 +54,7 @@ type Manager interface {
 }
 
 func NewManagerFromPid(pid int) (Manager, error) {
+	const errorFormat = "error creating new manager err: ...." //ihol3
 	const isRootless = true
 
 	//controllerPath, err := getBasePathToHostController("devices")
@@ -60,22 +62,24 @@ func NewManagerFromPid(pid int) (Manager, error) {
 	//	return nil, err
 	//}
 
-	cgroupBasePath := getCgroupBasePath(pid)
-	controllerPaths, err := cgroups.ParseCgroupFile(cgroupBasePath)
+	procCgroupBasePath := getCgroupBasePath(pid)
+	controllerPaths, err := cgroups.ParseCgroupFile(procCgroupBasePath)
 	if err != nil {
 		return nil, err
 	}
 
 	config := &configs.Cgroup{
-		Path:      hostBasePath,
+		Path:      hostCgroupBasePath,
 		Paths:     controllerPaths,
 		Resources: &configs.Resources{},
 	}
 
 	if cgroups.IsCgroup2UnifiedMode() {
-		slicePath := controllerPaths[""] // ihol3 is it different than cgroupBasePath?...
-		log.Log.Infof("cgroupBasePath: %s", cgroupBasePath)
-		log.Log.Infof("slicePath: %s", slicePath)
+		slicePath := controllerPaths[""] // ihol3 is it different than procCgroupBasePath?...
+		slicePath = filepath.Join(cgroupBasePath, slicePath)
+
+		log.Log.Infof("hotplug procCgroupBasePath: %s", procCgroupBasePath)
+		log.Log.Infof("hotplug slicePath: %s", slicePath)
 
 		return newV2Manager(config, slicePath, isRootless)
 	} else {
@@ -144,7 +148,7 @@ func getBasePathToHostController(controller string) (string, error) {
 	// if controller not supported -> error?
 
 	if cgroups.IsCgroup2UnifiedMode() {
-		return hostBasePath, nil
+		return hostCgroupBasePath, nil
 	}
-	return filepath.Join(hostBasePath, controller), nil
+	return filepath.Join(hostCgroupBasePath, controller), nil
 }

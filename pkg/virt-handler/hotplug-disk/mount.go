@@ -508,7 +508,7 @@ func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, manager cgroup
 	//chrootPath := path[:idx] // ihol3 rename me
 	//newPath := path[idx:]
 
-	return cgroup.RunWithChroot(cgroup.ProcMountPointNew, func() error {
+	return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
 		return m.updateBlockMajorMinor(major, minor, false, manager, -1)
 	})
 }
@@ -549,8 +549,8 @@ func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, manager cgroup.
 	//	newPath = path
 	//}
 	log.Log.Infof("hotplug [allowBlockMajorMinor]. PATHS=%s", manager.GetPaths())
-	logRootFiles("allowBlockMajorMinor", "/")
-	logRootFiles("allowBlockMajorMinor", cgroup.ProcMountPointNew)
+	//logRootFiles("allowBlockMajorMinor", "/")
+	//logRootFiles("allowBlockMajorMinor", cgroup.HostRootPath)
 
 	//if pid > -1 {
 	//	err = manager.Apply(pid)
@@ -558,9 +558,9 @@ func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, manager cgroup.
 	//	log.Log.Infof("hotplug [allowBlockMajorMinor]. PATHS (after applying)=%s", manager.GetPaths())
 	//}
 
-	log.Log.Infof("hotplug [allowBlockMajorMinor]. CHROOTING TO: %s", cgroup.ProcMountPointNew)
+	log.Log.Infof("hotplug [allowBlockMajorMinor]. CHROOTING TO: %s", cgroup.HostRootPath)
 
-	return cgroup.RunWithChroot(cgroup.ProcMountPointNew, func() error {
+	return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
 		return m.updateBlockMajorMinor(major, minor, true, manager, pid)
 	})
 
@@ -576,24 +576,56 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 		Permissions: "rwm",
 		Allow:       allow,
 	}
+	log.Log.Infof("hotplug [updateBlockMajorMinor]: major == %v, minor == %v", major, minor)
 
 	//err := manager.Set(&configs.Resources{
 	//	Devices: []*devices.Rule{deviceRule},
 	//})
-	devicesPath, ok := manager.GetPaths()["devices"]
-	devicesPath = filepath.Join("/sys/fs/cgroup/devices/", devicesPath)
+	devicesPath, ok := manager.GetPaths()[""]
+	//devicesPath = filepath.Join("/sys/fs/cgroup/", devicesPath)
 	log.Log.Infof("hotplug [updateBlockMajorMinor]: devicesPath() == %s, ok == %v", devicesPath, ok)
 
 	if _, err := os.Stat(devicesPath); os.IsNotExist(err) {
 		log.Log.Infof("hotplug [updateBlockMajorMinor]: devicesPath does NOT exist!!!!!!!!!!!!!!!!")
 	}
 
+	logRootFiles("updateBlockMajorMinor", devicesPath)
+
 	log.Log.Infof("hotplug [updateBlockMajorMinor]: RULE -> %+v", deviceRule)
 	//err = set_del(devicesPath, &configs.Resources{
 	//	Devices: []*devices.Rule{deviceRule},
 	//})
+
+	const permissions = "rwm"
+	const toAllow = true
+
+	defaultRules := []*devices.Rule{
+		{ // /dev/ptmx (PTY master multiplex)
+			Type:        devices.CharDevice,
+			Major:       5,
+			Minor:       2,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
+		{ // /dev/null (Null device)
+			Type:        devices.CharDevice,
+			Major:       1,
+			Minor:       3,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
+		{ // /dev/pts/... (PTY slaves)
+			Type:        devices.CharDevice,
+			Major:       136,
+			Minor:       -1,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
+		deviceRule,
+	}
+
 	err = manager.Set(&configs.Resources{
-		Devices: []*devices.Rule{deviceRule},
+		Devices: defaultRules,
 	})
 	logRootFiles("updateBlockMajorMinor", "/")
 
