@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
-	"github.com/opencontainers/runc/libcontainer/cgroups/cgroups/fscommon"
 	cgroupdevices "github.com/opencontainers/runc/libcontainer/cgroups/devices"
 	runc_fs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
@@ -76,10 +75,10 @@ func (v *v1Manager) SetDeviceRule(rule *devices.Rule) error {
 	if rule.Allow {
 		file = "devices.allow"
 	}
-	content, err := fscommon.ReadFile(path, "devices.list")
+	content, err := runc_cgroups.ReadFile(path, "devices.list")
 	log.Log.Infof("hotplug [SetDeviceRule]: ReadFile - err: %v, Content: %s", err, content)
 
-	if err := fscommon.WriteFile(path, file, rule.CgroupString()); err != nil {
+	if err := runc_cgroups.WriteFile(path, file, rule.CgroupString()); err != nil {
 		return err
 	}
 	log.Log.Infof("hotplug [SetDeviceRule]: WriteFile - ERR: %v", err)
@@ -115,7 +114,7 @@ func (v *v1Manager) SetDeviceRule(rule *devices.Rule) error {
 	//	log.Log.Infof("hotplug [SetDeviceRule]: WriteFile - Rule: %s", rule.CgroupString())
 	//}
 
-	content, err = fscommon.ReadFile(path, "devices.list")
+	content, err = runc_cgroups.ReadFile(path, "devices.list")
 	log.Log.Infof("hotplug [SetDeviceRule]: ReadFile - err: %v, Content: %s", err, content)
 
 	//Final safety check -- ensure that the resulting state is what was
@@ -138,7 +137,7 @@ func (v *v1Manager) SetDeviceRule(rule *devices.Rule) error {
 }
 
 func loadEmulator(path string) (*cgroupdevices.Emulator, error) {
-	list, err := fscommon.ReadFile(path, "devices.list")
+	list, err := runc_cgroups.ReadFile(path, "devices.list")
 	if err != nil {
 		return nil, err
 	}

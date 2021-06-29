@@ -8,7 +8,6 @@ go_library(
         "cgroup_unsupported.go",
         "config.go",
         "config_linux.go",
-        "devices.go",
         "hugepage_limit.go",
         "intelrdt.go",
         "interface_priority_map.go",

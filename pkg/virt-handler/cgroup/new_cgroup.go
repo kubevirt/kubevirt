@@ -2,8 +2,10 @@ package cgroup
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
@@ -19,8 +21,6 @@ const (
 	ProcMountPoint   = "/proc"
 	CgroupMountPoint = "/sys/fs/cgroup"
 )
-
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 // DEFINE INTERFACE HERE
 
@@ -151,4 +151,60 @@ func getBasePathToHostController(controller string) (string, error) {
 		return hostCgroupBasePath, nil
 	}
 	return filepath.Join(hostCgroupBasePath, controller), nil
+}
+
+// ihol3 Clean those up properly..
+func CPUSetPath() string {
+	return cpuSetPath(cgroups.IsCgroup2UnifiedMode(), cgroupBasePath)
+}
+
+func cpuSetPath(isCgroup2UnifiedMode bool, cgroupMount string) string {
+	if isCgroup2UnifiedMode {
+		return filepath.Join(cgroupMount, "cpuset.cpus.effective")
+	}
+	return filepath.Join(cgroupMount, "cpuset", "cpuset.cpus")
+}
+
+func ControllerPath(controller string) string {
+	return controllerPath(cgroups.IsCgroup2UnifiedMode(), cgroupBasePath, controller)
+}
+
+func controllerPath(isCgroup2UnifiedMode bool, cgroupMount, controller string) string {
+	if isCgroup2UnifiedMode {
+		return cgroupMount
+	}
+	return filepath.Join(cgroupMount, controller)
+}
+
+// runWithChroot changes the root directory (via "chroot") into newPath, then
+// runs toRun function. When the function finishes, changes back the root directory
+// to the original one that
+func RunWithChroot(newPath string, toRun func() error) error {
+	originalRoot, err := os.Open("/")
+	if err != nil {
+		return fmt.Errorf("failed to run with chroot - failed to open root directory. error: %v", err)
+	}
+
+	err = syscall.Chroot(newPath)
+	if err != nil {
+		return fmt.Errorf("failed to chroot into \"%s\". error: %v", newPath, err)
+	}
+
+	changeRootToOriginal := func() {
+		const errFormat = "cannot change root to original path. %s error: %+v"
+
+		err = originalRoot.Chdir()
+		if err != nil {
+			log.Log.Errorf(errFormat, "chdir", err)
+		}
+
+		err = syscall.Chroot(".")
+		if err != nil {
+			log.Log.Errorf(errFormat, "chroot", err)
+		}
+	}
+	defer changeRootToOriginal()
+
+	err = toRun()
+	return err
 }
