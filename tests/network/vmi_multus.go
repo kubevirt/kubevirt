@@ -60,7 +60,7 @@ import (
 
 const (
 	postUrl                = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
-	linuxBridgeConfCRD     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": 100, \"ipam\": {}, \"mtu\": 1400},{\"type\": \"tuning\"}]}"}}`
+	linuxBridgeConfCRD     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": %d, \"ipam\": {%s}, \"mtu\": 1400},{\"type\": \"tuning\"}]}"}}`
 	ptpConfCRD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }},{\"type\": \"tuning\"}]}"}}`
 	sriovConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	sriovLinkEnableConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
@@ -97,6 +97,13 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		},
 	}
 
+	linuxBridgeInterfaceWithIPAM := v1.Interface{
+		Name: "linux-bridge-with-ipam",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			Bridge: &v1.InterfaceBridge{},
+		},
+	}
+
 	defaultNetwork := v1.Network{
 		Name: "default",
 		NetworkSource: v1.NetworkSource{
@@ -113,6 +120,25 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		},
 	}
 
+	linuxBridgeWithIPAMNetwork := v1.Network{
+		Name: "linux-bridge-with-ipam",
+		NetworkSource: v1.NetworkSource{
+			Multus: &v1.MultusNetwork{
+				NetworkName: "linux-bridge-net-ipam",
+			},
+		},
+	}
+
+	createBridgeNetworkAttachementDefinition := func(NetworkName string, VLAN int, IPAM string) error {
+		result := virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, util.NamespaceTestDefault, NetworkName)).
+			Body([]byte(fmt.Sprintf(linuxBridgeConfCRD, NetworkName, util.NamespaceTestDefault, VLAN, IPAM))).
+			Do(context.Background())
+
+		return result.Error()
+	}
+
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
@@ -123,16 +149,11 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		Expect(len(nodes.Items) > 0).To(BeTrue())
 
 		configureNodeNetwork(virtClient)
-
-		result := virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, util.NamespaceTestDefault, "linux-bridge-net-vlan100")).
-			Body([]byte(fmt.Sprintf(linuxBridgeConfCRD, "linux-bridge-net-vlan100", util.NamespaceTestDefault))).
-			Do(context.Background())
-		Expect(result.Error()).NotTo(HaveOccurred())
+		const vlanId = 100
+		Expect(createBridgeNetworkAttachementDefinition("linux-bridge-net-vlan100", vlanId, "")).To(Succeed())
 
 		// Create ptp crds with tuning plugin enabled in two different namespaces
-		result = virtClient.RestClient().
+		result := virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, util.NamespaceTestDefault, "ptp-conf-1")).
 			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-1", util.NamespaceTestDefault, ptpSubnet))).
@@ -335,26 +356,61 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		})
 
 		Context("VirtualMachineInstance with Linux bridge plugin interface", func() {
-			table.DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface, networks []v1.Network, ifaceName string) {
+			getIfaceIPByNetworkName := func(vmiName, networkName string) (string, error) {
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiName, &metav1.GetOptions{})
+				if err != nil {
+					return "", err
+				}
+
+				for _, iface := range vmi.Status.Interfaces {
+					if iface.Name == networkName {
+						return iface.IP, nil
+					}
+				}
+
+				return "", fmt.Errorf("couldn't find iface %s on vmi %s", networkName, vmiName)
+			}
+
+			generateIPAMConfig := func(ipamType string, subnet string) string {
+				return fmt.Sprintf("\\\"type\\\": \\\"%s\\\", \\\"subnet\\\": \\\"%s\\\"", ipamType, subnet)
+			}
+
+			table.DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface, networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string) {
+				if staticIPVm2 == "" || staticIPVm1 == "" {
+					ipam := generateIPAMConfig("host-local", "10.1.1.0/24")
+					Expect(createBridgeNetworkAttachementDefinition("linux-bridge-net-ipam", 0, ipam)).To(Succeed())
+				}
+
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
 
 				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 				tests.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 
-				Expect(configInterface(vmiOne, ifaceName, "10.1.1.1/24")).To(Succeed())
+				Expect(configureAlpineInterfaceIP(vmiOne, ifaceName, staticIPVm1)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
 				Expect(checkInterface(vmiOne, ifaceName)).To(Succeed())
 
-				Expect(configInterface(vmiTwo, ifaceName, "10.1.1.2/24")).To(Succeed())
+				Expect(configureAlpineInterfaceIP(vmiTwo, ifaceName, staticIPVm2)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
 				Expect(checkInterface(vmiTwo, ifaceName)).To(Succeed())
 
+				ipAddr := ""
+				if staticIPVm2 != "" {
+					ipAddr, err = cidrToIP(staticIPVm2)
+				} else {
+					const secondaryNetworkIndex = 1
+					ipAddr, err = getIfaceIPByNetworkName(vmiTwo.Name, networks[secondaryNetworkIndex].Name)
+				}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ipAddr).ToNot(BeEmpty())
+
 				By("ping between virtual machines")
-				Expect(libnet.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmiOne, ipAddr)).To(Succeed())
 			},
-				table.Entry("[test_id:1577]with secondary network only", []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0"),
-				table.Entry("[test_id:1578]with default network and secondary network", []v1.Interface{defaultInterface, linuxBridgeInterface}, []v1.Network{defaultNetwork, linuxBridgeNetwork}, "eth1"),
+				table.Entry("[test_id:1577]with secondary network only", []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0", "10.1.1.1/24", "10.1.1.2/24"),
+				table.Entry("[test_id:1578]with default network and secondary network", []v1.Interface{defaultInterface, linuxBridgeInterface}, []v1.Network{defaultNetwork, linuxBridgeNetwork}, "eth1", "10.1.1.1/24", "10.1.1.2/24"),
+				table.Entry("with default network and secondary network with IPAM", []v1.Interface{defaultInterface, linuxBridgeInterfaceWithIPAM}, []v1.Network{defaultNetwork, linuxBridgeWithIPAMNetwork}, "eth1", "", ""),
 			)
 		})
 
@@ -1487,4 +1543,34 @@ func cloudInitNetworkDataWithStaticIPsByDevice(deviceName, ipAddress string) str
 	)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should successfully create static IPs by device name cloud init network data")
 	return networkData
+}
+
+// If staticIP is empty the interface would get a dynamic IP
+func configureAlpineInterfaceIP(vmi *v1.VirtualMachineInstance, ifaceName, staticIP string) error {
+	if staticIP == "" {
+		return activateDHCPOnVMInterfaces(vmi, ifaceName)
+	}
+
+	return configInterface(vmi, ifaceName, staticIP)
+}
+
+func activateDHCPOnVMInterfaces(vmi *v1.VirtualMachineInstance, ifacesNames ...string) error {
+	interfacesConfig := "auto lo\\niface lo inet loopback\\n\\n"
+
+	for idx := range ifacesNames {
+		interfacesConfig += fmt.Sprintf("auto %s\\niface %s inet dhcp\\nhostname localhost\\n\\n",
+			ifacesNames[idx],
+			ifacesNames[idx])
+	}
+
+	return console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: "echo $'" + interfacesConfig + "' > /etc/network/interfaces\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: "/etc/init.d/networking restart\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: console.RetValue("0")},
+	}, 15)
 }
