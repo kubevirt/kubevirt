@@ -403,6 +403,9 @@ const (
 
 	// PodConditionMissingReason indicates on the Ready condition on the VMI if the underlying pod does not report a Ready condition
 	PodConditionMissingReason = "PodConditionMissing"
+
+	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
+	GuestNotRunningReason = "GuestNotRunning"
 )
 
 // +k8s:openapi-gen=true

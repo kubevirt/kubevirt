@@ -690,6 +690,13 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 			now,
 			now)
 
+	} else if !vmi.IsRunning() {
+		setVMICondition(k8sv1.ConditionFalse,
+			virtv1.GuestNotRunningReason,
+			"Guest VM is not reported as running",
+			now,
+			now)
+
 	} else if podReadyCond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); podReadyCond != nil {
 		setVMICondition(podReadyCond.Status,
 			podReadyCond.Reason,
