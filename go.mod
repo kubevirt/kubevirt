@@ -15,7 +15,7 @@ require (
 	github.com/google/uuid v1.1.4
 	github.com/imdario/mergo v0.3.12
 	github.com/kubevirt/cluster-network-addons-operator v0.57.0
-	github.com/kubevirt/vm-import-operator v0.3.6
+	github.com/kubevirt/vm-import-operator v0.3.7
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible

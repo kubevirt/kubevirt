@@ -866,8 +866,8 @@ github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1/go.mod h1:dV5oB3U62KBdl
 github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17/go.mod h1:enH0BVV+4+DAgWdwSlMefG8bBzTfVMTr1lApzdLZ/cc=
 github.com/kubevirt/cluster-network-addons-operator v0.57.0 h1:r6ZwBd24J1KM4edYDVpuxTHSe0u7bOjAtYTSYkYbGX8=
 github.com/kubevirt/cluster-network-addons-operator v0.57.0/go.mod h1:FDgI0XZI5rQrd9OcVffJ+lJl1iplpCLX6u6qRGqgFu4=
-github.com/kubevirt/vm-import-operator v0.3.6 h1:ILJs3U+RXaTjH/5P99xWuZ7sZql5+2u5UT5DVG9dSug=
-github.com/kubevirt/vm-import-operator v0.3.6/go.mod h1:vMW9982ayVHdRBGqO9/ybzLeL5Yl6OBkhMiNgnKqjMI=
+github.com/kubevirt/vm-import-operator v0.3.7 h1:yxAUPR+JuqENAFWaog2ZZPspEkCJhq4Od0cFX8O3LMM=
+github.com/kubevirt/vm-import-operator v0.3.7/go.mod h1:uIo+u04ZvVLh1UUSjIgqFPSqTi1D7XytT6uctVKcXb0=
 github.com/kylelemons/godebug v0.0.0-20160406211939-eadb3ce320cb/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
@@ -2024,7 +2024,6 @@ k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6/go.mod h1:sZAwmy6armz5eXlNoLmJcl
 k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89/go.mod h1:sZAwmy6armz5eXlNoLmJcl4F1QuKu7sr+mFQ0byX7Ew=
 k8s.io/utils v0.0.0-20200414100711-2df71ebbae66/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20200603063816-c1c6865ac451/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
-k8s.io/utils v0.0.0-20200619165400-6e3d28b6ed19/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20201110183641-67b214c5f920/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20210111153108-fddb29f9d009/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=

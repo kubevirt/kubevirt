@@ -70,7 +70,7 @@ spec:
         - name: HPPO_VERSION
           value: v0.8.1
         - name: VM_IMPORT_VERSION
-          value: v0.3.6
+          value: v0.3.7
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -617,9 +617,9 @@ spec:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
-          value: v0.3.6
+          value: v0.3.7
         - name: CONTROLLER_IMAGE
-          value: quay.io/kubevirt/vm-import-controller@sha256:bfabce29781a03f3c0af39728c46c47a54cccd39f1f0fc6803494271d2a9e5a1
+          value: quay.io/kubevirt/vm-import-controller@sha256:0eecf633c4f9db54a1e5f408cfb7b9df1e54f8ac15e5267d1c85c527090a630b
         - name: PULL_POLICY
           value: IfNotPresent
         - name: WATCH_NAMESPACE
@@ -631,7 +631,7 @@ spec:
           value: openshift-monitoring
         - name: VIRTV2V_IMAGE
           value: quay.io/kubevirt/vm-import-virtv2v@sha256:595793a0178d13553ad5f43268988de5fa98bfd764a4fb5f40922a2a372010b8
-        image: quay.io/kubevirt/vm-import-operator@sha256:5648506367cfcd06b8690e7c6f16322515d26ab09a7fc539329eb12dc4f30617
+        image: quay.io/kubevirt/vm-import-operator@sha256:b4f5f33bc575c7f8d0bf20129c8d4641522ee3d7e70f486d3fdb76e494629f58
         imagePullPolicy: IfNotPresent
         name: vm-import-operator
         resources: {}
