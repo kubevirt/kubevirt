@@ -6,7 +6,7 @@
 [![Coverage Status](https://img.shields.io/coveralls/kubevirt/kubevirt/main.svg)](https://coveralls.io/github/kubevirt/kubevirt?branch=main)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3203/badge)](https://bestpractices.coreinfrastructure.org/projects/3203)
 [![Visit our Slack channel](https://img.shields.io/badge/slack-@kubernetes/kubevirt--dev-40abb8.svg?logo=slack)](https://kubernetes.slack.com/?redir=%2Farchives%2FC0163DT0R8X)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt?ref=badge_shield)
+[![FOSSA Status](https://app.fossa.com/api/projects/custom%2B13072%2Fgit%40github.com%3Akubevirt%2Fkubevirt.git.svg?type=shield)](https://app.fossa.com/projects/custom%2B13072%2Fgit%40github.com%3Akubevirt%2Fkubevirt.git?ref=badge_shield)
 
 **KubeVirt** is a virtual machine management add-on for Kubernetes.
 The aim is to provide a common ground for virtualization solutions on top of
