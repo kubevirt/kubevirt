@@ -20,67 +20,69 @@
 package device_manager
 
 import (
+	"bufio"
+	"bytes"
 	"container/ring"
-	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
-	"path"
 	"path/filepath"
+    "strconv"
 	"strings"
 	"sync"
 
-	"github.com/fsnotify/fsnotify"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-    "k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
+// Not a const for static test purposes
+var mdevClassBusPath string = "/sys/class/mdev_bus"
+
 type MDEVTypesManager struct {
-    availableMdevTypesMap  map[string][]string
+	availableMdevTypesMap   map[string][]string
+	unconfiguredParentsMap  map[string]struct{}
 	mdevsConfigurationMutex sync.Mutex
-    configuredMdevTypes    []string
+	configuredMdevTypes     []byte
 }
 
 func NewMDEVTypesManager() *MDEVTypesManager {
-    return &MDEVTypesManager{
-        availableMdevTypesMap: make(map[string][]string)
-    }
-}
-// Not a const for static test purposes
-var mdevBasePath string = "/sys/bus/mdev/devices"
-
-
-
-func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList  []string) error {
-    if bytes.Compare(m.configuredMdevTypes, desiredTypesList) != 0 {
-        // construct a map of desired types
-        desiredTypesMap := make(map[string]struct{})
-        for _, mdevType := range desiredTypesList {
-            desiredTypesMap[mdevType] = struct{}{}
-        }
-
-        c.mdevsConfigurationMutex.Lock()
-        defer c.mdevsConfigurationMutex.Unlock()
-
-        removeUndesiredMDEVs(desiredTypesMap)
-        err := m.discoverConfigurableMDEVTypes(desiredTypesMap)
-        if err != nil {
-            log.Log.Reason(err).Error("failed to discover which mdev types are available for configuration")
-            return err
-        }
-        m.configureDesiredMDEVTypes()
-        // store the configured list of types
-        m.configuredMdevTypes = desiredTypesList
-    }
+	return &MDEVTypesManager{
+		availableMdevTypesMap: make(map[string][]string),
+	}
 }
 
-func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap  map[string]struct{}) error {
-	files, err := filepath.Glob("/sys/class/mdev_bus/**/mdev_supported_types/*")
+func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []string) error {
+	desiredTypesBytes := []byte(strings.Join(desiredTypesList, ","))
+	if bytes.Compare(m.configuredMdevTypes, desiredTypesBytes) != 0 {
 
+		// construct a map of desired types for lookup
+		desiredTypesMap := make(map[string]struct{})
+		for _, mdevType := range desiredTypesList {
+			desiredTypesMap[mdevType] = struct{}{}
+		}
+
+		m.mdevsConfigurationMutex.Lock()
+		defer m.mdevsConfigurationMutex.Unlock()
+
+		removeUndesiredMDEVs(desiredTypesMap)
+		err := m.discoverConfigurableMDEVTypes(desiredTypesMap)
+		if err != nil {
+			log.Log.Reason(err).Error("failed to discover which mdev types are available for configuration")
+			return err
+		}
+		m.configureDesiredMDEVTypes()
+		// store the configured list of types
+		m.configuredMdevTypes = desiredTypesBytes
+	}
+	return nil
+}
+
+// discoverConfigurableMDEVTypes will create an intersection of desired and configurable available mdev types
+func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[string]struct{}) error {
+	// initialize unconfigured parents map
+	m.unconfiguredParentsMap = make(map[string]struct{})
+
+	files, err := filepath.Glob(mdevClassBusPath + "/**/mdev_supported_types/*")
 	if err != nil {
 		return err
 	}
@@ -88,34 +90,40 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap  map[st
 	for _, file := range files {
 
 		filePathParts := strings.Split(file, string(os.PathSeparator))
-        parentID := filePathParts[len(filePathParts)-3]
+		parentID := filePathParts[len(filePathParts)-3]
+
+        //find the type's name
 		rawName, err := ioutil.ReadFile(filepath.Join(file, "name"))
 		if err != nil {
 			if !os.IsNotExist(err) {
-                return err
+				return err
 			}
 		}
 
 		// The name usually contain spaces which should be replaced with _
 		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)
+
+        // get this type's ID
 		typeID := filepath.Base(file)
-		 _, typeNameExist := desiredTypesMap[typeNameStr]
-		 _, typeIDExist := desiredTypesMap[typeID]
-		if  typeNameExist || typeIDExist {
+
+        // find out if type was requested by name
+		_, typeNameExist := desiredTypesMap[typeNameStr]
+		_, typeIDExist := desiredTypesMap[typeID]
+		if typeNameExist || typeIDExist {
 			ar, exist := m.availableMdevTypesMap[typeID]
 			if !exist {
 				ar = []string{}
 			}
 			ar = append(ar, parentID)
 			m.availableMdevTypesMap[typeID] = ar
-        }
+			m.unconfiguredParentsMap[parentID] = struct{}{}
+		}
 	}
-    return nil
+	return nil
 }
 
-func (m *MDEVTypesManager) initMDEVTypesRing() *Ring {
-	// create a ring out of intersection of desired and available types.
+func (m *MDEVTypesManager) initMDEVTypesRing() *ring.Ring {
 	// Create a new ring of size of availableMdevTypesMap
 	r := ring.New(len(m.availableMdevTypesMap))
 
@@ -124,129 +132,157 @@ func (m *MDEVTypesManager) initMDEVTypesRing() *Ring {
 		r.Value = desiredType
 		r = r.Next()
 	}
-    return r
+	return r
+}
+
+func (m *MDEVTypesManager) getNextAvailableParentToConfigure(parents []string) (string, []string) {
+	for idx := 0; idx < len(parents); idx++ {
+		parent := parents[idx]
+		if _, exist := m.unconfiguredParentsMap[parent]; exist {
+			return parent, parents[idx+1:]
+		}
+	}
+	return "", []string{}
 }
 
 func (m *MDEVTypesManager) configureDesiredMDEVTypes() {
-    r := m.initMDEVTypesRing()
-
-	// Iterate through the ring and configure the relevant types
+	r := m.initMDEVTypesRing()
+	// Iterate over the ring and configure the relevant mdev types
 	for {
-		if parents, exist := m.availableMdevTypesMap[r.Value.(string)]; exist {
-
-			parent := parents[0]
-            createMdevType(r.Value.(string), parent)
-            // figure out what to do with errors here
-			// debug log fmt.Println("Configuring: ", r.Value.(string), " - parent: ", parent)
+		mdevTypeToConfigure := r.Value.(string)
+		if parents, exist := m.availableMdevTypesMap[mdevTypeToConfigure]; exist {
 			if len(parents) > 0 {
-				parents = append(parents[:0], parents[1:]...)
-				m.availableMdevTypesMap[r.Value.(string)] = parents
-				if len(parents) == 0 {
-					delete(m.availableMdevTypesMap, r.Value.(string))
+				// Currently, we can configure only one mdev type per card.
+				// Find the next available parent to congigure and remove the
+				// configured parents from the list.
+				parent, remainingParents := m.getNextAvailableParentToConfigure(parents)
+                parents = remainingParents
+                if parent != "" {
+					if err := createMdevTypes(mdevTypeToConfigure, parent); err == nil {
+						m.availableMdevTypesMap[mdevTypeToConfigure] = remainingParents
+						// remove the already configured parent
+						delete(m.unconfiguredParentsMap, parent)
+					}
 				}
+			}
+			if len(parents) == 0 {
+				delete(m.availableMdevTypesMap, mdevTypeToConfigure)
 			}
 		}
 
-		if len(m.availableMdevTypesMap) == 0 {
+		// all requested mdev types has been configured. We can exist now.
+		if len(m.availableMdevTypesMap) == 0 || len(m.unconfiguredParentsMap) == 0 {
 			break
 		}
 		r = r.Next()
 	}
 }
 
-func createMdevType(mdevType string, parentID string) error {
-    uid := uuid.NewUUID()
+func createMdevTypes(mdevType string, parentID string) error {
+    instances, err := readMdevAvailableInstances(mdevType, parentID)
+    /*instances := 1
+    if instances > 2 {
+        panic(instances)
+    }*/
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create mdevs of type %s, failed to obtain number of instances", mdevType)
+		return err
+	}
+    for i:=0;i<instances;i++ {
+        uid := uuid.NewUUID()
 
-    path := filepath.Join(pciBasePath, parentID,"mdev_supported_types", mdevType, "create")
+        path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "create")
+        f, err := os.OpenFile(path, os.O_WRONLY, 0200)
+        if err != nil {
+            log.Log.Reason(err).Errorf("failed to create mdev type %s, can't open path %s", mdevType, path)
+            return err
+        }
 
-    f, err := os.OpenFile(path, os.O_WRONLY, 0200)
+        defer f.Close()
+
+        if _, err = f.WriteString(string(uid)); err != nil {
+            log.Log.Reason(err).Errorf("failed to create mdev type %s, can't write to %s", mdevType, path)
+            return err
+        }
+    }
+	return nil
+}
+
+func readMdevAvailableInstances(mdevType string, parentID string) (int, error) {
+    var lines []string
+	path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "available_instances")
+    /*instances, err := ioutil.ReadFile(path)
     if err != nil {
-        //log 
-        return err
+        return 0, err
+    }*/
+    f, err := os.Open(path)
+    if err != nil {
+        return 0, err
     }
 
     defer f.Close()
 
-    if _, err = f.WriteString(uid); err != nil {
-        //log
-        return err
+    scanner := bufio.NewScanner(f)
+    for scanner.Scan() {
+        lines = append(lines, scanner.Text())
     }
+    err = scanner.Err()
+    if err != nil {
+        return 0, err
+    }
+
+    i, err := strconv.Atoi(string(lines[0]))
+    if err != nil {
+        return 0, err
+    }
+
+    return i, nil
 }
 
-func removeMdevsByType(mdevType) error {
-	filepath.Walk(mdevBasePath, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		fmt.Println("file : ", info.Name())
-		path1 := filepath.Join(mdevBasePath, info.Name(), "remove")
-
-		f, err := os.OpenFile(path1, os.O_WRONLY, 0200)
-		if err != nil {
-            // log
-			return err
-		}
-
-		defer f.Close()
-
-		if _, err = f.WriteString("1"); err != nil {
-            //log
-			return err
-		}
-		return nil
-	})
-	return nil
-
-}
-
-shouldRemoveMDEV(mdevUUID string, desiredTypesMap  map[string]struct{}) bool {
+func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool {
 
 	if rawName, err := ioutil.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name")); err == nil {
-        typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
-        if _, exist := desiredTypesMap[typeNameStr]; exist {
-            return false
-        }
-    }
+		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
+		if _, exist := desiredTypesMap[typeNameStr]; exist {
+			return false
+		}
+	}
 
-    originFile, err := os.Readlink(filepath.Join(mdevBasePath, mdevUUID, "mdev_type"))
-    if err != nil {
-        // log
-        return false
-    }
-    rawName = []byte(filepath.Base(originFile))
+	originFile, err := os.Readlink(filepath.Join(mdevBasePath, mdevUUID, "mdev_type"))
+	if err != nil {
+		return false
+	}
+	rawName := []byte(filepath.Base(originFile))
 
 	// The name usually contain spaces which should be replaced with _
 	typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
-    if _, exist := desiredTypesMap[typeNameStr]; exist {
-        return false
-    }
+	if _, exist := desiredTypesMap[typeNameStr]; exist {
+		return false
+	}
 	return true
 }
 
-removeUndesiredMDEVs(desiredTypesMap  map[string]struct{}) {
+func removeUndesiredMDEVs(desiredTypesMap map[string]struct{}) {
 	filepath.Walk(mdevBasePath, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
 		}
-        if shouldRemoveMDEV(info.Name()) {
-		    removePath := filepath.Join(mdevBasePath, info.Name(), "remove")
+		if shouldRemoveMDEV(info.Name(), desiredTypesMap) {
+			removePath := filepath.Join(mdevBasePath, info.Name(), "remove")
 
-            f, err := os.OpenFile(removePath, os.O_WRONLY, 0200)
-            if err != nil {
-                // log
-                return err
-            }
+			f, err := os.OpenFile(removePath, os.O_WRONLY, 0200)
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to remove mdev %s, can't open path %s", info.Name(), removePath)
+				return nil
+			}
 
-            defer f.Close()
+			defer f.Close()
 
-            if _, err = f.WriteString("1"); err != nil {
-                //log
-                return err
-            }
-        }
+			if _, err = f.WriteString("1"); err != nil {
+				log.Log.Reason(err).Errorf("failed to remove mdev %s, can't write to %s", info.Name(), removePath)
+				return nil
+			}
+		}
 		return nil
 	})
-	return nil
 }
-
-

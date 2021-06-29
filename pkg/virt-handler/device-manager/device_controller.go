@@ -48,7 +48,7 @@ type DeviceController struct {
 	backoff            []time.Duration
 	virtConfig         *virtconfig.ClusterConfig
 	stop               chan struct{}
-    mdevTypesManager   *MDEVTypesManager
+	mdevTypesManager   *MDEVTypesManager
 }
 
 type ControlledDevice struct {
@@ -69,12 +69,12 @@ func getPermanentHostDevicePlugins(maxDevices int, permissions string) map[strin
 
 func NewDeviceController(host string, maxDevices int, permissions string, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
 	controller := &DeviceController{
-		devicePlugins: getPermanentHostDevicePlugins(maxDevices, permissions),
-		host:          host,
-		maxDevices:    maxDevices,
-		backoff:       []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
-		virtConfig:    clusterConfig,
-        mdevTypesManager: NewMDEVTypesManager(),
+		devicePlugins:    getPermanentHostDevicePlugins(maxDevices, permissions),
+		host:             host,
+		maxDevices:       maxDevices,
+		backoff:          []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+		virtConfig:       clusterConfig,
+		mdevTypesManager: NewMDEVTypesManager(),
 	}
 
 	return controller
@@ -150,14 +150,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 						stopChan:     make(chan struct{}),
 					}
 				} else {
-		~.
-
-
-
-			delete(devicePluginsToStop, pciResourceName)
-~.
-
-
+					delete(devicePluginsToStop, pciResourceName)
 				}
 			}
 		}
@@ -202,11 +195,12 @@ func removeSelectorSpaces(selectorName string) string {
 
 }
 
-func (c *DeviceController) c.refreshMediatedDevicesTypes() {
-    nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(c.host)
-    err := c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
-    if err != nil {
-    }
+func (c *DeviceController) refreshMediatedDevicesTypes() {
+	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(c.host)
+	err := c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to configure the desired mdev types: %s", strings.Join(nodeDesiredMdevTypesList, ", "))
+	}
 }
 
 func (c *DeviceController) refreshPermittedDevices() {
