@@ -203,9 +203,10 @@ func removeSelectorSpaces(selectorName string) string {
 }
 
 func (c *DeviceController) c.refreshMediatedDevicesTypes() {
-    err := c.mdevTypesManager.updateMDEVTypesConfiguration()
-    //log
-    //event ?
+    nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(c.host)
+    err := c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
+    if err != nil {
+    }
 }
 
 func (c *DeviceController) refreshPermittedDevices() {
