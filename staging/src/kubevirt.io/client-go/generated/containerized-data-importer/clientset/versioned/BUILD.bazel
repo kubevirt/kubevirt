@@ -9,9 +9,7 @@ go_library(
     importpath = "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned",
     visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1beta1:go_default_library",
         "//vendor/k8s.io/client-go/discovery:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",

@@ -9,7 +9,7 @@ import (
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
 // ThisPod fetches the latest state of the pod. If the object does not exist, nil is returned.
@@ -55,13 +55,13 @@ func AllVMIs(namespace string) func() ([]virtv1.VirtualMachineInstance, error) {
 }
 
 // ThisDV fetches the latest state of the pod. If the object does not exist, nil is returned.
-func ThisDV(dv *v1alpha1.DataVolume) func() (*v1alpha1.DataVolume, error) {
-	return func() (p *v1alpha1.DataVolume, err error) {
+func ThisDV(dv *v1beta1.DataVolume) func() (*v1beta1.DataVolume, error) {
+	return func() (p *v1beta1.DataVolume, err error) {
 		virtClient, err := kubecli.GetKubevirtClient()
 		if err != nil {
 			return nil, err
 		}
-		p, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, k8smetav1.GetOptions{})
+		p, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}

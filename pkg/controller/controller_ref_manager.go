@@ -35,7 +35,7 @@ import (
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
 type BaseControllerRefManager struct {
@@ -405,7 +405,7 @@ func (r RealVirtualMachineControl) PatchVirtualMachine(namespace, name string, d
 
 func (r RealVirtualMachineControl) PatchDataVolume(namespace, name string, data []byte) error {
 	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
-	_, err := r.Clientset.CdiClient().CdiV1alpha1().DataVolumes(namespace).Patch(context.Background(), name, types.MergePatchType, data, metav1.PatchOptions{})
+	_, err := r.Clientset.CdiClient().CdiV1beta1().DataVolumes(namespace).Patch(context.Background(), name, types.MergePatchType, data, metav1.PatchOptions{})
 	return err
 }
 

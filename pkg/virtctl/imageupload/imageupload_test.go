@@ -25,7 +25,7 @@ import (
 
 	fakecdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -176,10 +176,10 @@ var _ = Describe("ImageUpload", func() {
 	addDvPhase := func() {
 		defer GinkgoRecover()
 		time.Sleep(10 * time.Millisecond)
-		dv, err := cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 		dv.Status.Phase = cdiv1.UploadReady
-		dv, err = cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Update(context.Background(), dv, metav1.UpdateOptions{})
+		dv, err = cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Update(context.Background(), dv, metav1.UpdateOptions{})
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}
@@ -283,7 +283,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	validateDataVolumeArgs := func(mode v1.PersistentVolumeMode) {
-		dv, err := cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 
 		validatePVCSpec(dv.Spec.PVC, mode)
@@ -320,7 +320,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	updateCDIConfig := func(config *cdiv1.CDIConfig) {
-		_, err := cdiClient.CdiV1alpha1().CDIConfigs().Update(context.Background(), config, metav1.UpdateOptions{})
+		_, err := cdiClient.CdiV1beta1().CDIConfigs().Update(context.Background(), config, metav1.UpdateOptions{})
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}
@@ -531,7 +531,7 @@ var _ = Describe("ImageUpload", func() {
 			testInit(http.StatusOK)
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath)
-			config, err := cdiClient.CdiV1alpha1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
+			config, err := cdiClient.CdiV1beta1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
 			Expect(err).To(BeNil())
 			config.Status.UploadProxyURL = nil
 			updateCDIConfig(config)

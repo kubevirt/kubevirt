@@ -14,7 +14,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 
 	"k8s.io/client-go/kubernetes/fake"
@@ -282,8 +282,8 @@ var _ = Describe("VirtualMachine", func() {
 			cdiClient  *cdifake.Clientset
 			coreClient *fake.Clientset
 		)
-		createTestDataVolume := func() *v1alpha1.DataVolume {
-			return &v1alpha1.DataVolume{
+		createTestDataVolume := func() *v1beta1.DataVolume {
+			return &v1beta1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name: "testvolume",
 				},
@@ -405,7 +405,7 @@ var _ = Describe("VirtualMachine", func() {
 			if commandName == "addvolume" {
 				kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 				if useDv {
-					cdiClient.CdiV1alpha1().DataVolumes(k8smetav1.NamespaceDefault).Create(context.Background(), createTestDataVolume(), k8smetav1.CreateOptions{})
+					cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(context.Background(), createTestDataVolume(), k8smetav1.CreateOptions{})
 				} else {
 					kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 					coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(), k8smetav1.CreateOptions{})
