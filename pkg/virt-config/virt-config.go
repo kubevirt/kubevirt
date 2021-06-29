@@ -199,8 +199,11 @@ func (c *ClusterConfig) GetPermittedHostDevices() *v1.PermittedHostDevices {
 	return c.GetConfig().PermittedHostDevices
 }
 
-func (c *ClusterConfig) GetDesiredMDEVTypes(nodeName string) uint {
+func (c *ClusterConfig) GetDesiredMDEVTypes(nodeName string) []string {
 	mdevTypesConf := c.GetConfig().MediatedDevicesConfiguration
+    if mdevTypesConf == nil {
+        return []string{}
+    }
 	if nodeMdevTypes, exist := mdevTypesConf.NodeMediatedDevices[nodeName]; exist {
 		return nodeMdevTypes
 	}
