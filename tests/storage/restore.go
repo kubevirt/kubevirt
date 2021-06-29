@@ -434,28 +434,28 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				By("creating snapshot")
 				snapshot = createSnapshot(vm)
 
+				batch = nil
 				if !onlineSnapshot {
 					By("Starting VM")
 					vm = tests.StartVirtualMachine(vm)
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+
+					if device != "" {
+						batch = append(batch, []expect.Batcher{
+							&expect.BSnd{S: "sudo mkdir -p /test\n"},
+							&expect.BExp{R: console.PromptExpression},
+							&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
+							&expect.BExp{R: console.PromptExpression},
+							&expect.BSnd{S: "echo $?\n"},
+							&expect.BExp{R: console.RetValue("0")},
+						}...)
+					}
 				}
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
 
 				By("updating message")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
-
-				batch = nil
-
-				if device != "" {
-					batch = append(batch, []expect.Batcher{
-						&expect.BSnd{S: "sudo mkdir -p /test\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-					}...)
-				}
 
 				batch = append(batch, []expect.Batcher{
 					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
