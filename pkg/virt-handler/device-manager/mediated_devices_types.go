@@ -42,6 +42,7 @@ import (
 type MDEVTypesManager struct {
     availableMdevTypesMap  map[string][]string
 	mdevsConfigurationMutex sync.Mutex
+    configuredMdevTypes    []string
 }
 
 func NewMDEVTypesManager() *MDEVTypesManager {
@@ -54,16 +55,27 @@ var mdevBasePath string = "/sys/bus/mdev/devices"
 
 
 
-func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesMap  map[string]struct{}) error {
-	c.mdevsConfigurationMutex.Lock()
-	defer c.mdevsConfigurationMutex.Unlock()
+func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList  []string) error {
+    if bytes.Compare(m.configuredMdevTypes, desiredTypesList) != 0 {
+        // construct a map of desired types
+        desiredTypesMap := make(map[string]struct{})
+        for _, mdevType := range desiredTypesList {
+            desiredTypesMap[mdevType] = struct{}{}
+        }
 
-    removeUndesiredMDEVs(desiredTypesMap)
-    err := m.discoverConfigurableMDEVTypes(desiredTypesMap)
-    if err != nil {
-        return err
+        c.mdevsConfigurationMutex.Lock()
+        defer c.mdevsConfigurationMutex.Unlock()
+
+        removeUndesiredMDEVs(desiredTypesMap)
+        err := m.discoverConfigurableMDEVTypes(desiredTypesMap)
+        if err != nil {
+            log.Log.Reason(err).Error("failed to discover which mdev types are available for configuration")
+            return err
+        }
+        m.configureDesiredMDEVTypes()
+        // store the configured list of types
+        m.configuredMdevTypes = desiredTypesList
     }
-    m.configureDesiredMDEVTypes()
 }
 
 func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap  map[string]struct{}) error {
