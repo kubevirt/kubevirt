@@ -1190,7 +1190,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 
 	ready := false
 	if created {
-		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
+		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceReady, k8score.ConditionTrue)
 	}
 	vm.Status.Ready = ready
 
