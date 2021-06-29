@@ -383,9 +383,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			doRestore := func(device string, onlineSnapshot bool) {
+			doRestore := func(device string, login console.LoginToFactory, onlineSnapshot bool) {
 				By("creating 'message with initial value")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
 
 				var batch []expect.Batcher
 				if device != "" {
@@ -441,7 +441,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+					Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
 
 					if device != "" {
 						batch = append(batch, []expect.Batcher{
@@ -499,7 +499,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying original file contents")
-				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(login)(vmi)).To(Succeed())
 
 				batch = nil
 
@@ -569,7 +569,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 
-				doRestore("", false)
+				doRestore("", console.LoginToCirros, false)
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
@@ -601,7 +601,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("", false)
+				doRestore("", console.LoginToCirros, false)
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
@@ -658,7 +658,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("", false)
+				doRestore("", console.LoginToCirros, false)
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
@@ -726,7 +726,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 
-				doRestore("/dev/vdc", false)
+				doRestore("/dev/vdc", console.LoginToCirros, false)
 
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
@@ -742,7 +742,60 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					snapshotStorageClass,
 				))
 
-				doRestore("", true)
+				doRestore("", console.LoginToCirros, true)
+
+			})
+
+			It("should restore a vm from an online snapshot with guest agent", func() {
+				quantity, err := resource.ParseQuantity("1Gi")
+				Expect(err).ToNot(HaveOccurred())
+				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Namespace = util.NamespaceTestDefault
+				vm = tests.NewRandomVirtualMachine(vmi, false)
+				dvName := "dv-" + vm.Name
+				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: dvName,
+						},
+						Spec: cdiv1.DataVolumeSpec{
+							Source: &cdiv1.DataVolumeSource{
+								Blank: &cdiv1.DataVolumeBlankImage{},
+							},
+							PVC: &corev1.PersistentVolumeClaimSpec{
+								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										"storage": quantity,
+									},
+								},
+								StorageClassName: &snapshotStorageClass,
+							},
+						},
+					},
+				}
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "blank",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				})
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "blank",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv-" + vm.Name,
+						},
+					},
+				})
+
+				vm, vmi = createAndStartVM(vm)
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				doRestore("/dev/vdc", console.LoginToFedora, true)
 
 			})
 
