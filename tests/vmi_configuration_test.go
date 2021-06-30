@@ -1606,7 +1606,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 			It("should apply runtimeClassName to pod when set", func() {
 				By("Configuring a default runtime class")
-				config := tests.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+				config := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 				config.DefaultRuntimeClass = runtimeClassName
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
@@ -1623,14 +1623,14 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			It("should not apply runtimeClassName to pod when not set", func() {
 				By("Creating a VMI")
 				var vmi = tests.NewRandomVMI()
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Waiting for successful start of VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Checking for absence of runtimeClassName")
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				Expect(pod.Spec.RuntimeClassName).To(BeNil())
 			})
 		})

@@ -1584,10 +1584,10 @@ func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 
 func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 	pods, err := getPodsByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace)
-	PanicOnError(err)
+	util2.PanicOnError(err)
 
 	if len(pods.Items) != 1 {
-		PanicOnError(fmt.Errorf("found wrong number of pods for VMI '%v', count: %d", vmi, len(pods.Items)))
+		util2.PanicOnError(fmt.Errorf("found wrong number of pods for VMI '%v', count: %d", vmi, len(pods.Items)))
 	}
 
 	return &pods.Items[0]
