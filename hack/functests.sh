@@ -68,9 +68,17 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
         serial_test_args="${serial_test_args} --focus=\\[Serial\\]"
     fi
 
+    return_value=0
+    set +e
     functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${FUNC_TEST_ARGS}
+    return_value="$?"
+    set -e
+    if [ "$return_value" -ne 0 ] && ! [ "$KUBEVIRT_E2E_RUN_ALL_SUITES" == "true" ]; then
+        exit "$return_value"
+    fi
     extra_args="-junit-output ${ARTIFACTS}/partial.junit.functest.xml"
     functest ${serial_test_args} ${FUNC_TEST_ARGS}
+    exit "$return_value"
 else
     additional_test_args=""
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
