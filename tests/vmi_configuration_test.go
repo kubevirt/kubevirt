@@ -1110,7 +1110,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 						if len(vmi.Status.Conditions) > 0 {
 							for _, cond := range vmi.Status.Conditions {
 								if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
-									vmiCondition = vmi.Status.Conditions[0]
+									vmiCondition = cond
 									return true
 								}
 							}

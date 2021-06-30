@@ -31,7 +31,8 @@ const (
 	vmCreationTimeout   = 1 * time.Minute
 	vmMigrationTimeout  = 5 * time.Minute
 
-	vmAgeRegex = "^[0-9]+[sm]$"
+	vmAgeRegex   = "^[0-9]+[sm]$"
+	vmReadyRegex = "False|True"
 
 	// Define a buffer size to read errors into
 	bufferSize = 1024
@@ -254,7 +255,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		vmStatus, err = readNewStatus(stdout, vmStatus, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning), readyConditionTrue),
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning), MatchRegexp(vmReadyRegex)),
 			"VM should be in the %s status", v12.VirtualMachineStatusRunning)
 
 		By("Pausing the VirtualMachine")
@@ -303,12 +304,12 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		vmStatus, err = readNewStatus(stdout, vmStatus, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusStopping), readyConditionTrue),
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusStopping), MatchRegexp(vmReadyRegex)),
 			"VM should be in the %s status", v12.VirtualMachineStatusStopping)
 
 		vmStatus, err = readNewStatus(stdout, vmStatus, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusStopped), readyConditionFalse),
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusStopped), MatchRegexp(vmReadyRegex)),
 			"VM should be in the %s status", v12.VirtualMachineStatusStopped)
 	})
 
@@ -392,7 +393,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(vmiStatus)).To(Equal(6), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
 		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Running), vmiStatus[3], vmi.Status.NodeName, readyConditionTrue),
+		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Running), vmiStatus[3], vmi.Status.NodeName, MatchRegexp(vmReadyRegex)),
 			"VMI should be in the Running phase")
 
 		// Restart the VMI
@@ -403,7 +404,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(vmiStatus)).To(Equal(6), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
 		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Succeeded), vmiStatus[3], vmi.Status.NodeName, readyConditionFalse),
+		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Succeeded), vmiStatus[3], vmi.Status.NodeName, MatchRegexp(vmReadyRegex)),
 			"VMI should be in the Succeeded phase")
 
 		By("Waiting for the second VMI to be created")
@@ -446,7 +447,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(vmiStatus)).To(Equal(6), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
 		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Running), vmiStatus[3], vmi.Status.NodeName, readyConditionTrue),
+		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Running), vmiStatus[3], vmi.Status.NodeName, MatchRegexp(vmReadyRegex)),
 			"VMI should be in the Running phase")
 	})
 })

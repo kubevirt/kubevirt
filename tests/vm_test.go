@@ -678,7 +678,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				return cond.Status
 			}
 
-			Expect(vmReadyConditionStatus()).To(BeEmpty())
+			Expect(vmReadyConditionStatus()).ToNot(Equal(k8sv1.ConditionTrue))
 
 			startVM(vm)
 
@@ -688,7 +688,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			stopVM(vm)
 
 			Eventually(vmReadyConditionStatus, 300*time.Second, 1*time.Second).
-				Should(BeEmpty())
+				Should(Equal(k8sv1.ConditionFalse))
 		})
 
 		Context("Using virtctl interface", func() {
