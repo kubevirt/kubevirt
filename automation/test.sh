@@ -368,7 +368,9 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params make functest
+# FUNC_TEST_ARGS=$ginko_params make functest
+cluster-up/ssh.sh node02 -- sudo  find / -xdev -type f -context '*var_lib_t*' -printf '%-50Z%i%p\n'
+
 
 # Run REST API coverage based on k8s audit log and openapi spec
 if [ -n "$RUN_REST_COVERAGE" ]; then
