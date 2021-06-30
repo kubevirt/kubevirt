@@ -342,10 +342,30 @@ type CPU struct {
 	// with enough dedicated pCPUs and pin the vCPUs to it.
 	// +optional
 	DedicatedCPUPlacement bool `json:"dedicatedCpuPlacement,omitempty"`
+
+	// NUMA allows specifying settings for the guest NUMA topology
+	// +optional
+	NUMA *NUMA `json:"numa,omitempty"`
+
 	// IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place
 	// the emulator thread on it.
 	// +optional
 	IsolateEmulatorThread bool `json:"isolateEmulatorThread,omitempty"`
+}
+
+// NUMAGuestMappingPassthrough instructs kubevirt to model numa topology which is compatible with the CPU pinning on the guest.
+// This will result in a subset of the node numa topology being passed through, ensuring that virtual numa nodes and their memory
+// never cross boundaries coming from the node numa mapping.
+// +k8s:openapi-gen=true
+type NUMAGuestMappingPassthrough struct {
+}
+
+// +k8s:openapi-gen=true
+type NUMA struct {
+	// GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.
+	// The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.
+	// +opitonal
+	GuestMappingPassthrough *NUMAGuestMappingPassthrough `json:"guestMappingPassthrough,omitempty"`
 }
 
 // CPUFeature allows specifying a CPU feature.

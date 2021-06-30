@@ -43,6 +43,8 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -81,7 +83,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	)
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		if aggregatorClient == nil {
 			config, err := kubecli.GetConfig()
@@ -272,7 +274,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			RestClient().
 			Post().
 			Resource("virtualmachineinstances").
-			Namespace(tests.NamespaceTestDefault).
+			Namespace(util.NamespaceTestDefault).
 			Body(vmi).
 			Do(context.Background()).Get()
 		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -326,7 +328,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				Expect(len(pods.Items)).To(BeNumerically(">", 0), "no kubevirt pods found")
 
 				By("finding all schedulable nodes")
-				schedulableNodesList := tests.GetAllSchedulableNodes(virtClient)
+				schedulableNodesList := util.GetAllSchedulableNodes(virtClient)
 				schedulableNodes := map[string]*k8sv1.Node{}
 				for _, node := range schedulableNodesList.Items {
 					schedulableNodes[node.Name] = node.DeepCopy()
@@ -1073,7 +1075,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				vmi := tests.NewRandomVMI()
 
 				By("Starting a new VirtualMachineInstance")
-				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMIStart(obj)
 			}, 150)
@@ -1248,7 +1250,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			var originalKubeVirt *v1.KubeVirt
 
 			BeforeEach(func() {
-				originalKubeVirt = tests.GetCurrentKv(virtClient)
+				originalKubeVirt = util.GetCurrentKv(virtClient)
 			})
 
 			AfterEach(func() {
@@ -1352,7 +1354,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
-				originalKubeVirt = tests.GetCurrentKv(virtClient)
+				originalKubeVirt = util.GetCurrentKv(virtClient)
 
 			})
 
@@ -1450,26 +1452,26 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 func getLeader() string {
 	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	util.PanicOnError(err)
 
 	controllerEndpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), leaderelectionconfig.DefaultEndpointName, metav1.GetOptions{})
-	tests.PanicOnError(err)
+	util.PanicOnError(err)
 
 	var record resourcelock.LeaderElectionRecord
 	if recordBytes, found := controllerEndpoint.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]; found {
 		err := json.Unmarshal([]byte(recordBytes), &record)
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	}
 	return record.HolderIdentity
 }
 
 func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 	labelSelector, err := labels.Parse(fmt.Sprint(v1.AppLabel + "=virt-controller"))
-	tests.PanicOnError(err)
+	util.PanicOnError(err)
 	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(k8sv1.PodRunning))
 	controllerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
 		metav1.ListOptions{LabelSelector: labelSelector.String(), FieldSelector: fieldSelector.String()})
-	tests.PanicOnError(err)
+	util.PanicOnError(err)
 	leaderPodName := getLeader()
 	for _, pod := range controllerPods.Items {
 		if pod.Name != leaderPodName {

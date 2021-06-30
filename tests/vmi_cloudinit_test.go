@@ -36,6 +36,8 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
@@ -72,14 +74,14 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		// from default virt-launcher flag: do we need to make this configurable in some cases?
 		cloudinit.SetLocalDirectory("/var/run/kubevirt-ephemeral-disks/cloud-init-data")
 
 		LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 			Expect(err).To(BeNil())
 
 			By("Waiting the VirtualMachineInstance start")
@@ -318,7 +320,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			}, time.Second*120)
 
 			// Expect that the secret is not present on the vmi itself
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
 			Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
@@ -404,7 +406,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "network-config", testNetworkData)
 
 				// Expect that the secret is not present on the vmi itself
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
@@ -456,7 +458,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						Tags:    []string{"specialNet"},
 					},
 				}
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -541,7 +543,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
 
 				// Expect that the secret is not present on the vmi itself
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkDataBase64).To(BeEmpty())
@@ -620,7 +622,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "openstack/latest/user_data", testUserData)
 
 				// Expect that the secret is not present on the vmi itself
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.UserData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.UserDataBase64).To(BeEmpty())

@@ -5,7 +5,9 @@ go_library(
     srcs = [
         "converter.go",
         "network.go",
+        "numa_placement.go",
         "pci-placement.go",
+        "vcpu_placement.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter",
     visibility = ["//visibility:public"],
@@ -38,6 +40,7 @@ go_test(
     srcs = [
         "converter_suite_test.go",
         "converter_test.go",
+        "numa_placement_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

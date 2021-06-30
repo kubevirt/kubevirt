@@ -31,6 +31,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -68,7 +70,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
@@ -81,13 +83,13 @@ var _ = SIGDescribe("Hotplug", func() {
 	createVirtualMachine := func(running bool, template *kubevirtv1.VirtualMachineInstance) *kubevirtv1.VirtualMachine {
 		By("Creating VirtualMachine")
 		vm := tests.NewRandomVirtualMachine(template, running)
-		newVM, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+		newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 		Expect(err).ToNot(HaveOccurred())
 		return newVM
 	}
 
 	deleteVirtualMachine := func(vm *kubevirtv1.VirtualMachine) error {
-		return virtClient.VirtualMachine(tests.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
+		return virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
 	}
 
 	getAddVolumeOptions := func(volumeName, bus string, volumeSource *kubevirtv1.HotplugVolumeSource) *kubevirtv1.AddVolumeOptions {
@@ -407,7 +409,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		template := libvmi.NewCirros()
 		vm := createVirtualMachine(true, template)
 		Eventually(func() bool {
-			vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return vm.Status.Ready
 		}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -448,7 +450,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			accessMode = corev1.ReadWriteMany
 		}
 		By("Creating DataVolume")
-		dvBlock := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", accessMode, volumeMode)
+		dvBlock := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", accessMode, volumeMode)
 		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dvBlock.Namespace).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulDataVolumeImport(dvBlock, 240)
@@ -518,7 +520,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 			dvNames := make([]string, 0)
 			for i := 0; i < 3; i++ {
-				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+				dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				dvNames = append(dvNames, dv.Name)
@@ -588,7 +590,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 				vm = createVirtualMachine(true, template)
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.Ready
 				}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -917,7 +919,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 			vm = createVirtualMachine(true, template)
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -964,7 +966,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
-			dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 			Eventually(func() error {

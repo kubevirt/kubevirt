@@ -7,6 +7,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -20,14 +22,14 @@ var _ = Describe("[sig-compute]Controller devices", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	Context("with ephemeral disk", func() {
 		table.DescribeTable("a scsi controller", func(enabled bool) {
 			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			randomVMI.Spec.Domain.Devices.DisableHotplug = !enabled
-			vmi, apiErr := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
+			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)

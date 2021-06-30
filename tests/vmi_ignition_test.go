@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -42,11 +44,11 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		LaunchVMI = func(vmi *v1.VirtualMachineInstance) {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 			Expect(err).To(BeNil())
 
 			By("Waiting the VirtualMachineInstance start")

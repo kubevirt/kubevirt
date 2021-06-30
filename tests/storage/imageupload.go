@@ -13,6 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -39,7 +41,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		var err error
 
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	BeforeEach(func() {
@@ -77,19 +79,19 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	validateDataVolume := func(targetName string, _ string) {
 		By("Get DataVolume")
-		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	deletePVC := func(targetName string) {
-		err := virtClient.CoreV1().PersistentVolumeClaims((tests.NamespaceTestDefault)).Delete(context.Background(), targetName, metav1.DeleteOptions{})
+		err := virtClient.CoreV1().PersistentVolumeClaims((util.NamespaceTestDefault)).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -99,14 +101,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	}
 
 	deleteDataVolume := func(targetName string) {
-		err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Delete(context.Background(), targetName, metav1.DeleteOptions{})
+		err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(util.NamespaceTestDefault).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -119,11 +121,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	validatePVC := func(targetName string, storageClass string) {
 		By("Don't DataVolume")
-		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
 		By("Get PVC")
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 	}
@@ -139,7 +141,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			By("Upload image")
 			virtctlCmd := tests.NewRepeatableVirtctlCommand("image-upload",
 				resource, targetName,
-				"--namespace", tests.NamespaceTestDefault,
+				"--namespace", util.NamespaceTestDefault,
 				"--image-path", imagePath,
 				"--size", pvcSize,
 				"--uploadproxy-url", fmt.Sprintf("https://127.0.0.1:%d", localUploadProxyPort),
@@ -157,14 +159,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			if startVM {
 				By("Start VM")
 				vmi := tests.NewRandomVMIWithDataVolume(targetName)
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {
-					err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}()
 				tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},

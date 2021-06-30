@@ -10,6 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,7 +48,7 @@ var _ = SIGDescribe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][l
 
 			// Create three vmis, serverVMI and clientVMI are in same namespace, clientVMIAlternativeNamespace is in different namespace
 			serverVMI = createVMICirros(virtClient,
-				tests.NamespaceTestDefault,
+				util.NamespaceTestDefault,
 				serverVMILabels,
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(
 					v1.Port{
@@ -61,7 +63,7 @@ var _ = SIGDescribe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][l
 					},
 				)),
 			)
-			clientVMI = createVMICirros(virtClient, tests.NamespaceTestDefault, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
+			clientVMI = createVMICirros(virtClient, util.NamespaceTestDefault, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
 			clientVMIAlternativeNamespace = createVMICirros(virtClient, tests.NamespaceTestAlternative, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
 
 			ctx, cancel := context.WithCancel(context.Background())

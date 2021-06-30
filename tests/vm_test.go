@@ -44,6 +44,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -65,7 +67,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
@@ -86,7 +88,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			// change the name of a required field (like domain) so validation will fail
 			jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
 
-			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(util.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
 			// Verify validation failed.
 			statusCode := 0
 			result.StatusCode(&statusCode)
@@ -103,7 +105,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 			newVM := tests.NewRandomVirtualMachine(template, false)
 
-			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(newVM).Do(context.Background())
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(util.NamespaceTestDefault).Body(newVM).Do(context.Background())
 
 			// Verify validation failed.
 			statusCode := 0
@@ -125,7 +127,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var testingMachineType string = "pc-q35-2.7"
 
 		BeforeEach(func() {
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 			kubevirtConfiguration := kv.Spec.Configuration
 
 			kubevirtConfiguration.MachineType = testingMachineType
@@ -140,7 +142,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 			By("Creating VirtualMachine")
 			vm := tests.NewRandomVirtualMachine(template, running)
-			newVM, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			return newVM
 		}
@@ -180,11 +182,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		newVirtualMachineInstanceWithOCSFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 		}
 
 		newVirtualMachineInstanceWithOCSBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
+			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
 		}
 
 		deleteDataVolume := func(dv *cdiv1.DataVolume) {
@@ -197,7 +199,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 			By("Creating VirtualMachine")
 			vm := tests.NewRandomVirtualMachine(template, running)
-			newVM, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			return newVM
 		}
@@ -216,7 +218,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			newVM = NewRandomVirtualMachineWithRunStrategy(template, runStrategy)
 
-			newVM, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(newVM)
+			newVM, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(newVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			return newVM
@@ -334,7 +336,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			jsonString = strings.Replace(jsonString, match(oldMemory), request, -1)
 
 			By("Verify VM can be created")
-			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(util.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
 			statusCode := 0
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusCreated))
@@ -410,7 +412,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			defer deleteDataVolume(dv)
 			newVM := createVirtualMachine(true, template)
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(newVM.Name, &k8smetav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(newVM.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1001,7 +1003,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				It("[test_id:4119]should migrate a running VM", func() {
-					nodes := tests.GetAllSchedulableNodes(virtClient)
+					nodes := util.GetAllSchedulableNodes(virtClient)
 					if len(nodes.Items) < 2 {
 						Skip("Migration tests require at least 2 nodes")
 					}
@@ -1610,12 +1612,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					By("Ensuring user has the admin rights for the test namespace project")
 					// This simulates the ordinary user as an admin in this project
-					stdOut, stdErr, err = tests.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", testUser, "--namespace", tests.NamespaceTestDefault)
+					stdOut, stdErr, err = tests.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", testUser, "--namespace", util.NamespaceTestDefault)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
 				AfterEach(func() {
-					stdOut, stdErr, err := tests.RunCommand(k8sClient, "adm", "policy", "remove-role-from-user", "admin", testUser, "--namespace", tests.NamespaceTestDefault)
+					stdOut, stdErr, err := tests.RunCommand(k8sClient, "adm", "policy", "remove-role-from-user", "admin", testUser, "--namespace", util.NamespaceTestDefault)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
 					stdOut, stdErr, err = tests.RunCommand(k8sClient, "delete", "user", testUser)
@@ -1639,12 +1641,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Context("should fail without right rights", func() {
 				BeforeEach(func() {
 					By("Ensuring the cluster has new test serviceaccount")
-					stdOut, stdErr, err := tests.RunCommandWithNS(tests.NamespaceTestDefault, k8sClient, "create", "serviceaccount", testUser)
+					stdOut, stdErr, err := tests.RunCommandWithNS(util.NamespaceTestDefault, k8sClient, "create", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
 				AfterEach(func() {
-					stdOut, stdErr, err := tests.RunCommandWithNS(tests.NamespaceTestDefault, k8sClient, "delete", "serviceaccount", testUser)
+					stdOut, stdErr, err := tests.RunCommandWithNS(util.NamespaceTestDefault, k8sClient, "delete", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 

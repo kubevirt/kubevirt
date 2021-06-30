@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	expect "github.com/google/goexpect"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +39,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	createRestoreDef := func(vm *v1.VirtualMachine, snapshotName string) *snapshotv1.VirtualMachineRestore {
@@ -185,7 +187,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
 			vm = tests.NewRandomVirtualMachine(vmi, false)
-			vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -295,7 +297,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 							}},
 							ClientConfig: admissionregistrationv1.WebhookClientConfig{
 								Service: &admissionregistrationv1.ServiceReference{
-									Namespace: tests.NamespaceTestDefault,
+									Namespace: util.NamespaceTestDefault,
 									Name:      "nonexistant",
 									Path:      &whPath,
 								},
@@ -531,7 +533,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
-					tests.NamespaceTestDefault,
+					util.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,
 				))
@@ -560,7 +562,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			It("[test_id:5260]should restore a vm that boots from a datavolumetemplate", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
-					tests.NamespaceTestDefault,
+					util.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,
 				))
@@ -578,7 +580,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			It("[test_id:5261]should restore a vm that boots from a datavolume (not template)", func() {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
-					tests.NamespaceTestDefault,
+					util.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,
 				)
@@ -628,7 +630,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				pvc := &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "restore-pvc-" + rand.String(12),
-						Namespace: tests.NamespaceTestDefault,
+						Namespace: util.NamespaceTestDefault,
 						Annotations: map[string]string{
 							"cdi.kubevirt.io/storage.import.source":   "http",
 							"cdi.kubevirt.io/storage.import.endpoint": tests.GetUrl(tests.CirrosHttpUrl),
@@ -735,7 +737,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			It("[QUARANTINE][test_id:6053]should restore a vm from an online snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
-					tests.NamespaceTestDefault,
+					util.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,
 				))

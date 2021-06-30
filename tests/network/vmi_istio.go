@@ -32,6 +32,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,7 +90,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			vmiIP := vmi.Status.Interfaces[0].IP
 
 			By("Running job to send a request to the server")
-			return virtClient.BatchV1().Jobs(tests.NamespaceTestDefault).Create(
+			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Create(
 				context.Background(),
 				tests.NewHelloWorldJobHTTP(vmiIP, fmt.Sprintf("%d", targetPort)),
 				metav1.CreateOptions{},
@@ -98,28 +100,28 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			tests.BeforeTestCleanup()
 
 			virtClient, err = kubecli.GetKubevirtClient()
-			tests.PanicOnError(err)
+			util.PanicOnError(err)
 
 			By("Create NetworkAttachmentDefinition")
 			nad := generateIstioCNINetworkAttachmentDefinition()
-			_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(tests.NamespaceTestDefault).Create(context.TODO(), nad, metav1.CreateOptions{})
+			_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(util.NamespaceTestDefault).Create(context.TODO(), nad, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Creating k8s service for the VMI")
 			service := newService()
-			_, err = virtClient.CoreV1().Services(tests.NamespaceTestDefault).Create(context.Background(), service, metav1.CreateOptions{})
+			_, err = virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 		JustBeforeEach(func() {
 			// Enable sidecar injection by setting the namespace label
-			Expect(libnet.AddLabelToNamespace(virtClient, tests.NamespaceTestDefault, tests.IstioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
+			Expect(libnet.AddLabelToNamespace(virtClient, util.NamespaceTestDefault, tests.IstioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
 			defer func() {
-				Expect(libnet.RemoveLabelFromNamespace(virtClient, tests.NamespaceTestDefault, tests.IstioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
+				Expect(libnet.RemoveLabelFromNamespace(virtClient, util.NamespaceTestDefault, tests.IstioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
 			}()
 
 			By("Creating VMI")
 			vmi = newVMIWithIstioSidecar(vmiPorts)
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Waiting for VMI to be ready")
@@ -209,7 +211,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				BeforeEach(func() {
 					peerAuthenticationRes := schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}
 					peerAuthentication := generateStrictPeerAuthentication()
-					_, err = virtClient.DynamicClient().Resource(peerAuthenticationRes).Namespace(tests.NamespaceTestDefault).Create(context.Background(), peerAuthentication, metav1.CreateOptions{})
+					_, err = virtClient.DynamicClient().Resource(peerAuthenticationRes).Namespace(util.NamespaceTestDefault).Create(context.Background(), peerAuthentication, metav1.CreateOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 				})
 				Context("With VMI having explicit ports specified", func() {
@@ -260,7 +262,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 				)
-				serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
+				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(console.LoginToCirros(serverVMI)).To(Succeed())
 
@@ -314,7 +316,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				BeforeEach(func() {
 					sidecarRes := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "sidecars"}
 					registryOnlySidecar := generateRegistryOnlySidecar()
-					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(tests.NamespaceTestDefault).Create(context.TODO(), registryOnlySidecar, metav1.CreateOptions{})
+					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), registryOnlySidecar, metav1.CreateOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 				})
 

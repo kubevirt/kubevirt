@@ -375,6 +375,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Memory":                                                schema_kubevirtio_client_go_api_v1_Memory(ref),
 		"kubevirt.io/client-go/api/v1.MigrationConfiguration":                                schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.MultusNetwork":                                         schema_kubevirtio_client_go_api_v1_MultusNetwork(ref),
+		"kubevirt.io/client-go/api/v1.NUMA":                                                  schema_kubevirtio_client_go_api_v1_NUMA(ref),
+		"kubevirt.io/client-go/api/v1.NUMAGuestMappingPassthrough":                           schema_kubevirtio_client_go_api_v1_NUMAGuestMappingPassthrough(ref),
 		"kubevirt.io/client-go/api/v1.Network":                                               schema_kubevirtio_client_go_api_v1_Network(ref),
 		"kubevirt.io/client-go/api/v1.NetworkConfiguration":                                  schema_kubevirtio_client_go_api_v1_NetworkConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.NetworkSource":                                         schema_kubevirtio_client_go_api_v1_NetworkSource(ref),
@@ -14006,6 +14008,12 @@ func schema_kubevirtio_client_go_api_v1_CPU(ref common.ReferenceCallback) common
 							Format:      "",
 						},
 					},
+					"numa": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NUMA allows specifying settings for the guest NUMA topology",
+							Ref:         ref("kubevirt.io/client-go/api/v1.NUMA"),
+						},
+					},
 					"isolateEmulatorThread": {
 						SchemaProps: spec.SchemaProps{
 							Description: "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place the emulator thread on it.",
@@ -14017,7 +14025,7 @@ func schema_kubevirtio_client_go_api_v1_CPU(ref common.ReferenceCallback) common
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.CPUFeature"},
+			"kubevirt.io/client-go/api/v1.CPUFeature", "kubevirt.io/client-go/api/v1.NUMA"},
 	}
 }
 
@@ -17201,6 +17209,37 @@ func schema_kubevirtio_client_go_api_v1_MultusNetwork(ref common.ReferenceCallba
 					},
 				},
 				Required: []string{"networkName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_NUMA(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"guestMappingPassthrough": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod. The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.NUMAGuestMappingPassthrough"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.NUMAGuestMappingPassthrough"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_NUMAGuestMappingPassthrough(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NUMAGuestMappingPassthrough instructs kubevirt to model numa topology which is compatible with the CPU pinning on the guest. This will result in a subset of the node numa topology being passed through, ensuring that virtual numa nodes and their memory never cross boundaries coming from the node numa mapping.",
+				Type:        []string{"object"},
 			},
 		},
 	}

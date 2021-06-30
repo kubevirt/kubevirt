@@ -3613,6 +3613,18 @@ var CRDsValidation map[string]string = map[string]string{
                             to get the same CPU as the node and "host-model" to get
                             CPU closest to the node one. Defaults to host-model.
                           type: string
+                        numa:
+                          description: NUMA allows specifying settings for the guest
+                            NUMA topology
+                          properties:
+                            guestMappingPassthrough:
+                              description: GuestMappingPassthrough will create an
+                                efficient guest topology based on host CPUs exclusively
+                                assigned to a pod. The created topology ensures that
+                                memory and CPUs on the virtual numa nodes never cross
+                                boundaries of host numa nodes.
+                              type: object
+                          type: object
                         sockets:
                           description: Sockets specifies the number of sockets inside
                             the vmi. Must be a value greater or equal 1.
@@ -6275,6 +6287,18 @@ var CRDsValidation map[string]string = map[string]string{
                     to get the same CPU as the node and "host-model" to get CPU closest
                     to the node one. Defaults to host-model.
                   type: string
+                numa:
+                  description: NUMA allows specifying settings for the guest NUMA
+                    topology
+                  properties:
+                    guestMappingPassthrough:
+                      description: GuestMappingPassthrough will create an efficient
+                        guest topology based on host CPUs exclusively assigned to
+                        a pod. The created topology ensures that memory and CPUs on
+                        the virtual numa nodes never cross boundaries of host numa
+                        nodes.
+                      type: object
+                  type: object
                 sockets:
                   description: Sockets specifies the number of sockets inside the
                     vmi. Must be a value greater or equal 1.
@@ -8184,6 +8208,18 @@ var CRDsValidation map[string]string = map[string]string{
                     to get the same CPU as the node and "host-model" to get CPU closest
                     to the node one. Defaults to host-model.
                   type: string
+                numa:
+                  description: NUMA allows specifying settings for the guest NUMA
+                    topology
+                  properties:
+                    guestMappingPassthrough:
+                      description: GuestMappingPassthrough will create an efficient
+                        guest topology based on host CPUs exclusively assigned to
+                        a pod. The created topology ensures that memory and CPUs on
+                        the virtual numa nodes never cross boundaries of host numa
+                        nodes.
+                      type: object
+                  type: object
                 sockets:
                   description: Sockets specifies the number of sockets inside the
                     vmi. Must be a value greater or equal 1.
@@ -9928,6 +9964,18 @@ var CRDsValidation map[string]string = map[string]string{
                             to get the same CPU as the node and "host-model" to get
                             CPU closest to the node one. Defaults to host-model.
                           type: string
+                        numa:
+                          description: NUMA allows specifying settings for the guest
+                            NUMA topology
+                          properties:
+                            guestMappingPassthrough:
+                              description: GuestMappingPassthrough will create an
+                                efficient guest topology based on host CPUs exclusively
+                                assigned to a pod. The created topology ensures that
+                                memory and CPUs on the virtual numa nodes never cross
+                                boundaries of host numa nodes.
+                              type: object
+                          type: object
                         sockets:
                           description: Sockets specifies the number of sockets inside
                             the vmi. Must be a value greater or equal 1.
@@ -13314,6 +13362,19 @@ var CRDsValidation map[string]string = map[string]string{
                                         the node and "host-model" to get CPU closest
                                         to the node one. Defaults to host-model.
                                       type: string
+                                    numa:
+                                      description: NUMA allows specifying settings
+                                        for the guest NUMA topology
+                                      properties:
+                                        guestMappingPassthrough:
+                                          description: GuestMappingPassthrough will
+                                            create an efficient guest topology based
+                                            on host CPUs exclusively assigned to a
+                                            pod. The created topology ensures that
+                                            memory and CPUs on the virtual numa nodes
+                                            never cross boundaries of host numa nodes.
+                                          type: object
+                                      type: object
                                     sockets:
                                       description: Sockets specifies the number of
                                         sockets inside the vmi. Must be a value greater

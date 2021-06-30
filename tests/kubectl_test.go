@@ -8,6 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -78,16 +80,16 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 
 		BeforeEach(func() {
 			virtCli, err = kubecli.GetKubevirtClient()
-			tests.PanicOnError(err)
+			util.PanicOnError(err)
 
 			vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
-			vm, err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 			Expect(err).NotTo(HaveOccurred())
 			tests.StartVirtualMachine(vm)
 		})
 
 		AfterEach(func() {
-			virtCli.VirtualMachine(tests.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
+			virtCli.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
 		})
 
 		table.DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {

@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -72,9 +74,9 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
-		kv := tests.GetCurrentKv(virtClient)
+		kv := util.GetCurrentKv(virtClient)
 		currentConfiguration = kv.Spec.Configuration
 
 		setSlirpEnabled(true)
@@ -84,7 +86,7 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 
 		for _, vmi := range []*v1.VirtualMachineInstance{genericVmi, deadbeafVmi} {
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			tests.GenerateHelloWorldServer(vmi, 80, "tcp")
@@ -97,7 +99,7 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 	table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
 		By("have containerPort in the pod manifest")
 		vmi := *vmiRef
-		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 		for _, containerSpec := range vmiPod.Spec.Containers {
 			if containerSpec.Name == "compute" {
 				container = containerSpec
@@ -175,12 +177,12 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		})
 		It("should reject VMIs with default interface slirp when it's not permitted", func() {
 			var t int64 = 0
-			vmi := v1.NewMinimalVMIWithNS(tests.NamespaceTestDefault, libvmi.RandName(libvmi.DefaultVmiName))
+			vmi := v1.NewMinimalVMIWithNS(util.NamespaceTestDefault, libvmi.RandName(libvmi.DefaultVmiName))
 			vmi.Spec.TerminationGracePeriodSeconds = &t
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 			tests.AddEphemeralDisk(vmi, "disk0", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(HaveOccurred())
 		})
 	})

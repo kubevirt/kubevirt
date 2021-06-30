@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
+	util2 "kubevirt.io/kubevirt/tests/util"
 
 	"regexp"
 	"strings"
@@ -127,9 +128,9 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util2.PanicOnError(err)
 		config, err := kubecli.GetConfig()
-		tests.PanicOnError(err)
+		util2.PanicOnError(err)
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = tests.GetK8sCmdClient()
@@ -550,7 +551,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		deleteAllKvAndWait = func(ignoreOriginal bool) {
 			Eventually(func() error {
 
-				kvs := tests.GetKvList(virtClient)
+				kvs := util2.GetKvList(virtClient)
 
 				deleteCount := 0
 				for _, kv := range kvs {
@@ -601,7 +602,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		// make sure virt deployments use shasums before we start
 		ensureShasums()
 
-		originalKv = tests.GetCurrentKv(virtClient)
+		originalKv = util2.GetCurrentKv(virtClient)
 
 		// save the operator sha
 		_, _, _, _, version := parseOperatorImage()
@@ -643,7 +644,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
-				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil(), "Create VMI successfully")
 				tests.WaitForSuccessfulVMIStart(vmi)
 			}
@@ -722,7 +723,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			// the results
 			Eventually(func() error {
 				By("Verifying only a single successful migration took place for each vmi")
-				migrationList, err := virtClient.VirtualMachineInstanceMigration(tests.NamespaceTestDefault).List(&metav1.ListOptions{})
+				migrationList, err := virtClient.VirtualMachineInstanceMigration(util2.NamespaceTestDefault).List(&metav1.ListOptions{})
 				Expect(err).To(BeNil(), "retrieving migrations")
 				for _, vmi := range vmis {
 					count := 0
@@ -851,7 +852,7 @@ spec:
 	AfterEach(func() {
 		deleteAllKvAndWait(true)
 
-		kvs := tests.GetKvList(virtClient)
+		kvs := util2.GetKvList(virtClient)
 		if len(kvs) == 0 {
 			By("Re-creating the original KV to stabilize")
 			createKv(copyOriginalKv())
@@ -919,7 +920,7 @@ spec:
 	})
 
 	It("[test_id:1746]should have created and available condition", func() {
-		kv := tests.GetCurrentKv(virtClient)
+		kv := util2.GetCurrentKv(virtClient)
 
 		By("verifying that created and available condition is present")
 		waitForKv(kv)
@@ -953,13 +954,13 @@ spec:
 			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for deployment to revert to original state")
 
 			Eventually(func() int64 {
-				currentKV := tests.GetCurrentKv(virtClient)
+				currentKV := util2.GetCurrentKv(virtClient)
 				return apply.GetExpectedGeneration(resource, currentKV.Status.Generations)
 			}, 60*time.Second, 5*time.Second).Should(Equal(generation), "reverted deployment generation should be set on KV resource")
 
 			By("Test that the expected generation is unchanged")
 			Consistently(func() int64 {
-				currentKV := tests.GetCurrentKv(virtClient)
+				currentKV := util2.GetCurrentKv(virtClient)
 				return apply.GetExpectedGeneration(resource, currentKV.Status.Generations)
 			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
 		},
@@ -1134,14 +1135,14 @@ spec:
 
 			By("starting a VM")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
 			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			pods, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
 			Expect(len(pods.Items)).To(Equal(1))
 			Expect(usesSha(pods.Items[0].Spec.Containers[0].Image)).To(BeTrue(), "launcher pod should use shasum")
@@ -1324,13 +1325,13 @@ spec:
 				// NOTE: we are using virtctl explicitly here because we want to start the VM
 				// using the subresource endpoint in the same way virtctl performs this.
 				By("Starting VM with virtctl")
-				startCommand := tests.NewRepeatableVirtctlCommand("start", "--namespace", tests.NamespaceTestDefault, vmYaml.vmName)
+				startCommand := tests.NewRepeatableVirtctlCommand("start", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
 				Expect(startCommand()).To(Succeed())
 
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
 
 				Eventually(func() bool {
-					virtualMachine, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					virtualMachine, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if virtualMachine.Status.Ready {
 						return true
@@ -1362,7 +1363,7 @@ spec:
 					// We are using our internal client here on purpose to ensure we can interact
 					// with previously created objects that may have been created using a different
 					// api version from the latest one our client uses.
-					virtualMachine, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					virtualMachine, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if !virtualMachine.Status.Ready {
 						return false
@@ -1381,7 +1382,7 @@ spec:
 				// completes while we wait for the kubernetes apiserver to detect our
 				// subresource api server is online and ready to serve requests.
 				Eventually(func() error {
-					vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if err := libnet.WithIPv6(console.LoginToCirros)(vmi); err != nil {
 						return err
@@ -1390,14 +1391,14 @@ spec:
 				}, 60*time.Second, 1*time.Second).Should(BeNil())
 
 				By("Stopping VM with virtctl")
-				stopFn := tests.NewRepeatableVirtctlCommand("stop", "--namespace", tests.NamespaceTestDefault, vmYaml.vmName)
+				stopFn := tests.NewRepeatableVirtctlCommand("stop", "--namespace", util2.NamespaceTestDefault, vmYaml.vmName)
 				Eventually(func() error {
 					return stopFn()
 				}, 30*time.Second, 1*time.Second).Should(BeNil())
 
 				By("Waiting for VMI to stop")
 				Eventually(func() bool {
-					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					_, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					if err != nil && errors.IsNotFound(err) {
 						return true
 					} else if err != nil {
@@ -1412,7 +1413,7 @@ spec:
 
 				By("Ensuring we can Modify the VM Spec")
 				Eventually(func() error {
-					vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -1436,7 +1437,7 @@ spec:
 
 				By("Waiting for VM to be removed")
 				Eventually(func() bool {
-					_, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					_, err := virtClient.VirtualMachine(util2.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					if err != nil && errors.IsNotFound(err) {
 						return true
 					}
@@ -1505,7 +1506,7 @@ spec:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("creating a simple VMI")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+				_, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting KubeVirt object")
@@ -1590,7 +1591,7 @@ spec:
 
 			By("Verifying VMs are working")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -1604,7 +1605,7 @@ spec:
 			}
 
 			By("Deleting VM")
-			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Delete VMI successfully")
 
 			By("Restore Operator using original imagePrefix ")
@@ -1880,13 +1881,13 @@ spec:
 
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				uid := vmi.GetObjectMeta().GetUID()
 				labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-				pods, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+				pods, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred(), "Should get virt-launcher")
 				Expect(len(pods.Items)).To(Equal(1))
 				Expect(pods.Items[0].Annotations[OpenShiftSCCLabel]).To(
@@ -1923,7 +1924,7 @@ spec:
 			tests.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
 
 			// This tests starting infrastructure with and without the DataVolumes feature gate
-			vm = tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault)
+			vm = tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), util2.NamespaceTestDefault)
 			running := false
 			vm.Spec.Running = &running
 
@@ -1955,7 +1956,7 @@ spec:
 			// Verify posting a VM with DataVolumeTemplate fails when DataVolumes
 			// feature gate is disabled
 			By("Expecting Error to Occur when posting VM with DataVolume")
-			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			_, err = virtClient.VirtualMachine(util2.NamespaceTestDefault).Create(vm)
 			Expect(err).To(HaveOccurred())
 
 			// Enable DataVolumes by reinstalling CDI
@@ -1967,7 +1968,7 @@ spec:
 
 			// Verify we can post a VM with DataVolumeTemplates successfully
 			By("Expecting Error to not occur when posting VM with DataVolume")
-			vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			vm, err = virtClient.VirtualMachine(util2.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting VM to start successfully")

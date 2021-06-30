@@ -715,6 +715,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		if options.VirtualMachineSMBios != nil {
 			c.SMBios = options.VirtualMachineSMBios
 		}
+		if options.Topology != nil {
+			c.Topology = options.Topology
+		}
 		c.MemBalloonStatsPeriod = uint(options.MemBalloonStatsPeriod)
 		// Add preallocated and thick-provisioned volumes for which we need to avoid the discard=unmap option
 		c.VolumesDiscardIgnore = options.PreallocatedVolumes

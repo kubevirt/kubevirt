@@ -29,6 +29,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -66,7 +68,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 
 		nodeName = tests.NodeNameWithHandler()
 		tests.CreateFaultyDisk(nodeName, deviceName)
-		pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, deviceName, tests.NamespaceTestDefault)
+		pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, deviceName, util.NamespaceTestDefault)
 		Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 	})
 	AfterEach(func() {
@@ -78,14 +80,14 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 	It("[test_id:6225]Should catch the IO error event", func() {
 		By("Creating VMI with faulty disk")
 		vmi := tests.NewRandomVMIWithPVC(pvc.Name)
-		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).To(BeNil(), "Failed to create vmi")
 
 		tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 120)
 
 		By("Expecting  paused event on VMI ")
 		Eventually(func() bool {
-			events, err := virtClient.CoreV1().Events(tests.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, e := range events.Items {
 				if isExpectedIOEvent(e, vmi.Name) {
@@ -95,7 +97,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 
 			return false
 		}, 30*time.Second, 5*time.Second).Should(BeTrue())
-		err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+		err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 		Expect(err).To(BeNil(), "Failed to delete VMI")
 		tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})

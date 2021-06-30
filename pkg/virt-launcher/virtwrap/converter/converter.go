@@ -109,6 +109,7 @@ type ConverterContext struct {
 	UseVirtioTransitional bool
 	EphemeraldiskCreator  ephemeraldisk.EphemeralDiskCreatorInterface
 	VolumesDiscardIgnore  []string
+	Topology              *cmdv1.Topology
 }
 
 func contains(volumes []string, name string) bool {
@@ -1259,7 +1260,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				{
 					ID:     "0",
 					CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
-					Memory: fmt.Sprintf("%d", getVirtualMemory(vmi).Value()/int64(1024)),
+					Memory: uint64(getVirtualMemory(vmi).Value() / int64(1024)),
 					Unit:   "KiB",
 				},
 			},
@@ -1572,6 +1573,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				}
 
 			}
+			if vmi.Spec.Domain.CPU.NUMA != nil && vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil {
+				if err := numaMapping(vmi, &domain.Spec, c.Topology); err != nil {
+					log.Log.Reason(err).Error("failed to calculate passed through NUMA topology.")
+					return err
+				}
+			}
 		}
 	}
 	err = Convert_HostDevices_And_GPU(vmi.Spec.Domain.Devices, domain, c)
@@ -1808,26 +1815,6 @@ func getCPUTopology(vmi *v1.VirtualMachineInstance) *api.CPUTopology {
 	}
 }
 
-func calculateRequestedVCPUs(cpuTopology *api.CPUTopology) uint32 {
-	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
-}
-
-func formatDomainCPUTune(domain *api.Domain, c *ConverterContext) error {
-	if len(c.CPUSet) == 0 {
-		return fmt.Errorf("failed for get pods pinned cpus")
-	}
-	vcpus := calculateRequestedVCPUs(domain.Spec.CPU.Topology)
-	cpuTune := api.CPUTune{}
-	for idx := 0; idx < int(vcpus); idx++ {
-		vcpupin := api.CPUTuneVCPUPin{}
-		vcpupin.VCPU = uint(idx)
-		vcpupin.CPUSet = strconv.Itoa(c.CPUSet[idx])
-		cpuTune.VCPUPin = append(cpuTune.VCPUPin, vcpupin)
-	}
-	domain.Spec.CPUTune = &cpuTune
-	return nil
-}
-
 func appendDomainEmulatorThreadPin(domain *api.Domain, allocatedCpu int) {
 	emulatorThread := api.CPUEmulatorPin{
 		CPUSet: strconv.Itoa(allocatedCpu),
@@ -1835,7 +1822,7 @@ func appendDomainEmulatorThreadPin(domain *api.Domain, allocatedCpu int) {
 	domain.Spec.CPUTune.EmulatorPin = &emulatorThread
 }
 
-func appendDomainIOThreadPin(domain *api.Domain, thread uint, cpuset string) {
+func appendDomainIOThreadPin(domain *api.Domain, thread uint32, cpuset string) {
 	iothreadPin := api.CPUTuneIOThreadPin{}
 	iothreadPin.IOThread = thread
 	iothreadPin.CPUSet = cpuset
@@ -1849,12 +1836,12 @@ func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *api.Domain,
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		// pin the IOThread on the same pCPU as the emulator thread
 		cpuset := fmt.Sprintf("%d", *c.EmulatorThreadCpu)
-		appendDomainIOThreadPin(domain, uint(1), cpuset)
+		appendDomainIOThreadPin(domain, uint32(1), cpuset)
 	} else if iothreads >= vcpus {
 		// pin an IOThread on a CPU
 		for thread := 1; thread <= iothreads; thread++ {
 			cpuset := fmt.Sprintf("%d", c.CPUSet[thread%vcpus])
-			appendDomainIOThreadPin(domain, uint(thread), cpuset)
+			appendDomainIOThreadPin(domain, uint32(thread), cpuset)
 		}
 	} else {
 		// the following will pin IOThreads to a set of cpus of a balanced size
@@ -1872,7 +1859,7 @@ func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *api.Domain,
 			}
 			end := curr + remainder
 			slice := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(c.CPUSet[curr:end+1])), ","), "[]")
-			appendDomainIOThreadPin(domain, uint(thread), slice)
+			appendDomainIOThreadPin(domain, uint32(thread), slice)
 			curr = end + 1
 		}
 	}

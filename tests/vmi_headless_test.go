@@ -28,6 +28,8 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -44,7 +46,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -81,7 +83,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 
 				Expect(computeContainer.Resources.Requests.Memory().String()).To(Equal("100M"))
@@ -95,7 +97,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 
 				Expect(computeContainer.Resources.Requests.Memory().String()).ToNot(Equal("100M"))
@@ -107,10 +109,10 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				normalVmi = tests.RunVMIAndExpectLaunch(normalVmi, 30)
 
-				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 
-				normalReadyPod := libvmi.GetPodByVirtualMachineInstance(normalVmi, tests.NamespaceTestDefault)
+				normalReadyPod := libvmi.GetPodByVirtualMachineInstance(normalVmi, util.NamespaceTestDefault)
 				normalComputeContainer := tests.GetComputeContainerOfPod(normalReadyPod)
 
 				memDiff := normalComputeContainer.Resources.Requests.Memory()

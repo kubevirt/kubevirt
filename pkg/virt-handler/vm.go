@@ -36,6 +36,8 @@ import (
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 
+	nodelabellerapi "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,7 +63,6 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
@@ -156,6 +157,7 @@ func NewController(
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
+	capabilities *nodelabellerapi.Capabilities,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -180,6 +182,7 @@ func NewController(
 		clusterConfig:               clusterConfig,
 		networkCacheStoreFactory:    netcache.NewInterfaceCacheFactory(),
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
+		capabilities:                capabilities,
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -269,6 +272,7 @@ type VirtualMachineController struct {
 	networkCacheStoreFactory    netcache.InterfaceCacheFactory
 	virtLauncherFSRunDirPattern string
 	heartBeat                   *heartbeat.HeartBeat
+	capabilities                *nodelabellerapi.Capabilities
 }
 
 type virtLauncherCriticalNetworkError struct {
@@ -2506,17 +2510,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	smbios := d.clusterConfig.GetSMBIOS()
 	period := d.clusterConfig.GetMemBalloonStatsPeriod()
 
-	options := &cmdv1.VirtualMachineOptions{
-		VirtualMachineSMBios: &cmdv1.SMBios{
-			Family:       smbios.Family,
-			Product:      smbios.Product,
-			Manufacturer: smbios.Manufacturer,
-			Sku:          smbios.Sku,
-			Version:      smbios.Version,
-		},
-		MemBalloonStatsPeriod: period,
-		PreallocatedVolumes:   preallocatedVolumes,
-	}
+	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities)
 
 	err = client.SyncVirtualMachine(vmi, options)
 	if err != nil {

@@ -463,6 +463,63 @@ var _ = Describe("Schema", func() {
 			table.Entry("for amd64 and Memballoon device is specified", "amd64", exampleXMLwithNoneMemballoon),
 		)
 	})
+
+	Context("With numa topology", func() {
+		It("should marshal and unmarshal the values", func() {
+			var testXML = `
+<domain>
+<cputune>
+	<vcpupin vcpu="0" cpuset="1"/>
+	<vcpupin vcpu="1" cpuset="5"/>
+	<vcpupin vcpu="2" cpuset="2"/>
+	<vcpupin vcpu="3" cpuset="6"/>
+</cputune>
+<numatune>
+  <memory mode="strict" nodeset="1-2"/> 
+  <memnode cellid="0" mode="strict" nodeset="1"/>
+  <memnode cellid="2" mode="preferred" nodeset="2"/>
+</numatune>
+<cpu>
+	<numa>
+		<cell id="0" cpus="0-1" memory="3" unit="GiB"/>
+		<cell id="1" cpus="2-3" memory="3" unit="GiB"/>
+	</numa>
+</cpu>
+</domain>
+`
+			spec := &DomainSpec{}
+			expectedSpec := &DomainSpec{
+				CPU: CPU{NUMA: &NUMA{Cells: []NUMACell{
+					{ID: "0", CPUs: "0-1", Memory: 3, Unit: "GiB"},
+					{ID: "1", CPUs: "2-3", Memory: 3, Unit: "GiB"},
+				}}},
+				CPUTune: &CPUTune{
+					VCPUPin: []CPUTuneVCPUPin{
+						{VCPU: 0, CPUSet: "1"},
+						{VCPU: 1, CPUSet: "5"},
+						{VCPU: 2, CPUSet: "2"},
+						{VCPU: 3, CPUSet: "6"},
+					},
+				},
+				NUMATune: &NUMATune{
+					Memory: NumaTuneMemory{
+						Mode:    "strict",
+						NodeSet: "1-2",
+					},
+					MemNodes: []MemNode{
+						{CellID: 0, Mode: "strict", NodeSet: "1"},
+						{CellID: 2, Mode: "preferred", NodeSet: "2"},
+					},
+				},
+			}
+			Expect(xml.Unmarshal([]byte(testXML), spec)).To(Succeed())
+			Expect(spec.NUMATune).To(Equal(expectedSpec.NUMATune))
+			Expect(spec.CPUTune).To(Equal(expectedSpec.CPUTune))
+			Expect(spec.CPU).To(Equal(expectedSpec.CPU))
+		})
+
+	})
+
 	Context("With cpu pinning", func() {
 		var testXML = `<cputune>
 <vcpupin vcpu="0" cpuset="1"/>

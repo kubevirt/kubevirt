@@ -30,6 +30,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -46,14 +48,14 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		var err error
 
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
 
 	RunVMIAndWaitForStart := func(vmi *v1.VirtualMachineInstance) {
 		By("Creating a new VirtualMachineInstance")
-		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
+		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
 
 		By("Waiting until it starts")
 		tests.WaitForSuccessfulVMIStart(vmi)
@@ -114,11 +116,11 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				}
 
 				newVirtualMachineInstanceWithAlpineOCSFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				}
 
 				newVirtualMachineInstanceWithAlpineOCSBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
+					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 				}
 
 				table.DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
@@ -171,7 +173,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				By("Creating a new VirtualMachineInstance")
-				_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
@@ -195,7 +197,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				}
 
 				By("Creating a new VirtualMachineInstance")
-				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
+				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
 
 				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).To(HaveOccurred())
@@ -219,7 +221,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				}
 
 				By("Creating a new VirtualMachineInstance")
-				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
+				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(util.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
 
 				By("Expecting the VirtualMachineInstance console")
 				_, _, err := console.NewExpecter(virtClient, vmi, 30*time.Second)

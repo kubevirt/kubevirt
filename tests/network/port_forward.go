@@ -28,6 +28,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -45,7 +47,7 @@ var _ = SIGDescribe("[Serial] Port-forward", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
@@ -63,7 +65,7 @@ var _ = SIGDescribe("[Serial] Port-forward", func() {
 			vmi = createCirrosVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)
 			tests.StartHTTPServer(vmi, vmiHttpServerPort)
 
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			Expect(vmiPod).ToNot(BeNil())
 			portForwardCmd, err = portForwardCommand(vmiPod, localPort, vmiHttpServerPort)
 			Expect(err).NotTo(HaveOccurred())
@@ -142,7 +144,7 @@ func createCirrosVMIWithPortsAndBlockUntilReady(virtClient kubecli.KubevirtClien
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 	)
 
-	vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+	vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
 	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 

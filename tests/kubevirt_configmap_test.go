@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -43,7 +45,7 @@ var _ = Describe("[Serial][sig-compute]KubeVirtConfigmapConfiguration", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		cfgMap := &k8sv1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: virtconfig.ConfigMapName},
@@ -81,7 +83,7 @@ var _ = Describe("[Serial][sig-compute]KubeVirtConfigmapConfiguration", func() {
 		tests.UpdateClusterConfigValueAndWait(virtconfig.SmbiosConfigKey, string(smbiosJson))
 
 		By("Starting a VirtualMachineInstance")
-		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 		tests.WaitForSuccessfulVMIStart(vmi)
 

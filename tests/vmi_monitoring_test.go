@@ -27,6 +27,8 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -47,7 +49,7 @@ var _ = Describe("[sig-compute]Health Monitoring", func() {
 	Describe("A VirtualMachineInstance with a watchdog device", func() {
 		It("[test_id:4641]should be shut down when the watchdog expires", func() {
 			vmi := tests.NewRandomVMIWithWatchdog()
-			obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			obj, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStart(obj)
 

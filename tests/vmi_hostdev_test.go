@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -21,14 +23,14 @@ var _ = Describe("[Serial][sig-compute]HostDevices", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	Context("with ephemeral disk", func() {
 		It("Should successfully passthrough an emulated PCI device", func() {
 			deviceName := "example.org/soundcard"
 			deviceIDs := "8086:2668"
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 
 			By("Adding the emulated sound card to the permitted host devices")
 			config := kv.Spec.Configuration
@@ -52,7 +54,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", func() {
 				},
 			}
 			randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
-			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())

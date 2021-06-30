@@ -30,6 +30,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authClientV1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -102,7 +104,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			editVerbs["deleteCollection"] = "no"
 			adminVerbs["deleteCollection"] = "yes"
 
-			namespace := tests.NamespaceTestDefault
+			namespace := util.NamespaceTestDefault
 			verbs := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
 
 			for _, verb := range verbs {
@@ -192,7 +194,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			editVerbs["deleteCollection"] = false
 			adminVerbs["deleteCollection"] = false
 
-			namespace := tests.NamespaceTestDefault
+			namespace := util.NamespaceTestDefault
 			verbs := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
 
 			doSarRequest := func(resource string, subresource string, user string, verb string, expected bool) {
@@ -277,7 +279,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "user", testUser)
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
-				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", tests.NamespaceTestDefault)
+				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 			})
 
@@ -317,10 +319,10 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Ensuring user has the admin rights for the test namespace project")
 				// This is ussually done in backgroung when creating new user with login and by creating new project by that user
-				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", tests.NamespaceTestDefault, "admin", testUser)
+				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", util.NamespaceTestDefault, "admin", testUser)
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
-				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", tests.NamespaceTestDefault)
+				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", util.NamespaceTestDefault)
 				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 			})
 

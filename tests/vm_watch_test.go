@@ -16,6 +16,7 @@ import (
 	virtctlvm "kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -176,35 +177,35 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 	BeforeEach(func() {
 		virtCli, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
 		tests.BeforeTestCleanup()
 
 		vm = tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 		vm, err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		By("Making sure kubectl cache is updated to contain vm/vmi resources")
 		Eventually(func() bool {
-			_, getVM, err := tests.CreateCommandWithNS(tests.NamespaceTestDefault, tests.GetK8sCmdClient(), "get", "vm")
-			tests.PanicOnError(err)
-			_, getVMI, err := tests.CreateCommandWithNS(tests.NamespaceTestDefault, tests.GetK8sCmdClient(), "get", "vmi")
-			tests.PanicOnError(err)
+			_, getVM, err := tests.CreateCommandWithNS(util.NamespaceTestDefault, tests.GetK8sCmdClient(), "get", "vm")
+			util.PanicOnError(err)
+			_, getVMI, err := tests.CreateCommandWithNS(util.NamespaceTestDefault, tests.GetK8sCmdClient(), "get", "vmi")
+			util.PanicOnError(err)
 
 			return getVM.Run() == nil && getVMI.Run() == nil
 		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
 	})
 
 	AfterEach(func() {
-		err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Delete(vm.Name, &v1.DeleteOptions{})
-		tests.PanicOnError(err)
+		err := virtCli.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &v1.DeleteOptions{})
+		util.PanicOnError(err)
 	})
 
 	It("[test_id:3468]Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
 		By("Waiting for a VM to be created")
 		Eventually(func() bool {
-			_, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
+			_, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
 			return err == nil
 		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
 
@@ -269,7 +270,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 
-		nodes := tests.GetAllSchedulableNodes(virtClient)
+		nodes := util.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items)).To(BeNumerically(">=", 2),
 			"Migration requires at least 2 schedulable nodes")
 
@@ -303,7 +304,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 	It("[test_id:3466]Should update vmi status with the proper columns using 'kubectl get vmi -w'", func() {
 		By("Waiting for a VM to be created")
 		Eventually(func() bool {
-			_, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
+			_, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
 			return err == nil
 		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
 
@@ -340,7 +341,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		By("Waiting for the VMI to be created")
 		Eventually(func() bool {
-			list, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v1.ListOptions{})
+			list, err := virtCli.VirtualMachineInstance(util.NamespaceTestDefault).List(&v1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			if len(list.Items) >= 2 {
@@ -396,7 +397,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		By("Waiting for the second VMI to be created")
 		Eventually(func() bool {
-			list, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v1.ListOptions{})
+			list, err := virtCli.VirtualMachineInstance(util.NamespaceTestDefault).List(&v1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			if len(list.Items) >= 2 {

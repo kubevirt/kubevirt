@@ -195,6 +195,7 @@ type DomainSpec struct {
 	CPU           CPU            `xml:"cpu"`
 	VCPU          *VCPU          `xml:"vcpu"`
 	CPUTune       *CPUTune       `xml:"cputune"`
+	NUMATune      *NUMATune      `xml:"numatune"`
 	IOThreads     *IOThreads     `xml:"iothreads,omitempty"`
 }
 
@@ -204,13 +205,29 @@ type CPUTune struct {
 	EmulatorPin *CPUEmulatorPin      `xml:"emulatorpin"`
 }
 
+type NUMATune struct {
+	Memory   NumaTuneMemory `xml:"memory"`
+	MemNodes []MemNode      `xml:"memnode"`
+}
+
+type MemNode struct {
+	CellID  uint32 `xml:"cellid,attr"`
+	Mode    string `xml:"mode,attr"`
+	NodeSet string `xml:"nodeset,attr"`
+}
+
+type NumaTuneMemory struct {
+	Mode    string `xml:"mode,attr"`
+	NodeSet string `xml:"nodeset,attr"`
+}
+
 type CPUTuneVCPUPin struct {
-	VCPU   uint   `xml:"vcpu,attr"`
+	VCPU   uint32 `xml:"vcpu,attr"`
 	CPUSet string `xml:"cpuset,attr"`
 }
 
 type CPUTuneIOThreadPin struct {
-	IOThread uint   `xml:"iothread,attr"`
+	IOThread uint32 `xml:"iothread,attr"`
 	CPUSet   string `xml:"cpuset,attr"`
 }
 
@@ -238,7 +255,7 @@ type NUMA struct {
 type NUMACell struct {
 	ID           string `xml:"id,attr"`
 	CPUs         string `xml:"cpus,attr"`
-	Memory       string `xml:"memory,attr,omitempty"`
+	Memory       uint64 `xml:"memory,attr,omitempty"`
 	Unit         string `xml:"unit,attr,omitempty"`
 	MemoryAccess string `xml:"memAccess,attr,omitempty"`
 }
@@ -370,9 +387,20 @@ type Memory struct {
 
 // MemoryBacking mirroring libvirt XML under https://libvirt.org/formatdomain.html#elementsMemoryBacking
 type MemoryBacking struct {
-	HugePages *HugePages           `xml:"hugepages,omitempty"`
-	Source    *MemoryBackingSource `xml:"source,omitempty"`
-	Access    *MemoryBackingAccess `xml:"access,omitempty"`
+	HugePages  *HugePages           `xml:"hugepages,omitempty"`
+	Source     *MemoryBackingSource `xml:"source,omitempty"`
+	Access     *MemoryBackingAccess `xml:"access,omitempty"`
+	Allocation *MemoryAllocation    `xml:"allocation,omitempty"`
+}
+
+type MemoryAllocationMode string
+
+const (
+	MemoryAllocationModeImmediate MemoryAllocationMode = "immediate"
+)
+
+type MemoryAllocation struct {
+	Mode MemoryAllocationMode `xml:"mode,attr"`
 }
 
 type MemoryBackingSource struct {
@@ -386,8 +414,9 @@ type HugePages struct {
 
 // HugePage mirroring libvirt XML under hugepages
 type HugePage struct {
-	Size string `xml:"size,attr"`
-	Unit string `xml:"unit,attr"`
+	Size    string `xml:"size,attr"`
+	Unit    string `xml:"unit,attr"`
+	NodeSet string `xml:"nodeset,attr"`
 }
 
 type MemoryBackingAccess struct {

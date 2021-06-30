@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -37,7 +39,7 @@ var _ = Describe("[sig-compute]Version", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})

@@ -11,6 +11,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -28,7 +30,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
@@ -44,7 +46,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			probeBackendPod = tests.StartTCPServerPod(int(port))
 		}
 		return probeBackendPod, func() error {
-			return virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(context.Background(), probeBackendPod.Name, metav1.DeleteOptions{})
+			return virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), probeBackendPod.Name, metav1.DeleteOptions{})
 		}
 	}
 
@@ -101,7 +103,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
 			Eventually(isVMIReady, 60, 1).Should(Equal(true))
-			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(corev1.ConditionTrue))
+			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(corev1.ConditionTrue))
 		},
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol, false),
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol, false),
@@ -125,7 +127,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 			By("Checking that the VMI and the pod will consistently stay in a not-ready state")
 			Consistently(isVMIReady).Should(Equal(false))
-			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(corev1.ConditionFalse))
+			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(corev1.ConditionFalse))
 		},
 			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe, false),
 			table.Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe, false),
@@ -180,7 +182,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 			By("Checking that the VMI is still running after a minute")
 			Consistently(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
@@ -204,7 +206,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 			By("Checking that the VMI is in a final state after a minute")
 			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
 			}, 120, 1).Should(BeTrue())
@@ -235,14 +237,14 @@ func createReadyCirrosVMIWithLivenessProbe(virtClient kubecli.KubevirtClient, pr
 }
 
 func createAndBlockUntilVMIHasStarted(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-	_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+	_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
 
 	// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 	tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
 	// read back the created VMI, so it has the UID available on it
-	startedVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+	startedVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return startedVMI
 }
@@ -257,7 +259,7 @@ func vmiReady(vmi *v1.VirtualMachineInstance) corev1.ConditionStatus {
 }
 
 func assertPodNotReady(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(corev1.ConditionFalse))
+	Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault))).To(Equal(corev1.ConditionFalse))
 	readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(vmiReady(readVmi)).To(Equal(corev1.ConditionFalse))
