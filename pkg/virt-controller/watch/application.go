@@ -81,8 +81,9 @@ const (
 
 	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
 
-	defaultControllerThreads    = 3
-	defaultVMIControllerThreads = 10
+	defaultControllerThreads         = 3
+	defaultSnapshotControllerThreads = 6
+	defaultVMIControllerThreads      = 10
 
 	defaultLauncherSubGid                 = 107
 	defaultSnapshotControllerResyncPeriod = 5 * time.Minute
@@ -657,7 +658,7 @@ func (vca *VirtControllerApp) AddFlags() {
 	flag.Int64Var(&vca.launcherSubGid, "launcher-subgid", defaultLauncherSubGid,
 		"ID of subgroup to virt-launcher")
 
-	flag.IntVar(&vca.snapshotControllerThreads, "snapshot-controller-threads", defaultControllerThreads,
+	flag.IntVar(&vca.snapshotControllerThreads, "snapshot-controller-threads", defaultSnapshotControllerThreads,
 		"Number of goroutines to run for snapshot controller")
 
 	flag.IntVar(&vca.restoreControllerThreads, "restore-controller-threads", defaultControllerThreads,

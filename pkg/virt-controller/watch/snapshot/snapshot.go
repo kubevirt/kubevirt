@@ -728,7 +728,9 @@ func (ctrl *VMSnapshotController) freezeGuestFSIfNeeded(vmSnapshot *snapshotv1.V
 	vmName := vmSnapshot.Spec.Source.Name
 	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", vmName)
 
+	startTime := time.Now()
 	err = ctrl.Client.VirtualMachineInstance(vmSnapshot.Namespace).Freeze(vmName)
+	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", vmName))
 	if err != nil {
 		reason := "Failed freezing guest FS"
 		ctrl.updateVMSnapshotError(vmSnapshot, reason)
@@ -746,6 +748,7 @@ func (ctrl *VMSnapshotController) unfreezeGuestFSIfNeeded(vmSnapshot *snapshotv1
 	vmName := vmSnapshot.Spec.Source.Name
 	log.Log.V(3).Infof("Unfreezing vm %s file system after taking the snapshot", vmName)
 
+	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", vmName))
 	err := ctrl.Client.VirtualMachineInstance(vmSnapshot.Namespace).Unfreeze(vmName)
 	if err != nil {
 		return err
@@ -1116,4 +1119,9 @@ func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
 
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
 	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c, false)
+}
+
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Log.Infof("%s took %s", name, elapsed)
 }
