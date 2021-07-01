@@ -1419,7 +1419,7 @@ func (c *VMController) isVirtualMachineStatusMigrating(vm *virtv1.VirtualMachine
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-	setVMCondition := func(status k8score.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
+	setVMReadyCondition := func(status k8score.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
 		vmReadyCond := controller.NewVirtualMachineConditionManager().GetCondition(vm, virtv1.VirtualMachineReady)
 		if vmReadyCond != nil &&
 			vmReadyCond.Status == status &&
@@ -1443,14 +1443,14 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 
 	now := v1.Now()
 	if vmi == nil {
-		setVMCondition(k8score.ConditionFalse,
+		setVMReadyCondition(k8score.ConditionFalse,
 			"VMINotExists",
 			"VMI does not exist",
 			now,
 			now)
 
 	} else if vmiReadyCond == nil {
-		setVMCondition(k8score.ConditionFalse,
+		setVMReadyCondition(k8score.ConditionFalse,
 			"VMIConditionMissing",
 			"VMI is missing the Ready condition",
 			now,
@@ -1459,7 +1459,7 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 	} else {
 		log.Log.Object(vm).V(4).Info("Syncing VM Ready condition from VMI")
 
-		setVMCondition(vmiReadyCond.Status,
+		setVMReadyCondition(vmiReadyCond.Status,
 			vmiReadyCond.Reason,
 			vmiReadyCond.Message,
 			vmiReadyCond.LastProbeTime,

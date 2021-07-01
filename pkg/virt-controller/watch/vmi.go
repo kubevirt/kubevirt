@@ -647,7 +647,7 @@ func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error)
 func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 
-	setVMICondition := func(status k8sv1.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
+	setVMIReadyCondition := func(status k8sv1.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
 		vmiReadyCond := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
 		if vmiReadyCond != nil &&
 			vmiReadyCond.Status == status &&
@@ -677,34 +677,34 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 
 	// Keep PodReady condition in sync with the VMI
 	if pod == nil || isTempPod(pod) {
-		setVMICondition(k8sv1.ConditionFalse,
+		setVMIReadyCondition(k8sv1.ConditionFalse,
 			virtv1.PodNotExistsReason,
 			"virt-launcher pod has not yet been scheduled",
 			now,
 			now)
 
 	} else if isPodDownOrGoingDown(pod) {
-		setVMICondition(k8sv1.ConditionFalse,
+		setVMIReadyCondition(k8sv1.ConditionFalse,
 			virtv1.PodTerminatingReason,
 			"virt-launcher pod is terminating",
 			now,
 			now)
 
 	} else if !vmi.IsRunning() {
-		setVMICondition(k8sv1.ConditionFalse,
+		setVMIReadyCondition(k8sv1.ConditionFalse,
 			virtv1.GuestNotRunningReason,
 			"Guest VM is not reported as running",
 			now,
 			now)
 
 	} else if podReadyCond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); podReadyCond != nil {
-		setVMICondition(podReadyCond.Status,
+		setVMIReadyCondition(podReadyCond.Status,
 			podReadyCond.Reason,
 			podReadyCond.Message,
 			podReadyCond.LastProbeTime,
 			podReadyCond.LastTransitionTime)
 	} else {
-		setVMICondition(k8sv1.ConditionFalse,
+		setVMIReadyCondition(k8sv1.ConditionFalse,
 			virtv1.PodConditionMissingReason,
 			"virt-launcher pod is missing the Ready condition",
 			now,

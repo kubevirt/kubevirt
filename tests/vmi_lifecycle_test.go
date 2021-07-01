@@ -22,7 +22,6 @@ package tests_test
 import (
 	"context"
 	"fmt"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"net/http"
 	"os"
 	"strings"
@@ -41,25 +40,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	k8sWatch "k8s.io/apimachinery/pkg/watch"
 
-	"kubevirt.io/kubevirt/tests/util"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
-	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
-
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/controller"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
+	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 func newCirrosVMI() *v1.VirtualMachineInstance {
