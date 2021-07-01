@@ -3,7 +3,9 @@ package network
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 	"runtime"
 
 	. "github.com/onsi/ginkgo"
@@ -15,6 +17,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
+	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
@@ -27,6 +30,7 @@ var _ = Describe("podNIC", func() {
 		cacheFactory               cache.InterfaceCacheFactory
 		mockPodNetworkConfigurator *infraconfigurators.MockPodNetworkInfraConfigurator
 		ctrl                       *gomock.Controller
+		tmpDir                     string
 	)
 	newPodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
 		podnic, err := newPodNICWithoutInfraConfigurator(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, nil)
@@ -35,6 +39,7 @@ var _ = Describe("podNIC", func() {
 		}
 		podnic.podInterfaceName = primaryPodInterfaceName
 		podnic.infraConfigurator = mockPodNetworkConfigurator
+		podnic.dhcpConfigurator = dhcpconfigurator.NewConfiguratorWithDHCPStartedDirectory(cacheFactory, getPIDString(nil), primaryPodInterfaceName, mockNetwork, tmpDir)
 		return podnic, nil
 	}
 	BeforeEach(func() {
@@ -44,8 +49,14 @@ var _ = Describe("podNIC", func() {
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
 		mockPodNetworkConfigurator = infraconfigurators.NewMockPodNetworkInfraConfigurator(ctrl)
 	})
+	BeforeEach(func() {
+		var err error
+		tmpDir, err = ioutil.TempDir("/tmp", "dhcp")
+		Expect(err).ToNot(HaveOccurred())
+	})
 	AfterEach(func() {
 		ctrl.Finish()
+		os.RemoveAll(tmpDir)
 	})
 	When("reading networking configuration succeed", func() {
 		var (
@@ -97,22 +108,37 @@ var _ = Describe("podNIC", func() {
 			})
 		})
 	})
-	Context("when DHCP startup fails", func() {
+	When("DHCP config is correctly read", func() {
+		var (
+			podnic *podNIC
+			domain *api.Domain
+		)
 		BeforeEach(func() {
-			mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("podnic_test: forcing failure at DHCP start"))
+			var err error
+			domain = NewDomainWithBridgeInterface()
+			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+			podnic, err = newPodNICWithMocks(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			podnic.cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Write(podnic.podInterfaceName, &cache.DHCPConfig{Name: podnic.podInterfaceName})
+			podnic.cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Write(podnic.vmiSpecIface.Name, &domain.Spec.Devices.Interfaces[0])
 		})
-		It("phase2 should panic", func() {
-			testDhcpPanic := func() {
-				domain := NewDomainWithBridgeInterface()
-				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				podnic, err := newPodNICWithMocks(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				podnic.storeCachedDomainIface(domain.Spec.Devices.Interfaces[0])
-				podnic.dhcpConfigurator.ExportConfiguration(cache.DHCPConfig{Name: "eth0"})
+		Context("and starting the DHCP server fails", func() {
+			BeforeEach(func() {
+				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("podnic_test: forcing failure at DHCP start"))
+			})
+			It("phase2 should panic", func() {
+				Expect(func() { podnic.PlugPhase2(domain) }).To(Panic())
+			})
+		})
+		Context("and starting the DHCP server succeed", func() {
+			BeforeEach(func() {
+				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+			})
+			It("phase2 should succeed", func() {
 				Expect(podnic.PlugPhase2(domain)).To(Succeed())
-			}
-			Expect(testDhcpPanic).To(Panic())
+			})
+
 		})
 	})
 	Context("when interface binding is SRIOV", func() {

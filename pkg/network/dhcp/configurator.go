@@ -9,7 +9,7 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
 
-const dhcpStartedDirectory = "/var/run/kubevirt-private"
+const defaultDHCPStartedDirectory = "/var/run/kubevirt-private"
 
 type Configurator struct {
 	advertisingIfaceName string
@@ -29,7 +29,7 @@ func NewConfiguratorWithClientFilter(cacheFactory cache.InterfaceCacheFactory, l
 		launcherPID:          launcherPID,
 		filterByMac:          true,
 		handler:              handler,
-		dhcpStartedDirectory: dhcpStartedDirectory,
+		dhcpStartedDirectory: defaultDHCPStartedDirectory,
 	}
 }
 
@@ -41,6 +41,18 @@ func NewConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID strin
 		cacheFactory:         cacheFactory,
 		launcherPID:          launcherPID,
 		filterByMac:          false,
+		handler:              handler,
+		dhcpStartedDirectory: defaultDHCPStartedDirectory,
+	}
+}
+
+// NewConfiguratorWithDHCPStartedDirectory should be used when the DHCP server
+// lock file need to be placed in a custom directory.
+func NewConfiguratorWithDHCPStartedDirectory(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler, dhcpStartedDirectory string) *Configurator {
+	return &Configurator{
+		advertisingIfaceName: advertisingIfaceName,
+		cacheFactory:         cacheFactory,
+		launcherPID:          launcherPID,
 		handler:              handler,
 		dhcpStartedDirectory: dhcpStartedDirectory,
 	}
