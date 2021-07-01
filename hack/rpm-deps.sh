@@ -31,7 +31,8 @@ fedora_extra="
 # get latest repo data from repo.yaml
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- fetch
+    //:bazeldnf -- fetch \
+    --repofile rpm/fedora-repo.yaml
 
 # create a rpmtree for our test image with misc. tools.
 testimage_base="
@@ -51,6 +52,7 @@ testimage_extra="
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --name testimage_x86_64 \
+    --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
     $testimage_base \
@@ -59,6 +61,7 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --arch=aarch64 --name testimage_aarch64 \
+    --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
     $testimage_base \
@@ -78,6 +81,7 @@ libvirtdevel_extra="
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --name libvirt-devel_x86_64 \
+    --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
     $libvirtdevel_base \
@@ -86,6 +90,7 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --arch=aarch64 --name libvirt-devel_aarch64 \
+    --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
     $libvirtdevel_base \
@@ -118,6 +123,7 @@ launcherbase_extra="
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --name launcherbase_x86_64 \
+    --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
     $launcherbase_base \
@@ -127,6 +133,7 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --arch=aarch64 --name launcherbase_aarch64 \
+    --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
     $launcherbase_base \
@@ -147,6 +154,7 @@ libguestfstools_extra="
 
 bazel run \
     //:bazeldnf -- rpmtree --public --name libguestfs-tools \
+    --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
     $libguestfstools_base \
