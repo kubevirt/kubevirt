@@ -671,8 +671,10 @@ type Interface struct {
 }
 
 type InterfaceDriver struct {
-	Name   string `xml:"name,attr"`
-	Queues *uint  `xml:"queues,attr,omitempty"`
+	Name        string  `xml:"name,attr"`
+	Queues      *uint   `xml:"queues,attr,omitempty"`
+	RxQueueSize *uint32 `xml:"rx_queue_size,attr,omitempty"`
+	TxQueueSize *uint32 `xml:"tx_queue_size,attr,omitempty"`
 }
 
 type LinkState struct {
@@ -704,6 +706,8 @@ type InterfaceSource struct {
 	Bridge  string   `xml:"bridge,attr,omitempty"`
 	Mode    string   `xml:"mode,attr,omitempty"`
 	Address *Address `xml:"address,omitempty"`
+	Type    string   `xml:"type,attr,omitempty"`
+	Path    string   `xml:"path,attr,omitempty"`
 }
 
 type Model struct {

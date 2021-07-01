@@ -40,6 +40,7 @@ var _ = Describe("Multus annotations", func() {
 			},
 		}
 		network = v1.Network{
+			Name: "test1",
 			NetworkSource: v1.NetworkSource{
 				Multus: &v1.MultusNetwork{NetworkName: "test1"},
 			},
@@ -81,6 +82,38 @@ var _ = Describe("Multus annotations", func() {
 
 		It("generates a json serialized string representing the annotation", func() {
 			expectedString := `[{"interface":"net1","name":"test1","namespace":"namespace1"}]`
+			Expect(multusAnnotationPool.toString()).To(BeIdenticalTo(expectedString))
+		})
+	})
+	Context("a multus annotation pool with CNIArgs", func() {
+		BeforeEach(func() {
+			vmi.Spec = v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						Interfaces: []v1.Interface{
+							v1.Interface{
+								Name: "test1",
+								InterfaceBindingMethod: v1.InterfaceBindingMethod{
+									Vhostuser: &v1.InterfaceVhostuser{},
+								},
+							},
+						},
+					},
+				},
+			}
+			multusAnnotationPool = multusNetworkAnnotationPool{
+				pool: []multusNetworkAnnotation{
+					newMultusAnnotationData(&vmi, network, "net1"),
+				},
+			}
+		})
+
+		It("is not empty", func() {
+			Expect(multusAnnotationPool.isEmpty()).To(BeFalse())
+		})
+
+		It("generates a json serialized string representing the annotation with cni args", func() {
+			expectedString := `[{"interface":"net1","name":"test1","namespace":"namespace1","cni-args":{"interface-type":"virtio"}}]`
 			Expect(multusAnnotationPool.toString()).To(BeIdenticalTo(expectedString))
 		})
 	})

@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
 type LibvirtSpecGenerator interface {
@@ -54,12 +55,12 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		return nil, fmt.Errorf("Network not implemented")
 	}
 
-	correspondingNetworkIface := findInterfaceByNetworkName(vmi, network)
+	correspondingNetworkIface := converter.FindInterfaceByNetworkName(vmi, network)
 	if correspondingNetworkIface == nil {
 		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}
 
-	podInterfaceName, err := composePodInterfaceName(vmi, network)
+	podInterfaceName, err := converter.ComposePodInterfaceName(vmi, network)
 	if err != nil {
 		return nil, err
 	}
@@ -88,44 +89,6 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		launcherPID:      launcherPID,
 		dhcpConfigurator: dhcpConfigurator,
 	}, nil
-}
-
-func composePodInterfaceName(vmi *v1.VirtualMachineInstance, network *v1.Network) (string, error) {
-	if isSecondaryMultusNetwork(*network) {
-		multusIndex := findMultusIndex(vmi, network)
-		if multusIndex == -1 {
-			return "", fmt.Errorf("Network name %s not found", network.Name)
-		}
-		return fmt.Sprintf("net%d", multusIndex), nil
-	}
-	return primaryPodInterfaceName, nil
-}
-
-func findInterfaceByNetworkName(vmi *v1.VirtualMachineInstance, network *v1.Network) *v1.Interface {
-	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Name == network.Name {
-			return &vmi.Spec.Domain.Devices.Interfaces[i]
-		}
-	}
-	return nil
-}
-
-func findMultusIndex(vmi *v1.VirtualMachineInstance, networkToFind *v1.Network) int {
-	idxMultus := 0
-	for _, network := range vmi.Spec.Networks {
-		if isSecondaryMultusNetwork(network) {
-			// multus pod interfaces start from 1
-			idxMultus++
-			if network.Name == networkToFind.Name {
-				return idxMultus
-			}
-		}
-	}
-	return -1
-}
-
-func isSecondaryMultusNetwork(net v1.Network) bool {
-	return net.Multus != nil && !net.Multus.Default
 }
 
 func (l *podNIC) setPodInterfaceCache() error {
@@ -177,8 +140,8 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 
 func (l *podNIC) PlugPhase1() error {
 
-	// There is nothing to plug for SR-IOV devices
-	if l.vmiSpecIface.SRIOV != nil {
+	// There is nothing to plug for SR-IOV devices or vhostuser interface
+	if l.vmiSpecIfaceface.SRIOV != nil || l.vmiSpecIfaceface.Vhostuser != nil {
 		return nil
 	}
 
@@ -244,8 +207,8 @@ func (l *podNIC) PlugPhase1() error {
 func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
 
-	// There is nothing to plug for SR-IOV devices
-	if l.vmiSpecIface.SRIOV != nil {
+	// There is nothing to plug for SR-IOV devices or vhostuser interface
+	if l.vmiSpecIfaceface.SRIOV != nil || l.vmiSpecIfaceface.Vhostuser != nil {
 		return nil
 	}
 

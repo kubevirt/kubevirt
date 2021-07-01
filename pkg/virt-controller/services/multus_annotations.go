@@ -26,11 +26,19 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
+const virtioInterfaceType = "virtio"
+
+type cniArguments struct {
+	InterfaceType string `json:"interface-type,omitempty"`
+}
+
 type multusNetworkAnnotation struct {
 	InterfaceName string `json:"interface"`
 	Mac           string `json:"mac,omitempty"`
 	NetworkName   string `json:"name"`
 	Namespace     string `json:"namespace"`
+	// CNIArgs contains additional CNI arguments for the network interface
+	CNIArgs *cniArguments `json:"cni-args,omitempty"`
 }
 
 type multusNetworkAnnotationPool struct {
@@ -88,12 +96,18 @@ func newMultusAnnotationData(vmi *v1.VirtualMachineInstance, network v1.Network,
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress
 	}
-	return multusNetworkAnnotation{
+	multusAnnotation := multusNetworkAnnotation{
 		InterfaceName: podInterfaceName,
 		Mac:           multusIfaceMac,
 		Namespace:     namespace,
 		NetworkName:   networkName,
 	}
+	if multusIface != nil && multusIface.Vhostuser != nil {
+		multusAnnotation.CNIArgs = &cniArguments{
+			InterfaceType: virtioInterfaceType,
+		}
+	}
+	return multusAnnotation
 }
 
 func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {

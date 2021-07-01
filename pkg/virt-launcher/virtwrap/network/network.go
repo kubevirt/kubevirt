@@ -28,8 +28,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const primaryPodInterfaceName = "eth0"
-
 type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
 	handler      netdriver.NetworkHandler

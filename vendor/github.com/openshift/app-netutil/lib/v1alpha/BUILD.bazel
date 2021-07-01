@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "hugepages.go",
+        "network.go",
+        "resource.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/app-netutil/lib/v1alpha",
+    importpath = "github.com/openshift/app-netutil/lib/v1alpha",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/intel/network-resources-injector/pkg/types:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
+        "//vendor/github.com/openshift/app-netutil/pkg/networkstatus:go_default_library",
+        "//vendor/github.com/openshift/app-netutil/pkg/types:go_default_library",
+        "//vendor/github.com/openshift/app-netutil/pkg/userspace:go_default_library",
+    ],
+)

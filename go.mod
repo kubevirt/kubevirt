@@ -5,7 +5,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/containernetworking/plugins v0.8.2
-	github.com/coreos/go-iptables v0.4.3
+	github.com/coreos/go-iptables v0.4.5
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.35.0
 	github.com/emicklei/go-restful v2.10.0+incompatible
@@ -32,17 +32,18 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/imdario/mergo v0.3.9
 	github.com/insomniacslk/dhcp v0.0.0-20201112113307-4de412bc85d8
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.1.1-0.20201119153432-9d213757d22d
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/moby/sys/mountinfo v0.4.1
-	github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/runc v1.0.0-rc92
 	github.com/opencontainers/selinux v1.6.0
 	github.com/openshift/api v0.0.0
+	github.com/openshift/app-netutil v0.0.0-20210203214838-7a1305d414c3
 	github.com/openshift/client-go v0.0.0
 	github.com/openshift/library-go v0.0.0-20200821154433-215f00df72cc
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect

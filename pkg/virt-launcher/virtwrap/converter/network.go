@@ -26,13 +26,18 @@ import (
 	"net"
 	"strings"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
+	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
+	v1 "kubevirt.io/client-go/api/v1"
+
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
+
+const PrimaryPodInterfaceName = "eth0"
 
 func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, virtioNetProhibited bool) ([]api.Interface, error) {
 	if err := validateNetworksTypes(vmi.Spec.Networks); err != nil {
@@ -117,6 +122,35 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
 			} else {
 				domainIface.Rom = &api.Rom{Enabled: "no"}
+			}
+		} else if iface.Vhostuser != nil {
+			domainIface.Type = "vhostuser"
+			podInterfaceName, err := getPodInterfaceName(vmi, iface.Name)
+			if err != nil {
+				log.Log.Errorf("Failed to get NIC for vhostuser interface: %s", iface.Name)
+			}
+			vhostPath, vhostMode, err := getVhostuserInfo(podInterfaceName, c)
+			if err != nil {
+				log.Log.Errorf("Failed to get vhostuser interface info: %v", err)
+				return nil, err
+			}
+			vhostPathParts := strings.Split(vhostPath, "/")
+			vhostDevice := vhostPathParts[len(vhostPathParts)-1]
+			if len(vhostPathParts) == 1 {
+				vhostPath = services.VhostuserSocketDir + vhostPath
+			}
+			domainIface.Source = api.InterfaceSource{
+				Type: "unix",
+				Path: vhostPath,
+				Mode: vhostMode,
+			}
+			domainIface.Target = &api.InterfaceTarget{
+				Device: vhostDevice,
+			}
+			var vhostuserQueueSize uint32 = 1024
+			domainIface.Driver = &api.InterfaceDriver{
+				RxQueueSize: &vhostuserQueueSize,
+				TxQueueSize: &vhostuserQueueSize,
 			}
 		}
 		domainInterfaces = append(domainInterfaces, domainIface)
@@ -274,4 +308,80 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
 
 	return nameservers, searchDomains, err
+}
+
+// ComposePodInterfaceName derives the pod interface name
+func ComposePodInterfaceName(vmi *v1.VirtualMachineInstance, network *v1.Network) (string, error) {
+	if isSecondaryMultusNetwork(*network) {
+		multusIndex := findMultusIndex(vmi, network)
+		if multusIndex == -1 {
+			return "", fmt.Errorf("Network name %s not found", network.Name)
+		}
+		return fmt.Sprintf("net%d", multusIndex), nil
+	}
+	return PrimaryPodInterfaceName, nil
+}
+
+// FindInterfaceByNetworkName gets the inferface using network name
+func FindInterfaceByNetworkName(vmi *v1.VirtualMachineInstance, network *v1.Network) *v1.Interface {
+	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Name == network.Name {
+			return &vmi.Spec.Domain.Devices.Interfaces[i]
+		}
+	}
+	return nil
+}
+
+func findMultusIndex(vmi *v1.VirtualMachineInstance, networkToFind *v1.Network) int {
+	idxMultus := 0
+	for _, network := range vmi.Spec.Networks {
+		if isSecondaryMultusNetwork(network) {
+			// multus pod interfaces start from 1
+			idxMultus++
+			if network.Name == networkToFind.Name {
+				return idxMultus
+			}
+		}
+	}
+	return -1
+}
+
+func isSecondaryMultusNetwork(net v1.Network) bool {
+	return net.Multus != nil && !net.Multus.Default
+}
+
+func getPodInterfaceName(vmi *v1.VirtualMachineInstance, ifaceName string) (string, error) {
+	for i, _ := range vmi.Spec.Networks {
+		network := &vmi.Spec.Networks[i]
+		if network.Pod == nil && network.Multus == nil {
+			continue
+		}
+		iface := FindInterfaceByNetworkName(vmi, network)
+		if iface.Name == ifaceName {
+			podIfaceName, err := ComposePodInterfaceName(vmi, network)
+			if err != nil {
+				return "", err
+			}
+			return podIfaceName, nil
+		}
+	}
+	return "", fmt.Errorf("Interface %s not found", ifaceName)
+}
+
+func getVhostuserInfo(ifaceName string, c *ConverterContext) (string, string, error) {
+	if c.PodNetInterfaces == nil {
+		err := fmt.Errorf("PodNetInterfaces cannot be nil for vhostuser interface")
+		return "", "", err
+	}
+	for _, iface := range c.PodNetInterfaces.Interface {
+		if iface.DeviceType == nettypes.DeviceInfoTypeVHostUser {
+			networkNameParts := strings.Split(iface.NetworkStatus.Name, "/")
+			if networkNameParts[len(networkNameParts)-1] == ifaceName {
+				return iface.NetworkStatus.DeviceInfo.VhostUser.Path, iface.NetworkStatus.DeviceInfo.VhostUser.Mode, nil
+			}
+		}
+
+	}
+	err := fmt.Errorf("Unable to get vhostuser interface info for %s", ifaceName)
+	return "", "", err
 }

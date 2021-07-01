@@ -30,9 +30,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
+	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	netutiltype "github.com/openshift/app-netutil/pkg/types"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -3284,6 +3286,166 @@ var _ = Describe("Converter", func() {
 			table.Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
 		)
 	})
+
+	Context("Vhostuser interface request", func() {
+		var vmi *v1.VirtualMachineInstance
+		var resourceReq v1.ResourceRequirements
+		var hugepages *v1.Memory
+		var c *ConverterContext
+		var podIfaceNormal *netutiltype.InterfaceData
+		var podIfaceVhostuser *netutiltype.InterfaceData
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Sockets: uint32(1),
+							Cores:   uint32(2),
+							Threads: uint32(2),
+						},
+						Devices: v1.Devices{
+							Interfaces: []v1.Interface{
+								{
+									Name: "vhostuser-1",
+									InterfaceBindingMethod: v1.InterfaceBindingMethod{
+										Vhostuser: &v1.InterfaceVhostuser{},
+									},
+								},
+							},
+						},
+					},
+					Networks: []v1.Network{
+						{
+							Name: "vhostuser-1",
+							NetworkSource: v1.NetworkSource{
+								Multus: &v1.MultusNetwork{
+									NetworkName: "userspace-1",
+								},
+							},
+						},
+					},
+				},
+			}
+			resourceReq = v1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("2Gi"),
+				},
+			}
+			hugepages = &v1.Memory{
+				Hugepages: &v1.Hugepages{},
+			}
+
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				UseEmulation:   true,
+			}
+
+			podIfaceNormal = &netutiltype.InterfaceData{
+				NetworkStatus: nettypes.NetworkStatus{
+					Interface: "default",
+					Name:      "default",
+				},
+				DeviceType: netutiltype.INTERFACE_TYPE_HOST,
+			}
+			podIfaceVhostuser = &netutiltype.InterfaceData{
+				DeviceType: nettypes.DeviceInfoTypeVHostUser,
+				NetworkStatus: nettypes.NetworkStatus{
+					Interface: "net1",
+					Name:      "net1",
+					DeviceInfo: &nettypes.DeviceInfo{
+						Type:    nettypes.DeviceInfoTypeVHostUser,
+						Version: nettypes.DeviceInfoVersion,
+						VhostUser: &nettypes.VhostDevice{
+							Mode: "server",
+							Path: "a123456_net1",
+						},
+					},
+				},
+			}
+		})
+		It("fails when pod interfaces from annotations is invalid", func() {
+			domain := &api.Domain{}
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).ToNot(Succeed())
+		})
+		It("fails when pod interfaces is empty", func() {
+			domain := &api.Domain{}
+			c.PodNetInterfaces = &netutiltype.InterfaceResponse{}
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).ToNot(Succeed())
+		})
+		It("fails when pod interfaces has valid interfaces but without vhostuser", func() {
+			domain := &api.Domain{}
+			c.PodNetInterfaces = &netutiltype.InterfaceResponse{}
+			c.PodNetInterfaces.Interface = append(c.PodNetInterfaces.Interface, podIfaceNormal)
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).ToNot(Succeed())
+		})
+		It("fails with valid vhostuser interface but no memory", func() {
+			domain := &api.Domain{}
+			c.PodNetInterfaces = &netutiltype.InterfaceResponse{}
+			c.PodNetInterfaces.Interface = append(c.PodNetInterfaces.Interface, podIfaceVhostuser)
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).ToNot(Succeed())
+		})
+		It("fails with valid vhostuser interface but no hugepages", func() {
+			domain := &api.Domain{}
+			vmi.Spec.Domain.Resources = resourceReq
+			c.PodNetInterfaces = &netutiltype.InterfaceResponse{}
+			c.PodNetInterfaces.Interface = append(c.PodNetInterfaces.Interface, podIfaceVhostuser)
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).ToNot(Succeed())
+		})
+		It("creates vhostuser interface", func() {
+			c.PodNetInterfaces = &netutiltype.InterfaceResponse{}
+			c.PodNetInterfaces.Interface = append(c.PodNetInterfaces.Interface, podIfaceVhostuser)
+			vmi.Spec.Domain.Resources = resourceReq
+			vmi.Spec.Domain.Memory = hugepages
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("vhostuser"))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Type).To(Equal("unix"))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Path).To(Equal(services.VhostuserSocketDir + "a123456_net1"))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Mode).To(Equal("server"))
+			Expect(domain.Spec.Devices.Interfaces[0].Target.Device).To(Equal("a123456_net1"))
+			var queueSize uint32 = 1024
+			Expect(domain.Spec.Devices.Interfaces[0].Driver.RxQueueSize).To(Equal(&queueSize))
+			Expect(domain.Spec.Devices.Interfaces[0].Driver.TxQueueSize).To(Equal(&queueSize))
+		})
+		It("creates numa one cell with shared memory", func() {
+			c.PodNetInterfaces = &netutiltype.InterfaceResponse{}
+			c.PodNetInterfaces.Interface = append(c.PodNetInterfaces.Interface, podIfaceVhostuser)
+			vmi.Spec.Domain.Resources = resourceReq
+			vmi.Spec.Domain.Memory = hugepages
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("vhostuser"))
+			Expect(domain.Spec.CPU.NUMA).ToNot(BeNil())
+			Expect(domain.Spec.CPU.NUMA.Cells[0].ID).To(Equal("0"))
+			Expect(domain.Spec.CPU.NUMA.Cells[0].CPUs).To(Equal("0-3"))
+			Expect(domain.Spec.CPU.NUMA.Cells[0].Memory).To(Equal("2147483648"))
+			Expect(domain.Spec.CPU.NUMA.Cells[0].MemoryAccess).To(Equal("shared"))
+		})
+		It("creates numa two cell with shared memory", func() {
+			c.PodNetInterfaces = &netutiltype.InterfaceResponse{}
+			c.PodNetInterfaces.Interface = append(c.PodNetInterfaces.Interface, podIfaceVhostuser)
+			vmi.Spec.Domain.Resources = resourceReq
+			vmi.Spec.Domain.CPU.Sockets = uint32(2)
+			vmi.Spec.Domain.Memory = hugepages
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("vhostuser"))
+			Expect(domain.Spec.CPU.NUMA).ToNot(BeNil())
+			Expect(domain.Spec.CPU.NUMA.Cells[0].ID).To(Equal("0"))
+			Expect(domain.Spec.CPU.NUMA.Cells[0].CPUs).To(Equal("0-3"))
+			Expect(domain.Spec.CPU.NUMA.Cells[0].Memory).To(Equal("1073741824"))
+			Expect(domain.Spec.CPU.NUMA.Cells[0].MemoryAccess).To(Equal("shared"))
+			Expect(domain.Spec.CPU.NUMA.Cells[1].ID).To(Equal("1"))
+			Expect(domain.Spec.CPU.NUMA.Cells[1].CPUs).To(Equal("4-7"))
+			Expect(domain.Spec.CPU.NUMA.Cells[1].Memory).To(Equal("1073741824"))
+			Expect(domain.Spec.CPU.NUMA.Cells[1].MemoryAccess).To(Equal("shared"))
+		})
+
+	})
+
 })
 
 var _ = Describe("disk device naming", func() {

@@ -561,6 +561,40 @@ var _ = Describe("Schema", func() {
 			Expect(newCpuTune).To(Equal(exampleCpuTune))
 		})
 	})
+	Context("With NUMA mapping", func() {
+		var testXML = `<CPU><feature name="a" policy="1"></feature><numa><cell id="0" cpus="0-2" memory="1" unit="KB" memAccess="shared"></cell></numa></CPU>`
+		var exampleCPU = CPU{
+			Features: []CPUFeature{
+				{
+					Name:   "a",
+					Policy: "1",
+				},
+			},
+			NUMA: &NUMA{
+				Cells: []NUMACell{
+					{
+						ID:           "0",
+						CPUs:         "0-2",
+						Memory:       "1",
+						Unit:         "KB",
+						MemoryAccess: "shared",
+					},
+				},
+			},
+		}
+		It("Unmarshal into struct", func() {
+			cpu := CPU{}
+			err := xml.Unmarshal([]byte(testXML), &cpu)
+			Expect(err).To(BeNil())
+			Expect(cpu).To(Equal(exampleCPU))
+		})
+		It("Marshal into xml", func() {
+			buf, err := xml.Marshal(exampleCPU)
+			Expect(err).To(BeNil())
+			fmt.Printf("%s", buf)
+			Expect(string(buf)).To(Equal(testXML))
+		})
+	})
 })
 
 var testAliasName = "alias0"

@@ -47,6 +47,7 @@ import (
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
 const bridgeFakeIP = "169.254.75.1%d/32"
@@ -101,7 +102,7 @@ var _ = Describe("Pod Network", func() {
 		podnic := newPodNIC(vmi)
 		podnic.vmiSpecIface = &vmi.Spec.Domain.Devices.Interfaces[0]
 		podnic.vmiSpecNetwork = &vmi.Spec.Networks[0]
-		podnic.podInterfaceName = primaryPodInterfaceName
+		podnic.podInterfaceName = converter.PrimaryPodInterfaceName
 		return podnic
 	}
 	BeforeEach(func() {
@@ -112,9 +113,9 @@ var _ = Describe("Pod Network", func() {
 		testMac := "12:34:56:78:9A:BC"
 		updateTestMac := "AF:B3:1F:78:2A:CA"
 		mtu = 1410
-		newPodInterfaceName = fmt.Sprintf("%s-nic", primaryPodInterfaceName)
-		dummySwap = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: primaryPodInterfaceName}}
-		primaryPodInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodInterfaceName, MTU: mtu}}
+		newPodInterfaceName = fmt.Sprintf("%s-nic", converter.PrimaryPodInterfaceName)
+		dummySwap = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: converter.PrimaryPodInterfaceName}}
+		primaryPodInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: converter.PrimaryPodInterfaceName, MTU: mtu}}
 		primaryPodInterfaceAfterNameChange = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: newPodInterfaceName, MTU: mtu}}
 		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
 		gw := net.IPv4(10, 35, 0, 1)
@@ -146,7 +147,7 @@ var _ = Describe("Pod Network", func() {
 
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		tapDeviceName = "tap0"
-		testNic = &cache.DHCPConfig{Name: primaryPodInterfaceName,
+		testNic = &cache.DHCPConfig{Name: converter.PrimaryPodInterfaceName,
 			IP:                fakeAddr,
 			MAC:               fakeMac,
 			Mtu:               uint16(mtu),
@@ -167,7 +168,7 @@ var _ = Describe("Pod Network", func() {
 		masqueradeVmIpv6 = masqueradeIpv6VmAddr.IP.String()
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
 		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName, MTU: mtu}}
-		masqueradeTestNic = &cache.DHCPConfig{Name: primaryPodInterfaceName,
+		masqueradeTestNic = &cache.DHCPConfig{Name: converter.PrimaryPodInterfaceName,
 			IP:                  *masqueradeVmAddr,
 			IPv6:                *masqueradeIpv6VmAddr,
 			MAC:                 fakeMac,
@@ -207,7 +208,7 @@ var _ = Describe("Pod Network", func() {
 	TestPodInterfaceIPBinding := func(vm *v1.VirtualMachineInstance, domain *api.Domain) {
 		//For Bridge tests
 		mockNetwork.EXPECT().LinkSetName(primaryPodInterface, newPodInterfaceName).Return(nil)
-		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
+		mockNetwork.EXPECT().LinkByName(converter.PrimaryPodInterfaceName).Return(primaryPodInterface, nil)
 		mockNetwork.EXPECT().LinkByName(newPodInterfaceName).Return(primaryPodInterfaceAfterNameChange, nil)
 		mockNetwork.EXPECT().LinkAdd(dummySwap).Return(nil)
 		mockNetwork.EXPECT().AddrReplace(dummySwap, &fakeAddr).Return(nil)
@@ -233,7 +234,7 @@ var _ = Describe("Pod Network", func() {
 
 		// For masquerade tests
 		mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterface.Name).Return(GetMasqueradeVmIp(iptables.ProtocolIPv4), GetMasqueradeVmIp(iptables.ProtocolIPv6), nil)
-		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
+		mockNetwork.EXPECT().LinkByName(converter.PrimaryPodInterfaceName).Return(primaryPodInterface, nil)
 		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeGwStr).Return(masqueradeGwAddr, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeIpv6GwStr).Return(masqueradeIpv6GwAddr, nil)
@@ -360,12 +361,12 @@ var _ = Describe("Pod Network", func() {
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
-			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return("", "", nil)
-			mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
+			mockNetwork.EXPECT().ReadIPAddressesFromLink(converter.PrimaryPodInterfaceName).Return("", "", nil)
+			mockNetwork.EXPECT().LinkByName(converter.PrimaryPodInterfaceName).Return(primaryPodInterface, nil)
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
-			mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
+			mockNetwork.EXPECT().LinkByName(converter.PrimaryPodInterfaceName).Return(primaryPodInterface, nil)
 			mockNetwork.EXPECT().LinkSetDown(primaryPodInterface).Return(nil)
-			mockNetwork.EXPECT().SetRandomMac(primaryPodInterfaceName).Return(updateFakeMac, nil)
+			mockNetwork.EXPECT().SetRandomMac(converter.PrimaryPodInterfaceName).Return(updateFakeMac, nil)
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
 			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
@@ -374,7 +375,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)).Return(bridgeAddr, nil)
 			mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 			mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
-			mockNetwork.EXPECT().GetMacDetails(primaryPodInterfaceName).Return(fakeMac, nil)
+			mockNetwork.EXPECT().GetMacDetails(converter.PrimaryPodInterfaceName).Return(fakeMac, nil)
 			mockNetwork.EXPECT().LinkSetMaster(primaryPodInterface, bridgeTest).Return(nil)
 			mockNetwork.EXPECT().AddrDel(primaryPodInterface, &fakeAddr).Return(errors.New("device is busy"))
 			mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu, libvirtUser).Return(nil)
@@ -397,11 +398,11 @@ var _ = Describe("Pod Network", func() {
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
-			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return("", "", nil)
-			mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil).Times(2)
+			mockNetwork.EXPECT().ReadIPAddressesFromLink(converter.PrimaryPodInterfaceName).Return("", "", nil)
+			mockNetwork.EXPECT().LinkByName(converter.PrimaryPodInterfaceName).Return(primaryPodInterface, nil).Times(2)
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
-			mockNetwork.EXPECT().GetMacDetails(primaryPodInterfaceName).Return(fakeMac, nil)
+			mockNetwork.EXPECT().GetMacDetails(converter.PrimaryPodInterfaceName).Return(fakeMac, nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 			mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
 
@@ -443,7 +444,7 @@ var _ = Describe("Pod Network", func() {
 		})
 		Context("getPhase1Binding", func() {
 			BeforeEach(func() {
-				mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
+				mockNetwork.EXPECT().LinkByName(converter.PrimaryPodInterfaceName).Return(primaryPodInterface, nil)
 				mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
 				mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
 			})
@@ -456,7 +457,7 @@ var _ = Describe("Pod Network", func() {
 					podnic.launcherPID = &pid
 					infraConfigurator, err := podnic.newPodNetworkConfigurator()
 					Expect(err).ToNot(HaveOccurred())
-					Expect(infraConfigurator.DiscoverPodNetworkInterface(primaryPodInterfaceName)).NotTo(HaveOccurred())
+					Expect(infraConfigurator.DiscoverPodNetworkInterface(converter.PrimaryPodInterfaceName)).NotTo(HaveOccurred())
 					Expect(infraConfigurator.GenerateDHCPConfig().MAC.String()).To(Equal("de:ad:00:00:be:af"))
 				})
 			})
@@ -493,7 +494,7 @@ var _ = Describe("Pod Network", func() {
 					mockNetwork.EXPECT().NftablesLoad(proto).Return(fmt.Errorf("no nft"))
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
 				}
-				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv6Enabled(converter.PrimaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				domain := NewDomainWithBridgeInterface()
@@ -503,7 +504,7 @@ var _ = Describe("Pod Network", func() {
 				TestPodInterfaceIPBinding(vm, domain)
 			})
 			It("should define a bridge in pod and forward specific ports to VM using iptables", func() {
-				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv6Enabled(converter.PrimaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				for _, proto := range ipProtocols() {
@@ -543,7 +544,7 @@ var _ = Describe("Pod Network", func() {
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().NftablesLoad(proto).Return(nil)
 				}
-				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv6Enabled(converter.PrimaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				domain := NewDomainWithBridgeInterface()
@@ -553,7 +554,7 @@ var _ = Describe("Pod Network", func() {
 				TestPodInterfaceIPBinding(vm, domain)
 			})
 			It("should define a bridge in pod and forward specific ports to VM using nftables", func() {
-				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv6Enabled(converter.PrimaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				for _, proto := range ipProtocols() {
@@ -589,7 +590,7 @@ var _ = Describe("Pod Network", func() {
 				TestPodInterfaceIPBinding(vm, domain)
 			})
 			It("should define a bridge in pod with Istio proxy and forward all traffic to VM using nftables", func() {
-				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv6Enabled(converter.PrimaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				for _, proto := range ipProtocols() {
@@ -601,8 +602,8 @@ var _ = Describe("Pod Network", func() {
 							GetNFTIPString(proto), "saddr", infraconfigurators.GetLoopbackAdrress(proto), "counter", "return").Return(nil)
 					}
 
-					mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr.IP.String(), "", nil)
-					mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
+					mockNetwork.EXPECT().ReadIPAddressesFromLink(converter.PrimaryPodInterfaceName).Return(fakeAddr.IP.String(), "", nil)
+					mockNetwork.EXPECT().LinkByName(converter.PrimaryPodInterfaceName).Return(primaryPodInterface, nil)
 
 					srcAddressesToSnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
 					dstAddressesToDnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
@@ -631,14 +632,14 @@ var _ = Describe("Pod Network", func() {
 				TestPodInterfaceIPBinding(vm, domain)
 			})
 			It("should define a bridge in pod with Istio proxy and forward specific ports to VM using nftables", func() {
-				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv6Enabled(converter.PrimaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				for _, proto := range [2]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6} {
 					mockNetwork.EXPECT().NftablesLoad(proto).Return(nil)
 
-					mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr.IP.String(), "", nil)
-					mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
+					mockNetwork.EXPECT().ReadIPAddressesFromLink(converter.PrimaryPodInterfaceName).Return(fakeAddr.IP.String(), "", nil)
+					mockNetwork.EXPECT().LinkByName(converter.PrimaryPodInterfaceName).Return(primaryPodInterface, nil)
 
 					srcAddressesToSnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
 					dstAddressesToDnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
@@ -764,6 +765,32 @@ var _ = Describe("Pod Network", func() {
 
 			})
 		})
+		Context("Vhostuser Plug", func() {
+			It("Does not crash", func() {
+				// Plug doesn't do anything for vhost so it's enough to pass an empty domain
+				domain := &api.Domain{}
+				// Same for network
+				net := &v1.Network{}
+
+				iface := &v1.Interface{
+					Name: "vhostuser",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Vhostuser: &v1.InterfaceVhostuser{},
+					},
+				}
+				vmi := newVMI("testnamespace", "testVmName")
+				podnic := newPodNIC(vmi)
+				podnic.iface = iface
+				podnic.network = net
+				podnic.podInterfaceName = "fakeiface"
+				podnic.launcherPID = &pid
+				err := podnic.PlugPhase1()
+				Expect(err).ToNot(HaveOccurred())
+
+				err = podnic.PlugPhase2(domain)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
 	})
 
 	It("should write interface to cache file", func() {
@@ -776,13 +803,14 @@ var _ = Describe("Pod Network", func() {
 		addrList := []netlink.Addr{fakeAddr1, fakeAddr2}
 
 		iface := &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
-		mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr1.IP.String(), fakeAddr2.IP.String(), nil)
-		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
+		mockNetwork.EXPECT().ReadIPAddressesFromLink(converter.PrimaryPodInterfaceName).Return(fakeAddr1.IP.String(), fakeAddr2.IP.String(), nil)
+		mockNetwork.EXPECT().LinkByName(converter.PrimaryPodInterfaceName).Return(primaryPodInterface, nil)
 		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 		podnic := newPodNIC(vmi)
 		podnic.vmiSpecIface = iface
-		podnic.podInterfaceName = primaryPodInterfaceName
+		podnic.podInterfaceName = converter.PrimaryPodInterfaceName
+
 		err := podnic.setPodInterfaceCache()
 		Expect(err).ToNot(HaveOccurred())
 
