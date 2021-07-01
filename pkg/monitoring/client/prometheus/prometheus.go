@@ -38,6 +38,15 @@ var (
 		[]string{"verb", "url"},
 	)
 
+	rateLimiterLatency = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "rest_client_rate_limiter_duration_seconds",
+			Help:    "Client side rate limiter latency in seconds. Broken down by verb and URL.",
+			Buckets: prometheus.ExponentialBuckets(0.001, 2, 10),
+		},
+		[]string{"verb", "url"},
+	)
+
 	requestResult = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "rest_client_requests_total",
@@ -50,9 +59,11 @@ var (
 func init() {
 	prometheus.MustRegister(requestLatency)
 	prometheus.MustRegister(requestResult)
+	prometheus.MustRegister(rateLimiterLatency)
 	metrics.Register(metrics.RegisterOpts{
-		RequestLatency: &latencyAdapter{requestLatency},
-		RequestResult:  &resultAdapter{requestResult},
+		RequestLatency:     &latencyAdapter{requestLatency},
+		RateLimiterLatency: &latencyAdapter{rateLimiterLatency},
+		RequestResult:      &resultAdapter{requestResult},
 	})
 }
 
