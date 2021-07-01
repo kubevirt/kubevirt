@@ -185,12 +185,16 @@ func ConfirmVMIPostMigrationAborted(virtClient kubecli.KubevirtClient, vmi *v1.V
 	return vmi
 }
 
-func RunStressTest(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
+func RunStressTest(vmi *v1.VirtualMachineInstance, vmsize, stressTimeoutSeconds int) {
 	By("Run a stress test to dirty some pages and slow down the migration")
 	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %sM --vm-keep --timeout %ds&\n", vmsize, stressTimeoutSeconds)
 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: "which stress-ng\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: console.RetValue("0")},
 		&expect.BSnd{S: stressCmd},
 		&expect.BExp{R: console.PromptExpression},
 	}, 15)).To(Succeed(), "should run a stress test")
