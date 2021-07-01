@@ -80,7 +80,7 @@ var _ = Describe("podNIC", func() {
 			Expect(ok).To(BeTrue(), "SetupPhase1 should return an error of type CriticalNetworkError")
 		})
 	})
-	Context("when DHCP startup fails", func() {
+	PContext("when DHCP startup fails", func() {
 		BeforeEach(func() {
 			mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("podnic_test: forcing failure at DHCP start"))
 		})
