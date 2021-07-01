@@ -1127,6 +1127,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				const mac = "de:ad:00:00:be:ef"
+				const attachSRIOVDeviceTimeout = 30
 
 				BeforeEach(func() {
 					// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
@@ -1136,19 +1137,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 					vmi = startVmi(vmi)
 					vmi = waitVmi(vmi)
 
-					var interfaceName string
-
-					// It may take some time for the VMI interface status to be updated with the information reported by
-					// the guest-agent.
-					Eventually(func() error {
-						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-						Expect(err).NotTo(HaveOccurred())
-						interfaceName, err = getInterfaceNameByMAC(vmi, mac)
-						return err
-					}, 30*time.Second, 5*time.Second).Should(Succeed())
-
-					Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
+					expectInterfaceToExistByMac(virtClient, vmi, mac, attachSRIOVDeviceTimeout,
+						"SR-IOV VF is expected to exist in the guest")
 				})
 
 				It("should be successful with a running VMI on the target", func() {
@@ -1157,17 +1147,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 
-					// It may take some time for the VMI interface status to be updated with the information reported by
-					// the guest-agent.
-					Eventually(func() error {
-						updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-						Expect(err).NotTo(HaveOccurred())
-						interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
-						if err != nil {
-							return err
-						}
-						return checkMacAddress(updatedVMI, interfaceName, mac)
-					}, 30*time.Second, 5*time.Second).Should(Succeed(),
+					expectInterfaceToExistByMac(virtClient, vmi, mac, attachSRIOVDeviceTimeout,
 						"SR-IOV VF is expected to exist in the guest after migration")
 				})
 			})
@@ -1504,6 +1484,20 @@ var _ = SIGDescribe("Macvtap", func() {
 		})
 	})
 })
+
+func expectInterfaceToExistByMac(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, macAddress string, timeout int, assertMessage string) {
+	// It may take some time for the VMI interface status to be updated with the information reported by
+	// the guest-agent.
+	EventuallyWithOffset(1, func() error {
+		updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		interfaceName, err := getInterfaceNameByMAC(updatedVMI, macAddress)
+		if err != nil {
+			return err
+		}
+		return checkMacAddress(updatedVMI, interfaceName, macAddress)
+	}, timeout, 5*time.Second).Should(Succeed(), assertMessage)
+}
 
 func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName string, newMACAddress string) error {
 	const maxCommandTimeout = 5 * time.Second
