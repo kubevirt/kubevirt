@@ -75,8 +75,8 @@ import (
 const (
 	fedoraVMSize         = "256M"
 	secretDiskSerial     = "D23YZ9W6WA5DJ487"
-	stressDefaultVMSize  = "100"
-	stressLargeVMSize    = "400"
+	stressDefaultVMSize  = 100
+	stressLargeVMSize    = 400
 	stressDefaultTimeout = 1600
 )
 
