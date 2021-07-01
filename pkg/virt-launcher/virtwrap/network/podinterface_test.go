@@ -585,10 +585,9 @@ var _ = Describe("Pod Network", func() {
 				vmi := newVMISlirpInterface("testnamespace", "testVmName")
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				podnic, err := newPhase2PodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory)
+				podnic, err := newPhase2PodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, domain)
 				Expect(err).ToNot(HaveOccurred())
-				driver, err := podnic.newLibvirtSpecGenerator(domain)
-				Expect(err).ToNot(HaveOccurred())
+				driver := podnic.newLibvirtSpecGenerator(domain)
 				Expect(driver.generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
@@ -602,10 +601,9 @@ var _ = Describe("Pod Network", func() {
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-				podnic, err := newPhase2PodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory)
+				podnic, err := newPhase2PodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, domain)
 				Expect(err).ToNot(HaveOccurred())
-				driver, err := podnic.newLibvirtSpecGenerator(domain)
-				Expect(err).ToNot(HaveOccurred())
+				driver := podnic.newLibvirtSpecGenerator(domain)
 				Expect(driver.generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
@@ -631,8 +629,7 @@ var _ = Describe("Pod Network", func() {
 				})
 				podnic, err := newPhase1PodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &pid)
 				Expect(err).ToNot(HaveOccurred())
-				driver, err := podnic.newLibvirtSpecGenerator(domain)
-				Expect(err).ToNot(HaveOccurred())
+				driver := podnic.newLibvirtSpecGenerator(domain)
 				Expect(driver.generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
@@ -659,8 +656,7 @@ var _ = Describe("Pod Network", func() {
 				domain := NewDomainWithMacvtapInterface("default")
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				specGenerator, err := podnic.newLibvirtSpecGenerator(domain)
-				Expect(err).ToNot(HaveOccurred(), "should have identified the correct binding mechanism")
+				specGenerator := podnic.newLibvirtSpecGenerator(domain)
 
 				Expect(specGenerator.generate()).To(Succeed())
 

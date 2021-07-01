@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/vishvananda/netlink"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -60,11 +62,13 @@ func newSlirpLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *Slir
 	}
 }
 
-func newBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, cachedDomainInterface api.Interface) *BridgeLibvirtSpecGenerator {
+func newBridgeLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, cachedDomainInterface api.Interface, podInterfaceName string, handler netdriver.NetworkHandler) *BridgeLibvirtSpecGenerator {
 	return &BridgeLibvirtSpecGenerator{
 		vmiSpecIface:          iface,
 		domain:                domain,
 		cachedDomainInterface: cachedDomainInterface,
+		podInterfaceName:      podInterfaceName,
+		handler:               handler,
 	}
 }
 
@@ -72,6 +76,8 @@ type BridgeLibvirtSpecGenerator struct {
 	vmiSpecIface          *v1.Interface
 	domain                *api.Domain
 	cachedDomainInterface api.Interface
+	podInterfaceName      string
+	handler               netdriver.NetworkHandler
 }
 
 func (b *BridgeLibvirtSpecGenerator) generate() error {
@@ -92,6 +98,26 @@ func (b *BridgeLibvirtSpecGenerator) generate() error {
 }
 
 func (b *BridgeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
+	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		return nil, err
+	}
+	_, dummy := podNicLink.(*netlink.Dummy)
+	if dummy {
+		newPodNicName := virtnetlink.GenerateNewBridgedVmiInterfaceName(b.podInterfaceName)
+		podNicLink, err = b.handler.LinkByName(newPodNicName)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to get a link for interface: %s", newPodNicName)
+			return nil, err
+		}
+	}
+
+	b.cachedDomainInterface.MTU = &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)}
+
+	b.cachedDomainInterface.Target = &api.InterfaceTarget{
+		Device:  virtnetlink.GenerateTapDeviceName(b.podInterfaceName),
+		Managed: "no"}
 	return &b.cachedDomainInterface, nil
 }
 

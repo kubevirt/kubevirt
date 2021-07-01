@@ -3,7 +3,6 @@ package infraconfigurators
 import (
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/vishvananda/netlink"
 
@@ -178,11 +177,6 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 func (b *BridgePodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interface {
 	return api.Interface{
 		MAC: &api.MAC{MAC: b.vmMac.String()},
-		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
-		Target: &api.InterfaceTarget{
-			Device:  b.tapDeviceName,
-			Managed: "no",
-		},
 	}
 }
 

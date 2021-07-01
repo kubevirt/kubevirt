@@ -128,6 +128,9 @@ var _ = Describe("podNIC", func() {
 			BeforeEach(func() {
 				mockDHCPConfigurator.EXPECT().Generate().Return(&cache.DHCPConfig{}, nil)
 				mockDHCPConfigurator.EXPECT().EnsureDHCPServerStarted(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("Fake EnsureDHCPServerStarted failure"))
+				podnic.domainGenerator = &fakeLibvirtSpecGenerator{
+					shouldGenerateFail: false,
+				}
 			})
 			It("phase2 should panic", func() {
 				Expect(func() { podnic.PlugPhase2(domain) }).To(Panic())
@@ -138,6 +141,9 @@ var _ = Describe("podNIC", func() {
 				dhcpConfig := &cache.DHCPConfig{}
 				mockDHCPConfigurator.EXPECT().Generate().Return(dhcpConfig, nil)
 				mockDHCPConfigurator.EXPECT().EnsureDHCPServerStarted(primaryPodInterfaceName, *dhcpConfig, vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions).Return(nil)
+				podnic.domainGenerator = &fakeLibvirtSpecGenerator{
+					shouldGenerateFail: false,
+				}
 			})
 			It("phase2 should succeed", func() {
 				Expect(podnic.PlugPhase2(domain)).To(Succeed())
@@ -187,3 +193,15 @@ var _ = Describe("podNIC", func() {
 		})
 	})
 })
+
+type fakeLibvirtSpecGenerator struct {
+	shouldGenerateFail bool
+}
+
+func (b *fakeLibvirtSpecGenerator) generate() error {
+	if b.shouldGenerateFail {
+		return fmt.Errorf("Fake LibvirtSpecGenerator.Generate failure")
+	}
+	return nil
+
+}
