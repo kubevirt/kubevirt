@@ -212,7 +212,7 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 
 func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
 	//Check if data volume exists.
-	_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
+	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
 	if err == nil {
 		return &v1.HotplugVolumeSource{
 			DataVolume: &v1.DataVolumeSource{

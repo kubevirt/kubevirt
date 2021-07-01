@@ -25,7 +25,7 @@ import (
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -604,7 +604,7 @@ var _ = Describe("Restore controlleer", func() {
 				addVM(vm)
 				controller.processVMRestoreWorkItem()
 
-				l, err := cdiClient.CdiV1alpha1().DataVolumes("").List(context.Background(), metav1.ListOptions{})
+				l, err := cdiClient.CdiV1beta1().DataVolumes("").List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(l.Items)).To(BeZero())
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")

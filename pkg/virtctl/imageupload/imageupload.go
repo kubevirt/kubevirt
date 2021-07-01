@@ -45,8 +45,8 @@ import (
 
 	cdiClientset "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -422,7 +422,7 @@ func getUploadToken(client cdiClientset.Interface, namespace, name string) (stri
 		},
 	}
 
-	response, err := client.UploadV1alpha1().UploadTokenRequests(namespace).Create(context.Background(), request, metav1.CreateOptions{})
+	response, err := client.UploadV1beta1().UploadTokenRequests(namespace).Create(context.Background(), request, metav1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -434,7 +434,7 @@ func waitDvUploadScheduled(client kubecli.KubevirtClient, namespace, name string
 	loggedStatus := false
 	//
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		dv, err := client.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		dv, err := client.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
 
 		if err != nil {
 			// DataVolume controller may not have created the DV yet ? TODO:
@@ -537,7 +537,7 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 		},
 	}
 
-	dv, err = client.CdiClient().CdiV1alpha1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+	dv, err = client.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -626,7 +626,7 @@ func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name stri
 	}
 
 	if !createPVC {
-		_, err = client.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		_, err = client.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("No DataVolume is associated with the existing PVC %s/%s", namespace, name)
@@ -655,7 +655,7 @@ func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name stri
 }
 
 func getUploadProxyURL(client cdiClientset.Interface) (string, error) {
-	cdiConfig, err := client.CdiV1alpha1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
+	cdiConfig, err := client.CdiV1beta1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

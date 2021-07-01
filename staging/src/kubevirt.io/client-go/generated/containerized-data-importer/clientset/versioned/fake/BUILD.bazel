@@ -11,12 +11,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned:go_default_library",
-        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1alpha1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1alpha1/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1/fake:go_default_library",
-        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1beta1/fake:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
@@ -28,9 +24,7 @@ go_library(
         "//vendor/k8s.io/client-go/discovery:go_default_library",
         "//vendor/k8s.io/client-go/discovery/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1:go_default_library",
     ],
 )

@@ -9402,7 +9402,7 @@
      },
      "spec": {
       "description": "DataVolumeSpec contains the DataVolume specification.",
-      "$ref": "#/definitions/v1alpha1.DataVolumeSpec"
+      "$ref": "#/definitions/v1beta1.DataVolumeSpec"
      },
      "status": {
       "description": "DataVolumeTemplateDummyStatus is here simply for backwards compatibility with a previous API.",
@@ -12530,239 +12530,6 @@
      }
     }
    },
-   "v1alpha1.DataVolumeBlankImage": {
-    "description": "DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC",
-    "type": "object"
-   },
-   "v1alpha1.DataVolumeCheckpoint": {
-    "description": "DataVolumeCheckpoint defines a stage in a warm migration.",
-    "type": "object",
-    "required": [
-     "previous",
-     "current"
-    ],
-    "properties": {
-     "current": {
-      "description": "Current is the identifier of the snapshot created for this checkpoint.",
-      "type": "string"
-     },
-     "previous": {
-      "description": "Previous is the identifier of the snapshot from the previous checkpoint.",
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.DataVolumeSource": {
-    "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
-    "type": "object",
-    "properties": {
-     "blank": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeBlankImage"
-     },
-     "http": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeSourceHTTP"
-     },
-     "imageio": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeSourceImageIO"
-     },
-     "pvc": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeSourcePVC"
-     },
-     "registry": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeSourceRegistry"
-     },
-     "s3": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeSourceS3"
-     },
-     "upload": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeSourceUpload"
-     },
-     "vddk": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeSourceVDDK"
-     }
-    }
-   },
-   "v1alpha1.DataVolumeSourceHTTP": {
-    "description": "DataVolumeSourceHTTP can be either an http or https endpoint, with an optional basic auth user name and password, and an optional configmap containing additional CAs",
-    "type": "object",
-    "required": [
-     "url"
-    ],
-    "properties": {
-     "certConfigMap": {
-      "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
-      "type": "string"
-     },
-     "secretRef": {
-      "description": "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded",
-      "type": "string"
-     },
-     "url": {
-      "description": "URL is the URL of the http(s) endpoint",
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.DataVolumeSourceImageIO": {
-    "description": "DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source",
-    "type": "object",
-    "required": [
-     "url",
-     "diskId"
-    ],
-    "properties": {
-     "certConfigMap": {
-      "description": "CertConfigMap provides a reference to the CA cert",
-      "type": "string"
-     },
-     "diskId": {
-      "description": "DiskID provides id of a disk to be imported",
-      "type": "string"
-     },
-     "secretRef": {
-      "description": "SecretRef provides the secret reference needed to access the ovirt-engine",
-      "type": "string"
-     },
-     "url": {
-      "description": "URL is the URL of the ovirt-engine",
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.DataVolumeSourcePVC": {
-    "description": "DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC",
-    "type": "object",
-    "required": [
-     "namespace",
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "description": "The name of the source PVC",
-      "type": "string"
-     },
-     "namespace": {
-      "description": "The namespace of the source PVC",
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.DataVolumeSourceRegistry": {
-    "description": "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
-    "type": "object",
-    "required": [
-     "url"
-    ],
-    "properties": {
-     "certConfigMap": {
-      "description": "CertConfigMap provides a reference to the Registry certs",
-      "type": "string"
-     },
-     "secretRef": {
-      "description": "SecretRef provides the secret reference needed to access the Registry source",
-      "type": "string"
-     },
-     "url": {
-      "description": "URL is the url of the Docker registry source",
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.DataVolumeSourceS3": {
-    "description": "DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source",
-    "type": "object",
-    "required": [
-     "url"
-    ],
-    "properties": {
-     "certConfigMap": {
-      "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
-      "type": "string"
-     },
-     "secretRef": {
-      "description": "SecretRef provides the secret reference needed to access the S3 source",
-      "type": "string"
-     },
-     "url": {
-      "description": "URL is the url of the S3 source",
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.DataVolumeSourceUpload": {
-    "description": "DataVolumeSourceUpload provides the parameters to create a Data Volume by uploading the source",
-    "type": "object"
-   },
-   "v1alpha1.DataVolumeSourceVDDK": {
-    "description": "DataVolumeSourceVDDK provides the parameters to create a Data Volume from a Vmware source",
-    "type": "object",
-    "properties": {
-     "backingFile": {
-      "description": "BackingFile is the path to the virtual hard disk to migrate from vCenter/ESXi",
-      "type": "string"
-     },
-     "secretRef": {
-      "description": "SecretRef provides a reference to a secret containing the username and password needed to access the vCenter or ESXi host",
-      "type": "string"
-     },
-     "thumbprint": {
-      "description": "Thumbprint is the certificate thumbprint of the vCenter or ESXi host",
-      "type": "string"
-     },
-     "url": {
-      "description": "URL is the URL of the vCenter or ESXi host with the VM to migrate",
-      "type": "string"
-     },
-     "uuid": {
-      "description": "UUID is the UUID of the virtual machine that the backing file is attached to in vCenter/ESXi",
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.DataVolumeSpec": {
-    "description": "DataVolumeSpec defines the DataVolume type specification",
-    "type": "object",
-    "required": [
-     "source"
-    ],
-    "properties": {
-     "checkpoints": {
-      "description": "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1alpha1.DataVolumeCheckpoint"
-      }
-     },
-     "contentType": {
-      "description": "DataVolumeContentType options: \"kubevirt\", \"archive\"",
-      "type": "string"
-     },
-     "finalCheckpoint": {
-      "description": "FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.",
-      "type": "boolean"
-     },
-     "preallocation": {
-      "description": "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
-      "type": "boolean"
-     },
-     "priorityClassName": {
-      "description": "PriorityClassName for Importer, Cloner and Uploader pod",
-      "type": "string"
-     },
-     "pvc": {
-      "description": "PVC is the PVC specification",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimSpec"
-     },
-     "source": {
-      "description": "Source is the src of the data for the requested DataVolume",
-      "$ref": "#/definitions/v1alpha1.DataVolumeSource"
-     },
-     "storage": {
-      "description": "Storage is the requested storage specification",
-      "$ref": "#/definitions/v1alpha1.StorageSpec"
-     }
-    }
-   },
    "v1alpha1.Error": {
     "description": "Error is the last error encountered during the snapshot/restore",
     "type": "object",
@@ -12794,43 +12561,6 @@
     "properties": {
      "virtualMachine": {
       "$ref": "#/definitions/v1.VirtualMachine"
-     }
-    }
-   },
-   "v1alpha1.StorageSpec": {
-    "description": "StorageSpec defines the Storage type specification",
-    "type": "object",
-    "properties": {
-     "accessModes": {
-      "description": "AccessModes contains the desired access modes the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1",
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     },
-     "dataSource": {
-      "description": "This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot - Beta) * An existing PVC (PersistentVolumeClaim) * An existing custom resource/object that implements data population (Alpha) In order to use VolumeSnapshot object types, the appropriate feature gate must be enabled (VolumeSnapshotDataSource or AnyVolumeDataSource) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. If the specified data source is not supported, the volume will not be created and the failure will be reported as an event. In the future, we plan to support more data source types and the behavior of the provisioner may change.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
-     },
-     "resources": {
-      "description": "Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
-      "$ref": "#/definitions/k8s.io.api.core.v1.ResourceRequirements"
-     },
-     "selector": {
-      "description": "A label query over volumes to consider for binding.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
-     },
-     "storageClassName": {
-      "description": "Name of the StorageClass required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1",
-      "type": "string"
-     },
-     "volumeMode": {
-      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.",
-      "type": "string"
-     },
-     "volumeName": {
-      "description": "VolumeName is the binding reference to the PersistentVolume backing this claim.",
-      "type": "string"
      }
     }
    },
@@ -13193,6 +12923,276 @@
       "type": "boolean"
      },
      "volumeSnapshotName": {
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.DataVolumeBlankImage": {
+    "description": "DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC",
+    "type": "object"
+   },
+   "v1beta1.DataVolumeCheckpoint": {
+    "description": "DataVolumeCheckpoint defines a stage in a warm migration.",
+    "type": "object",
+    "required": [
+     "previous",
+     "current"
+    ],
+    "properties": {
+     "current": {
+      "description": "Current is the identifier of the snapshot created for this checkpoint.",
+      "type": "string"
+     },
+     "previous": {
+      "description": "Previous is the identifier of the snapshot from the previous checkpoint.",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.DataVolumeSource": {
+    "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
+    "type": "object",
+    "properties": {
+     "blank": {
+      "$ref": "#/definitions/v1beta1.DataVolumeBlankImage"
+     },
+     "http": {
+      "$ref": "#/definitions/v1beta1.DataVolumeSourceHTTP"
+     },
+     "imageio": {
+      "$ref": "#/definitions/v1beta1.DataVolumeSourceImageIO"
+     },
+     "pvc": {
+      "$ref": "#/definitions/v1beta1.DataVolumeSourcePVC"
+     },
+     "registry": {
+      "$ref": "#/definitions/v1beta1.DataVolumeSourceRegistry"
+     },
+     "s3": {
+      "$ref": "#/definitions/v1beta1.DataVolumeSourceS3"
+     },
+     "upload": {
+      "$ref": "#/definitions/v1beta1.DataVolumeSourceUpload"
+     },
+     "vddk": {
+      "$ref": "#/definitions/v1beta1.DataVolumeSourceVDDK"
+     }
+    }
+   },
+   "v1beta1.DataVolumeSourceHTTP": {
+    "description": "DataVolumeSourceHTTP can be either an http or https endpoint, with an optional basic auth user name and password, and an optional configmap containing additional CAs",
+    "type": "object",
+    "required": [
+     "url"
+    ],
+    "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
+      "type": "string"
+     },
+     "secretRef": {
+      "description": "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded",
+      "type": "string"
+     },
+     "url": {
+      "description": "URL is the URL of the http(s) endpoint",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.DataVolumeSourceImageIO": {
+    "description": "DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source",
+    "type": "object",
+    "required": [
+     "url",
+     "diskId"
+    ],
+    "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap provides a reference to the CA cert",
+      "type": "string"
+     },
+     "diskId": {
+      "description": "DiskID provides id of a disk to be imported",
+      "type": "string"
+     },
+     "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the ovirt-engine",
+      "type": "string"
+     },
+     "url": {
+      "description": "URL is the URL of the ovirt-engine",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.DataVolumeSourcePVC": {
+    "description": "DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC",
+    "type": "object",
+    "required": [
+     "namespace",
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "The name of the source PVC",
+      "type": "string"
+     },
+     "namespace": {
+      "description": "The namespace of the source PVC",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.DataVolumeSourceRegistry": {
+    "description": "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
+    "type": "object",
+    "required": [
+     "url"
+    ],
+    "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap provides a reference to the Registry certs",
+      "type": "string"
+     },
+     "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the Registry source",
+      "type": "string"
+     },
+     "url": {
+      "description": "URL is the url of the Docker registry source",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.DataVolumeSourceS3": {
+    "description": "DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source",
+    "type": "object",
+    "required": [
+     "url"
+    ],
+    "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
+      "type": "string"
+     },
+     "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the S3 source",
+      "type": "string"
+     },
+     "url": {
+      "description": "URL is the url of the S3 source",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.DataVolumeSourceUpload": {
+    "description": "DataVolumeSourceUpload provides the parameters to create a Data Volume by uploading the source",
+    "type": "object"
+   },
+   "v1beta1.DataVolumeSourceVDDK": {
+    "description": "DataVolumeSourceVDDK provides the parameters to create a Data Volume from a Vmware source",
+    "type": "object",
+    "properties": {
+     "backingFile": {
+      "description": "BackingFile is the path to the virtual hard disk to migrate from vCenter/ESXi",
+      "type": "string"
+     },
+     "secretRef": {
+      "description": "SecretRef provides a reference to a secret containing the username and password needed to access the vCenter or ESXi host",
+      "type": "string"
+     },
+     "thumbprint": {
+      "description": "Thumbprint is the certificate thumbprint of the vCenter or ESXi host",
+      "type": "string"
+     },
+     "url": {
+      "description": "URL is the URL of the vCenter or ESXi host with the VM to migrate",
+      "type": "string"
+     },
+     "uuid": {
+      "description": "UUID is the UUID of the virtual machine that the backing file is attached to in vCenter/ESXi",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.DataVolumeSpec": {
+    "description": "DataVolumeSpec defines the DataVolume type specification",
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "checkpoints": {
+      "description": "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1beta1.DataVolumeCheckpoint"
+      }
+     },
+     "contentType": {
+      "description": "DataVolumeContentType options: \"kubevirt\", \"archive\"",
+      "type": "string"
+     },
+     "finalCheckpoint": {
+      "description": "FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.",
+      "type": "boolean"
+     },
+     "preallocation": {
+      "description": "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
+      "type": "boolean"
+     },
+     "priorityClassName": {
+      "description": "PriorityClassName for Importer, Cloner and Uploader pod",
+      "type": "string"
+     },
+     "pvc": {
+      "description": "PVC is the PVC specification",
+      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimSpec"
+     },
+     "source": {
+      "description": "Source is the src of the data for the requested DataVolume",
+      "$ref": "#/definitions/v1beta1.DataVolumeSource"
+     },
+     "storage": {
+      "description": "Storage is the requested storage specification",
+      "$ref": "#/definitions/v1beta1.StorageSpec"
+     }
+    }
+   },
+   "v1beta1.StorageSpec": {
+    "description": "StorageSpec defines the Storage type specification",
+    "type": "object",
+    "properties": {
+     "accessModes": {
+      "description": "AccessModes contains the desired access modes the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "dataSource": {
+      "description": "This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot - Beta) * An existing PVC (PersistentVolumeClaim) * An existing custom resource/object that implements data population (Alpha) In order to use VolumeSnapshot object types, the appropriate feature gate must be enabled (VolumeSnapshotDataSource or AnyVolumeDataSource) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. If the specified data source is not supported, the volume will not be created and the failure will be reported as an event. In the future, we plan to support more data source types and the behavior of the provisioner may change.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "resources": {
+      "description": "Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
+      "$ref": "#/definitions/k8s.io.api.core.v1.ResourceRequirements"
+     },
+     "selector": {
+      "description": "A label query over volumes to consider for binding.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "storageClassName": {
+      "description": "Name of the StorageClass required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1",
+      "type": "string"
+     },
+     "volumeMode": {
+      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.",
+      "type": "string"
+     },
+     "volumeName": {
+      "description": "VolumeName is the binding reference to the PersistentVolume backing this claim.",
       "type": "string"
      }
     }

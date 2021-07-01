@@ -496,7 +496,7 @@ func (t *vmRestoreTarget) Cleanup() error {
 		}
 
 		if exists {
-			err = t.controller.Client.CdiClient().CdiV1alpha1().DataVolumes(t.vmRestore.Namespace).
+			err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(t.vmRestore.Namespace).
 				Delete(context.Background(), dvName, metav1.DeleteOptions{})
 			if err != nil {
 				return err

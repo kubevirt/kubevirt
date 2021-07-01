@@ -79,7 +79,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	validateDataVolume := func(targetName string, _ string) {
 		By("Get DataVolume")
-		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -101,14 +101,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	}
 
 	deleteDataVolume := func(targetName string) {
-		err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(util.NamespaceTestDefault).Delete(context.Background(), targetName, metav1.DeleteOptions{})
+		err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -121,7 +121,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 	validatePVC := func(targetName string, storageClass string) {
 		By("Don't DataVolume")
-		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
 		By("Get PVC")

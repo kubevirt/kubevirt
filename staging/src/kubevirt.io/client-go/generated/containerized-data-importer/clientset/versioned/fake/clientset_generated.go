@@ -26,12 +26,8 @@ import (
 	"k8s.io/client-go/testing"
 
 	clientset "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
-	cdiv1alpha1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1alpha1"
-	fakecdiv1alpha1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1alpha1/fake"
 	cdiv1beta1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1"
 	fakecdiv1beta1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1/fake"
-	uploadv1alpha1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1"
-	fakeuploadv1alpha1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1/fake"
 	uploadv1beta1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1beta1"
 	fakeuploadv1beta1 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1beta1/fake"
 )
@@ -83,19 +79,9 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// CdiV1alpha1 retrieves the CdiV1alpha1Client
-func (c *Clientset) CdiV1alpha1() cdiv1alpha1.CdiV1alpha1Interface {
-	return &fakecdiv1alpha1.FakeCdiV1alpha1{Fake: &c.Fake}
-}
-
 // CdiV1beta1 retrieves the CdiV1beta1Client
 func (c *Clientset) CdiV1beta1() cdiv1beta1.CdiV1beta1Interface {
 	return &fakecdiv1beta1.FakeCdiV1beta1{Fake: &c.Fake}
-}
-
-// UploadV1alpha1 retrieves the UploadV1alpha1Client
-func (c *Clientset) UploadV1alpha1() uploadv1alpha1.UploadV1alpha1Interface {
-	return &fakeuploadv1alpha1.FakeUploadV1alpha1{Fake: &c.Fake}
 }
 
 // UploadV1beta1 retrieves the UploadV1beta1Client

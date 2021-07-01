@@ -40,7 +40,7 @@ client-gen --clientset-name versioned \
 # dependencies
 client-gen --clientset-name versioned \
     --input-base kubevirt.io/containerized-data-importer/pkg/apis \
-    --input core/v1alpha1,core/v1beta1,upload/v1alpha1,upload/v1beta1 \
+    --input core/v1beta1,upload/v1beta1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package ${CLIENT_GEN_BASE}/containerized-data-importer/clientset \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
