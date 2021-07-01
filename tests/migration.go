@@ -10,7 +10,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	expect "github.com/google/goexpect"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/kubevirt/tests/console"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -98,6 +101,104 @@ func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
 		case xml.EndElement:
 			location = location[:len(location)-1]
 		}
+	}
+}
 
+func RunMigrationAndExpectFailure(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+	var err error
+	var createdMigration *v1.VirtualMachineInstanceMigration
+
+	By("Starting a migration")
+	Eventually(func() error {
+		createdMigration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+		return err
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+
+	By("Waiting until the migration completes with Failure phase")
+	uid := ""
+	Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+		createdMigration, err = virtClient.VirtualMachineInstanceMigration(createdMigration.Namespace).Get(createdMigration.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		phase := createdMigration.Status.Phase
+		Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
+
+		uid = string(createdMigration.UID)
+		return phase
+
+	}, timeout, 1*time.Second).Should(Equal(v1.MigrationFailed))
+
+	return uid
+}
+
+func ConfirmVMIPostMigrationFailed(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migrationUID string) {
+	By("Retrieving the VMI post migration")
+	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Verifying the VMI's migration state")
+	Expect(vmi.Status.MigrationState).ToNot(BeNil())
+	Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
+	Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+	Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
+	Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
+	Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+	Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+	Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
+	Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
+
+	By("Verifying the VMI's is in the running state")
+	Expect(vmi.Status.Phase).To(Equal(v1.Running))
+}
+
+func ConfirmVMIPostMigrationAborted(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migrationUID string, timeout int) *v1.VirtualMachineInstance {
+	By("Waiting until the migration is completed")
+	Eventually(func() bool {
+		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed &&
+			vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
+			return true
+		}
+		return false
+
+	}, timeout, 1*time.Second).Should(BeTrue())
+
+	By("Retrieving the VMI post migration")
+	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Verifying the VMI's migration state")
+	Expect(vmi.Status.MigrationState).ToNot(BeNil())
+	Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
+	Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+	Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
+	Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
+	Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
+	Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
+	Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+	Expect(vmi.Status.MigrationState.AbortRequested).To(BeTrue())
+
+	By("Verifying the VMI's is in the running state")
+	Expect(vmi.Status.Phase).To(Equal(v1.Running))
+	return vmi
+}
+
+func RunStressTest(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
+	By("Run a stress test to dirty some pages and slow down the migration")
+	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %sM --vm-keep --timeout %ds&\n", vmsize, stressTimeoutSeconds)
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: stressCmd},
+		&expect.BExp{R: console.PromptExpression},
+	}, 15)).To(Succeed(), "should run a stress test")
+
+	// give stress tool some time to trash more memory pages before returning control to next steps
+	if stressTimeoutSeconds < 15 {
+		time.Sleep(time.Duration(stressTimeoutSeconds) * time.Second)
+	} else {
+		time.Sleep(15 * time.Second)
 	}
 }
