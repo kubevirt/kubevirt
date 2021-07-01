@@ -125,7 +125,5 @@ Vda is the container disk that contains the Fedora OS, vdb is the cloudinit disk
 
 The hotplugVolume has some extra information that regular volume statuses do not have. The attachPodName is the name of the pod that was used to attach the volume to the node the VMI is running on. If this pod is deleted it will also stop the VMI as we cannot guarantee the volume will remain attached to the node. The other fields are similar to conditions and indicate the status of the hot plug process. Once a Volume is ready it can be used by the VM.
 
-Note: Currently every volume hotplugged requires an additional pod to be created.
-
 ## Live Migration
 Currently Live Migration is disabled for any VMI that has volumes hotplugged into it. This limitation will be removed in a future release.
