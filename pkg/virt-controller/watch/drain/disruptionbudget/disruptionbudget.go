@@ -293,7 +293,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Fetch the latest Vm state from cache
-	obj, exists, err := c.vmiInformer.GetStore().GetByKey(key)
+	obj, vmiExists, err := c.vmiInformer.GetStore().GetByKey(key)
 
 	if err != nil {
 		return err
@@ -301,8 +301,14 @@ func (c *DisruptionBudgetController) execute(key string) error {
 
 	var vmi *virtv1.VirtualMachineInstance
 	// Once all finalizers are removed the vmi gets deleted and we can clean all expectations
-	if exists {
+	if vmiExists {
 		vmi = obj.(*virtv1.VirtualMachineInstance)
+	} else {
+		namespace, name, err := cache.SplitMetaNamespaceKey(key)
+		if err != nil {
+			return err
+		}
+		vmi = virtv1.NewVMIReferenceFromNameWithNS(namespace, name)
 	}
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -320,17 +326,17 @@ func (c *DisruptionBudgetController) execute(key string) error {
 		return nil
 	}
 
-	return c.sync(key, vmi, pdb)
+	return c.sync(key, vmiExists, vmi, pdb)
 
 }
 
-func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
+func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
 	delete := false
 	create := false
 	// delete if there is no VMI
-	if vmi == nil && pdb != nil {
+	if !vmiExists && pdb != nil {
 		delete = true
-	} else if vmi != nil {
+	} else if vmiExists {
 		wantsToMigrate := wantsToMigrateOnDrain(vmi)
 		if vmi.DeletionTimestamp != nil && pdb != nil {
 			// pdb can already be deleted, shutdown already in process
