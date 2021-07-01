@@ -32,7 +32,7 @@ mkdir -p "${CMD_OUT_DIR}/virtctl"
 # we have to explicitly call them as top-level targets, so that they get
 # downloaded.
 bazel build \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     //cmd/virtctl:virtctl \
     //cmd/dump:dump \
     //tools/manifest-templator:templator \
@@ -41,17 +41,17 @@ bazel build \
     //tools/junit-merger:junit-merger
 
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     :build-ginkgo -- ${TESTS_OUT_DIR}/ginkgo
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     :build-functests -- ${TESTS_OUT_DIR}/tests.test
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     :build-junit-merger -- ${TESTS_OUT_DIR}/junit-merger
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     :build-dump -- ${CMD_OUT_DIR}/dump/dump
 bazel run \
-    --config=${ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
