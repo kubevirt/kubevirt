@@ -1048,6 +1048,24 @@ var _ = Describe("[Serial]SRIOV", func() {
 					"SR-IOV VF is expected to exist in the guest after migration")
 			})
 
+			It("should re-attach sriov devices on source VMI when failed during setup", func() {
+				By("annotate the VMI with functest force migration failure annotation")
+				vmi := getVmiWithSriovNetAndCustomMac([]string{sriovnet1}, mac)
+				vmi.Annotations = map[string]string{v1.FuncTestForceLauncherMigrationFailureAnnotation: ""}
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				expectInterfaceToExistByMac(virtClient, vmi, mac, attachSRIOVDeviceTimeout,
+					"SR-IOV VF is expected to exist in the guest")
+
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectFailure(virtClient, migration, tests.MigrationWaitTime)
+				tests.ConfirmVMIPostMigrationFailed(virtClient, vmi, migrationUID)
+
+				expectInterfaceToExistByMac(virtClient, vmi, mac, reattachSRIOVDeviceTimeout,
+					"SR-IOV VF is expected to exist on source after migration was failing during setup")
+			})
+
 			When("aborted", func() {
 				const migrationRunningTimeout = 180 * time.Second
 				const migrationCompleteTimeout = 180
