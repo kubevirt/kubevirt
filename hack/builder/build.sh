@@ -26,7 +26,7 @@ for ARCH in ${ARCHITECTURES}; do
         bazel_arch=${ARCH}
         ;;
     esac
-    docker pull --platform="linux/${ARCH}" fedora:32
+    docker pull --platform="linux/${ARCH}" quay.io/centos/centos:stream8
     docker build --platform="linux/${ARCH}" -t "quay.io/kubevirt/builder:${VERSION}-${ARCH}" --build-arg SONOBUOY_ARCH=${sonobuoy_arch} --build-arg BAZEL_ARCH=${bazel_arch} -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
     TMP_IMAGES="${TMP_IMAGES} quay.io/kubevirt/builder:${VERSION}-${ARCH}"
 done
