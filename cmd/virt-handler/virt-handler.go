@@ -297,8 +297,7 @@ func (app *virtHandlerApp) Run() {
 	defer close(stop)
 	// Currently nodeLabeller only support x86_64
 	var capabilities *api.Capabilities
-	arch := virtconfig.NewDefaultArch(runtime.GOARCH)
-	if !arch.IsARM64() && !arch.IsPPC64() {
+	if virtconfig.IsAMD64(runtime.GOARCH) {
 		deviceController := &devicemanager.DeviceController{}
 		if deviceController.NodeHasDevice(nodelabellerutil.KVMPath) {
 			nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)

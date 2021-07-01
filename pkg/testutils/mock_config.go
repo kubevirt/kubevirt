@@ -1,6 +1,8 @@
 package testutils
 
 import (
+	"runtime"
+
 	v1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +19,10 @@ const (
 )
 
 func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+	return NewFakeClusterConfigWithCPUArch(cfgMap, runtime.GOARCH)
+}
+
+func NewFakeClusterConfigWithCPUArch(cfgMap *v1.ConfigMap, CPUArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	crdInformer, _ := NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
@@ -28,7 +34,7 @@ func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cach
 
 	AddDataVolumeAPI(crdInformer)
 
-	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, namespace), configMapInformer, crdInformer, kubeVirtInformer
+	return virtconfig.NewClusterConfigWithCPUArch(configMapInformer, crdInformer, kubeVirtInformer, namespace, CPUArch), configMapInformer, crdInformer, kubeVirtInformer
 }
 
 func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
