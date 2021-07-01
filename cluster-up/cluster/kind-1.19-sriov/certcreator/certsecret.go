@@ -57,7 +57,7 @@ func generate(hookName, namespace string) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate self-signed certificate: %v", err)
 	}
-	log.Printf("Self-Signed certificate created sucessfully for CN %s", certConfig.CommonName)
+	log.Printf("Self-Signed certificate created successfully for CN %s", certConfig.CommonName)
 
 	return certConfig.Certificate.Bytes(), certConfig.PrivateKey.Bytes(), nil
 }
@@ -114,7 +114,7 @@ func createSecret(clusterApi kubernetes.Interface, namespace, secretName string,
 	if err != nil {
 		return fmt.Errorf("timeout waiting for secret '%s' to create secret: %v", secret.Name, err)
 	}
-	log.Printf("Secret '%s' at '%s' created sucessfully", secret.Name, namespace)
+	log.Printf("Secret '%s' at '%s' created successfully", secret.Name, namespace)
 
 	return nil
 }
