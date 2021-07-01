@@ -1,4 +1,4 @@
-FROM fedora:32
+FROM quay.io/centos/centos:stream8
 
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
@@ -9,6 +9,7 @@ ENV KUBEVIRT_CREATE_BAZELRCS false
 
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
+    dnf config-manager --enable powertools && \
     dnf -y install \
         java-11-openjdk-devel \
         libvirt-devel \
@@ -28,14 +29,18 @@ RUN dnf install -y dnf-plugins-core && \
         rsync \
         qemu-img \
         protobuf-compiler \
-        python3-devel \
-        python3-pip \
-        python \
+        python38 \
+        python38-devel \
+        python38-pip \
         redhat-rpm-config \
         jq \
         wget \
         diffutils && \
     dnf -y clean all
+
+# https://github.com/bazelbuild/bazel/issues/8665
+# https://github.com/bazelbuild/bazel/issues/11554
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # install gradle (required for swagger)
 RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
