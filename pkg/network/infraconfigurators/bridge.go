@@ -82,21 +82,13 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 
 func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig {
 	if !b.ipamEnabled {
-		return &cache.DHCPConfig{Name: b.podNicLink.Attrs().Name, IPAMDisabled: true}
+		return &cache.DHCPConfig{IPAMDisabled: true}
 	}
-
-	fakeBridgeIP := b.getFakeBridgeIP()
-	fakeServerAddr, _ := netlink.ParseAddr(fakeBridgeIP)
 
 	dhcpConfig := &cache.DHCPConfig{
-		MAC:               *b.vmMac,
-		Name:              b.podNicLink.Attrs().Name,
-		IPAMDisabled:      !b.ipamEnabled,
-		IP:                b.podIfaceIP,
-		AdvertisingIPAddr: fakeServerAddr.IP,
-	}
-	if b.podNicLink != nil {
-		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
+		MAC:          *b.vmMac,
+		IPAMDisabled: !b.ipamEnabled,
+		IP:           b.podIfaceIP,
 	}
 
 	if b.ipamEnabled && len(b.podIfaceRoutes) > 0 {
@@ -104,16 +96,6 @@ func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache
 		b.decorateDhcpConfigRoutes(dhcpConfig)
 	}
 	return dhcpConfig
-}
-
-func (b *BridgePodNetworkConfigurator) getFakeBridgeIP() string {
-	ifaces := b.vmi.Spec.Domain.Devices.Interfaces
-	for i, iface := range ifaces {
-		if iface.Name == b.vmiSpecIface.Name {
-			return fmt.Sprintf(bridgeFakeIP, i)
-		}
-	}
-	return ""
 }
 
 func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
@@ -228,7 +210,7 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 	}
 
 	// set fake ip on a bridge
-	addr := b.getFakeBridgeIP()
+	addr := virtnetlink.GetFakeBridgeIP(b.vmi.Spec.Domain.Devices.Interfaces, b.vmiSpecIface)
 	fakeaddr, _ := b.handler.ParseAddr(addr)
 
 	if err := b.handler.AddrAdd(bridge, fakeaddr); err != nil {

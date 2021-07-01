@@ -31,6 +31,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const bridgeFakeIP = "169.254.75.1%d/32"
+
 func getMasqueradeGwAndHostAddressesFromCIDR(s string) (string, string, error) {
 	ip, ipnet, err := net.ParseCIDR(s)
 	if err != nil {
@@ -106,4 +108,13 @@ func RetrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.Hardwa
 		return &macAddress, nil
 	}
 	return nil, nil
+}
+
+func GetFakeBridgeIP(vmiSpecIfaces []v1.Interface, vmiSpecIface *v1.Interface) string {
+	for i, iface := range vmiSpecIfaces {
+		if iface.Name == vmiSpecIface.Name {
+			return fmt.Sprintf(bridgeFakeIP, i)
+		}
+	}
+	return ""
 }

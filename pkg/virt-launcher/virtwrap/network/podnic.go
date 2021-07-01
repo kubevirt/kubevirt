@@ -255,7 +255,9 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 			getPIDString(l.launcherPID),
 			generateInPodBridgeInterfaceName(l.podInterfaceName),
 			l.handler,
-			l.podInterfaceName)
+			l.podInterfaceName,
+			l.vmi.Spec.Domain.Devices.Interfaces,
+			l.vmiSpecIface)
 	} else if l.vmiSpecIface.Masquerade != nil {
 		dhcpConfigurator = dhcpconfigurator.NewMasqueradeConfigurator(
 			generateInPodBridgeInterfaceName(l.podInterfaceName),

@@ -43,24 +43,28 @@ type configurator struct {
 	filterByMac          bool
 	handler              netdriver.NetworkHandler
 	dhcpStartedDirectory string
+	podInterfaceName     string
 }
 
 type ConfigGenerator interface {
 	Generate() (*cache.DHCPConfig, error)
 }
 
-func NewBridgeConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler, podInterfaceName string) *configurator {
+func NewBridgeConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler, podInterfaceName string,
+	vmiSpecIfaces []v1.Interface, vmiSpecIface *v1.Interface) *configurator {
 	return &configurator{
+		podInterfaceName:     podInterfaceName,
 		advertisingIfaceName: advertisingIfaceName,
 		filterByMac:          true,
 		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
-		configGenerator:      &BridgeConfigGenerator{cacheFactory: cacheFactory, podInterfaceName: podInterfaceName, launcherPID: launcherPID},
+		configGenerator:      &BridgeConfigGenerator{handler: handler, cacheFactory: cacheFactory, podInterfaceName: podInterfaceName, launcherPID: launcherPID, vmiSpecIfaces: vmiSpecIfaces, vmiSpecIface: vmiSpecIface},
 	}
 }
 
 func NewMasqueradeConfigurator(advertisingIfaceName string, handler netdriver.NetworkHandler, vmiSpecIface *v1.Interface, vmiSpecNetwork *v1.Network, podInterfaceName string) *configurator {
 	return &configurator{
+		podInterfaceName:     podInterfaceName,
 		advertisingIfaceName: advertisingIfaceName,
 		configGenerator:      &MasqueradeConfigGenerator{handler: handler, vmiSpecIface: vmiSpecIface, vmiSpecNetwork: vmiSpecNetwork, podInterfaceName: podInterfaceName},
 		filterByMac:          false,
