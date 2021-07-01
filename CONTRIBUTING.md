@@ -88,9 +88,9 @@ and will be assigned by Prow.
 ### Becoming a member
 
 Contributors that frequently contribute to the project may ask to join the
-kubevirt organization.
+KubeVirt organization.
 
-Please have a look at our [membership guidelines](https://github.com/kubevirt/community/tree/master/member_dd).
+Please have a look at our [membership guidelines](https://github.com/kubevirt/community/blob/master/membership_policy.md).
 
 ## Projects & Communities
 
