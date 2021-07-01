@@ -340,14 +340,14 @@ container_pull(
 # TODO build fedora_sriov_lane for multi-arch
 container_pull(
     name = "fedora_sriov_lane",
-    digest = "sha256:6f66ee747d62c354c0d36e640f8c97d6be0b6ad88a9e8c0180496ac55cba31bf",
+    digest = "sha256:9369062464a9c7a87923861eaf2c8edff689cdce3b8ee65fb039db1a3119ecae",
     registry = "quay.io",
     repository = "kubevirtci/fedora-sriov-testing",
 )
 
 container_pull(
     name = "fedora_sriov_lane_aarch64",
-    digest = "sha256:6f66ee747d62c354c0d36e640f8c97d6be0b6ad88a9e8c0180496ac55cba31bf",
+    digest = "sha256:9369062464a9c7a87923861eaf2c8edff689cdce3b8ee65fb039db1a3119ecae",
     registry = "quay.io",
     repository = "kubevirtci/fedora-sriov-testing",
 )
