@@ -275,6 +275,36 @@ func (app *virtAPIApp) composeSubresources() {
 			Operation(version.Version + "VNC").
 			Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
 
+		// VMI endpoint
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("portforward") + rest.PortPath).
+			To(subresourceApp.PortForwardRequestHandler(subresourceApp.FetchVirtualMachineInstance)).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(rest.PortForwardPortParameter(subws)).
+			Operation(version.Version + "vmi-PortForward").
+			Doc("Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port."))
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("portforward") + rest.PortPath + rest.ProtocolPath).
+			To(subresourceApp.PortForwardRequestHandler(subresourceApp.FetchVirtualMachineInstance)).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(rest.PortForwardPortParameter(subws)).
+			Param(rest.PortForwardProtocolParameter(subws)).
+			Operation(version.Version + "vmi-PortForwardWithProtocol").
+			Doc("Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachineInstance and port."))
+
+		// VM endpoint
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("portforward") + rest.PortPath).
+			To(subresourceApp.PortForwardRequestHandler(subresourceApp.FetchVirtualMachineInstanceForVM)).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(rest.PortForwardPortParameter(subws)).
+			Operation(version.Version + "vm-PortForward").
+			Doc("Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port."))
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("portforward") + rest.PortPath + rest.ProtocolPath).
+			To(subresourceApp.PortForwardRequestHandler(subresourceApp.FetchVirtualMachineInstanceForVM)).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Param(rest.PortForwardPortParameter(subws)).
+			Param(rest.PortForwardProtocolParameter(subws)).
+			Operation(version.Version + "vm-PortForwardWithProtocol").
+			Doc("Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachine and port."))
+
 		// An empty handler function would respond with HTTP OK by default
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("test")).
 			To(func(request *restful.Request, response *restful.Response) {}).
@@ -378,6 +408,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/console",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/portforward",
 						Namespaced: true,
 					},
 					{

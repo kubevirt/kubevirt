@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "async.go",
         "generated_mock_kubevirt.go",
         "handler.go",
         "kubecli.go",
@@ -11,6 +12,7 @@ go_library(
         "kv.go",
         "migration.go",
         "replicaset.go",
+        "streamer.go",
         "version.go",
         "vm.go",
         "vmi.go",

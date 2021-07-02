@@ -21,7 +21,6 @@ package rest
 
 import (
 	"context"
-
 	"crypto/tls"
 	goerror "errors"
 	"fmt"
@@ -75,11 +74,24 @@ type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (stri
 
 func (app *SubresourceAPIApp) prepareConnection(request *restful.Request, validate validation, getVirtHandlerURL URLResolver) (vmi *v1.VirtualMachineInstance, url string, conn kubecli.VirtHandlerConn, statusError *errors.StatusError) {
 
-	var err error
 	vmiName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	vmi, statusError = app.fetchVirtualMachineInstance(vmiName, namespace)
+	vmi, statusError = app.fetchAndValidateVirtualMachineInstance(namespace, vmiName, validate)
+	if statusError != nil {
+		return
+	}
+
+	url, conn, statusError = app.getVirtHandlerFor(vmi, getVirtHandlerURL)
+	if statusError != nil {
+		return
+	}
+
+	return
+}
+
+func (app *SubresourceAPIApp) fetchAndValidateVirtualMachineInstance(namespace, vmiName string, validate validation) (vmi *v1.VirtualMachineInstance, statusError *errors.StatusError) {
+	vmi, statusError = app.FetchVirtualMachineInstance(namespace, vmiName)
 	if statusError != nil {
 		log.Log.Reason(statusError).Errorf("Failed to gather vmi %s in namespace %s.", vmiName, namespace)
 		return
@@ -88,70 +100,10 @@ func (app *SubresourceAPIApp) prepareConnection(request *restful.Request, valida
 	if statusError = validate(vmi); statusError != nil {
 		return
 	}
-
-	if conn, err = app.getVirtHandlerConnForVMI(vmi); err != nil {
-		statusError = errors.NewBadRequest(err.Error())
-		log.Log.Object(vmi).Reason(statusError).Error("Unable to establish connection to virt-handler")
-		return
-	}
-	if url, err = getVirtHandlerURL(vmi, conn); err != nil {
-		statusError = errors.NewBadRequest(err.Error())
-		log.Log.Object(vmi).Reason(statusError).Error("Unable to retrieve target handler URL")
-		return
-	}
-
 	return
 }
 
-func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver) {
-
-	var err error
-	vmi, url, _, statusError := app.prepareConnection(request, validate, getVirtHandlerURL)
-	if statusError != nil {
-		writeError(statusError, response)
-		return
-	}
-
-	upgrader := kubecli.NewUpgrader()
-	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")
-		writeError(errors.NewBadRequest(err.Error()), response)
-		return
-	}
-	defer clientSocket.Close()
-
-	conn, _, err := kubecli.Dial(url, app.handlerTLSConfiguration)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("failed to dial virt-handler for a console connection")
-		writeError(errors.NewInternalError(err), response)
-		return
-	}
-	defer conn.Close()
-
-	copyErr := make(chan error)
-	go func() {
-		_, err := kubecli.Copy(clientSocket, conn)
-		log.Log.Object(vmi).Reason(err).Error("error encountered reading from virt-handler stream")
-		copyErr <- err
-	}()
-
-	go func() {
-		_, err := kubecli.Copy(conn, clientSocket)
-		log.Log.Object(vmi).Reason(err).Error("error encountered reading from client stream")
-		copyErr <- err
-	}()
-
-	// wait for copy to finish and check the result
-	if err = <-copyErr; err != nil && err != io.EOF {
-		log.Log.Object(vmi).Reason(err).Error("Error in websocket proxy")
-		writeError(errors.NewInternalError(err), response)
-		return
-	}
-}
-
 func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver) {
-
 	_, url, conn, statusErr := app.prepareConnection(request, validate, getVirtHandlerURL)
 	if statusErr != nil {
 		writeError(statusErr, response)
@@ -165,20 +117,14 @@ func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, respon
 	}
 }
 
-func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, response *restful.Response) {
-	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-		// If there are no graphics devices present, we can't proceed
-		if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == false {
-			err := fmt.Errorf("No graphics devices are present.")
-			log.Log.Object(vmi).Reason(err).Error("Can't establish VNC connection.")
-			return errors.NewBadRequest(err.Error())
-		}
-		return nil
+// get either the interface with the provided name or the first available interface
+// if no interface is present, return error
+func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
+	interfaces := vmi.Status.Interfaces
+	if len(interfaces) < 1 {
+		return "", fmt.Errorf("no network interfaces are present")
 	}
-	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.VNCURI(vmi)
-	}
-	app.streamRequestHandler(request, response, validate, getConsoleURL)
+	return interfaces[0].IP, nil
 }
 
 func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineInstance) (kubecli.VirtHandlerConn, error) {
@@ -186,24 +132,6 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 		return nil, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running))
 	}
 	return kubecli.NewVirtHandlerClient(app.virtCli).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
-}
-
-func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, response *restful.Response) {
-	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-		if vmi.Spec.Domain.Devices.AutoattachSerialConsole != nil && *vmi.Spec.Domain.Devices.AutoattachSerialConsole == false {
-			err := fmt.Errorf("No serial consoles are present.")
-			log.Log.Object(vmi).Reason(err).Error("Can't establish a serial console connection.")
-			return errors.NewBadRequest(err.Error())
-		}
-		if vmi.Status.Phase == v1.Failed {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is in failed status"))
-		}
-		return nil
-	}
-	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.ConsoleURI(vmi)
-	}
-	app.streamRequestHandler(request, response, validate, getConsoleURL)
 }
 
 func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineStateChangeRequest) (string, error) {
@@ -720,7 +648,8 @@ func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string)
 	return vm, nil
 }
 
-func (app *SubresourceAPIApp) fetchVirtualMachineInstance(name string, namespace string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+// FetchVirtualMachineInstance by namespace and name
+func (app *SubresourceAPIApp) FetchVirtualMachineInstance(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
 
 	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
@@ -730,6 +659,37 @@ func (app *SubresourceAPIApp) fetchVirtualMachineInstance(name string, namespace
 		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]: %v", name, err))
 	}
 	return vmi, nil
+}
+
+// FetchVirtualMachineInstanceForVM by namespace and name
+func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+	vm, err := app.virtCli.VirtualMachine(namespace).Get(name, &k8smetav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
+		}
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vm [%s]: %v", name, err))
+	}
+
+	if !vm.Status.Created {
+		return nil, errors.NewConflict(v1.Resource("virtualmachine"), vm.Name, fmt.Errorf("VM is not created"))
+	}
+
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
+		}
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]: %v", name, err))
+	}
+
+	for _, ref := range vmi.OwnerReferences {
+		if ref.UID == vm.UID {
+			return vmi, nil
+		}
+	}
+
+	return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s] for vm: %v", name, err))
 }
 
 func writeError(error *errors.StatusError, response *restful.Response) {
@@ -1119,7 +1079,7 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 }
 
 func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
-	vmi, statErr := app.fetchVirtualMachineInstance(name, namespace)
+	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
 	if statErr != nil {
 		return statErr
 	}

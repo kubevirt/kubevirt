@@ -3,28 +3,30 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "target.go",
-        "templates.go",
+        "portforward.go",
+        "portforwarder.go",
+        "ports.go",
+        "tcp.go",
+        "udp.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/virtctl/templates",
+    importpath = "kubevirt.io/kubevirt/pkg/virtctl/portforward",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/controller:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
-        "target_test.go",
-        "templates_suite_test.go",
+        "portforward_suite_test.go",
+        "ports_test.go",
     ],
+    embed = [":go_default_library"],
     deps = [
-        ":go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
