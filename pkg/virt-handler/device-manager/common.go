@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/uuid"
+
 	"kubevirt.io/client-go/log"
 )
 
@@ -39,6 +41,9 @@ type DeviceHandler interface {
 	GetDeviceNumaNode(basepath string, pciAddress string) (numaNode int)
 	GetDevicePCIID(basepath string, pciAddress string) (string, error)
 	GetMdevParentPCIAddr(mdevUUID string) (string, error)
+	CreateMDEVType(mdevType string, parentID string) error
+	RemoveMDEVType(mdevUUID string) error
+	ReadMDEVAvailableInstances(mdevType string, parentID string) (int, error)
 }
 
 type DeviceUtilsHandler struct{}
@@ -116,6 +121,70 @@ func (h *DeviceUtilsHandler) GetMdevParentPCIAddr(mdevUUID string) (string, erro
 	}
 	linkParts := strings.Split(mdevLink, "/")
 	return linkParts[len(linkParts)-2], nil
+}
+
+func (h *DeviceUtilsHandler) CreateMDEVType(mdevType string, parentID string) error {
+	uid := uuid.NewUUID()
+
+	path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "create")
+	f, err := os.OpenFile(path, os.O_WRONLY, 0200)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create mdev type %s, can't open path %s", mdevType, path)
+		return err
+	}
+
+	defer f.Close()
+
+	if _, err = f.WriteString(string(uid)); err != nil {
+		log.Log.Reason(err).Errorf("failed to create mdev type %s, can't write to %s", mdevType, path)
+		return err
+	}
+	return nil
+}
+
+func (h *DeviceUtilsHandler) RemoveMDEVType(mdevUUID string) error {
+	removePath := filepath.Join(mdevBasePath, mdevUUID, "remove")
+
+	f, err := os.OpenFile(removePath, os.O_WRONLY, 0200)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to remove mdev %s, can't open path %s", mdevUUID, removePath)
+		return err
+	}
+
+	defer f.Close()
+
+	if _, err = f.WriteString("1"); err != nil {
+		log.Log.Reason(err).Errorf("failed to remove mdev %s, can't write to %s", mdevUUID, removePath)
+		return err
+	}
+	return nil
+}
+
+func (h *DeviceUtilsHandler) ReadMDEVAvailableInstances(mdevType string, parentID string) (int, error) {
+	var lines []string
+	path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "available_instances")
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	err = scanner.Err()
+	if err != nil {
+		return 0, err
+	}
+
+	i, err := strconv.Atoi(string(lines[0]))
+	if err != nil {
+		return 0, err
+	}
+
+	return i, nil
 }
 
 func initHandler() {

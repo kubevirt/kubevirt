@@ -20,17 +20,13 @@
 package device_manager
 
 import (
-	"bufio"
 	"bytes"
 	"container/ring"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-    "strconv"
 	"strings"
 	"sync"
-
-	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"kubevirt.io/client-go/log"
 )
@@ -46,6 +42,7 @@ type MDEVTypesManager struct {
 }
 
 func NewMDEVTypesManager() *MDEVTypesManager {
+	initHandler()
 	return &MDEVTypesManager{
 		availableMdevTypesMap: make(map[string][]string),
 	}
@@ -92,7 +89,7 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[str
 		filePathParts := strings.Split(file, string(os.PathSeparator))
 		parentID := filePathParts[len(filePathParts)-3]
 
-        //find the type's name
+		//find the type's name
 		rawName, err := ioutil.ReadFile(filepath.Join(file, "name"))
 		if err != nil {
 			if !os.IsNotExist(err) {
@@ -104,10 +101,10 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[str
 		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)
 
-        // get this type's ID
+		// get this type's ID
 		typeID := filepath.Base(file)
 
-        // find out if type was requested by name
+		// find out if type was requested by name
 		_, typeNameExist := desiredTypesMap[typeNameStr]
 		_, typeIDExist := desiredTypesMap[typeID]
 		if typeNameExist || typeIDExist {
@@ -156,8 +153,8 @@ func (m *MDEVTypesManager) configureDesiredMDEVTypes() {
 				// Find the next available parent to congigure and remove the
 				// configured parents from the list.
 				parent, remainingParents := m.getNextAvailableParentToConfigure(parents)
-                parents = remainingParents
-                if parent != "" {
+				parents = remainingParents
+				if parent != "" {
 					if err := createMdevTypes(mdevTypeToConfigure, parent); err == nil {
 						m.availableMdevTypesMap[mdevTypeToConfigure] = remainingParents
 						// remove the already configured parent
@@ -179,64 +176,20 @@ func (m *MDEVTypesManager) configureDesiredMDEVTypes() {
 }
 
 func createMdevTypes(mdevType string, parentID string) error {
-    instances, err := readMdevAvailableInstances(mdevType, parentID)
-    /*instances := 1
-    if instances > 2 {
-        panic(instances)
-    }*/
+	instances, err := Handler.ReadMDEVAvailableInstances(mdevType, parentID)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create mdevs of type %s, failed to obtain number of instances", mdevType)
 		return err
 	}
-    for i:=0;i<instances;i++ {
-        uid := uuid.NewUUID()
-
-        path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "create")
-        f, err := os.OpenFile(path, os.O_WRONLY, 0200)
-        if err != nil {
-            log.Log.Reason(err).Errorf("failed to create mdev type %s, can't open path %s", mdevType, path)
-            return err
-        }
-
-        defer f.Close()
-
-        if _, err = f.WriteString(string(uid)); err != nil {
-            log.Log.Reason(err).Errorf("failed to create mdev type %s, can't write to %s", mdevType, path)
-            return err
-        }
-    }
+	// create mdevs for all available instances
+	for i := 0; i < instances; i++ {
+		err := Handler.CreateMDEVType(mdevType, parentID)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to create mdevs of type %s, failed to obtain number of instances", mdevType)
+			return err
+		}
+	}
 	return nil
-}
-
-func readMdevAvailableInstances(mdevType string, parentID string) (int, error) {
-    var lines []string
-	path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "available_instances")
-    /*instances, err := ioutil.ReadFile(path)
-    if err != nil {
-        return 0, err
-    }*/
-    f, err := os.Open(path)
-    if err != nil {
-        return 0, err
-    }
-
-    defer f.Close()
-
-    scanner := bufio.NewScanner(f)
-    for scanner.Scan() {
-        lines = append(lines, scanner.Text())
-    }
-    err = scanner.Err()
-    if err != nil {
-        return 0, err
-    }
-
-    i, err := strconv.Atoi(string(lines[0]))
-    if err != nil {
-        return 0, err
-    }
-
-    return i, nil
 }
 
 func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool {
@@ -268,20 +221,7 @@ func removeUndesiredMDEVs(desiredTypesMap map[string]struct{}) {
 			return nil
 		}
 		if shouldRemoveMDEV(info.Name(), desiredTypesMap) {
-			removePath := filepath.Join(mdevBasePath, info.Name(), "remove")
-
-			f, err := os.OpenFile(removePath, os.O_WRONLY, 0200)
-			if err != nil {
-				log.Log.Reason(err).Errorf("failed to remove mdev %s, can't open path %s", info.Name(), removePath)
-				return nil
-			}
-
-			defer f.Close()
-
-			if _, err = f.WriteString("1"); err != nil {
-				log.Log.Reason(err).Errorf("failed to remove mdev %s, can't write to %s", info.Name(), removePath)
-				return nil
-			}
+			Handler.RemoveMDEVType(info.Name())
 		}
 		return nil
 	})
