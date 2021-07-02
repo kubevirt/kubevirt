@@ -326,7 +326,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				continue
 			}
 			words := strings.Fields(str)
-			Expect(len(words)).To(Equal(5))
+
+			Expect(len(words)).To(Equal(7), fmt.Sprintf("Found %s", words))
 
 			// verify it is numeric
 			_, err = strconv.Atoi(words[0])
@@ -654,7 +655,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			// Previously, we'd stop getting events after libvirt reconnect, which
 			// prevented things like migration. This test verifies we can migrate after
 			// resetting libvirt
-			It("[test_id:4746]should migrate even if libvirt has restarted at some point.", func() {
+			FIt("[test_id:4746]should migrate even if libvirt has restarted at some point.", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
