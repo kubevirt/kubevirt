@@ -507,6 +507,8 @@ var CRDsValidation map[string]string = map[string]string{
               - type: string
               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
               x-kubernetes-int-or-string: true
+            defaultRuntimeClass:
+              type: string
             developerConfiguration:
               description: DeveloperConfiguration holds developer options
               properties:

@@ -10353,6 +10353,9 @@
      "cpuRequest": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
+     "defaultRuntimeClass": {
+      "type": "string"
+     },
      "developerConfiguration": {
       "$ref": "#/definitions/v1.DeveloperConfiguration"
      },

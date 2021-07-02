@@ -1848,6 +1848,7 @@ type KubeVirtConfiguration struct {
 	NetworkConfiguration   *NetworkConfiguration   `json:"network,omitempty"`
 	OVMFPath               string                  `json:"ovmfPath,omitempty"`
 	SELinuxLauncherType    string                  `json:"selinuxLauncherType,omitempty"`
+	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
 	// deprecated
 	SupportedGuestAgentVersions []string              `json:"supportedGuestAgentVersions,omitempty"`

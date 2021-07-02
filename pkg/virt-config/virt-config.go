@@ -170,6 +170,10 @@ func (c *ClusterConfig) GetSELinuxLauncherType() string {
 	return c.GetConfig().SELinuxLauncherType
 }
 
+func (c *ClusterConfig) GetDefaultRuntimeClass() string {
+	return c.GetConfig().DefaultRuntimeClass
+}
+
 func (c *ClusterConfig) GetSupportedAgentVersions() []string {
 	return c.GetConfig().SupportedGuestAgentVersions
 }
