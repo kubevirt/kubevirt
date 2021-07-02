@@ -1581,7 +1581,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 })
 
 func renderPkillAllPod(processName string) *k8sv1.Pod {
-	return tests.RenderPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
+	return tests.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
 }
 
 func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
