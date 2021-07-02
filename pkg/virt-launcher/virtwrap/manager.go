@@ -128,6 +128,7 @@ type LibvirtDomainManager struct {
 	networkCacheStoreFactory cache.InterfaceCacheFactory
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 	minimumPVCReserveBytes   uint64
+	directIOChecker          converter.DirectIOChecker
 }
 
 type hostDeviceTypePrefix struct {
@@ -159,6 +160,11 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
+	directIOChecker := converter.NewDirectIOChecker()
+	return newLibvirtDomainManager(connection, virtShareDir, notifier, lessPVCSpaceToleration, minimumPVCReserveBytes, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
+}
+
+func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:                connection,
 		virtShareDir:           virtShareDir,
@@ -172,6 +178,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
 		minimumPVCReserveBytes:   minimumPVCReserveBytes,
+		directIOChecker:          directIOChecker,
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
@@ -433,7 +440,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// generate cloud-init data
 	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
 	if err != nil {
-		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
+		return domain, fmt.Errorf("ReadCloudInitVolumeDataSource failed: %v", err)
 	}
 
 	// Pass cloud-init data to PreCloudInitIso hook
@@ -445,6 +452,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	if cloudInitData != nil {
+		// need to prepare the local path for cloud-init in advance for proper
+		// detection of the disk driver cache mode
+		if err := cloudinit.PrepareLocalPath(vmi.Name, vmi.Namespace); err != nil {
+			return domain, fmt.Errorf("PrepareLocalPath failed: %v", err)
+		}
 		// store the generated cloud init metadata.
 		// cloud init ISO will be generated after the domain definition
 		l.cloudInitDataStore = cloudInitData
@@ -516,7 +528,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
-		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
+		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
 		if err != nil {
 			return domain, err
 		}

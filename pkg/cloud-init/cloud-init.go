@@ -446,6 +446,10 @@ func GetIsoFilePath(source DataSourceType, domain, namespace string) string {
 	return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), noCloudFile)
 }
 
+func PrepareLocalPath(vmiName string, namespace string) error {
+	return util.MkdirAllWithNosec(getDomainBasePath(vmiName, namespace))
+}
+
 func removeLocalData(domain string, namespace string) error {
 	domainBasePath := getDomainBasePath(domain, namespace)
 	err := os.RemoveAll(domainBasePath)

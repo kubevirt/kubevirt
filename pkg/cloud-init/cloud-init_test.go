@@ -519,4 +519,16 @@ var _ = Describe("CloudInit", func() {
 		})
 
 	})
+
+	Describe("PrepareLocalPath", func() {
+		It("should create the correct directory structure", func() {
+			namespace := "fake-namespace"
+			domain := "fake-domain"
+			expectedPath := filepath.Join(tmpDir, namespace, domain)
+			err := PrepareLocalPath(domain, namespace)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = os.Stat(expectedPath)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 })
