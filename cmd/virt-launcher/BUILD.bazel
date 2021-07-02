@@ -44,6 +44,14 @@ go_binary(
     x_defs = version_x_defs(),
 )
 
+genrule(
+    name = "setcaps",
+    srcs = [":virt-launcher"],
+    outs = ["virt-launcher.tar.gz"],
+    cmd = "path=$$(readlink -f $(location virt-launcher)) && cp $$path virt-launcher && setcap 'cap_net_bind_service+eip'  virt-launcher && tar --xattrs --no-selinux -czvf virt-launcher.tar.gz virt-launcher && mv virt-launcher.tar.gz $@",
+    visibility = ["//visibility:public"],
+)
+
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
@@ -148,9 +156,9 @@ container_image(
     entrypoint = ["/usr/bin/virt-launcher"],
     files = [
         "node-labeller/node-labeller.sh",
-        ":virt-launcher",
         "//cmd/container-disk-v2alpha:container-disk",
         "//cmd/virt-probe",
     ],
+    tars = [":setcaps"],
     visibility = ["//visibility:public"],
 )
