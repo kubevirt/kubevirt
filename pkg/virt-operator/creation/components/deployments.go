@@ -457,7 +457,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	container.VolumeMounts = []corev1.VolumeMount{}
 
 	container.LivenessProbe = &corev1.Probe{
-		FailureThreshold: 8,
+		FailureThreshold: 3,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: corev1.URISchemeHTTPS,
@@ -470,6 +470,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		},
 		InitialDelaySeconds: 15,
 		TimeoutSeconds:      10,
+		PeriodSeconds:       45,
 	}
 	container.ReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
@@ -484,6 +485,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		},
 		InitialDelaySeconds: 15,
 		TimeoutSeconds:      10,
+		PeriodSeconds:       20,
 	}
 
 	pod.Volumes = []corev1.Volume{}
