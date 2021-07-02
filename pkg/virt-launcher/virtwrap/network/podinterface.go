@@ -34,11 +34,12 @@ type LibvirtSpecGenerator interface {
 	generate() error
 }
 
-func newMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, cachedDomainInterface api.Interface) *MacvtapLibvirtSpecGenerator {
+func newMacvtapLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, podInterfaceName string, handler netdriver.NetworkHandler) *MacvtapLibvirtSpecGenerator {
 	return &MacvtapLibvirtSpecGenerator{
-		vmiSpecIface:          iface,
-		domain:                domain,
-		cachedDomainInterface: cachedDomainInterface,
+		vmiSpecIface:     iface,
+		domain:           domain,
+		podInterfaceName: podInterfaceName,
+		handler:          handler,
 	}
 }
 
@@ -178,9 +179,10 @@ func (b *SlirpLibvirtSpecGenerator) generate() error {
 }
 
 type MacvtapLibvirtSpecGenerator struct {
-	vmiSpecIface          *v1.Interface
-	domain                *api.Domain
-	cachedDomainInterface api.Interface
+	vmiSpecIface     *v1.Interface
+	domain           *api.Domain
+	podInterfaceName string
+	handler          netdriver.NetworkHandler
 }
 
 func (b *MacvtapLibvirtSpecGenerator) generate() error {
@@ -201,5 +203,25 @@ func (b *MacvtapLibvirtSpecGenerator) generate() error {
 }
 
 func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
-	return &b.cachedDomainInterface, nil
+	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		return nil, err
+	}
+	mac, err := virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
+	if err != nil {
+		return nil, err
+	}
+	if mac == nil {
+		mac = &podNicLink.Attrs().HardwareAddr
+	}
+
+	return &api.Interface{
+		MAC: &api.MAC{MAC: mac.String()},
+		MTU: &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)},
+		Target: &api.InterfaceTarget{
+			Device:  b.podInterfaceName,
+			Managed: "no",
+		},
+	}, nil
 }

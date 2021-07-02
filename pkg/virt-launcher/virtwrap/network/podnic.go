@@ -71,11 +71,6 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 			podnic.vmiSpecNetwork,
 			*podnic.launcherPID,
 			podnic.handler)
-	} else if podnic.vmiSpecIface.Macvtap != nil {
-		podnic.infraConfigurator = infraconfigurators.NewMacvtapPodNetworkConfigurator(
-			podnic.podInterfaceName,
-			podnic.vmiSpecIface,
-			podnic.handler)
 	}
 	return podnic, nil
 }
@@ -287,11 +282,7 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) (LibvirtSpecGenerat
 		return newSlirpLibvirtSpecGenerator(l.vmiSpecIface, domain), nil
 	}
 	if l.vmiSpecIface.Macvtap != nil {
-		cachedDomainIface, err := l.cachedDomainInterface()
-		if err != nil {
-			return nil, err
-		}
-		return newMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, *cachedDomainIface), nil
+		return newMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }

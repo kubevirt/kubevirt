@@ -655,17 +655,14 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().LinkByName(podnic.podInterfaceName).Return(macvtapInterface, nil)
 			})
 
-			XIt("Should pass a non-privileged macvtap interface to qemu", func() {
-				// TODO the test fails in this commit since the domainCache is not stored anywhere, the next commit is removing the domain cache usgae so it will fix the test
+			It("Should pass a non-privileged macvtap interface to qemu", func() {
 				domain := NewDomainWithMacvtapInterface("default")
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				driver, err := podnic.newLibvirtSpecGenerator(domain)
+				specGenerator, err := podnic.newLibvirtSpecGenerator(domain)
 				Expect(err).ToNot(HaveOccurred(), "should have identified the correct binding mechanism")
 
-				Expect(podnic.infraConfigurator.DiscoverPodNetworkInterface(podnic.podInterfaceName)).To(Succeed())
-				Expect(podnic.infraConfigurator.PreparePodNetworkInterface()).To(Succeed())
-				Expect(driver.generate()).To(Succeed())
+				Expect(specGenerator.generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1), "should have a single interface")
 				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: podnic.podInterfaceName, Managed: "no"}), "should have an unmanaged interface")
