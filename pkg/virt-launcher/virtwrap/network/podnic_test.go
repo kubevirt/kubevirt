@@ -3,7 +3,9 @@ package network
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 	"runtime"
 
 	. "github.com/onsi/ginkgo"
@@ -80,22 +82,32 @@ var _ = Describe("podNIC", func() {
 			Expect(ok).To(BeTrue(), "SetupPhase1 should return an error of type CriticalNetworkError")
 		})
 	})
-	PContext("when DHCP startup fails", func() {
+	Context("when DHCP startup fails", func() {
+		var (
+			tmpDir string
+			podnic *podNIC
+			domain *api.Domain
+		)
 		BeforeEach(func() {
+			var err error
+			tmpDir, err = ioutil.TempDir(os.TempDir(), "dhcp")
+			Expect(err).ToNot(HaveOccurred())
 			mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("podnic_test: forcing failure at DHCP start"))
+			domain = NewDomainWithBridgeInterface()
+			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+			podnic, err = newPodNICWithMocks(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			podnic.dhcpConfigurator.DHCPStartedDirectory = tmpDir
+			podnic.storeCachedDomainIface(domain.Spec.Devices.Interfaces[0])
+			podnic.dhcpConfigurator.ExportConfiguration(cache.DHCPConfig{Name: "eth0"})
+
+		})
+		AfterEach(func() {
+			os.RemoveAll(tmpDir)
 		})
 		It("phase2 should panic", func() {
-			testDhcpPanic := func() {
-				domain := NewDomainWithBridgeInterface()
-				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				podnic, err := newPodNICWithMocks(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				podnic.storeCachedDomainIface(domain.Spec.Devices.Interfaces[0])
-				podnic.dhcpConfigurator.ExportConfiguration(cache.DHCPConfig{Name: "eth0"})
-				Expect(podnic.PlugPhase2(domain)).To(Succeed())
-			}
-			Expect(testDhcpPanic).To(Panic())
+			Expect(func() { podnic.PlugPhase2(domain) }).To(Panic())
 		})
 	})
 	Context("when setPodInterfaceCache is called with a configured nic", func() {

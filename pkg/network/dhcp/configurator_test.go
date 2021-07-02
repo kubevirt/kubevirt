@@ -24,7 +24,7 @@ var _ = Describe("DHCP configurator", func() {
 		bridgeName         = "br0"
 		ifaceName          = "eth0"
 		launcherPID        = "self"
-		fakeDhcpStartedDir = "/tmp/dhcpStartedPath"
+		fakeDhcpStartedDir = "/tmp/DHCPStartedPath"
 	)
 
 	BeforeEach(func() {
@@ -38,13 +38,13 @@ var _ = Describe("DHCP configurator", func() {
 
 	newConfiguratorWithClientFilter := func(launcherPID string, advertisingIfaceName string) *Configurator {
 		configurator := NewConfiguratorWithClientFilter(fake.NewFakeInMemoryNetworkCacheFactory(), launcherPID, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())))
-		configurator.dhcpStartedDirectory = fakeDhcpStartedDir
+		configurator.DHCPStartedDirectory = fakeDhcpStartedDir
 		return configurator
 	}
 
 	newConfigurator := func(launcherPID string, advertisingIfaceName string) *Configurator {
 		configurator := NewConfigurator(fake.NewFakeInMemoryNetworkCacheFactory(), launcherPID, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())))
-		configurator.dhcpStartedDirectory = fakeDhcpStartedDir
+		configurator.DHCPStartedDirectory = fakeDhcpStartedDir
 		return configurator
 	}
 

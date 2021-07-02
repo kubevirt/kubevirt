@@ -9,7 +9,7 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
 
-const dhcpStartedDirectory = "/var/run/kubevirt-private"
+const defaultDHCPStartedDirectory = "/var/run/kubevirt-private"
 
 type Configurator struct {
 	advertisingIfaceName string
@@ -17,7 +17,7 @@ type Configurator struct {
 	filterByMac          bool
 	handler              netdriver.NetworkHandler
 	launcherPID          string
-	dhcpStartedDirectory string
+	DHCPStartedDirectory string
 }
 
 // NewConfiguratorWithClientFilter should be used when the DHCP server is
@@ -29,7 +29,7 @@ func NewConfiguratorWithClientFilter(cacheFactory cache.InterfaceCacheFactory, l
 		launcherPID:          launcherPID,
 		filterByMac:          true,
 		handler:              handler,
-		dhcpStartedDirectory: dhcpStartedDirectory,
+		DHCPStartedDirectory: defaultDHCPStartedDirectory,
 	}
 }
 
@@ -42,7 +42,7 @@ func NewConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID strin
 		launcherPID:          launcherPID,
 		filterByMac:          false,
 		handler:              handler,
-		dhcpStartedDirectory: dhcpStartedDirectory,
+		DHCPStartedDirectory: defaultDHCPStartedDirectory,
 	}
 }
 
@@ -65,15 +65,15 @@ func (d Configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfi
 	if dhcpConfig.IPAMDisabled {
 		return nil
 	}
-	dhcpStartedFile := d.getDHCPStartedFilePath(podInterfaceName)
-	_, err := os.Stat(dhcpStartedFile)
+	DHCPStartedFile := d.getDHCPStartedFilePath(podInterfaceName)
+	_, err := os.Stat(DHCPStartedFile)
 	if os.IsNotExist(err) {
 		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions, d.filterByMac); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}
-		newFile, err := os.Create(dhcpStartedFile)
+		newFile, err := os.Create(DHCPStartedFile)
 		if err != nil {
-			return fmt.Errorf("failed to create dhcp started file %s: %s", dhcpStartedFile, err)
+			return fmt.Errorf("failed to create dhcp started file %s: %s", DHCPStartedFile, err)
 		}
 		newFile.Close()
 	}
@@ -81,5 +81,5 @@ func (d Configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfi
 }
 
 func (d Configurator) getDHCPStartedFilePath(podInterfaceName string) string {
-	return fmt.Sprintf("%s/dhcp_started-%s", d.dhcpStartedDirectory, podInterfaceName)
+	return fmt.Sprintf("%s/dhcp_started-%s", d.DHCPStartedDirectory, podInterfaceName)
 }
