@@ -15,7 +15,7 @@ export DOCKER_TAG=mybuild
 Then build the manifests and images:
 
 ```bash
-make && make push
+make && make push && make manifests
 ```
 
 Finally, push the manifests to your cluster:
