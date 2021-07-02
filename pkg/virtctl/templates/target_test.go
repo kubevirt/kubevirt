@@ -10,7 +10,7 @@ import (
 
 var _ = Describe("Target", func() {
 
-	table.DescribeTable("parseTarget", func(arg, targetNamespace, targetName, targetKind string, success bool) {
+	table.DescribeTable("ParseTarget", func(arg, targetNamespace, targetName, targetKind string, success bool) {
 		kind, namespace, name, err := templates.ParseTarget(arg)
 		Expect(namespace).To(Equal(targetNamespace))
 		Expect(name).To(Equal(targetName))
@@ -34,5 +34,26 @@ var _ = Describe("Target", func() {
 		table.Entry("only separators", "/.", "", "", "", false),
 		table.Entry("only dot", ".", "", "", "", false),
 		table.Entry("only slash", "/", "", "", "", false),
+	)
+	table.DescribeTable("ParseSSHTarget", func(arg, targetNamespace, targetName, targetKind, targetUsername string, success bool) {
+		kind, namespace, name, username, err := templates.ParseSSHTarget(arg)
+		Expect(namespace).To(Equal(targetNamespace))
+		Expect(name).To(Equal(targetName))
+		Expect(kind).To(Equal(targetKind))
+		Expect(username).To(Equal(targetUsername))
+		if success {
+			Expect(err).NotTo(HaveOccurred())
+		} else {
+			Expect(err).To(HaveOccurred())
+		}
+	},
+		table.Entry("username and name", "user@testvmi", "", "testvmi", "vmi", "user", true),
+		table.Entry("username and name and namespace", "user@testvmi.default", "default", "testvmi", "vmi", "user", true),
+		table.Entry("kind vmi with name and username", "user@vmi/testvmi", "", "testvmi", "vmi", "user", true),
+		table.Entry("kind vmi with name and namespace and username", "user@vmi/testvmi.default", "default", "testvmi", "vmi", "user", true),
+		table.Entry("only username", "user@", "", "", "", "", false),
+		table.Entry("only at and target", "@testvmi", "", "", "", "", false),
+		table.Entry("only separators", "@/.", "", "", "", "", false),
+		table.Entry("only at", "@", "", "", "", "", false),
 	)
 })
