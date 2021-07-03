@@ -227,65 +227,66 @@ var GetKubevirtClientFromClientConfig = func(cmdConfig clientcmd.ClientConfig) (
 }
 
 func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error) {
-	config.GroupVersion = &v1.StorageGroupVersion
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: v1.Codecs}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
+	shallowCopy := *config
+	shallowCopy.GroupVersion = &v1.StorageGroupVersion
+	shallowCopy.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: v1.Codecs}
+	shallowCopy.APIPath = "/apis"
+	shallowCopy.ContentType = runtime.ContentTypeJSON
 	if config.UserAgent == "" {
 		config.UserAgent = restclient.DefaultKubernetesUserAgent()
 	}
 
-	restClient, err := rest.RESTClientFor(config)
+	restClient, err := rest.RESTClientFor(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	coreClient, err := kubernetes.NewForConfig(config)
+	coreClient, err := kubernetes.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	generatedKubeVirtClient, err := generatedclient.NewForConfig(config)
+	generatedKubeVirtClient, err := generatedclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	cdiClient, err := cdiclient.NewForConfig(config)
+	cdiClient, err := cdiclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	networkClient, err := networkclient.NewForConfig(config)
+	networkClient, err := networkclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	extensionsClient, err := extclient.NewForConfig(config)
+	extensionsClient, err := extclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	secClient, err := secv1.NewForConfig(config)
+	secClient, err := secv1.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	prometheusClient, err := promclient.NewForConfig(config)
+	prometheusClient, err := promclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshotClient, err := k8ssnapshotclient.NewForConfig(config)
+	snapshotClient, err := k8ssnapshotclient.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 
-	dynamicClient, err := dynamic.NewForConfig(config)
+	dynamicClient, err := dynamic.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +295,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		master,
 		kubeconfig,
 		restClient,
-		config,
+		&shallowCopy,
 		generatedKubeVirtClient,
 		cdiClient,
 		networkClient,
