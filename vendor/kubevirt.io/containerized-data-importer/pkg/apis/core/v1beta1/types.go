@@ -43,7 +43,11 @@ type DataVolume struct {
 // DataVolumeSpec defines the DataVolume type specification
 type DataVolumeSpec struct {
 	//Source is the src of the data for the requested DataVolume
-	Source DataVolumeSource `json:"source"`
+	// +optional
+	Source *DataVolumeSource `json:"source,omitempty"`
+	//SourceRef is an indirect reference to the source of data for the requested DataVolume
+	// +optional
+	SourceRef *DataVolumeSourceRef `json:"sourceRef,omitempty"`
 	//PVC is the PVC specification
 	PVC *corev1.PersistentVolumeClaimSpec `json:"pvc,omitempty"`
 	// Storage is the requested storage specification
@@ -193,6 +197,22 @@ type DataVolumeSourceVDDK struct {
 	// SecretRef provides a reference to a secret containing the username and password needed to access the vCenter or ESXi host
 	SecretRef string `json:"secretRef,omitempty"`
 }
+
+// DataVolumeSourceRef defines an indirect reference to the source of data for the DataVolume
+type DataVolumeSourceRef struct {
+	// The kind of the source reference, currently only "DataSource" is supported
+	Kind string `json:"kind"`
+	// The namespace of the source reference, defaults to the DataVolume namespace
+	// +optional
+	Namespace *string `json:"namespace,omitempty"`
+	// The name of the source reference
+	Name string `json:"name"`
+}
+
+const (
+	// DataVolumeDataSource is DataSource source reference for DataVolume
+	DataVolumeDataSource = "DataSource"
+)
 
 // DataVolumeStatus contains the current status of the DataVolume
 type DataVolumeStatus struct {
@@ -349,6 +369,136 @@ type StorageProfileList struct {
 
 	// Items provides a list of StorageProfile
 	Items []StorageProfile `json:"items"`
+}
+
+// DataSource references an import/clone source for a DataVolume
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+type DataSource struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   DataSourceSpec   `json:"spec"`
+	Status DataSourceStatus `json:"status,omitempty"`
+}
+
+// DataSourceSpec defines specification for DataSource
+type DataSourceSpec struct {
+	// Source is the source of the data referenced by the DataSource
+	Source DataSourceSource `json:"source"`
+}
+
+// DataSourceSource represents the source for our DataSource
+type DataSourceSource struct {
+	// +optional
+	PVC *DataVolumeSourcePVC `json:"pvc,omitempty"`
+}
+
+// DataSourceStatus provides the most recently observed status of the DataSource
+type DataSourceStatus struct {
+	Conditions []DataSourceCondition `json:"conditions,omitempty" optional:"true"`
+}
+
+// DataSourceCondition represents the state of a data source condition
+type DataSourceCondition struct {
+	Type               DataSourceConditionType `json:"type" description:"type of condition ie. Ready"`
+	Status             corev1.ConditionStatus  `json:"status" description:"status of the condition, one of True, False, Unknown"`
+	LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
+	LastHeartbeatTime  metav1.Time             `json:"lastHeartbeatTime,omitempty"`
+	Reason             string                  `json:"reason,omitempty" description:"reason for the condition's last transition"`
+	Message            string                  `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+}
+
+// DataSourceConditionType is the string representation of known condition types
+type DataSourceConditionType string
+
+// DataSourceList provides the needed parameters to do request a list of Data Sources from the system
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type DataSourceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items provides a list of DataSources
+	Items []DataSource `json:"items"`
+}
+
+// DataImportCron defines a cron job for recurring polling/importing disk images as PVCs into a golden image namespace
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+type DataImportCron struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   DataImportCronSpec   `json:"spec"`
+	Status DataImportCronStatus `json:"status,omitempty"`
+}
+
+// DataImportCronSpec defines specification for DataImportCron
+type DataImportCronSpec struct {
+	// Source specifies where to poll disk images from
+	Source DataImportCronSource `json:"source"`
+	// Schedule specifies in cron format when and how often to look for new imports
+	Schedule string `json:"schedule"`
+	// GarbageCollect specifies whether old PVCs should be cleaned up after a new PVC is imported.
+	// Options are currently "Never" and "Outdated", defaults to "Never".
+	// +optional
+	GarbageCollect *DataImportCronGarbageCollect `json:"garbageCollect,omitempty"`
+	// ManagedDataSource specifies the name of the corresponding DataSource this cron will manage.
+	// DataSource has to be in the same namespace.
+	ManagedDataSource string `json:"managedDataSource"`
+}
+
+// DataImportCronGarbageCollect represents the DataImportCron garbage collection mode
+type DataImportCronGarbageCollect string
+
+const (
+	// DataImportCronGarbageCollectNever specifies that garbage collection is disabled
+	DataImportCronGarbageCollectNever DataImportCronGarbageCollect = "Never"
+	// DataImportCronGarbageCollectOutdated specifies that old PVCs should be cleaned up after a new PVC is imported
+	DataImportCronGarbageCollectOutdated DataImportCronGarbageCollect = "Outdated"
+)
+
+// DataImportCronSource defines where to poll and import disk images from
+type DataImportCronSource struct {
+	Registry *DataVolumeSourceRegistry `json:"registry"`
+}
+
+// DataImportCronStatus provides the most recently observed status of the DataImportCron
+type DataImportCronStatus struct {
+	// LastImportedPVC is the last imported PVC
+	LastImportedPVC *DataVolumeSourcePVC `json:"lastImportedPVC,omitempty"`
+	// LastExecutionTimestamp is the time of the last polling
+	LastExecutionTimestamp *metav1.Time `json:"lastExecutionTimestamp,omitempty"`
+	// LastImportTimestamp is the time of the last import
+	LastImportTimestamp *metav1.Time              `json:"lastImportTimestamp,omitempty"`
+	Conditions          []DataImportCronCondition `json:"conditions,omitempty" optional:"true"`
+}
+
+// DataImportCronCondition represents the state of a data import cron condition
+type DataImportCronCondition struct {
+	Type               DataImportCronConditionType `json:"type" description:"type of condition ie. Progressing, UpToDate"`
+	Status             corev1.ConditionStatus      `json:"status" description:"status of the condition, one of True, False, Unknown"`
+	LastTransitionTime metav1.Time                 `json:"lastTransitionTime,omitempty"`
+	LastHeartbeatTime  metav1.Time                 `json:"lastHeartbeatTime,omitempty"`
+	Reason             string                      `json:"reason,omitempty" description:"reason for the condition's last transition"`
+	Message            string                      `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+}
+
+// DataImportCronConditionType is the string representation of known condition types
+type DataImportCronConditionType string
+
+// DataImportCronList provides the needed parameters to do request a list of DataImportCrons from the system
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type DataImportCronList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items provides a list of DataImportCrons
+	Items []DataImportCron `json:"items"`
 }
 
 // this has to be here otherwise informer-gen doesn't recognize it
