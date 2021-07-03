@@ -67,7 +67,9 @@ func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []strin
 			log.Log.Reason(err).Error("failed to discover which mdev types are available for configuration")
 			return err
 		}
-		m.configureDesiredMDEVTypes()
+		if len(desiredTypesMap) > 0 {
+			m.configureDesiredMDEVTypes()
+		}
 		// store the configured list of types
 		m.configuredMdevTypes = desiredTypesBytes
 	}
@@ -144,6 +146,11 @@ func (m *MDEVTypesManager) getNextAvailableParentToConfigure(parents []string) (
 
 func (m *MDEVTypesManager) configureDesiredMDEVTypes() {
 	r := m.initMDEVTypesRing()
+
+	if r.Len() == 0 {
+		return
+	}
+
 	// Iterate over the ring and configure the relevant mdev types
 	for {
 		mdevTypeToConfigure := r.Value.(string)
@@ -216,13 +223,15 @@ func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool
 }
 
 func removeUndesiredMDEVs(desiredTypesMap map[string]struct{}) {
-	filepath.Walk(mdevBasePath, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
+	files, err := ioutil.ReadDir(mdevBasePath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to remove mdev types: failed to read the content of %s directory", mdevBasePath)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			if shouldRemoveMDEV(file.Name(), desiredTypesMap) {
+				Handler.RemoveMDEVType(file.Name())
+			}
 		}
-		if shouldRemoveMDEV(info.Name(), desiredTypesMap) {
-			Handler.RemoveMDEVType(info.Name())
-		}
-		return nil
-	})
+	}
 }
