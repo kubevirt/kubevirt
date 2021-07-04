@@ -130,36 +130,43 @@ func ParseDocumentationFrom(srcs []string) []KubeTypes {
 		pkg := astFrom(src)
 
 		for _, kubType := range pkg.Types {
-			if structType, ok := kubType.Decl.Specs[0].(*ast.TypeSpec).Type.(*ast.StructType); ok {
-				var ks KubeTypes
-				ks = append(ks, Pair{Name: kubType.Name, Doc: fmtRawDoc(kubType.Doc), Type: "", Default: "", Mandatory: false})
-
-				for _, field := range structType.Fields.List {
-					// Treat inlined fields separately as we don't want the original types to appear in the doc.
-					if isInlined(field) {
-						// Skip external types, as we don't want their content to be part of the API documentation.
-						if isInternalType(field.Type) {
-							ks = append(ks, typesDoc[fieldType(field.Type)]...)
-						}
-						continue
-					}
-
-					if n := fieldName(field); n != "-" {
-						fieldDoc := fmtRawDoc(field.Doc.Text())
-						ks = append(ks, Pair{
-							Name:      n,
-							Doc:       fieldDoc,
-							Type:      fieldType(field.Type),
-							Default:   fieldDefault(field),
-							Mandatory: fieldRequired(field)})
-					}
-				}
-				docForTypes = append(docForTypes, ks)
-			}
+			docForTypes = handleType(docForTypes, kubType)
 		}
 	}
 
 	return docForTypes
+}
+func handleType(docForTypes []KubeTypes, kubType *doc.Type) []KubeTypes {
+	if structType, ok := kubType.Decl.Specs[0].(*ast.TypeSpec).Type.(*ast.StructType); ok {
+		var ks KubeTypes
+		ks = append(ks, Pair{Name: kubType.Name, Doc: fmtRawDoc(kubType.Doc), Type: "", Default: "", Mandatory: false})
+
+		for _, field := range structType.Fields.List {
+			ks = handleField(ks, field)
+		}
+		docForTypes = append(docForTypes, ks)
+	}
+
+	return docForTypes
+}
+
+func handleField(ks KubeTypes, field *ast.Field) KubeTypes {
+	// Treat inlined fields separately as we don't want the original types to appear in the doc.
+	if isInlined(field) {
+		// Skip external types, as we don't want their content to be part of the API documentation.
+		if isInternalType(field.Type) {
+			ks = append(ks, typesDoc[fieldType(field.Type)]...)
+		}
+	} else if n := fieldName(field); n != "-" {
+		fieldDoc := fmtRawDoc(field.Doc.Text())
+		ks = append(ks, Pair{
+			Name:      n,
+			Doc:       fieldDoc,
+			Type:      fieldType(field.Type),
+			Default:   fieldDefault(field),
+			Mandatory: fieldRequired(field)})
+	}
+	return ks
 }
 
 func astFrom(filePath string) *doc.Package {

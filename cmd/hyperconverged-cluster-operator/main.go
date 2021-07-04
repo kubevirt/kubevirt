@@ -136,6 +136,8 @@ func main() {
 // Restricts the cache's ListWatch to specific fields/labels per GVK at the specified object to control the memory impact
 // this is used to completely overwrite the NewCache function so all the interesting objects should be explicitly listed here
 func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
+	namespaceSelector := fields.Set{"metadata.namespace": operatorNamespace}.AsSelector()
+	labelSelector := labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}.AsSelector()
 	return cache.BuilderWithOptions(
 		cache.Options{
 			SelectorsByObject: cache.SelectorsByObject{
@@ -149,19 +151,19 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 					Label: labels.SelectorFromSet(labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}),
 				},
 				&corev1.ConfigMap{}: {
-					Label: labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}.AsSelector(),
-					Field: fields.Set{"metadata.namespace": operatorNamespace}.AsSelector(),
+					Label: labelSelector,
+					Field: namespaceSelector,
 				},
 				&corev1.Service{}: {
-					Field: fields.Set{"metadata.namespace": operatorNamespace}.AsSelector(),
+					Field: namespaceSelector,
 				},
 				&monitoringv1.ServiceMonitor{}: {
-					Label: labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}.AsSelector(),
-					Field: fields.Set{"metadata.namespace": operatorNamespace}.AsSelector(),
+					Label: labelSelector,
+					Field: namespaceSelector,
 				},
 				&monitoringv1.PrometheusRule{}: {
-					Label: labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}.AsSelector(),
-					Field: fields.Set{"metadata.namespace": operatorNamespace}.AsSelector(),
+					Label: labelSelector,
+					Field: namespaceSelector,
 				},
 			},
 		},
