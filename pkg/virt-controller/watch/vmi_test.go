@@ -661,10 +661,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		table.DescribeTable("should delete the corresponding Pods on VirtualMachineInstance deletion with vmi", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
 
 			vmi.Status.Phase = phase
 			vmi.DeletionTimestamp = now()
+
+			if vmi.IsRunning() {
+				setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			} else {
+				setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
+			}
 
 			// 2 pods are owned by VMI
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -714,7 +719,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in scheduling state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 
 			vmi.Status.Phase = v1.Scheduling
 			vmi.DeletionTimestamp = now()
@@ -743,7 +748,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		table.DescribeTable("should not delete the corresponding Pod if the vmi is in", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 
 			vmi.Status.Phase = phase
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -903,7 +908,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pod := NewPodForVirtualMachine(vmi, phase)
 			pod.Status.ContainerStatuses[0].Ready = isReady
 
-			unreadyReason := v1.PodConditionMissingReason
+			unreadyReason := v1.GuestNotRunningReason
 			if phase == k8sv1.PodSucceeded || phase == k8sv1.PodFailed {
 				unreadyReason = v1.PodTerminatingReason
 			}
@@ -932,7 +937,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		Context("when pod failed to schedule", func() {
 			It("should set scheduling pod condition on the VirtualMachineInstance", func() {
 				vmi := NewPendingVirtualMachine("testvmi")
-				setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+				setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 				vmi.Status.Phase = v1.Scheduling
 
 				pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
@@ -1021,7 +1026,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		table.DescribeTable("should hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = containerStatus
@@ -1049,7 +1054,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 		table.DescribeTable("should not hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = containerStatus
@@ -1100,7 +1105,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("should set an error condition if deleting the virtual machine pod fails", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.DeletionTimestamp = now()
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -1127,7 +1132,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should set an error condition if when pod cannot guarantee resources when cpu pinning has been requested", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -1185,7 +1190,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should update the virtual machine to scheduled if pod is ready, runnning and handed over to virt-handler", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -1198,7 +1203,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should update the virtual machine QOS class if the pod finally has a QOS class assigned", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.QOSClass = k8sv1.PodQOSGuaranteed
@@ -1214,7 +1219,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should update the virtual machine to scheduled if pod is ready, triggered by pod change", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
 
@@ -1234,7 +1239,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should update the virtual machine to failed if pod was not ready, triggered by pod delete", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
 			vmi.Status.Phase = v1.Scheduling
 
@@ -1298,7 +1303,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Status.Phase = v1.Scheduled
 			pod := NewPodForVirtualMachine(vmi, phase)
 
-			unreadyReason := v1.PodConditionMissingReason
+			unreadyReason := v1.GuestNotRunningReason
 			if phase == k8sv1.PodSucceeded || phase == k8sv1.PodFailed {
 				unreadyReason = v1.PodTerminatingReason
 			}
@@ -1439,7 +1444,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("should not remove sync conditions from virt-handler if it is in scheduled state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionTrue, "")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Conditions = append(vmi.Status.Conditions,
 				v1.VirtualMachineInstanceCondition{Type: v1.VirtualMachineInstanceSynchronized, Status: k8sv1.ConditionFalse})
