@@ -363,6 +363,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				vmi                  *v1.VirtualMachineInstance
 				snapshot             *snapshotv1.VirtualMachineSnapshot
 				restore              *snapshotv1.VirtualMachineRestore
+				webhook              *admissionregistrationv1.ValidatingWebhookConfiguration
 				snapshotStorageClass string
 			)
 
@@ -386,6 +387,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 				if restore != nil {
 					deleteRestore(restore)
+				}
+
+				if webhook != nil {
+					deleteWebhook(webhook)
 				}
 			})
 
@@ -738,6 +743,101 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
 				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("should reject vm start if restore in progress", func() {
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+					tests.GetUrl(tests.CirrosHttpUrl),
+					util.NamespaceTestDefault,
+					"#!/bin/bash\necho 'hello'\n",
+					snapshotStorageClass,
+				))
+
+				By("Stopping VM")
+				vm = tests.StopVirtualMachine(vm)
+
+				By("creating snapshot")
+				snapshot = createSnapshot(vm)
+
+				fp := admissionregistrationv1.Fail
+				sideEffectNone := admissionregistrationv1.SideEffectClassNone
+				whPath := "/foobar"
+				whName := "dummy-webhook-deny-pvc-create.kubevirt.io"
+				wh := &admissionregistrationv1.ValidatingWebhookConfiguration{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "temp-webhook-deny-pvc-create",
+					},
+					Webhooks: []admissionregistrationv1.ValidatingWebhook{
+						{
+							Name:                    whName,
+							AdmissionReviewVersions: []string{"v1", "v1beta1"},
+							FailurePolicy:           &fp,
+							SideEffects:             &sideEffectNone,
+							Rules: []admissionregistrationv1.RuleWithOperations{{
+								Operations: []admissionregistrationv1.OperationType{
+									admissionregistrationv1.Create,
+								},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: v1.ApiSupportedWebhookVersions,
+									Resources:   []string{"persistentvolumeclaims"},
+								},
+							}},
+							ClientConfig: admissionregistrationv1.WebhookClientConfig{
+								Service: &admissionregistrationv1.ServiceReference{
+									Namespace: util.NamespaceTestDefault,
+									Name:      "nonexistant",
+									Path:      &whPath,
+								},
+							},
+						},
+					},
+				}
+				wh, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				webhook = wh
+
+				restore := createRestoreDef(vm, snapshot.Name)
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return restore.Status != nil &&
+						len(restore.Status.Conditions) == 2 &&
+						restore.Status.Conditions[0].Status == corev1.ConditionFalse &&
+						restore.Status.Conditions[1].Status == corev1.ConditionFalse &&
+						strings.Contains(restore.Status.Conditions[0].Reason, whName) &&
+						strings.Contains(restore.Status.Conditions[1].Reason, whName) &&
+						updatedVM.Status.RestoreInProgress != nil &&
+						*updatedVM.Status.RestoreInProgress == restore.Name
+				}, 180*time.Second, 3*time.Second).Should(BeTrue())
+
+				running := true
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				updatedVM.Spec.Running = &running
+				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot start VM until restore %q completes", restore.Name)))
+
+				deleteWebhook(webhook)
+				webhook = nil
+
+				restore = waitRestoreComplete(restore, vm)
+
+				Eventually(func() bool {
+					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return updatedVM.Status.RestoreInProgress == nil
+				}, 30*time.Second, 3*time.Second).Should(BeTrue())
+
+				vm = tests.StartVirtualMachine(vm)
+				deleteRestore(restore)
 			})
 
 			It("[QUARANTINE][test_id:6053]should restore a vm from an online snapshot", func() {
