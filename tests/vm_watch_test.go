@@ -116,10 +116,6 @@ func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) 
 		}
 		newStatus := strings.Fields(statusLine)
 
-		if prevStatus == nil {
-			return newStatus, nil
-		}
-
 		prevStatusOrPhase := ""
 		if len(prevStatus) >= 3 {
 			prevStatusOrPhase = prevStatus[2]
@@ -240,7 +236,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Expect(titles).To(Equal([]string{"NAME", "AGE", "STATUS", "READY"}),
 			"Output should have the proper columns")
 
-		vmStatus, err := readNewStatus(stdout, titles, statusChangeTimeout)
+		vmStatus, err := readNewStatus(stdout, nil, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusStopped), readyConditionFalse),
 			"VM should be in the %s status", v12.VirtualMachineStatusStopped)
@@ -344,7 +340,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 			"Output should have the proper columns")
 
 		// Read out the guard VMI
-		vmiStatus, err := readNewStatus(stdout, titles, statusChangeTimeout)
+		vmiStatus, err := readNewStatus(stdout, nil, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Start a VMI
