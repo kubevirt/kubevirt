@@ -130,8 +130,8 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 					ExpectConsoleOutput(vmi, "login")
 				},
 					table.Entry("[test_id:4636]with ContainerDisk", newVirtualMachineInstanceWithAlpineContainerDisk),
-					table.Entry("[test_id:4637]with OCS Filesystem Disk", newVirtualMachineInstanceWithAlpineOCSFileDisk),
-					table.Entry("[test_id:4638]with OCS Block Disk", newVirtualMachineInstanceWithAlpineOCSBlockDisk),
+					table.Entry("[test_id:4637][rook-ceph]with OCS Filesystem Disk", newVirtualMachineInstanceWithAlpineOCSFileDisk),
+					table.Entry("[test_id:4638][rook-ceph]with OCS Block Disk", newVirtualMachineInstanceWithAlpineOCSBlockDisk),
 				)
 			})
 
