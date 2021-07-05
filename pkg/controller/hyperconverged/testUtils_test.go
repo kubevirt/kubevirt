@@ -119,9 +119,7 @@ func getBasicDeployment() *BasicExpected {
 			Namespace: namespace,
 			Labels:    map[string]string{hcoutil.AppLabel: name},
 		},
-		Spec: hcov1beta1.HyperConvergedSpec{
-			Version: version.Version,
-		},
+		Spec: hcov1beta1.HyperConvergedSpec{},
 		Status: hcov1beta1.HyperConvergedStatus{
 			Conditions: []metav1.Condition{
 				{

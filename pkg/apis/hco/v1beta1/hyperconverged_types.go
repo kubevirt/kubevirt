@@ -84,10 +84,6 @@ type HyperConvergedSpec struct {
 	// +kubebuilder:default={"workloadUpdateMethods": {"LiveMigrate", "Evict"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m0s"}
 	// +optional
 	WorkloadUpdateStrategy *HyperConvergedWorkloadUpdateStrategy `json:"workloadUpdateStrategy,omitempty"`
-
-	// operator version
-	// +optional
-	Version string `json:"version,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.

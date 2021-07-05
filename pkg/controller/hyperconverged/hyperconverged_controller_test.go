@@ -841,15 +841,12 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 
-				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
-
 				expected.hco.Status.Conditions = okConds
 			})
 
 			It("detect upgrade existing HCO Version", func() {
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-				expected.hco.Spec.Version = oldVersion
 
 				// CDI is not ready
 				expected.cdi.Status.Conditions = getGenericProgressingConditions()
@@ -863,7 +860,6 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 
-				Expect(foundResource.Spec.Version).Should(Equal(oldVersion))
 				// Call again - requeue
 				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
 				Expect(requeue).To(BeFalse())
@@ -874,8 +870,6 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 
-				Expect(foundResource.Spec.Version).Should(Equal(oldVersion))
-
 				// now, complete the upgrade
 				expected.cdi.Status.Conditions = getGenericCompletedConditions()
 				cl = expected.initClient()
@@ -883,41 +877,29 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(requeue).To(BeTrue())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
-				// Call again, to start complete the upgrade
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
-				Expect(foundResource.Spec.Version).Should(Equal(oldVersion))
 				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
 
+				// Call again, to start complete the upgrade
 				// check that the image Id is set, now, when upgrade is completed
-				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
-				Expect(requeue).To(BeTrue())
+				foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
-				Expect(foundResource.Spec.Version).Should(Equal(oldVersion))
 				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-
-				// call again, because of the requeue - to update spec.version
-				foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
-				Expect(requeue).To(BeTrue())
-				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
-
-				// call again, because of the requeue - should be false now
-				_, _, requeue = doReconcile(cl, expected.hco, reconciler)
-				Expect(requeue).To(BeFalse())
 			})
 
 			It("detect upgrade w/o HCO Version", func() {
 				// CDI is not ready
 				expected.cdi.Status.Conditions = getGenericProgressingConditions()
 				expected.hco.Status.Versions = nil
-				expected.hco.Spec.Version = ""
 
 				cl := expected.initClient()
 				foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
@@ -935,14 +917,13 @@ var _ = Describe("HyperconvergedController", func() {
 				_, _ = fmt.Fprintln(GinkgoWriter, "foundResource.Status.Versions", foundResource.Status.Versions)
 				Expect(ok).To(BeFalse())
 				Expect(ver).Should(BeEmpty())
-				Expect(foundResource.Spec.Version).To(BeEmpty())
 
 				// now, complete the upgrade
 				expected.cdi.Status.Conditions = getGenericCompletedConditions()
 				expected.hco = foundResource
 				cl = expected.initClient()
-				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
-				Expect(requeue).To(BeTrue())
+				foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
 				_, ok = foundResource.Status.GetVersion(hcoVersionName)
@@ -953,28 +934,9 @@ var _ = Describe("HyperconvergedController", func() {
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
-				Expect(foundResource.Spec.Version).Should(BeEmpty())
 
 				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-
-				// call again because of the requeue, expect another requeue, to update spec.version
-				expected.hco = foundResource
-				cl = expected.initClient()
-				foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
-				Expect(requeue).To(BeTrue())
-
-				// check that the image Id is set, now, when upgrade is completed
-				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(newVersion))
-				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
-
-				// and, last time, now expect requeue = false
-				expected.hco = foundResource
-				cl = expected.initClient()
-				_, _, requeue = doReconcile(cl, expected.hco, reconciler)
-				Expect(requeue).To(BeFalse())
 			})
 
 			DescribeTable(
@@ -1034,12 +996,6 @@ var _ = Describe("HyperconvergedController", func() {
 
 					// now, complete the upgrade
 					updateComponentVersion()
-
-					expected.hco = foundResource
-					cl = expected.initClient()
-					foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
-					Expect(requeue).To(BeTrue())
-					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					expected.hco = foundResource
 					cl = expected.initClient()
@@ -1127,7 +1083,6 @@ var _ = Describe("HyperconvergedController", func() {
 
 				It("should drop KubeVirt configMap and create backup", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 
 					kvCM := &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1158,7 +1113,6 @@ var _ = Describe("HyperconvergedController", func() {
 
 				It("should adopt KubeVirt configMap into HC CR, drop it and create backup", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 
 					kvCM := &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1235,7 +1189,6 @@ progressTimeout: 150`,
 
 				It("should adopt KubeVirt configMap into HC CR if the values are different, drop the cm and create backup", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
 					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
 					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
@@ -1316,7 +1269,6 @@ progressTimeout: 300`,
 
 				It("should adopt real KubeVirt configMap into HC CR if the values are different, drop the cm and create backup", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
 					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
 					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
@@ -1389,7 +1341,6 @@ progressTimeout: 300`,
 
 				It("should ignore KubeVirt configMap into HC CR if there is no change, drop the cm and create backup", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
 					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
 					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
@@ -1462,7 +1413,6 @@ progressTimeout: 150`,
 
 				It("should adopt CDI config into HC CR", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 
 					ScratchSpaceStorageClassValue := "ScratchSpaceStorageClassValue"
 
@@ -1503,7 +1453,6 @@ progressTimeout: 150`,
 
 				It("should ignore CDI configurations if already exists in HC CR", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 
 					hcoScratchSpaceStorageClass := "hcoScratchSpaceStorageClass"
 					hcoPodResourceRequirements := &corev1.ResourceRequirements{
@@ -1555,7 +1504,6 @@ progressTimeout: 150`,
 
 				It("should ignore CDI config into HC CR if there is no change", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 
 					aScratchSpaceStorageClassValue := "aScratchSpaceStorageClassValue"
 
@@ -1598,7 +1546,6 @@ progressTimeout: 150`,
 
 				It("should adopt IMS config into HC CR", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 
 					vddkInitImageValue := "vddk-init-image-value-to-be-preserved"
 					vddkk := "vddk-init-image"
@@ -1630,31 +1577,16 @@ progressTimeout: 150`,
 					Expect(vmiCM.Data).ShouldNot(BeNil())
 					Expect(vmiCM.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
 
-					// call again, make sure this time the requeue is true
-					foundHC, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
-					Expect(requeue).To(BeTrue())
+					// call again, make sure this time the requeue is false
+					foundHC, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
 					ver, ok := foundHC.Status.GetVersion(hcoVersionName)
 					Expect(ok).To(BeTrue())
 					Expect(ver).Should(Equal(newVersion))
-					Expect(foundHC.Spec.Version).Should(Equal(oldVersion))
-
-					// call again, make sure this time the requeue is true
-					foundHC, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
-					Expect(requeue).To(BeTrue())
-					ver, ok = foundHC.Status.GetVersion(hcoVersionName)
-					Expect(ok).To(BeTrue())
-					Expect(ver).Should(Equal(newVersion))
-					Expect(foundHC.Spec.Version).Should(Equal(newVersion))
-
-					// call last time, make sure this time the requeue is false
-					foundHC, _, requeue = doReconcile(cl, expected.hco, reconciler)
-					Expect(requeue).To(BeFalse())
-					Expect(foundHC.Spec.Version).Should(Equal(newVersion))
 				})
 
 				It("should ignore IMS value if already exists in HC CR", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 
 					vddkInitImageValue := "vddk-init-image-value-to-be-overwritten"
 					vddkk := "vddk-init-image"
@@ -1689,7 +1621,6 @@ progressTimeout: 150`,
 
 				It("TODO: should ignore IMS config into HC CR if there is no change", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-					expected.hco.Spec.Version = oldVersion
 
 					vddkInitImageValue := "vddk-init-image-value-to-be-preserved"
 					vddkk := "vddk-init-image"
@@ -2024,8 +1955,7 @@ progressTimeout: 150`,
 		Context("Update Conflict Error", func() {
 			It("Should requeue in case of update conflict", func() {
 				expected := getBasicDeployment()
-				//expected.hco.Status.Conditions = nil
-				expected.hco.Spec.Version = ""
+				expected.hco.Labels = nil
 				cl := expected.initClient()
 				rsc := schema.GroupResource{Group: hcoutil.APIVersionGroup, Resource: "hyperconvergeds.hco.kubevirt.io"}
 				cl.InitiateUpdateErrors(func(obj client.Object) error {

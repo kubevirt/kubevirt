@@ -404,7 +404,6 @@ var _ = Describe("HyperconvergedTypes", func() {
 					BatchEvictionInterval: batchEvictionInterval,
 					BatchEvictionSize:     &batchEvictionSize,
 				},
-				Version: "v1.2.3",
 			},
 			Status: HyperConvergedStatus{
 				Conditions: []metav1.Condition{

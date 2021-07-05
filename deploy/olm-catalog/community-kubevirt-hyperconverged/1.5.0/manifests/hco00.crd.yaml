@@ -1292,9 +1292,6 @@ spec:
                 description: VDDK Init Image eventually used to import VMs from external
                   providers
                 type: string
-              version:
-                description: operator version
-                type: string
               workloadUpdateStrategy:
                 default:
                   batchEvictionInterval: 1m0s
