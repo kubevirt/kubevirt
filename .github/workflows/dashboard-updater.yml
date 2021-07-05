@@ -1,0 +1,53 @@
+name: Update Dashboard ConfigMaps
+on: workflow_dispatch
+jobs:
+  build:
+    name: Update Dashboard ConfigMaps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v2
+        with:
+          ref: main
+          path: hco
+
+      - name: Checkout monitoring repository
+        uses: actions/checkout@v2
+        with:
+          repository: kubevirt/monitoring
+          ref: main
+          path: monitoring
+
+
+      - name: Check for update
+        run: |
+          ./hco/automation/dashboard-updater/dashboard-updater.sh "./monitoring/dashboards" "./hco/deploy/dashboards"
+          cd hco
+          git add --all
+          if ! git diff HEAD --quiet --exit-code; then
+            echo "There is an update."
+            echo "UPDATED=true" >> $GITHUB_ENV
+          fi
+
+      - name: Create a PR
+        uses: peter-evans/create-pull-request@v3
+        if: ${{ env.UPDATED }}
+        with:
+          path: hco
+          token: ${{ secrets.HCO_BOT_TOKEN }}
+          commit-message: |
+            Update configmaps of dashboards
+
+            Signed-off-by: HCO Bump Bot <noreply@github.com>
+          committer: HCO Bump Bot <noreply@github.com>
+          title: "Update configmaps of dashboards"
+          body: |
+            Update configmaps of dashboards
+            ```release-note
+            Update configmaps of dashboards
+            ```
+          assignees: erkanerol
+          reviewers: erkanerol
+          team-reviewers: owners, maintainers
+          branch: update_dashboard_configmaps
+          delete-branch: true
