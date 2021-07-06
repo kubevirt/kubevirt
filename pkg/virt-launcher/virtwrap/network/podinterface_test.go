@@ -20,7 +20,6 @@
 package network
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -30,21 +29,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/consts"
 
 	"github.com/coreos/go-iptables/iptables"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
-	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -90,20 +85,25 @@ var _ = Describe("Pod Network", func() {
 	var mtu int
 	var cacheFactory cache.InterfaceCacheFactory
 	var libvirtUser string
-	var newPodNIC = func(vmi *v1.VirtualMachineInstance) podNIC {
-		return podNIC{
-			cacheFactory: cacheFactory,
-			handler:      mockNetwork,
-			vmi:          vmi,
+
+	newPodNICWithMocks := func(vmi *v1.VirtualMachineInstance, networkHandler netdriver.NetworkHandler, interfaceCacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
+		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], networkHandler, interfaceCacheFactory, launcherPID)
+		if err != nil {
+			return nil, err
 		}
-	}
-	var createDefaultPodNIC = func(vmi *v1.VirtualMachineInstance) podNIC {
-		podnic := newPodNIC(vmi)
-		podnic.vmiSpecIface = &vmi.Spec.Domain.Devices.Interfaces[0]
-		podnic.vmiSpecNetwork = &vmi.Spec.Networks[0]
 		podnic.podInterfaceName = primaryPodInterfaceName
-		return podnic
+		return podnic, nil
 	}
+
+	newPodNICWithMocksWithoutLauncherPID := func(vmi *v1.VirtualMachineInstance, networkHandler netdriver.NetworkHandler, interfaceCacheFactory cache.InterfaceCacheFactory) (*podNIC, error) {
+		podnic, err := newPodNICWithoutInfraConfigurator(vmi, &vmi.Spec.Networks[0], networkHandler, interfaceCacheFactory, nil)
+		if err != nil {
+			return nil, err
+		}
+		podnic.podInterfaceName = primaryPodInterfaceName
+		return podnic, nil
+	}
+
 	BeforeEach(func() {
 		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
 
@@ -200,6 +200,10 @@ var _ = Describe("Pod Network", func() {
 			ipString = "ip6"
 		}
 		return ipString
+	}
+
+	ipProtocols := func() [2]iptables.Protocol {
+		return [2]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}
 	}
 
 	queueNumber = uint32(0)
@@ -323,24 +327,18 @@ var _ = Describe("Pod Network", func() {
 		}
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu, libvirtUser).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
-		podnic := createDefaultPodNIC(vm)
-		podnic.launcherPID = &pid
-		err := podnic.PlugPhase1()
+		podnic, err := newPodNICWithMocks(vm, mockNetwork, cacheFactory, &pid)
+		Expect(err).ToNot(HaveOccurred())
+		err = podnic.PlugPhase1()
 		Expect(err).To(BeNil())
 
 		// Calling SetupPhase1 a second time should result in
 		// no mockNetwork function calls, as confirmed by mock object
 		// limited number of calls expected for each mocked entry point.
-		podnic = createDefaultPodNIC(vm)
-		podnic.launcherPID = &pid
+		podnic, err = newPodNICWithMocks(vm, mockNetwork, cacheFactory, &pid)
+		Expect(err).ToNot(HaveOccurred())
 		err = podnic.PlugPhase1()
 		Expect(err).To(BeNil())
-	}
-
-	TestRunPlug := func(driver LibvirtSpecGenerator, infraConfigurator infraconfigurators.PodNetworkInfraConfigurator, ifaceName string) {
-		Expect(infraConfigurator.DiscoverPodNetworkInterface(ifaceName)).ToNot(HaveOccurred())
-		Expect(infraConfigurator.PreparePodNetworkInterface()).To(Succeed())
-		Expect(driver.generate(infraConfigurator.GenerateDomainIfaceSpec())).To(Succeed())
 	}
 
 	Context("on successful setup", func() {
@@ -352,43 +350,6 @@ var _ = Describe("Pod Network", func() {
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			TestPodInterfaceIPBinding(vm, domain)
-		})
-		It("phase1 should return a CriticalNetworkError if pod networking fails to setup", func() {
-
-			domain := NewDomainWithBridgeInterface()
-			vm := newVMIBridgeInterface("testnamespace", "testVmName")
-
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return("", "", nil)
-			mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
-			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
-			mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
-			mockNetwork.EXPECT().LinkSetDown(primaryPodInterface).Return(nil)
-			mockNetwork.EXPECT().SetRandomMac(primaryPodInterfaceName).Return(updateFakeMac, nil)
-			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
-			mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
-			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
-			mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
-			mockNetwork.EXPECT().LinkSetUp(primaryPodInterface).Return(nil)
-			mockNetwork.EXPECT().ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)).Return(bridgeAddr, nil)
-			mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
-			mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
-			mockNetwork.EXPECT().GetMacDetails(primaryPodInterfaceName).Return(fakeMac, nil)
-			mockNetwork.EXPECT().LinkSetMaster(primaryPodInterface, bridgeTest).Return(nil)
-			mockNetwork.EXPECT().AddrDel(primaryPodInterface, &fakeAddr).Return(errors.New("device is busy"))
-			mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu, libvirtUser).Return(nil)
-			mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
-			mockNetwork.EXPECT().DisableTXOffloadChecksum(bridgeTest.Name).Return(nil)
-			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
-
-			podnic := createDefaultPodNIC(vm)
-			podnic.launcherPID = &pid
-			err := podnic.PlugPhase1()
-			Expect(err).To(HaveOccurred(), "SetupPhase1 should return an error")
-
-			_, ok := err.(*neterrors.CriticalNetworkError)
-			Expect(ok).To(BeTrue(), "SetupPhase1 should return an error of type CriticalNetworkError")
 		})
 		It("should return an error if the MTU is out or range", func() {
 			primaryPodInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 65536}}
@@ -405,9 +366,9 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 			mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
 
-			podnic := createDefaultPodNIC(vm)
-			podnic.launcherPID = &pid
-			err := podnic.PlugPhase1()
+			podnic, err := newPodNICWithMocks(vm, mockNetwork, cacheFactory, &pid)
+			Expect(err).ToNot(HaveOccurred())
+			err = podnic.PlugPhase1()
 			Expect(err).To(HaveOccurred())
 		})
 		Context("func filterPodNetworkRoutes()", func() {
@@ -430,17 +391,6 @@ var _ = Describe("Pod Network", func() {
 				Expect(netdriver.FilterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
 			})
 		})
-		It("phase2 should panic if DHCP startup fails", func() {
-			testDhcpPanic := func() {
-				domain := NewDomainWithBridgeInterface()
-				vm := newVMIBridgeInterface("testnamespace", "testVmName")
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("failed to open file"))
-				podnic := createDefaultPodNIC(vm)
-				Expect(podnic.PlugPhase2(domain)).To(Succeed())
-			}
-			Expect(testDhcpPanic).To(Panic())
-		})
 		Context("getPhase1Binding", func() {
 			BeforeEach(func() {
 				mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
@@ -452,39 +402,11 @@ var _ = Describe("Pod Network", func() {
 				It("should populate MAC address", func() {
 					vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-					podnic := createDefaultPodNIC(vmi)
-					podnic.launcherPID = &pid
-					infraConfigurator, err := podnic.newPodNetworkConfigurator()
+					podnic, err := newPodNICWithMocks(vmi, mockNetwork, cacheFactory, &pid)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(infraConfigurator.DiscoverPodNetworkInterface(primaryPodInterfaceName)).NotTo(HaveOccurred())
-					Expect(infraConfigurator.GenerateDHCPConfig().MAC.String()).To(Equal("de:ad:00:00:be:af"))
+					Expect(podnic.infraConfigurator.DiscoverPodNetworkInterface(primaryPodInterfaceName)).NotTo(HaveOccurred())
+					Expect(podnic.infraConfigurator.GenerateDHCPConfig().MAC.String()).To(Equal("de:ad:00:00:be:af"))
 				})
-			})
-		})
-		Context("SRIOV Plug", func() {
-			It("Does not crash", func() {
-				// Plug doesn't do anything for sriov so it's enough to pass an empty domain
-				domain := &api.Domain{}
-				// Same for network
-				net := &v1.Network{}
-
-				iface := &v1.Interface{
-					Name: "sriov",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						SRIOV: &v1.InterfaceSRIOV{},
-					},
-				}
-				vmi := newVMI("testnamespace", "testVmName")
-				podnic := newPodNIC(vmi)
-				podnic.vmiSpecIface = iface
-				podnic.vmiSpecNetwork = net
-				podnic.podInterfaceName = "fakeiface"
-				podnic.launcherPID = &pid
-				err := podnic.PlugPhase1()
-				Expect(err).ToNot(HaveOccurred())
-
-				err = podnic.PlugPhase2(domain)
-				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("Masquerade Plug", func() {
@@ -680,7 +602,8 @@ var _ = Describe("Pod Network", func() {
 				vmi := newVMISlirpInterface("testnamespace", "testVmName")
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				podnic := createDefaultPodNIC(vmi)
+				podnic, err := newPodNICWithMocksWithoutLauncherPID(vmi, mockNetwork, cacheFactory)
+				Expect(err).ToNot(HaveOccurred())
 				driver, err := podnic.newLibvirtSpecGenerator(domain)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(driver.generate(api.Interface{})).To(Succeed())
@@ -696,7 +619,8 @@ var _ = Describe("Pod Network", func() {
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-				podnic := createDefaultPodNIC(vmi)
+				podnic, err := newPodNICWithMocksWithoutLauncherPID(vmi, mockNetwork, cacheFactory)
+				Expect(err).ToNot(HaveOccurred())
 				driver, err := podnic.newLibvirtSpecGenerator(domain)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(driver.generate(api.Interface{})).To(Succeed())
@@ -722,8 +646,8 @@ var _ = Describe("Pod Network", func() {
 					},
 					Alias: api.NewUserDefinedAlias("default"),
 				})
-				podnic := createDefaultPodNIC(vmi)
-				podnic.launcherPID = &pid
+				podnic, err := newPodNICWithMocks(vmi, mockNetwork, cacheFactory, &pid)
+				Expect(err).ToNot(HaveOccurred())
 				driver, err := podnic.newLibvirtSpecGenerator(domain)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(driver.generate(api.Interface{})).To(Succeed())
@@ -735,148 +659,36 @@ var _ = Describe("Pod Network", func() {
 			})
 		})
 		Context("Macvtap plug", func() {
-			const ifaceName = "macvtap0"
-			var macvtapInterface *netlink.GenericLink
+			var (
+				podnic *podNIC
+			)
 
 			BeforeEach(func() {
-				macvtapInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: mtu, HardwareAddr: fakeMac}}
+				vmi := newVMIMacvtapInterface("testnamespace", "testVmName", "default")
+				var err error
+				podnic, err = newPodNICWithMocks(vmi, mockNetwork, cacheFactory, &pid)
+				Expect(err).ToNot(HaveOccurred())
+				macvtapInterface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: podnic.podInterfaceName, MTU: mtu, HardwareAddr: fakeMac}}
+				mockNetwork.EXPECT().LinkByName(podnic.podInterfaceName).Return(macvtapInterface, nil)
 			})
 
 			It("Should pass a non-privileged macvtap interface to qemu", func() {
-				domain := NewDomainWithMacvtapInterface(ifaceName)
-				vmi := newVMIMacvtapInterface("testnamespace", "default", ifaceName)
+				domain := NewDomainWithMacvtapInterface("default")
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				podnic := createDefaultPodNIC(vmi)
-				podnic.launcherPID = &pid
-				podnic.podInterfaceName = ifaceName
 				driver, err := podnic.newLibvirtSpecGenerator(domain)
-				mockNetwork.EXPECT().LinkByName(ifaceName).Return(macvtapInterface, nil)
 				Expect(err).ToNot(HaveOccurred(), "should have identified the correct binding mechanism")
-				infraConfigurator, err := podnic.newPodNetworkConfigurator()
-				Expect(err).ToNot(HaveOccurred())
-				TestRunPlug(driver, infraConfigurator, podnic.podInterfaceName)
+
+				Expect(podnic.infraConfigurator.DiscoverPodNetworkInterface(podnic.podInterfaceName)).To(Succeed())
+				Expect(podnic.infraConfigurator.PreparePodNetworkInterface()).To(Succeed())
+				Expect(driver.generate(podnic.infraConfigurator.GenerateDomainIfaceSpec())).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1), "should have a single interface")
-				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: ifaceName, Managed: "no"}), "should have an unmanaged interface")
+				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: podnic.podInterfaceName, Managed: "no"}), "should have an unmanaged interface")
 				Expect(domain.Spec.Devices.Interfaces[0].MAC).To(Equal(&api.MAC{MAC: fakeMac.String()}), "should have the expected MAC address")
 				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
 
 			})
 		})
 	})
-
-	It("should write interface to cache file", func() {
-		uid := types.UID("test-1234")
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{UID: uid}}
-		address1 := &net.IPNet{IP: net.IPv4(1, 2, 3, 4)}
-		address2 := &net.IPNet{IP: net.IPv4(169, 254, 0, 0)}
-		fakeAddr1 := netlink.Addr{IPNet: address1}
-		fakeAddr2 := netlink.Addr{IPNet: address2}
-		addrList := []netlink.Addr{fakeAddr1, fakeAddr2}
-
-		iface := &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
-		mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr1.IP.String(), fakeAddr2.IP.String(), nil)
-		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil)
-		mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
-		mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
-		podnic := newPodNIC(vmi)
-		podnic.vmiSpecIface = iface
-		podnic.podInterfaceName = primaryPodInterfaceName
-		err := podnic.setPodInterfaceCache()
-		Expect(err).ToNot(HaveOccurred())
-
-		podData, err := cacheFactory.CacheForVMI(vmi).Read(iface.Name)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(podData.PodIP).To(Equal("1.2.3.4"))
-	})
 })
-
-func ipProtocols() [2]iptables.Protocol {
-	return [2]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}
-}
-
-func newVMI(namespace, name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMIWithNS(namespace, name)
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	return vmi
-}
-
-func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := newVMI(namespace, name)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	return vmi
-}
-
-func newVMIMasqueradeInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := newVMI(namespace, name)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	return vmi
-}
-
-func newVMISlirpInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := newVMI(namespace, name)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultSlirpNetworkInterface()}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	return vmi
-}
-
-func newVMIMacvtapInterface(namespace string, vmiName string, ifaceName string) *v1.VirtualMachineInstance {
-	vmi := newVMI(namespace, vmiName)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface(ifaceName)}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	return vmi
-}
-
-func NewDomainWithBridgeInterface() *api.Domain {
-	domain := &api.Domain{}
-	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Model: &api.Model{
-			Type: "virtio",
-		},
-		Type: "bridge",
-		Source: api.InterfaceSource{
-			Bridge: api.DefaultBridgeName,
-		},
-		Alias: api.NewUserDefinedAlias("default"),
-	},
-	}
-	return domain
-}
-
-func NewDomainWithSlirpInterface() *api.Domain {
-	domain := &api.Domain{}
-	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Model: &api.Model{
-			Type: "e1000",
-		},
-		Type:  "user",
-		Alias: api.NewUserDefinedAlias("default"),
-	},
-	}
-
-	// Create network interface
-	if domain.Spec.QEMUCmd == nil {
-		domain.Spec.QEMUCmd = &api.Commandline{}
-	}
-
-	if domain.Spec.QEMUCmd.QEMUArg == nil {
-		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
-	}
-
-	return domain
-}
-
-func NewDomainWithMacvtapInterface(macvtapName string) *api.Domain {
-	domain := &api.Domain{}
-	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Alias: api.NewUserDefinedAlias(macvtapName),
-		Model: &api.Model{
-			Type: "virtio",
-		},
-		Type: "ethernet",
-	}}
-	return domain
-}

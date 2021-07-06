@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "network.go",
         "podinterface.go",
+        "podnic.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network",
     visibility = ["//visibility:public"],
@@ -27,6 +28,7 @@ go_test(
         "network_suite_test.go",
         "network_test.go",
         "podinterface_test.go",
+        "podnic_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
@@ -46,7 +48,5 @@ go_test(
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )
