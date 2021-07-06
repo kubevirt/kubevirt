@@ -210,7 +210,7 @@ func NewController(
 	})
 
 	c.launcherClients = sync.Map{}
-	c.phase1NetworkSetupCache = make(map[types.UID]int)
+	c.phase1NetworkSetupCache = sync.Map{}
 	c.podInterfaceCache = sync.Map{}
 
 	c.domainNotifyPipes = make(map[string]string)
@@ -259,8 +259,7 @@ type VirtualMachineController struct {
 	// phase1 involves cycling an entire posix thread
 	// so for performance, knowing phase1 is complete
 	// prevents cycling an unncessary posix thread.
-	phase1NetworkSetupCache     map[types.UID]int
-	phase1NetworkSetupCacheLock sync.Mutex
+	phase1NetworkSetupCache sync.Map
 
 	// key is the file path, value is the contents.
 	// if key exists, then don't read directly from file.
@@ -471,9 +470,7 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 	if string(vmi.UID) == "" {
 		return
 	}
-	d.phase1NetworkSetupCacheLock.Lock()
-	delete(d.phase1NetworkSetupCache, vmi.UID)
-	d.phase1NetworkSetupCacheLock.Unlock()
+	d.phase1NetworkSetupCache.Delete(vmi.UID)
 
 	// Clean Pod interface cache from map and files
 	d.podInterfaceCache.Range(func(key, value interface{}) bool {
@@ -504,13 +501,14 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	pid := res.Pid()
 
 	// check to see if we've already completed phase1 for this vmi
-	d.phase1NetworkSetupCacheLock.Lock()
-	cachedPid, ok := d.phase1NetworkSetupCache[vmi.UID]
-	d.phase1NetworkSetupCacheLock.Unlock()
+	result, exists := d.phase1NetworkSetupCache.Load(vmi.UID)
 
-	if ok && cachedPid == pid {
-		// already completed phase1
-		return false, nil
+	if exists {
+		cachedPid, ok := result.(int)
+		if ok && cachedPid == pid {
+			// already completed phase1
+			return false, nil
+		}
 	}
 
 	err = res.DoNetNS(func() error {
@@ -527,9 +525,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	}
 
 	// cache that phase 1 has completed for this vmi.
-	d.phase1NetworkSetupCacheLock.Lock()
-	d.phase1NetworkSetupCache[vmi.UID] = pid
-	d.phase1NetworkSetupCacheLock.Unlock()
+	d.phase1NetworkSetupCache.Store(vmi.UID, pid)
 
 	return false, nil
 }
