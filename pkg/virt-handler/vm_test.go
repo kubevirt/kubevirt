@@ -2354,7 +2354,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIStarted)
-			Expect(len(controller.podInterfaceCache)).To(Equal(1))
+			podInterfaceCacheLen := 0
+			controller.podInterfaceCache.Range(func(k, v interface{}) bool {
+				podInterfaceCacheLen += 1
+				return true
+			})
+			Expect(podInterfaceCacheLen).To(Equal(1))
 		})
 
 		table.DescribeTable("Should update masquerade interface with the pod IP", func(podIPs ...string) {
