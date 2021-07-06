@@ -852,6 +852,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			update.Do(func(vmi *v1.VirtualMachineInstance) {
 				expectConditions(vmi)
 				vmiInformer.GetStore().Update(vmi)
+				key := kvcontroller.VirtualMachineInstanceKey(vmi)
+				controller.vmiExpectations.LowerExpectations(key, 1, 0)
 				update.Return(vmi, nil)
 			})
 
