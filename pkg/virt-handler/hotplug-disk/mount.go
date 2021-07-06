@@ -598,6 +598,7 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 	const toAllow = true
 
 	defaultRules := []*devices.Rule{
+		deviceRule,
 		{ // /dev/ptmx (PTY master multiplex)
 			Type:        devices.CharDevice,
 			Major:       5,
@@ -619,7 +620,6 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 			Permissions: permissions,
 			Allow:       toAllow,
 		},
-		deviceRule,
 	}
 
 	err = manager.Set(&configs.Resources{
