@@ -5,7 +5,7 @@ package cli
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	libvirt_go "libvirt.org/libvirt-go"
+	libvirt "libvirt.org/go/libvirt"
 
 	stats "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -64,7 +64,7 @@ func (_mr *_MockConnectionRecorder) Close() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Close")
 }
 
-func (_m *MockConnection) DomainEventLifecycleRegister(callback libvirt_go.DomainEventLifecycleCallback) error {
+func (_m *MockConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error {
 	ret := _m.ctrl.Call(_m, "DomainEventLifecycleRegister", callback)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -74,7 +74,7 @@ func (_mr *_MockConnectionRecorder) DomainEventLifecycleRegister(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventLifecycleRegister", arg0)
 }
 
-func (_m *MockConnection) DomainEventDeviceAddedRegister(callback libvirt_go.DomainEventDeviceAddedCallback) error {
+func (_m *MockConnection) DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error {
 	ret := _m.ctrl.Call(_m, "DomainEventDeviceAddedRegister", callback)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -84,7 +84,7 @@ func (_mr *_MockConnectionRecorder) DomainEventDeviceAddedRegister(arg0 interfac
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventDeviceAddedRegister", arg0)
 }
 
-func (_m *MockConnection) DomainEventDeviceRemovedRegister(callback libvirt_go.DomainEventDeviceRemovedCallback) error {
+func (_m *MockConnection) DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error {
 	ret := _m.ctrl.Call(_m, "DomainEventDeviceRemovedRegister", callback)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -94,7 +94,7 @@ func (_mr *_MockConnectionRecorder) DomainEventDeviceRemovedRegister(arg0 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventDeviceRemovedRegister", arg0)
 }
 
-func (_m *MockConnection) AgentEventLifecycleRegister(callback libvirt_go.DomainEventAgentLifecycleCallback) error {
+func (_m *MockConnection) AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error {
 	ret := _m.ctrl.Call(_m, "AgentEventLifecycleRegister", callback)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -104,7 +104,7 @@ func (_mr *_MockConnectionRecorder) AgentEventLifecycleRegister(arg0 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AgentEventLifecycleRegister", arg0)
 }
 
-func (_m *MockConnection) VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt_go.DomainEventDeviceRemovedCallback) (int, error) {
+func (_m *MockConnection) VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error) {
 	ret := _m.ctrl.Call(_m, "VolatileDomainEventDeviceRemovedRegister", domain, callback)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
@@ -125,7 +125,7 @@ func (_mr *_MockConnectionRecorder) DomainEventDeregister(arg0 interface{}) *gom
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventDeregister", arg0)
 }
 
-func (_m *MockConnection) ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error) {
+func (_m *MockConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error) {
 	ret := _m.ctrl.Call(_m, "ListAllDomains", flags)
 	ret0, _ := ret[0].([]VirDomain)
 	ret1, _ := ret[1].(error)
@@ -136,7 +136,7 @@ func (_mr *_MockConnectionRecorder) ListAllDomains(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllDomains", arg0)
 }
 
-func (_m *MockConnection) NewStream(flags libvirt_go.StreamFlags) (Stream, error) {
+func (_m *MockConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
 	ret := _m.ctrl.Call(_m, "NewStream", flags)
 	ret0, _ := ret[0].(Stream)
 	ret1, _ := ret[1].(error)
@@ -166,9 +166,9 @@ func (_mr *_MockConnectionRecorder) QemuAgentCommand(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "QemuAgentCommand", arg0, arg1)
 }
 
-func (_m *MockConnection) GetAllDomainStats(statsTypes libvirt_go.DomainStatsTypes, flags libvirt_go.ConnectGetAllDomainStatsFlags) ([]libvirt_go.DomainStats, error) {
+func (_m *MockConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error) {
 	ret := _m.ctrl.Call(_m, "GetAllDomainStats", statsTypes, flags)
-	ret0, _ := ret[0].([]libvirt_go.DomainStats)
+	ret0, _ := ret[0].([]libvirt.DomainStats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -177,7 +177,7 @@ func (_mr *_MockConnectionRecorder) GetAllDomainStats(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllDomainStats", arg0, arg1)
 }
 
-func (_m *MockConnection) GetDomainStats(statsTypes libvirt_go.DomainStatsTypes, flags libvirt_go.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
+func (_m *MockConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
 	ret := _m.ctrl.Call(_m, "GetDomainStats", statsTypes, flags)
 	ret0, _ := ret[0].([]*stats.DomainStats)
 	ret1, _ := ret[1].(error)
@@ -241,9 +241,9 @@ func (_mr *_MockStreamRecorder) Close() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Close")
 }
 
-func (_m *MockStream) UnderlyingStream() *libvirt_go.Stream {
+func (_m *MockStream) UnderlyingStream() *libvirt.Stream {
 	ret := _m.ctrl.Call(_m, "UnderlyingStream")
-	ret0, _ := ret[0].(*libvirt_go.Stream)
+	ret0, _ := ret[0].(*libvirt.Stream)
 	return ret0
 }
 
@@ -272,9 +272,9 @@ func (_m *MockVirDomain) EXPECT() *_MockVirDomainRecorder {
 	return _m.recorder
 }
 
-func (_m *MockVirDomain) GetState() (libvirt_go.DomainState, int, error) {
+func (_m *MockVirDomain) GetState() (libvirt.DomainState, int, error) {
 	ret := _m.ctrl.Call(_m, "GetState")
-	ret0, _ := ret[0].(libvirt_go.DomainState)
+	ret0, _ := ret[0].(libvirt.DomainState)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -294,7 +294,7 @@ func (_mr *_MockVirDomainRecorder) Create() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create")
 }
 
-func (_m *MockVirDomain) CreateWithFlags(flags libvirt_go.DomainCreateFlags) error {
+func (_m *MockVirDomain) CreateWithFlags(flags libvirt.DomainCreateFlags) error {
 	ret := _m.ctrl.Call(_m, "CreateWithFlags", flags)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -334,7 +334,7 @@ func (_mr *_MockVirDomainRecorder) AttachDevice(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AttachDevice", arg0)
 }
 
-func (_m *MockVirDomain) AttachDeviceFlags(xml string, flags libvirt_go.DomainDeviceModifyFlags) error {
+func (_m *MockVirDomain) AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error {
 	ret := _m.ctrl.Call(_m, "AttachDeviceFlags", xml, flags)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -354,7 +354,7 @@ func (_mr *_MockVirDomainRecorder) DetachDevice(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetachDevice", arg0)
 }
 
-func (_m *MockVirDomain) DetachDeviceFlags(xml string, flags libvirt_go.DomainDeviceModifyFlags) error {
+func (_m *MockVirDomain) DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error {
 	ret := _m.ctrl.Call(_m, "DetachDeviceFlags", xml, flags)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -364,7 +364,7 @@ func (_mr *_MockVirDomainRecorder) DetachDeviceFlags(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetachDeviceFlags", arg0, arg1)
 }
 
-func (_m *MockVirDomain) DestroyFlags(flags libvirt_go.DomainDestroyFlags) error {
+func (_m *MockVirDomain) DestroyFlags(flags libvirt.DomainDestroyFlags) error {
 	ret := _m.ctrl.Call(_m, "DestroyFlags", flags)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -374,7 +374,7 @@ func (_mr *_MockVirDomainRecorder) DestroyFlags(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DestroyFlags", arg0)
 }
 
-func (_m *MockVirDomain) ShutdownFlags(flags libvirt_go.DomainShutdownFlags) error {
+func (_m *MockVirDomain) ShutdownFlags(flags libvirt.DomainShutdownFlags) error {
 	ret := _m.ctrl.Call(_m, "ShutdownFlags", flags)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -384,7 +384,7 @@ func (_mr *_MockVirDomainRecorder) ShutdownFlags(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ShutdownFlags", arg0)
 }
 
-func (_m *MockVirDomain) UndefineFlags(flags libvirt_go.DomainUndefineFlagsValues) error {
+func (_m *MockVirDomain) UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error {
 	ret := _m.ctrl.Call(_m, "UndefineFlags", flags)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -416,7 +416,7 @@ func (_mr *_MockVirDomainRecorder) GetUUIDString() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetUUIDString")
 }
 
-func (_m *MockVirDomain) GetXMLDesc(flags libvirt_go.DomainXMLFlags) (string, error) {
+func (_m *MockVirDomain) GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error) {
 	ret := _m.ctrl.Call(_m, "GetXMLDesc", flags)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -427,7 +427,7 @@ func (_mr *_MockVirDomainRecorder) GetXMLDesc(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetXMLDesc", arg0)
 }
 
-func (_m *MockVirDomain) GetMetadata(tipus libvirt_go.DomainMetadataType, uri string, flags libvirt_go.DomainModificationImpact) (string, error) {
+func (_m *MockVirDomain) GetMetadata(tipus libvirt.DomainMetadataType, uri string, flags libvirt.DomainModificationImpact) (string, error) {
 	ret := _m.ctrl.Call(_m, "GetMetadata", tipus, uri, flags)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -438,7 +438,7 @@ func (_mr *_MockVirDomainRecorder) GetMetadata(arg0, arg1, arg2 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0, arg1, arg2)
 }
 
-func (_m *MockVirDomain) OpenConsole(devname string, stream *libvirt_go.Stream, flags libvirt_go.DomainConsoleFlags) error {
+func (_m *MockVirDomain) OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error {
 	ret := _m.ctrl.Call(_m, "OpenConsole", devname, stream, flags)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -448,7 +448,7 @@ func (_mr *_MockVirDomainRecorder) OpenConsole(arg0, arg1, arg2 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "OpenConsole", arg0, arg1, arg2)
 }
 
-func (_m *MockVirDomain) MigrateToURI3(_param0 string, _param1 *libvirt_go.DomainMigrateParameters, _param2 libvirt_go.DomainMigrateFlags) error {
+func (_m *MockVirDomain) MigrateToURI3(_param0 string, _param1 *libvirt.DomainMigrateParameters, _param2 libvirt.DomainMigrateFlags) error {
 	ret := _m.ctrl.Call(_m, "MigrateToURI3", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -468,9 +468,9 @@ func (_mr *_MockVirDomainRecorder) MigrateStartPostCopy(arg0 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateStartPostCopy", arg0)
 }
 
-func (_m *MockVirDomain) MemoryStats(nrStats uint32, flags uint32) ([]libvirt_go.DomainMemoryStat, error) {
+func (_m *MockVirDomain) MemoryStats(nrStats uint32, flags uint32) ([]libvirt.DomainMemoryStat, error) {
 	ret := _m.ctrl.Call(_m, "MemoryStats", nrStats, flags)
-	ret0, _ := ret[0].([]libvirt_go.DomainMemoryStat)
+	ret0, _ := ret[0].([]libvirt.DomainMemoryStat)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -479,9 +479,9 @@ func (_mr *_MockVirDomainRecorder) MemoryStats(arg0, arg1 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MemoryStats", arg0, arg1)
 }
 
-func (_m *MockVirDomain) GetJobStats(flags libvirt_go.DomainGetJobStatsFlags) (*libvirt_go.DomainJobInfo, error) {
+func (_m *MockVirDomain) GetJobStats(flags libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
 	ret := _m.ctrl.Call(_m, "GetJobStats", flags)
-	ret0, _ := ret[0].(*libvirt_go.DomainJobInfo)
+	ret0, _ := ret[0].(*libvirt.DomainJobInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -490,9 +490,9 @@ func (_mr *_MockVirDomainRecorder) GetJobStats(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetJobStats", arg0)
 }
 
-func (_m *MockVirDomain) GetJobInfo() (*libvirt_go.DomainJobInfo, error) {
+func (_m *MockVirDomain) GetJobInfo() (*libvirt.DomainJobInfo, error) {
 	ret := _m.ctrl.Call(_m, "GetJobInfo")
-	ret0, _ := ret[0].(*libvirt_go.DomainJobInfo)
+	ret0, _ := ret[0].(*libvirt.DomainJobInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -501,9 +501,9 @@ func (_mr *_MockVirDomainRecorder) GetJobInfo() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetJobInfo")
 }
 
-func (_m *MockVirDomain) GetDiskErrors(flags uint32) ([]libvirt_go.DomainDiskError, error) {
+func (_m *MockVirDomain) GetDiskErrors(flags uint32) ([]libvirt.DomainDiskError, error) {
 	ret := _m.ctrl.Call(_m, "GetDiskErrors", flags)
-	ret0, _ := ret[0].([]libvirt_go.DomainDiskError)
+	ret0, _ := ret[0].([]libvirt.DomainDiskError)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -512,7 +512,7 @@ func (_mr *_MockVirDomainRecorder) GetDiskErrors(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDiskErrors", arg0)
 }
 
-func (_m *MockVirDomain) SetTime(secs int64, nsecs uint, flags libvirt_go.DomainSetTimeFlags) error {
+func (_m *MockVirDomain) SetTime(secs int64, nsecs uint, flags libvirt.DomainSetTimeFlags) error {
 	ret := _m.ctrl.Call(_m, "SetTime", secs, nsecs, flags)
 	ret0, _ := ret[0].(error)
 	return ret0

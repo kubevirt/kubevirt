@@ -26,7 +26,7 @@ import (
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	libvirt "libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

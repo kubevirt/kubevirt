@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"

@@ -5,5 +5,5 @@ go_library(
     srcs = ["domstats_utils.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv/util",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/libvirt.org/libvirt-go:go_default_library"],
+    deps = ["//vendor/libvirt.org/go/libvirt:go_default_library"],
 )

@@ -37,7 +37,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/golang/mock/gomock"
-	libvirt "libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"

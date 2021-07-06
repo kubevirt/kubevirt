@@ -61,7 +61,7 @@ import (
 const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
 const ManifestsEncodingGzipBase64 = "gzip+base64"
 
-//go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+//go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/go/libvirt" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type APIServiceInterface interface {
 	Get(ctx context.Context, name string, options metav1.GetOptions) (*apiregv1.APIService, error)

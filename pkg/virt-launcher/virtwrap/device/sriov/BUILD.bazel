@@ -15,7 +15,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/libvirt.org/libvirt-go:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )
 
@@ -34,6 +34,6 @@ go_test(
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/libvirt.org/libvirt-go:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )

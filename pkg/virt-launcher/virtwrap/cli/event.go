@@ -22,7 +22,7 @@ package cli
 import (
 	"fmt"
 
-	"libvirt.org/libvirt-go"
+	"libvirt.org/go/libvirt"
 )
 
 type DomainEventDeviceRemoved struct {
