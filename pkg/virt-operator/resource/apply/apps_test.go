@@ -311,7 +311,7 @@ var _ = Describe("Apply Apps", func() {
 				},
 			}
 
-			daemonSet, err = components.NewHandlerDaemonSet(Namespace, Registry, "", Version, "", "", "", "", corev1.PullIfNotPresent, "verbosity", map[string]string{})
+			daemonSet, err = components.NewHandlerDaemonSet(Namespace, Registry, "", Version, "", "", "", "", corev1.PullIfNotPresent, nil, "verbosity", map[string]string{})
 			Expect(err).ToNot(HaveOccurred())
 			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"
