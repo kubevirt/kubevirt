@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"runtime"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -207,7 +206,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
-			services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, runtime.GOARCH),
+			services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
 			podInformer,
 			pvcInformer,
