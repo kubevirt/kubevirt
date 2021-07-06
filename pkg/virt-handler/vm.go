@@ -209,7 +209,7 @@ func NewController(
 		UpdateFunc: c.updateFunc,
 	})
 
-	c.launcherClients = make(map[types.UID]*launcherClientInfo)
+	c.launcherClients = sync.Map{}
 	c.phase1NetworkSetupCache = make(map[types.UID]int)
 	c.podInterfaceCache = sync.Map{}
 
@@ -245,8 +245,7 @@ type VirtualMachineController struct {
 	vmiTargetInformer        cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
-	launcherClients          map[types.UID]*launcherClientInfo
-	launcherClientLock       sync.Mutex
+	launcherClients          sync.Map
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
 	deviceManagerController  *device_manager.DeviceController
@@ -1848,22 +1847,21 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 		return nil
 	}
 
-	// maps require locks for concurrent access
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
+	result, exists := d.launcherClients.LoadAndDelete(vmi.UID)
+	if exists {
+		clientInfo, ok := result.(*launcherClientInfo)
+		if ok && clientInfo.client != nil {
+			if clientInfo.client != nil {
+				clientInfo.client.Close()
+				close(clientInfo.domainPipeStopChan)
+			}
 
-	clientInfo, ok := d.launcherClients[vmi.UID]
-	if ok && clientInfo.client != nil {
-		if clientInfo.client != nil {
-			clientInfo.client.Close()
-			close(clientInfo.domainPipeStopChan)
-		}
-
-		// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
-		if cmdclient.IsLegacySocket(clientInfo.socketFile) {
-			err := os.RemoveAll(clientInfo.socketFile)
-			if err != nil {
-				return err
+			// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
+			if cmdclient.IsLegacySocket(clientInfo.socketFile) {
+				err := os.RemoveAll(clientInfo.socketFile)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -1877,54 +1875,49 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 
 	virtcache.DeleteGhostRecord(vmi.Namespace, vmi.Name)
 
-	delete(d.launcherClients, vmi.UID)
 	return nil
 }
 
 // used by unit tests to add mock clients
 func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, info *launcherClientInfo) error {
-	// maps require locks for concurrent access
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
-
-	d.launcherClients[vmUID] = info
-
+	d.launcherClients.Store(vmUID, info)
 	return nil
 }
 
 func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {
 	var socketFile string
 
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
-
-	clientInfo, ok := d.launcherClients[vmi.UID]
-	if ok {
-		if clientInfo.ready == true {
-			// use cached socket if we previously established a connection
-			socketFile = clientInfo.socketFile
-		} else {
-			socketFile, err = cmdclient.FindSocketOnHost(vmi)
-			if err != nil {
-				// socket does not exist, but let's see if the pod is still there
-				if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
-					// no pod meanst that waiting for it to initialize makes no sense
-					return true, true, nil
+	result, exists := d.launcherClients.Load(vmi.UID)
+	if exists {
+		clientInfo, ok := result.(*launcherClientInfo)
+		if ok {
+			if clientInfo.ready == true {
+				// use cached socket if we previously established a connection
+				socketFile = clientInfo.socketFile
+			} else {
+				socketFile, err = cmdclient.FindSocketOnHost(vmi)
+				if err != nil {
+					// socket does not exist, but let's see if the pod is still there
+					if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
+						// no pod meanst that waiting for it to initialize makes no sense
+						return true, true, nil
+					}
+					// pod is still there, if there is no socket let's wait for it to become ready
+					if clientInfo.notInitializedSince.Before(time.Now().Add(-3 * time.Minute)) {
+						return true, true, nil
+					}
+					return false, false, nil
 				}
-				// pod is still there, if there is no socket let's wait for it to become ready
-				if clientInfo.notInitializedSince.Before(time.Now().Add(-3 * time.Minute)) {
-					return true, true, nil
-				}
-				return false, false, nil
+				clientInfo.ready = true
+				clientInfo.socketFile = socketFile
 			}
-			d.launcherClients[vmi.UID].ready = true
-			d.launcherClients[vmi.UID].socketFile = socketFile
 		}
 	} else {
-		d.launcherClients[vmi.UID] = &launcherClientInfo{
+		clientInfo := &launcherClientInfo{
 			notInitializedSince: time.Now(),
 			ready:               false,
 		}
+		d.launcherClients.Store(vmi.UID, clientInfo)
 		// attempt to find the socket if the established connection doesn't currently exist.
 		socketFile, err = cmdclient.FindSocketOnHost(vmi)
 		// no socket file, no VMI, so it's unresponsive
@@ -1936,8 +1929,8 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 			}
 			return false, false, nil
 		}
-		d.launcherClients[vmi.UID].ready = true
-		d.launcherClients[vmi.UID].socketFile = socketFile
+		clientInfo.ready = true
+		clientInfo.socketFile = socketFile
 	}
 	// The new way of detecting unresponsive VMIs monitors the
 	// cmd socket. This requires an updated VMI image. Old VMIs
@@ -1956,13 +1949,12 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
 	var err error
 
-	// maps require locks for concurrent access
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
-
-	clientInfo, ok := d.launcherClients[vmi.UID]
-	if ok && clientInfo.client != nil {
-		return clientInfo.client, nil
+	result, exists := d.launcherClients.Load(vmi.UID)
+	if exists {
+		clientInfo, ok := result.(*launcherClientInfo)
+		if ok && clientInfo.client != nil {
+			return clientInfo.client, nil
+		}
 	}
 
 	socketFile, err := cmdclient.FindSocketOnHost(vmi)
@@ -1992,13 +1984,13 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	d.launcherClients[vmi.UID] = &launcherClientInfo{
+	d.launcherClients.Store(vmi.UID, &launcherClientInfo{
 		client:              client,
 		socketFile:          socketFile,
 		domainPipeStopChan:  domainPipeStopChan,
 		notInitializedSince: time.Now(),
 		ready:               true,
-	}
+	})
 
 	return client, nil
 }
@@ -2311,9 +2303,15 @@ func (d *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMac
 }
 
 func (d *VirtualMachineController) getLauncherClientInfo(vmi *v1.VirtualMachineInstance) *launcherClientInfo {
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
-	return d.launcherClients[vmi.UID]
+	result, exists := d.launcherClients.Load(vmi.UID)
+	if !exists {
+		return nil
+	}
+	launcherInfo, ok := result.(*launcherClientInfo)
+	if !ok {
+		return nil
+	}
+	return launcherInfo
 }
 
 func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.VirtualMachineInstance) error {
