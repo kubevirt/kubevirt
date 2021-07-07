@@ -1,25 +1,25 @@
 package network
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"runtime"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/matchers"
+	"github.com/onsi/gomega/types"
 
 	"github.com/golang/mock/gomock"
-	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
-	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -33,13 +33,16 @@ var _ = Describe("podNIC", func() {
 		tmpDir                     string
 	)
 	newPodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
-		podnic, err := newPodNICWithoutInfraConfigurator(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, nil)
+		launcherPID := 1
+		podnic, err := newPodNICWithoutInfraConfigurator(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &launcherPID)
 		if err != nil {
 			return nil, err
 		}
 		podnic.podInterfaceName = primaryPodInterfaceName
 		podnic.infraConfigurator = mockPodNetworkConfigurator
-		podnic.dhcpConfigurator = dhcpconfigurator.NewConfiguratorWithDHCPStartedDirectory(cacheFactory, getPIDString(nil), primaryPodInterfaceName, mockNetwork, tmpDir)
+		if podnic.dhcpConfigurator != nil {
+			podnic.dhcpConfigurator = dhcpconfigurator.NewConfiguratorWithDHCPStartedDirectory(cacheFactory, getPIDString(podnic.launcherPID), primaryPodInterfaceName, mockNetwork, tmpDir)
+		}
 		return podnic, nil
 	}
 	BeforeEach(func() {
@@ -58,115 +61,260 @@ var _ = Describe("podNIC", func() {
 		ctrl.Finish()
 		os.RemoveAll(tmpDir)
 	})
-	When("reading networking configuration succeed", func() {
-		var (
-			podnic *podNIC
-			vmi    *v1.VirtualMachineInstance
-		)
-		BeforeEach(func() {
-			address1 := &net.IPNet{IP: net.IPv4(1, 2, 3, 4)}
-			address2 := &net.IPNet{IP: net.IPv4(169, 254, 0, 0)}
-			fakeAddr1 := netlink.Addr{IPNet: address1}
-			fakeAddr2 := netlink.Addr{IPNet: address2}
-			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(fakeAddr1.IP.String(), fakeAddr2.IP.String(), nil)
-			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
-			mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(primaryPodInterfaceName).Times(1)
-			mockPodNetworkConfigurator.EXPECT().GenerateDHCPConfig().Return(&cache.DHCPConfig{}).Times(1)
-			mockPodNetworkConfigurator.EXPECT().GenerateDomainIfaceSpec().Times(1)
-			domain := NewDomainWithBridgeInterface()
-			vmi = newVMIBridgeInterface("testnamespace", "testVmName")
+	type result struct {
+		err error
+	}
+	withSucces := func() *result {
+		return &result{}
+	}
+	withError := func() *result {
+		return &result{
+			err: fmt.Errorf("forced failure"),
+		}
+	}
+	type plugPhase1Case struct {
+		vmi                      *v1.VirtualMachineInstance
+		storedDomainIface        *api.Interface
+		ipv4Addr                 string
+		ipv6Addr                 string
+		isIPv4Primary            bool
+		shouldDiscoverNetworking *result
+		shouldPrepareNetworking  *result
+		shouldStoreDomainIface   bool
+		shouldStoreDHCPConfig    bool
+		expectedDomainIface      *api.Interface
+		expectedDHCPConfig       *cache.DHCPConfig
+		expectedPodInterface     *cache.PodCacheInterface
+		should                   types.GomegaMatcher
+	}
+	DescribeTable("PlugPhase1 call", func(c plugPhase1Case) {
+		podnic, err := newPodNICWithMocks(c.vmi)
+		Expect(err).ToNot(HaveOccurred())
 
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+		if c.storedDomainIface != nil {
+			podnic.cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Write(podnic.vmiSpecIface.Name, c.storedDomainIface)
+		}
 
-			var err error
-			podnic, err = newPodNICWithMocks(vmi)
+		mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(c.ipv4Addr, c.ipv6Addr, nil).AnyTimes()
+		mockNetwork.EXPECT().IsIpv4Primary().Return(c.isIPv4Primary, nil).AnyTimes()
+
+		if c.shouldDiscoverNetworking != nil {
+			mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(primaryPodInterfaceName).Times(1).Return(c.shouldDiscoverNetworking.err)
+		} else {
+			mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(primaryPodInterfaceName).Times(0)
+		}
+
+		if c.shouldPrepareNetworking != nil {
+			mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Times(1).Return(c.shouldPrepareNetworking.err)
+		} else {
+			mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Times(0)
+		}
+
+		if c.expectedDomainIface != nil {
+			mockPodNetworkConfigurator.EXPECT().GenerateDomainIfaceSpec().Return(*c.expectedDomainIface).Times(1)
+		} else {
+			mockPodNetworkConfigurator.EXPECT().GenerateDomainIfaceSpec().Times(0)
+		}
+
+		if c.expectedDHCPConfig != nil {
+			mockPodNetworkConfigurator.EXPECT().GenerateDHCPConfig().Return(c.expectedDHCPConfig).Times(1)
+		} else {
+			mockPodNetworkConfigurator.EXPECT().GenerateDHCPConfig().Times(0)
+		}
+
+		Expect(podnic.PlugPhase1()).Should(c.should)
+
+		if c.expectedPodInterface != nil {
+			obtainedPodInterface, err := cacheFactory.CacheForVMI(c.vmi).Read(podnic.vmiSpecIface.Name)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(obtainedPodInterface).To(Equal(c.expectedPodInterface))
+		} else {
+			_, err := cacheFactory.CacheForVMI(c.vmi).Read(podnic.vmiSpecIface.Name)
+			Expect(err).To(MatchError(os.ErrNotExist))
+		}
 
-		})
-		Context("and networking preparation fails", func() {
-			BeforeEach(func() {
-				mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Return(fmt.Errorf("podnic_test: forcing prepare networking failure")).Times(1)
-			})
-			It("should return a CriticalNetworkError at phase1", func() {
-				err := podnic.PlugPhase1()
-				Expect(err).To(HaveOccurred(), "SetupPhase1 should return an error")
-
-				_, ok := err.(*neterrors.CriticalNetworkError)
-				Expect(ok).To(BeTrue(), "SetupPhase1 should return an error of type CriticalNetworkError")
-			})
-		})
-		Context("and networking preparation success", func() {
-			BeforeEach(func() {
-				mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Times(1)
-			})
-			It("should return no error at phase1 and store pod interface", func() {
-				Expect(podnic.PlugPhase1()).To(Succeed())
-				podData, err := podnic.cacheFactory.CacheForVMI(vmi).Read("default")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(podData.PodIP).To(Equal("1.2.3.4"))
-				Expect(podData.PodIPs).To(ConsistOf("1.2.3.4", "169.254.0.0"))
-			})
-		})
-	})
-	When("DHCP config is correctly read", func() {
-		var (
-			podnic *podNIC
-			domain *api.Domain
-		)
-		BeforeEach(func() {
-			var err error
-			domain = NewDomainWithBridgeInterface()
-			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			podnic, err = newPodNICWithMocks(vmi)
+		if c.shouldStoreDomainIface && c.expectedDomainIface != nil {
+			obtainedDomainIface, err := cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Read(podnic.vmiSpecIface.Name)
 			Expect(err).ToNot(HaveOccurred())
-			podnic.cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Write(podnic.podInterfaceName, &cache.DHCPConfig{Name: podnic.podInterfaceName})
-			podnic.cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Write(podnic.vmiSpecIface.Name, &domain.Spec.Devices.Interfaces[0])
-		})
-		Context("and starting the DHCP server fails", func() {
-			BeforeEach(func() {
-				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("podnic_test: forcing failure at DHCP start"))
-			})
-			It("phase2 should panic", func() {
-				Expect(func() { podnic.PlugPhase2(domain) }).To(Panic())
-			})
-		})
-		Context("and starting the DHCP server succeed", func() {
-			BeforeEach(func() {
-				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-			})
-			It("phase2 should succeed", func() {
-				Expect(podnic.PlugPhase2(domain)).To(Succeed())
-			})
+			Expect(obtainedDomainIface).To(Equal(c.expectedDomainIface))
+		} else {
+			_, err := cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Read(podnic.vmiSpecIface.Name)
+			Expect(err).To(MatchError(os.ErrNotExist))
+		}
 
-		})
-	})
-	Context("when interface binding is SRIOV", func() {
-		var (
-			vmi    *v1.VirtualMachineInstance
-			podnic *podNIC
-		)
-		BeforeEach(func() {
-			launcherPID := 1
-			vmi = newVMI("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name: "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					SRIOV: &v1.InterfaceSRIOV{},
-				},
-			}}
-			var err error
-			podnic, err = newPodNICWithMocks(vmi)
+		if c.shouldStoreDHCPConfig && c.expectedDHCPConfig != nil {
+			obtainedDHCPConfig, err := cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Read(c.expectedDHCPConfig.Name)
 			Expect(err).ToNot(HaveOccurred())
-			podnic.podInterfaceName = "fakeiface"
-			podnic.launcherPID = &launcherPID
-
-		})
-		It("should not crash at phase1", func() {
-			Expect(podnic.PlugPhase1()).To(Succeed())
-		})
-		It("should not crash at phase2", func() {
-			Expect(podnic.PlugPhase2(&api.Domain{})).To(Succeed())
-		})
-	})
+			Expect(obtainedDHCPConfig).To(Equal(c.expectedDHCPConfig))
+		} else {
+			_, err := cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Read(podnic.vmiSpecIface.Name)
+			Expect(err).To(MatchError(os.ErrNotExist))
+		}
+	},
+		Entry("should success when interface binding is SRIOV", plugPhase1Case{
+			vmi:    newVMISRIOVInterface("testnamespace", "testVmName"),
+			should: Succeed(),
+		}),
+		Entry("should success and be a noop if libvirt domain interface is already generate for bridge binding", plugPhase1Case{
+			vmi:               newVMIBridgeInterface("testnamespace", "testVmName"),
+			storedDomainIface: &api.Interface{},
+			should:            Succeed(),
+		}),
+		Entry("should success and be a noop if libvirt domain interface is already generate for masquerade binding", plugPhase1Case{
+			vmi:               newVMIMasqueradeInterface("testnamespace", "testVmName"),
+			storedDomainIface: &api.Interface{},
+			should:            Succeed(),
+		}),
+		Entry("should success and be a noop if libvirt domain interface is already generate for macvtap binding", plugPhase1Case{
+			vmi:               newVMIMacvtapInterface("testnamespace", "testVmName", "default"),
+			storedDomainIface: &api.Interface{},
+			should:            Succeed(),
+		}),
+		Entry("should success and be a noop if libvirt domain interface is already generate for slirp binding", plugPhase1Case{
+			vmi:               newVMISlirpInterface("testnamespace", "testVmName"),
+			storedDomainIface: &api.Interface{},
+			should:            Succeed(),
+		}),
+		Entry("should success and write only the pod interface IPs for slirp binding", plugPhase1Case{
+			vmi:                 newVMISlirpInterface("testnamespace", "testVmName"),
+			ipv4Addr:            "1.2.3.4",
+			ipv6Addr:            "::1234:5678",
+			isIPv4Primary:       true,
+			expectedDomainIface: nil,
+			expectedDHCPConfig:  nil,
+			expectedPodInterface: &cache.PodCacheInterface{
+				Iface:  v1.DefaultSlirpNetworkInterface(),
+				PodIP:  "1.2.3.4",
+				PodIPs: []string{"1.2.3.4", "::1234:5678"},
+			},
+			should: Succeed(),
+		}),
+		Entry("should success and write DHCP config, libvirt interface and pod interface for bridge binding", plugPhase1Case{
+			vmi:                 newVMIBridgeInterface("testnamespace", "testVmName"),
+			ipv4Addr:            "1.2.3.4",
+			ipv6Addr:            "::1234:5678",
+			isIPv4Primary:       true,
+			expectedDomainIface: &api.Interface{},
+			expectedDHCPConfig:  &cache.DHCPConfig{Name: primaryPodInterfaceName},
+			expectedPodInterface: &cache.PodCacheInterface{
+				Iface:  v1.DefaultBridgeNetworkInterface(),
+				PodIP:  "1.2.3.4",
+				PodIPs: []string{"1.2.3.4", "::1234:5678"},
+			},
+			shouldStoreDHCPConfig:    true,
+			shouldStoreDomainIface:   true,
+			shouldDiscoverNetworking: withSucces(),
+			shouldPrepareNetworking:  withSucces(),
+			should:                   Succeed(),
+		}),
+		Entry("should propagate error if network discovering fails for bridge binding", plugPhase1Case{
+			vmi:           newVMIBridgeInterface("testnamespace", "testVmName"),
+			ipv4Addr:      "1.2.3.4",
+			ipv6Addr:      "::1234:5678",
+			isIPv4Primary: true,
+			expectedPodInterface: &cache.PodCacheInterface{
+				Iface:  v1.DefaultBridgeNetworkInterface(),
+				PodIP:  "1.2.3.4",
+				PodIPs: []string{"1.2.3.4", "::1234:5678"},
+			},
+			shouldDiscoverNetworking: withError(),
+			should:                   MatchError(withError().err),
+		}),
+		Entry("should return CriticalNetworkError if network preparation fails for bridge binding", plugPhase1Case{
+			vmi:                 newVMIBridgeInterface("testnamespace", "testVmName"),
+			ipv4Addr:            "1.2.3.4",
+			ipv6Addr:            "::1234:5678",
+			isIPv4Primary:       true,
+			expectedDomainIface: &api.Interface{},
+			expectedDHCPConfig:  &cache.DHCPConfig{Name: primaryPodInterfaceName},
+			expectedPodInterface: &cache.PodCacheInterface{
+				Iface:  v1.DefaultBridgeNetworkInterface(),
+				PodIP:  "1.2.3.4",
+				PodIPs: []string{"1.2.3.4", "::1234:5678"},
+			},
+			shouldStoreDHCPConfig:    true,
+			shouldStoreDomainIface:   false,
+			shouldDiscoverNetworking: withSucces(),
+			shouldPrepareNetworking:  withError(),
+			should:                   MatchError(errors.CreateCriticalNetworkError(withError().err)),
+		}),
+	)
+	type plugPhase2Case struct {
+		vmi                   *v1.VirtualMachineInstance
+		domain                *api.Domain
+		dhcpConfig            *cache.DHCPConfig
+		domainIface           *api.Interface
+		shouldStartDHCPServer *result
+		should                types.GomegaMatcher
+	}
+	DescribeTable("PlugPhase2 is call", func(c plugPhase2Case) {
+		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(c.domain)
+		podnic, err := newPodNICWithMocks(c.vmi)
+		Expect(err).ToNot(HaveOccurred())
+		if c.dhcpConfig != nil {
+			podnic.cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Write(podnic.podInterfaceName, c.dhcpConfig)
+		}
+		if c.domainIface != nil {
+			podnic.cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Write(podnic.vmiSpecIface.Name, c.domainIface)
+		}
+		if c.shouldStartDHCPServer != nil {
+			mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(c.shouldStartDHCPServer.err)
+		}
+		switch c.should.(type) {
+		case *matchers.PanicMatcher:
+			Expect(func() { podnic.PlugPhase2(c.domain) }).To(c.should)
+		default:
+			Expect(podnic.PlugPhase2(c.domain)).Should(c.should)
+		}
+	},
+		Entry("should success when the interface binding is SRIOV", plugPhase2Case{
+			vmi:    newVMISRIOVInterface("testnamespace", "testVmName"),
+			domain: &api.Domain{},
+			should: Succeed(),
+		}),
+		Entry("should success and decorate libvirt interface when the interface binding is slirp", plugPhase2Case{
+			vmi:         newVMISlirpInterface("testnamespace", "testVmName"),
+			domain:      NewDomainWithSlirpInterface(),
+			domainIface: &api.Interface{},
+			should:      Succeed(),
+		}),
+		Entry("should sucess and decorate libvirt interface when the interface binding is macvtap", plugPhase2Case{
+			vmi:         newVMIMacvtapInterface("testnamespace", "testVmName", "default"),
+			domain:      NewDomainWithMacvtapInterface("default"),
+			domainIface: &api.Interface{},
+			should:      Succeed(),
+		}),
+		Entry("should success, decorate libvirt interface and start DHCP server when interface binding is bridge", plugPhase2Case{
+			vmi:                   newVMIBridgeInterface("testnamespace", "testVmName"),
+			domain:                NewDomainWithBridgeInterface(),
+			domainIface:           &api.Interface{},
+			dhcpConfig:            &cache.DHCPConfig{Name: "default"},
+			shouldStartDHCPServer: withSucces(),
+			should:                Succeed(),
+		}),
+		Entry("should panic when starting DHCP server fails on bridge interface binding", plugPhase2Case{
+			vmi:                   newVMIBridgeInterface("testnamespace", "testVmName"),
+			domain:                NewDomainWithBridgeInterface(),
+			domainIface:           &api.Interface{},
+			dhcpConfig:            &cache.DHCPConfig{Name: "default"},
+			shouldStartDHCPServer: withError(),
+			should:                Panic(),
+		}),
+		Entry("should success, decorate libvirt interface and start DHCP server when interface binding is masquerade", plugPhase2Case{
+			vmi:                   newVMIMasqueradeInterface("testnamespace", "testVmName"),
+			domain:                NewDomainWithBridgeInterface(),
+			domainIface:           &api.Interface{},
+			dhcpConfig:            &cache.DHCPConfig{Name: "default"},
+			shouldStartDHCPServer: withSucces(),
+			should:                Succeed(),
+		}),
+		Entry("should panic when starting DHCP server fails on masquerade interface binding", plugPhase2Case{
+			vmi:                   newVMIMasqueradeInterface("testnamespace", "testVmName"),
+			domain:                NewDomainWithBridgeInterface(),
+			domainIface:           &api.Interface{},
+			dhcpConfig:            &cache.DHCPConfig{Name: "default"},
+			shouldStartDHCPServer: withError(),
+			should:                Panic(),
+		}),
+	)
 })

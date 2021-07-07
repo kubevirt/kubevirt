@@ -46,6 +46,17 @@ func newVMIMacvtapInterface(namespace string, vmiName string, ifaceName string) 
 	return vmi
 }
 
+func newVMISRIOVInterface(namespce, name string) *v1.VirtualMachineInstance {
+	vmi := newVMI("testnamespace", "testVmName")
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+		Name: "default",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			SRIOV: &v1.InterfaceSRIOV{},
+		},
+	}}
+	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+	return vmi
+}
 func NewDomainWithBridgeInterface() *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.Interfaces = []api.Interface{{
