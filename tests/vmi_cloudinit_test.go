@@ -77,7 +77,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		util.PanicOnError(err)
 
 		// from default virt-launcher flag: do we need to make this configurable in some cases?
-		cloudinit.SetLocalDirectory("/var/run/kubevirt-ephemeral-disks/cloud-init-data")
+		cloudinit.SetLocalDirectoryOnly("/var/run/kubevirt-ephemeral-disks/cloud-init-data")
 
 		LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			By("Starting a VirtualMachineInstance")
