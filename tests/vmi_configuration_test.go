@@ -1773,20 +1773,14 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	})
 
 	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", func() {
-		var originalConfig v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
-			kv := tests.GetCurrentKv(virtClient)
-			originalConfig = kv.Spec.Configuration
-
-			tests.EnableFeatureGate(virtconfig.HostDiskGate)
+			if !tests.HasFeature(virtconfig.HostDiskGate) {
+				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
+			}
 			// create a new PV and PVC (PVs can't be reused)
 			tests.CreateBlockVolumePvAndPvc("1Gi")
 		}, 60)
-
-		AfterEach(func() {
-			tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
-		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
 			tests.SkipPVCTestIfRunnigOnKindInfra()
@@ -1966,9 +1960,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("Should set BlockIO when set to match volume block sizes on files", func() {
-			originalConfig := tests.GetCurrentKv(virtClient).Spec.Configuration
-			tests.EnableFeatureGate(virtconfig.HostDiskGate)
-			defer tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+			if !tests.HasFeature(virtconfig.HostDiskGate) {
+				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
+			}
 
 			By("creating a disk image")
 			var nodeName string
