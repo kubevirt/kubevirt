@@ -146,9 +146,8 @@ func (b *MasqueradePodNetworkConfigurator) PreparePodNetworkInterface() error {
 	return nil
 }
 
-func (b *MasqueradePodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interface {
-	// The method is left here since currently the DomainIfaceSpec cache is used as a marker that phase1 was completed
-	return api.Interface{}
+func (b *MasqueradePodNetworkConfigurator) GenerateNonRecoverableDomainIfaceSpec() *api.Interface {
+	return nil
 }
 
 func (b *MasqueradePodNetworkConfigurator) createBridge() error {

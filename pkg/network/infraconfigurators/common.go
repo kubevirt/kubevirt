@@ -35,7 +35,7 @@ import (
 type PodNetworkInfraConfigurator interface {
 	DiscoverPodNetworkInterface(podIfaceName string) error
 	PreparePodNetworkInterface() error
-	GenerateDomainIfaceSpec() api.Interface
+	GenerateNonRecoverableDomainIfaceSpec() *api.Interface
 	// The method should return dhcp configuration that cannot be calculated in virt-launcher's phase2
 	GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig
 }
