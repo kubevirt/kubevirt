@@ -5,6 +5,7 @@ import (
 
 	restful "github.com/emicklei/go-restful"
 	"k8s.io/apimachinery/pkg/api/errors"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/api"
