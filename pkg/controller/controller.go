@@ -71,6 +71,22 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
 }
 
+func RecoverExecutePanicAsError(fn func(string) error, key string) (err error) {
+	defer func(err *error) {
+		if r := recover(); r != nil {
+
+			stack := debug.Stack()
+			log.Log.Level(log.ERROR).Log("stacktrace", stack, "msg", r)
+
+			*err = fmt.Errorf("recovered from panic %q. Call stack:\n%s",
+				r,
+				stack)
+		}
+	}(&err)
+
+	return fn(key)
+}
+
 func HandlePanic() {
 	if r := recover(); r != nil {
 		log.Log.Level(log.FATAL).Log("stacktrace", debug.Stack(), "msg", r)

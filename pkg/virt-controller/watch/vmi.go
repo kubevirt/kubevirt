@@ -219,7 +219,7 @@ func (c *VMIController) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := controller.RecoverExecutePanicAsError(c.execute, key.(string))
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
