@@ -39,7 +39,7 @@ CSV_WEBHOOK_IMAGE=${IMAGE_REGISTRY}/${TEMP_WEBHOOK_IMAGE}
 OPERATOR_IMAGE=${TEMP_OPERATOR_IMAGE} WEBHOOK_IMAGE=${TEMP_WEBHOOK_IMAGE} make container-build-operator container-push-operator container-build-webhook container-push-webhook
 
 # Update image digests
-sed -i "s#docker.io/kubevirt/virt-#${kv_image/-*/-}#" deploy/images.csv
+sed -i "s#quay.io/kubevirt/virt-#${kv_image/-*/-}#" deploy/images.csv
 sed -i "s#^KUBEVIRT_VERSION=.*#KUBEVIRT_VERSION=\"${kv_tag}\"#" hack/config
 (cd ./tools/digester && go build .)
 export HCO_VERSION="${IMAGE_TAG}"
