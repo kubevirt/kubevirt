@@ -76,4 +76,56 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 			Expect(cm.HasCondition(vmi2, v1.VirtualMachineInstanceConditionType(pc1.Type))).To(BeFalse())
 		})
 	})
+
+	When("Updating a condition", func() {
+
+		var vc1 *v1.VirtualMachineInstanceCondition
+		BeforeEach(func() {
+			vc1 = &v1.VirtualMachineInstanceCondition{
+				Type:    v1.VirtualMachineInstanceReady,
+				Status:  v12.ConditionFalse,
+				Reason:  "A reason",
+				Message: "A message",
+			}
+
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{*vc1}
+		})
+
+		It("should update the condition if status has changed", func() {
+			vc2 := &v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceReady,
+				Status: v12.ConditionTrue,
+			}
+
+			cm.UpdateCondition(vmi, vc2)
+			Expect(len(vmi.Status.Conditions)).To(Equal(1))
+			Expect(cm.GetCondition(vmi, vc1.Type)).To(Equal(vc2))
+		})
+
+		It("should update the condition if the reason has changed", func() {
+			vc2 := &v1.VirtualMachineInstanceCondition{
+				Type:    v1.VirtualMachineInstanceReady,
+				Status:  v12.ConditionFalse,
+				Reason:  "A different reason",
+				Message: "A different message",
+			}
+
+			cm.UpdateCondition(vmi, vc2)
+			Expect(len(vmi.Status.Conditions)).To(Equal(1))
+			Expect(cm.GetCondition(vmi, vc1.Type)).To(Equal(vc2))
+		})
+
+		It("shouldn't update the condition if both status and reason hasn't changed", func() {
+			vc2 := &v1.VirtualMachineInstanceCondition{
+				Type:    v1.VirtualMachineInstanceReady,
+				Status:  v12.ConditionFalse,
+				Reason:  "A reason",
+				Message: "A different message",
+			}
+
+			cm.UpdateCondition(vmi, vc2)
+			Expect(len(vmi.Status.Conditions)).To(Equal(1))
+			Expect(cm.GetCondition(vmi, vc1.Type)).To(Equal(vc1))
+		})
+	})
 })

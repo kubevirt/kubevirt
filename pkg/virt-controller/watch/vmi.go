@@ -647,68 +647,56 @@ func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error)
 func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 
-	setVMIReadyCondition := func(status k8sv1.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
-		vmiReadyCond := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
-		if vmiReadyCond != nil &&
-			vmiReadyCond.Status == status &&
-			vmiReadyCond.Reason == reason {
-			return
-		}
-
-		conditionManager.RemoveCondition(vmi, virtv1.VirtualMachineInstanceReady)
-		vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+	now := v1.Now()
+	if pod == nil || isTempPod(pod) {
+		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
-			Status:             status,
-			Reason:             reason,
-			Message:            message,
-			LastProbeTime:      lastProbeTime,
-			LastTransitionTime: lastTransitionTime,
+			Status:             k8sv1.ConditionFalse,
+			Reason:             virtv1.PodNotExistsReason,
+			Message:            "virt-launcher pod has not yet been scheduled",
+			LastProbeTime:      now,
+			LastTransitionTime: now,
 		})
 
-		logMessage := "marking VMI as not ready"
-		if status == k8sv1.ConditionTrue {
-			logMessage = "Marking VMI as ready"
-		}
-		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, reason, logMessage)
-		log.Log.Object(vmi).Infof(logMessage + ": " + message)
-	}
-
-	now := v1.Now()
-
-	// Keep PodReady condition in sync with the VMI
-	if pod == nil || isTempPod(pod) {
-		setVMIReadyCondition(k8sv1.ConditionFalse,
-			virtv1.PodNotExistsReason,
-			"virt-launcher pod has not yet been scheduled",
-			now,
-			now)
-
 	} else if isPodDownOrGoingDown(pod) {
-		setVMIReadyCondition(k8sv1.ConditionFalse,
-			virtv1.PodTerminatingReason,
-			"virt-launcher pod is terminating",
-			now,
-			now)
+		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+			Type:               virtv1.VirtualMachineInstanceReady,
+			Status:             k8sv1.ConditionFalse,
+			Reason:             virtv1.PodTerminatingReason,
+			Message:            "virt-launcher pod is terminating",
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+		})
 
 	} else if !vmi.IsRunning() {
-		setVMIReadyCondition(k8sv1.ConditionFalse,
-			virtv1.GuestNotRunningReason,
-			"Guest VM is not reported as running",
-			now,
-			now)
+		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+			Type:               virtv1.VirtualMachineInstanceReady,
+			Status:             k8sv1.ConditionFalse,
+			Reason:             virtv1.GuestNotRunningReason,
+			Message:            "Guest VM is not reported as running",
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+		})
 
 	} else if podReadyCond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); podReadyCond != nil {
-		setVMIReadyCondition(podReadyCond.Status,
-			podReadyCond.Reason,
-			podReadyCond.Message,
-			podReadyCond.LastProbeTime,
-			podReadyCond.LastTransitionTime)
+		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+			Type:               virtv1.VirtualMachineInstanceReady,
+			Status:             podReadyCond.Status,
+			Reason:             podReadyCond.Reason,
+			Message:            podReadyCond.Message,
+			LastProbeTime:      podReadyCond.LastProbeTime,
+			LastTransitionTime: podReadyCond.LastTransitionTime,
+		})
+
 	} else {
-		setVMIReadyCondition(k8sv1.ConditionFalse,
-			virtv1.PodConditionMissingReason,
-			"virt-launcher pod is missing the Ready condition",
-			now,
-			now)
+		conditionManager.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+			Type:               virtv1.VirtualMachineInstanceReady,
+			Status:             k8sv1.ConditionFalse,
+			Reason:             virtv1.PodConditionMissingReason,
+			Message:            "virt-launcher pod is missing the Ready condition",
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+		})
 	}
 }
 

@@ -743,8 +743,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			shouldExpectVirtualMachineFailedState(vmi)
 
 			controller.Execute()
-
-			testutils.ExpectEvent(recorder, v1.PodTerminatingReason)
 		})
 		table.DescribeTable("should not delete the corresponding Pod if the vmi is in", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -1254,8 +1252,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			shouldExpectVirtualMachineFailedState(vmi)
 
 			controller.Execute()
-
-			testutils.ExpectEvent(recorder, v1.PodNotExistsReason)
 		})
 		It("should update the virtual machine to failed if compute container is terminated while still scheduling", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -1388,8 +1384,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
 			controller.Execute()
-
-			testutils.ExpectEvent(recorder, "")
 		})
 
 		It("should indicate on the ready condition if the pod is terminating", func() {
@@ -1422,7 +1416,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				return patchedVMI, nil
 			})
 			controller.Execute()
-			testutils.ExpectEvent(recorder, v1.PodTerminatingReason)
 		})
 
 		It("should add active pods to status if VMI is in running state", func() {

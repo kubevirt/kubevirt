@@ -1419,51 +1419,40 @@ func (c *VMController) isVirtualMachineStatusMigrating(vm *virtv1.VirtualMachine
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-	setVMReadyCondition := func(status k8score.ConditionStatus, reason, message string, lastProbeTime, lastTransitionTime v1.Time) {
-		vmReadyCond := controller.NewVirtualMachineConditionManager().GetCondition(vm, virtv1.VirtualMachineReady)
-		if vmReadyCond != nil &&
-			vmReadyCond.Status == status &&
-			vmReadyCond.Reason == reason {
-			return
-		}
-
-		controller.NewVirtualMachineConditionManager().RemoveCondition(vm, virtv1.VirtualMachineReady)
-		vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineReady,
-			Status:             status,
-			Reason:             reason,
-			Message:            message,
-			LastProbeTime:      lastProbeTime,
-			LastTransitionTime: lastTransitionTime,
-		})
-	}
-
+	conditionManager := controller.NewVirtualMachineConditionManager()
 	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
 		GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
 
 	now := v1.Now()
 	if vmi == nil {
-		setVMReadyCondition(k8score.ConditionFalse,
-			"VMINotExists",
-			"VMI does not exist",
-			now,
-			now)
+		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineReady,
+			Status:             k8score.ConditionFalse,
+			Reason:             "VMINotExists",
+			Message:            "VMI does not exist",
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+		})
 
 	} else if vmiReadyCond == nil {
-		setVMReadyCondition(k8score.ConditionFalse,
-			"VMIConditionMissing",
-			"VMI is missing the Ready condition",
-			now,
-			now)
+		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineReady,
+			Status:             k8score.ConditionFalse,
+			Reason:             "VMIConditionMissing",
+			Message:            "VMI is missing the Ready condition",
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+		})
 
 	} else {
-		log.Log.Object(vm).V(4).Info("Syncing VM Ready condition from VMI")
-
-		setVMReadyCondition(vmiReadyCond.Status,
-			vmiReadyCond.Reason,
-			vmiReadyCond.Message,
-			vmiReadyCond.LastProbeTime,
-			vmiReadyCond.LastTransitionTime)
+		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineReady,
+			Status:             vmiReadyCond.Status,
+			Reason:             vmiReadyCond.Reason,
+			Message:            vmiReadyCond.Message,
+			LastProbeTime:      vmiReadyCond.LastProbeTime,
+			LastTransitionTime: vmiReadyCond.LastTransitionTime,
+		})
 	}
 }
 
