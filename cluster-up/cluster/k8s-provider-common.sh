@@ -65,14 +65,19 @@ function up() {
         
         istio_operator_ns=istio-system
         retries=0
-        while [[ $retries -lt 20 ]]; do
+        max_retries=20
+        while [[ $retries -lt $max_retries ]]; do
             echo "waiting for istio-operator to be healthy"
             sleep 5
-            retries=$((retries + 1))
             health=$(kubectl -n $istio_operator_ns get istiooperator istio-operator -o jsonpath="{.status.status}")
             if [[ $health == "HEALTHY" ]]; then
                 break
             fi
+            retries=$((retries + 1))
         done
+        if [ $retries == $max_retries ]; then
+            echo "waiting istio-operator to be healthy failed"
+            exit 1
+        fi
     fi
 }
