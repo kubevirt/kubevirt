@@ -3,6 +3,8 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
+	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 	"os"
 	"reflect"
 	"strings"
@@ -820,11 +822,14 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 	// presence of at least one of the JSON Patch annotations
 	tainted := false
 	for _, jpa := range JSONPatchAnnotationNames {
-		_, exists := req.Instance.ObjectMeta.Annotations[jpa]
+		NumOfChanges := 0
+		jsonPatch, exists := req.Instance.ObjectMeta.Annotations[jpa]
 		if exists {
-			tainted = true
-			break
+			if NumOfChanges = getNumOfChangesJsonPatch(jsonPatch); NumOfChanges > 0 {
+				tainted = true
+			}
 		}
+		metrics.HcoMetrics.SetUnsafeModificationCount(NumOfChanges, jpa)
 	}
 
 	if tainted {
@@ -850,6 +855,14 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 			req.Logger.Info("Detected untainted configuration state for HCO")
 		}
 	}
+}
+
+func getNumOfChangesJsonPatch(jsonPatch string) int {
+	patches, err := jsonpatch.DecodePatch([]byte(jsonPatch))
+	if err != nil {
+		return 0
+	}
+	return len(patches)
 }
 
 func (r *ReconcileHyperConverged) firstLoopInitialization(request *common.HcoRequest) {

@@ -6,6 +6,7 @@ group_eval_order:
   - kubevirt.hyperconverged.rules
 
 tests:
+  # Test out-of-bound modification counter
   - interval: 1m
     input_series:
       - series: 'kubevirt_hco_out_of_band_modifications_count{component_name="kubevirt/kubevirt-kubevirt-hyperconverged"}'
@@ -23,7 +24,7 @@ tests:
         alertname: KubevirtHyperconvergedClusterOperatorCRModification
         exp_alerts:
           - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged ."
+              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
               summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
             exp_labels:
               severity: "warning"
@@ -34,18 +35,18 @@ tests:
         alertname: KubevirtHyperconvergedClusterOperatorCRModification
         exp_alerts:
           - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged ."
+              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
               summary: "3 out-of-band CR modifications were detected in the last 10 minutes."
             exp_labels:
               severity: "warning"
               component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
 
-      # Old increases must be ignored.
+    # Old increases must be ignored.
       - eval_time: 13m
         alertname: KubevirtHyperconvergedClusterOperatorCRModification
         exp_alerts:
           - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged ."
+              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
               summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
             exp_labels:
               severity: "warning"
@@ -66,20 +67,184 @@ tests:
         alertname: KubevirtHyperconvergedClusterOperatorCRModification
         exp_alerts:
           - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged ."
+              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
               summary: "1 out-of-band CR modifications were detected in the last 10 minutes."
             exp_labels:
               severity: "warning"
               component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
-
 
       # After restart, new increases must be detected
       - eval_time: 30m
         alertname: KubevirtHyperconvergedClusterOperatorCRModification
         exp_alerts:
           - exp_annotations:
-              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged ."
+              description: "Out-of-band modification for kubevirt/kubevirt-kubevirt-hyperconverged."
               summary: "2 out-of-band CR modifications were detected in the last 10 minutes."
             exp_labels:
               severity: "warning"
               component_name: "kubevirt/kubevirt-kubevirt-hyperconverged"
+  # Test unsafe modification counter
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="kubevirt.kubevirt.io/jsonpatch"}'
+        # time:      0     1 2 3 4 5 6 7 8     9    10 11
+        values: "stale stale 1 2 3 3 3 0 1 stale stale  2"
+      - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="containerizeddataimporter.kubevirt.io/jsonpatch"}'
+        # time:      0     1 2 3 4 5 6 7 8     9    10 11
+        values: "stale stale 1 2 3 1 3 0 2 stale stale  3"
+      - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="networkaddonsconfigs.kubevirt.io/jsonpatch"}'
+        # time:      0     1 2 3 4 5 6 7 8     9    10 11
+        values: "stale stale 5 1 1 1 0 0 3 stale stale  1"
+
+    alert_rule_test:
+      # No metric, no alert
+      - eval_time: 1m
+        alertname: KubevirtHyperconvergedClusterOperatorUSModification
+        exp_alerts: [ ]
+
+      # First increase must trigger an alert
+      - eval_time: 2m
+        alertname: KubevirtHyperconvergedClusterOperatorUSModification
+        exp_alerts:
+        - exp_annotations:
+            description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+            summary: "1 unsafe modifications were detected in the HyperConverged resource."
+          exp_labels:
+            severity: "info"
+            annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+        - exp_annotations:
+            description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+            summary: "1 unsafe modifications were detected in the HyperConverged resource."
+          exp_labels:
+            severity: "info"
+            annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+        - exp_annotations:
+            description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+            summary: "5 unsafe modifications were detected in the HyperConverged resource."
+          exp_labels:
+            severity: "info"
+            annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+
+      # New increases must be detected
+      - eval_time: 4m
+        alertname: KubevirtHyperconvergedClusterOperatorUSModification
+        exp_alerts:
+          - exp_annotations:
+              description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+              summary: "3 unsafe modifications were detected in the HyperConverged resource."
+            exp_labels:
+              severity: "info"
+              annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+          - exp_annotations:
+              description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+              summary: "3 unsafe modifications were detected in the HyperConverged resource."
+            exp_labels:
+              severity: "info"
+              annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+          # still using the 10 minutes max
+          - exp_annotations:
+              description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+              summary: "1 unsafe modifications were detected in the HyperConverged resource."
+            exp_labels:
+              severity: "info"
+              annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+
+      # counter can be reduced
+      - eval_time: 5m
+        alertname: KubevirtHyperconvergedClusterOperatorUSModification
+        exp_alerts:
+          - exp_annotations:
+              description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+              summary: "3 unsafe modifications were detected in the HyperConverged resource."
+            exp_labels:
+              severity: "info"
+              annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+          # Reduced
+          - exp_annotations:
+              description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+              summary: "1 unsafe modifications were detected in the HyperConverged resource."
+            exp_labels:
+              severity: "info"
+              annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+          - exp_annotations:
+              description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+              summary: "1 unsafe modifications were detected in the HyperConverged resource."
+            exp_labels:
+              severity: "info"
+              annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+
+      # no alert if the value is 0
+      - eval_time: 6m
+        alertname: KubevirtHyperconvergedClusterOperatorUSModification
+        exp_alerts:
+          - exp_annotations:
+              description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+              summary: "3 unsafe modifications were detected in the HyperConverged resource."
+            exp_labels:
+              severity: "info"
+              annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+          - exp_annotations:
+              description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+              summary: "3 unsafe modifications were detected in the HyperConverged resource."
+            exp_labels:
+              severity: "info"
+              annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+
+      # no alert if the value is 0 for all of the annotations
+      - eval_time: 7m
+        alertname: KubevirtHyperconvergedClusterOperatorUSModification
+        exp_alerts: []
+
+      # recover after all-zero
+      - eval_time: 8m
+        alertname: KubevirtHyperconvergedClusterOperatorUSModification
+        exp_alerts:
+        - exp_annotations:
+            description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+            summary: "1 unsafe modifications were detected in the HyperConverged resource."
+          exp_labels:
+            severity: "info"
+            annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+        # Reduced
+        - exp_annotations:
+            description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+            summary: "2 unsafe modifications were detected in the HyperConverged resource."
+          exp_labels:
+            severity: "info"
+            annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+        - exp_annotations:
+            description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+            summary: "3 unsafe modifications were detected in the HyperConverged resource."
+          exp_labels:
+            severity: "info"
+            annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+
+      # no data
+      - eval_time: 9m
+        alertname: KubevirtHyperconvergedClusterOperatorUSModification
+        exp_alerts: []
+
+    # recover after reset
+      - eval_time: 11m
+        alertname: KubevirtHyperconvergedClusterOperatorUSModification
+        exp_alerts:
+        - exp_annotations:
+            description: "unsafe modification for the kubevirt.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+            summary: "2 unsafe modifications were detected in the HyperConverged resource."
+          exp_labels:
+            severity: "info"
+            annotation_name: "kubevirt.kubevirt.io/jsonpatch"
+        # Reduced
+        - exp_annotations:
+            description: "unsafe modification for the containerizeddataimporter.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+            summary: "3 unsafe modifications were detected in the HyperConverged resource."
+          exp_labels:
+            severity: "info"
+            annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
+        - exp_annotations:
+            description: "unsafe modification for the networkaddonsconfigs.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+            summary: "1 unsafe modifications were detected in the HyperConverged resource."
+          exp_labels:
+            severity: "info"
+            annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+

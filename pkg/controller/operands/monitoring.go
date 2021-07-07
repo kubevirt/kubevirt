@@ -20,12 +20,13 @@ import (
 )
 
 const (
-	operatorPortName     = "http-metrics"
-	defaultOperatorName  = "hyperconverged-cluster-operator"
-	operatorNameEnv      = "OPERATOR_NAME"
-	metricsSuffix        = "-operator-metrics"
-	alertRuleGroup       = "kubevirt.hyperconverged.rules"
-	outOfBandUpdateAlert = "KubevirtHyperconvergedClusterOperatorCRModification"
+	operatorPortName        = "http-metrics"
+	defaultOperatorName     = "hyperconverged-cluster-operator"
+	operatorNameEnv         = "OPERATOR_NAME"
+	metricsSuffix           = "-operator-metrics"
+	alertRuleGroup          = "kubevirt.hyperconverged.rules"
+	outOfBandUpdateAlert    = "KubevirtHyperconvergedClusterOperatorCRModification"
+	unsafeModificationAlert = "KubevirtHyperconvergedClusterOperatorUSModification"
 )
 
 type metricsServiceHandler genericOperand
@@ -249,17 +250,30 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 	return &monitoringv1.PrometheusRuleSpec{
 		Groups: []monitoringv1.RuleGroup{{
 			Name: alertRuleGroup,
-			Rules: []monitoringv1.Rule{{
-				Alert: outOfBandUpdateAlert,
-				Expr:  intstr.FromString("sum by(component_name) ((round(increase(kubevirt_hco_out_of_band_modifications_count[10m]))>0 and kubevirt_hco_out_of_band_modifications_count offset 10m) or (kubevirt_hco_out_of_band_modifications_count != 0 unless kubevirt_hco_out_of_band_modifications_count offset 10m))"),
-				Annotations: map[string]string{
-					"description": "Out-of-band modification for {{ $labels.component_name }} .",
-					"summary":     "{{ $value }} out-of-band CR modifications were detected in the last 10 minutes.",
+			Rules: []monitoringv1.Rule{
+				{
+					Alert: outOfBandUpdateAlert,
+					Expr:  intstr.FromString("sum by(component_name) ((round(increase(kubevirt_hco_out_of_band_modifications_count[10m]))>0 and kubevirt_hco_out_of_band_modifications_count offset 10m) or (kubevirt_hco_out_of_band_modifications_count != 0 unless kubevirt_hco_out_of_band_modifications_count offset 10m))"),
+					Annotations: map[string]string{
+						"description": "Out-of-band modification for {{ $labels.component_name }}.",
+						"summary":     "{{ $value }} out-of-band CR modifications were detected in the last 10 minutes.",
+					},
+					Labels: map[string]string{
+						"severity": "warning",
+					},
 				},
-				Labels: map[string]string{
-					"severity": "warning",
+				{
+					Alert: unsafeModificationAlert,
+					Expr:  intstr.FromString("sum by(annotation_name) ((kubevirt_hco_unsafe_modification_count)>0)"),
+					Annotations: map[string]string{
+						"description": "unsafe modification for the {{ $labels.annotation_name }} annotation in the HyperConverged resource.",
+						"summary":     "{{ $value }} unsafe modifications were detected in the HyperConverged resource.",
+					},
+					Labels: map[string]string{
+						"severity": "info",
+					},
 				},
-			}},
+			},
 		}},
 	}
 }

@@ -656,3 +656,14 @@ FIELDS:
 Using the jsonpatch annotation feature incorrectly might lead to unexpected results and could potentially render the Kubevirt-Hyperconverged system unstable.  
 The jsonpatch annotation feature is particularly dangerous when upgrading Kubevirt-Hyperconverged, as the structure or the semantics of the underlying components' CR might be changed. Please remove any jsonpatch annotation usage prior the upgrade, to avoid any potential issues.
 **USE WITH CAUTION!**
+
+As the usage of the jsonpatch annotation is not safe, the HyperConverged Cluster Operator will count the number of these
+modifications in a metric named kubevirt_hco_unsafe_modification_count.
+if the counter is not zero, an alert named
+`KubevirtHyperconvergedClusterOperatorUSModification will` be eventually fired:
+```
+Labels
+    alertname=KubevirtHyperconvergedClusterOperatorUSModification
+    annotation_name="kubevirt.kubevirt.io/jsonpatch"
+    severity=info
+```
