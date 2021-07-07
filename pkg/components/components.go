@@ -253,6 +253,7 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 						},
 					},
 				},
+				PriorityClassName: "system-cluster-critical",
 			},
 		},
 	}
@@ -351,6 +352,7 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 						},
 					},
 				},
+				PriorityClassName: "system-node-critical",
 			},
 		},
 	}

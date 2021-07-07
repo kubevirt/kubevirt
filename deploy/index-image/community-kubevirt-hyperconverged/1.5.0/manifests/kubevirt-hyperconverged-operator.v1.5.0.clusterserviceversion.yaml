@@ -1873,6 +1873,7 @@ spec:
                   requests:
                     cpu: 10m
                     memory: 96Mi
+              priorityClassName: system-cluster-critical
               serviceAccountName: hyperconverged-cluster-operator
       - label:
           app.kubernetes.io/component: deployment
@@ -1939,6 +1940,7 @@ spec:
                   requests:
                     cpu: 5m
                     memory: 48Mi
+              priorityClassName: system-node-critical
               serviceAccountName: hyperconverged-cluster-operator
       - label:
           app.kubernetes.io/component: network

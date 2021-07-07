@@ -94,6 +94,7 @@ spec:
           requests:
             cpu: 10m
             memory: 96Mi
+      priorityClassName: system-cluster-critical
       serviceAccountName: hyperconverged-cluster-operator
 ---
 apiVersion: apps/v1
@@ -165,6 +166,7 @@ spec:
         volumeMounts:
         - mountPath: /apiserver.local.config/certificates
           name: apiservice-cert
+      priorityClassName: system-node-critical
       serviceAccountName: hyperconverged-cluster-operator
       volumes:
       - name: apiservice-cert
