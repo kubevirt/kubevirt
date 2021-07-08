@@ -48,7 +48,7 @@ genrule(
     name = "setcaps",
     srcs = [":virt-launcher"],
     outs = ["virt-launcher.tar.gz"],
-    cmd = "path=$$(readlink -f $(location virt-launcher)) && cp $$path virt-launcher && setcap 'cap_net_bind_service+eip'  virt-launcher && tar --xattrs --no-selinux -czvf virt-launcher.tar.gz virt-launcher && mv virt-launcher.tar.gz $@",
+    cmd = "path=$$(readlink -f $(location virt-launcher)) && cp $$path virt-launcher && setcap 'cap_net_bind_service+eip'  virt-launcher && (chcon -t container_file_t virt-launcher || true) &&  tar --xattrs -czvf virt-launcher.tar.gz virt-launcher && mv virt-launcher.tar.gz $@",
     visibility = ["//visibility:public"],
 )
 
