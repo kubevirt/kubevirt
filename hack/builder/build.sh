@@ -6,21 +6,10 @@ SCRIPT_DIR="$(
     pwd
 )"
 
-trap 'cleanup' EXIT
-
-cleanup() {
-    docker rm -f dummy-qemu-user-static >/dev/null || true
-    rm "${SCRIPT_DIR}/qemu-aarch64-static" || true
-}
-
 # shellcheck source=hack/builder/version.sh
 . "${SCRIPT_DIR}/version.sh"
 
-cleanup
-
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-docker create -ti --name dummy-qemu-user-static multiarch/qemu-user-static
-docker cp dummy-qemu-user-static:/usr/bin/qemu-aarch64-static "${SCRIPT_DIR}/qemu-aarch64-static"
 
 for ARCH in ${ARCHITECTURES}; do
     case ${ARCH} in
