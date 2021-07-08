@@ -1,7 +1,5 @@
 FROM fedora:32
 
-COPY qemu-aarch64-static /usr/bin/qemu-aarch64-static
-
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
