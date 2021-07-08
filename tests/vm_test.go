@@ -1732,7 +1732,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vm, err := virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				if vm.Status.PrintableStatus != v1.VirtualMachineStatusCrashLoop {
+				if vm.Status.PrintableStatus != v1.VirtualMachineStatusCrashLoopBackOff {
 					return fmt.Errorf("Still waiting on crash loop printable status")
 				}
 
@@ -1798,7 +1798,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				newVM, err := virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				if newVM.Status.PrintableStatus != v1.VirtualMachineStatusCrashLoop {
+				if newVM.Status.PrintableStatus != v1.VirtualMachineStatusCrashLoopBackOff {
 					return fmt.Errorf("Still waiting on crash loop printable status")
 				}
 

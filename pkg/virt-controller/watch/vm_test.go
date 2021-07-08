@@ -822,7 +822,7 @@ var _ = Describe("VirtualMachine", func() {
 			table.DescribeTable("should calculated expected backoff delay", func(failCount, minExpectedDelay int, maxExpectedDelay int) {
 
 				for i := 0; i < 1000; i++ {
-					delay := calculateStartBackoffTime(failCount, defaultMaxCrashLoopBackoffDelay)
+					delay := calculateStartBackoffTime(failCount, defaultMaxCrashLoopBackoffDelaySeconds)
 
 					if delay > maxExpectedDelay {
 						Expect(fmt.Errorf("delay: %d: failCount %d should not result in a delay greater than %d", delay, failCount, maxExpectedDelay)).To(BeNil())
@@ -843,7 +843,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			table.DescribeTable("has start failure backoff expired", func(vm *v1.VirtualMachine, expected int64) {
-				seconds := hasStartFailureBackoffExpired(vm)
+				seconds := startFailureBackoffTimeLeft(vm)
 
 				if expected > 0 {
 					// since the tests all run in parallel, it's difficult to
@@ -1545,9 +1545,9 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 					objVM := obj.(*v1.VirtualMachine)
 					if expectCrashloop {
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusCrashLoop))
+						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusCrashLoopBackOff))
 					} else {
-						Expect(objVM.Status.PrintableStatus).ToNot(Equal(v1.VirtualMachineStatusCrashLoop))
+						Expect(objVM.Status.PrintableStatus).ToNot(Equal(v1.VirtualMachineStatusCrashLoopBackOff))
 					}
 				})
 

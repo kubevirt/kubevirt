@@ -62,7 +62,7 @@ const (
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
 )
 
-const defaultMaxCrashLoopBackoffDelay = 300
+const defaultMaxCrashLoopBackoffDelaySeconds = 300
 
 func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
@@ -588,7 +588,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			return nil
 		}
 
-		timeLeft := hasStartFailureBackoffExpired(vm)
+		timeLeft := startFailureBackoffTimeLeft(vm)
 		if timeLeft > 0 {
 			log.Log.Object(vm).Infof("Delaying start of VM %s with 'runStrategy: %s' due to start failure backoff. Waiting %d more seconds before starting.", startingVmMsg, runStrategy, timeLeft)
 			c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
@@ -627,7 +627,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			return nil
 		}
 
-		timeLeft := hasStartFailureBackoffExpired(vm)
+		timeLeft := startFailureBackoffTimeLeft(vm)
 		if timeLeft > 0 {
 			log.Log.Object(vm).Infof("Delaying start of VM %s with 'runStrategy: %s' due to start failure backoff. Waiting %d more seconds before starting.", startingVmMsg, runStrategy, timeLeft)
 			c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
@@ -796,16 +796,29 @@ func calculateStartBackoffTime(failCount int, maxDelay int) int {
 	return delaySeconds
 }
 
-// Reports if vmi never hit a running state before failing
-func vmiFailedEarly(vmi *virtv1.VirtualMachineInstance) bool {
-	if vmi == nil || !vmi.IsFinal() {
+// Reports if vmi has ever hit a running state
+func wasVMIInRunningPhase(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil {
 		return false
 	}
 
 	for _, ts := range vmi.Status.PhaseTransitionTimestamps {
 		if ts.Phase == virtv1.Running {
-			return false
+			return true
 		}
+	}
+
+	return false
+}
+
+// Reports if vmi failed before ever hitting a running state
+func vmiFailedEarly(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil || !vmi.IsFinal() {
+		return false
+	}
+
+	if wasVMIInRunningPhase(vmi) {
+		return false
 	}
 
 	return true
@@ -815,12 +828,9 @@ func vmiFailedEarly(vmi *virtv1.VirtualMachineInstance) bool {
 // 1. VMI exists and ever hit running phase
 // 2. run strategy is not set to automatically restart failed VMIs
 func shouldClearStartFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	if vmi != nil {
-		for _, ts := range vmi.Status.PhaseTransitionTimestamps {
-			if ts.Phase == virtv1.Running {
-				return true
-			}
-		}
+
+	if wasVMIInRunningPhase(vmi) {
+		return true
 	}
 
 	runStrategy, err := vm.RunStrategy()
@@ -836,7 +846,7 @@ func shouldClearStartFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	return false
 }
 
-func hasStartFailureBackoffExpired(vm *virtv1.VirtualMachine) int64 {
+func startFailureBackoffTimeLeft(vm *virtv1.VirtualMachine) int64 {
 
 	if vm.Status.StartFailure == nil {
 		return 0
@@ -872,7 +882,7 @@ func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 
 		now := v1.NewTime(time.Now())
-		delaySeconds := calculateStartBackoffTime(count, defaultMaxCrashLoopBackoffDelay)
+		delaySeconds := calculateStartBackoffTime(count, defaultMaxCrashLoopBackoffDelaySeconds)
 		retryAfter := v1.NewTime(now.Time.Add(time.Duration(int64(delaySeconds)) * time.Second))
 
 		vm.Status.StartFailure = &virtv1.VirtualMachineStartFailure{
@@ -880,8 +890,6 @@ func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			RetryAfterTimestamp:  &retryAfter,
 			ConsecutiveFailCount: count,
 		}
-		vm.Status.StartFailure.LastFailedVMIUID = vmi.UID
-		vm.Status.StartFailure.RetryAfterTimestamp = &retryAfter
 	}
 }
 
@@ -1515,7 +1523,7 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
-		{virtv1.VirtualMachineStatusCrashLoop, c.isVirtualMachineStatusCrashLoop},
+		{virtv1.VirtualMachineStatusCrashLoopBackOff, c.isVirtualMachineStatusCrashLoopBackOff},
 		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
 	}
 
@@ -1529,8 +1537,8 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 	vm.Status.PrintableStatus = virtv1.VirtualMachineStatusUnknown
 }
 
-// isVirtualMachineStatusCrashLoop determines whether the VM status field should be set to "CrashLoop".
-func (c *VMController) isVirtualMachineStatusCrashLoop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+// isVirtualMachineStatusCrashLoopBackOff determines whether the VM status field should be set to "CrashLoop".
+func (c *VMController) isVirtualMachineStatusCrashLoopBackOff(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	if vmi != nil && !vmi.IsFinal() {
 		return false
 	} else if c.isVMIStartExpected(vm) {
