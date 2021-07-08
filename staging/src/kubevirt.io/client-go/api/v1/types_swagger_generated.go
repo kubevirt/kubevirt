@@ -583,6 +583,12 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (DiskVerification) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DiskVerification holds container disks verification limits\n+k8s:openapi-gen=true",
+	}
+}
+
 func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                           "DeveloperConfiguration holds developer options\n+k8s:openapi-gen=true",
