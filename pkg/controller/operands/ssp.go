@@ -168,13 +168,18 @@ func (h *sspHooks) updateCr(req *common.HcoRequest, client client.Client, exists
 
 func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) *sspv1beta1.SSP {
 	replicas := int32(defaultTemplateValidatorReplicas)
+	templatesNamespace := defaultCommonTemplatesNamespace
+
+	if hc.Spec.CommonTemplatesNamespace != nil {
+		templatesNamespace = *hc.Spec.CommonTemplatesNamespace
+	}
 
 	spec := sspv1beta1.SSPSpec{
 		TemplateValidator: sspv1beta1.TemplateValidator{
 			Replicas: &replicas,
 		},
 		CommonTemplates: sspv1beta1.CommonTemplates{
-			Namespace: defaultCommonTemplatesNamespace,
+			Namespace: templatesNamespace,
 		},
 		// NodeLabeller field is explicitly initialized to its zero-value,
 		// in order to future-proof from bugs if SSP changes it to pointer-type,

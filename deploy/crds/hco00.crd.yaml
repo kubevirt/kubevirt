@@ -115,6 +115,10 @@ spec:
                         type: string
                     type: object
                 type: object
+              commonTemplatesNamespace:
+                description: CommonTemplatesNamespace defines namespace in which common
+                  templates will be deployed. It overrides the default openshift namespace.
+                type: string
               featureGates:
                 default:
                   sriovLiveMigration: true

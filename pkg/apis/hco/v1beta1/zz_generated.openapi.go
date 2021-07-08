@@ -57,12 +57,14 @@ func schema_pkg_apis_hco_v1beta1_CertRotateConfigCA(ref common.ReferenceCallback
 					"duration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"renewBefore": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
@@ -84,12 +86,14 @@ func schema_pkg_apis_hco_v1beta1_CertRotateConfigServer(ref common.ReferenceCall
 					"duration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"renewBefore": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
@@ -124,17 +128,20 @@ func schema_pkg_apis_hco_v1beta1_HyperConverged(ref common.ReferenceCallback) co
 					},
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
 						},
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedSpec"),
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus"),
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus"),
 						},
 					},
 				},
@@ -155,12 +162,14 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedCertConfig(ref common.ReferenceCa
 					"ca": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CA configuration - CA certs are kept in the CA bundle as long as they are valid",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfigCA"),
 						},
 					},
 					"server": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Server configuration - Certs are rotated and discarded",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfigServer"),
 						},
 					},
@@ -182,6 +191,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.Reference
 					"withHostPassthroughCPU": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here",
+							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -189,6 +199,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.Reference
 					"sriovLiveMigration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Allow migrating a virtual machine with SRIOV interfaces.",
+							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -220,8 +231,9 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedObsoleteCPUs(ref common.Reference
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
 									},
 								},
 							},
@@ -250,24 +262,28 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 					"infra": {
 						SchemaProps: spec.SchemaProps{
 							Description: "infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarely directly on each node running VMs/VMIs.",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig"),
 						},
 					},
 					"workloads": {
 						SchemaProps: spec.SchemaProps{
 							Description: "workloads HyperConvergedConfig influences the pod configuration (currently only placement) of components which need to be running on a node where virtualization workloads should be able to run. Changes to Workloads HyperConvergedConfig can be applied only without existing workload.",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig"),
 						},
 					},
 					"featureGates": {
 						SchemaProps: spec.SchemaProps{
 							Description: "featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature.",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates"),
 						},
 					},
 					"liveMigrationConfig": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster.",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations"),
 						},
 					},
@@ -280,6 +296,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 					"certConfig": {
 						SchemaProps: spec.SchemaProps{
 							Description: "certConfig holds the rotation policy for internal, self-signed certificates",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedCertConfig"),
 						},
 					},
@@ -309,6 +326,13 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedObsoleteCPUs"),
 						},
 					},
+					"commonTemplatesNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CommonTemplatesNamespace defines namespace in which common templates will be deployed. It overrides the default openshift namespace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"storageImport": {
 						SchemaProps: spec.SchemaProps{
 							Description: "StorageImport contains configuration for importing containerized data",
@@ -319,13 +343,6 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates",
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedWorkloadUpdateStrategy"),
-						},
-					},
-					"version": {
-						SchemaProps: spec.SchemaProps{
-							Description: "operator version",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
@@ -356,7 +373,8 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
 									},
 								},
 							},
@@ -369,7 +387,8 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("k8s.io/api/core/v1.ObjectReference"),
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ObjectReference"),
 									},
 								},
 							},
@@ -382,7 +401,8 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.Version"),
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.Version"),
 									},
 								},
 							},
@@ -422,8 +442,9 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedWorkloadUpdateStrategy(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
 									},
 								},
 							},
@@ -508,6 +529,7 @@ func schema_pkg_apis_hco_v1beta1_MediatedHostDevice(ref common.ReferenceCallback
 					"mdevNameSelector": {
 						SchemaProps: spec.SchemaProps{
 							Description: "name of a mediated device type required to identify a mediated device on a host",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -515,6 +537,7 @@ func schema_pkg_apis_hco_v1beta1_MediatedHostDevice(ref common.ReferenceCallback
 					"resourceName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "name by which a device is advertised and being requested",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -571,6 +594,7 @@ func schema_pkg_apis_hco_v1beta1_PciHostDevice(ref common.ReferenceCallback) com
 					"pciDeviceSelector": {
 						SchemaProps: spec.SchemaProps{
 							Description: "a combination of a vendor_id:product_id required to identify a PCI device on a host.",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -578,6 +602,7 @@ func schema_pkg_apis_hco_v1beta1_PciHostDevice(ref common.ReferenceCallback) com
 					"resourceName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "name by which a device is advertised and being requested",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -624,7 +649,8 @@ func schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PciHostDevice"),
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PciHostDevice"),
 									},
 								},
 							},
@@ -644,7 +670,8 @@ func schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.MediatedHostDevice"),
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.MediatedHostDevice"),
 									},
 								},
 							},
@@ -672,8 +699,9 @@ func schema_pkg_apis_hco_v1beta1_StorageImportConfig(ref common.ReferenceCallbac
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
 									},
 								},
 							},

@@ -231,6 +231,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(HyperConvergedObsoleteCPUs)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.CommonTemplatesNamespace != nil {
+		in, out := &in.CommonTemplatesNamespace, &out.CommonTemplatesNamespace
+		*out = new(string)
+		**out = **in
+	}
 	if in.StorageImport != nil {
 		in, out := &in.StorageImport, &out.StorageImport
 		*out = new(StorageImportConfig)

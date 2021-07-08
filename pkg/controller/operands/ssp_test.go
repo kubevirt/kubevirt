@@ -79,13 +79,14 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should reconcile to default", func() {
+			cTNamespace := "nonDefault"
+			hco.Spec.CommonTemplatesNamespace = &cTNamespace
 			expectedResource := NewSSP(hco)
 			existingResource := expectedResource.DeepCopy()
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			replicas := int32(defaultTemplateValidatorReplicas * 2) // non-default value
 			existingResource.Spec.TemplateValidator.Replicas = &replicas
-			existingResource.Spec.CommonTemplates.Namespace = "foobar"
 			existingResource.Spec.NodeLabeller.Placement = &lifecycleapi.NodePlacement{
 				NodeSelector: map[string]string{"foo": "bar"},
 			}
@@ -108,6 +109,7 @@ var _ = Describe("SSP Operands", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Spec).To(Equal(expectedResource.Spec))
+			Expect(foundResource.Spec.CommonTemplates.Namespace).To(Equal(cTNamespace), "common-templates namespace should equal")
 
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))

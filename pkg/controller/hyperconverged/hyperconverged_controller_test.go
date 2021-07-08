@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	apimetav1 "k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"time"
+
+	apimetav1 "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// TODO: Move to envtest to get an actual api server
@@ -279,6 +281,27 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 			})
 
+			It("should set different template namespace to ssp CR", func() {
+				expected := getBasicDeployment()
+				expected.hco.Spec.CommonTemplatesNamespace = &expected.hco.Namespace
+
+				cl := expected.initClient()
+				r := initReconciler(cl, nil)
+
+				// Do the reconcile
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				foundResource := &sspv1beta1.SSP{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.ssp.Name, Namespace: expected.hco.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.CommonTemplates.Namespace).To(Equal(expected.hco.Namespace), "common-templates namespace should be "+expected.hco.Namespace)
+			})
 			It("should complete when components are finished", func() {
 				expected := getBasicDeployment()
 
@@ -494,9 +517,9 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionTrue)
 				})
-				By("Check KV", func() {
+				By("Check SSP", func() {
 					origConds := expected.ssp.Status.Conditions
-					expected.ssp.Status.Conditions = expected.cdi.Status.Conditions[1:]
+					expected.ssp.Status.Conditions = expected.ssp.Status.Conditions[1:]
 					cl = expected.initClient()
 					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeFalse())

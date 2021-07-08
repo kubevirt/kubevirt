@@ -396,6 +396,17 @@ spec:
     minCPUModel: "Penryn"
 ```
 
+## Common templates namespace
+User can specify namespace in which common templates will be deployed. This will override default `openshift` namespace.
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  commonTemplatesNamespace: kubevirt
+```
+
 ## Enable eventual launcher updates by default
 us the HyperConverged `spec.workloadUpdateStrategy` object to define how to handle automated workload updates at the cluster
 level.

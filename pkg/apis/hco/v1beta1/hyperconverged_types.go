@@ -76,6 +76,11 @@ type HyperConvergedSpec struct {
 	// +optional
 	ObsoleteCPUs *HyperConvergedObsoleteCPUs `json:"obsoleteCPUs,omitempty"`
 
+	// CommonTemplatesNamespace defines namespace in which common templates will
+	// be deployed. It overrides the default openshift namespace.
+	// +optional
+	CommonTemplatesNamespace *string `json:"commonTemplatesNamespace,omitempty"`
+
 	// StorageImport contains configuration for importing containerized data
 	// +optional
 	StorageImport *StorageImportConfig `json:"storageImport,omitempty"`
