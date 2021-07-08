@@ -723,23 +723,18 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					),
 				)
 
-				server.AppendHandlers(
-					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
-						ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-					),
-				)
+				if statusPhase != v1.Failed {
+					server.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+							ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+						),
+					)
+				}
 
 				server.AppendHandlers(
 					ghttp.CombineHandlers(
 						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
-						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-					),
-				)
-
-				server.AppendHandlers(
-					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("DELETE", "/api/v1/namespaces/default/pods/virt-launcher-testvm"),
 						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 					),
 				)
@@ -1261,8 +1256,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		},
 			table.Entry("RunStrategyAlways", v1.RunStrategyAlways, "", false),
 			table.Entry("RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure, "", false),
-			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM has no associated VMI running", true),
-			table.Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM has no associated VMI running", true),
+			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM is not running", true),
+			table.Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM is not running", true),
 		)
 
 		It("should fail on VM with VMI in Unknown Phase", func() {
@@ -1287,7 +1282,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
-			Expect(statusErr.Error()).To(ContainSubstring(fmt.Sprintf("VM has status %q and is not running", v1.Unknown)))
+			Expect(statusErr.Error()).To(ContainSubstring("Halted does not support manual stop requests"))
 		})
 
 		It("should fail on VM with RunStrategyHalted", func() {
@@ -1313,31 +1308,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
 			Expect(statusErr.Error()).To(ContainSubstring("Halted does not support manual stop requests"))
-		})
-
-		It("should fail on VM with VMI status failed w/o force", func() {
-			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
-			vmi := newVirtualMachineInstanceInPhase(v1.Failed)
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
-
-			app.StopVMRequestHandler(request, response)
-
-			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-			// check the msg string that would be presented to virtctl output
-			Expect(statusErr.Error()).To(ContainSubstring("VM is Failed. Use `--force --grace-period=0` to stop the VM"))
 		})
 
 		table.DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
