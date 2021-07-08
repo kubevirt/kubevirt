@@ -25,42 +25,41 @@ import (
 )
 
 var _ = Describe("podNIC", func() {
-	var (
+	type testData struct {
 		mockNetwork                *netdriver.MockNetworkHandler
 		cacheFactory               cache.InterfaceCacheFactory
 		mockPodNetworkConfigurator *infraconfigurators.MockPodNetworkInfraConfigurator
 		ctrl                       *gomock.Controller
 		tmpDir                     string
-	)
-	newPodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
+	}
+	beforeEach := func(td *testData) {
+		td.cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
+		td.ctrl = gomock.NewController(GinkgoT())
+		td.mockNetwork = netdriver.NewMockNetworkHandler(td.ctrl)
+		td.mockPodNetworkConfigurator = infraconfigurators.NewMockPodNetworkInfraConfigurator(td.ctrl)
+
+		var err error
+		tmpDir, err := ioutil.TempDir("/tmp", "dhcp")
+		Expect(err).ToNot(HaveOccurred())
+		td.tmpDir = tmpDir
+	}
+	afterEach := func(td *testData) {
+		os.RemoveAll(td.tmpDir)
+		td.ctrl.Finish()
+	}
+	newPodNICWithMocks := func(vmi *v1.VirtualMachineInstance, td *testData) (*podNIC, error) {
 		launcherPID := 1
-		podnic, err := newPodNICWithoutInfraConfigurator(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &launcherPID)
+		podnic, err := newPodNICWithoutInfraConfigurator(vmi, &vmi.Spec.Networks[0], td.mockNetwork, td.cacheFactory, &launcherPID)
 		if err != nil {
 			return nil, err
 		}
 		podnic.podInterfaceName = primaryPodInterfaceName
-		podnic.infraConfigurator = mockPodNetworkConfigurator
+		podnic.infraConfigurator = td.mockPodNetworkConfigurator
 		if podnic.dhcpConfigurator != nil {
-			podnic.dhcpConfigurator = dhcpconfigurator.NewConfiguratorWithDHCPStartedDirectory(cacheFactory, getPIDString(podnic.launcherPID), primaryPodInterfaceName, mockNetwork, tmpDir)
+			podnic.dhcpConfigurator = dhcpconfigurator.NewConfiguratorWithDHCPStartedDirectory(td.cacheFactory, getPIDString(podnic.launcherPID), primaryPodInterfaceName, td.mockNetwork, td.tmpDir)
 		}
 		return podnic, nil
 	}
-	BeforeEach(func() {
-		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
-
-		ctrl = gomock.NewController(GinkgoT())
-		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
-		mockPodNetworkConfigurator = infraconfigurators.NewMockPodNetworkInfraConfigurator(ctrl)
-	})
-	BeforeEach(func() {
-		var err error
-		tmpDir, err = ioutil.TempDir("/tmp", "dhcp")
-		Expect(err).ToNot(HaveOccurred())
-	})
-	AfterEach(func() {
-		ctrl.Finish()
-		os.RemoveAll(tmpDir)
-	})
 	type result struct {
 		err error
 	}
@@ -88,66 +87,69 @@ var _ = Describe("podNIC", func() {
 		should                   types.GomegaMatcher
 	}
 	DescribeTable("PlugPhase1 call", func(c plugPhase1Case) {
-		podnic, err := newPodNICWithMocks(c.vmi)
+		td := &testData{}
+		beforeEach(td)
+		defer afterEach(td)
+		podnic, err := newPodNICWithMocks(c.vmi, td)
 		Expect(err).ToNot(HaveOccurred())
 
 		if c.storedDomainIface != nil {
 			podnic.cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Write(podnic.vmiSpecIface.Name, c.storedDomainIface)
 		}
 
-		mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(c.ipv4Addr, c.ipv6Addr, nil).AnyTimes()
-		mockNetwork.EXPECT().IsIpv4Primary().Return(c.isIPv4Primary, nil).AnyTimes()
+		td.mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return(c.ipv4Addr, c.ipv6Addr, nil).AnyTimes()
+		td.mockNetwork.EXPECT().IsIpv4Primary().Return(c.isIPv4Primary, nil).AnyTimes()
 
 		if c.shouldDiscoverNetworking != nil {
-			mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(primaryPodInterfaceName).Times(1).Return(c.shouldDiscoverNetworking.err)
+			td.mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(primaryPodInterfaceName).Times(1).Return(c.shouldDiscoverNetworking.err)
 		} else {
-			mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(primaryPodInterfaceName).Times(0)
+			td.mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(primaryPodInterfaceName).Times(0)
 		}
 
 		if c.shouldPrepareNetworking != nil {
-			mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Times(1).Return(c.shouldPrepareNetworking.err)
+			td.mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Times(1).Return(c.shouldPrepareNetworking.err)
 		} else {
-			mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Times(0)
+			td.mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Times(0)
 		}
 
 		if c.expectedDomainIface != nil {
-			mockPodNetworkConfigurator.EXPECT().GenerateDomainIfaceSpec().Return(*c.expectedDomainIface).Times(1)
+			td.mockPodNetworkConfigurator.EXPECT().GenerateDomainIfaceSpec().Return(*c.expectedDomainIface).Times(1)
 		} else {
-			mockPodNetworkConfigurator.EXPECT().GenerateDomainIfaceSpec().Times(0)
+			td.mockPodNetworkConfigurator.EXPECT().GenerateDomainIfaceSpec().Times(0)
 		}
 
 		if c.expectedDHCPConfig != nil {
-			mockPodNetworkConfigurator.EXPECT().GenerateDHCPConfig().Return(c.expectedDHCPConfig).Times(1)
+			td.mockPodNetworkConfigurator.EXPECT().GenerateDHCPConfig().Return(c.expectedDHCPConfig).Times(1)
 		} else {
-			mockPodNetworkConfigurator.EXPECT().GenerateDHCPConfig().Times(0)
+			td.mockPodNetworkConfigurator.EXPECT().GenerateDHCPConfig().Times(0)
 		}
 
 		Expect(podnic.PlugPhase1()).Should(c.should)
 
 		if c.expectedPodInterface != nil {
-			obtainedPodInterface, err := cacheFactory.CacheForVMI(c.vmi).Read(podnic.vmiSpecIface.Name)
+			obtainedPodInterface, err := td.cacheFactory.CacheForVMI(c.vmi).Read(podnic.vmiSpecIface.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(obtainedPodInterface).To(Equal(c.expectedPodInterface))
 		} else {
-			_, err := cacheFactory.CacheForVMI(c.vmi).Read(podnic.vmiSpecIface.Name)
+			_, err := td.cacheFactory.CacheForVMI(c.vmi).Read(podnic.vmiSpecIface.Name)
 			Expect(err).To(MatchError(os.ErrNotExist))
 		}
 
 		if c.shouldStoreDomainIface && c.expectedDomainIface != nil {
-			obtainedDomainIface, err := cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Read(podnic.vmiSpecIface.Name)
+			obtainedDomainIface, err := td.cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Read(podnic.vmiSpecIface.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(obtainedDomainIface).To(Equal(c.expectedDomainIface))
 		} else {
-			_, err := cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Read(podnic.vmiSpecIface.Name)
+			_, err := td.cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Read(podnic.vmiSpecIface.Name)
 			Expect(err).To(MatchError(os.ErrNotExist))
 		}
 
 		if c.shouldStoreDHCPConfig && c.expectedDHCPConfig != nil {
-			obtainedDHCPConfig, err := cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Read(c.expectedDHCPConfig.Name)
+			obtainedDHCPConfig, err := td.cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Read(c.expectedDHCPConfig.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(obtainedDHCPConfig).To(Equal(c.expectedDHCPConfig))
 		} else {
-			_, err := cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Read(podnic.vmiSpecIface.Name)
+			_, err := td.cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Read(podnic.vmiSpecIface.Name)
 			Expect(err).To(MatchError(os.ErrNotExist))
 		}
 	},
@@ -248,8 +250,11 @@ var _ = Describe("podNIC", func() {
 		should                types.GomegaMatcher
 	}
 	DescribeTable("PlugPhase2 is call", func(c plugPhase2Case) {
+		td := &testData{}
+		beforeEach(td)
+		defer afterEach(td)
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(c.domain)
-		podnic, err := newPodNICWithMocks(c.vmi)
+		podnic, err := newPodNICWithMocks(c.vmi, td)
 		Expect(err).ToNot(HaveOccurred())
 		if c.dhcpConfig != nil {
 			podnic.cacheFactory.CacheDHCPConfigForPid(getPIDString(podnic.launcherPID)).Write(podnic.podInterfaceName, c.dhcpConfig)
@@ -258,7 +263,7 @@ var _ = Describe("podNIC", func() {
 			podnic.cacheFactory.CacheDomainInterfaceForPID(getPIDString(podnic.launcherPID)).Write(podnic.vmiSpecIface.Name, c.domainIface)
 		}
 		if c.shouldStartDHCPServer != nil {
-			mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(c.shouldStartDHCPServer.err)
+			td.mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(c.shouldStartDHCPServer.err)
 		}
 		switch c.should.(type) {
 		case *matchers.PanicMatcher:
