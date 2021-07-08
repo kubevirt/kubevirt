@@ -145,7 +145,7 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				tests.DisableFeatureGate(virtconfig.SidecarGate)
 			})
 
-			It("[QUARANTINE][test_id:2666]should not start with hook sidecar annotation", func() {
+			It("[test_id:2666]should not start with hook sidecar annotation", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
