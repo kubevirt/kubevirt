@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	"kubevirt.io/client-go/log"
@@ -33,6 +34,7 @@ type mounter struct {
 	suppressWarningTimeout     time.Duration
 	socketPathGetter           containerdisk.SocketPathGetter
 	kernelBootSocketPathGetter containerdisk.KernelBootSocketPathGetter
+	clusterConfig              *virtconfig.ClusterConfig
 }
 
 type Mounter interface {
@@ -52,7 +54,7 @@ type vmiMountTargetRecord struct {
 	MountTargetEntries []vmiMountTargetEntry `json:"mountTargetEntries"`
 }
 
-func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string) Mounter {
+func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig) Mounter {
 	return &mounter{
 		mountRecords:               make(map[types.UID]*vmiMountTargetRecord),
 		podIsolationDetector:       isoDetector,
@@ -60,6 +62,7 @@ func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string
 		suppressWarningTimeout:     1 * time.Minute,
 		socketPathGetter:           containerdisk.NewSocketPathGetter(""),
 		kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(""),
+		clusterConfig:              clusterConfig,
 	}
 }
 
@@ -258,7 +261,7 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				if err != nil {
 					return fmt.Errorf("failed to detect VMI pod: %v", err)
 				}
-				imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), res)
+				imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), res, m.clusterConfig.GetDiskVerification())
 				if err != nil {
 					return fmt.Errorf("failed to get image info: %v", err)
 				}

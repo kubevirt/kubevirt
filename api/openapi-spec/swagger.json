@@ -9796,6 +9796,9 @@
       "type": "integer",
       "format": "int32"
      },
+     "diskVerification": {
+      "$ref": "#/definitions/v1.DiskVerification"
+     },
      "featureGates": {
       "type": "array",
       "items": {
@@ -9994,6 +9997,18 @@
      "readonly": {
       "description": "ReadOnly. Defaults to false.",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.DiskVerification": {
+    "description": "DiskVerification holds container disks verification limits",
+    "type": "object",
+    "required": [
+     "memoryLimit"
+    ],
+    "properties": {
+     "memoryLimit": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },

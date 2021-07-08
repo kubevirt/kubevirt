@@ -9,6 +9,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
@@ -442,12 +443,15 @@ var _ = Describe("ConfigMap", func() {
 					NodeSelectors:          map[string]string{"test": "test"},
 					UseEmulation:           true,
 					CPUAllocationRatio:     25,
+					DiskVerification: &v1.DiskVerification{
+						MemoryLimit: resource.NewScaledQuantity(1, resource.Giga),
+					},
 				},
 			},
 			func(c *v1.KubeVirtConfiguration) interface{} {
 				return c.DeveloperConfiguration
 			},
-			`{"featureGates":["test1","test2"],"pvcTolerateLessSpaceUpToPercent":5,"minimumReservePVCBytes":131072,"memoryOvercommit":150,"nodeSelectors":{"test":"test"},"useEmulation":true,"cpuAllocationRatio":25,"logVerbosity":{"virtAPI":2,"virtController":2,"virtHandler":2,"virtLauncher":2,"virtOperator":2}}`),
+			`{"featureGates":["test1","test2"],"pvcTolerateLessSpaceUpToPercent":5,"minimumReservePVCBytes":131072,"memoryOvercommit":150,"nodeSelectors":{"test":"test"},"useEmulation":true,"cpuAllocationRatio":25,"diskVerification":{"memoryLimit":"1G"},"logVerbosity":{"virtAPI":2,"virtController":2,"virtHandler":2,"virtLauncher":2,"virtOperator":2}}`),
 		table.Entry("when networkConfiguration set, should equal to result",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
