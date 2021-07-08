@@ -66,16 +66,10 @@ type HostDeviceType string
 
 // The location of uefi boot loader on ARM64 is different from that on x86
 const (
-	defaultIOThread                  = uint(1)
-	EFICode                          = "OVMF_CODE.fd"
-	EFIVars                          = "OVMF_VARS.fd"
-	EFICodeAARCH64                   = "AAVMF_CODE.fd"
-	EFIVarsAARCH64                   = "AAVMF_VARS.fd"
-	EFICodeSecureBoot                = "OVMF_CODE.secboot.fd"
-	EFIVarsSecureBoot                = "OVMF_VARS.secboot.fd"
-	HostDevicePCI     HostDeviceType = "pci"
-	HostDeviceMDEV    HostDeviceType = "mdev"
-	resolvConf                       = "/etc/resolv.conf"
+	defaultIOThread                = uint(1)
+	HostDevicePCI   HostDeviceType = "pci"
+	HostDeviceMDEV  HostDeviceType = "mdev"
+	resolvConf                     = "/etc/resolv.conf"
 )
 
 const (
@@ -91,6 +85,12 @@ type deviceNamer struct {
 type HostDevicesList struct {
 	Type     HostDeviceType
 	AddrList []string
+}
+
+type EFIConfiguration struct {
+	EFICode      string
+	EFIVars      string
+	SecureLoader bool
 }
 
 type ConverterContext struct {
@@ -110,7 +110,7 @@ type ConverterContext struct {
 	VgpuDevices           []string
 	HostDevices           map[string]HostDevicesList
 	EmulatorThreadCpu     *int
-	OVMFPath              string
+	EFIConfiguration      *EFIConfiguration
 	MemBalloonStatsPeriod uint
 	UseVirtioTransitional bool
 	EphemeraldiskCreator  ephemeraldisk.EphemeralDiskCreatorInterface
@@ -1157,25 +1157,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
-			secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
-			efiCode, _ := detectEFICodeRom(c, secureBoot)
-			efiVars, _ := detectEFIVarsRom(c, secureBoot)
-
-			secureLoader := "yes"
-			if !secureBoot {
-				secureLoader = "no"
-			}
-
 			domain.Spec.OS.BootLoader = &api.Loader{
-				Path:     filepath.Join(c.OVMFPath, efiCode),
+				Path:     c.EFIConfiguration.EFICode,
 				ReadOnly: "yes",
-				Secure:   secureLoader,
+				Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
 				Type:     "pflash",
 			}
 
 			domain.Spec.OS.NVRam = &api.NVRam{
 				NVRam:    filepath.Join("/tmp", domain.Spec.Name),
-				Template: filepath.Join(c.OVMFPath, efiVars),
+				Template: c.EFIConfiguration.EFIVars,
 			}
 		}
 
@@ -1749,65 +1740,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
 	}
 
-	return nil
-}
-
-func detectEFICodeRom(c *ConverterContext, secureBoot bool) (string, error) {
-	efiCode := EFICode
-
-	if secureBoot {
-		efiCode = EFICodeSecureBoot
-	} else if isARM64(c.Architecture) {
-		efiCode = EFICodeAARCH64
-	}
-
-	_, err := os.Stat(filepath.Join(c.OVMFPath, efiCode))
-	if os.IsNotExist(err) && efiCode == EFICode {
-		// The combination (EFICodeSecureBoot + EFIVars) is valid
-		// for booting in EFI mode with SecureBoot disabled
-		efiCode = EFICodeSecureBoot
-		_, err = os.Stat(filepath.Join(c.OVMFPath, efiCode))
-	}
-
-	if os.IsNotExist(err) {
-		log.Log.Reason(err).Errorf("'%s' EFI OVMF rom missing for booting in EFI mode with SecureBoot=%v", efiCode, secureBoot)
-		return "", fmt.Errorf("'%s' EFI OVMF rom missing for booting in EFI mode with SecureBoot=%v", efiCode, secureBoot)
-	}
-	return efiCode, nil
-}
-
-func detectEFIVarsRom(c *ConverterContext, secureBoot bool) (string, error) {
-	efiVars := EFIVars
-
-	if secureBoot {
-		efiVars = EFIVarsSecureBoot
-	} else if isARM64(c.Architecture) {
-		efiVars = EFIVarsAARCH64
-	}
-
-	_, err := os.Stat(filepath.Join(c.OVMFPath, efiVars))
-	if os.IsNotExist(err) {
-		log.Log.Reason(err).Errorf("'%s' EFI OVMF rom missing for booting in EFI mode with SecureBoot=%v", efiVars, secureBoot)
-		return "", fmt.Errorf("'%s' EFI OVMF rom missing for booting in EFI mode with SecureBoot=%v", efiVars, secureBoot)
-	}
-	return efiVars, nil
-}
-
-func CheckEFI_OVMFRoms(vmi *v1.VirtualMachineInstance, c *ConverterContext) (err error) {
-	if vmi.Spec.Domain.Firmware != nil {
-		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
-			secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
-			_, errCode := detectEFICodeRom(c, secureBoot)
-			_, errVars := detectEFIVarsRom(c, secureBoot)
-
-			if errCode != nil {
-				return errCode
-			}
-			if errVars != nil {
-				return errVars
-			}
-		}
-	}
 	return nil
 }
 

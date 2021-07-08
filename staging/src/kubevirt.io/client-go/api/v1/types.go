@@ -337,6 +337,11 @@ func (v *VirtualMachineInstance) IsCPUDedicated() bool {
 	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.DedicatedCPUPlacement
 }
 
+func (v *VirtualMachineInstance) IsBootloaderEFI() bool {
+	return v.Spec.Domain.Firmware != nil && v.Spec.Domain.Firmware.Bootloader != nil &&
+		v.Spec.Domain.Firmware.Bootloader.EFI != nil
+}
+
 // WantsToHaveQOSGuaranteed checks if cpu and memoyr limits and requests are identical on the VMI.
 // This is the indicator that people want a VMI with QOS of guaranteed
 func (v *VirtualMachineInstance) WantsToHaveQOSGuaranteed() bool {
