@@ -360,13 +360,6 @@ func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alp
 
 	strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
 
-	// temporary workaround for https://bugzilla.redhat.com/1907381
-	// a custom .spec.template.annotations["description"] it's causing a failure on OLM
-	// TODO: remove this once fixed on OLM side
-	for _, deployment := range strategySpec.DeploymentSpecs {
-		delete(deployment.Spec.Template.Annotations, "description")
-	}
-
 	overwriteDeploymentSpecLabels(strategySpec.DeploymentSpecs, c.Component)
 	installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
 

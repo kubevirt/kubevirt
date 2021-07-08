@@ -1957,6 +1957,10 @@ spec:
             type: Recreate
           template:
             metadata:
+              annotations:
+                description: cluster-network-addons-operator manages the lifecycle
+                  of different Kubernetes network components on top of Kubernetes
+                  cluster
               labels:
                 app.kubernetes.io/component: network
                 app.kubernetes.io/managed-by: olm

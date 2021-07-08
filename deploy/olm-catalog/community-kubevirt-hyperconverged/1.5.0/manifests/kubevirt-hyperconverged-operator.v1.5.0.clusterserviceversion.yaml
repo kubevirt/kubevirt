@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
-    createdAt: "2021-07-06 18:00:25"
+    createdAt: "2021-07-08 09:40:45"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -1957,6 +1957,10 @@ spec:
             type: Recreate
           template:
             metadata:
+              annotations:
+                description: cluster-network-addons-operator manages the lifecycle
+                  of different Kubernetes network components on top of Kubernetes
+                  cluster
               labels:
                 app.kubernetes.io/component: network
                 app.kubernetes.io/managed-by: olm

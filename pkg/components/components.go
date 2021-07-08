@@ -280,9 +280,6 @@ func getLabels(name, hcoKvIoVersion string) map[string]string {
 // in the meanwhile a quick (but dirty!) solution is to expose the same hco binary on two distinct pods:
 // the first one will run only the controller and the second one (almost always ready) just the validating
 // webhook one.
-// A deeper code refactor to produce two distinct binaries is not worth now because we are going to
-// use OLM operator conditions soon.
-// TODO: remove this once we will move to OLM operator conditions
 func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion string, env []corev1.EnvVar) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
