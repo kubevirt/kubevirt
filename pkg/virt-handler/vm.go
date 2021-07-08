@@ -31,7 +31,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -201,7 +200,7 @@ func NewController(
 		UpdateFunc: c.updateFunc,
 	})
 
-	c.launcherClients = sync.Map{}
+	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
 	c.phase1NetworkSetupCache = virtcache.LauncherPIDByVMI{}
 	c.podInterfaceCache = virtcache.PodInterfaceByVMIAndName{}
 
@@ -237,7 +236,7 @@ type VirtualMachineController struct {
 	vmiTargetInformer        cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
-	launcherClients          sync.Map
+	launcherClients          virtcache.LauncherClientInfoByVMI
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
 	deviceManagerController  *device_manager.DeviceController
@@ -1819,21 +1818,16 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 		return nil
 	}
 
-	result, exists := d.launcherClients.LoadAndDelete(vmi.UID)
-	if exists {
-		clientInfo, ok := result.(*virtcache.LauncherClientInfo)
-		if ok && clientInfo.Client != nil {
-			if clientInfo.Client != nil {
-				clientInfo.Client.Close()
-				close(clientInfo.DomainPipeStopChan)
-			}
+	clientInfo, exists := d.launcherClients.Load(vmi.UID)
+	if exists && clientInfo.Client != nil {
+		clientInfo.Client.Close()
+		close(clientInfo.DomainPipeStopChan)
 
-			// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
-			if cmdclient.IsLegacySocket(clientInfo.SocketFile) {
-				err := os.RemoveAll(clientInfo.SocketFile)
-				if err != nil {
-					return err
-				}
+		// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
+		if cmdclient.IsLegacySocket(clientInfo.SocketFile) {
+			err := os.RemoveAll(clientInfo.SocketFile)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -1846,7 +1840,7 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	}
 
 	virtcache.DeleteGhostRecord(vmi.Namespace, vmi.Name)
-
+	d.launcherClients.Delete(vmi.UID)
 	return nil
 }
 
@@ -1859,30 +1853,27 @@ func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, info *virt
 func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {
 	var socketFile string
 
-	result, exists := d.launcherClients.Load(vmi.UID)
+	clientInfo, exists := d.launcherClients.Load(vmi.UID)
 	if exists {
-		clientInfo, ok := result.(*virtcache.LauncherClientInfo)
-		if ok {
-			if clientInfo.Ready == true {
-				// use cached socket if we previously established a connection
-				socketFile = clientInfo.SocketFile
-			} else {
-				socketFile, err = cmdclient.FindSocketOnHost(vmi)
-				if err != nil {
-					// socket does not exist, but let's see if the pod is still there
-					if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
-						// no pod meanst that waiting for it to initialize makes no sense
-						return true, true, nil
-					}
-					// pod is still there, if there is no socket let's wait for it to become ready
-					if clientInfo.NotInitializedSince.Before(time.Now().Add(-3 * time.Minute)) {
-						return true, true, nil
-					}
-					return false, false, nil
+		if clientInfo.Ready == true {
+			// use cached socket if we previously established a connection
+			socketFile = clientInfo.SocketFile
+		} else {
+			socketFile, err = cmdclient.FindSocketOnHost(vmi)
+			if err != nil {
+				// socket does not exist, but let's see if the pod is still there
+				if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
+					// no pod meanst that waiting for it to initialize makes no sense
+					return true, true, nil
 				}
-				clientInfo.Ready = true
-				clientInfo.SocketFile = socketFile
+				// pod is still there, if there is no socket let's wait for it to become ready
+				if clientInfo.NotInitializedSince.Before(time.Now().Add(-3 * time.Minute)) {
+					return true, true, nil
+				}
+				return false, false, nil
 			}
+			clientInfo.Ready = true
+			clientInfo.SocketFile = socketFile
 		}
 	} else {
 		clientInfo := &virtcache.LauncherClientInfo{
@@ -1921,12 +1912,9 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
 	var err error
 
-	result, exists := d.launcherClients.Load(vmi.UID)
-	if exists {
-		clientInfo, ok := result.(*virtcache.LauncherClientInfo)
-		if ok && clientInfo.Client != nil {
-			return clientInfo.Client, nil
-		}
+	clientInfo, exists := d.launcherClients.Load(vmi.UID)
+	if exists && clientInfo.Client != nil {
+		return clientInfo.Client, nil
 	}
 
 	socketFile, err := cmdclient.FindSocketOnHost(vmi)
@@ -2275,12 +2263,8 @@ func (d *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMac
 }
 
 func (d *VirtualMachineController) getLauncherClientInfo(vmi *v1.VirtualMachineInstance) *virtcache.LauncherClientInfo {
-	result, exists := d.launcherClients.Load(vmi.UID)
+	launcherInfo, exists := d.launcherClients.Load(vmi.UID)
 	if !exists {
-		return nil
-	}
-	launcherInfo, ok := result.(*virtcache.LauncherClientInfo)
-	if !ok {
 		return nil
 	}
 	return launcherInfo

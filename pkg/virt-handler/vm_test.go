@@ -237,11 +237,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 		time.Sleep(1 * time.Second)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		clientInfo := &launcherClientInfo{
-			client:             client,
-			socketFile:         sockFile,
-			domainPipeStopChan: make(chan struct{}),
-			ready:              true,
+		clientInfo := &virtcache.LauncherClientInfo{
+			Client:             client,
+			SocketFile:         sockFile,
+			DomainPipeStopChan: make(chan struct{}),
+			Ready:              true,
 		}
 		controller.addLauncherClient(vmiTestUUID, clientInfo)
 
@@ -317,11 +317,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			uid := "1234"
 
 			legacyMockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
-			clientInfo := &launcherClientInfo{
-				client:             client,
-				socketFile:         legacyMockSockFile,
-				domainPipeStopChan: make(chan struct{}),
-				ready:              true,
+			clientInfo := &virtcache.LauncherClientInfo{
+				Client:             client,
+				SocketFile:         legacyMockSockFile,
+				DomainPipeStopChan: make(chan struct{}),
+				Ready:              true,
 			}
 			controller.addLauncherClient(types.UID(uid), clientInfo)
 			err := virtcache.AddGhostRecord(namespace, name, legacyMockSockFile, types.UID(uid))
@@ -474,10 +474,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			//Did not initialize yet
-			clientInfo := &launcherClientInfo{
-				domainPipeStopChan:  make(chan struct{}),
-				ready:               false,
-				notInitializedSince: time.Now().Add(-1 * time.Minute),
+			clientInfo := &virtcache.LauncherClientInfo{
+				DomainPipeStopChan:  make(chan struct{}),
+				Ready:               false,
+				NotInitializedSince: time.Now().Add(-1 * time.Minute),
 			}
 			controller.addLauncherClient(vmi.UID, clientInfo)
 
@@ -499,10 +499,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			//Did not initialize yet
-			clientInfo := &launcherClientInfo{
-				domainPipeStopChan:  make(chan struct{}),
-				ready:               false,
-				notInitializedSince: time.Now().Add(-4 * time.Minute),
+			clientInfo := &virtcache.LauncherClientInfo{
+				DomainPipeStopChan:  make(chan struct{}),
+				Ready:               false,
+				NotInitializedSince: time.Now().Add(-4 * time.Minute),
 			}
 			controller.addLauncherClient(vmi.UID, clientInfo)
 
