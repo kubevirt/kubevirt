@@ -53,6 +53,39 @@ func (p *PodInterfaceByVMIAndName) Size() int {
 	return syncMapLen(&p.syncMap)
 }
 
+type LauncherPIDByVMI struct {
+	syncMap sync.Map
+}
+
+func (l *LauncherPIDByVMI) Load(vmiUID types.UID) (int, bool) {
+	result, exists := l.syncMap.Load(vmiUID)
+
+	if !exists {
+		return 0, false
+	}
+	return l.cast(result), true
+}
+
+func (l *LauncherPIDByVMI) Delete(vmiUID types.UID) {
+	l.syncMap.Delete(vmiUID)
+}
+
+func (l *LauncherPIDByVMI) Store(vmiUID types.UID, launcherPID int) {
+	l.syncMap.Store(vmiUID, launcherPID)
+}
+
+func (l *LauncherPIDByVMI) Size() int {
+	return syncMapLen(&l.syncMap)
+}
+
+func (*LauncherPIDByVMI) cast(result interface{}) int {
+	launcherPid, ok := result.(int)
+	if !ok {
+		panic(fmt.Sprintf("failed casting %+v to int", result))
+	}
+	return launcherPid
+}
+
 func syncMapLen(m *sync.Map) int {
 	mapLen := 0
 	m.Range(func(k, v interface{}) bool {

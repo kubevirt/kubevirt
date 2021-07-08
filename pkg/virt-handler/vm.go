@@ -210,7 +210,7 @@ func NewController(
 	})
 
 	c.launcherClients = sync.Map{}
-	c.phase1NetworkSetupCache = sync.Map{}
+	c.phase1NetworkSetupCache = virtcache.LauncherPIDByVMI{}
 	c.podInterfaceCache = virtcache.PodInterfaceByVMIAndName{}
 
 	c.domainNotifyPipes = make(map[string]string)
@@ -259,7 +259,7 @@ type VirtualMachineController struct {
 	// phase1 involves cycling an entire posix thread
 	// so for performance, knowing phase1 is complete
 	// prevents cycling an unncessary posix thread.
-	phase1NetworkSetupCache sync.Map
+	phase1NetworkSetupCache virtcache.LauncherPIDByVMI
 
 	// key is the file path, value is the contents.
 	// if key exists, then don't read directly from file.
@@ -496,14 +496,10 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	pid := res.Pid()
 
 	// check to see if we've already completed phase1 for this vmi
-	result, exists := d.phase1NetworkSetupCache.Load(vmi.UID)
+	cachedPid, exists := d.phase1NetworkSetupCache.Load(vmi.UID)
 
-	if exists {
-		cachedPid, ok := result.(int)
-		if ok && cachedPid == pid {
-			// already completed phase1
-			return false, nil
-		}
+	if exists && cachedPid == pid {
+		return false, nil
 	}
 
 	err = res.DoNetNS(func() error {

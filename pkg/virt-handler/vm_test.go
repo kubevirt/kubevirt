@@ -118,15 +118,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var certDir string
 
-	syncMapLen := func(m *sync.Map) int {
-		mapLen := 0
-		m.Range(func(k, v interface{}) bool {
-			mapLen += 1
-			return true
-		})
-		return mapLen
-	}
-
 	BeforeEach(func() {
 		wg = &sync.WaitGroup{}
 		stop = make(chan struct{})
@@ -544,7 +535,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
 			Expect(os.IsNotExist(err)).To(BeTrue())
-			Expect(syncMapLen(&controller.phase1NetworkSetupCache)).To(Equal(0))
+			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(0))
 		}, 3)
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
@@ -563,7 +554,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeTrue())
-			Expect(syncMapLen(&controller.phase1NetworkSetupCache)).To(Equal(0))
+			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(0))
 		}, 3)
 
 		It("should do final cleanup if vmi is being deleted and not finalized", func() {
@@ -593,7 +584,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeFalse())
-			Expect(syncMapLen(&controller.phase1NetworkSetupCache)).To(Equal(1))
+			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(1))
 		}, 3)
 
 		It("should attempt force terminate Domain if grace period expires", func() {
@@ -665,7 +656,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIDefined)
-			Expect(syncMapLen(&controller.phase1NetworkSetupCache)).To(Equal(1))
+			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(1))
 		})
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
