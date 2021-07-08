@@ -156,6 +156,17 @@ var _ = Describe("Disruptionbudget", func() {
 			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
 		})
 
+		It("should remove the pdb if VMI doesn't exist", func() {
+			vmi := newVirtualMachine("testvm")
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+			pdb := newPodDisruptionBudget(vmi)
+			pdbFeeder.Add(pdb)
+
+			shouldExpectPDBDeletion(pdb)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
+		})
+
 		It("should recreate the PDB if the VMI is recreated", func() {
 			vmi := newVirtualMachine("testvm")
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
