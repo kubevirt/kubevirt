@@ -43,18 +43,16 @@ var _ = Describe("[sig-compute]PortForward", func() {
 		LaunchVMI func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance
 	)
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
+		tests.BeforeTestCleanup()
+
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
 		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
 	})
 
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-	})
-
-	It("[test_id:TODO]should successfully open connection to guest", func() {
+	It("should successfully open connection to guest", func() {
 		vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 		vmi.Namespace = util.NamespaceTestDefault
 
@@ -65,7 +63,7 @@ var _ = Describe("[sig-compute]PortForward", func() {
 			tunnel kubecli.StreamInterface
 			err    error
 		)
-		EventuallyWithOffset(1, func() error {
+		Eventually(func() error {
 			tunnel, err = virtClient.VirtualMachineInstance(vmi.Namespace).PortForward(vmi.Name, 22, "tcp")
 			if err != nil {
 				return err

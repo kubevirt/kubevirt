@@ -9,11 +9,11 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/monitoring/api/prometheus"
+	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/api"
 )
 
 func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, response *restful.Response) {
-	activeConnectionMetric := prometheus.NewActiveVNCConnection(request.PathParameter("namespace"), request.PathParameter("name"))
+	activeConnectionMetric := apimetrics.NewActiveVNCConnection(request.PathParameter("namespace"), request.PathParameter("name"))
 	defer activeConnectionMetric.Dec()
 
 	streamer := NewRawStreamer(

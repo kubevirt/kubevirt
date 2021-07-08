@@ -1,9 +1,10 @@
 package portforward
 
 import (
-	"fmt"
 	"net"
 	"sync"
+
+	"github.com/golang/glog"
 )
 
 const bufSize = 1500
@@ -24,10 +25,10 @@ func (p *portForwarder) startForwardingUDP(address *net.IPAddr, port forwardedPo
 	proxy := udpProxy{
 		listener: listener,
 		remoteDialer: func() (net.Conn, error) {
-			fmt.Printf("opening new udp tunnel to %d\n", port.remote)
+			glog.Infof("opening new udp tunnel to %d", port.remote)
 			stream, err := p.resource.PortForward(p.name, port.remote, port.protocol)
 			if err != nil {
-				fmt.Printf("can't access vmi %s/%s: %v\n", p.namespace, p.name, err)
+				glog.Errorf("can't access %s/%s.%s: %v", p.kind, p.name, p.namespace, err)
 				return nil, err
 			}
 			return stream.AsConn(), nil
@@ -52,7 +53,7 @@ func (p *udpProxy) Run() {
 	buf := make([]byte, bufSize)
 	for {
 		if err := p.handleRead(buf); err != nil {
-			fmt.Println(err)
+			glog.Errorln(err)
 		}
 	}
 }
@@ -109,8 +110,7 @@ func (c *udpProxyConn) handleRemoteReads() {
 	buf := make([]byte, bufSize)
 	for {
 		if err := c.handleRemoteRead(buf); err != nil {
-			fmt.Println(err)
-			fmt.Println("closing client")
+			glog.Errorf("closing client: %v\n", err)
 			return
 		}
 	}

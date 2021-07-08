@@ -672,7 +672,7 @@ func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name s
 	}
 
 	if !vm.Status.Created {
-		return nil, errors.NewConflict(v1.Resource("virtualmachine"), vm.Name, fmt.Errorf("VM is not created"))
+		return nil, errors.NewConflict(v1.Resource("virtualmachine"), vm.Name, fmt.Errorf("VMI is not started"))
 	}
 
 	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})

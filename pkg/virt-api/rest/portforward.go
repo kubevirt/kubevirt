@@ -8,12 +8,12 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/monitoring/api/prometheus"
+	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/api"
 )
 
 func (app *SubresourceAPIApp) PortForwardRequestHandler(fetcher vmiFetcher) restful.RouteFunction {
 	return func(request *restful.Request, response *restful.Response) {
-		activeTunnelMetric := prometheus.NewActivePortForwardTunnel(request.PathParameter("namespace"), request.PathParameter("name"))
+		activeTunnelMetric := apimetrics.NewActivePortForwardTunnel(request.PathParameter("namespace"), request.PathParameter("name"))
 		defer activeTunnelMetric.Dec()
 
 		streamer := NewWebsocketStreamer(

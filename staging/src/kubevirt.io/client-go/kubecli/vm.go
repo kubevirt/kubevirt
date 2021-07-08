@@ -238,5 +238,5 @@ func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptio
 }
 
 func (v *vm) PortForward(name string, port int, protocol string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.namespace, name, buildPortForwardResourcePath(port, protocol))
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol))
 }

@@ -1,9 +1,10 @@
 package portforward
 
 import (
-	"fmt"
 	"io"
 	"net"
+
+	"github.com/golang/glog"
 )
 
 func (p *portForwarder) startForwardingTCP(address *net.IPAddr, port forwardedPort) error {
@@ -27,13 +28,13 @@ func (p *portForwarder) waitForConnection(listener net.Listener, port forwardedP
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("error accepting connection:", err)
+			glog.Errorln("error accepting connection:", err)
 			return
 		}
-		fmt.Printf("opening new tcp tunnel to %d\n", port.remote)
+		glog.Infof("opening new tcp tunnel to %d", port.remote)
 		stream, err := p.resource.PortForward(p.name, port.remote, port.protocol)
 		if err != nil {
-			fmt.Printf("can't access vmi %s/%s: %v\n", p.namespace, p.name, err)
+			glog.Errorf("can't access %s/%s.%s: %v", p.kind, p.name, p.namespace, err)
 			return
 		}
 		go p.handleConnection(conn, stream.AsConn(), port)
@@ -43,7 +44,7 @@ func (p *portForwarder) waitForConnection(listener net.Listener, port forwardedP
 // handleConnection copies data between the local connection and the stream to
 // the remote server.
 func (p *portForwarder) handleConnection(local, remote net.Conn, port forwardedPort) {
-	fmt.Printf("handling tcp connection for %d\n", port.local)
+	glog.Infof("handling tcp connection for %d", port.local)
 	errs := make(chan error)
 	go func() {
 		_, err := io.Copy(remote, local)

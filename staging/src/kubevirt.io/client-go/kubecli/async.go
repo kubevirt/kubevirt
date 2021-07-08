@@ -21,7 +21,7 @@ func (a *AsyncSubresourceError) GetStatusCode() int {
 	return a.StatusCode
 }
 
-func asyncSubresourceHelper(config *rest.Config, namespace, name string, resource string) (StreamInterface, error) {
+func asyncSubresourceHelper(config *rest.Config, resource, namespace, name string, subresource string) (StreamInterface, error) {
 
 	done := make(chan struct{})
 
@@ -36,7 +36,7 @@ func asyncSubresourceHelper(config *rest.Config, namespace, name string, resourc
 	}
 
 	// Create a request out of config and the query parameters
-	req, err := RequestFromConfig(config, name, namespace, resource)
+	req, err := RequestFromConfig(config, resource, name, namespace, subresource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request for remote execution: %v", err)
 	}

@@ -17,7 +17,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
-        "//pkg/monitoring/api/prometheus:go_default_library",
+        "//pkg/monitoring/api:go_default_library",
         "//pkg/rest:go_default_library",
         "//pkg/util/status:go_default_library",
         "//pkg/virt-config:go_default_library",

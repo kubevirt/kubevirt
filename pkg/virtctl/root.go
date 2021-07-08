@@ -104,8 +104,9 @@ func GetProgramName(binary string) string {
 
 func Execute() {
 	log.InitializeLogging(programName)
-	if err := NewVirtctlCommand().Execute(); err != nil {
-		fmt.Println(strings.TrimSpace(err.Error()))
+	cmd := NewVirtctlCommand()
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintln(cmd.Root().OutOrStdout(), strings.TrimSpace(err.Error()))
 		os.Exit(1)
 	}
 }

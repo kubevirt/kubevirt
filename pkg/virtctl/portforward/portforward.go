@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -34,13 +35,13 @@ import (
 )
 
 const (
-	forwardToStdoutFlag = "stdio"
-	addressFlag         = "address"
+	forwardToStdioFlag = "stdio"
+	addressFlag        = "address"
 )
 
 var (
-	forwardToStdout bool
-	address         string = "127.0.0.1"
+	forwardToStdio bool
+	address        string = "127.0.0.1"
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -51,7 +52,9 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: examples(),
 		Args: func(cmd *cobra.Command, args []string) error {
 			if n := len(args); n < 2 {
-				fmt.Printf("fatal: Number of input parameters is incorrect, portforward requires at least 2 arg(s), received %d\n\n", n)
+				glog.Errorf("fatal: Number of input parameters is incorrect, portforward requires at least 2 arg(s), received %d", n)
+				// always write to stderr on failures to ensure they get printed in stdio mode
+				cmd.SetOut(os.Stderr)
 				cmd.Help()
 				return errors.New("argument validation failed")
 			}
@@ -62,10 +65,10 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(cmd, args)
 		},
 	}
-	cmd.Flags().BoolVar(&forwardToStdout, forwardToStdoutFlag, forwardToStdout,
-		fmt.Sprintf("--%s=true: Set this to true to forward the tunnel to stdout/stdin; Only works with a single port", forwardToStdoutFlag))
+	cmd.Flags().BoolVar(&forwardToStdio, forwardToStdioFlag, forwardToStdio,
+		fmt.Sprintf("--%s=true: Set this to true to forward the tunnel to stdout/stdin; Only works with a single port", forwardToStdioFlag))
 	cmd.Flags().StringVar(&address, addressFlag, address,
-		fmt.Sprintf("--%s=: Set this to the addres the local ports should be opened on", addressFlag))
+		fmt.Sprintf("--%s=: Set this to the address the local ports should be opened on", addressFlag))
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -77,6 +80,7 @@ type PortForward struct {
 }
 
 func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
+	setOutput(cmd)
 	kind, namespace, name, ports, err := o.prepareCommand(args)
 	if err != nil {
 		return err
@@ -86,7 +90,7 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if forwardToStdout {
+	if forwardToStdio {
 		if len(ports) != 1 {
 			return errors.New("only one port supported when forwarding to stdout")
 		}
@@ -98,7 +102,7 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := o.startPortForwards(namespace, name, ports); err != nil {
+	if err := o.startPortForwards(kind, namespace, name, ports); err != nil {
 		return err
 	}
 
@@ -138,7 +142,7 @@ func (o *PortForward) setResource(kind, namespace string) error {
 
 	if templates.KindIsVMI(kind) {
 		o.resource = client.VirtualMachineInstance(namespace)
-	} else if templates.KindIsVMI(kind) {
+	} else if templates.KindIsVM(kind) {
 		o.resource = client.VirtualMachine(namespace)
 	} else {
 		return errors.New("unsupported resource kind " + kind)
@@ -153,7 +157,7 @@ func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPo
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "forwarding to %s/%s:%d\n", namespace, name, port.remote)
+	glog.Infof("forwarding to %s/%s:%d", namespace, name, port.remote)
 	if err := streamer.Stream(kubecli.StreamOptions{
 		In:  os.Stdin,
 		Out: os.Stdout,
@@ -164,9 +168,10 @@ func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPo
 	return nil
 }
 
-func (o *PortForward) startPortForwards(namespace, name string, ports []forwardedPort) error {
+func (o *PortForward) startPortForwards(kind, namespace, name string, ports []forwardedPort) error {
 	for _, port := range ports {
 		forwarder := portForwarder{
+			kind:      kind,
 			namespace: namespace,
 			name:      name,
 			resource:  o.resource,
@@ -176,6 +181,16 @@ func (o *PortForward) startPortForwards(namespace, name string, ports []forwarde
 		}
 	}
 	return nil
+}
+
+// setOutput to stderr if we're using stdout for traffic
+func setOutput(cmd *cobra.Command) {
+	if forwardToStdio {
+		cmd.SetOut(os.Stderr)
+		cmd.Root().SetOut(os.Stderr)
+	} else {
+		cmd.SetOut(os.Stdout)
+	}
 }
 
 func usage() string {
@@ -213,8 +228,8 @@ func examples() string {
   # For continous traffic intensive connections, consider using a dedicated Kubernetes Service.
 
   # Open an SSH connection using PortForward and ProxyCommand:
-  ssh -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi 22' user@testvmi.mynamespace
+  ssh -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi.mynamespace 22' user@testvmi.mynamespace
 
   # Use as SCP ProxyCommand:
-  scp -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi 22' local.file user@testvmi.mynamespace`
+  scp -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi.mynamespace 22' local.file user@testvmi.mynamespace`
 }

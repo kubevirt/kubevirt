@@ -130,7 +130,7 @@ func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (ht
 	return rest.HTTPWrappersForConfig(config, rt)
 }
 
-func RequestFromConfig(config *rest.Config, vmi string, namespace string, resource string) (*http.Request, error) {
+func RequestFromConfig(config *rest.Config, resource, name, namespace, subresource string) (*http.Request, error) {
 
 	u, err := url.Parse(config.Host)
 	if err != nil {
@@ -146,7 +146,7 @@ func RequestFromConfig(config *rest.Config, vmi string, namespace string, resour
 		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
 	}
 
-	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachineinstances/%s/%s", v1.ApiStorageVersion, namespace, vmi, resource)
+	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/%s/%s/%s", v1.ApiStorageVersion, namespace, resource, name, subresource)
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    u,
@@ -156,11 +156,11 @@ func RequestFromConfig(config *rest.Config, vmi string, namespace string, resour
 }
 
 func (v *vmis) VNC(name string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.namespace, name, "vnc")
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc")
 }
 
 func (v *vmis) PortForward(name string, port int, protocol string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.namespace, name, buildPortForwardResourcePath(port, protocol))
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol))
 }
 
 func buildPortForwardResourcePath(port int, protocol string) string {
@@ -204,7 +204,7 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 				default:
 				}
 
-				con, err := asyncSubresourceHelper(v.config, v.namespace, name, "console")
+				con, err := asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console")
 				if err != nil {
 					asyncSubresourceError, ok := err.(*AsyncSubresourceError)
 					// return if response status code does not equal to 400
@@ -224,7 +224,7 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 		conStruct := <-connectionChan
 		return conStruct.con, conStruct.err
 	} else {
-		return asyncSubresourceHelper(v.config, v.namespace, name, "console")
+		return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console")
 	}
 }
 
