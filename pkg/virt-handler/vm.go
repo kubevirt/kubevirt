@@ -211,7 +211,7 @@ func NewController(
 
 	c.launcherClients = sync.Map{}
 	c.phase1NetworkSetupCache = sync.Map{}
-	c.podInterfaceCache = sync.Map{}
+	c.podInterfaceCache = virtcache.PodInterfaceByVMIAndName{}
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -263,7 +263,7 @@ type VirtualMachineController struct {
 
 	// key is the file path, value is the contents.
 	// if key exists, then don't read directly from file.
-	podInterfaceCache sync.Map
+	podInterfaceCache virtcache.PodInterfaceByVMIAndName
 
 	domainNotifyPipes           map[string]string
 	networkCacheStoreFactory    netcache.InterfaceCacheFactory
@@ -473,12 +473,7 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 	d.phase1NetworkSetupCache.Delete(vmi.UID)
 
 	// Clean Pod interface cache from map and files
-	d.podInterfaceCache.Range(func(key, value interface{}) bool {
-		if strings.Contains(key.(string), string(vmi.UID)) {
-			d.podInterfaceCache.Delete(key)
-		}
-		return true
-	})
+	d.podInterfaceCache.DeleteAllForVMI(vmi.UID)
 
 	err := d.networkCacheStoreFactory.CacheForVMI(vmi).Remove()
 	if err != nil {
@@ -538,27 +533,20 @@ func domainMigrated(domain *api.Domain) bool {
 }
 
 func (d *VirtualMachineController) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*netcache.PodCacheInterface, error) {
-	cacheKey := fmt.Sprintf("%s/%s", vmi.UID, ifaceName)
-	var podCacheInterface *netcache.PodCacheInterface
 	// Once the Interface files are set on the handler, they don't change
 	// If already present in the map, don't read again
-	result, exists := d.podInterfaceCache.Load(cacheKey)
+	podInterface, exists := d.podInterfaceCache.Load(vmi.UID, ifaceName)
 
 	if exists {
-		ok := false
-		podCacheInterface, ok = result.(*netcache.PodCacheInterface)
-		if !ok {
-			return nil, fmt.Errorf("failed casting pod interface cache from: %+v", result)
-		}
-		return podCacheInterface, nil
+		return podInterface, nil
 	}
 
 	//FIXME error handling?
-	podCacheInterface, _ = d.networkCacheStoreFactory.CacheForVMI(vmi).Read(ifaceName)
+	podInterface, _ = d.networkCacheStoreFactory.CacheForVMI(vmi).Read(ifaceName)
 
-	d.podInterfaceCache.Store(cacheKey, podCacheInterface)
+	d.podInterfaceCache.Store(vmi.UID, ifaceName, podInterface)
 
-	return podCacheInterface, nil
+	return podInterface, nil
 }
 
 func canUpdateToMounted(currentPhase v1.VolumePhase) bool {
