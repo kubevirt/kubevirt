@@ -133,14 +133,6 @@ var PasswordRelatedGuestAgentCommands = []string{
 	"guest-set-user-password",
 }
 
-type launcherClientInfo struct {
-	client              cmdclient.LauncherClient
-	socketFile          string
-	domainPipeStopChan  chan struct{}
-	notInitializedSince time.Time
-	ready               bool
-}
-
 func NewController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -1829,16 +1821,16 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 
 	result, exists := d.launcherClients.LoadAndDelete(vmi.UID)
 	if exists {
-		clientInfo, ok := result.(*launcherClientInfo)
-		if ok && clientInfo.client != nil {
-			if clientInfo.client != nil {
-				clientInfo.client.Close()
-				close(clientInfo.domainPipeStopChan)
+		clientInfo, ok := result.(*virtcache.LauncherClientInfo)
+		if ok && clientInfo.Client != nil {
+			if clientInfo.Client != nil {
+				clientInfo.Client.Close()
+				close(clientInfo.DomainPipeStopChan)
 			}
 
 			// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
-			if cmdclient.IsLegacySocket(clientInfo.socketFile) {
-				err := os.RemoveAll(clientInfo.socketFile)
+			if cmdclient.IsLegacySocket(clientInfo.SocketFile) {
+				err := os.RemoveAll(clientInfo.SocketFile)
 				if err != nil {
 					return err
 				}
@@ -1859,7 +1851,7 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 }
 
 // used by unit tests to add mock clients
-func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, info *launcherClientInfo) error {
+func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, info *virtcache.LauncherClientInfo) error {
 	d.launcherClients.Store(vmUID, info)
 	return nil
 }
@@ -1869,11 +1861,11 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 
 	result, exists := d.launcherClients.Load(vmi.UID)
 	if exists {
-		clientInfo, ok := result.(*launcherClientInfo)
+		clientInfo, ok := result.(*virtcache.LauncherClientInfo)
 		if ok {
-			if clientInfo.ready == true {
+			if clientInfo.Ready == true {
 				// use cached socket if we previously established a connection
-				socketFile = clientInfo.socketFile
+				socketFile = clientInfo.SocketFile
 			} else {
 				socketFile, err = cmdclient.FindSocketOnHost(vmi)
 				if err != nil {
@@ -1883,19 +1875,19 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 						return true, true, nil
 					}
 					// pod is still there, if there is no socket let's wait for it to become ready
-					if clientInfo.notInitializedSince.Before(time.Now().Add(-3 * time.Minute)) {
+					if clientInfo.NotInitializedSince.Before(time.Now().Add(-3 * time.Minute)) {
 						return true, true, nil
 					}
 					return false, false, nil
 				}
-				clientInfo.ready = true
-				clientInfo.socketFile = socketFile
+				clientInfo.Ready = true
+				clientInfo.SocketFile = socketFile
 			}
 		}
 	} else {
-		clientInfo := &launcherClientInfo{
-			notInitializedSince: time.Now(),
-			ready:               false,
+		clientInfo := &virtcache.LauncherClientInfo{
+			NotInitializedSince: time.Now(),
+			Ready:               false,
 		}
 		d.launcherClients.Store(vmi.UID, clientInfo)
 		// attempt to find the socket if the established connection doesn't currently exist.
@@ -1909,8 +1901,8 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 			}
 			return false, false, nil
 		}
-		clientInfo.ready = true
-		clientInfo.socketFile = socketFile
+		clientInfo.Ready = true
+		clientInfo.SocketFile = socketFile
 	}
 	// The new way of detecting unresponsive VMIs monitors the
 	// cmd socket. This requires an updated VMI image. Old VMIs
@@ -1931,9 +1923,9 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 
 	result, exists := d.launcherClients.Load(vmi.UID)
 	if exists {
-		clientInfo, ok := result.(*launcherClientInfo)
-		if ok && clientInfo.client != nil {
-			return clientInfo.client, nil
+		clientInfo, ok := result.(*virtcache.LauncherClientInfo)
+		if ok && clientInfo.Client != nil {
+			return clientInfo.Client, nil
 		}
 	}
 
@@ -1964,12 +1956,12 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	d.launcherClients.Store(vmi.UID, &launcherClientInfo{
-		client:              client,
-		socketFile:          socketFile,
-		domainPipeStopChan:  domainPipeStopChan,
-		notInitializedSince: time.Now(),
-		ready:               true,
+	d.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
+		Client:              client,
+		SocketFile:          socketFile,
+		DomainPipeStopChan:  domainPipeStopChan,
+		NotInitializedSince: time.Now(),
+		Ready:               true,
 	})
 
 	return client, nil
@@ -2282,12 +2274,12 @@ func (d *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMac
 	return nil
 }
 
-func (d *VirtualMachineController) getLauncherClientInfo(vmi *v1.VirtualMachineInstance) *launcherClientInfo {
+func (d *VirtualMachineController) getLauncherClientInfo(vmi *v1.VirtualMachineInstance) *virtcache.LauncherClientInfo {
 	result, exists := d.launcherClients.Load(vmi.UID)
 	if !exists {
 		return nil
 	}
-	launcherInfo, ok := result.(*launcherClientInfo)
+	launcherInfo, ok := result.(*virtcache.LauncherClientInfo)
 	if !ok {
 		return nil
 	}
@@ -2371,7 +2363,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	// give containerDisks some time to become ready before throwing errors on retries
 	info := d.getLauncherClientInfo(vmi)
-	if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
+	if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
 		if err != nil {
 			return err
 		}
@@ -2448,7 +2440,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 		// give containerDisks some time to become ready before throwing errors on retries
 		info := d.getLauncherClientInfo(vmi)
-		if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
+		if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
 			if err != nil {
 				return err
 			}

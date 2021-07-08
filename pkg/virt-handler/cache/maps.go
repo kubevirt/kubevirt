@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
 type PodInterfaceByVMIAndName struct {
@@ -84,6 +86,14 @@ func (*LauncherPIDByVMI) cast(result interface{}) int {
 		panic(fmt.Sprintf("failed casting %+v to int", result))
 	}
 	return launcherPid
+}
+
+type LauncherClientInfo struct {
+	Client              cmdclient.LauncherClient
+	SocketFile          string
+	DomainPipeStopChan  chan struct{}
+	NotInitializedSince time.Time
+	Ready               bool
 }
 
 func syncMapLen(m *sync.Map) int {
