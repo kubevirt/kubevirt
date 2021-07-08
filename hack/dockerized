@@ -49,8 +49,9 @@ if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
     $KUBEVIRT_CRI volume create ${BUILDER}
 fi
 
-# Make sure that the output directory exists
+# Make sure that the output directory exists on both sides
 $KUBEVIRT_CRI run -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --rm ${KUBEVIRT_BUILDER_IMAGE} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+mkdir -p ${OUT_DIR}
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
 RSYNC_CID=$($KUBEVIRT_CRI run -d -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
