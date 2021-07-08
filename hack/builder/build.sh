@@ -37,6 +37,7 @@ for ARCH in ${ARCHITECTURES}; do
         bazel_arch=${ARCH}
         ;;
     esac
+    docker pull "${ARCH}/fedora:32"
     docker build -t "quay.io/kubevirt/builder:${VERSION}-${ARCH}" --build-arg ARCH="${ARCH}" --build-arg SONOBUOY_ARCH=${sonobuoy_arch} --build-arg BAZEL_ARCH=${bazel_arch} -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
     TMP_IMAGES="${TMP_IMAGES} quay.io/kubevirt/builder:${VERSION}-${ARCH}"
 done
