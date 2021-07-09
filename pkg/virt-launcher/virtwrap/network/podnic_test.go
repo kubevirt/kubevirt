@@ -130,9 +130,14 @@ var _ = Describe("podNIC", func() {
 			Expect(podnic.PlugPhase1()).Should(c.should)
 
 			if c.expectedPodInterface != nil {
+				// Don't modify the case
+				expectedPodInterface := *c.expectedPodInterface
+				if expectedPodInterface.Iface == nil {
+					expectedPodInterface.Iface = &vmi.Spec.Domain.Devices.Interfaces[0]
+				}
 				obtainedPodInterface, err := td.cacheFactory.CacheForVMI(vmi).Read(podnic.vmiSpecIface.Name)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(obtainedPodInterface).To(Equal(c.expectedPodInterface))
+				Expect(*obtainedPodInterface).To(Equal(expectedPodInterface))
 			} else {
 				_, err := td.cacheFactory.CacheForVMI(vmi).Read(podnic.vmiSpecIface.Name)
 				Expect(err).To(MatchError(os.ErrNotExist))
@@ -192,7 +197,6 @@ var _ = Describe("podNIC", func() {
 			expectedDomainIface: nil,
 			expectedDHCPConfig:  nil,
 			expectedPodInterface: &cache.PodCacheInterface{
-				Iface:  v1.DefaultSlirpNetworkInterface(),
 				PodIP:  "1.2.3.4",
 				PodIPs: []string{"1.2.3.4", "::1234:5678"},
 			},
@@ -206,7 +210,6 @@ var _ = Describe("podNIC", func() {
 			expectedDomainIface: &api.Interface{},
 			expectedDHCPConfig:  &cache.DHCPConfig{Name: primaryPodInterfaceName},
 			expectedPodInterface: &cache.PodCacheInterface{
-				Iface:  v1.DefaultBridgeNetworkInterface(),
 				PodIP:  "1.2.3.4",
 				PodIPs: []string{"1.2.3.4", "::1234:5678"},
 			},
@@ -216,13 +219,30 @@ var _ = Describe("podNIC", func() {
 			shouldPrepareNetworking:  withSucces(),
 			should:                   Succeed(),
 		}),
+		Entry("should success and write DHCP config, libvirt interface and pod interface for masquerade binding", plugPhase1Case{
+			vmis:                []*v1.VirtualMachineInstance{newVMIMasqueradeInterface("testnamespace", "testVmName")},
+			ipv4Addr:            "1.2.3.4",
+			ipv6Addr:            "::1234:5678",
+			isIPv4Primary:       true,
+			expectedDomainIface: &api.Interface{},
+			expectedDHCPConfig:  &cache.DHCPConfig{Name: primaryPodInterfaceName},
+			expectedPodInterface: &cache.PodCacheInterface{
+				PodIP:  "1.2.3.4",
+				PodIPs: []string{"1.2.3.4", "::1234:5678"},
+			},
+			shouldStoreDHCPConfig:    true,
+			shouldStoreDomainIface:   true,
+			shouldDiscoverNetworking: withSucces(),
+			shouldPrepareNetworking:  withSucces(),
+			should:                   Succeed(),
+		}),
+
 		Entry("should propagate error if network discovering fails for bridge binding", plugPhase1Case{
 			vmis:          []*v1.VirtualMachineInstance{newVMIBridgeInterface("testnamespace", "testVmName")},
 			ipv4Addr:      "1.2.3.4",
 			ipv6Addr:      "::1234:5678",
 			isIPv4Primary: true,
 			expectedPodInterface: &cache.PodCacheInterface{
-				Iface:  v1.DefaultBridgeNetworkInterface(),
 				PodIP:  "1.2.3.4",
 				PodIPs: []string{"1.2.3.4", "::1234:5678"},
 			},
@@ -237,7 +257,6 @@ var _ = Describe("podNIC", func() {
 			expectedDomainIface: &api.Interface{},
 			expectedDHCPConfig:  &cache.DHCPConfig{Name: primaryPodInterfaceName},
 			expectedPodInterface: &cache.PodCacheInterface{
-				Iface:  v1.DefaultBridgeNetworkInterface(),
 				PodIP:  "1.2.3.4",
 				PodIPs: []string{"1.2.3.4", "::1234:5678"},
 			},
