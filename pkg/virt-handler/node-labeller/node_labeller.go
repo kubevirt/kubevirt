@@ -72,7 +72,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 		namespace:               namespace,
 		logger:                  log.DefaultLogger(),
 		clusterConfig:           clusterConfig,
-		queue:                   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-node-labeller"),
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},

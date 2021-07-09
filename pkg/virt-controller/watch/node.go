@@ -44,7 +44,7 @@ type NodeController struct {
 func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) *NodeController {
 	c := &NodeController{
 		clientset:        clientset,
-		Queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		Queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
 		nodeInformer:     nodeInformer,
 		vmiInformer:      vmiInformer,
 		recorder:         recorder,

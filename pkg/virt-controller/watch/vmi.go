@@ -128,7 +128,7 @@ func NewVMIController(templateService services.TemplateService,
 
 	c := &VMIController{
 		templateService:    templateService,
-		Queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		Queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
 		vmiInformer:        vmiInformer,
 		podInformer:        podInformer,
 		pvcInformer:        pvcInformer,

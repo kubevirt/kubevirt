@@ -53,7 +53,7 @@ func NewDisruptionBudgetController(
 ) *DisruptionBudgetController {
 
 	c := &DisruptionBudgetController{
-		Queue:                           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		Queue:                           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-disruption-budget"),
 		vmiInformer:                     vmiInformer,
 		pdbInformer:                     pdbInformer,
 		podInformer:                     podInformer,

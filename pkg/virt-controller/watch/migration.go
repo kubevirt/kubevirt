@@ -85,7 +85,7 @@ func NewMigrationController(templateService services.TemplateService,
 
 	c := &MigrationController{
 		templateService:    templateService,
-		Queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		Queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
 		vmiInformer:        vmiInformer,
 		podInformer:        podInformer,
 		migrationInformer:  migrationInformer,
