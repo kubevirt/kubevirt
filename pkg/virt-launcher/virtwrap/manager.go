@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -530,11 +531,13 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
-		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
-		if err != nil {
-			return domain, err
+		if domain.Spec.Devices.Disks[i].Type != "network" {
+			err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
+			if err != nil {
+				return domain, err
+			}
+			converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -896,6 +899,21 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		}
 	}
 
+	for _, changedCdrom := range getChangedCdroms(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
+		log.DefaultLogger().Infof("Disk: %s ", changedCdrom.Alias.GetName())
+		logger.V(1).Infof("Updating disk %s, target %s", changedCdrom.Alias.GetName(), changedCdrom.Target.Device)
+		updateBytes, err := xml.Marshal(changedCdrom)
+		if err != nil {
+			logger.Reason(err).Error("marshalling update disk failed")
+			return nil, err
+		}
+		err = dom.UpdateDeviceFlags(strings.ToLower(string(updateBytes)), libvirt.DOMAIN_DEVICE_MODIFY_LIVE)
+		if err != nil {
+			logger.Reason(err).Error("updating device")
+			return nil, err
+		}
+	}
+
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return &oldSpec, nil
 }
@@ -951,6 +969,9 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	}
 	res := make([]api.Disk, 0)
 	for _, oldDisk := range oldDisks {
+		if oldDisk.Type == "network" {
+			continue
+		}
 		if _, ok := newDiskMap[getSourceFile(oldDisk)]; !ok {
 			// This disk got detached, add it to the list
 			res = append(res, oldDisk)
@@ -969,6 +990,9 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	}
 	res := make([]api.Disk, 0)
 	for _, newDisk := range newDisks {
+		if newDisk.Type == "network" {
+			continue
+		}
 		if _, ok := oldDiskMap[getSourceFile(newDisk)]; !ok {
 			// This disk got attached, add it to the list
 			res = append(res, newDisk)
@@ -1498,4 +1522,30 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	return flags
+}
+
+func getChangedCdroms(oldDisks, newDisks []api.Disk) []api.Disk {
+	oldDiskMap := make(map[string]api.Disk)
+	for _, disk := range oldDisks {
+		name := disk.Alias.GetName()
+		//getSourceFile(disk)
+		if name != "" {
+			if disk.Alias != nil {
+				oldDiskMap[name] = disk
+			}
+		}
+	}
+	res := make([]api.Disk, 0)
+	for _, newDisk := range newDisks {
+		if oldDisk, ok := oldDiskMap[newDisk.Alias.GetName()]; ok {
+			if oldDisk.Type == "network" && newDisk.Type == "network" {
+				if !reflect.DeepEqual(oldDisk.Source, newDisk.Source) {
+					// This disk got attached, add it to the list
+					res = append(res, newDisk)
+				}
+			}
+		}
+	}
+	log.DefaultLogger().Infof("Disk change: %v", res)
+	return res
 }

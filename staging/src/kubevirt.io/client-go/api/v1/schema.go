@@ -16,7 +16,6 @@
  * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
-
 package v1
 
 import (
@@ -36,11 +35,9 @@ const (
 
 //go:generate swagger-doc
 //go:generate openapi-gen -i . --output-package=kubevirt.io/client-go/api/v1  --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
-
 /*
- ATTENTION: Rerun code generators when comments on structs or fields are modified.
+  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
-
 // Represents a disk created on the cluster level
 //
 // +k8s:openapi-gen=true
@@ -119,6 +116,25 @@ type ServiceAccountVolumeSource struct {
 //
 // +k8s:openapi-gen=true
 type DownwardMetricsVolumeSource struct {
+}
+
+// NetworkVolumeSource represents a volume from a network URI
+// +k8s:openapi-gen=true
+type NetworkVolumeSource struct {
+	// Will force the ReadOnly setting in VolumeMounts.
+	// Default false.
+	// +optional
+	ReadOnly bool `json:"readOnly,omitempty"`
+	//URI represents the URI of the network volume
+	Uri string `json:"uri"`
+	//Format represents the format of the network volume
+	Format string `json:"format"`
+	// SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded
+	// +optional
+	SecretRef string `json:"secretRef,omitempty"`
+	// CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
+	// +optional
+	CertConfigMap string `json:"certConfigMap,omitempty"`
 }
 
 // Represents a Sysprep volume source.
@@ -736,6 +752,9 @@ type VolumeSource struct {
 	// DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest
 	// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
+	// NetworkVolumeSource represents a volume from a network URI
+	// +k8s:openapi-gen=true
+	NetworkVolume *NetworkVolumeSource `json:"networkVolume,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable
@@ -882,7 +901,6 @@ const (
 	HPETTickPolicyMerge HPETTickPolicy = "merge"
 	// HPETTickPolicyDiscard discards all missed ticks.
 	HPETTickPolicyDiscard HPETTickPolicy = "discard"
-
 	// PITTickPolicyDelay delivers ticks at a constant rate. The guest time will
 	// be delayed due to the late tick.
 	PITTickPolicyDelay PITTickPolicy = "delay"
@@ -891,7 +909,6 @@ const (
 	PITTickPolicyCatchup PITTickPolicy = "catchup"
 	// PITTickPolicyDiscard discards all missed ticks.
 	PITTickPolicyDiscard PITTickPolicy = "discard"
-
 	// RTCTickPolicyDelay delivers ticks at a constant rate. The guest time will
 	// be delayed due to the late tick.
 	RTCTickPolicyDelay RTCTickPolicy = "delay"
@@ -1335,7 +1352,6 @@ type SSHPublicKeyAccessCredentialPropagationMethod struct {
 	// into the VM using metadata using the configDrive cloud-init provider
 	// +optional
 	ConfigDrive *ConfigDriveSSHPublicKeyAccessCredentialPropagation `json:"configDrive,omitempty"`
-
 	// QemuGuestAgentAccessCredentailPropagation means ssh public keys are
 	// dynamically injected into the vm at runtime via the qemu guest agent.
 	// This feature requires the qemu guest agent to be running within the guest.
@@ -1350,7 +1366,6 @@ type SSHPublicKeyAccessCredentialPropagationMethod struct {
 type SSHPublicKeyAccessCredential struct {
 	// Source represents where the public keys are pulled from
 	Source SSHPublicKeyAccessCredentialSource `json:"source"`
-
 	// PropagationMethod represents how the public key is injected into the vm guest.
 	PropagationMethod SSHPublicKeyAccessCredentialPropagationMethod `json:"propagationMethod"`
 }
@@ -1387,7 +1402,6 @@ type UserPasswordAccessCredentialPropagationMethod struct {
 type UserPasswordAccessCredential struct {
 	// Source represents where the user passwords are pulled from
 	Source UserPasswordAccessCredentialSource `json:"source"`
-
 	// propagationMethod represents how the user passwords are injected into the vm guest.
 	PropagationMethod UserPasswordAccessCredentialPropagationMethod `json:"propagationMethod"`
 }
@@ -1437,7 +1451,6 @@ type PodNetwork struct {
 	// CIDR for vm network.
 	// Default 10.0.2.0/24 if not specified.
 	VMNetworkCIDR string `json:"vmNetworkCIDR,omitempty"`
-
 	// IPv6 CIDR for the vm network.
 	// Defaults to fd10:0:2::/120 if not specified.
 	VMIPv6NetworkCIDR string `json:"vmIPv6NetworkCIDR,omitempty"`
@@ -1457,7 +1470,6 @@ type MultusNetwork struct {
 	// <networkName>, <namespace>/<networkName>. If namespace is not
 	// specified, VMI namespace is assumed.
 	NetworkName string `json:"networkName"`
-
 	// Select the default network and add it to the
 	// multus-cni.io/default-network annotation.
 	Default bool `json:"default,omitempty"`

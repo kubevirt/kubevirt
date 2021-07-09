@@ -4,7 +4,7 @@ package v1
 
 func (HostDisk) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Represents a disk created on the cluster level\n\n+k8s:openapi-gen=true",
+		"":         "ATTENTION: Rerun code generators when comments on structs or fields are modified.\n\nRepresents a disk created on the cluster level\n\n+k8s:openapi-gen=true",
 		"path":     "The path to HostDisk image located on the cluster",
 		"type":     "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
 		"capacity": "Capacity of the sparse disk\n+optional",
@@ -47,6 +47,17 @@ func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 func (DownwardMetricsVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.\n\n+k8s:openapi-gen=true",
+	}
+}
+
+func (NetworkVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "NetworkVolumeSource represents a volume from a network URI\n+k8s:openapi-gen=true",
+		"readOnly":      "Will force the ReadOnly setting in VolumeMounts.\nDefault false.\n+optional",
+		"uri":           "URI represents the URI of the network volume",
+		"format":        "Format represents the format of the network volume",
+		"secretRef":     "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded\n+optional",
+		"certConfigMap": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate\n+optional",
 	}
 }
 
@@ -374,6 +385,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
 		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
+		"networkVolume":         "NetworkVolumeSource represents a volume from a network URI\n+k8s:openapi-gen=true",
 	}
 }
 

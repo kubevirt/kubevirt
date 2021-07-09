@@ -482,6 +482,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Network":                                                   schema_kubevirtio_client_go_api_v1_Network(ref),
 		"kubevirt.io/client-go/api/v1.NetworkConfiguration":                                      schema_kubevirtio_client_go_api_v1_NetworkConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.NetworkSource":                                             schema_kubevirtio_client_go_api_v1_NetworkSource(ref),
+		"kubevirt.io/client-go/api/v1.NetworkVolumeSource":                                       schema_kubevirtio_client_go_api_v1_NetworkVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.NodePlacement":                                             schema_kubevirtio_client_go_api_v1_NodePlacement(ref),
 		"kubevirt.io/client-go/api/v1.PITTimer":                                                  schema_kubevirtio_client_go_api_v1_PITTimer(ref),
 		"kubevirt.io/client-go/api/v1.PciHostDevice":                                             schema_kubevirtio_client_go_api_v1_PciHostDevice(ref),
@@ -20812,7 +20813,7 @@ func schema_kubevirtio_client_go_api_v1_HostDisk(ref common.ReferenceCallback) c
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Represents a disk created on the cluster level",
+				Description: "\n  ATTENTION: Rerun code generators when comments on structs or fields are modified.\n\nRepresents a disk created on the cluster level",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"path": {
@@ -22266,6 +22267,55 @@ func schema_kubevirtio_client_go_api_v1_NetworkSource(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/client-go/api/v1.PodNetwork"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_NetworkVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NetworkVolumeSource represents a volume from a network URI",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"readOnly": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Will force the ReadOnly setting in VolumeMounts. Default false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"uri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URI represents the URI of the network volume",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"format": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Format represents the format of the network volume",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"certConfigMap": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"uri", "format"},
+			},
+		},
 	}
 }
 
@@ -25243,12 +25293,18 @@ func schema_kubevirtio_client_go_api_v1_Volume(ref common.ReferenceCallback) com
 							Ref:         ref("kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource"),
 						},
 					},
+					"networkVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NetworkVolumeSource represents a volume from a network URI",
+							Ref:         ref("kubevirt.io/client-go/api/v1.NetworkVolumeSource"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.NetworkVolumeSource", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
 	}
 }
 
@@ -25377,11 +25433,17 @@ func schema_kubevirtio_client_go_api_v1_VolumeSource(ref common.ReferenceCallbac
 							Ref:         ref("kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource"),
 						},
 					},
+					"networkVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NetworkVolumeSource represents a volume from a network URI",
+							Ref:         ref("kubevirt.io/client-go/api/v1.NetworkVolumeSource"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.NetworkVolumeSource", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
 	}
 }
 

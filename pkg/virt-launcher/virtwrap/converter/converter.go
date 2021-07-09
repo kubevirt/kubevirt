@@ -28,6 +28,8 @@ package converter
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -616,6 +618,9 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 	}
 	if source.DownwardMetrics != nil {
 		return Convert_v1_DownwardMetricSource_To_api_Disk(disk, c)
+	}
+	if source.NetworkVolume != nil {
+		return Convert_v1_NetworkSource_To_api_Disk(source.NetworkVolume, disk)
 	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.GetName())
@@ -2083,4 +2088,40 @@ func GetVolumeNameByTarget(domain *api.Domain, target string) string {
 		}
 	}
 	return ""
+}
+
+// GenerateCdromXml generates equivalent to cdrom.xml (Replace with better description later)
+func Convert_v1_NetworkSource_To_api_Disk(source *v1.NetworkVolumeSource, disk *api.Disk) error {
+
+	s := source.Uri
+
+	u, err := url.Parse(s)
+	p := u.Path
+	if err != nil {
+		return err
+	}
+	if u.Host != "" {
+		if host, port, err := net.SplitHostPort(u.Host); err == nil {
+			disk.Source.Host = &api.DiskSourceHost{
+				Name: host,
+				Port: port,
+			}
+		} else {
+			disk.Source.Host = &api.DiskSourceHost{
+				Name: u.Host,
+				Port: "10809",
+			}
+		}
+	}
+	if (source.Format == "raw") || (source.Format == "qcow2") {
+		disk.Driver.Type = source.Format
+	} else {
+		return err
+	}
+	disk.Driver.Type = source.Format
+	disk.Source.Protocol = u.Scheme
+	disk.Source.Name = filepath.Base(p)
+	disk.Type = "network"
+	disk.Device = "cdrom"
+	return nil
 }

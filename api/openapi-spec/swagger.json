@@ -10424,7 +10424,7 @@
     }
    },
    "v1.HostDisk": {
-    "description": "Represents a disk created on the cluster level",
+    "description": "\n  ATTENTION: Rerun code generators when comments on structs or fields are modified.\n\nRepresents a disk created on the cluster level",
     "type": "object",
     "required": [
      "path",
@@ -11166,6 +11166,36 @@
      },
      "permitSlirpInterface": {
       "type": "boolean"
+     }
+    }
+   },
+   "v1.NetworkVolumeSource": {
+    "description": "NetworkVolumeSource represents a volume from a network URI",
+    "type": "object",
+    "required": [
+     "uri",
+     "format"
+    ],
+    "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
+      "type": "string"
+     },
+     "format": {
+      "description": "Format represents the format of the network volume",
+      "type": "string"
+     },
+     "readOnly": {
+      "description": "Will force the ReadOnly setting in VolumeMounts. Default false.",
+      "type": "boolean"
+     },
+     "secretRef": {
+      "description": "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded",
+      "type": "string"
+     },
+     "uri": {
+      "description": "URI represents the URI of the network volume",
+      "type": "string"
      }
     }
    },
@@ -12786,6 +12816,10 @@
      "name": {
       "description": "Volume's name. Must be a DNS_LABEL and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
+     },
+     "networkVolume": {
+      "description": "NetworkVolumeSource represents a volume from a network URI",
+      "$ref": "#/definitions/v1.NetworkVolumeSource"
      },
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",

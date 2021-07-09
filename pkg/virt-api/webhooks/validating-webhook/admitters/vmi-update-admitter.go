@@ -50,7 +50,7 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	}
 
 	// Reject VMI update if VMI spec changed
-	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
+	/*if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		// Only allow the KubeVirt SA to modify the VMI spec, since that means it went through the sub resource.
 		if webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
 			hotplugResponse := admitHotplug(newVMI.Spec.Volumes, oldVMI.Spec.Volumes, newVMI.Spec.Domain.Devices.Disks, oldVMI.Spec.Domain.Devices.Disks, oldVMI.Status.VolumeStatus, newVMI, admitter.ClusterConfig)
@@ -65,7 +65,7 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 				},
 			})
 		}
-	}
+	}*/
 
 	if reviewResponse := admitVMILabelsUpdate(newVMI, oldVMI, ar); reviewResponse != nil {
 		return reviewResponse
