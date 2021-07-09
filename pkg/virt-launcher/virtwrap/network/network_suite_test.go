@@ -57,6 +57,57 @@ func newVMISRIOVInterface(namespce, name string) *v1.VirtualMachineInstance {
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }
+func newVMIDefaultMultusInterface(namespace, name string) *v1.VirtualMachineInstance {
+	vmi := v1.NewMinimalVMIWithNS(namespace, name)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+	vmi.Spec.Networks = []v1.Network{{
+		Name: v1.DefaultBridgeNetworkInterface().Name,
+		NetworkSource: v1.NetworkSource{
+			Multus: &v1.MultusNetwork{
+				Default: true,
+			},
+		},
+	}}
+	return vmi
+}
+
+func newVMIWithBridgeAndTwoSecondaryMultusInterfaces(namespace, name string) *v1.VirtualMachineInstance {
+	firstSecondaryNetworkName := "secondary1"
+	secondSecondaryNetworkName := "secondary2"
+	vmi := v1.NewMinimalVMIWithNS(namespace, name)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+		*v1.DefaultBridgeNetworkInterface(),
+		{
+			Name: firstSecondaryNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				Bridge: &v1.InterfaceBridge{},
+			},
+		},
+		{
+			Name: secondSecondaryNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				Bridge: &v1.InterfaceBridge{},
+			},
+		},
+	}
+	vmi.Spec.Networks = []v1.Network{
+		*v1.DefaultPodNetwork(),
+		{
+			Name: firstSecondaryNetworkName,
+			NetworkSource: v1.NetworkSource{
+				Multus: &v1.MultusNetwork{},
+			},
+		},
+		{
+			Name: secondSecondaryNetworkName,
+			NetworkSource: v1.NetworkSource{
+				Multus: &v1.MultusNetwork{},
+			},
+		},
+	}
+	return vmi
+}
+
 func NewDomainWithBridgeInterface() *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.Interfaces = []api.Interface{{
