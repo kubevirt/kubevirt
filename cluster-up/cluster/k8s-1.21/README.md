@@ -35,6 +35,15 @@ make cluster-up
 To get more info about CNAO you can check the github project documentation
 here https://github.com/kubevirt/cluster-network-addons-operator
 
+## Bringing the cluster up with cgroup v2
+
+```bash
+export KUBEVIRT_PROVIDER=k8s-1.20
+export KUBEVIRT_NUM_NODES=2 # master + one node
+export KUBEVIRT_CGROUPV2=true
+make cluster-up
+```
+
 ## Bringing the cluster down
 
 ```bash
