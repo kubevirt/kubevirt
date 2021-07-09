@@ -1679,7 +1679,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
 			options := &cmdclient.MigrationOptions{
-				Bandwidth:               resource.MustParse("64Mi"),
+				Bandwidth:               resource.MustParse("0Mi"),
 				ProgressTimeout:         150,
 				CompletionTimeoutPerGiB: 800,
 				UnsafeMigration:         false,
