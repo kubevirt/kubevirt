@@ -1349,7 +1349,6 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 // traffic to go through. This function creates a Daemon Set on the cluster (if not exists yet), this Daemon
 // Set creates a linux bridge and configures the firewall. We use iptables-compat in order to work with
 // both iptables and newer nftables.
-// TODO: Once kubernetes-nmstate is ready, we should use it instead
 func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 
 	// Fetching the kubevirt-operator image from the pod makes this independent from the installation method / image used
