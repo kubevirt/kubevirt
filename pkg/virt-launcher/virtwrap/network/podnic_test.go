@@ -169,23 +169,13 @@ var _ = Describe("podNIC", func() {
 			vmis:   []*v1.VirtualMachineInstance{newVMISRIOVInterface("testnamespace", "testVmName")},
 			should: Succeed(),
 		}),
-		Entry("should success and be a noop if libvirt domain interface is already generate for bridge binding", plugPhase1Case{
-			vmis:              []*v1.VirtualMachineInstance{newVMIBridgeInterface("testnamespace", "testVmName")},
-			storedDomainIface: &api.Interface{},
-			should:            Succeed(),
-		}),
-		Entry("should success and be a noop if libvirt domain interface is already generate for masquerade binding", plugPhase1Case{
-			vmis:              []*v1.VirtualMachineInstance{newVMIMasqueradeInterface("testnamespace", "testVmName")},
-			storedDomainIface: &api.Interface{},
-			should:            Succeed(),
-		}),
-		Entry("should success and be a noop if libvirt domain interface is already generate for macvtap binding", plugPhase1Case{
-			vmis:              []*v1.VirtualMachineInstance{newVMIMacvtapInterface("testnamespace", "testVmName", "default")},
-			storedDomainIface: &api.Interface{},
-			should:            Succeed(),
-		}),
-		Entry("should success and be a noop if libvirt domain interface is already generate for slirp binding", plugPhase1Case{
-			vmis:              []*v1.VirtualMachineInstance{newVMISlirpInterface("testnamespace", "testVmName")},
+		Entry("should success and be a noop if libvirt domain interface is already generate for all bindings", plugPhase1Case{
+			vmis: []*v1.VirtualMachineInstance{
+				newVMIBridgeInterface("testnamespace", "testVmName"),
+				newVMIMasqueradeInterface("testnamespace", "testVmName"),
+				newVMISlirpInterface("testnamespace", "testVmName"),
+				newVMIMacvtapInterface("testnamespace", "testVmName", "default"),
+			},
 			storedDomainIface: &api.Interface{},
 			should:            Succeed(),
 		}),
@@ -202,8 +192,11 @@ var _ = Describe("podNIC", func() {
 			},
 			should: Succeed(),
 		}),
-		Entry("should success and write DHCP config, libvirt interface and pod interface for bridge binding", plugPhase1Case{
-			vmis:                []*v1.VirtualMachineInstance{newVMIBridgeInterface("testnamespace", "testVmName")},
+		Entry("should success and write DHCP config, libvirt interface and pod interface for bridge and masquerade binding", plugPhase1Case{
+			vmis: []*v1.VirtualMachineInstance{
+				newVMIBridgeInterface("testnamespace", "testVmName"),
+				newVMIMasqueradeInterface("testnamespace", "testVmName"),
+			},
 			ipv4Addr:            "1.2.3.4",
 			ipv6Addr:            "::1234:5678",
 			isIPv4Primary:       true,
@@ -219,24 +212,6 @@ var _ = Describe("podNIC", func() {
 			shouldPrepareNetworking:  withSucces(),
 			should:                   Succeed(),
 		}),
-		Entry("should success and write DHCP config, libvirt interface and pod interface for masquerade binding", plugPhase1Case{
-			vmis:                []*v1.VirtualMachineInstance{newVMIMasqueradeInterface("testnamespace", "testVmName")},
-			ipv4Addr:            "1.2.3.4",
-			ipv6Addr:            "::1234:5678",
-			isIPv4Primary:       true,
-			expectedDomainIface: &api.Interface{},
-			expectedDHCPConfig:  &cache.DHCPConfig{Name: primaryPodInterfaceName},
-			expectedPodInterface: &cache.PodCacheInterface{
-				PodIP:  "1.2.3.4",
-				PodIPs: []string{"1.2.3.4", "::1234:5678"},
-			},
-			shouldStoreDHCPConfig:    true,
-			shouldStoreDomainIface:   true,
-			shouldDiscoverNetworking: withSucces(),
-			shouldPrepareNetworking:  withSucces(),
-			should:                   Succeed(),
-		}),
-
 		Entry("should propagate error if network discovering fails for bridge binding", plugPhase1Case{
 			vmis:          []*v1.VirtualMachineInstance{newVMIBridgeInterface("testnamespace", "testVmName")},
 			ipv4Addr:      "1.2.3.4",
@@ -308,15 +283,12 @@ var _ = Describe("podNIC", func() {
 			domain: &api.Domain{},
 			should: Succeed(),
 		}),
-		Entry("should success and decorate libvirt interface when the interface binding is slirp", plugPhase2Case{
-			vmis:        []*v1.VirtualMachineInstance{newVMISlirpInterface("testnamespace", "testVmName")},
+		Entry("should success and just decorate libvirt interface when the interface binding is slirp or macvtap", plugPhase2Case{
+			vmis: []*v1.VirtualMachineInstance{
+				newVMISlirpInterface("testnamespace", "testVmName"),
+				newVMIMacvtapInterface("testnamespace", "testVmName", "default"),
+			},
 			domain:      NewDomainWithSlirpInterface(),
-			domainIface: &api.Interface{},
-			should:      Succeed(),
-		}),
-		Entry("should sucess and decorate libvirt interface when the interface binding is macvtap", plugPhase2Case{
-			vmis:        []*v1.VirtualMachineInstance{newVMIMacvtapInterface("testnamespace", "testVmName", "default")},
-			domain:      NewDomainWithMacvtapInterface("default"),
 			domainIface: &api.Interface{},
 			should:      Succeed(),
 		}),
