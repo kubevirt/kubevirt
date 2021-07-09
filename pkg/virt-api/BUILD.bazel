@@ -20,6 +20,7 @@ go_library(
         "//pkg/virt-api/webhooks/validating-webhook:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
+        "//pkg/virt-operator/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

@@ -28,11 +28,11 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/terminal"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
+	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 )
 
 var timeout int
@@ -85,13 +85,8 @@ func (c *Console) Run(args []string) error {
 
 	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
-
-	resChan := make(chan error)
-	stopChan := make(chan struct{}, 1)
-	writeStop := make(chan error)
-	readStop := make(chan error)
-
 	// Wait until the virtual machine is in running phase, user interrupt or timeout
+	resChan := make(chan error)
 	runningChan := make(chan error)
 	waitInterrupt := make(chan os.Signal, 1)
 	signal.Notify(waitInterrupt, os.Interrupt)
@@ -120,63 +115,9 @@ func (c *Console) Run(args []string) error {
 			return err
 		}
 	}
-
-	state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		return fmt.Errorf("Make raw terminal failed: %s", err)
-	}
-	fmt.Fprint(os.Stderr, "Successfully connected to ", vmi, " console. The escape sequence is ^]\n")
-	templates.PrintWarningForPausedVMI(virtCli, vmi, namespace)
-
-	in := os.Stdin
-	out := os.Stdout
-
-	go func() {
-		interrupt := make(chan os.Signal, 1)
-		signal.Notify(interrupt, os.Interrupt)
-		<-interrupt
-		close(stopChan)
-	}()
-
-	go func() {
-		_, err := io.Copy(out, stdoutReader)
-		readStop <- err
-	}()
-
-	go func() {
-		defer close(writeStop)
-		buf := make([]byte, 1024, 1024)
-		for {
-			// reading from stdin
-			n, err := in.Read(buf)
-			if err != nil && err != io.EOF {
-				writeStop <- err
-				return
-			}
-			if n == 0 && err == io.EOF {
-				return
-			}
-
-			// the escape sequence
-			if buf[0] == 29 {
-				return
-			}
-			// Writing out to the console connection
-			_, err = stdinWriter.Write(buf[0:n])
-			if err == io.EOF {
-				return
-			}
-		}
-	}()
-
-	select {
-	case <-stopChan:
-	case err = <-readStop:
-	case err = <-writeStop:
-	case err = <-resChan:
-	}
-
-	terminal.Restore(int(os.Stdin.Fd()), state)
+	err = utils.AttachConsole(stdinReader, stdoutReader, stdinWriter, stdoutWriter,
+		fmt.Sprint("Successfully connected to ", vmi, " console. The escape sequence is ^]\n"),
+		resChan)
 
 	if err != nil {
 		if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {

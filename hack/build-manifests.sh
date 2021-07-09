@@ -94,6 +94,7 @@ for arg in $args; do
         --virt-controller-sha=${VIRT_CONTROLLER_SHA} \
         --virt-handler-sha=${VIRT_HANDLER_SHA} \
         --virt-launcher-sha=${VIRT_LAUNCHER_SHA} \
+        --gs-sha=${GS_SHA} \
         --feature-gates=${feature_gates} \
         >${outfile}
 done

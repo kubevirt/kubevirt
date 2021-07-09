@@ -141,11 +141,13 @@ virtapi_sha=$(getShasum ".VirtApiSha")
 virtcontroller_sha=$(getShasum ".VirtControllerSha")
 virthandler_sha=$(getShasum ".VirtHandlerSha")
 virtlauncher_sha=$(getShasum ".VirtLauncherSha")
+gs_sha=$(getShasum ".GsSha")
 
 virtapi_rawsha=$(getRawShasum ".VirtApiSha")
 virtcontroller_rawsha=$(getRawShasum ".VirtControllerSha")
 virthandler_rawsha=$(getRawShasum ".VirtHandlerSha")
 virtlauncher_rawsha=$(getRawShasum ".VirtLauncherSha")
+gs_rawsha=$(getRawShasum ".GsSha")
 
 # The generation code for CSV requires a valid semver to be used.
 # But we're trying to generate a template for a CSV here from code
@@ -154,7 +156,7 @@ virtlauncher_rawsha=$(getRawShasum ".VirtLauncherSha")
 # values after the file is generated.
 _fake_replaces_csv_version="1111.1111.1111"
 _fake_csv_version="2222.2222.2222"
-${KUBEVIRT_DIR}/tools/csv-generator/csv-generator --namespace={{.CSVNamespace}} --dockerPrefix={{.DockerPrefix}} --operatorImageVersion="$virtoperator_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} --apiSha="$virtapi_rawsha" --controllerSha="$virtcontroller_rawsha" --handlerSha="$virthandler_rawsha" --launcherSha="$virtlauncher_rawsha" --kubevirtLogo={{.KubeVirtLogo}} --csvVersion="$_fake_csv_version" --replacesCsvVersion="$_fake_replaces_csv_version" --csvCreatedAtTimestamp={{.CreatedAt}} --kubeVirtVersion={{.DockerTag}} >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
+${KUBEVIRT_DIR}/tools/csv-generator/csv-generator --namespace={{.CSVNamespace}} --dockerPrefix={{.DockerPrefix}} --operatorImageVersion="$virtoperator_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} --apiSha="$virtapi_rawsha" --controllerSha="$virtcontroller_rawsha" --handlerSha="$virthandler_rawsha" --launcherSha="$virtlauncher_rawsha" --gsSha="$gs_rawsha" --kubevirtLogo={{.KubeVirtLogo}} --csvVersion="$_fake_csv_version" --replacesCsvVersion="$_fake_replaces_csv_version" --csvCreatedAtTimestamp={{.CreatedAt}} --kubeVirtVersion={{.DockerTag}} >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 sed -i "s/$_fake_csv_version/{{.CsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 sed -i "s/$_fake_replaces_csv_version/{{.ReplacesCsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 

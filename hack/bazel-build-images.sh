@@ -29,7 +29,7 @@ bazel build \
     --define image_prefix= \
     --define container_tag= \
     //:build-other-images //cmd/virt-operator:virt-operator-image //cmd/virt-api:virt-api-image \
-    //cmd/virt-controller:virt-controller-image //cmd/virt-handler:virt-handler-image //cmd/virt-launcher:virt-launcher-image //tests:conformance_image
+    //cmd/virt-controller:virt-controller-image //cmd/virt-handler:virt-handler-image //cmd/virt-launcher:virt-launcher-image //cmd/libguestfs:libguestfs-tools-image //tests:conformance_image
 
 rm -rf ${DIGESTS_DIR}
 mkdir -p ${DIGESTS_DIR}

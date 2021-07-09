@@ -60,6 +60,7 @@ type KubevirtClient interface {
 	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
 	ServerVersion() *ServerVersion
+	GuestfsVersion() *GuestfsVersion
 	RestClient() *rest.RESTClient
 	GeneratedKubeVirtClient() generatedclient.Interface
 	CdiClient() cdiclient.Interface

@@ -6,6 +6,7 @@ go_library(
         "datavolume.go",
         "events.go",
         "framework.go",
+        "guestfs.go",
         "hotplug.go",
         "imageupload.go",
         "restore.go",
@@ -17,6 +18,7 @@ go_library(
     deps = [
         "//pkg/host-disk:go_default_library",
         "//pkg/virt-config:go_default_library",
+        "//pkg/virtctl/guestfs:go_default_library",
         "//pkg/virtctl/vm:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1:go_default_library",

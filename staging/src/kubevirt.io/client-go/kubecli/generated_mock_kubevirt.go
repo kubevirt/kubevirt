@@ -188,6 +188,16 @@ func (_mr *_MockKubevirtClientRecorder) ServerVersion() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ServerVersion")
 }
 
+func (_m *MockKubevirtClient) GuestfsVersion() *GuestfsVersion {
+	ret := _m.ctrl.Call(_m, "GuestfsVersion")
+	ret0, _ := ret[0].(*GuestfsVersion)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) GuestfsVersion() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestfsVersion")
+}
+
 func (_m *MockKubevirtClient) RestClient() *rest.RESTClient {
 	ret := _m.ctrl.Call(_m, "RestClient")
 	ret0, _ := ret[0].(*rest.RESTClient)

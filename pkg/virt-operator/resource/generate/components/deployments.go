@@ -390,7 +390,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 func NewOperatorDeployment(namespace string, repository string, imagePrefix string, version string,
 	pullPolicy corev1.PullPolicy, verbosity string,
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
-	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
+	virtHandlerShaEnv string, virtLauncherShaEnv string, gsShaEnv string) (*appsv1.Deployment, error) {
 
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, kubernetesHostnameTopologyKey, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
 	version = AddVersionSeparatorPrefix(version)
@@ -525,7 +525,12 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 				Value: virtLauncherShaEnv,
 			},
 		}
-
+		if gsShaEnv != "" {
+			shaSums = append(shaSums, corev1.EnvVar{
+				Name:  operatorutil.GsEnvShasumName,
+				Value: gsShaEnv,
+			})
+		}
 		env := deployment.Spec.Template.Spec.Containers[0].Env
 		env = append(env, shaSums...)
 		deployment.Spec.Template.Spec.Containers[0].Env = env

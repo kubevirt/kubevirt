@@ -1,0 +1,45 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "appliance_layer",
+    srcs = ["@libguestfs-appliance//file"],
+    package_dir = "/usr/local/lib/guestfs",
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "entrypoint",
+    srcs = [":entrypoint.sh"],
+    mode = "0775",
+    package_dir = "/",
+)
+
+container_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    directory = "/",
+    files = [
+        "//:get-version",
+    ],
+    tars = [
+        "//rpm:libguestfs-tools",
+        ":appliance_layer",
+        ":entrypoint",
+    ],
+)
+
+container_image(
+    name = "libguestfs-tools-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = ":version-container",
+    directory = "/",
+    entrypoint = ["/entrypoint.sh"],
+    visibility = ["//visibility:public"],
+)

@@ -28,6 +28,7 @@ _kubectl set env deployment -n $namespace virt-operator \
     VIRT_LAUNCHER_SHASUM=$VIRT_LAUNCHER_SHA \
     VIRT_CONTROLLER_SHASUM=$VIRT_CONTROLLER_SHA \
     VIRT_API_SHASUM=$VIRT_API_SHA
+GS_SHASUM=$GS_SHA
 
 wait_for ds virt-handler "$VIRT_LAUNCHER_SHA $VIRT_HANDLER_SHA"
 wait_for deployment virt-controller "$VIRT_LAUNCHER_SHA $VIRT_CONTROLLER_SHA"

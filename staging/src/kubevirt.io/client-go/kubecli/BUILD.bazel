@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "generated_mock_kubevirt.go",
+        "guestfs.go",
         "handler.go",
         "kubecli.go",
         "kubevirt.go",

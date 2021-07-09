@@ -517,7 +517,7 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from ConfigMap cache, falling back to last good resource version '%s'", c.lastValidConfigResourceVersion)
 		return c.lastValidConfig
 	} else if !exists {
-		kv = c.getConfigFromKubeVirtCR()
+		kv = c.GetConfigFromKubeVirtCR()
 		if kv == nil {
 			return c.lastValidConfig
 		}
@@ -558,7 +558,7 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 	return c.lastValidConfig
 }
 
-func (c *ClusterConfig) getConfigFromKubeVirtCR() *v1.KubeVirt {
+func (c *ClusterConfig) GetConfigFromKubeVirtCR() *v1.KubeVirt {
 	objects := c.kubeVirtInformer.GetStore().List()
 	var kubeVirtName string
 	for _, obj := range objects {
