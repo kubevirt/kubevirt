@@ -393,6 +393,46 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
+		Context("with bandwidth limitations", func() {
+
+			var repeatedlyMigrateWithBandwidthLimitation = func(vmi *v1.VirtualMachineInstance, bandwidth string, repeat int) time.Duration {
+				var migrationDurationTotal time.Duration
+				config := getCurrentKv()
+				limit := resource.MustParse(bandwidth)
+				config.MigrationConfiguration.BandwidthPerMigration = &limit
+				tests.UpdateKubeVirtConfigValueAndWait(config)
+
+				for x := 0; x < repeat; x++ {
+					By("Checking that the VirtualMachineInstance console has expected output")
+					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+
+					By("starting the migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+					// check VMI, confirm migration state
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					migrationDuration := vmi.Status.MigrationState.EndTimestamp.Sub(vmi.Status.MigrationState.StartTimestamp.Time)
+					log.DefaultLogger().Infof("Migration with bandwidth %v took: %v", bandwidth, migrationDuration)
+					migrationDurationTotal += migrationDuration
+				}
+				return migrationDurationTotal
+			}
+
+			It("should apply them and result in different migration durations", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "10Mi", 3)
+				durationHighBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "128Mi", 3)
+				Expect(durationHighBandwidth.Seconds() * 3).To(BeNumerically("<", durationLowBandwidth.Seconds()))
+			})
+		})
 		Context("with a Cirros disk", func() {
 			It("should be successfully migrate with a tablet device", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
