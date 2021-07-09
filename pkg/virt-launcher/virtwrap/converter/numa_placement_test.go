@@ -1,6 +1,8 @@
 package converter
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -18,6 +20,10 @@ var _ = Describe("NumaPlacement", func() {
 	var givenVMI *v1.VirtualMachineInstance
 	var givenTopology *cmdv1.Topology
 	var expectedSpec *api.DomainSpec
+	var MiBInBytes_2 = strconv.Itoa(2 * 1024 * 1024)
+	var MiBInBytes_22 uint64 = 22 * 1024 * 1024
+	var MiBInBytes_20 uint64 = 20 * 1024 * 1024
+	var MiBInBytes_32 uint64 = 32 * 1024 * 1024
 
 	BeforeEach(func() {
 		var err error
@@ -54,8 +60,8 @@ var _ = Describe("NumaPlacement", func() {
 		}
 		expectedSpec = &api.DomainSpec{
 			CPU: api.CPU{NUMA: &api.NUMA{Cells: []api.NUMACell{
-				{ID: "0", CPUs: "0,1", Memory: 32, Unit: "MiB"},
-				{ID: "1", CPUs: "3", Memory: 32, Unit: "MiB"},
+				{ID: "0", CPUs: "0,1", Memory: MiBInBytes_32, Unit: "b"},
+				{ID: "1", CPUs: "3", Memory: MiBInBytes_32, Unit: "b"},
 			}}},
 			CPUTune: &api.CPUTune{VCPUPin: []api.CPUTuneVCPUPin{
 				{VCPU: 0, CPUSet: "10"},
@@ -109,8 +115,8 @@ var _ = Describe("NumaPlacement", func() {
 			}
 			expectedMemoryBacking = &api.MemoryBacking{
 				HugePages: &api.HugePages{HugePage: []api.HugePage{
-					{Size: "2", Unit: "M", NodeSet: "0"},
-					{Size: "2", Unit: "M", NodeSet: "1"},
+					{Size: MiBInBytes_2, Unit: "b", NodeSet: "0"},
+					{Size: MiBInBytes_2, Unit: "b", NodeSet: "1"},
 				}},
 				Allocation: &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate},
 			}
@@ -158,16 +164,16 @@ var _ = Describe("NumaPlacement", func() {
 			})
 			expectedMemoryBacking := &api.MemoryBacking{
 				HugePages: &api.HugePages{HugePage: []api.HugePage{
-					{Size: "2", Unit: "M", NodeSet: "0"},
-					{Size: "2", Unit: "M", NodeSet: "1"},
-					{Size: "2", Unit: "M", NodeSet: "2"},
+					{Size: MiBInBytes_2, Unit: "b", NodeSet: "0"},
+					{Size: MiBInBytes_2, Unit: "b", NodeSet: "1"},
+					{Size: MiBInBytes_2, Unit: "b", NodeSet: "2"},
 				}},
 				Allocation: &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate},
 			}
 			expectedSpec.CPU.NUMA.Cells = []api.NUMACell{
-				{ID: "0", CPUs: "0,1", Memory: 22, Unit: "MiB"},
-				{ID: "1", CPUs: "3", Memory: 22, Unit: "MiB"},
-				{ID: "2", CPUs: "4", Memory: 20, Unit: "MiB"},
+				{ID: "0", CPUs: "0,1", Memory: MiBInBytes_22, Unit: "b"},
+				{ID: "1", CPUs: "3", Memory: MiBInBytes_22, Unit: "b"},
+				{ID: "2", CPUs: "4", Memory: MiBInBytes_20, Unit: "b"},
 			}
 
 			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())

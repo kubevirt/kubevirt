@@ -74,20 +74,21 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 	}
 	domain.MemoryBacking.Allocation = &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate}
 
-	memory, err := QuantityToMebiByte(*getVirtualMemory(vmi))
+	memory, err := QuantityToByte(*getVirtualMemory(vmi))
+	memoryBytes := memory.Value
 	if err != nil {
 		return fmt.Errorf("could not convert VMI memory to quantity: %v", err)
 	}
 	var mod uint64
 	cellCount := uint64(len(involvedCellIDs))
-	if memory < cellCount*hugepagesSize {
+	if memoryBytes < cellCount*hugepagesSize {
 		return fmt.Errorf("not enough memory requested to allocate at least one hugepage per numa node: %v < %v", memory, cellCount*(hugepagesSize*1024*1024))
-	} else if memory%hugepagesSize != 0 {
+	} else if memoryBytes%hugepagesSize != 0 {
 		return fmt.Errorf("requested memory can't be divided through the numa page size: %v mod %v != 0", memory, hugepagesSize)
 	}
-	mod = (memory % (hugepagesSize * cellCount) / hugepagesSize)
+	mod = (memoryBytes % (hugepagesSize * cellCount) / hugepagesSize)
 	if mod != 0 {
-		memory = memory - mod*hugepagesSize
+		memoryBytes = memoryBytes - mod*hugepagesSize
 	}
 
 	virtualCellID := -1
@@ -102,8 +103,8 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 			domain.CPU.NUMA.Cells = append(domain.CPU.NUMA.Cells, api.NUMACell{
 				ID:     strconv.Itoa(virtualCellID),
 				CPUs:   strings.Join(cpus, ","),
-				Memory: memory / uint64(len(numamap)),
-				Unit:   "MiB",
+				Memory: memoryBytes / uint64(len(numamap)),
+				Unit:   memory.Unit,
 			})
 			domain.NUMATune.MemNodes = append(domain.NUMATune.MemNodes, api.MemNode{
 				CellID:  uint32(virtualCellID),
@@ -126,19 +127,19 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 	return nil
 }
 
-func hugePagesInfo(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec) (size uint64, uint string, enabled bool, err error) {
+func hugePagesInfo(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec) (size uint64, unit string, enabled bool, err error) {
 	if domain.MemoryBacking != nil && domain.MemoryBacking.HugePages != nil {
 		if vmi.Spec.Domain.Memory.Hugepages != nil {
 			quantity, err := resource.ParseQuantity(vmi.Spec.Domain.Memory.Hugepages.PageSize)
 			if err != nil {
 				return 0, "", false, fmt.Errorf("could not parse hugepage value %v: %v", vmi.Spec.Domain.Memory.Hugepages.PageSize, err)
 			}
-			size, err := QuantityToMebiByte(quantity)
+			size, err := QuantityToByte(quantity)
 			if err != nil {
-				return 0, "", false, fmt.Errorf("could not convert page size to MiB %v: %v", vmi.Spec.Domain.Memory.Hugepages.PageSize, err)
+				return 0, "b", false, fmt.Errorf("could not convert page size to MiB %v: %v", vmi.Spec.Domain.Memory.Hugepages.PageSize, err)
 			}
-			return size, "M", true, nil
+			return size.Value, "b", true, nil
 		}
 	}
-	return 0, "M", false, nil
+	return 0, "b", false, nil
 }
