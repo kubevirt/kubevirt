@@ -192,6 +192,44 @@ var _ = Describe("podNIC", func() {
 			},
 			should: Succeed(),
 		}),
+		Entry("should success with pure ipv4 cluster and store pod IPs correctly", plugPhase1Case{
+			vmis:                []*v1.VirtualMachineInstance{newVMISlirpInterface("testnamespace", "testVmName")},
+			ipv4Addr:            "1.2.3.4",
+			isIPv4Primary:       true,
+			expectedDomainIface: nil,
+			expectedDHCPConfig:  nil,
+			expectedPodInterface: &cache.PodCacheInterface{
+				PodIP:  "1.2.3.4",
+				PodIPs: []string{"1.2.3.4"},
+			},
+			should: Succeed(),
+		}),
+		Entry("should success with pure ipv6 cluster and store pod IPs correctly", plugPhase1Case{
+			vmis:                []*v1.VirtualMachineInstance{newVMISlirpInterface("testnamespace", "testVmName")},
+			ipv6Addr:            "::1234:5678",
+			isIPv4Primary:       false,
+			expectedDomainIface: nil,
+			expectedDHCPConfig:  nil,
+			expectedPodInterface: &cache.PodCacheInterface{
+				PodIP:  "::1234:5678",
+				PodIPs: []string{"::1234:5678"},
+			},
+			should: Succeed(),
+		}),
+		Entry("should select ipv6 if it's the prefered on the cluster", plugPhase1Case{
+			vmis:                []*v1.VirtualMachineInstance{newVMISlirpInterface("testnamespace", "testVmName")},
+			ipv4Addr:            "1.2.3.4",
+			ipv6Addr:            "::1234:5678",
+			isIPv4Primary:       false,
+			expectedDomainIface: nil,
+			expectedDHCPConfig:  nil,
+			expectedPodInterface: &cache.PodCacheInterface{
+				PodIP:  "::1234:5678",
+				PodIPs: []string{"::1234:5678", "1.2.3.4"},
+			},
+			should: Succeed(),
+		}),
+
 		Entry("should success and write the pod interface IPs and libvirt domain interface for macvtap binding", plugPhase1Case{
 			vmis:                []*v1.VirtualMachineInstance{newVMIMacvtapInterface("testnamespace", "testVmName", "default")},
 			ipv4Addr:            "1.2.3.4",
