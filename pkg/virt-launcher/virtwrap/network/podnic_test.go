@@ -212,8 +212,11 @@ var _ = Describe("podNIC", func() {
 			shouldPrepareNetworking:  withSucces(),
 			should:                   Succeed(),
 		}),
-		Entry("should propagate error if network discovering fails for bridge binding", plugPhase1Case{
-			vmis:          []*v1.VirtualMachineInstance{newVMIBridgeInterface("testnamespace", "testVmName")},
+		Entry("should propagate error if network discovering fails for bridge and masquerade binding", plugPhase1Case{
+			vmis: []*v1.VirtualMachineInstance{
+				newVMIBridgeInterface("testnamespace", "testVmName"),
+				newVMIMasqueradeInterface("testnamespace", "testVmName"),
+			},
 			ipv4Addr:      "1.2.3.4",
 			ipv6Addr:      "::1234:5678",
 			isIPv4Primary: true,
@@ -225,7 +228,10 @@ var _ = Describe("podNIC", func() {
 			should:                   MatchError(withError().err),
 		}),
 		Entry("should return CriticalNetworkError if network preparation fails for bridge binding", plugPhase1Case{
-			vmis:                []*v1.VirtualMachineInstance{newVMIBridgeInterface("testnamespace", "testVmName")},
+			vmis: []*v1.VirtualMachineInstance{
+				newVMIBridgeInterface("testnamespace", "testVmName"),
+				newVMIMasqueradeInterface("testnamespace", "testVmName"),
+			},
 			ipv4Addr:            "1.2.3.4",
 			ipv6Addr:            "::1234:5678",
 			isIPv4Primary:       true,
