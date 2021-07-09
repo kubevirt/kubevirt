@@ -192,6 +192,22 @@ var _ = Describe("podNIC", func() {
 			},
 			should: Succeed(),
 		}),
+		Entry("should success and write the pod interface IPs and libvirt domain interface for macvtap binding", plugPhase1Case{
+			vmis:                []*v1.VirtualMachineInstance{newVMIMacvtapInterface("testnamespace", "testVmName", "default")},
+			ipv4Addr:            "1.2.3.4",
+			ipv6Addr:            "::1234:5678",
+			isIPv4Primary:       true,
+			expectedDomainIface: &api.Interface{},
+			expectedDHCPConfig:  nil,
+			expectedPodInterface: &cache.PodCacheInterface{
+				PodIP:  "1.2.3.4",
+				PodIPs: []string{"1.2.3.4", "::1234:5678"},
+			},
+			shouldStoreDomainIface:   true,
+			shouldDiscoverNetworking: withSucces(),
+			shouldPrepareNetworking:  withSucces(),
+			should:                   Succeed(),
+		}),
 		Entry("should success and write DHCP config, libvirt interface and pod interface for bridge and masquerade binding", plugPhase1Case{
 			vmis: []*v1.VirtualMachineInstance{
 				newVMIBridgeInterface("testnamespace", "testVmName"),
@@ -212,10 +228,11 @@ var _ = Describe("podNIC", func() {
 			shouldPrepareNetworking:  withSucces(),
 			should:                   Succeed(),
 		}),
-		Entry("should propagate error if network discovering fails for bridge and masquerade binding", plugPhase1Case{
+		Entry("should propagate error if network discovering fails for bridge, masquerade and macvtap binding", plugPhase1Case{
 			vmis: []*v1.VirtualMachineInstance{
 				newVMIBridgeInterface("testnamespace", "testVmName"),
 				newVMIMasqueradeInterface("testnamespace", "testVmName"),
+				newVMIMacvtapInterface("testnamespace", "testVmName", "default"),
 			},
 			ipv4Addr:      "1.2.3.4",
 			ipv6Addr:      "::1234:5678",
@@ -227,7 +244,7 @@ var _ = Describe("podNIC", func() {
 			shouldDiscoverNetworking: withError(),
 			should:                   MatchError(withError().err),
 		}),
-		Entry("should return CriticalNetworkError if network preparation fails for bridge binding", plugPhase1Case{
+		Entry("should return CriticalNetworkError if network preparation fails for bridge and masquerade binding", plugPhase1Case{
 			vmis: []*v1.VirtualMachineInstance{
 				newVMIBridgeInterface("testnamespace", "testVmName"),
 				newVMIMasqueradeInterface("testnamespace", "testVmName"),
@@ -243,6 +260,23 @@ var _ = Describe("podNIC", func() {
 			},
 			shouldStoreDHCPConfig:    true,
 			shouldStoreDomainIface:   false,
+			shouldDiscoverNetworking: withSucces(),
+			shouldPrepareNetworking:  withError(),
+			should:                   MatchError(errors.CreateCriticalNetworkError(withError().err)),
+		}),
+		Entry("should return CriticalNetworkError if network preparation fails for macvtap binding", plugPhase1Case{
+			vmis: []*v1.VirtualMachineInstance{
+				newVMIMacvtapInterface("testnamespace", "testVmName", "default"),
+			},
+			ipv4Addr:            "1.2.3.4",
+			ipv6Addr:            "::1234:5678",
+			isIPv4Primary:       true,
+			expectedDomainIface: &api.Interface{},
+			expectedPodInterface: &cache.PodCacheInterface{
+				PodIP:  "1.2.3.4",
+				PodIPs: []string{"1.2.3.4", "::1234:5678"},
+			},
+			shouldStoreDHCPConfig:    true,
 			shouldDiscoverNetworking: withSucces(),
 			shouldPrepareNetworking:  withError(),
 			should:                   MatchError(errors.CreateCriticalNetworkError(withError().err)),
