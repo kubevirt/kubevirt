@@ -82,8 +82,12 @@ const (
 
 var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", func() {
 	var virtClient kubecli.KubevirtClient
-	var originalKubeVirtConfig *v1.KubeVirt
 	var err error
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		Expect(err).ToNot(HaveOccurred())
+	})
 
 	setMastersUnschedulable := func(mode bool) {
 		masters, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: `node-role.kubernetes.io/master`})
@@ -131,15 +135,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode))
 	}
 
-	tests.BeforeAll(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
-
-		originalKubeVirtConfig = util.GetCurrentKv(virtClient)
-	})
-
-	defaultKVConfig := func() v1.KubeVirtConfiguration {
-		kvc := originalKubeVirtConfig.DeepCopy()
+	getCurrentKv := func() v1.KubeVirtConfiguration {
+		kvc := util.GetCurrentKv(virtClient)
 
 		if kvc.Spec.Configuration.MigrationConfiguration == nil {
 			kvc.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{}
@@ -160,24 +157,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		tests.BeforeTestCleanup()
 
 		tests.SkipIfMigrationIsNotPossible()
-
-		// Taints defined by k8s are special and can't be applied manually.
-		// Temporarily configure KubeVirt to use something else for the duration of these tests.
-		if tests.IsUsingBuiltinNodeDrainKey() {
-			drain := "kubevirt.io/drain"
-			cfg := defaultKVConfig()
-			cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
-			tests.UpdateKubeVirtConfigValueAndWait(cfg)
-		}
-	})
-
-	AfterEach(func() {
-		currKubeVirt := util.GetCurrentKv(virtClient)
-
-		// if revision changed, patch data and reload everything
-		if currKubeVirt.ResourceVersion != originalKubeVirtConfig.ResourceVersion {
-			originalKubeVirtConfig = tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirtConfig.Spec.Configuration)
-		}
 
 	})
 
@@ -765,7 +744,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.BeforeTestCleanup()
 
 				// set autoconverge flag
-				config := defaultKVConfig()
+				config := getCurrentKv()
 				allowAutoConverage := true
 				config.MigrationConfiguration.AllowAutoConverge = &allowAutoConverage
 				tests.UpdateKubeVirtConfigValueAndWait(config)
@@ -861,7 +840,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				// set unsafe migration flag
-				cfg := defaultKVConfig()
+				cfg := getCurrentKv()
 				unsafeMigrationOverride := true
 				cfg.MigrationConfiguration.UnsafeMigrationOverride = &unsafeMigrationOverride
 				tests.UpdateKubeVirtConfigValueAndWait(cfg)
@@ -1235,7 +1214,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(migrationConfiguration *v1.MigrationConfiguration, mode v1.MigrationMode) {
 				memoryRequestSize := resource.MustParse(fedoraVMSize)
 				if migrationConfiguration != nil {
-					config := defaultKVConfig()
+					config := getCurrentKv()
 					config.MigrationConfiguration = migrationConfiguration
 					tests.UpdateKubeVirtConfigValueAndWait(config)
 					memoryRequestSize = resource.MustParse("1Gi")
@@ -1339,7 +1318,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Context("migration security", func() {
 			Context("with TLS disabled", func() {
 				It("should be successfully migrated", func() {
-					cfg := defaultKVConfig()
+					cfg := getCurrentKv()
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
@@ -1369,7 +1348,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				})
 
 				It("should not secure migrations with TLS", func() {
-					cfg := defaultKVConfig()
+					cfg := getCurrentKv()
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
@@ -1443,7 +1422,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 			Context("with TLS enabled", func() {
 				BeforeEach(func() {
-					cfg := defaultKVConfig()
+					cfg := getCurrentKv()
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 				})
@@ -1531,7 +1510,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		Context("migration postcopy", func() {
 			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
-				config := defaultKVConfig()
+				config := getCurrentKv()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
 				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
@@ -1584,7 +1563,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 			BeforeEach(func() {
 				createdPods = []string{}
-				cfg := defaultKVConfig()
+				cfg := getCurrentKv()
 				var timeout int64 = 5
 				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
 					ProgressTimeout:         &timeout,
@@ -2295,6 +2274,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			Context("with node tainted during node drain", func() {
 
 				BeforeEach(func() {
+					// Taints defined by k8s are special and can't be applied manually.
+					// Temporarily configure KubeVirt to use something else for the duration of these tests.
+					if tests.IsUsingBuiltinNodeDrainKey() {
+						drain := "kubevirt.io/drain"
+						cfg := getCurrentKv()
+						cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
+						tests.UpdateKubeVirtConfigValueAndWait(cfg)
+					}
 					setMastersUnschedulable(true)
 				})
 
@@ -2403,7 +2390,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vmi = cirrosVMIWithEvictionStrategy()
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
-					cfg := defaultKVConfig()
+					cfg := getCurrentKv()
 					drainKey := "kubevirt.io/alt-drain"
 					cfg.MigrationConfiguration.NodeDrainTaintKey = &drainKey
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
