@@ -1,0 +1,34 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: vm-alpine-multipvc
+  name: vm-alpine-multipvc
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-alpine-multipvc
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: pvcdisk1
+          - disk:
+              bus: virtio
+            name: pvcdisk2
+        resources:
+          requests:
+            memory: 128Mi
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - name: pvcdisk1
+        persistentVolumeClaim:
+          claimName: disk-alpine
+      - name: pvcdisk2
+        persistentVolumeClaim:
+          claimName: disk-custom

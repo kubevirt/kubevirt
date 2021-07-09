@@ -1,0 +1,22 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-block-pvc
+  name: vmi-block-pvc
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: blockpvcdisk
+    resources:
+      requests:
+        memory: 128Mi
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: blockpvcdisk
+    persistentVolumeClaim:
+      claimName: local-block-storage-cirros

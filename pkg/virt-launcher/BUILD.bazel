@@ -1,0 +1,33 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["monitor.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/util:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "monitor_test.go",
+        "virt_launcher_suite_test.go",
+    ],
+    args = [
+        "--fake-qemu-binary-path",
+        "$(location //cmd/fake-qemu-process)",
+    ],
+    data = ["//cmd/fake-qemu-process"],
+    embed = [":go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/google/uuid:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

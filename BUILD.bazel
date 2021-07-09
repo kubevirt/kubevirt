@@ -1,0 +1,386 @@
+# See https://github.com/bazelbuild/bazel/issues/7899
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
+py_runtime(
+    name = "py2_runtime",
+    interpreter_path = "/usr/bin/python2",
+    python_version = "PY2",
+)
+
+py_runtime(
+    name = "py3_runtime",
+    interpreter_path = "/usr/bin/python3",
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "py_runtime_pair",
+    py2_runtime = ":py2_runtime",
+    py3_runtime = ":py3_runtime",
+)
+
+toolchain(
+    name = "py_toolchain",
+    toolchain = "py_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@io_bazel_rules_go//go:def.bzl", "nogo")
+load("@com_github_ash2k_bazel_tools//goimports:def.bzl", "goimports")
+load("@bazeldnf//:def.bzl", "bazeldnf")
+
+goimports(
+    name = "goimports",
+    display_diffs = True,
+    exclude_paths = [
+        "./vendor/*",
+        "./.history/*",
+        "./.git/*",
+        "./_ci-configs/*",
+    ],
+    local = ["kubevirt.io"],
+    prefix = "kubevirt.io/kubevirt",
+    write = True,
+)
+
+nogo(
+    name = "nogo_vet",
+    config = "nogo_config.json",
+    visibility = ["//visibility:public"],
+    # These deps enable the analyses equivalent to running `go vet`.
+    # Passing vet = True enables only a tiny subset of these (the ones
+    # that are always correct).
+    # You can see the what `go vet` does by running `go doc cmd/vet`.
+    deps = [
+        "//vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/asmdecl:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/assign:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/atomic:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/bools:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/buildtag:go_tool_library",
+        # Fails on a vendored dependency, disabling for now.
+        # "@org_golang_x_tools//go/analysis/passes/cgocall:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/composite:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/copylock:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/httpresponse:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/loopclosure:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/lostcancel:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/nilfunc:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/printf:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/shift:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/stdmethods:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/structtag:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/tests:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/unreachable:go_tool_library",
+        # FIXME: Nogo fails analysis although configured to be disabled on nogo_config.json.
+        # "@org_golang_x_tools//go/analysis/passes/unsafeptr:go_tool_library",
+        "@org_golang_x_tools//go/analysis/passes/unusedresult:go_tool_library",
+    ],
+)
+
+# gazelle:prefix kubevirt.io/kubevirt
+# gazelle:build_tags selinux
+gazelle(
+    name = "gazelle",
+    build_tags = ["selinux"],
+)
+
+bazeldnf(name = "bazeldnf")
+
+load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+
+buildifier(name = "buildifier")
+
+genrule(
+    name = "get-version",
+    srcs = [],
+    outs = [".version"],
+    cmd = "grep ^STABLE_BUILD_SCM_REVISION bazel-out/stable-status.txt | cut -d' ' -f2 >$@",
+    stamp = 1,
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "libvirt-libs",
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:libvirt-libs_aarch64/usr/lib64"],
+        "//conditions:default": ["//rpm:libvirt-libs_x86_64/usr/lib64"],
+    }),
+    hdrs = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:libvirt-libs_aarch64/usr/include/libvirt"],
+        "//conditions:default": ["//rpm:libvirt-libs_x86_64/usr/include/libvirt"],
+    }),
+    include_prefix = "libvirt",
+    linkstatic = 1,
+    strip_include_prefix = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "/rpm/libvirt-libs_aarch64/",
+        "//conditions:default": "/rpm/libvirt-libs_x86_64/",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+passwd_entry(
+    name = "nonroot-user",
+    gid = 1001,
+    home = "/home/nonroot-user",
+    shell = "/bin/bash",
+    uid = 1001,
+    username = "nonroot-user",
+)
+
+passwd_file(
+    name = "passwd",
+    entries = [
+        ":nonroot-user",
+    ],
+)
+
+pkg_tar(
+    name = "passwd-tar",
+    srcs = [":passwd"],
+    mode = "0644",
+    package_dir = "etc",
+    visibility = ["//visibility:public"],
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_bundle",
+    "container_image",
+    "container_push",
+)
+
+container_image(
+    name = "passwd-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64//image",
+        "//conditions:default": "@go_image_base//image",
+    }),
+    tars = [":passwd-tar"],
+    user = "1001",
+    visibility = ["//visibility:public"],
+)
+
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
+    container_repositories = "repositories",
+)
+
+config_setting(
+    name = "release",
+    values = {"define": "release=true"},
+)
+
+container_bundle(
+    name = "build-other-images",
+    images = {
+        # cmd images
+        "$(container_prefix)/$(image_prefix)example-hook-sidecar:$(container_tag)": "//cmd/example-hook-sidecar:example-hook-sidecar-image",
+        "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
+        "$(container_prefix)/$(image_prefix)subresource-access-test:$(container_tag)": "//cmd/subresource-access-test:subresource-access-test-image",
+        # container-disk images
+        "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
+        "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",
+        "$(container_prefix)/$(image_prefix)cirros-custom-container-disk-demo:$(container_tag)": "//containerimages:cirros-custom-container-disk-image",
+        "$(container_prefix)/$(image_prefix)fedora-cloud-container-disk-demo:$(container_tag)": "//containerimages:fedora-cloud-container-disk-image",
+        "$(container_prefix)/$(image_prefix)microlivecd-container-disk-demo:$(container_tag)": "//containerimages:microlivecd-container-disk-image",
+        "$(container_prefix)/$(image_prefix)virtio-container-disk:$(container_tag)": "//containerimages:virtio-container-disk-image",
+        # Kernel boot container
+        "$(container_prefix)/$(image_prefix)alpine-ext-kernel-boot-demo:$(container_tag)": "//containerimages:alpine-ext-kernel-boot-demo-container",
+        # Customized container-disk images
+        "$(container_prefix)/$(image_prefix)fedora-sriov-lane-container-disk:$(container_tag)": "//containerimages:fedora-sriov-lane-container-disk-image",
+        "$(container_prefix)/$(image_prefix)fedora-with-test-tooling-container-disk:$(container_tag)": "//containerimages:fedora-with-test-tooling",
+        # testing images
+        "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
+        "$(container_prefix)/$(image_prefix)cdi-http-import-server:$(container_tag)": "//images/cdi-http-import-server:cdi-http-import-server-image",
+        "$(container_prefix)/$(image_prefix)nfs-server:$(container_tag)": "//images/nfs-server:nfs-server-image",
+        "$(container_prefix)/$(image_prefix)vm-killer:$(container_tag)": "//images/vm-killer:vm-killer-image",
+        "$(container_prefix)/$(image_prefix)winrmcli:$(container_tag)": "//images/winrmcli:winrmcli-image",
+    },
+)
+
+# heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
+load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
+
+docker_push(
+    name = "push-other-images",
+    bundle = ":build-other-images",
+)
+
+# we need to push virt images with the rule from container:container in order to get the digest file
+container_push(
+    name = "push-virt-operator",
+    format = "Docker",
+    image = "//cmd/virt-operator:virt-operator-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)virt-operator",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-virt-api",
+    format = "Docker",
+    image = "//cmd/virt-api:virt-api-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)virt-api",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-virt-controller",
+    format = "Docker",
+    image = "//cmd/virt-controller:virt-controller-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)virt-controller",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-virt-handler",
+    format = "Docker",
+    image = "//cmd/virt-handler:virt-handler-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)virt-handler",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-virt-launcher",
+    format = "Docker",
+    image = "//cmd/virt-launcher:virt-launcher-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)virt-launcher",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-conformance",
+    testonly = True,
+    format = "Docker",
+    image = "//tests:conformance_image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)conformance",
+    tag = "$(container_tag)",
+)
+
+genrule(
+    name = "build-virtctl",
+    srcs = [
+        "//cmd/virtctl",
+    ],
+    outs = ["virtctl-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-virtctl-amd64",
+    srcs = [
+        "//cmd/virtctl:virtctl-amd64",
+    ],
+    outs = ["virtctl-copier-amd64"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-virtctl-darwin",
+    srcs = [
+        "//cmd/virtctl:virtctl-darwin",
+    ],
+    outs = ["virtctl-copier-darwin"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-virtctl-windows",
+    srcs = [
+        "//cmd/virtctl:virtctl-windows",
+    ],
+    outs = ["virtctl-copier-windows"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-ginkgo",
+    srcs = [
+        "//vendor/github.com/onsi/ginkgo/ginkgo",
+    ],
+    outs = ["ginkgo-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-manifest-templator",
+    srcs = [
+        "//tools/manifest-templator:templator",
+    ],
+    outs = ["manifest-templator-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-junit-merger",
+    srcs = [
+        "//tools/junit-merger",
+    ],
+    outs = ["junit-merger-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-functests",
+    testonly = True,
+    srcs = [
+        "//tests:go_default_test",
+    ],
+    outs = ["functests-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-dump",
+    srcs = [
+        "//cmd/dump",
+    ],
+    outs = ["dump-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+filegroup(
+    name = "coverage_files",
+    srcs = glob(["bazel-out/k8-fastbuild/testlogs/**/coverage.dat"]),
+)
+
+genrule(
+    name = "goveralls",
+    srcs = [
+        ":coverage_files",
+    ],
+    outs = ["bazel-goveralls"],
+    cmd = "echo '#!/bin/sh\n\necho $(SRCS) | hack/goveralls.sh'  > \"$@\"",
+    executable = 1,
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["doc.go"],
+    importpath = "kubevirt.io/kubevirt",
+    visibility = ["//visibility:public"],
+)

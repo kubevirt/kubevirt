@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+cc_binary(
+    name = "container-disk",
+    srcs = ["main.c"],
+    linkopts = [
+        "-static",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "container_disk_v2alpha_suite_test.go",
+        "main_test.go",
+    ],
+    args = [
+        "--container-disk-binary",
+        "$(location //cmd/container-disk-v2alpha:container-disk)",
+    ],
+    data = ["//cmd/container-disk-v2alpha:container-disk"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

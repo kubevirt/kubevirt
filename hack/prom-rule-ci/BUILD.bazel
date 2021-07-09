@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["rule-spec-dumper.go"],
+    importpath = "kubevirt.io/kubevirt/hack/prom-rule-ci",
+    visibility = ["//visibility:private"],
+    deps = ["//pkg/virt-operator/resource/generate/components:go_default_library"],
+)
+
+go_binary(
+    name = "prom-rule-ci",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

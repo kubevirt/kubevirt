@@ -1,0 +1,48 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["virtctl.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/virtctl",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/virtctl:go_default_library",
+        "//vendor/k8s.io/client-go/plugin/pkg/client/auth:go_default_library",
+    ],
+)
+
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
+
+go_binary(
+    name = "virtctl",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+go_binary(
+    name = "virtctl-amd64",
+    embed = [":go_default_library"],
+    goarch = "amd64",
+    goos = "linux",
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+go_binary(
+    name = "virtctl-darwin",
+    embed = [":go_default_library"],
+    goarch = "amd64",
+    goos = "darwin",
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+go_binary(
+    name = "virtctl-windows",
+    embed = [":go_default_library"],
+    goarch = "amd64",
+    goos = "windows",
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)

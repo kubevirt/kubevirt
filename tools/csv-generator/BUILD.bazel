@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["csv-generator.go"],
+    importpath = "kubevirt.io/kubevirt/tools/csv-generator",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/virt-operator/resource/generate/components:go_default_library",
+        "//pkg/virt-operator/resource/generate/csv:go_default_library",
+        "//tools/util:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "csv-generator",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,27 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["pciaddress.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/util/hardware:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "device_suite_test.go",
+        "pciaddress_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+set -e
+
+source $(dirname "$0")/common.sh
+
+if [ "${KUBEVIRT_RUN_UNNESTED}" == "true" ]; then
+    /bin/bash -c "$@"
+    exit $?
+fi
+
+# Select an available container runtime
+if [ -z ${KUBEVIRT_CRI} ]; then
+    if docker ps >/dev/null; then
+        KUBEVIRT_CRI=docker
+        echo "selecting docker as container runtime"
+    elif podman ps >/dev/null; then
+        KUBEVIRT_CRI=podman
+        echo "selecting podman as container runtime"
+    else
+        echo "no working container runtime found. Neither docker nor podman seems to work."
+        exit 1
+    fi
+fi
+
+KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2104200947-285ddf078"
+
+SYNC_OUT=${SYNC_OUT:-true}
+
+BUILDER=${job_prefix}
+
+SYNC_VENDOR=${SYNC_VENDOR:-false}
+
+TEMPFILE=".rsynctemp"
+
+# Be less verbose with bazel
+# For ppc64le the bazel server seems to be running out of memory in the Travis CI, so forcing no concurrent jobs to be run
+if [ -n "${TRAVIS_JOB_ID}" ]; then
+    cat >ci.bazelrc <<EOF
+common --noshow_progress --noshow_loading_progress
+build:ppc64le --jobs=1
+build:aarch64 --jobs=1
+run:ppc64le --jobs=1
+run:aarch64 --jobs=1
+EOF
+fi
+
+# Create the persistent container volume
+if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
+    $KUBEVIRT_CRI volume create ${BUILDER}
+fi
+
+# Make sure that the output directory exists
+$KUBEVIRT_CRI run -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --rm ${KUBEVIRT_BUILDER_IMAGE} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+
+# Start an rsyncd instance and make sure it gets stopped after the script exits
+RSYNC_CID=$($KUBEVIRT_CRI run -d -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
+
+function finish() {
+    $KUBEVIRT_CRI stop ${RSYNC_CID} >/dev/null 2>&1 &
+    $KUBEVIRT_CRI rm -f ${RSYNC_CID} >/dev/null 2>&1 &
+}
+trap finish EXIT
+
+RSYNCD_PORT=$($KUBEVIRT_CRI port $RSYNC_CID 873 | cut -d':' -f2)
+
+rsynch_fail_count=0
+
+while ! rsync ${KUBEVIRT_DIR}/${RSYNCTEMP} "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/${RSYNCTEMP}" &>/dev/null; do
+    if [[ "$rsynch_fail_count" -eq 0 ]]; then
+        printf "Waiting for rsyncd to be ready"
+        sleep .1
+    elif [[ "$rsynch_fail_count" -lt 30 ]]; then
+        printf "."
+        sleep 1
+    else
+        printf "failed"
+        break
+    fi
+    rsynch_fail_count=$((rsynch_fail_count + 1))
+done
+
+printf "\n"
+
+rsynch_fail_count=0
+
+_rsync() {
+    rsync -al "$@"
+}
+
+# Copy kubevirt into the persistent container volume
+_rsync \
+    --delete \
+    --exclude 'bazel-bin' \
+    --exclude 'bazel-genfiles' \
+    --exclude 'bazel-kubevirt' \
+    --exclude 'bazel-out' \
+    --exclude 'bazel-testlogs' \
+    --exclude 'cluster-up/cluster/**/.kubectl' \
+    --exclude 'cluster-up/cluster/**/.oc' \
+    --exclude 'cluster-up/cluster/**/.kubeconfig' \
+    --exclude "_out" \
+    --exclude ".vagrant" \
+    --exclude ".bazeldnf" \
+    ${KUBEVIRT_DIR}/ \
+    "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
+
+volumes="-v ${BUILDER}:/root:rw,z"
+
+# append .docker directory as volume
+mkdir -p "${HOME}/.docker"
+volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
+
+# add custom docker certs, if needed
+if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
+    volumes="$volumes -v ${DOCKER_CA_CERT_FILE}:${DOCKERIZED_CUSTOM_CA_PATH}:ro,z"
+fi
+
+# if defined, append the ARTIFACTS directory
+if [ -n "$ARTIFACTS" ]; then
+    if [[ "$ARTIFACTS" = /* ]]; then
+        volumes="$volumes -v ${ARTIFACTS}:${ARTIFACTS}:rw,z"
+    else
+        echo "ARTIFACTS directory is specified, but it is not an absolute directory"
+        exit 1
+    fi
+fi
+
+# Ensure that a bazel server which is running is the correct one
+if [ -n "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
+    # check if the image is correct
+    builder_id=$($KUBEVIRT_CRI inspect ${KUBEVIRT_BUILDER_IMAGE} | $KUBEVIRT_CRI run --security-opt "label=disable" --rm -i imega/jq:1.6 ".[0].Id")
+    bazel_server_id=$($KUBEVIRT_CRI inspect ${BUILDER}-bazel-server | $KUBEVIRT_CRI run --security-opt "label=disable" --rm -i imega/jq:1.6 ".[0].Image")
+    if [ "${builder_id}" != "${bazel_server_id}" ]; then
+        echo "Bazel server is outdated, restarting ..."
+        $KUBEVIRT_CRI stop ${BUILDER}-bazel-server
+    fi
+fi
+
+# Ensure that a bazel server is running
+if [ -z "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
+    $KUBEVIRT_CRI run --ulimit nofile=10000:10000 --network host -d ${volumes} --security-opt "label=disable" --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${KUBEVIRT_BUILDER_IMAGE} hack/bazel-server.sh
+fi
+
+# Update cert trust, if custom is provided
+if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
+    $KUBEVIRT_CRI exec ${BUILDER}-bazel-server /entrypoint.sh "/usr/bin/update-ca-trust"
+fi
+
+# Run the command
+test -t 1 && USE_TTY="-it"
+if ! $KUBEVIRT_CRI exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; then
+    # Copy the build output out of the container, make sure that _out exactly matches the build result
+    if [ "$SYNC_OUT" = "true" ]; then
+        _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
+    fi
+    exit 1
+fi
+
+# Copy the whole kubevirt data out to get generated sources and formatting changes
+_rsync \
+    --exclude 'bazel-bin' \
+    --exclude 'bazel-genfiles' \
+    --exclude 'bazel-kubevirt' \
+    --exclude 'bazel-out' \
+    --exclude 'bazel-testlogs' \
+    --exclude 'cluster-up/cluster/**/.kubectl' \
+    --exclude 'cluster-up/cluster/**/.oc' \
+    --exclude 'cluster-up/cluster/**/.kubeconfig' \
+    --exclude "_out" \
+    --exclude "vendor" \
+    --exclude ".vagrant" \
+    --exclude ".git" \
+    --exclude ".bazeldnf" \
+    "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" \
+    ${KUBEVIRT_DIR}/
+
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/manifests/generated/" "${KUBEVIRT_DIR}/manifests/generated"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/examples/" "${KUBEVIRT_DIR}/examples"
+if [ "$SYNC_VENDOR" = "true" ]; then
+    _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/vendor" "${VENDOR_DIR}/"
+fi
+# Copy the build output out of the container, make sure that _out exactly matches the build result
+if [ "$SYNC_OUT" = "true" ]; then
+    _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
+fi

@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["dump.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/dump",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//tests/reporter:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "dump",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

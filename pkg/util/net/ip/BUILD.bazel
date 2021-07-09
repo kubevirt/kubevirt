@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["ip.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/util/net/ip",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/k8s.io/utils/net:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "ip_suite_test.go",
+        "ip_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

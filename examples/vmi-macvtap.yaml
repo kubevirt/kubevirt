@@ -1,0 +1,40 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-macvtap
+  name: vmi-macvtap
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+      interfaces:
+      - macvtap: {}
+        name: macvtap
+      rng: {}
+    resources:
+      requests:
+        memory: 1024M
+  networks:
+  - multus:
+      networkName: macvtapnetwork
+    name: macvtap
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: localhost:49172/fedora-cloud-container-disk-demo:devel
+    name: containerdisk
+  - cloudInitNoCloud:
+      userData: |-
+        #!/bin/bash
+        echo "fedora" |passwd fedora --stdin
+        yum install -y nginx
+        systemctl enable --now nginx
+    name: cloudinitdisk

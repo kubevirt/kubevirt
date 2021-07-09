@@ -1,0 +1,22 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-ephemeral
+  name: vmi-ephemeral
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+    resources:
+      requests:
+        memory: 128Mi
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: localhost:49172/cirros-container-disk-demo:devel
+    name: containerdisk

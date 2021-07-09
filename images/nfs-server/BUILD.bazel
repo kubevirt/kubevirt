@@ -1,0 +1,29 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "nfs-server-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@nfs-server_aarch64//image",
+        "//conditions:default": "@nfs-server//image",
+    }),
+    ports = [
+        "111/udp",
+        "2049/udp",
+        "32765/udp",
+        "32766/udp",
+        "32767/udp",
+        "111/tcp",
+        "2049/tcp",
+        "32765/tcp",
+        "32766/tcp",
+        "32767/tcp",
+    ],
+    visibility = ["//visibility:public"],
+)
