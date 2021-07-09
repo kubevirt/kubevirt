@@ -90,7 +90,7 @@ func NewKubeVirtController(
 	c := KubeVirtController{
 		clientset:        clientset,
 		aggregatorClient: aggregatorClient,
-		queue:            workqueue.NewRateLimitingQueue(rl),
+		queue:            workqueue.NewNamedRateLimitingQueue(rl, "virt-operator"),
 		kubeVirtInformer: informer,
 		recorder:         recorder,
 		stores:           stores,

@@ -106,7 +106,7 @@ func NewWorkloadUpdateController(
 	)
 
 	c := &WorkloadUpdateController{
-		queue:                 workqueue.NewRateLimitingQueue(rl),
+		queue:                 workqueue.NewNamedRateLimitingQueue(rl, "virt-controller-workload-update"),
 		vmiInformer:           vmiInformer,
 		podInformer:           podInformer,
 		migrationInformer:     migrationInformer,

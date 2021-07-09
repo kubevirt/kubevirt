@@ -56,7 +56,7 @@ type VMRestoreController struct {
 
 // Init initializes the restore controller
 func (ctrl *VMRestoreController) Init() {
-	ctrl.vmRestoreQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "restore-controller-vmrestore")
+	ctrl.vmRestoreQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-restore-vmrestore")
 
 	ctrl.VMRestoreInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{

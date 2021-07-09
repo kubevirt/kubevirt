@@ -68,7 +68,7 @@ const (
 func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) *VMIReplicaSet {
 
 	c := &VMIReplicaSet{
-		Queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		Queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-replicaset"),
 		vmiInformer:   vmiInformer,
 		vmiRSInformer: vmiRSInformer,
 		recorder:      recorder,

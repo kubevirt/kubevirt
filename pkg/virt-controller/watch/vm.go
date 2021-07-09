@@ -68,7 +68,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	proxy := &sarProxy{client: clientset}
 
 	c := &VMController{
-		Queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		Queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vm"),
 		vmiInformer:            vmiInformer,
 		vmInformer:             vmInformer,
 		dataVolumeInformer:     dataVolumeInformer,

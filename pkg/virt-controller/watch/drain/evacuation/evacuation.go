@@ -53,7 +53,7 @@ func NewEvacuationController(
 ) *EvacuationController {
 
 	c := &EvacuationController{
-		Queue:                 workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		Queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-evacuation"),
 		vmiInformer:           vmiInformer,
 		migrationInformer:     migrationInformer,
 		nodeInformer:          nodeInformer,
