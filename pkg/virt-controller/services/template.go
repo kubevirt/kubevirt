@@ -67,10 +67,10 @@ const virtiofsDebugLogs = "virtiofsdDebugLogs"
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
 const (
-	CAP_NET_ADMIN = "NET_ADMIN"
-	CAP_NET_RAW   = "NET_RAW"
-	CAP_SYS_ADMIN = "SYS_ADMIN"
-	CAP_SYS_NICE  = "SYS_NICE"
+	CAP_NET_BIND_SERVICE = "NET_BIND_SERVICE"
+	CAP_NET_RAW          = "NET_RAW"
+	CAP_SYS_ADMIN        = "SYS_ADMIN"
+	CAP_SYS_NICE         = "SYS_NICE"
 )
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
@@ -1607,9 +1607,29 @@ func getVirtiofsCapabilities() []k8sv1.Capability {
 	}
 }
 
+func requireDHCP(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Bridge != nil || iface.Masquerade != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func haveSlirp(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Slirp != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []k8sv1.Capability {
 	capabilities := []k8sv1.Capability{}
-
+	if requireDHCP(vmi) || haveSlirp(vmi) {
+		capabilities = append(capabilities, CAP_NET_BIND_SERVICE)
+	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	capabilities = append(capabilities, CAP_SYS_NICE)
 

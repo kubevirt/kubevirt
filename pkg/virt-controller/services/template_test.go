@@ -2846,6 +2846,49 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		table.DescribeTable("should require NET_BIND_SERVICE", func(interfaceType string) {
+			vmi := v1.NewMinimalVMI("fake-vmi")
+			switch interfaceType {
+			case "bridge":
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			case "masquerade":
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+			case "slirp":
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultSlirpNetworkInterface()}
+			}
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					Expect(container.SecurityContext.Capabilities.Add).To(ContainElement(kubev1.Capability("NET_BIND_SERVICE")))
+					return
+				}
+			}
+			Expect(false).To(BeTrue())
+		},
+			table.Entry("when there is bridge interface", "bridge"),
+			table.Entry("when there is masquerade interface", "masquerade"),
+			table.Entry("when there is slirp interface", "slirp"),
+		)
+
+		It("should not require NET_BIND_SERVICE", func() {
+			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface("test")}
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					Expect(container.SecurityContext.Capabilities.Add).NotTo(ContainElement(kubev1.Capability("NET_BIND_SERVICE")))
+					return
+				}
+			}
+			Expect(false).To(BeTrue())
+		})
+
 	})
 
 	Describe("ServiceAccountName", func() {
