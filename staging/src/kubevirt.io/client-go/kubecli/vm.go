@@ -38,6 +38,7 @@ const vmSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtua
 func (k *kubevirt) VirtualMachine(namespace string) VirtualMachineInterface {
 	return &vm{
 		restClient: k.restClient,
+		config:     k.config,
 		namespace:  namespace,
 		resource:   "virtualmachines",
 	}
@@ -45,6 +46,7 @@ func (k *kubevirt) VirtualMachine(namespace string) VirtualMachineInterface {
 
 type vm struct {
 	restClient *rest.RESTClient
+	config     *rest.Config
 	namespace  string
 	resource   string
 }
@@ -233,4 +235,8 @@ func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptio
 	}
 
 	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+}
+
+func (v *vm) PortForward(name string, port int, protocol string) (StreamInterface, error) {
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol))
 }

@@ -4,6 +4,8 @@
 package kubecli
 
 import (
+	net "net"
+
 	gomock "github.com/golang/mock/gomock"
 	v1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	v10 "k8s.io/api/autoscaling/v1"
@@ -779,6 +781,16 @@ func (_mr *_MockStreamInterfaceRecorder) Stream(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stream", arg0)
 }
 
+func (_m *MockStreamInterface) AsConn() net.Conn {
+	ret := _m.ctrl.Call(_m, "AsConn")
+	ret0, _ := ret[0].(net.Conn)
+	return ret0
+}
+
+func (_mr *_MockStreamInterfaceRecorder) AsConn() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AsConn")
+}
+
 // Mock of VirtualMachineInstanceInterface interface
 type MockVirtualMachineInstanceInterface struct {
 	ctrl     *gomock.Controller
@@ -901,6 +913,17 @@ func (_m *MockVirtualMachineInstanceInterface) VNC(name string) (StreamInterface
 
 func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) VNC(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VNC", arg0)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) PortForward(name string, port int, protocol string) (StreamInterface, error) {
+	ret := _m.ctrl.Call(_m, "PortForward", name, port, protocol)
+	ret0, _ := ret[0].(StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) PortForward(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PortForward", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) Pause(name string) error {
@@ -1393,6 +1416,17 @@ func (_m *MockVirtualMachineInterface) RemoveVolume(name string, removeVolumeOpt
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) RemoveVolume(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInterface) PortForward(name string, port int, protocol string) (StreamInterface, error) {
+	ret := _m.ctrl.Call(_m, "PortForward", name, port, protocol)
+	ret0, _ := ret[0].(StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) PortForward(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PortForward", arg0, arg1, arg2)
 }
 
 // Mock of VirtualMachineInstanceMigrationInterface interface

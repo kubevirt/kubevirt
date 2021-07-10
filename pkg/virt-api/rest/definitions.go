@@ -321,12 +321,17 @@ func addPatchParams(builder *restful.RouteBuilder, ws *restful.WebService) *rest
 	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
 }
 
+const (
+	NamespaceParamName = "namespace"
+	NameParamName      = "name"
+)
+
 func NameParam(ws *restful.WebService) *restful.Parameter {
-	return ws.PathParameter("name", "Name of the resource").Required(true)
+	return ws.PathParameter(NameParamName, "Name of the resource").Required(true)
 }
 
 func NamespaceParam(ws *restful.WebService) *restful.Parameter {
-	return ws.PathParameter("namespace", "Object name and auth scope, such as for teams and projects").Required(true)
+	return ws.PathParameter(NamespaceParamName, "Object name and auth scope, such as for teams and projects").Required(true)
 }
 
 func labelSelectorParam(ws *restful.WebService) *restful.Parameter {
@@ -402,6 +407,21 @@ func SubResourcePath(subResource string) string {
 		return "/" + subResource
 	}
 	return subResource
+}
+
+const (
+	PortParamName     = "port"
+	PortPath          = "/{port:[0-9]+}"
+	ProtocolParamName = "protocol"
+	ProtocolPath      = "/{protocol:tcp|udp}"
+)
+
+func PortForwardPortParameter(ws *restful.WebService) *restful.Parameter {
+	return ws.PathParameter(PortParamName, "The target port for portforward on the VirtualMachineInstance.")
+}
+
+func PortForwardProtocolParameter(ws *restful.WebService) *restful.Parameter {
+	return ws.PathParameter(ProtocolParamName, "The protocol for portforward on the VirtualMachineInstance.")
 }
 
 func Noop(_ *restful.Request, _ *restful.Response) {}
