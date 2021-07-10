@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-var defaultItems = []tests.QuickStartTestItem{{Name: "test-quick-start", DisplayName: "Test Quickstart Tour"}}
-
 var _ = Describe("[rfe_id:5882][crit:high][vendor:cnv-qe@redhat.com][level:system]ConsoleQuickStart objects", func() {
 	flag.Parse()
 
@@ -53,10 +51,12 @@ func checkExpectedQuickStarts(client kubecli.KubevirtClient) {
 	_ = consolev1.Install(s)
 	s.AddKnownTypes(consolev1.GroupVersion)
 
-	items := defaultItems
-	if tests.GetConfig().QuickStart.TestItems != nil {
-		items = tests.GetConfig().QuickStart.TestItems
+	items := tests.GetConfig().QuickStart.TestItems
+
+	if len(items) == 0 {
+		Skip("There is no quickstart test item for dashboard tests.")
 	}
+
 	for _, qs := range items {
 		// use a fresh object for each loop. get requests only override non-empty fields
 		var cqs consolev1.ConsoleQuickStart

@@ -42,7 +42,7 @@ $KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" delete pod functest --ignore-not-fou
 $KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" run functest \
  --image="$FUNC_TEST_IMAGE" --serviceaccount=functest \
  --env="INSTALLED_NAMESPACE=${INSTALLED_NAMESPACE}" \
- --restart=Never
+ --restart=Never -- --config-file hack/testFiles/test_config.yaml
 
 phase="Running"
 for i in $(seq 1 60); do

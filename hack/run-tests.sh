@@ -25,7 +25,7 @@ if [[ -n "${KUBECONFIG-}" ]]; then
   KUBECONFIG_FLAG="-kubeconfig="${KUBECONFIG}""
 fi
 
-${TEST_OUT_PATH}/func-tests.test -ginkgo.v -installed-namespace="${INSTALLED_NAMESPACE}" -cdi-namespace="${INSTALLED_NAMESPACE}" "${KUBECONFIG_FLAG}" "$@"
+${TEST_OUT_PATH}/func-tests.test -ginkgo.v -installed-namespace="${INSTALLED_NAMESPACE}" -cdi-namespace="${INSTALLED_NAMESPACE}" "$@" "${KUBECONFIG_FLAG}"
 
 # wait a minute to allow all VMs to be deleted before attempting to change node placement configuration
 sleep 60

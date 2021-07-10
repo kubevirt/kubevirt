@@ -152,7 +152,6 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 				},
 				&corev1.ConfigMap{}: {
 					Label: labelSelector,
-					Field: namespaceSelector,
 				},
 				&corev1.Service{}: {
 					Field: namespaceSelector,

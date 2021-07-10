@@ -1,0 +1,10 @@
+quickStart:
+  testItems:
+  - name: test-quick-start
+    displayName: Test Quickstart Tour
+dashboard:
+  testItems:
+  - name: grafana-dashboard-kubevirt-top-consumers
+    namespace: openshift-config-managed
+    keys:
+    - kubevirt-top-consumers.json

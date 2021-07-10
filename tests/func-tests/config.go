@@ -25,8 +25,20 @@ type QuickStartTestConfig struct {
 	TestItems []QuickStartTestItem `yaml:"testItems,omitempty"`
 }
 
+type DashboardTestItem struct {
+	Name      string `yaml:"name,omitempty"`
+	Namespace string `yaml:"namespace,omitempty"`
+	// keys expected in the configmap
+	Keys []string `yaml:"keys,omitempty"`
+}
+
+type DashboardTestConfig struct {
+	TestItems []DashboardTestItem `yaml:"testItems,omitempty"`
+}
+
 type TestConfig struct {
 	QuickStart QuickStartTestConfig `yaml:"quickStart,omitempty"`
+	Dashboard  DashboardTestConfig  `yaml:"dashboard,omitempty"`
 }
 
 func init() {

@@ -27,10 +27,10 @@ var _ = Describe("Test operandHandler", func() {
 		_ = os.Setenv("CONVERSION_CONTAINER", "just-a-value:version")
 		_ = os.Setenv("VMWARE_CONTAINER", "just-a-value:version")
 		_ = os.Setenv("VIRTIOWIN_CONTAINER", "just-a-value:version")
+		_ = os.Setenv(quickStartManifestLocationVarName, testFileLocation+"/quickstarts")
+		_ = os.Setenv(dashboardManifestLocationVarName, testFileLocation+"/dashboards")
 
 		It("should create all objects are created", func() {
-			err := os.Setenv(manifestLocationVarName, testFileLocation)
-			Expect(err).ToNot(HaveOccurred())
 			hco := commonTestUtils.NewHco()
 			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
 
@@ -41,14 +41,9 @@ var _ = Describe("Test operandHandler", func() {
 
 			req := commonTestUtils.NewReq(hco)
 
-			err = handler.Ensure(req)
+			err := handler.Ensure(req)
 			Expect(err).ToNot(HaveOccurred())
 			expectedEvents := []commonTestUtils.MockEvent{
-				{
-					EventType: corev1.EventTypeNormal,
-					Reason:    "Created",
-					Msg:       "Created ConfigMap kubevirt-config",
-				},
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Created",
@@ -109,8 +104,13 @@ var _ = Describe("Test operandHandler", func() {
 					Reason:    "Created",
 					Msg:       "Created ConsoleQuickStart test-quick-start",
 				},
+				{
+					EventType: corev1.EventTypeNormal,
+					Reason:    "Created",
+					Msg:       "Created ConfigMap grafana-dashboard-kubevirt-top-consumers",
+				},
 			}
-			Expect(eventEmitter.CheckEvents(expectedEvents))
+			Expect(eventEmitter.CheckEvents(expectedEvents)).To(BeTrue())
 
 			By("make sure the KV object created", func() {
 				// Read back KV
@@ -161,11 +161,18 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(qsList.Items).To(HaveLen(1))
 				Expect(qsList.Items[0].Name).Should(Equal("test-quick-start"))
 			})
+
+			By("make sure the Dashboard confimap created", func() {
+				cmList := corev1.ConfigMapList{}
+				err := cli.List(req.Ctx, &cmList, &client.ListOptions{Namespace: "openshift-config-managed"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cmList).ToNot(BeNil())
+				Expect(cmList.Items).To(HaveLen(1))
+				Expect(cmList.Items[0].Name).Should(Equal("grafana-dashboard-kubevirt-top-consumers"))
+			})
 		})
 
 		It("should handle errors on ensure loop", func() {
-			err := os.Setenv(manifestLocationVarName, testFileLocation)
-			Expect(err).ToNot(HaveOccurred())
 			hco := commonTestUtils.NewHco()
 			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
 
@@ -186,7 +193,7 @@ var _ = Describe("Test operandHandler", func() {
 				return nil
 			})
 
-			err = handler.Ensure(req)
+			err := handler.Ensure(req)
 			Expect(err).To(HaveOccurred())
 			Expect(err).Should(Equal(fakeError))
 
@@ -208,8 +215,6 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("make sure the all objects are deleted", func() {
-			err := os.Setenv(manifestLocationVarName, testFileLocation)
-			Expect(err).ToNot(HaveOccurred())
 			hco := commonTestUtils.NewHco()
 			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
 
@@ -218,7 +223,7 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err = handler.Ensure(req)
+			err := handler.Ensure(req)
 			Expect(err).ToNot(HaveOccurred())
 
 			eventEmitter.Reset()
@@ -260,6 +265,11 @@ var _ = Describe("Test operandHandler", func() {
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Killing",
 					Msg:       "Removed KubeVirt kubevirt-kubevirt-hyperconverged",
+				},
+				{
+					EventType: corev1.EventTypeNormal,
+					Reason:    "Killing",
+					Msg:       "Removed ConfigMap grafana-dashboard-kubevirt-top-consumers",
 				},
 			}
 			Expect(eventEmitter.CheckEvents(expectedEvents)).To(BeTrue())
@@ -311,8 +321,6 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("delete KV error handling", func() {
-			err := os.Setenv(manifestLocationVarName, testFileLocation)
-			Expect(err).ToNot(HaveOccurred())
 			hco := commonTestUtils.NewHco()
 			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
 
@@ -322,7 +330,7 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err = handler.Ensure(req)
+			err := handler.Ensure(req)
 			Expect(err).ToNot(HaveOccurred())
 
 			fakeError := fmt.Errorf("fake KV deletion error")
@@ -363,8 +371,6 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("delete CDI error handling", func() {
-			err := os.Setenv(manifestLocationVarName, testFileLocation)
-			Expect(err).ToNot(HaveOccurred())
 			hco := commonTestUtils.NewHco()
 			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
 
@@ -373,7 +379,7 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err = handler.Ensure(req)
+			err := handler.Ensure(req)
 			Expect(err).ToNot(HaveOccurred())
 
 			fakeError := fmt.Errorf("fake CDI deletion error")
@@ -415,8 +421,6 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("default delete error handling", func() {
-			err := os.Setenv(manifestLocationVarName, testFileLocation)
-			Expect(err).ToNot(HaveOccurred())
 			hco := commonTestUtils.NewHco()
 			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
 
@@ -427,7 +431,7 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err = handler.Ensure(req)
+			err := handler.Ensure(req)
 			Expect(err).ToNot(HaveOccurred())
 
 			cli.InitiateDeleteErrors(func(obj client.Object) error {
@@ -468,8 +472,6 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("delete timeout error handling", func() {
-			err := os.Setenv(manifestLocationVarName, testFileLocation)
-			Expect(err).ToNot(HaveOccurred())
 			hco := commonTestUtils.NewHco()
 			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
 
@@ -479,7 +481,7 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err = handler.Ensure(req)
+			err := handler.Ensure(req)
 			Expect(err).ToNot(HaveOccurred())
 
 			cli.InitiateDeleteErrors(func(obj client.Object) error {
