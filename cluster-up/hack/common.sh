@@ -25,6 +25,7 @@ KUBEVIRT_DEPLOY_ISTIO=${KUBEVIRT_DEPLOY_ISTIO:-false}
 KUBEVIRT_DEPLOY_PROMETHEUS=${KUBEVIRT_DEPLOY_PROMETHEUS:-false}
 KUBEVIRT_DEPLOY_PROMETHEUS_ALERTMANAGER=${KUBEVIRT_DEPLOY_PROMETHEUS_ALERTMANAGER-false}
 KUBEVIRT_DEPLOY_GRAFANA=${KUBEVIRT_DEPLOY_GRAFANA:-false}
+KUBEVIRT_CGROUPV2=${KUBEVIRT_CGROUPV2:-false}
 
 # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
 # http and https ports are accessed by testing framework and should not be randomized
@@ -38,4 +39,4 @@ provider_prefix=${JOB_NAME:-${KUBEVIRT_PROVIDER}}${EXECUTOR_NUMBER}
 job_prefix=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}
 
 mkdir -p $KUBEVIRTCI_CONFIG_PATH/$KUBEVIRT_PROVIDER
-KUBEVIRTCI_TAG=2107011205-2135fb7
+KUBEVIRTCI_TAG=2107080951-4492ebe
