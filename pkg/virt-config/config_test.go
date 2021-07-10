@@ -224,7 +224,7 @@ var _ = Describe("ConfigMap", func() {
 		result := clusterConfig.GetMigrationConfiguration()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 		Expect(*result.ParallelMigrationsPerCluster).To(BeNumerically("==", 5))
-		Expect(result.BandwidthPerMigration.String()).To(Equal("64Mi"))
+		Expect(result.BandwidthPerMigration.String()).To(Equal("0"))
 	})
 
 	It("Should update the config if a newer version is available", func() {

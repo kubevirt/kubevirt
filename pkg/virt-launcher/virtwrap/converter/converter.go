@@ -1864,11 +1864,16 @@ func QuantityToByte(quantity resource.Quantity) (api.Memory, error) {
 }
 
 func QuantityToMebiByte(quantity resource.Quantity) (uint64, error) {
-	q := int64(float64(0.953674) * float64(quantity.ScaledValue(resource.Mega)))
-	if q < 0 {
-		return 0, fmt.Errorf("Quantity '%s' must be greate tan or equal to 0", quantity.String())
+	bytes, err := QuantityToByte(quantity)
+	if err != nil {
+		return 0, err
 	}
-	return uint64(q), nil
+	if bytes.Value == 0 {
+		return 0, nil
+	} else if bytes.Value < 1048576 {
+		return 1, nil
+	}
+	return uint64(float64(bytes.Value)/1048576 + 0.5), nil
 }
 
 func boolToOnOff(value *bool, defaultOn bool) string {

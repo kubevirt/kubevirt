@@ -1785,12 +1785,23 @@ var _ = Describe("Converter", func() {
 			})
 		})
 
-		It("should calculate mebibyte from a quantity", func() {
-			mi64, _ := resource.ParseQuantity("2G")
+		table.DescribeTable("should calculate mebibyte from a quantity", func(quantity string, mebibyte int) {
+			mi64, _ := resource.ParseQuantity(quantity)
 			q, err := QuantityToMebiByte(mi64)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(q).To(BeNumerically("==", 1907))
-		})
+			Expect(q).To(BeNumerically("==", mebibyte))
+		},
+			table.Entry("when 0M is given", "0M", 0),
+			table.Entry("when 0 is given", "0", 0),
+			table.Entry("when 1 is given", "1", 1),
+			table.Entry("when 1M is given", "1M", 1),
+			table.Entry("when 3M is given", "3M", 3),
+			table.Entry("when 100M is given", "100M", 95),
+			table.Entry("when 1Mi is given", "1Mi", 1),
+			table.Entry("when 2G are given", "2G", 1907),
+			table.Entry("when 2Gi are given", "2Gi", 2*1024),
+			table.Entry("when 2780Gi are given", "2780Gi", 2780*1024),
+		)
 
 		It("should fail calculating mebibyte if the quantity is less than 0", func() {
 			mi64, _ := resource.ParseQuantity("-2G")
@@ -1798,47 +1809,25 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should calculate memory in bytes", func() {
-			By("specifying memory 64M")
-			m64, _ := resource.ParseQuantity("64M")
+		table.DescribeTable("should calculate memory in bytes", func(quantity string, bytes int) {
+			m64, _ := resource.ParseQuantity(quantity)
 			memory, err := QuantityToByte(m64)
-			Expect(memory.Value).To(Equal(uint64(64000000)))
+			Expect(memory.Value).To(BeNumerically("==", bytes))
 			Expect(memory.Unit).To(Equal("b"))
 			Expect(err).ToNot(HaveOccurred())
-
-			By("specifying memory 64Mi")
-			mi64, _ := resource.ParseQuantity("64Mi")
-			memory, err = QuantityToByte(mi64)
-			Expect(memory.Value).To(Equal(uint64(67108864)))
-			Expect(err).ToNot(HaveOccurred())
-
-			By("specifying memory 3G")
-			g3, _ := resource.ParseQuantity("3G")
-			memory, err = QuantityToByte(g3)
-			Expect(memory.Value).To(Equal(uint64(3000000000)))
-			Expect(err).ToNot(HaveOccurred())
-
-			By("specifying memory 3Gi")
-			gi3, _ := resource.ParseQuantity("3Gi")
-			memory, err = QuantityToByte(gi3)
-			Expect(memory.Value).To(Equal(uint64(3221225472)))
-			Expect(err).ToNot(HaveOccurred())
-
-			By("specifying memory 45Gi")
-			gi45, _ := resource.ParseQuantity("45Gi")
-			memory, err = QuantityToByte(gi45)
-			Expect(memory.Value).To(Equal(uint64(48318382080)))
-			Expect(err).ToNot(HaveOccurred())
-
-			By("specifying memory 451231 bytes")
-			b451231, _ := resource.ParseQuantity("451231")
-			memory, err = QuantityToByte(b451231)
-			Expect(memory.Value).To(Equal(uint64(451231)))
-			Expect(err).ToNot(HaveOccurred())
-
+		},
+			table.Entry("specifying memory 64M", "64M", 64*1000*1000),
+			table.Entry("specifying memory 64Mi", "64Mi", 64*1024*1024),
+			table.Entry("specifying memory 3G", "3G", 3*1000*1000*1000),
+			table.Entry("specifying memory 3Gi", "3Gi", 3*1024*1024*1024),
+			table.Entry("specifying memory 45Gi", "45Gi", 45*1024*1024*1024),
+			table.Entry("specifying memory 2780Gi", "2780Gi", 2780*1024*1024*1024),
+			table.Entry("specifying memory 451231 bytes", "451231", 451231),
+		)
+		It("should calculate memory in bytes", func() {
 			By("specyfing negative memory size -45Gi")
 			m45gi, _ := resource.ParseQuantity("-45Gi")
-			_, err = QuantityToByte(m45gi)
+			_, err := QuantityToByte(m45gi)
 			Expect(err).To(HaveOccurred())
 		})
 
