@@ -151,6 +151,12 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
 		}
+		if in.Spec.Template.Spec.LivenessProbe != nil {
+			SetDefaults_Probe(in.Spec.Template.Spec.LivenessProbe)
+		}
+		if in.Spec.Template.Spec.ReadinessProbe != nil {
+			SetDefaults_Probe(in.Spec.Template.Spec.ReadinessProbe)
+		}
 	}
 	for i := range in.Status.VolumeRequests {
 		a := &in.Status.VolumeRequests[i]
@@ -276,6 +282,12 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 		if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
 			SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 		}
+	}
+	if in.Spec.LivenessProbe != nil {
+		SetDefaults_Probe(in.Spec.LivenessProbe)
+	}
+	if in.Spec.ReadinessProbe != nil {
+		SetDefaults_Probe(in.Spec.ReadinessProbe)
 	}
 }
 
@@ -503,6 +515,12 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
 				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
+		}
+		if in.Spec.Template.Spec.LivenessProbe != nil {
+			SetDefaults_Probe(in.Spec.Template.Spec.LivenessProbe)
+		}
+		if in.Spec.Template.Spec.ReadinessProbe != nil {
+			SetDefaults_Probe(in.Spec.Template.Spec.ReadinessProbe)
 		}
 	}
 }

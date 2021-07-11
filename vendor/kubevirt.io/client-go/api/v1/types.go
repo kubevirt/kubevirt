@@ -22,7 +22,7 @@ package v1
 //go:generate swagger-doc
 //go:generate deepcopy-gen -i . --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
 //go:generate defaulter-gen -i . --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
-//go:generate openapi-gen -i kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,kubevirt.io/client-go/api/v1,github.com/openshift/api/operator/v1 --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1  --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
+//go:generate openapi-gen -i kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,kubevirt.io/client-go/api/v1,github.com/openshift/api/operator/v1 --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1  --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
@@ -38,7 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
 const DefaultGracePeriodSeconds int64 = 30
@@ -167,6 +167,21 @@ type VirtualMachineInstanceSpec struct {
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 }
 
+// VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
+//
+// +k8s:openapi-gen=true
+type VirtualMachineInstancePhaseTransitionTimestamp struct {
+	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
+	Phase VirtualMachineInstancePhase `json:"phase,omitempty"`
+	// PhaseTransitionTimestamp is the timestamp of when the phase change occurred
+	PhaseTransitionTimestamp metav1.Time `json:"phaseTransitionTimestamp,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type TopologyHints struct {
+	TSCFrequency *int64 `json:"tscFrequency,omitempty"`
+}
+
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual
 // state of a system.
 //
@@ -181,6 +196,10 @@ type VirtualMachineInstanceStatus struct {
 	Conditions []VirtualMachineInstanceCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
 	Phase VirtualMachineInstancePhase `json:"phase,omitempty"`
+	// PhaseTransitionTimestamp is the timestamp of when the last phase change occurred
+	// +listType=atomic
+	// +optional
+	PhaseTransitionTimestamps []VirtualMachineInstancePhaseTransitionTimestamp `json:"phaseTransitionTimestamps,omitempty"`
 	// Interfaces represent the details of available network interfaces.
 	Interfaces []VirtualMachineInstanceNetworkInterface `json:"interfaces,omitempty"`
 	// Guest OS Information
@@ -211,6 +230,14 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	// +listType=atomic
 	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
+
+	// FSFreezeStatus is the state of the fs of the guest
+	// it can be either frozen or thawed
+	// +optional
+	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
+
+	// +optional
+	TopologyHints *TopologyHints `json:"topologyHints,omitempty"`
 }
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
@@ -359,8 +386,12 @@ const (
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 	// Reason means that VMI is not live migratioable because of it's network interfaces collection
 	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
-	// Reason means that VMI is not live migratioable because of it's network interfaces collection
+	// Reason means that VMI is not live migratioable because it uses hotplug
 	VirtualMachineInstanceReasonHotplugNotMigratable = "HotplugNotLiveMigratable"
+	// Reason means that VMI is not live migratioable because of it's CPU mode
+	VirtualMachineInstanceReasonCPUModeNotMigratable = "CPUModeLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses virtiofs
+	VirtualMachineInstanceReasonVirtIOFSNotMigratable = "VirtIOFSNotLiveMigratable"
 )
 
 const (
@@ -660,14 +691,19 @@ const (
 
 	// This label represents supported cpu features on the node
 	CPUFeatureLabel = "cpu-feature.node.kubevirt.io/"
-	// This laberepresents supported cpu models on the node
+	// This label represents supported cpu models on the node
 	CPUModelLabel = "cpu-model.node.kubevirt.io/"
 	CPUTimerLabel = "cpu-timer.node.kubevirt.io/"
 	// This label represents supported HyperV features on the node
 	HypervLabel = "hyperv.node.kubevirt.io/"
 	// This label represents vendor of cpu model on the node
 	CPUModelVendorLabel = "cpu-vendor.node.kubevirt.io/"
-	//
+
+	// This label represents the host model CPU name
+	HostModelCPULabel = "host-model-cpu.node.kubevirt.io/"
+	// This label represents the host model required features
+	HostModelRequiredFeaturesLabel = "host-model-required-features.node.kubevirt.io/"
+
 	LabellerSkipNodeAnnotation        = "node-labeller.kubevirt.io/skip-node"
 	VirtualMachineLabel               = AppLabel + "/vm"
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
@@ -1302,6 +1338,11 @@ const (
 // Handler defines a specific action that should be taken
 // TODO: pass structured data to these actions, and document that data here.
 type Handler struct {
+	// One and only one of the following should be specified.
+	// Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.
+	// If the guest agent is not available, this probe will fail.
+	// +optional
+	Exec *k8sv1.ExecAction `json:"exec,omitempty" protobuf:"bytes,1,opt,name=exec"`
 	// HTTPGet specifies the http request to perform.
 	// +optional
 	HTTPGet *k8sv1.HTTPGetAction `json:"httpGet,omitempty"`
@@ -1323,6 +1364,10 @@ type Probe struct {
 	// +optional
 	InitialDelaySeconds int32 `json:"initialDelaySeconds,omitempty"`
 	// Number of seconds after which the probe times out.
+	// For exec probes the timeout fails the probe but does not terminate the command running on the guest.
+	// This means a blocking command can result in an increasing load on the guest.
+	// A small buffer will be added to the resulting workload exec probe to compensate for delays
+	// caused by the qemu guest exec mechanism.
 	// Defaults to 1 second. Minimum value is 1.
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
 	// +optional
@@ -1664,6 +1709,33 @@ type RestartOptions struct {
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty" protobuf:"varint,1,opt,name=gracePeriodSeconds"`
 }
 
+// StartOptions may be provided on start request.
+//
+// +k8s:openapi-gen=true
+type StartOptions struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// Indicates that VM will be started in paused state.
+	// +optional
+	Paused bool `json:"paused,omitempty" protobuf:"varint,7,opt,name=paused"`
+}
+
+const (
+	StartRequestDataPausedKey  string = "paused"
+	StartRequestDataPausedTrue string = "true"
+)
+
+// StopOptions may be provided when deleting an API object.
+//
+// +k8s:openapi-gen=true
+type StopOptions struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// this updates the VMIs terminationGracePeriodSeconds during shutdown
+	// +optional
+	GracePeriod *int64 `json:"gracePeriod,omitempty" protobuf:"varint,1,opt,name=gracePeriod"`
+}
+
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -1685,6 +1757,9 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	UserList []VirtualMachineInstanceGuestOSUser `json:"userList,omitempty"`
 	// FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage
 	FSInfo VirtualMachineInstanceFileSystemInfo `json:"fsInfo,omitempty"`
+	// FSFreezeStatus is the state of the fs of the guest
+	// it can be either frozen or thawed
+	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
 }
 
 // List of commands that QEMU guest agent supports
@@ -1804,6 +1879,7 @@ type MigrationConfiguration struct {
 	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
 	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,omitempty"`
 	AllowPostCopy                     *bool              `json:"allowPostCopy,omitempty"`
+	DisableTLS                        *bool              `json:"disableTLS,omitempty"`
 }
 
 // DeveloperConfiguration holds developer options
@@ -1811,11 +1887,15 @@ type MigrationConfiguration struct {
 type DeveloperConfiguration struct {
 	FeatureGates           []string          `json:"featureGates,omitempty"`
 	LessPVCSpaceToleration int               `json:"pvcTolerateLessSpaceUpToPercent,omitempty"`
+	MinimumReservePVCBytes uint64            `json:"minimumReservePVCBytes,omitempty"`
 	MemoryOvercommit       int               `json:"memoryOvercommit,omitempty"`
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
 	UseEmulation           bool              `json:"useEmulation,omitempty"`
 	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
-	LogVerbosity           *LogVerbosity     `json:"logVerbosity,omitempty"`
+	// Allow overriding the automatically determined minimum TSC frequency of the cluster
+	// and fixate the minimum to this frequency.
+	MinimumClusterTSCFrequency *int64        `json:"minimumClusterTSCFrequency,omitempty"`
+	LogVerbosity               *LogVerbosity `json:"logVerbosity,omitempty"`
 }
 
 // LogVerbosity sets log verbosity level of  various components
@@ -1842,9 +1922,17 @@ type PermittedHostDevices struct {
 // PciHostDevice represents a host PCI device allowed for passthrough
 // +k8s:openapi-gen=true
 type PciHostDevice struct {
-	PCIVendorSelector        string `json:"pciVendorSelector"`
-	ResourceName             string `json:"resourceName"`
-	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
+	// The vendor_id:product_id tupple of the PCI device
+	PCIVendorSelector string `json:"pciVendorSelector"`
+	// The name of the resource that is representing the device. Exposed by
+	// a device plugin and requested by VMs. Typically of the form
+	// vendor.com/product_nameThe name of the resource that is representing
+	// the device. Exposed by a device plugin and requested by VMs.
+	// Typically of the form vendor.com/product_name
+	ResourceName string `json:"resourceName"`
+	// If true, KubeVirt will leave the allocation and monitoring to an
+	// external device plugin
+	ExternalResourceProvider bool `json:"externalResourceProvider,omitempty"`
 }
 
 // MediatedHostDevice represents a host mediated device allowed for passthrough

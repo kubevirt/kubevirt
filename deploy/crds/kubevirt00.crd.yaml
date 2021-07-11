@@ -99,6 +99,12 @@ spec:
                         type: object
                       memoryOvercommit:
                         type: integer
+                      minimumClusterTSCFrequency:
+                        format: int64
+                        type: integer
+                      minimumReservePVCBytes:
+                        format: int64
+                        type: integer
                       nodeSelectors:
                         additionalProperties:
                           type: string
@@ -134,6 +140,8 @@ spec:
                       completionTimeoutPerGiB:
                         format: int64
                         type: integer
+                      disableTLS:
+                        type: boolean
                       nodeDrainTaintKey:
                         type: string
                       parallelMigrationsPerCluster:
@@ -1054,6 +1062,15 @@ spec:
                         type: object
                       memoryOvercommit:
                         type: integer
+                      minimumClusterTSCFrequency:
+                        description: Allow overriding the automatically determined
+                          minimum TSC frequency of the cluster and fixate the minimum
+                          to this frequency.
+                        format: int64
+                        type: integer
+                      minimumReservePVCBytes:
+                        format: int64
+                        type: integer
                       nodeSelectors:
                         additionalProperties:
                           type: string
@@ -1092,6 +1109,8 @@ spec:
                       completionTimeoutPerGiB:
                         format: int64
                         type: integer
+                      disableTLS:
+                        type: boolean
                       nodeDrainTaintKey:
                         type: string
                       parallelMigrationsPerCluster:
@@ -1151,10 +1170,20 @@ spec:
                             allowed for passthrough
                           properties:
                             externalResourceProvider:
+                              description: If true, KubeVirt will leave the allocation
+                                and monitoring to an external device plugin
                               type: boolean
                             pciVendorSelector:
+                              description: The vendor_id:product_id tupple of the
+                                PCI device
                               type: string
                             resourceName:
+                              description: The name of the resource that is representing
+                                the device. Exposed by a device plugin and requested
+                                by VMs. Typically of the form vendor.com/product_nameThe
+                                name of the resource that is representing the device.
+                                Exposed by a device plugin and requested by VMs. Typically
+                                of the form vendor.com/product_name
                               type: string
                           required:
                           - pciVendorSelector
