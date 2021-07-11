@@ -19,7 +19,6 @@
 package watch
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -503,7 +502,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
 	}
 
-	// VMI is owned by virt-controller, so patch instead of update
+	// VMI is owned by virt-handler, so patch instead of update
 	if vmi.IsRunning() || vmi.IsScheduled() {
 		patchBytes, err := preparePatch(vmi, vmiCopy)
 		if err != nil {
@@ -630,18 +629,7 @@ func preparePatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, error)
 		return nil, nil
 	}
 
-	patchBuffer := bytes.Buffer{}
-	patchBuffer.WriteString("[ ")
-	for i, entry := range patchOps {
-		patchBuffer.WriteString(entry)
-		if i == len(patchOps)-1 {
-			patchBuffer.WriteString(" ]")
-		} else {
-			patchBuffer.WriteString(", ")
-		}
-	}
-
-	return patchBuffer.Bytes(), nil
+	return controller.GeneratePatchBytes(patchOps), nil
 }
 
 func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
