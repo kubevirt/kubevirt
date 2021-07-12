@@ -401,7 +401,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}
 		Expect(virtlauncher).ToNot(BeNil(), "Should find running virtlauncher pod")
 		Eventually(func() bool {
-			podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			podList, err := virtClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 			if err != nil {
 				return false
 			}
