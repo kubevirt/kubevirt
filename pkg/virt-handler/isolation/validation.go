@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os/exec"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	v1 "kubevirt.io/client-go/api/v1"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
@@ -18,11 +16,11 @@ const (
 )
 
 func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVerification) (*containerdisk.DiskInfo, error) {
-	memoryLimitMB := fmt.Sprintf("%d", config.MemoryLimit.ScaledValue(resource.Mega))
+	memoryLimit := fmt.Sprintf("%d", config.MemoryLimit.Value())
 
 	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
 	out, err := virt_chroot.ExecChroot(
-		"--user", "qemu", "--memory", memoryLimitMB, "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
+		"--user", "qemu", "--memory", memoryLimit, "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
 		QEMUIMGPath, "info", imagePath, "--output", "json",
 	).Output()
 	if err != nil {
