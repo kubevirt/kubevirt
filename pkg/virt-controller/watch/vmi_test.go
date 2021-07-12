@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
@@ -1282,6 +1283,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			if vmExists {
 				vmSource.Add(vm)
+				// the controller isn't using informer callbacks for the VM informer
+				// so add a sleep here to ensure the informer has time to cache up before
+				// we call Execute()
+				time.Sleep(1 * time.Second)
 			}
 
 			addVirtualMachine(vmi)
