@@ -79,17 +79,18 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cdis.Items).To(HaveLen(1))
-				hasWaitForCustomerGate := false
+				hasWaitForFirstConsumerGate := false
 				for _, feature := range cdis.Items[0].Spec.Config.FeatureGates {
 					if feature == "HonorWaitForFirstConsumer" {
-						hasWaitForCustomerGate = true
+						hasWaitForFirstConsumerGate = true
 						break
 					}
 				}
-				if !hasWaitForCustomerGate {
+				if !hasWaitForFirstConsumerGate {
 					Skip("HonorWaitForFirstConsumer is disabled in CDI, skipping tests relying on it")
 				}
 			})
+
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
@@ -120,6 +121,36 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				}
 				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
+			})
+
+			It("[test_id:6686]should successfully start multiple concurrent VMIs", func() {
+
+				numVmis := 5
+				vmis := make([]*v1.VirtualMachineInstance, 0, numVmis)
+				dvs := make([]*cdiv1.DataVolume, 0, numVmis)
+
+				for idx := 0; idx < numVmis; idx++ {
+					dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+
+					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+					Expect(err).To(BeNil())
+
+					vmi = tests.RunVMI(vmi, 60)
+					vmis = append(vmis, vmi)
+					dvs = append(dvs, dataVolume)
+				}
+
+				for idx := 0; idx < numVmis; idx++ {
+					tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmis[idx], 500)
+					By("Checking that the VirtualMachineInstance console has expected output")
+					Expect(console.LoginToAlpine(vmis[idx])).To(Succeed())
+
+					err := virtClient.VirtualMachineInstance(vmis[idx].Namespace).Delete(vmis[idx].Name, &metav1.DeleteOptions{})
+					Expect(err).To(BeNil())
+					err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dvs[idx].Namespace).Delete(context.Background(), dvs[idx].Name, metav1.DeleteOptions{})
+					Expect(err).To(BeNil())
+				}
 			})
 
 			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {

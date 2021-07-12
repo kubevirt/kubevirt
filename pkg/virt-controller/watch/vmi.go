@@ -740,6 +740,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	if syncErr != nil {
 		return syncErr
 	}
+
 	if !podExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
@@ -784,7 +785,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	}
 
 	if !isWaitForFirstConsumer {
-		err := c.cleanupWaitForFirstConsumerTemporaryPods(vmi)
+		err := c.cleanupWaitForFirstConsumerTemporaryPods(vmi, pod)
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to clean up temporary pods: %v", err), FailedHotplugSyncReason}
 		}
@@ -1262,17 +1263,10 @@ func (c *VMIController) getHotplugVolumes(vmi *virtv1.VirtualMachineInstance, vi
 	return hotplugVolumes
 }
 
-func (c *VMIController) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance) error {
-	// Get all pods from the namespace
-	pods, err := c.listPodsFromNamespace(vmi.Namespace)
+func (c *VMIController) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) error {
+	triggerPods, err := c.waitForFirstConsumerTemporaryPods(vmi, virtLauncherPod)
 	if err != nil {
 		return err
-	}
-	triggerPods := make([]*k8sv1.Pod, 0)
-	for _, pod := range pods {
-		if isTempPod(pod) {
-			triggerPods = append(triggerPods, pod)
-		}
 	}
 
 	return c.deleteRunningOrFinishedWFFCPods(vmi, triggerPods...)
@@ -1316,14 +1310,40 @@ func (c *VMIController) virtlauncherAttachmentPods(virtlauncherPod *k8sv1.Pod) (
 	}
 
 	for _, pod := range pods {
-		ownerRef := controller.GetControllerOf(pod)
-		if ownerRef == nil || ownerRef.UID != virtlauncherPod.UID {
+		if ownerRef := controller.GetControllerOf(pod); ownerRef == nil || ownerRef.UID != virtlauncherPod.UID {
 			continue
 		}
 		attachmentPods = append(attachmentPods, pod)
 	}
 
 	return attachmentPods, nil
+}
+
+func (c *VMIController) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) ([]*k8sv1.Pod, error) {
+	var temporaryPods []*k8sv1.Pod
+
+	// Get all pods from the namespace
+	pods, err := c.listPodsFromNamespace(vmi.Namespace)
+	if err != nil {
+		return temporaryPods, err
+	}
+
+	for _, pod := range pods {
+		// Cleanup candidates are temporary pods that are either controlled by the VMI or the virt launcher pod
+		if !isTempPod(pod) {
+			continue
+		}
+
+		if controller.IsControlledBy(pod, vmi) {
+			temporaryPods = append(temporaryPods, pod)
+		}
+
+		if ownerRef := controller.GetControllerOf(pod); ownerRef != nil && ownerRef.UID == virtLauncherPod.UID {
+			temporaryPods = append(temporaryPods, pod)
+		}
+	}
+
+	return temporaryPods, nil
 }
 
 func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
