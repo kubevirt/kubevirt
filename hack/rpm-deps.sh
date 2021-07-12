@@ -23,7 +23,6 @@ fedora_base="
 "
 fedora_extra="
   coreutils-single
-  fedora-logos-httpd
   glibc-langpack-en
   libcurl-minimal
 "
@@ -44,20 +43,25 @@ testimage_base="
   scsi-target-utils
   which
 "
+testimage_extra="
+  fedora-logos-httpd
+"
 
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --name testimage_x86_64 \
     $fedora_base \
     $fedora_extra \
-    $testimage_base
+    $testimage_base \
+    $testimage_extra
 
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --arch=aarch64 --name testimage_aarch64 \
     $fedora_base \
     $fedora_extra \
-    $testimage_base
+    $testimage_base \
+    $testimage_extra
 
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
 libvirtdevel_base="
