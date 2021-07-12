@@ -183,6 +183,7 @@ func NewController(
 		networkCacheStoreFactory:    netcache.NewInterfaceCacheFactory(),
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 		capabilities:                capabilities,
+		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -273,6 +274,7 @@ type VirtualMachineController struct {
 	virtLauncherFSRunDirPattern string
 	heartBeat                   *heartbeat.HeartBeat
 	capabilities                *nodelabellerapi.Capabilities
+	vmiExpectations             *controller.UIDTrackingControllerExpectations
 }
 
 type virtLauncherCriticalNetworkError struct {
@@ -679,8 +681,11 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 	}
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
+		key := controller.VirtualMachineInstanceKey(vmi)
+		d.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
 		if err != nil {
+			d.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
 		}
 	}
@@ -733,8 +738,11 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 
 	// update the VMI if necessary
 	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
+		key := controller.VirtualMachineInstanceKey(vmi)
+		d.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
 		if err != nil {
+			d.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
 		}
 	}
@@ -1154,8 +1162,11 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	controller.SetVMIPhaseTransitionTimestamp(origVMI, vmi)
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
+		key := controller.VirtualMachineInstanceKey(vmi)
+		d.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
 		if err != nil {
+			d.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
 		}
 	}
@@ -1715,6 +1726,12 @@ func (d *VirtualMachineController) execute(key string) error {
 	vmi, vmiExists, err := d.getVMIFromCache(key)
 	if err != nil {
 		return err
+	}
+
+	if !vmiExists {
+		d.vmiExpectations.DeleteExpectations(key)
+	} else if !d.vmiExpectations.SatisfiedExpectations(key) {
+		return nil
 	}
 
 	domain, domainExists, domainCachedUID, err := d.getDomainFromCache(key)
@@ -2619,18 +2636,21 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 func (d *VirtualMachineController) addFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
+		d.vmiExpectations.LowerExpectations(key, 1, 0)
 		d.Queue.Add(key)
 	}
 }
 func (d *VirtualMachineController) deleteFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
+		d.vmiExpectations.LowerExpectations(key, 1, 0)
 		d.Queue.Add(key)
 	}
 }
 func (d *VirtualMachineController) updateFunc(_, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
+		d.vmiExpectations.LowerExpectations(key, 1, 0)
 		d.Queue.Add(key)
 	}
 }

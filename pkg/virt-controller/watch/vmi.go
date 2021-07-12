@@ -135,6 +135,7 @@ func NewVMIController(templateService services.TemplateService,
 		recorder:           recorder,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeInformer: dataVolumeInformer,
 		topologyHinter:     topologyHinter,
 	}
@@ -188,6 +189,7 @@ type VMIController struct {
 	topologyHinter     topology.Hinter
 	recorder           record.EventRecorder
 	podExpectations    *controller.UIDTrackingControllerExpectations
+	vmiExpectations    *controller.UIDTrackingControllerExpectations
 	dataVolumeInformer cache.SharedIndexInformer
 }
 
@@ -243,6 +245,7 @@ func (c *VMIController) execute(key string) error {
 	// Once all finalizers are removed the vmi gets deleted and we can clean all expectations
 	if !exists {
 		c.podExpectations.DeleteExpectations(key)
+		c.vmiExpectations.DeleteExpectations(key)
 		return nil
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
@@ -254,8 +257,21 @@ func (c *VMIController) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(vmi) {
 		vmi := vmi.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(vmi)
+		key := controller.VirtualMachineInstanceKey(vmi)
+		c.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
-		return err
+		if err != nil {
+			c.vmiExpectations.LowerExpectations(key, 1, 0)
+			return err
+		}
+		return nil
+	}
+
+	// If needsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
+	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.vmiExpectations.SatisfiedExpectations(key)
+
+	if !needsSync {
+		return nil
 	}
 
 	// Only consider pods which belong to this vmi
@@ -273,13 +289,8 @@ func (c *VMIController) execute(key string) error {
 		return err
 	}
 
-	// If needsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
-	needsSync := c.podExpectations.SatisfiedExpectations(key)
+	syncErr := c.sync(vmi, pod, dataVolumes)
 
-	var syncErr syncError = nil
-	if needsSync {
-		syncErr = c.sync(vmi, pod, dataVolumes)
-	}
 	err = c.updateStatus(vmi, pod, dataVolumes, syncErr)
 	if err != nil {
 		return err
@@ -643,8 +654,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	// If we detect a change on the vmi we update the vmi
 	vmiChanged := !reflect.DeepEqual(vmi.Status, vmiCopy.Status) || !reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels)
 	if vmiChanged {
+		key := controller.VirtualMachineInstanceKey(vmi)
+		c.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
 		if err != nil {
+			c.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
 		}
 	}
@@ -1035,15 +1049,26 @@ func (c *VMIController) deletePod(obj interface{}) {
 }
 
 func (c *VMIController) addVirtualMachineInstance(obj interface{}) {
+	c.lowerVMIExpectation(obj)
 	c.enqueueVirtualMachine(obj)
 }
 
 func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
+	c.lowerVMIExpectation(obj)
 	c.enqueueVirtualMachine(obj)
 }
 
 func (c *VMIController) updateVirtualMachineInstance(_, curr interface{}) {
+	c.lowerVMIExpectation(curr)
 	c.enqueueVirtualMachine(curr)
+}
+
+func (c *VMIController) lowerVMIExpectation(curr interface{}) {
+	key, err := controller.KeyFunc(curr)
+	if err != nil {
+		return
+	}
+	c.vmiExpectations.LowerExpectations(key, 1, 0)
 }
 
 func (c *VMIController) enqueueVirtualMachine(obj interface{}) {
