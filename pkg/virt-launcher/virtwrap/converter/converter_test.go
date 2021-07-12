@@ -3258,6 +3258,49 @@ var _ = Describe("Converter", func() {
 			table.Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
 		)
 	})
+	Context("fields for disk expansion", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+
+		type ConverterFunc = func(name string, disk *api.Disk, c *ConverterContext) error
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				DiskSizes: map[string]int64{
+					"test-with-size-1000": 1000,
+				},
+				ChangedDisks: []string{
+					"test-with-force-resize",
+				},
+			}
+		})
+		table.DescribeTable("should convert", func(volumeName string, expectedForceResize bool, expectedSize int64) {
+			v1Disk := v1.Disk{
+				Name: volumeName,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "virtio"},
+				},
+			}
+			apiDisk := api.Disk{}
+			Expect(Convert_v1_Disk_To_api_Disk(c, &v1Disk, &apiDisk, map[string]deviceNamer{}, nil)).To(Succeed())
+			Expect(apiDisk.Size).To(Equal(expectedSize))
+			Expect(apiDisk.ForceResize).To(Equal(expectedForceResize))
+
+		},
+			table.Entry("disk with size", "test-with-size-1000", false, int64(1000)),
+			table.Entry("disk with force resize", "test-with-force-resize", true, int64(0)),
+		)
+	})
 })
 
 var _ = Describe("disk device naming", func() {

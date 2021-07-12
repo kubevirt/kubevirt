@@ -22,6 +22,7 @@ package types
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/kubecli"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
@@ -88,4 +90,68 @@ func IsPreallocated(annotations map[string]string) bool {
 		}
 	}
 	return false
+}
+
+func getStorageClassName(client kubecli.KubevirtClient, pvc *k8sv1.PersistentVolumeClaim) (string, error) {
+	scName := pvc.Spec.StorageClassName
+	if scName == nil {
+		scList, err := client.StorageV1().StorageClasses().List(context.Background(), v1.ListOptions{})
+		if err != nil {
+			return "", err
+		}
+		for _, sc := range scList.Items {
+			if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+				return sc.Name, nil
+			}
+		}
+		return "", nil
+	}
+	return *scName, nil
+}
+
+func getFilesystemOverhead(client kubecli.KubevirtClient, pvc *k8sv1.PersistentVolumeClaim) (cdiv1beta1.Percent, error) {
+	if isPVCBlock(pvc) {
+		return "0", nil
+	}
+	cdiConfigs, err := client.CdiClient().CdiV1beta1().CDIConfigs().List(context.Background(), v1.ListOptions{})
+	if err != nil || len(cdiConfigs.Items) == 0 {
+		return "0", err
+	}
+	cdiConfig := cdiv1beta1.CDIConfig{}
+	for _, cdiConfig = range cdiConfigs.Items {
+		break
+	}
+	if cdiConfig.Status.FilesystemOverhead == nil {
+		return "0", nil
+	}
+	storageClassName, err := getStorageClassName(client, pvc)
+	if err != nil {
+		return "0", err
+	}
+	fsOverhead, ok := cdiConfig.Status.FilesystemOverhead.StorageClass[storageClassName]
+	if !ok {
+		fsOverhead = cdiConfig.Status.FilesystemOverhead.Global
+	}
+	return fsOverhead, nil
+}
+
+func ExpectedDiskSize(client kubecli.KubevirtClient, pvc *k8sv1.PersistentVolumeClaim) (int64, bool) {
+	capacityResource, ok := pvc.Status.Capacity[k8sv1.ResourceStorage]
+	if !ok {
+		return 0, false
+	}
+	capacity, ok := capacityResource.AsInt64()
+	if !ok {
+		return 0, false
+	}
+	filesystemOverheadString, err := getFilesystemOverhead(client, pvc)
+	if err != nil {
+		return 0, false
+	}
+	filesystemOverhead, err := strconv.ParseFloat(string(filesystemOverheadString), 64)
+	if err != nil {
+		return 0, false
+	}
+
+	return int64((1 - filesystemOverhead) * float64(capacity)), true
 }

@@ -73,6 +73,8 @@ message VirtualMachineOptions {
   uint32 MemBalloonStatsPeriod = 2;
   repeated string PreallocatedVolumes = 3;
   Topology topology = 4;
+  map<string, int64> DiskSizes = 5;
+  repeated string ChangedDisks = 6;
 }
 
 message VMIRequest {

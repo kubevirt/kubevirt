@@ -116,6 +116,8 @@ type ConverterContext struct {
 	EphemeraldiskCreator  ephemeraldisk.EphemeralDiskCreatorInterface
 	VolumesDiscardIgnore  []string
 	Topology              *cmdv1.Topology
+	DiskSizes             map[string]int64
+	ChangedDisks          []string
 }
 
 func contains(volumes []string, name string) bool {
@@ -251,6 +253,12 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	if diskDevice.Disk != nil || diskDevice.LUN != nil {
 		if !contains(c.VolumesDiscardIgnore, diskDevice.Name) {
 			disk.Driver.Discard = "unmap"
+		}
+		if diskSize, ok := c.DiskSizes[diskDevice.Name]; ok {
+			disk.Size = diskSize
+		}
+		if contains(c.ChangedDisks, diskDevice.Name) {
+			disk.ForceResize = true
 		}
 	}
 	if numQueues != nil && disk.Target.Bus == "virtio" {
@@ -451,7 +459,7 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 	return nil
 }
 
-func isPreAllocated(path string) bool {
+func IsPreAllocated(path string) bool {
 	diskInf, err := GetImageInfo(path)
 	if err != nil {
 		return false
@@ -480,7 +488,7 @@ func SetOptimalIOMode(disk *api.Disk) error {
 	// O_DIRECT is needed for io="native"
 	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
 		// set native for block device or pre-allocateed image file
-		if (disk.Source.Dev != "") || isPreAllocated(disk.Source.File) {
+		if (disk.Source.Dev != "") || IsPreAllocated(disk.Source.File) {
 			disk.Driver.IO = string(v1.IONative)
 		}
 	}

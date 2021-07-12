@@ -229,6 +229,7 @@ func NewController(
 
 	c.deviceManagerController = device_manager.NewDeviceController(c.host, maxDevices, permissions, clusterConfig)
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
+	c.diskSizes = make(map[string]int64)
 
 	return c
 }
@@ -273,6 +274,10 @@ type VirtualMachineController struct {
 	virtLauncherFSRunDirPattern string
 	heartBeat                   *heartbeat.HeartBeat
 	capabilities                *nodelabellerapi.Capabilities
+
+	// Local tracking of disk sizes and whether they changed
+	diskSizes    map[string]int64
+	changedDisks []string
 }
 
 type virtLauncherCriticalNetworkError struct {
@@ -2458,6 +2463,14 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			if pvcutils.IsPreallocated(pvc.ObjectMeta.Annotations) {
 				preallocatedVolumes = append(preallocatedVolumes, v.Name)
 			}
+			expectedDiskSize, ok := pvcutils.ExpectedDiskSize(d.clientset, pvc)
+			if ok {
+				currentSize, ok := d.diskSizes[v.Name]
+				if ok && currentSize != expectedDiskSize {
+					d.changedDisks = append(d.changedDisks, v.Name)
+				}
+				d.diskSizes[v.Name] = expectedDiskSize
+			}
 		}
 	}
 
@@ -2507,10 +2520,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 	}
 
-	smbios := d.clusterConfig.GetSMBIOS()
-	period := d.clusterConfig.GetMemBalloonStatsPeriod()
-
-	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities)
+	options := d.virtualMachineOptions(preallocatedVolumes)
 
 	err = client.SyncVirtualMachine(vmi, options)
 	if err != nil {
@@ -2520,6 +2530,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 		return err
 	}
+	d.changedDisks = []string{}
 	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance defined.")
 	if vmi.IsRunning() {
 		// Umount any disks no longer mounted

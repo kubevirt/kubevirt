@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -2093,6 +2094,51 @@ var _ = Describe("migratableDomXML", func() {
 		Expect(err).To(BeNil())
 		Expect(newXML).To(Equal(expectedXML))
 	})
+})
+
+var _ = Describe("disk expansion utilities", func() {
+	var tmpDir string
+	initialSize := int64(10000)
+	tmpFilePath := filepath.Join(tmpDir, "tmpFile")
+	BeforeEach(func() {
+		var err error
+		tmpDir, err = ioutil.TempDir("", "disk-expansion-test")
+		Expect(err).ToNot(HaveOccurred())
+		f, err := os.OpenFile(tmpFilePath, os.O_RDWR|os.O_CREATE, 0600)
+		Expect(err).ToNot(HaveOccurred())
+		f.Truncate(initialSize)
+	})
+	AfterEach(func() {
+		os.RemoveAll(tmpDir)
+	})
+
+	table.DescribeTable("expandDiskImage", func(size int64, success bool) {
+		info, _ := os.Stat(tmpFilePath)
+		err := expandDiskImage(tmpFilePath, size)
+		By(fmt.Sprintf("info before expand: %v err from expand: %v", info.Size(), err))
+		if success {
+			Expect(err).ToNot(HaveOccurred())
+		} else {
+			Expect(err).To(HaveOccurred())
+		}
+	},
+		table.Entry("Expect success when expanding", initialSize*2, true),
+		// Requires QEMU 6.0.0 to get failure without --shrink flag (but we don't rely on this behaviour)
+		table.PEntry("Expect failure when shrinking", initialSize/2, false),
+	)
+
+	table.DescribeTable("imageCanBeExpanded", func(size int64, successExpected bool) {
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: tmpFilePath,
+			},
+			Size: size,
+		}
+		Expect(imageCanBeExpanded(disk)).To(Equal(successExpected))
+	},
+		table.Entry("Expect success when expanding", initialSize*2, true),
+		table.Entry("Expect failure when shrinking", initialSize/2, false),
+	)
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {

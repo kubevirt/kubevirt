@@ -11,8 +11,8 @@ const (
 type DiskInfo struct {
 	Format      string `json:"format"`
 	BackingFile string `json:"backing-filename"`
-	ActualSize  int    `json:"actual-size"`
-	VirtualSize int    `json:"virtual-size"`
+	ActualSize  int64  `json:"actual-size"`
+	VirtualSize int64  `json:"virtual-size"`
 }
 
 func VerifyQCOW2(diskInfo *DiskInfo) error {

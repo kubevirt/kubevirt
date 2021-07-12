@@ -30,8 +30,10 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -537,6 +539,9 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
+	// expand disk image files if they're too small
+	expandDiskImages(vmi, domain)
+
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
 		return domain, fmt.Errorf("Starting qemu agent access credential propagation failed: %v", err)
 	}
@@ -647,6 +652,45 @@ func parseDeviceAddress(addrString string) []string {
 	return addrs
 }
 
+func expandDiskImages(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	logger := log.Log.Object(vmi)
+	for _, disk := range domain.Spec.Devices.Disks {
+		if imageCanBeExpanded(disk) {
+			logger.Infof("pre-start expansion of disk %v", disk)
+			err := expandDiskImage(disk.Source.File, disk.Size)
+			if err != nil {
+				logger.Reason(err).Error("failed to expand disk image")
+			}
+		}
+	}
+}
+
+func imageCanBeExpanded(disk api.Disk) bool {
+	diskInfo, err := converter.GetImageInfo(getSourceFile(disk))
+	if err != nil {
+		return false
+	}
+	if diskInfo.VirtualSize >= disk.Size {
+		return false
+	}
+	return true
+}
+
+func expandDiskImage(imagePath string, size int64) error {
+	var preallocateFlag string
+	if converter.IsPreAllocated(imagePath) {
+		preallocateFlag = "--preallocation=falloc"
+	} else {
+		preallocateFlag = "--preallocation=off"
+	}
+	cmd := exec.Command("/usr/bin/qemu-img", "resize", preallocateFlag, imagePath, strconv.FormatInt(size, 10))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Expanding image failed with error: %v, output: %s", err, out)
+	}
+	return nil
+}
+
 func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {
 
 	logger := log.Log.Object(vmi)
@@ -751,6 +795,8 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		c.MemBalloonStatsPeriod = uint(options.MemBalloonStatsPeriod)
 		// Add preallocated and thick-provisioned volumes for which we need to avoid the discard=unmap option
 		c.VolumesDiscardIgnore = options.PreallocatedVolumes
+		c.DiskSizes = options.DiskSizes
+		c.ChangedDisks = options.ChangedDisks
 	}
 
 	if !isMigrationTarget {
@@ -858,6 +904,14 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	if err != nil {
 		logger.Reason(err).Error("Parsing domain XML failed.")
 		return nil, err
+	}
+
+	// Resize and notify the VM about changed disks
+	for _, disk := range domain.Spec.Devices.Disks {
+		if disk.ForceResize || imageCanBeExpanded(disk) {
+			logger.V(1).Infof("Disk about to be resized by libvirt to size %d, imageCanBeExpanded(disk) %v", disk.Size, imageCanBeExpanded(disk))
+			dom.BlockResize(getSourceFile(disk), uint64(disk.Size), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
+		}
 	}
 
 	//Look up all the disks to detach

@@ -1,12 +1,14 @@
 package virthandler
 
 import (
-	v1 "kubevirt.io/client-go/api/v1"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 )
 
-func virtualMachineOptions(smbios *v1.SMBiosConfiguration, period uint32, preallocatedVolumes []string, capabilities *api.Capabilities) *cmdv1.VirtualMachineOptions {
+func (d *VirtualMachineController) virtualMachineOptions(preallocatedVolumes []string) *cmdv1.VirtualMachineOptions {
+	smbios := d.clusterConfig.GetSMBIOS()
+	period := d.clusterConfig.GetMemBalloonStatsPeriod()
+
 	options := &cmdv1.VirtualMachineOptions{
 		VirtualMachineSMBios: &cmdv1.SMBios{
 			Family:       smbios.Family,
@@ -17,7 +19,9 @@ func virtualMachineOptions(smbios *v1.SMBiosConfiguration, period uint32, preall
 		},
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
-		Topology:              topologyToTopology(capabilities),
+		Topology:              topologyToTopology(d.capabilities),
+		DiskSizes:             d.diskSizes,
+		ChangedDisks:          d.changedDisks,
 	}
 	return options
 }

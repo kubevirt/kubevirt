@@ -364,6 +364,16 @@ func (_mr *_MockVirDomainRecorder) DetachDeviceFlags(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetachDeviceFlags", arg0, arg1)
 }
 
+func (_m *MockVirDomain) BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error {
+	ret := _m.ctrl.Call(_m, "BlockResize", disk, size, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) BlockResize(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "BlockResize", arg0, arg1, arg2)
+}
+
 func (_m *MockVirDomain) DestroyFlags(flags libvirt.DomainDestroyFlags) error {
 	ret := _m.ctrl.Call(_m, "DestroyFlags", flags)
 	ret0, _ := ret[0].(error)
