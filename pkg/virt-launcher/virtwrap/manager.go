@@ -67,6 +67,7 @@ import (
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/legacy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -74,8 +75,6 @@ import (
 )
 
 const (
-	gpuEnvPrefix         = "GPU_PASSTHROUGH_DEVICES"
-	vgpuEnvPrefix        = "VGPU_PASSTHROUGH_DEVICES"
 	PCI_RESOURCE_PREFIX  = "PCI_RESOURCE"
 	MDEV_RESOURCE_PREFIX = "MDEV_PCI_RESOURCE"
 )
@@ -608,24 +607,6 @@ func getDevicesForAssignment(devices v1.Devices) map[string]converter.HostDevice
 
 }
 
-// This function parses all environment variables with prefix string that is set by a Device Plugin.
-// Device plugin that passes GPU devices by setting these env variables is https://github.com/NVIDIA/kubevirt-gpu-device-plugin
-// It returns address list for devices set in the env variable.
-// The format is as follows:
-// "":for no address set
-// "<address_1>,": for a single address
-// "<address_1>,<address_2>[,...]": for multiple addresses
-func getEnvAddressListByPrefix(evnPrefix string) []string {
-	var returnAddr []string
-	for _, env := range os.Environ() {
-		split := strings.Split(env, "=")
-		if strings.HasPrefix(split[0], evnPrefix) {
-			returnAddr = append(returnAddr, parseDeviceAddress(split[1])...)
-		}
-	}
-	return returnAddr
-}
-
 func parseDeviceAddress(addrString string) []string {
 	addrs := strings.Split(addrString, ",")
 	naddrs := len(addrs)
@@ -755,8 +736,18 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 		c.HotplugVolumes = hotplugVolumes
 		c.SRIOVDevices = sriovDevices
-		c.GpuDevices = getEnvAddressListByPrefix(gpuEnvPrefix)
-		c.VgpuDevices = getEnvAddressListByPrefix(vgpuEnvPrefix)
+
+		legacyGPUDevices, err := legacy.CreateGPUHostDevices()
+		if err != nil {
+			return nil, err
+		}
+		legacyVGPUDevices, err := legacy.CreateVGPUHostDevices()
+		if err != nil {
+			return nil, err
+		}
+		c.LegacyHostDevices = legacyGPUDevices
+		c.LegacyHostDevices = append(c.LegacyHostDevices, legacyVGPUDevices...)
+
 		c.HostDevices = getDevicesForAssignment(vmi.Spec.Domain.Devices)
 	}
 

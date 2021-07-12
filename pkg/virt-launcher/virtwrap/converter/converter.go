@@ -104,10 +104,9 @@ type ConverterContext struct {
 	HotplugVolumes        map[string]v1.VolumeStatus
 	PermanentVolumes      map[string]v1.VolumeStatus
 	DiskType              map[string]*containerdisk.DiskInfo
-	SRIOVDevices          []api.HostDevice
 	SMBios                *cmdv1.SMBios
-	GpuDevices            []string
-	VgpuDevices           []string
+	SRIOVDevices          []api.HostDevice
+	LegacyHostDevices     []api.HostDevice
 	HostDevices           map[string]HostDevicesList
 	EmulatorThreadCpu     *int
 	EFIConfiguration      *EFIConfiguration
@@ -1664,20 +1663,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// This is needed to support a legacy approach to device assignment
 	// Append HostDevices to DomXML if GPU is requested
 	if util.IsGPUVMI(vmi) {
-		vgpuMdevUUID := append([]string{}, c.VgpuDevices...)
-		hostDevices, err := createHostDevicesFromMdevUUIDList(vgpuMdevUUID)
-		if err != nil {
-			log.Log.Reason(err).Error("Unable to parse Mdev UUID addresses")
-		} else {
-			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
-		}
-		gpuPCIAddresses := append([]string{}, c.GpuDevices...)
-		hostDevices, err = createHostDevicesFromPCIAddresses(gpuPCIAddresses)
-		if err != nil {
-			log.Log.Reason(err).Error("Unable to parse PCI addresses")
-		} else {
-			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
-		}
+		domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.LegacyHostDevices...)
 	}
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
@@ -1976,49 +1962,6 @@ func createHostDevicesFromMdevUUID(mdevUUID string, name string) (api.HostDevice
 	hostDev.Alias = api.NewUserDefinedAlias(name)
 
 	return hostDev, nil
-}
-
-func createHostDevicesFromPCIAddresses(pcis []string) ([]api.HostDevice, error) {
-	var hds []api.HostDevice
-	for _, pciAddr := range pcis {
-		address, err := device.NewPciAddressField(pciAddr)
-		if err != nil {
-			return nil, err
-		}
-
-		hostDev := api.HostDevice{
-			Source: api.HostDeviceSource{
-				Address: address,
-			},
-			Type:    "pci",
-			Managed: "yes",
-		}
-
-		hds = append(hds, hostDev)
-	}
-
-	return hds, nil
-}
-
-func createHostDevicesFromMdevUUIDList(mdevUuidList []string) ([]api.HostDevice, error) {
-	var hds []api.HostDevice
-	for _, mdevUuid := range mdevUuidList {
-		decoratedAddrField := &api.Address{
-			UUID: mdevUuid,
-		}
-
-		hostDev := api.HostDevice{
-			Source: api.HostDeviceSource{
-				Address: decoratedAddrField,
-			},
-			Type:  "mdev",
-			Mode:  "subsystem",
-			Model: "vfio-pci",
-		}
-		hds = append(hds, hostDev)
-	}
-
-	return hds, nil
 }
 
 func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
