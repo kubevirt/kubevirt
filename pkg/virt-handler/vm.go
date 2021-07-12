@@ -24,6 +24,7 @@ import (
 	goerror "errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -33,6 +34,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 
 	"kubevirt.io/kubevirt/pkg/config"
 
@@ -676,6 +679,31 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 	return nil
 }
 
+type NetworkStatus struct {
+	Name      string   `yaml:"name"`
+	Ips       []string `yaml:"ips"`
+	Interface string   `yaml:"interface"`
+}
+
+// Using the downward API, look for dedicated migration network migration0 and, if found, set migration IP to its IP
+func findMigrationIP(vmi *v1.VirtualMachineInstance, migrationIp *string) {
+	var networkStatus []NetworkStatus
+
+	dat, err := ioutil.ReadFile("/etc/podinfo/network-status")
+	if err != nil {
+		return
+	}
+	err = yaml.Unmarshal(dat, &networkStatus)
+	if err != nil {
+		return
+	}
+	for _, ns := range networkStatus {
+		if ns.Interface == "migration0" && len(ns.Ips) > 0 {
+			*migrationIp = ns.Ips[0]
+		}
+	}
+}
+
 func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domainExists bool) error {
 
 	vmiCopy := vmi.DeepCopy()
@@ -702,20 +730,21 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		}
 
 		hostAddress := ""
-
+		migrationIpAddress := d.ipAddress
+		findMigrationIP(vmi, &migrationIpAddress)
 		// advertise the listener address to the source node
 		if vmi.Status.MigrationState != nil {
 			hostAddress = vmi.Status.MigrationState.TargetNodeAddress
 		}
-		if hostAddress != d.ipAddress {
+		if hostAddress != migrationIpAddress {
 			portsList := make([]string, 0, len(destSrcPortsMap))
 
 			for k := range destSrcPortsMap {
 				portsList = append(portsList, k)
 			}
 			portsStrList := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(portsList)), ","), "[]")
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", d.ipAddress, portsStrList))
-			vmiCopy.Status.MigrationState.TargetNodeAddress = d.ipAddress
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", migrationIpAddress, portsStrList))
+			vmiCopy.Status.MigrationState.TargetNodeAddress = migrationIpAddress
 			vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
 		}
 	}

@@ -156,8 +156,6 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 
 	container.Env = append(container.Env, containerEnv...)
 
-	container.VolumeMounts = []corev1.VolumeMount{}
-
 	container.LivenessProbe = &corev1.Probe{
 		FailureThreshold: 3,
 		Handler: corev1.Handler{
@@ -189,8 +187,6 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		TimeoutSeconds:      10,
 		PeriodSeconds:       20,
 	}
-
-	pod.Volumes = []corev1.Volume{}
 
 	type volume struct {
 		name             string
@@ -233,6 +229,27 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			},
 		})
 	}
+
+	// Use the downward API to access the network status annotations
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      "podinfo",
+		MountPath: "/etc/podinfo",
+	})
+	pod.Volumes = append(pod.Volumes, corev1.Volume{
+		Name: "podinfo",
+		VolumeSource: corev1.VolumeSource{
+			DownwardAPI: &corev1.DownwardAPIVolumeSource{
+				Items: []corev1.DownwardAPIVolumeFile{
+					{
+						Path: "network-status",
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: `metadata.annotations['k8s.v1.cni.cncf.io/network-status']`,
+						},
+					},
+				},
+			},
+		},
+	})
 
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
