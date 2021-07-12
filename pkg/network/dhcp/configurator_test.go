@@ -13,7 +13,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
 
@@ -37,7 +36,7 @@ var _ = Describe("DHCP configurator", func() {
 	})
 
 	newBridgeConfigurator := func(launcherPID string, advertisingIfaceName string) Configurator {
-		configurator := NewBridgeConfigurator(fake.NewFakeInMemoryNetworkCacheFactory(), launcherPID, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), "", nil, nil)
+		configurator := NewBridgeConfigurator(cache.NewInterfaceCacheFactoryWithBasePath(fakeDhcpStartedDir), launcherPID, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), "", nil, nil)
 		configurator.dhcpStartedDirectory = fakeDhcpStartedDir
 		return configurator
 	}

@@ -22,11 +22,10 @@ package cache
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/os/fs"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -44,23 +43,31 @@ type InterfaceCacheFactory interface {
 }
 
 func NewInterfaceCacheFactory() *interfaceCacheFactory {
-	return &interfaceCacheFactory{}
+	return &interfaceCacheFactory{
+		fs: fs.New(),
+	}
+}
+
+func NewInterfaceCacheFactoryWithBasePath(rootPath string) *interfaceCacheFactory {
+	return &interfaceCacheFactory{
+		fs: fs.NewWithRootPath(rootPath),
+	}
 }
 
 type interfaceCacheFactory struct {
-	baseDir string
+	fs fs.Fs
 }
 
 func (i *interfaceCacheFactory) CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore {
-	return newPodInterfaceCacheStore(vmi, i.baseDir, virtHandlerCachePattern)
+	return newPodInterfaceCacheStore(vmi, i.fs, virtHandlerCachePattern)
 }
 
 func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInterfaceStore {
-	return newDomainInterfaceStore(pid, i.baseDir, virtLauncherCachedPattern)
+	return newDomainInterfaceStore(pid, i.fs, virtLauncherCachedPattern)
 }
 
 func (i *interfaceCacheFactory) CacheDHCPConfigForPid(pid string) DHCPConfigStore {
-	return newDHCPConfigCacheStore(pid, i.baseDir, dhcpConfigCachedPattern)
+	return newDHCPConfigCacheStore(pid, i.fs, dhcpConfigCachedPattern)
 }
 
 type DomainInterfaceStore interface {
@@ -82,75 +89,75 @@ type DHCPConfigStore interface {
 type domainInterfaceStore struct {
 	pid     string
 	pattern string
-	baseDir string
+	fs      fs.Fs
 }
 
 func (d domainInterfaceStore) Read(ifaceName string) (*api.Interface, error) {
 	iface := &api.Interface{}
-	err := readFromCachedFile(iface, getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, ifaceName))
+	err := readFromCachedFile(d.fs, iface, getInterfaceCacheFile(d.pattern, d.pid, ifaceName))
 	return iface, err
 }
 
 func (d domainInterfaceStore) Write(ifaceName string, cacheInterface *api.Interface) (err error) {
-	err = writeToCachedFile(cacheInterface, getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, ifaceName))
+	err = writeToCachedFile(d.fs, cacheInterface, getInterfaceCacheFile(d.pattern, d.pid, ifaceName))
 	return
 }
 
-func newDomainInterfaceStore(pid string, baseDir, pattern string) DomainInterfaceStore {
-	return domainInterfaceStore{pid: pid, baseDir: baseDir, pattern: pattern}
+func newDomainInterfaceStore(pid string, fs fs.Fs, pattern string) DomainInterfaceStore {
+	return domainInterfaceStore{pid: pid, fs: fs, pattern: pattern}
 }
 
 type podInterfaceCacheStore struct {
 	vmi     *v1.VirtualMachineInstance
 	pattern string
-	baseDir string
+	fs      fs.Fs
 }
 
 func (p podInterfaceCacheStore) Read(ifaceName string) (*PodCacheInterface, error) {
 	iface := &PodCacheInterface{}
-	err := readFromCachedFile(iface, getInterfaceCacheFile(p.baseDir, p.pattern, string(p.vmi.UID), ifaceName))
+	err := readFromCachedFile(p.fs, iface, getInterfaceCacheFile(p.pattern, string(p.vmi.UID), ifaceName))
 	return iface, err
 }
 
 func (p podInterfaceCacheStore) Write(iface string, cacheInterface *PodCacheInterface) (err error) {
-	err = writeToCachedFile(cacheInterface, getInterfaceCacheFile(p.baseDir, p.pattern, string(p.vmi.UID), iface))
+	err = writeToCachedFile(p.fs, cacheInterface, getInterfaceCacheFile(p.pattern, string(p.vmi.UID), iface))
 	return
 }
 
 func (p podInterfaceCacheStore) Remove() error {
-	return os.RemoveAll(filepath.Join(p.baseDir, networkInfoDir, string(p.vmi.UID)))
+	return p.fs.RemoveAll(filepath.Join(networkInfoDir, string(p.vmi.UID)))
 }
 
-func newPodInterfaceCacheStore(vmi *v1.VirtualMachineInstance, baseDir, pattern string) PodInterfaceCacheStore {
-	return podInterfaceCacheStore{vmi: vmi, baseDir: baseDir, pattern: pattern}
+func newPodInterfaceCacheStore(vmi *v1.VirtualMachineInstance, fs fs.Fs, pattern string) PodInterfaceCacheStore {
+	return podInterfaceCacheStore{vmi: vmi, fs: fs, pattern: pattern}
 }
 
 type dhcpConfigCacheStore struct {
 	pid     string
 	pattern string
-	baseDir string
+	fs      fs.Fs
 }
 
 func (d dhcpConfigCacheStore) Read(ifaceName string) (*DHCPConfig, error) {
 	cachedIface := &DHCPConfig{}
-	err := readFromCachedFile(cachedIface, d.getInterfaceCacheFile(ifaceName))
+	err := readFromCachedFile(d.fs, cachedIface, d.getInterfaceCacheFile(ifaceName))
 	return cachedIface, err
 }
 
 func (d dhcpConfigCacheStore) Write(ifaceName string, ifaceToCache *DHCPConfig) error {
-	return writeToCachedFile(ifaceToCache, d.getInterfaceCacheFile(ifaceName))
+	return writeToCachedFile(d.fs, ifaceToCache, d.getInterfaceCacheFile(ifaceName))
 }
 
 func (d dhcpConfigCacheStore) getInterfaceCacheFile(ifaceName string) string {
-	return getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, ifaceName)
+	return getInterfaceCacheFile(d.pattern, d.pid, ifaceName)
 }
 
-func newDHCPConfigCacheStore(pid string, baseDir, pattern string) dhcpConfigCacheStore {
-	return dhcpConfigCacheStore{pid: pid, baseDir: baseDir, pattern: pattern}
+func newDHCPConfigCacheStore(pid string, fs fs.Fs, pattern string) dhcpConfigCacheStore {
+	return dhcpConfigCacheStore{pid: pid, fs: fs, pattern: pattern}
 }
 
-func writeToCachedFile(obj interface{}, fileName string) error {
-	if err := os.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
+func writeToCachedFile(fs fs.Fs, obj interface{}, fileName string) error {
+	if err := fs.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
 		return err
 	}
 	buf, err := json.MarshalIndent(&obj, "", "  ")
@@ -158,15 +165,15 @@ func writeToCachedFile(obj interface{}, fileName string) error {
 		return fmt.Errorf("error marshaling cached object: %v", err)
 	}
 
-	err = ioutil.WriteFile(fileName, buf, 0600)
+	err = fs.WriteFile(fileName, buf, 0600)
 	if err != nil {
 		return fmt.Errorf("error writing cached object: %v", err)
 	}
 	return nil
 }
 
-func readFromCachedFile(obj interface{}, fileName string) error {
-	buf, err := ioutil.ReadFile(fileName)
+func readFromCachedFile(fs fs.Fs, obj interface{}, fileName string) error {
+	buf, err := fs.ReadFile(fileName)
 	if err != nil {
 		return err
 	}
@@ -178,6 +185,6 @@ func readFromCachedFile(obj interface{}, fileName string) error {
 	return nil
 }
 
-func getInterfaceCacheFile(baseDir, pattern, id, name string) string {
-	return filepath.Join(baseDir, fmt.Sprintf(pattern, id, name))
+func getInterfaceCacheFile(pattern, id, name string) string {
+	return filepath.Join(fmt.Sprintf(pattern, id, name))
 }
