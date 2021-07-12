@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/log"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
+	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 )
 
 type OnShutdownCallback func(pid int)
@@ -182,6 +183,11 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 
 			mon.gracefulShutdownCallback()
 			mon.gracePeriodStartTime = time.Now().UTC().Unix()
+		default:
+			if cmdserver.ReceivedEarlyExitSignal() {
+				log.Log.Infof("received early exit signal")
+				mon.isDone = true
+			}
 		}
 	}
 
