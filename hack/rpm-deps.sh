@@ -131,12 +131,20 @@ libguestfstools_base="
   libguestfs
   libguestfs-tools
 "
+libguestfstools_extra="
+  iptables-nft
+  kernel-debug-core
+  libverto-libev
+  mandoc
+  selinux-policy-targeted
+"
 
 bazel run \
     //:bazeldnf -- rpmtree --public --name libguestfs-tools \
     $fedora_base \
     $fedora_extra \
-    $libguestfstools_base
+    $libguestfstools_base \
+    $libguestfstools_extra
 
 # remove all RPMs which are no longer referenced by a rpmtree
 bazel run \
