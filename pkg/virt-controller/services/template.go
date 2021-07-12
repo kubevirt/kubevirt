@@ -1016,7 +1016,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	}
 
 	// Register resource requests and limits corresponding to attached multus networks.
-	// TODO(ihar) remove when we adopt Multus mutating webhook that handles the job.
 	for _, resourceName := range networkToResourceMap {
 		if resourceName != "" {
 			requestResource(&resources, resourceName)
