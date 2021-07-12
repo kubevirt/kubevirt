@@ -317,12 +317,25 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	switch {
 
 	case vmi.IsUnprocessed():
-		if podExists {
+		if vmi.DeletionTimestamp != nil || hasFailedDataVolume {
+			vmiCopy.Status.Phase = virtv1.Failed
+		} else if isPodReady(pod) && vmi.DeletionTimestamp == nil {
+			vmiCopy.Status.Phase = virtv1.Scheduled
+
+			// Add PodScheduled False condition to the VM
+			if cond := conditionManager.GetPodConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
+				conditionManager.AddPodCondition(vmiCopy, cond)
+			} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
+				// Remove PodScheduling condition from the VM
+				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+			}
+			if vmiCopy.Labels == nil {
+				vmiCopy.Labels = map[string]string{}
+			}
+			vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
+			vmiCopy.Status.NodeName = pod.Spec.NodeName
+		} else if podExists {
 			vmiCopy.Status.Phase = virtv1.Scheduling
-		} else if vmi.DeletionTimestamp != nil {
-			vmiCopy.Status.Phase = virtv1.Failed
-		} else if hasFailedDataVolume {
-			vmiCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
 			if syncErr != nil && syncErr.Reason() == FailedPvcNotFoundReason {
@@ -340,8 +353,27 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			}
 		}
 	case vmi.IsScheduling():
-		switch {
-		case podExists:
+		if isPodReady(pod) && vmi.DeletionTimestamp == nil {
+			// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
+			podQosClass := pod.Status.QOSClass
+
+			if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
+				syncErr = &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}
+			} else {
+				// vmi is still owned by the controller but pod is already ready,
+				// so let's hand over the vmi too
+				vmiCopy.Status.Phase = virtv1.Scheduled
+				if vmiCopy.Labels == nil {
+					vmiCopy.Labels = map[string]string{}
+				}
+				vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
+				vmiCopy.Status.NodeName = pod.Spec.NodeName
+			}
+		} else if isPodDownOrGoingDown(pod) || vmi.DeletionTimestamp != nil || !podExists {
+			// someone other than the controller deleted the pod unexpectedly
+			vmiCopy.Status.Phase = virtv1.Failed
+		} else if podExists {
 			// ensure that the QOS class on the VMI matches to Pods QOS class
 			if pod.Status.QOSClass == "" {
 				vmiCopy.Status.QOSClass = nil
@@ -356,29 +388,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				// Remove PodScheduling condition from the VM
 				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 			}
-			if isPodReady(pod) && vmi.DeletionTimestamp == nil {
-				// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
-				podQosClass := pod.Status.QOSClass
-				if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
-					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
-					syncErr = &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}
-				} else {
-
-					// vmi is still owned by the controller but pod is already ready,
-					// so let's hand over the vmi too
-					vmiCopy.Status.Phase = virtv1.Scheduled
-					if vmiCopy.Labels == nil {
-						vmiCopy.Labels = map[string]string{}
-					}
-					vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
-					vmiCopy.Status.NodeName = pod.Spec.NodeName
-				}
-			} else if isPodDownOrGoingDown(pod) {
-				vmiCopy.Status.Phase = virtv1.Failed
-			}
-		case !podExists:
-			// someone other than the controller deleted the pod unexpectedly
-			vmiCopy.Status.Phase = virtv1.Failed
 		}
 	case vmi.IsFinal():
 		allDeleted, err := c.allPodsDeleted(vmi)
@@ -389,6 +398,12 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		if allDeleted {
 			log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
+		} else {
+			// re-delete launcher pods for failed vmi as pods termination might not be triggered
+			err = c.deleteAllMatchingPods(vmi)
+			if err != nil {
+				log.Log.Reason(fmt.Errorf("failed to delete pod: %v", err)).Error(FailedDeletePodReason)
+			}
 		}
 
 		conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
@@ -412,6 +427,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				})
 				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, virtv1.PodTerminatingReason, "Pod %s is terminating, marking VMI as not ready.", pod.Name)
 			}
+			vmiCopy.Status.Phase = virtv1.Failed
 		} else if cond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); cond != nil {
 			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
 			conditionManager.AddPodCondition(vmiCopy, cond)
@@ -475,8 +491,12 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 		return nil
 	case vmi.IsScheduled():
-		// Don't process states where the vmi is clearly owned by virt-handler
-		return nil
+		if vmi.DeletionTimestamp != nil {
+			vmiCopy.Status.Phase = virtv1.Failed
+		} else {
+			// Don't process states where the vmi is clearly owned by virt-handler
+			return nil
+		}
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
 	}
@@ -553,7 +573,7 @@ func podExists(pod *k8sv1.Pod) bool {
 
 func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (err syncError) {
 
-	if vmi.DeletionTimestamp != nil {
+	if vmi.DeletionTimestamp != nil && podExists(pod) {
 		err := c.deleteAllMatchingPods(vmi)
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to delete pod: %v", err), FailedDeletePodReason}
@@ -789,8 +809,10 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 		return
 	}
 	log.Log.V(4).Object(curPod).Infof("Pod updated")
-	c.enqueueVirtualMachine(vmi)
-	return
+	// Only enqueue pods whose status phase changes
+	if curPod.Status.Phase != oldPod.Status.Phase {
+		c.enqueueVirtualMachine(vmi)
+	}
 }
 
 // When a pod is deleted, enqueue the vmi that manages the pod and update its podExpectations.
@@ -829,15 +851,114 @@ func (c *VMIController) deletePod(obj interface{}) {
 }
 
 func (c *VMIController) addVirtualMachine(obj interface{}) {
-	c.enqueueVirtualMachine(obj)
+	// AddVMI event callback will create Pod directly
+	// Enqueue only if error occures
+	vmi := obj.(*virtv1.VirtualMachineInstance)
+	if vmi.DeletionTimestamp != nil {
+		err := c.deleteAllMatchingPods(vmi)
+		if err != nil {
+			log.Log.Reason(fmt.Errorf("failed to delete pod: %v", err)).Error(FailedDeletePodReason)
+		}
+		return
+	}
+
+	if vmi.IsFinal() {
+		c.enqueueVirtualMachine(obj)
+		return
+	}
+
+	dataVolumes, err := c.listMatchingDataVolumes(vmi)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
+		return
+	}
+
+	pod, _ := c.currentPod(vmi)
+	if !podExists(pod) {
+		dataVolumesReady, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
+		if syncErr != nil {
+			log.Log.Reason(fmt.Errorf("failed to sync dataVolumes: %v", syncErr)).Error(FailedCreatePodReason)
+			return
+		} else if !dataVolumesReady {
+			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
+		}
+
+		templatePod, err := c.templateService.RenderLaunchManifest(vmi)
+		if _, ok := err.(services.PvcNotFoundError); ok {
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "failed to render launch manifest: %v", err)
+			log.Log.Reason(fmt.Errorf("failed to render launch manifest: %v", err)).Error(FailedPvcNotFoundReason)
+		} else if err != nil {
+			log.Log.Reason(fmt.Errorf("failed to render launch manifest: %v", err)).Error(FailedCreatePodReason)
+			return
+		}
+
+		vmiKey := controller.VirtualMachineKey(vmi)
+		c.podExpectations.ExpectCreations(vmiKey, 1)
+		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(templatePod)
+		if err != nil {
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
+			c.podExpectations.CreationObserved(vmiKey)
+			log.Log.Reason(fmt.Errorf("failed to create virtual machine pod: %v", err)).Error(FailedCreatePodReason)
+			c.enqueueVirtualMachine(obj)
+			return
+		}
+		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created virtual machine pod %s", pod.Name)
+		return
+	}
 }
 
 func (c *VMIController) deleteVirtualMachine(obj interface{}) {
-	c.enqueueVirtualMachine(obj)
+	// delete pods directly
+	// enqueue only error happens
+	vmi := obj.(*virtv1.VirtualMachineInstance)
+	vmiCopy := vmi.DeepCopy()
+	err := c.deleteAllMatchingPods(vmi)
+	if err != nil {
+		log.Log.Reason(fmt.Errorf("failed to delete all matching pods: %v", err)).Error(FailedDeletePodReason)
+		return
+	}
+
+	if vmiCopy.Status.Phase != virtv1.Failed {
+		vmiCopy.Status.Phase = virtv1.Failed
+	}
+
+	allDeleted, err := c.allPodsDeleted(vmi)
+	if err != nil {
+		log.Log.Reason(fmt.Errorf("failed to check all pods deleted: %v", err)).Error(FailedDeletePodReason)
+		return
+	}
+	vmiCopy, err = c.setActivePods(vmiCopy)
+	if err != nil {
+		log.Log.Reason(fmt.Errorf("failed to setActivePods: %v", err)).Error(FailedDeletePodReason)
+	}
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+	conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+	if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
+		conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+	}
+
+	if allDeleted {
+		log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
+		controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
+	}
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
+	if err != nil {
+		log.Log.Reason(fmt.Errorf("failed to delete pods for vmi %v: %v", vmiCopy.Name, err)).Error(FailedDeletePodReason)
+		return
+	}
 }
 
 func (c *VMIController) updateVirtualMachine(old, curr interface{}) {
-	c.enqueueVirtualMachine(curr)
+	// Enqueue only if vmi status phase changes
+	oldVmi := old.(*virtv1.VirtualMachineInstance)
+	currVmi := curr.(*virtv1.VirtualMachineInstance)
+	if oldVmi.ResourceVersion == currVmi.ResourceVersion {
+		return
+	}
+
+	if currVmi.Status.Phase != oldVmi.Status.Phase {
+		c.enqueueVirtualMachine(currVmi)
+	}
 }
 
 func (c *VMIController) enqueueVirtualMachine(obj interface{}) {
