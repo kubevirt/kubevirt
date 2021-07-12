@@ -157,7 +157,7 @@ var _ = Describe("Certificate Management", func() {
 			crt, err := LoadCertificates(crtSecret)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(crt.Leaf.NotAfter.Unix()).To(BeNumerically("==", now.Add(crtDuration.Duration).Unix(), 3))
+			Expect(crt.Leaf.NotAfter.Unix()).To(BeNumerically("==", now.Add(crtDuration.Duration).Unix(), 10))
 		},
 			table.Entry("with a long valid CA", 24*time.Hour),
 			table.Entry("with a CA which expires before the certificate rotation", 1*time.Hour),
