@@ -72,6 +72,13 @@ function cleanup() {
 
 trap "cleanup" INT TERM EXIT
 
+echo "----- Set KVM_EMULATION if needed"
+if [[ -n "${KVM_EMULATION}" ]]; then
+  ${CMD} patch $(${CMD} get subscription -n "${HCO_NAMESPACE}" -o name) -n "${HCO_NAMESPACE}" -p '{"spec":{"config":{"selector":{"matchLabels":{"name":"hyperconverged-cluster-operator"}},"env":[{"name":"KVM_EMULATION","value":"true"}]}}}' --type=merge
+  sleep 30
+  ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
+  ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
+fi
 
 source hack/compare_scc.sh
 dump_sccs_before
