@@ -2,15 +2,27 @@ package infraconfigurators
 
 import (
 	"fmt"
+	"net"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+)
+
+type netfilterBackend int
+
+const (
+	nft netfilterBackend = iota
+	ipTables
 )
 
 var _ = Describe("Masquerade infrastructure configurator", func() {
@@ -119,4 +131,218 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 			})
 		})
 	})
+
+	Context("preparing network infrastructure", func() {
+		const (
+			ifaceName   = "eth0"
+			launcherPID = 1000
+			ipv6GwStr   = "fd10:0:2::1/120"
+			vmIPv6Str   = "fd10:0:2::2/120"
+		)
+
+		var (
+			masqueradeConfigurator *MasqueradePodNetworkConfigurator
+			inPodBridge            *netlink.Bridge
+			mtu                    int
+			podLink                *netlink.GenericLink
+			gatewayAddr            *netlink.Addr
+			podIP                  netlink.Addr
+			queueCount             uint32
+			tapDeviceName          string
+			vmi                    *v1.VirtualMachineInstance
+			dhcpConfig             *cache.DHCPConfig
+		)
+
+		BeforeEach(func() {
+			vmi = newVMIMasqueradeInterface("default", "vm1")
+
+			masqueradeConfigurator = NewMasqueradePodNetworkConfigurator(
+				vmi, &vmi.Spec.Domain.Devices.Interfaces[0], bridgeIfaceName, &vmi.Spec.Networks[0], launcherPID, handler)
+		})
+
+		BeforeEach(func() {
+			mtu = 1000
+			podLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: mtu}}
+			queueCount = uint32(0)
+			tapDeviceName = "tap0"
+			gatewayAddr = &netlink.Addr{IPNet: &net.IPNet{IP: net.IPv4(10, 0, 2, 1), Mask: net.CIDRMask(24, 32)}}
+			podIP = netlink.Addr{IPNet: &net.IPNet{IP: net.IPv4(10, 0, 2, 2), Mask: net.CIDRMask(24, 32)}}
+		})
+
+		BeforeEach(func() {
+			inPodBridgeMAC, _ := net.ParseMAC("02:00:00:00:00:00")
+			inPodBridge = &netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: bridgeIfaceName, MTU: mtu, HardwareAddr: inPodBridgeMAC}}
+			podLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: mtu}}
+		})
+
+		BeforeEach(func() {
+			ipv6GwAddr, _ := netlink.ParseAddr(ipv6GwStr)
+			ipv6VmAddr, _ := netlink.ParseAddr(vmIPv6Str)
+			dhcpConfig = &cache.DHCPConfig{
+				Name:                ifaceName,
+				IP:                  podIP,
+				IPv6:                *ipv6VmAddr,
+				Mtu:                 uint16(mtu),
+				AdvertisingIPAddr:   gatewayAddr.IP.To4(),
+				AdvertisingIPv6Addr: ipv6GwAddr.IP,
+			}
+
+			masqueradeConfigurator.podNicLink = podLink
+			masqueradeConfigurator.vmGatewayAddr = gatewayAddr
+			masqueradeConfigurator.vmIPv4Addr = podIP
+			masqueradeConfigurator.vmGatewayIpv6Addr = ipv6GwAddr
+			masqueradeConfigurator.vmIPv6Addr = *ipv6VmAddr
+		})
+
+		When("the pod features a properly configured primary link", func() {
+			BeforeEach(func() {
+				handler.EXPECT().LinkAdd(inPodBridge).Return(nil)
+				handler.EXPECT().LinkSetUp(inPodBridge).Return(nil)
+				handler.EXPECT().DisableTXOffloadChecksum(inPodBridge.Name).Return(nil)
+				handler.EXPECT().CreateTapDevice(tapDeviceName, queueCount, launcherPID, mtu, netdriver.LibvirtUserAndGroupId).Return(nil)
+				handler.EXPECT().BindTapDeviceToBridge(tapDeviceName, inPodBridge.Name).Return(nil)
+			})
+
+			table.DescribeTable("should work with", func(backend netfilterBackend, additionalIPProtocol ...iptables.Protocol) {
+				mockVML3Config(*masqueradeConfigurator, ifaceName, inPodBridge, additionalIPProtocol...)
+				mockNATNetfilterRules(handler, *dhcpConfig, backend, additionalIPProtocol...)
+
+				Expect(masqueradeConfigurator.PreparePodNetworkInterface()).To(Succeed())
+			},
+				table.Entry("NFTables backend on an IPv4 cluster", nft),
+				table.Entry("IPTables backend on an IPv4 cluster", ipTables),
+				table.Entry("NFTables backend on a dual stack cluster", nft, iptables.ProtocolIPv6),
+				table.Entry("IPTables backend on a dual stack cluster", ipTables, iptables.ProtocolIPv6),
+			)
+		})
+	})
 })
+
+func mockVML3Config(configurator MasqueradePodNetworkConfigurator, podIface string, inPodBridge *netlink.Bridge, optionalIPProtocol ...iptables.Protocol) {
+	protocols := getProtocols(optionalIPProtocol...)
+	hasIPv6Config := len(protocols) > 1
+	mockedHandler := configurator.handler.(*netdriver.MockNetworkHandler)
+	mockedHandler.EXPECT().IsIpv6Enabled(podIface).Return(hasIPv6Config, nil).Times(2) // once on create bridge, another on prepare pod network
+
+	for _, l3Protocol := range protocols {
+		gatewayAddr := configurator.vmGatewayAddr
+		if l3Protocol == iptables.ProtocolIPv6 {
+			gatewayAddr = configurator.vmGatewayIpv6Addr
+		}
+		mockedHandler.EXPECT().AddrAdd(inPodBridge, gatewayAddr).Return(nil)
+	}
+}
+
+func mockNATNetfilterRules(handler *netdriver.MockNetworkHandler, dhcpConfig cache.DHCPConfig, netfilterBackend netfilterBackend, optionalIPProtocol ...iptables.Protocol) {
+	getNFTIPString := func(proto iptables.Protocol) string {
+		ipString := "ip"
+		if proto == iptables.ProtocolIPv6 {
+			ipString = "ip6"
+		}
+		return ipString
+	}
+
+	for _, proto := range getProtocols(optionalIPProtocol...) {
+		vmIP := dhcpConfig.IP.IP.String()
+		gwIP := dhcpConfig.AdvertisingIPAddr.String()
+		if proto == iptables.ProtocolIPv6 {
+			vmIP = dhcpConfig.IPv6.IP.String()
+			gwIP = dhcpConfig.AdvertisingIPv6Addr.String()
+		}
+		mockNetfilterBackend(handler, proto, netfilterBackend, getNFTIPString(proto), vmIP, gwIP)
+	}
+}
+
+func mockNetfilterBackend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, backendType netfilterBackend, nftIPString string, vmIP string, gwIP string) {
+	handler.EXPECT().ConfigureIpForwarding(proto).Return(nil)
+
+	switch backendType {
+	case nft:
+		handler.EXPECT().NftablesLoad(proto).Return(nil)
+		handler.EXPECT().HasNatIptables(proto).Return(true).Times(0)
+		handler.EXPECT().HasNatIptables(proto).Return(false).Times(0)
+		mockNFTablesBackend(handler, proto, nftIPString, vmIP, gwIP)
+	case ipTables:
+		handler.EXPECT().NftablesLoad(proto).Return(fmt.Errorf("nft not found"))
+		handler.EXPECT().HasNatIptables(proto).Return(true)
+		mockIPTablesBackend(handler, proto, nftIPString, vmIP, gwIP)
+	}
+}
+
+func mockNFTablesBackend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string) {
+	handler.EXPECT().GetNFTIPString(proto).Return(nftIPString).AnyTimes()
+	handler.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND").Return(nil)
+	handler.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND").Return(nil)
+
+	handler.EXPECT().NftablesAppendRule(proto, "nat", "postrouting", nftIPString, "saddr", vmIP, "counter", "masquerade").Return(nil)
+	handler.EXPECT().NftablesAppendRule(proto, "nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil)
+	handler.EXPECT().NftablesAppendRule(proto, "nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil)
+
+	for _, chain := range []string{"output", "KUBEVIRT_POSTINBOUND"} {
+		handler.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(PortsUsedByLiveMigration(), ", ")), nftIPString, "saddr", GetLoopbackAdrress(proto), "counter", "return").Return(nil)
+	}
+
+	handler.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND", "counter", "dnat", "to", vmIP).Return(nil)
+	handler.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND", nftIPString, "saddr", fmt.Sprintf("{ %s }", GetLoopbackAdrress(proto)), "counter", "snat", "to", gwIP).Return(nil)
+	handler.EXPECT().NftablesAppendRule(proto, "nat", "output", nftIPString, "daddr", fmt.Sprintf("{ %s }", GetLoopbackAdrress(proto)), "counter", "dnat", "to", vmIP).Return(nil)
+}
+
+func mockIPTablesBackend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string) {
+	handler.EXPECT().GetNFTIPString(proto).Return(nftIPString).AnyTimes()
+	handler.EXPECT().IptablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND").Return(nil)
+	handler.EXPECT().IptablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND").Return(nil)
+
+	handler.EXPECT().IptablesAppendRule(proto, "nat",
+		"POSTROUTING",
+		"-s",
+		vmIP,
+		"-j",
+		"MASQUERADE").Return(nil)
+	handler.EXPECT().IptablesAppendRule(proto, "nat",
+		"PREROUTING",
+		"-i",
+		"eth0",
+		"-j",
+		"KUBEVIRT_PREINBOUND").Return(nil)
+	handler.EXPECT().IptablesAppendRule(proto, "nat",
+		"POSTROUTING",
+		"-o",
+		"k6t-eth0",
+		"-j",
+		"KUBEVIRT_POSTINBOUND").Return(nil)
+	handler.EXPECT().IptablesAppendRule(proto, "nat",
+		"KUBEVIRT_PREINBOUND",
+		"-j",
+		"DNAT",
+		"--to-destination",
+		vmIP).Return(nil)
+	handler.EXPECT().IptablesAppendRule(proto, "nat",
+		"KUBEVIRT_POSTINBOUND",
+		"--source",
+		GetLoopbackAdrress(proto),
+		"-j",
+		"SNAT",
+		"--to-source",
+		gwIP).Return(nil)
+	handler.EXPECT().IptablesAppendRule(proto, "nat",
+		"OUTPUT",
+		"--destination",
+		GetLoopbackAdrress(proto),
+		"-j",
+		"DNAT",
+		"--to-destination",
+		vmIP).Return(nil)
+
+	for _, chain := range []string{"OUTPUT", "KUBEVIRT_POSTINBOUND"} {
+		handler.EXPECT().IptablesAppendRule(proto, "nat", chain,
+			"-p", "tcp", "--match", "multiport",
+			"--dports", fmt.Sprintf("%s", strings.Join(PortsUsedByLiveMigration(), ",")),
+			"--source", GetLoopbackAdrress(proto), "-j", "RETURN").Return(nil)
+	}
+}
+
+func getProtocols(optionalIPProtocol ...iptables.Protocol) []iptables.Protocol {
+	return append(
+		[]iptables.Protocol{iptables.ProtocolIPv4},
+		optionalIPProtocol...)
+}
