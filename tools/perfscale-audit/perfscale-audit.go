@@ -20,40 +20,47 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
-	"fmt"
-	"io/ioutil"
-	"time"
+	"log"
+
+	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
+	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
 )
 
-type inputConfig struct {
-	StartTime time.Duration `json:"startTime"`
-	EndTime   time.Duration `json:"endTime"`
-}
-
-func readInputFile(filePath string) (*inputConfig, error) {
-	var cfg *inputConfig
-	b, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to read file [%s]: %v", filePath, err)
-	}
-
-	if err := json.Unmarshal(b, cfg); err != nil {
-		return nil, fmt.Errorf("Failed to json unmarshal input config: %v", err)
-	}
-
-	return cfg, nil
-}
-
 func main() {
-	var defaultInputConfigFile = "perf-audit-input.yaml"
-	var defaultResultsFile = "perf-audit-results.yaml"
+	var defaultInputConfigFile = "perf-audit-input.json"
+	var defaultResultsFile = "perf-audit-results.json"
 
 	var inputFile string
 	var outputFile string
 
 	flag.StringVar(&inputFile, "config-file", defaultInputConfigFile, "file path to the input config file")
 	flag.StringVar(&outputFile, "results-file", defaultResultsFile, "file path for where to store results")
+	flag.Parse()
+
+	inputCfg, err := audit_api.ReadInputFile(inputFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	metricClient, err := metric_client.NewMetricClient(inputCfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := metricClient.GenerateResults()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = result.DumpToFile(outputFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = result.DumpToStdout()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 }

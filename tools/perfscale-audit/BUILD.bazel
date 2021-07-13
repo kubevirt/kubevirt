@@ -5,6 +5,10 @@ go_library(
     srcs = ["perfscale-audit.go"],
     importpath = "kubevirt.io/kubevirt/tools/perfscale-audit",
     visibility = ["//visibility:private"],
+    deps = [
+        "//tools/perfscale-audit/api:go_default_library",
+        "//tools/perfscale-audit/metric-client:go_default_library",
+    ],
 )
 
 go_binary(
