@@ -375,6 +375,17 @@ spec:
           verbs:
           - get
           - list
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - update
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:

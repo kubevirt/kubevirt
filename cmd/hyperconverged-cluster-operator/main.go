@@ -3,43 +3,45 @@ package main
 import (
 	"context"
 	"fmt"
-	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
-	appsv1 "k8s.io/api/apps/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-
-	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
+	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -86,7 +88,6 @@ func main() {
 	cmdHelper.AddToScheme(scheme, resourcesSchemeFuncs)
 
 	// Create a new Cmd to provide shared dependencies and start components
-	// TODO: consider changing LeaderElectionResourceLock to new default "configmapsleases".
 	mgr, err := manager.New(cfg, getManagerOptions(watchNamespace, operatorNamespace, needLeaderElection, scheme))
 	cmdHelper.ExitOnError(err, "can't initiate manager")
 
@@ -177,7 +178,7 @@ func getManagerOptions(watchNamespace string, operatorNamespace string, needLead
 		ReadinessEndpointName:      hcoutil.ReadinessEndpointName,
 		LivenessEndpointName:       hcoutil.LivenessEndpointName,
 		LeaderElection:             needLeaderElection,
-		LeaderElectionResourceLock: "configmaps",
+		LeaderElectionResourceLock: resourcelock.ConfigMapsLeasesResourceLock,
 		LeaderElectionID:           "hyperconverged-cluster-operator-lock",
 		NewCache:                   getNewManagerCache(operatorNamespace),
 		Scheme:                     scheme,

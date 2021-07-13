@@ -3,35 +3,32 @@ package components
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"strconv"
 	"time"
 
-	"golang.org/x/tools/go/packages"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"sigs.k8s.io/controller-tools/pkg/loader"
-	"sigs.k8s.io/controller-tools/pkg/markers"
-
 	"github.com/blang/semver/v4"
-
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	csvVersion "github.com/operator-framework/api/pkg/lib/version"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"golang.org/x/tools/go/packages"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	crdgen "sigs.k8s.io/controller-tools/pkg/crd"
 	crdmarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
+	"sigs.k8s.io/controller-tools/pkg/loader"
+	"sigs.k8s.io/controller-tools/pkg/markers"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 )
 
 const (
@@ -302,10 +299,9 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 						Name:            hcoNameWebhook,
 						Image:           image,
 						ImagePullPolicy: corev1.PullPolicy(imagePullPolicy),
-						// TODO: command being name is artifact of operator-sdk usage
-						Command:        []string{hcoNameWebhook},
-						ReadinessProbe: getReadinessProbe(),
-						LivenessProbe:  getLivenessProbe(),
+						Command:         []string{hcoNameWebhook},
+						ReadinessProbe:  getReadinessProbe(),
+						LivenessProbe:   getLivenessProbe(),
 						Env: append([]corev1.EnvVar{
 							{
 								// deprecated: left here for CI test.
@@ -502,6 +498,13 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			},
 			Resources: getPolicyRules("clusterversions"),
 			Verbs:     getPolicyRules("get", "list"),
+		},
+		{
+			APIGroups: []string{
+				"coordination.k8s.io",
+			},
+			Resources: getPolicyRules("leases"),
+			Verbs:     getPolicyRules("get", "list", "watch", "create", "delete", "update"),
 		},
 	}
 }
