@@ -677,7 +677,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("[test_id:5263]should restore a vm with containerdisk and blank datavolume", func() {
+			It("[QUARANTINE][test_id:5263]should restore a vm with containerdisk and blank datavolume", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
