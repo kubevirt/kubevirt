@@ -171,18 +171,6 @@ func (_mr *_MockNetworkHandlerRecorder) ParseAddr(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ParseAddr", arg0)
 }
 
-func (_m *MockNetworkHandler) GetHostAndGwAddressesFromCIDR(s string) (string, string, error) {
-	ret := _m.ctrl.Call(_m, "GetHostAndGwAddressesFromCIDR", s)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-func (_mr *_MockNetworkHandlerRecorder) GetHostAndGwAddressesFromCIDR(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetHostAndGwAddressesFromCIDR", arg0)
-}
-
 func (_m *MockNetworkHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
 	ret := _m.ctrl.Call(_m, "SetRandomMac", iface)
 	ret0, _ := ret[0].(net.HardwareAddr)

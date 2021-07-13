@@ -1,4 +1,4 @@
-package dhcp_test
+package link
 
 import (
 	"testing"
@@ -6,6 +6,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestDhcp(t *testing.T) {
+func TestLink(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

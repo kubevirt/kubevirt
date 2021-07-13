@@ -23,7 +23,6 @@ package infraconfigurators
 
 import (
 	"fmt"
-	"net"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -37,7 +36,8 @@ type PodNetworkInfraConfigurator interface {
 	DiscoverPodNetworkInterface(podIfaceName string) error
 	PreparePodNetworkInterface() error
 	GenerateDomainIfaceSpec() api.Interface
-	GenerateDHCPConfig() *cache.DHCPConfig
+	// The method should return dhcp configuration that cannot be calculated in virt-launcher's phase2
+	GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig
 }
 
 func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName string, bridgeIfaceName string, launcherPID int, mtu int, tapOwner string, vmi *v1.VirtualMachineInstance) error {
@@ -46,10 +46,6 @@ func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName strin
 		return err
 	}
 	return handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
-}
-
-func generateTapDeviceName(podInterfaceName string) string {
-	return "tap" + podInterfaceName[3:]
 }
 
 func validateMTU(mtu int) error {
@@ -69,15 +65,4 @@ func calculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
 func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) &&
 		(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-}
-
-func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.HardwareAddr, error) {
-	if vmiSpecIface.MacAddress != "" {
-		macAddress, err := net.ParseMAC(vmiSpecIface.MacAddress)
-		if err != nil {
-			return nil, err
-		}
-		return &macAddress, nil
-	}
-	return nil, nil
 }

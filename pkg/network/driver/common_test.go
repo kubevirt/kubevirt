@@ -30,32 +30,6 @@ import (
 )
 
 var _ = Describe("Common Methods", func() {
-	Context("GetAvailableAddrsFromCIDR function", func() {
-		It("Should return 2 addresses", func() {
-			networkHandler := NetworkUtilsHandler{}
-			gw, vm, err := networkHandler.GetHostAndGwAddressesFromCIDR("10.0.0.0/30")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(gw).To(Equal("10.0.0.1/30"))
-			Expect(vm).To(Equal("10.0.0.2/30"))
-		})
-		It("Should return 2 IPV6 addresses", func() {
-			networkHandler := NetworkUtilsHandler{}
-			gw, vm, err := networkHandler.GetHostAndGwAddressesFromCIDR("fd10:0:2::/120")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(gw).To(Equal("fd10:0:2::1/120"))
-			Expect(vm).To(Equal("fd10:0:2::2/120"))
-		})
-		It("Should fail when the subnet is too small", func() {
-			networkHandler := NetworkUtilsHandler{}
-			_, _, err := networkHandler.GetHostAndGwAddressesFromCIDR("10.0.0.0/31")
-			Expect(err).To(HaveOccurred())
-		})
-		It("Should fail when the IPV6 subnet is too small", func() {
-			networkHandler := NetworkUtilsHandler{}
-			_, _, err := networkHandler.GetHostAndGwAddressesFromCIDR("fd10:0:2::/127")
-			Expect(err).To(HaveOccurred())
-		})
-	})
 	Context("composeNftablesLoad function", func() {
 		table.DescribeTable("should compose the correct command",
 			func(protocol iptables.Protocol, protocolVersionNum string) {

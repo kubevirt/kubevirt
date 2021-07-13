@@ -65,7 +65,6 @@ type NetworkHandler interface {
 	LinkAdd(link netlink.Link) error
 	LinkSetLearningOff(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
-	GetHostAndGwAddressesFromCIDR(s string) (string, string, error)
 	SetRandomMac(iface string) (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
@@ -289,35 +288,6 @@ func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (str
 	}
 
 	return ipv4, ipv6, nil
-}
-
-func (h *NetworkUtilsHandler) GetHostAndGwAddressesFromCIDR(s string) (string, string, error) {
-	ip, ipnet, err := net.ParseCIDR(s)
-	if err != nil {
-		return "", "", err
-	}
-
-	subnet, _ := ipnet.Mask.Size()
-	var ips []string
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-		ips = append(ips, fmt.Sprintf("%s/%d", ip.String(), subnet))
-
-		if len(ips) == 4 {
-			// remove network address and broadcast address
-			return ips[1], ips[2], nil
-		}
-	}
-
-	return "", "", fmt.Errorf("less than 4 addresses on network")
-}
-
-func inc(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
 }
 
 // GetMacDetails from an interface

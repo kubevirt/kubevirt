@@ -3,7 +3,6 @@ package infraconfigurators
 import (
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/vishvananda/netlink"
 
@@ -11,6 +10,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -63,9 +63,9 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 		}
 	}
 
-	b.tapDeviceName = generateTapDeviceName(podIfaceName)
+	b.tapDeviceName = virtnetlink.GenerateTapDeviceName(podIfaceName)
 
-	b.vmMac, err = retrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
+	b.vmMac, err = virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
 	if err != nil {
 		return err
 	}
@@ -80,23 +80,15 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 	return nil
 }
 
-func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
+func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig {
 	if !b.ipamEnabled {
-		return &cache.DHCPConfig{Name: b.podNicLink.Attrs().Name, IPAMDisabled: true}
+		return &cache.DHCPConfig{IPAMDisabled: true}
 	}
-
-	fakeBridgeIP := b.getFakeBridgeIP()
-	fakeServerAddr, _ := netlink.ParseAddr(fakeBridgeIP)
 
 	dhcpConfig := &cache.DHCPConfig{
-		MAC:               *b.vmMac,
-		Name:              b.podNicLink.Attrs().Name,
-		IPAMDisabled:      !b.ipamEnabled,
-		IP:                b.podIfaceIP,
-		AdvertisingIPAddr: fakeServerAddr.IP,
-	}
-	if b.podNicLink != nil {
-		dhcpConfig.Mtu = uint16(b.podNicLink.Attrs().MTU)
+		MAC:          *b.vmMac,
+		IPAMDisabled: !b.ipamEnabled,
+		IP:           b.podIfaceIP,
 	}
 
 	if b.ipamEnabled && len(b.podIfaceRoutes) > 0 {
@@ -104,16 +96,6 @@ func (b *BridgePodNetworkConfigurator) GenerateDHCPConfig() *cache.DHCPConfig {
 		b.decorateDhcpConfigRoutes(dhcpConfig)
 	}
 	return dhcpConfig
-}
-
-func (b *BridgePodNetworkConfigurator) getFakeBridgeIP() string {
-	ifaces := b.vmi.Spec.Domain.Devices.Interfaces
-	for i, iface := range ifaces {
-		if iface.Name == b.vmiSpecIface.Name {
-			return fmt.Sprintf(bridgeFakeIP, i)
-		}
-	}
-	return ""
 }
 
 func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
@@ -177,11 +159,6 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 func (b *BridgePodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interface {
 	return api.Interface{
 		MAC: &api.MAC{MAC: b.vmMac.String()},
-		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
-		Target: &api.InterfaceTarget{
-			Device:  b.tapDeviceName,
-			Managed: "no",
-		},
 	}
 }
 
@@ -233,7 +210,7 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 	}
 
 	// set fake ip on a bridge
-	addr := b.getFakeBridgeIP()
+	addr := virtnetlink.GetFakeBridgeIP(b.vmi.Spec.Domain.Devices.Interfaces, b.vmiSpecIface)
 	fakeaddr, _ := b.handler.ParseAddr(addr)
 
 	if err := b.handler.AddrAdd(bridge, fakeaddr); err != nil {
@@ -251,7 +228,7 @@ func (b *BridgePodNetworkConfigurator) createBridge() error {
 
 func (b *BridgePodNetworkConfigurator) switchPodInterfaceWithDummy() error {
 	originalPodInterfaceName := b.podNicLink.Attrs().Name
-	newPodInterfaceName := fmt.Sprintf("%s-nic", originalPodInterfaceName)
+	newPodInterfaceName := virtnetlink.GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName)
 	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
 
 	// Rename pod interface to free the original name for a new dummy interface
