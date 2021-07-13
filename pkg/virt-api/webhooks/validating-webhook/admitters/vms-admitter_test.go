@@ -1076,7 +1076,7 @@ var _ = Describe("Validating VM Admitter", func() {
 								Name: "whatever",
 							},
 							Spec: cdiv1.DataVolumeSpec{
-								Source: cdiv1.DataVolumeSource{
+								Source: &cdiv1.DataVolumeSource{
 									PVC: &cdiv1.DataVolumeSourcePVC{
 										Name:      "whocares",
 										Namespace: sourceNamespace,
@@ -1127,7 +1127,7 @@ var _ = Describe("Validating VM Admitter", func() {
 								Name: "whatever",
 							},
 							Spec: cdiv1.DataVolumeSpec{
-								Source: cdiv1.DataVolumeSource{
+								Source: &cdiv1.DataVolumeSource{
 									PVC: &cdiv1.DataVolumeSourcePVC{
 										Name:      sourceName,
 										Namespace: sourceNamespace,

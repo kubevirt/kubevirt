@@ -22,6 +22,7 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/network:go_default_library",
         "//pkg/util/hardware:go_default_library",
+        "//pkg/util/types:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/util/webhooks/validating-webhooks:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",

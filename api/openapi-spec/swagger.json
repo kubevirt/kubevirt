@@ -13425,6 +13425,28 @@
      }
     }
    },
+   "v1beta1.DataVolumeSourceRef": {
+    "description": "DataVolumeSourceRef defines an indirect reference to the source of data for the DataVolume",
+    "type": "object",
+    "required": [
+     "kind",
+     "name"
+    ],
+    "properties": {
+     "kind": {
+      "description": "The kind of the source reference, currently only \"DataSource\" is supported",
+      "type": "string"
+     },
+     "name": {
+      "description": "The name of the source reference",
+      "type": "string"
+     },
+     "namespace": {
+      "description": "The namespace of the source reference, defaults to the DataVolume namespace",
+      "type": "string"
+     }
+    }
+   },
    "v1beta1.DataVolumeSourceRegistry": {
     "description": "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
     "type": "object",
@@ -13500,9 +13522,6 @@
    "v1beta1.DataVolumeSpec": {
     "description": "DataVolumeSpec defines the DataVolume type specification",
     "type": "object",
-    "required": [
-     "source"
-    ],
     "properties": {
      "checkpoints": {
       "description": "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
@@ -13535,6 +13554,10 @@
       "description": "Source is the src of the data for the requested DataVolume",
       "$ref": "#/definitions/v1beta1.DataVolumeSource"
      },
+     "sourceRef": {
+      "description": "SourceRef is an indirect reference to the source of data for the requested DataVolume",
+      "$ref": "#/definitions/v1beta1.DataVolumeSourceRef"
+     },
      "storage": {
       "description": "Storage is the requested storage specification",
       "$ref": "#/definitions/v1beta1.StorageSpec"
@@ -13553,7 +13576,7 @@
       }
      },
      "dataSource": {
-      "description": "This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot - Beta) * An existing PVC (PersistentVolumeClaim) * An existing custom resource/object that implements data population (Alpha) In order to use VolumeSnapshot object types, the appropriate feature gate must be enabled (VolumeSnapshotDataSource or AnyVolumeDataSource) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. If the specified data source is not supported, the volume will not be created and the failure will be reported as an event. In the future, we plan to support more data source types and the behavior of the provisioner may change.",
+      "description": "This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) * An existing custom resource that implements data population (Alpha) In order to use custom resource types that implement data population, the AnyVolumeDataSource feature gate must be enabled. If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source.",
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
      },
      "resources": {

@@ -305,6 +305,25 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
               type: object
           type: object
+        sourceRef:
+          description: SourceRef is an indirect reference to the source of data for
+            the requested DataVolume
+          properties:
+            kind:
+              description: The kind of the source reference, currently only "DataSource"
+                is supported
+              type: string
+            name:
+              description: The name of the source reference
+              type: string
+            namespace:
+              description: The namespace of the source reference, defaults to the
+                DataVolume namespace
+              type: string
+          required:
+          - kind
+          - name
+          type: object
         storage:
           description: Storage is the requested storage specification
           properties:
@@ -316,16 +335,13 @@ var CRDsValidation map[string]string = map[string]string{
               type: array
             dataSource:
               description: 'This field can be used to specify either: * An existing
-                VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot - Beta)
-                * An existing PVC (PersistentVolumeClaim) * An existing custom resource/object
-                that implements data population (Alpha) In order to use VolumeSnapshot
-                object types, the appropriate feature gate must be enabled (VolumeSnapshotDataSource
-                or AnyVolumeDataSource) If the provisioner or an external controller
+                VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An
+                existing PVC (PersistentVolumeClaim) * An existing custom resource
+                that implements data population (Alpha) In order to use custom resource
+                types that implement data population, the AnyVolumeDataSource feature
+                gate must be enabled. If the provisioner or an external controller
                 can support the specified data source, it will create a new volume
-                based on the contents of the specified data source. If the specified
-                data source is not supported, the volume will not be created and the
-                failure will be reported as an event. In the future, we plan to support
-                more data source types and the behavior of the provisioner may change.'
+                based on the contents of the specified data source.'
               properties:
                 apiGroup:
                   description: APIGroup is the group for the resource being referenced.
@@ -425,8 +441,6 @@ var CRDsValidation map[string]string = map[string]string{
                 backing this claim.
               type: string
           type: object
-      required:
-      - source
       type: object
     status:
       description: DataVolumeTemplateDummyStatus is here simply for backwards compatibility
@@ -2547,6 +2561,25 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                     type: object
+                  sourceRef:
+                    description: SourceRef is an indirect reference to the source
+                      of data for the requested DataVolume
+                    properties:
+                      kind:
+                        description: The kind of the source reference, currently only
+                          "DataSource" is supported
+                        type: string
+                      name:
+                        description: The name of the source reference
+                        type: string
+                      namespace:
+                        description: The namespace of the source reference, defaults
+                          to the DataVolume namespace
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
                   storage:
                     description: Storage is the requested storage specification
                     properties:
@@ -2558,18 +2591,14 @@ var CRDsValidation map[string]string = map[string]string{
                         type: array
                       dataSource:
                         description: 'This field can be used to specify either: *
-                          An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot
-                          - Beta) * An existing PVC (PersistentVolumeClaim) * An existing
-                          custom resource/object that implements data population (Alpha)
-                          In order to use VolumeSnapshot object types, the appropriate
-                          feature gate must be enabled (VolumeSnapshotDataSource or
-                          AnyVolumeDataSource) If the provisioner or an external controller
-                          can support the specified data source, it will create a
-                          new volume based on the contents of the specified data source.
-                          If the specified data source is not supported, the volume
-                          will not be created and the failure will be reported as
-                          an event. In the future, we plan to support more data source
-                          types and the behavior of the provisioner may change.'
+                          An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
+                          * An existing PVC (PersistentVolumeClaim) * An existing
+                          custom resource that implements data population (Alpha)
+                          In order to use custom resource types that implement data
+                          population, the AnyVolumeDataSource feature gate must be
+                          enabled. If the provisioner or an external controller can
+                          support the specified data source, it will create a new
+                          volume based on the contents of the specified data source.'
                         properties:
                           apiGroup:
                             description: APIGroup is the group for the resource being
@@ -2674,8 +2703,6 @@ var CRDsValidation map[string]string = map[string]string{
                           backing this claim.
                         type: string
                     type: object
-                required:
-                - source
                 type: object
               status:
                 description: DataVolumeTemplateDummyStatus is here simply for backwards
@@ -12150,6 +12177,25 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     type: object
                                 type: object
+                              sourceRef:
+                                description: SourceRef is an indirect reference to
+                                  the source of data for the requested DataVolume
+                                properties:
+                                  kind:
+                                    description: The kind of the source reference,
+                                      currently only "DataSource" is supported
+                                    type: string
+                                  name:
+                                    description: The name of the source reference
+                                    type: string
+                                  namespace:
+                                    description: The namespace of the source reference,
+                                      defaults to the DataVolume namespace
+                                    type: string
+                                required:
+                                - kind
+                                - name
+                                type: object
                               storage:
                                 description: Storage is the requested storage specification
                                 properties:
@@ -12163,21 +12209,15 @@ var CRDsValidation map[string]string = map[string]string{
                                   dataSource:
                                     description: 'This field can be used to specify
                                       either: * An existing VolumeSnapshot object
-                                      (snapshot.storage.k8s.io/VolumeSnapshot - Beta)
-                                      * An existing PVC (PersistentVolumeClaim) *
-                                      An existing custom resource/object that implements
-                                      data population (Alpha) In order to use VolumeSnapshot
-                                      object types, the appropriate feature gate must
-                                      be enabled (VolumeSnapshotDataSource or AnyVolumeDataSource)
-                                      If the provisioner or an external controller
-                                      can support the specified data source, it will
-                                      create a new volume based on the contents of
-                                      the specified data source. If the specified
-                                      data source is not supported, the volume will
-                                      not be created and the failure will be reported
-                                      as an event. In the future, we plan to support
-                                      more data source types and the behavior of the
-                                      provisioner may change.'
+                                      (snapshot.storage.k8s.io/VolumeSnapshot) * An
+                                      existing PVC (PersistentVolumeClaim) * An existing
+                                      custom resource that implements data population
+                                      (Alpha) In order to use custom resource types
+                                      that implement data population, the AnyVolumeDataSource
+                                      feature gate must be enabled. If the provisioner
+                                      or an external controller can support the specified
+                                      data source, it will create a new volume based
+                                      on the contents of the specified data source.'
                                     properties:
                                       apiGroup:
                                         description: APIGroup is the group for the
@@ -12294,8 +12334,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       to the PersistentVolume backing this claim.
                                     type: string
                                 type: object
-                            required:
-                            - source
                             type: object
                           status:
                             description: DataVolumeTemplateDummyStatus is here simply

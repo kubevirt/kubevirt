@@ -679,7 +679,7 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv1",
 				},
 				Spec: cdiv1.DataVolumeSpec{
-					Source: cdiv1.DataVolumeSource{
+					Source: &cdiv1.DataVolumeSource{
 						PVC: &cdiv1.DataVolumeSourcePVC{
 							Namespace: "ns1",
 							Name:      "source-pvc",
@@ -693,7 +693,7 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv2",
 				},
 				Spec: cdiv1.DataVolumeSpec{
-					Source: cdiv1.DataVolumeSource{
+					Source: &cdiv1.DataVolumeSource{
 						PVC: &cdiv1.DataVolumeSourcePVC{
 							Name: "source-pvc",
 						},

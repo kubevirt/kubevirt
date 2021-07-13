@@ -692,7 +692,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 							Name: dvName,
 						},
 						Spec: cdiv1.DataVolumeSpec{
-							Source: cdiv1.DataVolumeSource{
+							Source: &cdiv1.DataVolumeSource{
 								Blank: &cdiv1.DataVolumeBlankImage{},
 							},
 							PVC: &corev1.PersistentVolumeClaimSpec{

@@ -11,7 +11,6 @@ require (
 	github.com/emicklei/go-restful v2.10.0+incompatible
 	github.com/emicklei/go-restful-openapi v1.2.0
 	github.com/evanphx/json-patch v4.9.0+incompatible
-	github.com/fatih/color v1.9.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-kit/kit v0.9.0
@@ -38,13 +37,13 @@ require (
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/moby/sys/mountinfo v0.4.1
-	github.com/onsi/ginkgo v1.12.1
-	github.com/onsi/gomega v1.10.1
+	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/gomega v1.10.2
 	github.com/opencontainers/runc v1.0.0-rc92
 	github.com/opencontainers/selinux v1.6.0
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
-	github.com/openshift/library-go v0.0.0-20200821154433-215f00df72cc
+	github.com/openshift/library-go v0.0.0-20210205203934-9eb0d970f2f4
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
 	github.com/operator-framework/operator-marketplace v0.0.0-20190617165322-1cbd32624349
@@ -68,12 +67,12 @@ require (
 	k8s.io/apiextensions-apiserver v0.20.2
 	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kube-aggregator v0.19.0-rc.2
+	k8s.io/kube-aggregator v0.20.2
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
-	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
+	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
-	kubevirt.io/containerized-data-importer v1.34.1
-	kubevirt.io/controller-lifecycle-operator-sdk v0.1.2
+	kubevirt.io/containerized-data-importer v1.36.0
+	kubevirt.io/controller-lifecycle-operator-sdk v0.2.0
 	kubevirt.io/qe-tools v0.1.6
 	libvirt.org/go/libvirt v1.7005.0
 	mvdan.cc/sh/v3 v3.1.1
@@ -81,9 +80,11 @@ require (
 )
 
 replace (
+
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
-	//github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.3.1
+	github.com/onsi/ginkgo => github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/gomega => github.com/onsi/gomega v1.10.1
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
@@ -117,7 +118,9 @@ replace (
 
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
 
-	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.34.1
+	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.36.0
+
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )
 
 go 1.16

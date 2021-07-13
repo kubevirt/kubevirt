@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
+	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -147,50 +148,60 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.Admissi
 	var causes []metav1.StatusCause
 
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
-		pvcSource := dataVolume.Spec.Source.PVC
-		if pvcSource != nil {
-			sourceNamespace := pvcSource.Namespace
-			if sourceNamespace == "" {
-				if vm.Namespace != "" {
-					sourceNamespace = vm.Namespace
-				} else {
-					sourceNamespace = ar.Namespace
-				}
-			}
+		cloneSource, err := typesutil.GetCloneSource(context.TODO(), admitter.virtClient, vm, &dataVolume.Spec)
+		if err != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeUnexpectedServerResponse,
+				Message: err.Error(),
+				Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
+			})
 
-			if sourceNamespace == "" || pvcSource.Name == "" {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueNotFound,
-					Message: fmt.Sprintf("Clone source %s/%s invalid", sourceNamespace, pvcSource.Name),
-					Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
-				})
-			} else {
-				targetNamespace := vm.Namespace
-				if targetNamespace == "" {
-					targetNamespace = ar.Namespace
-				}
+			continue
+		}
 
-				serviceAccount := "default"
-				for _, vol := range vm.Spec.Template.Spec.Volumes {
-					if vol.ServiceAccount != nil {
-						serviceAccount = vol.ServiceAccount.ServiceAccountName
-					}
-				}
+		if cloneSource == nil {
+			continue
+		}
 
-				allowed, message, err := admitter.cloneAuthFunc(sourceNamespace, pvcSource.Name, targetNamespace, serviceAccount)
-				if err != nil {
-					return nil, err
-				}
+		if cloneSource.Namespace == "" {
+			cloneSource.Namespace = ar.Namespace
+		}
 
-				if !allowed {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: "Authorization failed, message is: " + message,
-						Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
-					})
-				}
+		if cloneSource.Namespace == "" || cloneSource.Name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: fmt.Sprintf("Clone source %s/%s invalid", cloneSource.Namespace, cloneSource.Name),
+				Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
+			})
+
+			continue
+		}
+
+		targetNamespace := vm.Namespace
+		if targetNamespace == "" {
+			targetNamespace = ar.Namespace
+		}
+
+		serviceAccount := "default"
+		for _, vol := range vm.Spec.Template.Spec.Volumes {
+			if vol.ServiceAccount != nil {
+				serviceAccount = vol.ServiceAccount.ServiceAccountName
 			}
 		}
+
+		allowed, message, err := admitter.cloneAuthFunc(cloneSource.Namespace, cloneSource.Name, targetNamespace, serviceAccount)
+		if err != nil {
+			return nil, err
+		}
+
+		if !allowed {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Authorization failed, message is: " + message,
+				Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
+			})
+		}
+
 	}
 
 	return causes, nil
