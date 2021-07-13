@@ -51,7 +51,9 @@ testimage_extra="
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --name testimage_x86_64 \
+    //:bazeldnf -- rpmtree \
+    --public \
+    --name testimage_x86_64 \
     --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
@@ -60,7 +62,9 @@ bazel run \
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --arch=aarch64 --name testimage_aarch64 \
+    //:bazeldnf -- rpmtree \
+    --public \
+    --name testimage_aarch64 --arch aarch64 \
     --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
@@ -80,7 +84,9 @@ libvirtdevel_extra="
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --name libvirt-devel_x86_64 \
+    //:bazeldnf -- rpmtree \
+    --public \
+    --name libvirt-devel_x86_64 \
     --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
@@ -89,7 +95,9 @@ bazel run \
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --arch=aarch64 --name libvirt-devel_aarch64 \
+    //:bazeldnf -- rpmtree \
+    --public \
+    --name libvirt-devel_aarch64 --arch aarch64 \
     --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
@@ -122,7 +130,9 @@ launcherbase_extra="
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --name launcherbase_x86_64 \
+    //:bazeldnf -- rpmtree \
+    --public \
+    --name launcherbase_x86_64 \
     --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
@@ -132,7 +142,9 @@ bazel run \
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --arch=aarch64 --name launcherbase_aarch64 \
+    //:bazeldnf -- rpmtree \
+    --public \
+    --name launcherbase_aarch64 --arch aarch64 \
     --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
@@ -153,7 +165,9 @@ libguestfstools_extra="
 "
 
 bazel run \
-    //:bazeldnf -- rpmtree --public --name libguestfs-tools \
+    //:bazeldnf -- rpmtree \
+    --public \
+    --name libguestfs-tools \
     --repofile rpm/fedora-repo.yaml \
     $fedora_base \
     $fedora_extra \
