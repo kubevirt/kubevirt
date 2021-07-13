@@ -999,6 +999,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
+	if checkForKeepLauncherAfterQemu(vmi) {
+		command = append(command, "--keep-after-qemu")
+	}
+
 	// Add ports from interfaces to the pod manifest
 	ports := getPortsFromVMI(vmi)
 
@@ -1814,6 +1818,19 @@ func lookupMultusDefaultNetworkName(networks []v1.Network) string {
 		}
 	}
 	return ""
+}
+
+func checkForKeepLauncherAfterQemu(vmi *v1.VirtualMachineInstance) bool {
+	keepLauncherAfterQemu := false
+	for k, v := range vmi.Annotations {
+		if strings.HasPrefix(k, v1.KeepLauncherAfterQemuAnnotation) {
+			if v == "" || strings.HasPrefix(v, "true") {
+				keepLauncherAfterQemu = true
+				break
+			}
+		}
+	}
+	return keepLauncherAfterQemu
 }
 
 func filterVMIAnnotationsForPod(vmiAnnotations map[string]string) map[string]string {

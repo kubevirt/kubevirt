@@ -672,7 +672,8 @@ const (
 	VirtualMachineLabel               = AppLabel + "/vm"
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
-	MigrationSelectorLabel = "kubevirt.io/vmi-name"
+	MigrationSelectorLabel                 = "kubevirt.io/vmi-name"
+	KeepLauncherAfterQemuAnnotation string = "kubevirt.io/leave-launcher-pod-after-qemu-exit"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

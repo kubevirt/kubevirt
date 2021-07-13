@@ -343,6 +343,8 @@ func main() {
 	qemuAgentFileInterval := pflag.Duration("qemu-agent-file-interval", 300, "Interval in seconds between consecutive qemu agent calls for file command")
 	qemuAgentUserInterval := pflag.Duration("qemu-agent-user-interval", 10, "Interval in seconds between consecutive qemu agent calls for user command")
 	qemuAgentVersionInterval := pflag.Duration("qemu-agent-version-interval", 300, "Interval in seconds between consecutive qemu agent calls for version command")
+	keepAfterQemu := pflag.Bool("keep-after-qemu", false, "virt-launcher will be kept alive after qemu exits for debugging if set to true")
+
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
 
@@ -361,8 +363,14 @@ func main() {
 		}
 	}
 
+	keepAfterQemuChan := make(chan struct{})
+	log.Log.Infof("keepAfterQemu %v", *keepAfterQemu)
+	if !*keepAfterQemu {
+		close(keepAfterQemuChan)
+	}
+
 	if !*noFork {
-		exitCode, err := ForkAndMonitor(*containerDiskDir)
+		exitCode, err := ForkAndMonitor(*containerDiskDir, keepAfterQemuChan)
 		if err != nil {
 			log.Log.Reason(err).Error("monitoring virt-launcher failed")
 			os.Exit(1)
@@ -479,10 +487,16 @@ func main() {
 		// exits, the wait loop breaks.
 		mon.RunForever(*qemuTimeout, signalStopChan)
 
+		<-keepAfterQemuChan
+
 		// Now that the pid has exited, we wait for the final delete notification to be
 		// sent back to virt-handler. This delete notification contains the reason the
 		// domain exited.
 		waitForFinalNotify(events, domainManager, vmi)
+
+	} else {
+		<-keepAfterQemuChan
+
 	}
 
 	close(stopChan)
@@ -493,7 +507,7 @@ func main() {
 
 // ForkAndMonitor itself to give qemu an extra grace period to properly terminate
 // in case of virt-launcher crashes
-func ForkAndMonitor(containerDiskDir string) (int, error) {
+func ForkAndMonitor(containerDiskDir string, keepAfterQemuChan chan struct{}) (int, error) {
 	defer cleanupContainerDiskDirectory(containerDiskDir)
 	cmd := exec.Command(os.Args[0], append(os.Args[1:], "--no-fork", "true")...)
 	cmd.Stdout = os.Stdout
@@ -553,6 +567,9 @@ func ForkAndMonitor(containerDiskDir string) (int, error) {
 		}
 
 	}
+
+	<-keepAfterQemuChan
+
 	// give qemu some time to shut down in case it survived virt-handler
 	// Most of the time we call `qemu-system=* binaries, but qemu-system-* packages
 	// are not everywhere available where libvirt and qemu are. There we usually call qemu-kvm
