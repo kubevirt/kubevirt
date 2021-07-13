@@ -132,6 +132,7 @@ go_test(
         "security_features_test.go",
         "stability_test.go",
         "subresource_api_test.go",
+        "sysprep_test.go",
         "template_test.go",
         "tests_suite_test.go",
         "version_test.go",
