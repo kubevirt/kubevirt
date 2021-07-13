@@ -315,7 +315,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 
 			return nil
-		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	verifyCreateData := func(vmi *kubevirtv1.VirtualMachineInstance, device string) {
@@ -381,6 +381,40 @@ var _ = SIGDescribe("Hotplug", func() {
 				&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, volumeName)},
 			}, 5)
 		}, 90*time.Second, 2*time.Second).Should(Succeed())
+	}
+
+	waitForAttachmentPodToRun := func(vmi *kubevirtv1.VirtualMachineInstance) {
+		namespace := vmi.GetNamespace()
+		uid := vmi.GetUID()
+
+		labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+
+		pods, err := virtClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+		Expect(err).ToNot(HaveOccurred(), "Should list pods")
+
+		var virtlauncher *corev1.Pod
+		for _, pod := range pods.Items {
+			if pod.ObjectMeta.DeletionTimestamp == nil {
+				virtlauncher = &pod
+				break
+			}
+		}
+		Expect(virtlauncher).ToNot(BeNil(), "Should find running virtlauncher pod")
+		Eventually(func() bool {
+			podList, err := virtClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+			if err != nil {
+				return false
+			}
+			for _, pod := range podList.Items {
+				for _, owner := range pod.OwnerReferences {
+					if owner.UID == virtlauncher.UID {
+						By(fmt.Sprintf("phase: %s", pod.Status.Phase))
+						return pod.Status.Phase == corev1.PodRunning
+					}
+				}
+			}
+			return false
+		}, 270*time.Second, 2*time.Second).Should(BeTrue())
 	}
 
 	getTargetsFromVolumeStatus := func(vmi *kubevirtv1.VirtualMachineInstance, volumeNames ...string) []string {
@@ -699,6 +733,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, testVolumes[:len(testVolumes)-1]...)
+				waitForAttachmentPodToRun(vmi)
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes[:len(testVolumes)-1]...)
 				verifySingleAttachmentPod(vmi)
 				By("removing volume sdc, with dv" + dvNames[2])
@@ -756,7 +791,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("[QUARANTINE] with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.Entry("[Serial][QUARANTINE] with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
 			It("should hotplug and permanently add volume when added to VM", func() {
