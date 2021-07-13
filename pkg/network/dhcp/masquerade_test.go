@@ -95,18 +95,10 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 		BeforeEach(func() {
 			mockHandler.EXPECT().LinkByName(ifaceName).Return(iface, nil)
 		})
-		It("Should return the dhcp configuration without mac", func() {
+		It("Should return the dhcp configuration", func() {
 			config, err := generator.Generate()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*config).To(Equal(generateExpectedConfig(vmiSpecNetwork, nil, mtu, ifaceName)))
-		})
-		It("Should return the dhcp configuration with mac", func() {
-			macString := "de-ad-00-00-be-af"
-			vmiSpecIface.MacAddress = macString
-
-			config, err := generator.Generate()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(*config).To(Equal(generateExpectedConfig(vmiSpecNetwork, &macString, mtu, ifaceName)))
 		})
 		It("Should return an error if the config discovering fails", func() {
 			vmiSpecNetwork.Pod.VMNetworkCIDR = "abc"
