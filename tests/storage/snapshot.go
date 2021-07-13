@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/util"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
@@ -189,6 +192,69 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				return vm, vmi
 			}
 
+			checkVMFreeze := func(snapshot *snapshotv1.VirtualMachineSnapshot, vmi *v1.VirtualMachineInstance, shouldFreeze bool) {
+				var expectedIndications []snapshotv1.Indication
+				if shouldFreeze {
+					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotGuestAgentIndication}
+				} else {
+					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotNoGuestAgentIndication}
+				}
+				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
+
+				var conditionsLength int
+				if shouldFreeze {
+					conditionsLength = 3
+				} else {
+					conditionsLength = 2
+				}
+				Expect(snapshot.Status.Conditions).To(HaveLen(conditionsLength))
+				Expect(snapshot.Status.Conditions[0].Type).To(Equal(snapshotv1.ConditionProgressing))
+				Expect(snapshot.Status.Conditions[0].Status).To(Equal(corev1.ConditionFalse))
+				Expect(snapshot.Status.Conditions[1].Type).To(Equal(snapshotv1.ConditionReady))
+				Expect(snapshot.Status.Conditions[1].Status).To(Equal(corev1.ConditionTrue))
+				if shouldFreeze {
+					Eventually(func() bool {
+						snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return snapshot.Status != nil &&
+							len(snapshot.Status.Conditions) == 3 &&
+							snapshot.Status.Conditions[2].Type == snapshotv1.ConditionFreezing &&
+							strings.Contains(snapshot.Status.Conditions[2].Reason, "vmsnapshot source thawed") &&
+							updatedVMI.Status.FSFreezeStatus == ""
+					}, time.Minute, 2*time.Second).Should(BeTrue())
+				}
+
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
+				expectedFreezeOutput := "executing fsfreeze hook with arg 'freeze'"
+				expectedThawOutput := "executing fsfreeze hook with arg 'thaw'"
+				if shouldFreeze {
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedFreezeOutput)},
+						&expect.BExp{R: fmt.Sprintf(".*qemu-ga.*%s.*", expectedFreezeOutput)},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("0")},
+						&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedThawOutput)},
+						&expect.BExp{R: fmt.Sprintf(".*qemu-ga.*%s.*", expectedThawOutput)},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("0")},
+					}, 30)).To(Succeed())
+				} else {
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedFreezeOutput)},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("1")},
+						&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedThawOutput)},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("1")},
+					}, 30)).To(Succeed())
+				}
+			}
+
 			It("with volumes and guest agent available", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
@@ -244,9 +310,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				waitSnapshotReady()
-
-				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotGuestAgentIndication}
-				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
+				shouldFreeze := true
+				checkVMFreeze(snapshot, vmi, shouldFreeze)
 
 				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
@@ -312,9 +377,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				waitSnapshotReady()
-
-				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotNoGuestAgentIndication}
-				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
+				shouldFreeze := false
+				checkVMFreeze(snapshot, vmi, shouldFreeze)
 
 				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
@@ -341,9 +405,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				waitSnapshotReady()
-
-				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotNoGuestAgentIndication}
-				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
+				shouldFreeze := false
+				checkVMFreeze(snapshot, vmi, shouldFreeze)
 
 				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
