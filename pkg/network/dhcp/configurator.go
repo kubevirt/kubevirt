@@ -2,14 +2,11 @@ package dhcp
 
 import (
 	"fmt"
-	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
-
-const defaultDHCPStartedDirectory = "/var/run/kubevirt-private"
 
 type Configurator struct {
 	advertisingIfaceName string
@@ -17,7 +14,6 @@ type Configurator struct {
 	filterByMac          bool
 	handler              netdriver.NetworkHandler
 	launcherPID          string
-	dhcpStartedDirectory string
 }
 
 // NewConfiguratorWithClientFilter should be used when the DHCP server is
@@ -29,7 +25,6 @@ func NewConfiguratorWithClientFilter(cacheFactory cache.InterfaceCacheFactory, l
 		launcherPID:          launcherPID,
 		filterByMac:          true,
 		handler:              handler,
-		dhcpStartedDirectory: defaultDHCPStartedDirectory,
 	}
 }
 
@@ -42,19 +37,6 @@ func NewConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID strin
 		launcherPID:          launcherPID,
 		filterByMac:          false,
 		handler:              handler,
-		dhcpStartedDirectory: defaultDHCPStartedDirectory,
-	}
-}
-
-// NewConfiguratorWithDHCPStartedDirectory should be used when the DHCP server
-// lock file need to be placed in a custom directory.
-func NewConfiguratorWithDHCPStartedDirectory(cacheFactory cache.InterfaceCacheFactory, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler, dhcpStartedDirectory string) *Configurator {
-	return &Configurator{
-		advertisingIfaceName: advertisingIfaceName,
-		cacheFactory:         cacheFactory,
-		launcherPID:          launcherPID,
-		handler:              handler,
-		dhcpStartedDirectory: dhcpStartedDirectory,
 	}
 }
 
@@ -73,25 +55,12 @@ func (d Configurator) ExportConfiguration(config cache.DHCPConfig) error {
 	return d.cacheFactory.CacheDHCPConfigForPid(d.launcherPID).Write(config.Name, &config)
 }
 
-func (d Configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
+func (d Configurator) StartDHCPServer(podInterfaceName string, dhcpConfig cache.DHCPConfig, dhcpOptions *v1.DHCPOptions) error {
 	if dhcpConfig.IPAMDisabled {
 		return nil
 	}
-	dhcpStartedFile := d.getDHCPStartedFilePath(podInterfaceName)
-	_, err := os.Stat(dhcpStartedFile)
-	if os.IsNotExist(err) {
-		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions, d.filterByMac); err != nil {
-			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
-		}
-		newFile, err := os.Create(dhcpStartedFile)
-		if err != nil {
-			return fmt.Errorf("failed to create dhcp started file %s: %s", dhcpStartedFile, err)
-		}
-		newFile.Close()
+	if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions, d.filterByMac); err != nil {
+		return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 	}
 	return nil
-}
-
-func (d Configurator) getDHCPStartedFilePath(podInterfaceName string) string {
-	return fmt.Sprintf("%s/dhcp_started-%s", d.dhcpStartedDirectory, podInterfaceName)
 }

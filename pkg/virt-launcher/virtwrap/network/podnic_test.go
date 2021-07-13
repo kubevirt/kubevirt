@@ -39,7 +39,7 @@ var _ = Describe("podNIC", func() {
 		}
 		podnic.podInterfaceName = primaryPodInterfaceName
 		podnic.infraConfigurator = mockPodNetworkConfigurator
-		podnic.dhcpConfigurator = dhcpconfigurator.NewConfiguratorWithDHCPStartedDirectory(cacheFactory, getPIDString(nil), primaryPodInterfaceName, mockNetwork, tmpDir)
+		podnic.dhcpConfigurator = dhcpconfigurator.NewConfigurator(cacheFactory, getPIDString(nil), primaryPodInterfaceName, mockNetwork)
 		return podnic, nil
 	}
 	BeforeEach(func() {

@@ -253,7 +253,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 			log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
 		}
 		log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
-		if err := l.dhcpConfigurator.EnsureDHCPServerStarted(l.podInterfaceName, *dhcpConfig, l.vmiSpecIface.DHCPOptions); err != nil {
+		if err := l.dhcpConfigurator.StartDHCPServer(l.podInterfaceName, *dhcpConfig, l.vmiSpecIface.DHCPOptions); err != nil {
 			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
 			panic(err)
 		}
