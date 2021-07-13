@@ -623,8 +623,8 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 		)
 
 		var (
-			iface              *v1.Interface
-			vmi                *v1.VirtualMachineInstance
+			iface *v1.Interface
+			vmi   *v1.VirtualMachineInstance
 		)
 
 		BeforeEach(func() {
@@ -668,7 +668,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 
 			When("routes are installed", func() {
 				var (
-					defaultGwRoute     netlink.Route
+					defaultGwRoute netlink.Route
 				)
 
 				BeforeEach(func() {
