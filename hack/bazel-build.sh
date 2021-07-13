@@ -25,6 +25,7 @@ source hack/config.sh
 rm -rf ${CMD_OUT_DIR}
 mkdir -p ${CMD_OUT_DIR}/virtctl
 mkdir -p ${CMD_OUT_DIR}/dump
+mkdir -p ${CMD_OUT_DIR}/perfscale-audit
 
 # Build all binaries for amd64
 bazel build \
@@ -35,6 +36,11 @@ bazel build \
 bazel run \
     --config=${ARCHITECTURE} \
     :build-dump -- ${CMD_OUT_DIR}/dump/dump
+
+# Copy perfscale-audit binary to a reachable place outside of the build container
+bazel run \
+    --config=${ARCHITECTURE} \
+    :build-perfscale-audit -- ${CMD_OUT_DIR}/perfscale-audit/perfscale-audit
 
 # build platform native virtctl explicitly
 bazel run \
