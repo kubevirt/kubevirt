@@ -27,7 +27,7 @@ const (
 	relevantk8sVer = "1.16.2"
 
 	// Define a timeout for read operations in order to prevent test hanging
-	statusChangeTimeout = 5 * time.Minute
+	statusChangeTimeout = 10 * time.Minute
 	vmCreationTimeout   = 1 * time.Minute
 	vmMigrationTimeout  = 5 * time.Minute
 
@@ -108,7 +108,7 @@ func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) 
 		statusLine, err := readLineWithTimeout(rc, remainingTimeout)
 
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error reading new status: '%v', last observed status: %v", err, prevStatus)
 		}
 		newStatus := strings.Fields(statusLine)
 
