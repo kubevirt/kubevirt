@@ -56,6 +56,10 @@ const (
 
 	volumeSnapshotMissingEvent = "VolumeSnapshotMissing"
 
+	vmSnapshotSourceFrozen = "vmsnapshot source frozen"
+
+	vmSnapshotSourceThawed = "vmsnapshot source thawed"
+
 	snapshotRetryInterval = 5 * time.Second
 )
 
@@ -737,11 +741,12 @@ func (ctrl *VMSnapshotController) freezeGuestFSIfNeeded(vmSnapshot *snapshotv1.V
 		return err
 	}
 
+	updateSnapshotCondition(vmSnapshot, newFreezingCondition(corev1.ConditionTrue, vmSnapshotSourceFrozen))
 	return ctrl.replaceGuestAgentIndication(vmSnapshot)
 }
 
 func (ctrl *VMSnapshotController) unfreezeGuestFSIfNeeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
-	if !vmsnapshotHasIndication(vmSnapshot, snapshotv1.VMSnapshotGuestAgentIndication) {
+	if !findCondition(vmSnapshot.Status.Conditions, newFreezingCondition(corev1.ConditionTrue, vmSnapshotSourceFrozen)) {
 		return nil
 	}
 
@@ -754,6 +759,7 @@ func (ctrl *VMSnapshotController) unfreezeGuestFSIfNeeded(vmSnapshot *snapshotv1
 		return err
 	}
 
+	updateSnapshotCondition(vmSnapshot, newFreezingCondition(corev1.ConditionFalse, vmSnapshotSourceThawed))
 	return nil
 }
 

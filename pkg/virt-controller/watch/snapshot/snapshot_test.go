@@ -874,6 +874,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot.Status.Indications = append(vmSnapshot.Status.Indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
 				updatedVMSnapshot.ResourceVersion = "1"
 				updatedVMSnapshot.Status.Indications = append(updatedVMSnapshot.Status.Indications, snapshotv1.VMSnapshotGuestAgentIndication)
+				updatedVMSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newFreezingCondition(corev1.ConditionTrue, "vmsnapshot source frozen"),
+				}
 
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
