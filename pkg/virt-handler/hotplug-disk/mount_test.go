@@ -28,6 +28,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/opencontainers/runc/libcontainer/cgroups"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -164,7 +166,7 @@ var _ = Describe("HotplugVolume mount target records", func() {
 	})
 })
 
-var _ = Describe("HotplugVolume block devices", func() {
+var _ = FDescribe("HotplugVolume block devices", func() {
 	var (
 		m             *volumeMounter
 		err           error
@@ -202,9 +204,12 @@ var _ = Describe("HotplugVolume block devices", func() {
 			return []byte("6,6,0777,block special file"), nil
 		}
 		cgroupsBasePath = func() string {
-			return tempDir
+			return filepath.Join(tempDir, orgCgroupsBasePath())
 		}
 
+		targetPodPath = filepath.Join(tempDir, "abcd/volumes/kubernetes.io~empty-dir/hotplug-disks")
+		err = os.MkdirAll(targetPodPath, 0755)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
@@ -250,7 +255,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(res).To(BeEquivalentTo(""))
 	})
 
-	It("mountBlockHotplugVolume and unmountBlockHotplugVolumes should make appropriate calls", func() {
+	FIt("mountBlockHotplugVolume and unmountBlockHotplugVolumes should make appropriate calls", func() {
 		blockSourcePodUID := types.UID("fghij")
 		mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
 			Expect(os.MkdirAll(deviceName, 0755)).To(Succeed())
@@ -270,16 +275,26 @@ var _ = Describe("HotplugVolume block devices", func() {
 		m.podIsolationDetector = &mockIsolationDetector{
 			slice: slicePath,
 		}
+		isCgroup2 := cgroups.IsCgroup2UnifiedMode()
+		if isCgroup2 {
+		}
+		fmt.Printf("\n================= CGROUP V2? %v\n", isCgroup2)
+		//Expect(isCgroup2).To(BeTrue())
 		err = os.MkdirAll(filepath.Join(tempDir, slicePath), 0755)
 		Expect(err).ToNot(HaveOccurred())
-		devicesFile := filepath.Join(tempDir, slicePath, "devices.list")
-		allowFile := filepath.Join(tempDir, slicePath, "devices.allow")
-		denyFile := filepath.Join(tempDir, slicePath, "devices.deny")
+		cgroupBasePath := cgroupsBasePath()
+		err = os.MkdirAll(filepath.Join(cgroupBasePath, slicePath), 0755)
+		Expect(err).ToNot(HaveOccurred())
+		devicesFile := filepath.Join(cgroupBasePath, slicePath, "devices.list")
+		allowFile := filepath.Join(cgroupBasePath, slicePath, "devices.allow")
+		denyFile := filepath.Join(cgroupBasePath, slicePath, "devices.deny")
 		_, err := os.Create(allowFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Create(denyFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Create(devicesFile)
+		Expect(err).ToNot(HaveOccurred())
+		err = ioutil.WriteFile(devicesFile, []byte("b 6:6 rwm"), 0644)
 		Expect(err).ToNot(HaveOccurred())
 		err = os.MkdirAll(filepath.Dir(deviceFile), 0755)
 		Expect(err).ToNot(HaveOccurred())
@@ -287,6 +302,16 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record)
 		Expect(err).ToNot(HaveOccurred())
+
+		//allow, err := ioutil.ReadFile(allowFile)
+		//list, err := ioutil.ReadFile(devicesFile)
+		//allowStr := string(allow)
+		//listStr := string(list)
+		//if err != nil || allowStr == "" || listStr == "" {
+		//
+		//}
+		//
+		//Expect(err).ToNot(HaveOccurred())
 		By("Verifying the block file exists")
 		_, err = os.Stat(filepath.Join(targetPodPath, "testvolume"))
 		Expect(err).ToNot(HaveOccurred())
@@ -843,6 +868,9 @@ var _ = Describe("HotplugVolume volumes", func() {
 				pid: 1,
 			}
 		}
+		//cgroupsBasePath = func() string {
+		//	return tempDir
+		//}
 	})
 
 	AfterEach(func() {

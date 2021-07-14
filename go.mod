@@ -40,8 +40,8 @@ require (
 	github.com/moby/sys/mountinfo v0.4.1
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
-	github.com/opencontainers/runc v1.0.0-rc92
-	github.com/opencontainers/selinux v1.6.0
+	github.com/opencontainers/runc v1.0.0-rc95
+	github.com/opencontainers/selinux v1.8.0
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
 	github.com/openshift/library-go v0.0.0-20200821154433-215f00df72cc
@@ -59,7 +59,7 @@ require (
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
 	golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
-	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4
+	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/grpc v1.30.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
