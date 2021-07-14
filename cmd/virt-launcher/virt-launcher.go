@@ -61,6 +61,9 @@ import (
 )
 
 const defaultStartTimeout = 3 * time.Minute
+const httpRequestTimeout = 10 * time.Second
+
+var httpClient = &http.Client{Timeout: httpRequestTimeout}
 
 func init() {
 	// must registry the event impl before doing anything else.
@@ -610,7 +613,7 @@ func RemoveContents(dir string) error {
 
 func terminateIstioProxy() {
 	if istioProxyPresent() {
-		resp, err := http.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", infraconfigurators.EnvoyMergedPrometheusTelemetryPort), "", nil)
+		resp, err := httpClient.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", infraconfigurators.EnvoyMergedPrometheusTelemetryPort), "", nil)
 		if err != nil || resp.StatusCode != http.StatusOK {
 			log.Log.Error("Failed to request Istio proxy termination")
 		}
@@ -618,8 +621,9 @@ func terminateIstioProxy() {
 }
 
 func istioProxyPresent() bool {
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", infraconfigurators.EnvoyHealthCheckPort))
+	resp, err := httpClient.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", infraconfigurators.EnvoyHealthCheckPort))
 	if err != nil {
+		log.Log.Reason(err).Error("error when checking for istio-proxy presence")
 		return false
 	}
 	if resp.Header.Get("server") == "envoy" {
