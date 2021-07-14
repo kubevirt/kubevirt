@@ -142,6 +142,90 @@ var _ = SIGDescribe("Storage", func() {
 
 			runHostPathJobAndExpectCompletion(pod)
 		}
+
+		Context("with error disk", func() {
+			var (
+				nodeName, address, device string
+
+				pvc *k8sv1.PersistentVolumeClaim
+			)
+
+			BeforeEach(func() {
+				nodeName = tests.NodeNameWithHandler()
+				address, device = tests.CreateErrorDisk(nodeName)
+				var err error
+				_, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, device, util.NamespaceTestDefault)
+				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
+			})
+
+			AfterEach(func() {
+				tests.RemoveErrorDisk(nodeName, address)
+			})
+
+			It("should pause VMI on IO error", func() {
+				By("Creating VMI with faulty disk")
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi = tests.AddPVCDisk(vmi, "pvc-disk", "virtio", pvc.Name)
+				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(BeNil(), "Failed to create vmi")
+
+				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 120)
+
+				By("Reading from disk")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "nohup sh -c \"sleep 10 && while true; do dd if=/dev/vdb of=/dev/null >/dev/null 2>/dev/null; done\" & \n"},
+					&expect.BExp{R: console.PromptExpression},
+				}, 20)).To(Succeed())
+
+				refresh := ThisVMI(vmi)
+				By("Expecting VMI to be paused")
+				Eventually(func() bool {
+					vmi, err := refresh()
+					Expect(err).ToNot(HaveOccurred())
+
+					for _, condition := range vmi.Status.Conditions {
+						if condition.Type == v1.VirtualMachineInstancePaused {
+							if condition.Status == k8sv1.ConditionTrue {
+								return true
+							}
+							return false
+						}
+					}
+					return false
+
+				}, 100*time.Second, time.Second).Should(BeTrue())
+
+				By("Fixing the device")
+				tests.FixErrorDevice(nodeName)
+
+				By("Expecting VMI to NOT be paused")
+				Eventually(func() bool {
+					vmi, err := refresh()
+					Expect(err).ToNot(HaveOccurred())
+
+					for _, condition := range vmi.Status.Conditions {
+						if condition.Type == v1.VirtualMachineInstancePaused {
+							if condition.Status == k8sv1.ConditionTrue {
+								return true
+							}
+							return false
+						}
+					}
+					return false
+
+				}, 100*time.Second, time.Second).Should(BeFalse())
+
+				By("Cleaning up")
+				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil(), "Failed to delete VMI")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
+
+		})
+
 		Context("with faulty disk", func() {
 
 			var (
@@ -155,7 +239,7 @@ var _ = SIGDescribe("Storage", func() {
 				nodeName = tests.NodeNameWithHandler()
 				tests.CreateFaultyDisk(nodeName, deviceName)
 				var err error
-				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, deviceName, util.NamespaceTestDefault)
+				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, util.NamespaceTestDefault)
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 			})
 

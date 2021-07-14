@@ -68,7 +68,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 
 		nodeName = tests.NodeNameWithHandler()
 		tests.CreateFaultyDisk(nodeName, deviceName)
-		pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, deviceName, util.NamespaceTestDefault)
+		pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, util.NamespaceTestDefault)
 		Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 	})
 	AfterEach(func() {
