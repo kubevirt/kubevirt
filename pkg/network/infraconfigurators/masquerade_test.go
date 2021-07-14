@@ -22,6 +22,7 @@ package infraconfigurators
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -35,9 +36,10 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 )
 
-type mockNetfilterFrontend func(*netdriver.MockNetworkHandler, iptables.Protocol, string, string, string, []int)
+type mockNetfilterFrontend func(*netdriver.MockNetworkHandler, iptables.Protocol, string, string, string, []int, map[string]string)
 
 var _ = Describe("Masquerade infrastructure configurator", func() {
 	var (
@@ -79,6 +81,14 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		return vmi
+	}
+
+	newIstioAwareVMIWithSingleInterface := func(namespace string, name string, ports ...int) *v1.VirtualMachineInstance {
+		vmi := newVMIMasqueradeInterface(namespace, name, ports...)
+		vmi.Annotations = map[string]string{
+			istio.ISTIO_INJECT_ANNOTATION: "true",
+		}
 		return vmi
 	}
 
@@ -231,6 +241,12 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 				table.Entry("IPTables backend on an IPv4 cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterIPTables),
+				table.Entry("NFTables backend on an IPv4 cluster when *reserved* ports are specified",
+					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList()...),
+					mockNetfilterNFTables),
+				table.Entry("NFTables backend on an IPv4 cluster when using an ISTIO aware VMI",
+					newIstioAwareVMIWithSingleInterface(namespace, vmName),
+					mockNetfilterNFTables),
 				table.Entry("NFTables backend on a dual stack cluster",
 					newVMIMasqueradeInterface(namespace, vmName),
 					mockNetfilterNFTables,
@@ -246,6 +262,14 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 				table.Entry("IPTables backend on a dual stack cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterIPTables,
+					iptables.ProtocolIPv6),
+				table.Entry("NFTables backend on a dual stack cluster when *reserved* ports are specified",
+					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList()...),
+					mockNetfilterNFTables,
+					iptables.ProtocolIPv6),
+				table.Entry("NFTables backend on a dual stack cluster when using an ISTIO aware VMI",
+					newIstioAwareVMIWithSingleInterface(namespace, vmName),
+					mockNetfilterNFTables,
 					iptables.ProtocolIPv6),
 			)
 		})
@@ -334,7 +358,7 @@ func mockNATNetfilterRules(configurator MasqueradePodNetworkConfigurator, dhcpCo
 			gwIP = dhcpConfig.AdvertisingIPv6Addr.String()
 		}
 		handler.EXPECT().ConfigureIpForwarding(proto).Return(nil)
-		mockFrontendFunc(handler, proto, getNFTIPString(proto), vmIP, gwIP, portList)
+		mockFrontendFunc(handler, proto, getNFTIPString(proto), vmIP, gwIP, portList, configurator.vmi.Annotations)
 	}
 }
 
@@ -346,20 +370,20 @@ func getVMPrimaryInterfacePortList(vmi v1.VirtualMachineInstance) []int {
 	return portList
 }
 
-func mockNetfilterIPTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int) {
+func mockNetfilterIPTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string) {
 	handler.EXPECT().NftablesLoad(proto).Return(fmt.Errorf("nft not found"))
 	handler.EXPECT().HasNatIptables(proto).Return(true)
 	mockIPTablesBackend(handler, proto, nftIPString, vmIP, gwIP, portList)
 }
 
-func mockNetfilterNFTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int) {
+func mockNetfilterNFTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string) {
 	handler.EXPECT().NftablesLoad(proto).Return(nil)
 	handler.EXPECT().HasNatIptables(proto).Return(true).Times(0)
 	handler.EXPECT().HasNatIptables(proto).Return(false).Times(0)
-	mockNFTablesFrontend(handler, proto, nftIPString, vmIP, gwIP, portList)
+	mockNFTablesFrontend(handler, proto, nftIPString, vmIP, gwIP, portList, vmiAnnotations)
 }
 
-func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int) {
+func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string) {
 	handler.EXPECT().GetNFTIPString(proto).Return(nftIPString).AnyTimes()
 	handler.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND").Return(nil)
 	handler.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND").Return(nil)
@@ -375,7 +399,11 @@ func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.
 	if len(portList) > 0 {
 		mockNFTablesBackendSpecificPorts(handler, proto, nftIPString, vmIP, gwIP, portList)
 	} else {
-		mockNFTablesBackendAllPorts(handler, proto, nftIPString, vmIP, gwIP)
+		if isIstioAware(vmiAnnotations) {
+			mockIstioNetfilterCalls(handler, proto, nftIPString, vmIP, gwIP)
+		} else {
+			mockNFTablesBackendAllPorts(handler, proto, nftIPString, vmIP, gwIP)
+		}
 	}
 }
 
@@ -499,8 +527,65 @@ func mockIPTablesBackendAllPorts(handler *netdriver.MockNetworkHandler, proto ip
 		vmIP).Return(nil)
 }
 
+func mockIstioNetfilterCalls(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string) {
+	for _, chain := range []string{"output", "KUBEVIRT_POSTINBOUND"} {
+		handler.EXPECT().NftablesAppendRule(proto, "nat",
+			chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(istio.ReservedPorts(), ", ")),
+			nftIPString, "saddr", GetLoopbackAdrress(proto), "counter", "return").Return(nil)
+	}
+
+	podIP := netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.35.0.2"), Mask: net.CIDRMask(24, 32)}}
+	srcAddressesToSnat := getSrcAddressesToSNAT(proto)
+	dstAddressesToDnat := getDstAddressesToDNAT(proto, podIP)
+	if proto == iptables.ProtocolIPv4 {
+		handler.EXPECT().ReadIPAddressesFromLink("eth0").Return(podIP.IP.String(), "", nil)
+	}
+	handler.EXPECT().NftablesAppendRule(proto, "nat",
+		"KUBEVIRT_POSTINBOUND", nftIPString, "saddr", fmt.Sprintf("{ %s }", strings.Join(srcAddressesToSnat, ", ")),
+		"counter", "snat", "to", gwIP).Return(nil)
+	handler.EXPECT().NftablesAppendRule(proto, "nat",
+		"output", nftIPString, "daddr", fmt.Sprintf("{ %s }", strings.Join(dstAddressesToDnat, ", ")),
+		"counter", "dnat", "to", vmIP).Return(nil)
+	handler.EXPECT().NftablesAppendRule(proto, "nat",
+		"KUBEVIRT_PREINBOUND",
+		"counter", "dnat", "to", vmIP).Return(nil).Times(0)
+}
+
 func protocols(optionalIPProtocol ...iptables.Protocol) []iptables.Protocol {
 	return append(
 		[]iptables.Protocol{iptables.ProtocolIPv4},
 		optionalIPProtocol...)
+}
+
+func getReservedPortList() []int {
+	var portList []int
+	for _, port := range PortsUsedByLiveMigration() {
+		intPort, err := strconv.ParseInt(port, 10, 64)
+		if err != nil {
+			Panic()
+		}
+		portList = append(portList, int(intPort))
+	}
+	return portList
+}
+
+func isIstioAware(vmiAnnotations map[string]string) bool {
+	istioAnnotationValue, ok := vmiAnnotations[istio.ISTIO_INJECT_ANNOTATION]
+	return ok && strings.ToLower(istioAnnotationValue) == "true"
+}
+
+func getSrcAddressesToSNAT(proto iptables.Protocol) []string {
+	srcAddressesToSnat := []string{GetLoopbackAdrress(proto)}
+	if proto == iptables.ProtocolIPv4 {
+		srcAddressesToSnat = append(srcAddressesToSnat, istio.GetLoopbackAddress())
+	}
+	return srcAddressesToSnat
+}
+
+func getDstAddressesToDNAT(proto iptables.Protocol, podIP netlink.Addr) []string {
+	dstAddressesToDnat := []string{GetLoopbackAdrress(proto)}
+	if proto == iptables.ProtocolIPv4 {
+		dstAddressesToDnat = append(dstAddressesToDnat, podIP.IP.String())
+	}
+	return dstAddressesToDnat
 }
