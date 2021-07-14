@@ -35,12 +35,7 @@ func SetNonRootDefault() {
 
 // For testing
 func MockDefaultOwnershipManager() {
-	owner, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-
-	DefaultOwnershipManager = &OwnershipManager{user: owner.Username}
+	DefaultOwnershipManager = &nonOpManager{}
 }
 
 type nonOpManager struct {

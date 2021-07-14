@@ -31,6 +31,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/network/cache:go_default_library",
         "//pkg/network/driver:go_default_library",
         "//pkg/network/link:go_default_library",
