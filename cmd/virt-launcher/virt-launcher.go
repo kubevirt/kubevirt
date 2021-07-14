@@ -35,9 +35,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/util/retry"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -62,8 +65,6 @@ import (
 
 const defaultStartTimeout = 3 * time.Minute
 const httpRequestTimeout = 10 * time.Second
-
-var httpClient = &http.Client{Timeout: httpRequestTimeout}
 
 func init() {
 	// must registry the event impl before doing anything else.
@@ -612,22 +613,54 @@ func RemoveContents(dir string) error {
 }
 
 func terminateIstioProxy() {
-	if istioProxyPresent() {
-		resp, err := httpClient.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", infraconfigurators.EnvoyMergedPrometheusTelemetryPort), "", nil)
-		if err != nil || resp.StatusCode != http.StatusOK {
-			log.Log.Error("Failed to request Istio proxy termination")
+	httpClient := &http.Client{Timeout: httpRequestTimeout}
+	if istioProxyPresent(httpClient) {
+		isRetriable := func(err error) bool {
+			if net.IsConnectionReset(err) || net.IsConnectionRefused(err) || k8serrors.IsServiceUnavailable(err) {
+				return true
+			}
+			return false
+		}
+		err := retry.OnError(retry.DefaultBackoff, isRetriable, func() error {
+			resp, err := httpClient.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", infraconfigurators.EnvoyMergedPrometheusTelemetryPort), "", nil)
+			if err != nil {
+				log.Log.Reason(err).Error("failed to request istio-proxy termination, retrying...")
+				return err
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				log.Log.Errorf("status code received: %d", resp.StatusCode)
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			log.Log.Reason(err).Error("all attempts to terminate istio-proxy failed")
 		}
 	}
 }
 
-func istioProxyPresent() bool {
-	resp, err := httpClient.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", infraconfigurators.EnvoyHealthCheckPort))
-	if err != nil {
-		log.Log.Reason(err).Error("error when checking for istio-proxy presence")
+func istioProxyPresent(httpClient *http.Client) bool {
+	isRetriable := func(err error) bool {
+		if net.IsConnectionReset(err) || net.IsConnectionRefused(err) {
+			return true
+		}
 		return false
 	}
-	if resp.Header.Get("server") == "envoy" {
-		return true
+	err := retry.OnError(retry.DefaultBackoff, isRetriable, func() error {
+		resp, err := httpClient.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", infraconfigurators.EnvoyHealthCheckPort))
+		if err != nil {
+			log.Log.Reason(err).Error("error when checking for istio-proxy presence")
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.Header.Get("server") == "envoy" {
+			return nil
+		}
+		return fmt.Errorf("received response from non-istio health server: %s", resp.Header.Get("server"))
+	})
+	if err != nil {
+		return false
 	}
-	return false
+	return true
 }
