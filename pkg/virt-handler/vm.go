@@ -2411,6 +2411,15 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	}
 
+	res, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(path.Join(res.MountRoot(), "dev", "kvm")); err != nil {
+		return err
+	}
+
 	if virtutil.IsNonRootVMI(vmi) {
 		if err := d.nonRootSetup(origVMI, vmi); err != nil {
 			return err
@@ -2491,6 +2500,15 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			}
 
 		}
+
+		res, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(path.Join(res.MountRoot(), "dev", "kvm")); err != nil {
+			return err
+		}
+
 		if virtutil.IsNonRootVMI(vmi) {
 			if err := d.nonRootSetup(origVMI, vmi); err != nil {
 				return err
