@@ -1036,6 +1036,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
+	if checkForKeepLauncherAfterFailure(vmi) {
+		command = append(command, "--keep-after-failure")
+	}
+
 	// Add ports from interfaces to the pod manifest
 	ports := getPortsFromVMI(vmi)
 
@@ -2104,4 +2108,17 @@ func filterVMIAnnotationsForPod(vmiAnnotations map[string]string) map[string]str
 		annotationsList[k] = v
 	}
 	return annotationsList
+}
+
+func checkForKeepLauncherAfterFailure(vmi *v1.VirtualMachineInstance) bool {
+	keepLauncherAfterFailure := false
+	for k, v := range vmi.Annotations {
+		if strings.HasPrefix(k, v1.KeepLauncherAfterFailureAnnotation) {
+			if v == "" || strings.HasPrefix(v, "true") {
+				keepLauncherAfterFailure = true
+				break
+			}
+		}
+	}
+	return keepLauncherAfterFailure
 }
