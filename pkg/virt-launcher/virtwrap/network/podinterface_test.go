@@ -21,6 +21,7 @@ package network
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"runtime"
@@ -38,7 +39,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -89,7 +89,10 @@ var _ = Describe("Pod Network", func() {
 	var libvirtUser string
 
 	BeforeEach(func() {
-		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
+		var err error
+		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
+		Expect(err).ToNot(HaveOccurred())
+		cacheFactory = cache.NewInterfaceCacheFactoryWithBasePath(tmpDir)
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)

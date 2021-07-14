@@ -20,16 +20,32 @@
 package network
 
 import (
+	"io/ioutil"
+	"os"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/kubevirt/pkg/network/cache/fake"
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("VMNetworkConfigurator", func() {
+	var (
+		tmpDir                string
+		interfaceCacheFactory cache.InterfaceCacheFactory
+	)
+	BeforeEach(func() {
+		var err error
+		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
+		Expect(err).ToNot(HaveOccurred())
+		interfaceCacheFactory = cache.NewInterfaceCacheFactoryWithBasePath(tmpDir)
+	})
+	AfterEach(func() {
+		os.RemoveAll(tmpDir)
+	})
 	Context("interface configuration", func() {
 
 		Context("when vm has no network source", func() {
@@ -43,7 +59,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{},
 				}}
-				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
+				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, interfaceCacheFactory)
 			})
 			It("should propagate errors when phase1 is called", func() {
 				launcherPID := 0
@@ -60,7 +76,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			It("should configure bridged pod networking by default", func() {
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, interfaceCacheFactory)
 				iface := v1.DefaultBridgeNetworkInterface()
 				defaultNet := v1.DefaultPodNetwork()
 				launcherPID := 0
@@ -84,7 +100,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			})
 			It("should accept empty network list", func() {
 				vmi := newVMI("testnamespace", "testVmName")
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, interfaceCacheFactory)
 				launcherPID := 0
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())
@@ -101,7 +117,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					},
 				}
 				vmi.Spec.Networks = []v1.Network{*cniNet}
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, fake.NewFakeInMemoryNetworkCacheFactory())
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, interfaceCacheFactory)
 				launcherPID := 0
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())
@@ -168,7 +184,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 				vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
 
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, fake.NewFakeInMemoryNetworkCacheFactory())
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, interfaceCacheFactory)
 				launcherPID := 0
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
 				Expect(err).ToNot(HaveOccurred())

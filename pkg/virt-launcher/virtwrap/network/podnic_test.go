@@ -2,7 +2,9 @@ package network
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 	"runtime"
 
 	. "github.com/onsi/ginkgo"
@@ -13,7 +15,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	"kubevirt.io/kubevirt/pkg/network/dhcp"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
@@ -28,6 +29,7 @@ var _ = Describe("podNIC", func() {
 		mockPodNetworkConfigurator *infraconfigurators.MockPodNetworkInfraConfigurator
 		mockDHCPConfigurator       *dhcp.MockConfigurator
 		ctrl                       *gomock.Controller
+		tmpDir                     string
 	)
 
 	newPhase1PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
@@ -48,7 +50,10 @@ var _ = Describe("podNIC", func() {
 		return podnic, nil
 	}
 	BeforeEach(func() {
-		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
+		var err error
+		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
+		Expect(err).ToNot(HaveOccurred())
+		cacheFactory = cache.NewInterfaceCacheFactoryWithBasePath(tmpDir)
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
@@ -56,6 +61,7 @@ var _ = Describe("podNIC", func() {
 		mockDHCPConfigurator = dhcp.NewMockConfigurator(ctrl)
 	})
 	AfterEach(func() {
+		os.RemoveAll(tmpDir)
 		ctrl.Finish()
 	})
 	When("reading networking configuration succeed", func() {

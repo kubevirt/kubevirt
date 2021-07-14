@@ -21,8 +21,7 @@ var _ = Describe("Infocache", func() {
 		var err error
 		tmpDir, err = ioutil.TempDir("", "cache")
 		Expect(err).ToNot(HaveOccurred())
-		cacheFactory = NewInterfaceCacheFactory()
-		cacheFactory.baseDir = tmpDir
+		cacheFactory = NewInterfaceCacheFactoryWithBasePath(tmpDir)
 	})
 
 	AfterEach(func() {

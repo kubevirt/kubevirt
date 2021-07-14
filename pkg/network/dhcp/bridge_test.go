@@ -1,6 +1,9 @@
 package dhcp
 
 import (
+	"io/ioutil"
+	"os"
+
 	"github.com/golang/mock/gomock"
 	"github.com/vishvananda/netlink"
 
@@ -9,7 +12,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 )
@@ -24,20 +26,25 @@ var _ = Describe("Bridge DHCP configurator", func() {
 	var mockHandler *netdriver.MockNetworkHandler
 	var ctrl *gomock.Controller
 	var generator BridgeConfigGenerator
+	var tmpDir string
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockHandler = netdriver.NewMockNetworkHandler(ctrl)
+		var err error
+		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
+		os.RemoveAll(tmpDir)
 		ctrl.Finish()
 	})
 
 	Context("Generate", func() {
 		var cacheFactory cache.InterfaceCacheFactory
 		BeforeEach(func() {
-			cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
+			cacheFactory = cache.NewInterfaceCacheFactoryWithBasePath(tmpDir)
 		})
 		It("Should fail", func() {
 			generator = BridgeConfigGenerator{

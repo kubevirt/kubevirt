@@ -35,7 +35,6 @@ import (
 	"k8s.io/client-go/testing"
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
-	fakenetcache "kubevirt.io/kubevirt/pkg/network/cache/fake"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
@@ -206,7 +205,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			nil,
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
-		controller.networkCacheStoreFactory = fakenetcache.NewFakeInMemoryNetworkCacheFactory()
+		controller.networkCacheStoreFactory = netcache.NewInterfaceCacheFactoryWithBasePath(shareDir)
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
 
 		vmiTestUUID = uuid.NewUUID()
