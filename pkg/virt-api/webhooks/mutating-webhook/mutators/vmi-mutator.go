@@ -330,5 +330,5 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 
 func canBeNonRoot(vmi *v1.VirtualMachineInstance) bool {
 	// VirtioFS doesn't work with session mode
-	return !util.IsVMIVirtiofsEnabled(vmi)
+	return !util.IsVMIVirtiofsEnabled(vmi) && !util.IsSRIOVVmi(vmi)
 }
