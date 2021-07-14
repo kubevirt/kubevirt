@@ -133,7 +133,7 @@ func parseVector(value model.Value) ([]metric, error) {
 }
 
 func (m *MetricClient) getCreationToRunningTimePercentile(percentile int) (float64, error) {
-	query := fmt.Sprintf(vmiCreationTimePercentileQuery, percentile, int(m.cfg.Duration.Seconds()))
+	query := fmt.Sprintf(vmiCreationTimePercentileQuery, percentile, int(m.cfg.GetDuration().Seconds()))
 
 	val, err := m.query(query)
 	if err != nil {
