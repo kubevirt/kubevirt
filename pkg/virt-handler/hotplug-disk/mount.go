@@ -15,6 +15,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/opencontainers/runc/libcontainer/cgroups/ebpf"
+	"github.com/opencontainers/runc/libcontainer/cgroups/ebpf/devicefilter"
+	"github.com/opencontainers/runc/libcontainer/userns"
+	"golang.org/x/sys/unix"
+
+	"github.com/opencontainers/runc/libcontainer/cgroups"
+
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -480,11 +487,27 @@ func (m *volumeMounter) getTargetCgroupPath(vmi *v1.VirtualMachineInstance) (str
 }
 
 func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, path string) error {
-	return m.updateBlockMajorMinor(major, minor, path, false)
+	idx := strings.Index(path, "/sys/fs/cgroup/")
+	chrootPath := path[:idx] // ihol3 rename me
+	newPath := path[idx:]
+
+	update := func() error {
+		return m.updateBlockMajorMinor(major, minor, newPath, false)
+	}
+
+	return cgroup.RunWithChroot(chrootPath, update)
 }
 
 func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, path string) error {
-	return m.updateBlockMajorMinor(major, minor, path, true)
+	idx := strings.Index(path, "/sys/fs/cgroup/")
+	chrootPath := path[:idx] // ihol3 rename me
+	newPath := path[idx:]
+
+	update := func() error {
+		return m.updateBlockMajorMinor(major, minor, newPath, true)
+	}
+	return cgroup.RunWithChroot(chrootPath, update)
+	//return m.updateBlockMajorMinor(major, minor, path, true)
 }
 
 func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, allow bool) error {
@@ -495,10 +518,53 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, a
 		Permissions: "rwm",
 		Allow:       allow,
 	}
-	if err := m.updateDevicesList(path, deviceRule); err != nil {
-		return err
+
+	//var manager cgroups.Manager
+	//var err error
+	//var config *configs.Cgroup
+	//var dirPath string
+	//var rootless bool
+	//dirPath = path
+
+	if !cgroups.IsCgroup2UnifiedMode() {
+		// ihol3
+		// key is cgroup. how do I get it?
+		//cgroups.cgrou
+		//manager = fs.NewManager(config, map[string]string{"devices": dirPath}, rootless)
+		//deviceManager := manager.(*fs.DevicesGroup)
+		//manager.
+
+		if err := m.updateDevicesList(path, deviceRule); err != nil {
+			return err
+		} else {
+			return nil
+		}
+	} else {
+		//manager, err = fs2.NewManager(config, dirPath, rootless)
+		resourceConfig := &configs.Resources{
+			Devices:     []*devices.Rule{deviceRule},
+			SkipDevices: false,
+		}
+		if err := m.setDevices(path, resourceConfig); err != nil {
+			return err
+		} else {
+			return nil
+		}
 	}
-	return nil
+	//path_cgroups := manager.Path()
+	//
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//err = manager.Set(&configs.Resources{
+	//	Devices: []*devices.Rule{deviceRule},
+	//})
+	//if err != nil {
+	//	return err
+	//}
+
+	//return nil
 }
 
 func (m *volumeMounter) loadEmulator(path string) (*devices_emulator.Emulator, error) {
@@ -804,4 +870,80 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		return isBlockExists, nil
 	}
 	return isMounted(filepath.Join(targetPath, fmt.Sprintf("%s.img", volume)))
+}
+
+func (m *volumeMounter) setDevices(dirPath string, r *configs.Resources) error {
+	if r.SkipDevices {
+		return nil
+	}
+	// XXX: This is currently a white-list (but all callers pass a blacklist of
+	//      devices). This is bad for a whole variety of reasons, but will need
+	//      to be fixed with co-ordinated effort with downstreams.
+	insts, license, err := devicefilter.DeviceFilter(r.Devices)
+	if err != nil {
+		return err
+	}
+	dirFD, err := unix.Open(dirPath, unix.O_DIRECTORY|unix.O_RDONLY, 0600)
+	if err != nil {
+		return fmt.Errorf("cannot get dir FD for %s", dirPath)
+	}
+	defer unix.Close(dirFD)
+	// XXX: This code is currently incorrect when it comes to updating an
+	//      existing cgroup with new rules (new rulesets are just appended to
+	//      the program list because this uses BPF_F_ALLOW_MULTI). If we didn't
+	//      use BPF_F_ALLOW_MULTI we could actually atomically swap the
+	//      programs.
+	//
+	//      The real issue is that BPF_F_ALLOW_MULTI makes it hard to have a
+	//      race-free blacklist because it acts as a whitelist by default, and
+	//      having a deny-everything program cannot be overridden by other
+	//      programs. You could temporarily insert a deny-everything program
+	//      but that would result in spurrious failures during updates.
+	if _, err := ebpf.LoadAttachCgroupDeviceFilter(insts, license, dirFD); err != nil {
+		if !canSkipEBPFError(r) {
+			return err
+		}
+	}
+	return nil
+}
+
+// This is similar to the logic applied in crun for handling errors from bpf(2)
+// <https://github.com/containers/crun/blob/0.17/src/libcrun/cgroup.c#L2438-L2470>.
+func canSkipEBPFError(r *configs.Resources) bool {
+	// If we're running in a user namespace we can ignore eBPF rules because we
+	// usually cannot use bpf(2), as well as rootless containers usually don't
+	// have the necessary privileges to mknod(2) device inodes or access
+	// host-level instances (though ideally we would be blocking device access
+	// for rootless containers anyway).
+	if userns.RunningInUserNS() {
+		return true
+	}
+
+	// We cannot ignore an eBPF load error if any rule if is a block rule or it
+	// doesn't permit all access modes.
+	//
+	// NOTE: This will sometimes trigger in cases where access modes are split
+	//       between different rules but to handle this correctly would require
+	//       using ".../libcontainer/cgroup/devices".Emulator.
+	for _, dev := range r.Devices {
+		if !dev.Allow || !isRWM(dev.Permissions) {
+			return false
+		}
+	}
+	return true
+}
+
+func isRWM(perms devices.Permissions) bool {
+	var r, w, m bool
+	for _, perm := range perms {
+		switch perm {
+		case 'r':
+			r = true
+		case 'w':
+			w = true
+		case 'm':
+			m = true
+		}
+	}
+	return r && w && m
 }

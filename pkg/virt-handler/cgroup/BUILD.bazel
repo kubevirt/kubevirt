@@ -4,13 +4,21 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cgroup.go",
+        "cgroup_v1_manager.go",
+        "cgroup_v2_manager.go",
         "generated_mock_cgroup.go",
+        "generated_mock_new_cgroup.go",
+        "new_cgroup.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/cgroup",
     visibility = ["//visibility:public"],
     deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
     ],
 )
 

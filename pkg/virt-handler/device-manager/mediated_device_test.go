@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	v1 "kubevirt.io/client-go/api/v1"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-
-	v1 "kubevirt.io/client-go/api/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
