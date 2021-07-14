@@ -91,7 +91,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		})
 
-		shouldExpectDataVolumeCreation := func(uid types.UID, labels map[string]string, annotations map[string]string, idx *int) {
+		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
 			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
@@ -100,8 +100,13 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(dataVolume.ObjectMeta.OwnerReferences[0].UID).To(Equal(uid))
 				Expect(dataVolume.ObjectMeta.Labels).To(Equal(labels))
 				Expect(dataVolume.ObjectMeta.Annotations).To(Equal(annotations))
+				Expect(dataVolume.Spec.PriorityClassName).To(Equal(priorityClassName))
 				return true, update.GetObject(), nil
 			})
+		}
+
+		shouldExpectDataVolumeCreation := func(uid types.UID, labels map[string]string, annotations map[string]string, idx *int) {
+			shouldExpectDataVolumeCreationPriorityClass(uid, labels, annotations, "", idx)
 		}
 
 		shouldExpectDataVolumeDeletion := func(uid types.UID, idx *int) {
@@ -631,6 +636,42 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(createCount).To(Equal(2))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
+
+		table.DescribeTable("should properly set priority class", func(dvPriorityClass, vmPriorityClass, expectedPriorityClass string) {
+			vm, _ := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					PriorityClassName: dvPriorityClass,
+				},
+			})
+			vm.Spec.Template.Spec.PriorityClassName = vmPriorityClass
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
+			addVirtualMachine(vm)
+
+			createCount := 0
+			shouldExpectDataVolumeCreationPriorityClass(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, expectedPriorityClass, &createCount)
+
+			controller.Execute()
+			Expect(createCount).To(Equal(1))
+			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+		},
+			table.Entry("when dv priorityclass is not defined and VM priorityclass is defined", "", "vmpriority", "vmpriority"),
+			table.Entry("when dv priorityclass is defined and VM priorityclass is defined", "dvpriority", "vmpriority", "dvpriority"),
+			table.Entry("when dv priorityclass is defined and VM priorityclass is not defined", "dvpriority", "", "dvpriority"),
+			table.Entry("when dv priorityclass is not defined and VM priorityclass is not defined", "", "", ""),
+		)
 
 		Context("clone authorization tests", func() {
 			dv1 := &v1.DataVolumeTemplateSpec{

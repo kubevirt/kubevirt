@@ -349,6 +349,10 @@ func createDataVolumeManifest(dataVolumeTemplate *virtv1.DataVolumeTemplateSpec,
 	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{
 		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
+
+	if newDataVolume.Spec.PriorityClassName == "" && vm.Spec.Template.Spec.PriorityClassName != "" {
+		newDataVolume.Spec.PriorityClassName = vm.Spec.Template.Spec.PriorityClassName
+	}
 	return newDataVolume
 }
 
