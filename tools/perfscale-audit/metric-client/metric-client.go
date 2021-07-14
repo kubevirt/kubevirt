@@ -35,6 +35,10 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+const (
+	vmiCreationTimePercentileQuery = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds]))`
+)
+
 type transport struct {
 	transport http.RoundTripper
 	userName  string
@@ -129,7 +133,7 @@ func parseVector(value model.Value) ([]metric, error) {
 }
 
 func (m *MetricClient) getCreationToRunningTimePercentile(percentile int) (float64, error) {
-	query := fmt.Sprintf(`histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds]))`, percentile, int(m.cfg.Duration.Seconds()))
+	query := fmt.Sprintf(vmiCreationTimePercentileQuery, percentile, int(m.cfg.Duration.Seconds()))
 
 	val, err := m.query(query)
 	if err != nil {
@@ -152,17 +156,14 @@ func (m *MetricClient) GenerateResults() (*audit_api.Result, error) {
 	var err error
 	r := &audit_api.Result{}
 
-	r.PhaseTransitionPercentiles.P99CreationToRunning, err = m.getCreationToRunningTimePercentile(99)
-	if err != nil {
-		return nil, err
-	}
-	r.PhaseTransitionPercentiles.P95CreationToRunning, err = m.getCreationToRunningTimePercentile(95)
-	if err != nil {
-		return nil, err
-	}
-	r.PhaseTransitionPercentiles.P50CreationToRunning, err = m.getCreationToRunningTimePercentile(50)
-	if err != nil {
-		return nil, err
+	percentiles := []int{99, 95, 50}
+	r.PhaseTransitionPercentiles.SecondsFromCreationToRunningPercentiles = make(map[int]float64)
+
+	for _, percentile := range percentiles {
+		r.PhaseTransitionPercentiles.SecondsFromCreationToRunningPercentiles[percentile], err = m.getCreationToRunningTimePercentile(percentile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return r, nil
