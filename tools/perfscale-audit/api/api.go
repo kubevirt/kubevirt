@@ -27,6 +27,30 @@ import (
 	"time"
 )
 
+type Duration time.Duration
+
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Duration(d).String())
+}
+
+func (d *Duration) UnmarshalJSON(b []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	switch value := v.(type) {
+	case string:
+		tmp, err := time.ParseDuration(value)
+		if err != nil {
+			return err
+		}
+		*d = Duration(tmp)
+		return nil
+	default:
+		return fmt.Errorf("invalid duration")
+	}
+}
+
 type InputConfig struct {
 
 	// StartTime when set, represents the beginning of the metric time range
@@ -38,13 +62,18 @@ type InputConfig struct {
 	// Duration represents how long to go back from EndTime when creating the metric time range
 	// This is mutually exclusive with the StartTime value. Only one of these
 	// two values can be set.
-	Duration *time.Duration `json:"duration,omitempty"`
+	Duration *Duration `json:"duration,omitempty"`
 
 	PrometheusURL         string `json:"prometheusURL"`
 	PrometheusUserName    string `json:"prometheusUserName"`
 	PrometheusPassword    string `json:"prometheusPassword"`
 	PrometheusBearerToken string `json:"prometheusBearerToken"`
 	PrometheusVerifyTLS   bool   `json:"prometheusVerifyTLS"`
+}
+
+func (i *InputConfig) GetDuration() time.Duration {
+	return time.Duration(*i.Duration)
+
 }
 
 type ResultPhaseTransitionPercentiles struct {
@@ -106,13 +135,14 @@ func ReadInputFile(filePath string) (*InputConfig, error) {
 		defaultDuration := 10 * time.Minute
 		startTime := cfg.EndTime.Add(-1 * defaultDuration)
 
+		duration := Duration(defaultDuration)
 		cfg.StartTime = &startTime
-		cfg.Duration = &defaultDuration
+		cfg.Duration = &duration
 	} else if cfg.StartTime == nil {
-		startTime := cfg.EndTime.Add(-1 * (*cfg.Duration))
+		startTime := cfg.EndTime.Add(-1 * time.Duration(*cfg.Duration))
 		cfg.StartTime = &startTime
 	} else if cfg.Duration == nil {
-		duration := cfg.EndTime.Sub(*cfg.StartTime)
+		duration := Duration(cfg.EndTime.Sub(*cfg.StartTime))
 		cfg.Duration = &duration
 	}
 
