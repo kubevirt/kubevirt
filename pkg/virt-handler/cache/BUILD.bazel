@@ -2,11 +2,15 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["cache.go"],
+    srcs = [
+        "cache.go",
+        "maps.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/cache",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/network/cache:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",

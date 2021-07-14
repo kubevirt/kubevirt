@@ -236,11 +236,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 		time.Sleep(1 * time.Second)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		clientInfo := &launcherClientInfo{
-			client:             client,
-			socketFile:         sockFile,
-			domainPipeStopChan: make(chan struct{}),
-			ready:              true,
+		clientInfo := &virtcache.LauncherClientInfo{
+			Client:             client,
+			SocketFile:         sockFile,
+			DomainPipeStopChan: make(chan struct{}),
+			Ready:              true,
 		}
 		controller.addLauncherClient(vmiTestUUID, clientInfo)
 
@@ -316,11 +316,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			uid := "1234"
 
 			legacyMockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
-			clientInfo := &launcherClientInfo{
-				client:             client,
-				socketFile:         legacyMockSockFile,
-				domainPipeStopChan: make(chan struct{}),
-				ready:              true,
+			clientInfo := &virtcache.LauncherClientInfo{
+				Client:             client,
+				SocketFile:         legacyMockSockFile,
+				DomainPipeStopChan: make(chan struct{}),
+				Ready:              true,
 			}
 			controller.addLauncherClient(types.UID(uid), clientInfo)
 			err := virtcache.AddGhostRecord(namespace, name, legacyMockSockFile, types.UID(uid))
@@ -473,10 +473,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			//Did not initialize yet
-			clientInfo := &launcherClientInfo{
-				domainPipeStopChan:  make(chan struct{}),
-				ready:               false,
-				notInitializedSince: time.Now().Add(-1 * time.Minute),
+			clientInfo := &virtcache.LauncherClientInfo{
+				DomainPipeStopChan:  make(chan struct{}),
+				Ready:               false,
+				NotInitializedSince: time.Now().Add(-1 * time.Minute),
 			}
 			controller.addLauncherClient(vmi.UID, clientInfo)
 
@@ -498,10 +498,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			//Did not initialize yet
-			clientInfo := &launcherClientInfo{
-				domainPipeStopChan:  make(chan struct{}),
-				ready:               false,
-				notInitializedSince: time.Now().Add(-4 * time.Minute),
+			clientInfo := &virtcache.LauncherClientInfo{
+				DomainPipeStopChan:  make(chan struct{}),
+				Ready:               false,
+				NotInitializedSince: time.Now().Add(-4 * time.Minute),
 			}
 			controller.addLauncherClient(vmi.UID, clientInfo)
 
@@ -524,7 +524,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockWatchdog.CreateFile(oldVMI)
 			// the domain is dead because the watchdog is expired
 			mockWatchdog.Expire(oldVMI)
-			controller.phase1NetworkSetupCache[oldVMI.UID] = 1
+			controller.phase1NetworkSetupCache.Store(oldVMI.UID, 1)
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
@@ -534,7 +534,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
 			Expect(os.IsNotExist(err)).To(BeTrue())
-			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(0))
+			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(0))
 		}, 3)
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
@@ -544,7 +544,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 
-			controller.phase1NetworkSetupCache[vmi.UID] = 1
+			controller.phase1NetworkSetupCache.Store(vmi.UID, 1)
 			vmiFeeder.Add(vmi)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 			client.EXPECT().Close()
@@ -553,7 +553,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeTrue())
-			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(0))
+			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(0))
 		}, 3)
 
 		It("should do final cleanup if vmi is being deleted and not finalized", func() {
@@ -572,7 +572,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 
-			controller.phase1NetworkSetupCache[vmi.UID] = 1
+			controller.phase1NetworkSetupCache.Store(vmi.UID, 1)
 			vmiFeeder.Add(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
@@ -583,7 +583,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeFalse())
-			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(1))
+			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(1))
 		}, 3)
 
 		It("should attempt force terminate Domain if grace period expires", func() {
@@ -655,7 +655,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIDefined)
-			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(1))
+			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(1))
 		})
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
@@ -2353,7 +2353,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIStarted)
-			Expect(len(controller.podInterfaceCache)).To(Equal(1))
+			Expect(controller.podInterfaceCache.Size()).To(Equal(1))
 		})
 
 		table.DescribeTable("Should update masquerade interface with the pod IP", func(podIPs ...string) {
