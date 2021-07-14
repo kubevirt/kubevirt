@@ -991,6 +991,7 @@ rpmtree(
     symlinks = {
         "/var/run": "../run",
         "/usr/bin/qemu-kvm": "/usr/libexec/qemu-kvm",
+        "/etc/ssl/certs/ca-certificates.crt": "/usr/share/pki/ca-trust-source/ca-bundle.trust.p11-kit",
     },
     visibility = ["//visibility:public"],
 )
