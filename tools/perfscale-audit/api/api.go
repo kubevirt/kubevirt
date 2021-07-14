@@ -48,9 +48,7 @@ type InputConfig struct {
 }
 
 type ResultPhaseTransitionPercentiles struct {
-	P99CreationToRunning float64 `json:"p99CreationToRunning"`
-	P95CreationToRunning float64 `json:"p95CreationToRunning"`
-	P50CreationToRunning float64 `json:"950CreationToRunning"`
+	SecondsFromCreationToRunningPercentiles map[int]float64 `json:"secondsFromCreationToRunningPercentiles"`
 }
 type Result struct {
 	PhaseTransitionPercentiles ResultPhaseTransitionPercentiles `json:"phaseTransitionPercentiles"`
@@ -106,12 +104,12 @@ func ReadInputFile(filePath string) (*InputConfig, error) {
 
 	if cfg.StartTime == nil && cfg.Duration == nil {
 		defaultDuration := 10 * time.Minute
-		startTime := cfg.EndTime.Add(defaultDuration * -1)
+		startTime := cfg.EndTime.Add(-1 * defaultDuration)
 
 		cfg.StartTime = &startTime
 		cfg.Duration = &defaultDuration
 	} else if cfg.StartTime == nil {
-		startTime := cfg.EndTime.Add(*cfg.Duration * -1)
+		startTime := cfg.EndTime.Add(-1 * (*cfg.Duration))
 		cfg.StartTime = &startTime
 	} else if cfg.Duration == nil {
 		duration := cfg.EndTime.Sub(*cfg.StartTime)
