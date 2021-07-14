@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
+	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -437,6 +438,14 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec", "template", "spec"), &vmi.Spec, admitter.ClusterConfig)
 		if len(causes) > 0 {
 			return causes, nil
+		}
+
+		if migrationutil.IsMigrating(vmi) {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("Cannot handle volume requests while VMI migration is in progress"),
+				Field:   k8sfield.NewPath("spec").String(),
+			}}, nil
 		}
 	}
 
