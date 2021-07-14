@@ -22,6 +22,7 @@ go_library(
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/devices:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fscommon:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library",
         "//vendor/github.com/pkg/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],

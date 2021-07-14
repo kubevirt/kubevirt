@@ -23,9 +23,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups/devices"
+	devices_emulator "github.com/opencontainers/runc/libcontainer/cgroups/devices"
 	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
 	"github.com/opencontainers/runc/libcontainer/configs"
+
+	"github.com/opencontainers/runc/libcontainer/devices"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -486,8 +488,8 @@ func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, path string) er
 }
 
 func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, allow bool) error {
-	deviceRule := &configs.DeviceRule{
-		Type:        configs.BlockDevice,
+	deviceRule := &devices.Rule{
+		Type:        devices.BlockDevice,
 		Major:       major,
 		Minor:       minor,
 		Permissions: "rwm",
@@ -499,12 +501,12 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, a
 	return nil
 }
 
-func (m *volumeMounter) loadEmulator(path string) (*devices.Emulator, error) {
+func (m *volumeMounter) loadEmulator(path string) (*devices_emulator.Emulator, error) {
 	list, err := fscommon.ReadFile(path, "devices.list")
 	if err != nil {
 		return nil, err
 	}
-	return devices.EmulatorFromList(bytes.NewBufferString(list))
+	return devices_emulator.EmulatorFromList(bytes.NewBufferString(list))
 }
 
 func (m *volumeMounter) updateDevicesList(path string, rule *configs.DeviceRule) error {
