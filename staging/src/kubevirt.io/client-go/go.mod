@@ -27,7 +27,6 @@ require (
 )
 
 replace (
-
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 	github.com/onsi/ginkgo => github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega => github.com/onsi/gomega v1.10.1

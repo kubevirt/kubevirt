@@ -80,7 +80,6 @@ require (
 )
 
 replace (
-
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
 	github.com/onsi/ginkgo => github.com/onsi/ginkgo v1.12.1

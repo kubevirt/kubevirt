@@ -45,7 +45,7 @@ func GetCloneSource(ctx context.Context, client kubecli.KubevirtClient, vm *virt
 		if cloneSource.Namespace == "" {
 			cloneSource.Namespace = vm.Namespace
 		}
-	} else if dvSpec.SourceRef != nil {
+	} else if dvSpec.SourceRef != nil && dvSpec.SourceRef.Kind == "DataSource" {
 		ns := vm.Namespace
 		if dvSpec.SourceRef.Namespace != nil {
 			ns = *dvSpec.SourceRef.Namespace
