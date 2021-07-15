@@ -40,13 +40,17 @@ rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 function functest() {
-    extra_args="${extra_args} -apply-default-e2e-configuration -conn-check-ipv4-address=${conn_check_ipv4_address} -conn-check-ipv6-address=${conn_check_ipv6_address} -conn-check-dns=${conn_check_dns}"
+    EXTRA_ARGS="-apply-default-e2e-configuration \
+	    -conn-check-ipv4-address=${conn_check_ipv4_address} \
+	    -conn-check-ipv6-address=${conn_check_ipv6_address} \
+	    -conn-check-dns=${conn_check_dns} \
+	    ${EXTRA_ARGS}"
     if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-1\.16)|(k8s-1\.17)|k8s-sriov.* ]]; then
         echo "Will skip test asserting the cluster is in dual-stack mode."
-        extra_args="${extra_args} -skip-dual-stack-test"
+        EXTRA_ARGS="-skip-dual-stack-test ${EXTRA_ARGS}"
     fi
 
-    _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
+    _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS} ${EXTRA_ARGS}
 }
 
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
@@ -76,7 +80,7 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     if [ "$return_value" -ne 0 ] && ! [ "$KUBEVIRT_E2E_RUN_ALL_SUITES" == "true" ]; then
         exit "$return_value"
     fi
-    extra_args="-junit-output ${ARTIFACTS}/partial.junit.functest.xml"
+    EXTRA_ARGS="-junit-output ${ARTIFACTS}/partial.junit.functest.xml ${EXTRA_ARGS}"
     functest ${serial_test_args} ${FUNC_TEST_ARGS}
     exit "$return_value"
 else
