@@ -22,6 +22,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -65,6 +66,9 @@ const logVerbosity = "logVerbosity"
 const virtiofsDebugLogs = "virtiofsdDebugLogs"
 
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
+
+const qemuTimeoutBaseSeconds = 240
+const qemuTimeoutJitterRange = 120
 
 const (
 	CAP_NET_BIND_SERVICE = "NET_BIND_SERVICE"
@@ -394,6 +398,12 @@ func (t *templateService) IsARM64() bool {
 		return true
 	}
 	return false
+}
+
+func generateQemuTimeoutWithJitter() string {
+	timeout := rand.Intn(qemuTimeoutJitterRange) + qemuTimeoutBaseSeconds
+
+	return fmt.Sprintf("%ds", timeout)
 }
 
 func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, tempPod bool) (*k8sv1.Pod, error) {
@@ -972,7 +982,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"echo", "bound PVCs"}
 	} else {
 		command = []string{"/usr/bin/virt-launcher",
-			"--qemu-timeout", "5m",
+			"--qemu-timeout", generateQemuTimeoutWithJitter(),
 			"--name", domain,
 			"--uid", string(vmi.UID),
 			"--namespace", namespace,
@@ -1003,6 +1013,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		command = append(command, "--use-emulation")
 	} else {
 		resources.Limits[KvmDevice] = resource.MustParse("1")
+	}
+
+	_, ok := vmi.Annotations[v1.FuncTestLauncherFailFastAnnotation]
+	if ok {
+		command = append(command, "--simulate-crash")
 	}
 
 	// Add ports from interfaces to the pod manifest

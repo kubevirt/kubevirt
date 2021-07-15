@@ -135,6 +135,9 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 }
 
 func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineStateChangeRequest) (string, error) {
+
+	var ops []string
+
 	verb := "add"
 	// Special case: if there's no status field at all, add one.
 	newStatus := v1.VirtualMachineStatus{}
@@ -146,43 +149,50 @@ func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineSta
 		if err != nil {
 			return "", err
 		}
-		update := fmt.Sprintf(`{ "op": "%s", "path": "/status", "value": %s}`, verb, string(statusJson))
+		ops = append(ops, fmt.Sprintf(`{ "op": "%s", "path": "/status", "value": %s}`, verb, string(statusJson)))
+	} else {
 
-		return fmt.Sprintf("[%s]", update), nil
-	}
-
-	failOnConflict := true
-	if len(changes) == 1 && changes[0].Action == v1.StopRequest {
-		// If this is a stopRequest, replace all existing StateChangeRequests.
-		failOnConflict = false
-	}
-
-	if len(vm.Status.StateChangeRequests) != 0 {
-		if failOnConflict {
-			return "", fmt.Errorf("unable to complete request: stop/start already underway")
-		} else {
-			verb = "replace"
+		failOnConflict := true
+		if len(changes) == 1 && changes[0].Action == v1.StopRequest {
+			// If this is a stopRequest, replace all existing StateChangeRequests.
+			failOnConflict = false
 		}
+
+		if len(vm.Status.StateChangeRequests) != 0 {
+			if failOnConflict {
+				return "", fmt.Errorf("unable to complete request: stop/start already underway")
+			} else {
+				verb = "replace"
+			}
+		}
+
+		changeRequests := []v1.VirtualMachineStateChangeRequest{}
+		for _, change := range changes {
+			changeRequests = append(changeRequests, change)
+		}
+
+		oldChangeRequestsJson, err := json.Marshal(vm.Status.StateChangeRequests)
+		if err != nil {
+			return "", err
+		}
+
+		newChangeRequestsJson, err := json.Marshal(changeRequests)
+		if err != nil {
+			return "", err
+		}
+
+		test := fmt.Sprintf(`{ "op": "test", "path": "/status/stateChangeRequests", "value": %s}`, string(oldChangeRequestsJson))
+		update := fmt.Sprintf(`{ "op": "%s", "path": "/status/stateChangeRequests", "value": %s}`, verb, string(newChangeRequestsJson))
+
+		ops = append(ops, test)
+		ops = append(ops, update)
 	}
 
-	changeRequests := []v1.VirtualMachineStateChangeRequest{}
-	for _, change := range changes {
-		changeRequests = append(changeRequests, change)
+	if vm.Status.StartFailure != nil {
+		ops = append(ops, `{ "op": "remove", "path": "/status/startFailure" }`)
 	}
 
-	oldChangeRequestsJson, err := json.Marshal(vm.Status.StateChangeRequests)
-	if err != nil {
-		return "", err
-	}
-
-	newChangeRequestsJson, err := json.Marshal(changeRequests)
-	if err != nil {
-		return "", err
-	}
-
-	test := fmt.Sprintf(`{ "op": "test", "path": "/status/stateChangeRequests", "value": %s}`, string(oldChangeRequestsJson))
-	update := fmt.Sprintf(`{ "op": "%s", "path": "/status/stateChangeRequests", "value": %s}`, verb, string(newChangeRequestsJson))
-	return fmt.Sprintf("[%s, %s]", test, update), nil
+	return string(controller.GeneratePatchBytes(ops)), nil
 }
 
 func getRunningJson(vm *v1.VirtualMachine, running bool) string {
@@ -521,36 +531,24 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		return
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			writeError(errors.NewInternalError(err), response)
-			return
-		}
-
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM has no associated VMI running")), response)
-		return
-	}
-
-	if vmi == nil || vmi.Status.Phase == v1.Succeeded || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM has status %q and is not running", vmi.Status.Phase)), response)
-		return
-	}
-
-	if (vmi.Status.Phase == v1.Failed && bodyStruct.GracePeriod == nil) || (vmi.Status.Phase == v1.Failed && *bodyStruct.GracePeriod != 0) {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is Failed. Use `--force --grace-period=0` to stop the VM")), response)
-		return
-	}
-
-	patchType := types.MergePatchType
-	var patchErr error
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
 
-	if bodyStruct.GracePeriod != nil {
+	hasVMI := true
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		hasVMI = false
+	} else if err != nil {
+		writeError(errors.NewInternalError(err), response)
+		return
+	}
+
+	patchType := types.MergePatchType
+	var patchErr error
+	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
 		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
 		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
 		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(vmi.GetName(), patchType, []byte(bodyString))
@@ -562,9 +560,17 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 
 	switch runStrategy {
 	case v1.RunStrategyHalted:
+		if !hasVMI || vmi.IsFinal() {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is not running")), response)
+			return
+		}
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual stop requests", v1.RunStrategyHalted)), response)
 		return
 	case v1.RunStrategyManual:
+		if !hasVMI || vmi.IsFinal() {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is not running")), response)
+			return
+		}
 		// pass the buck and ask virt-controller to stop the VM. this way the
 		// VM will retain RunStrategy = manual
 		patchType = types.JSONPatchType
