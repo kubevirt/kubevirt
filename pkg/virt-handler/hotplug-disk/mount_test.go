@@ -22,12 +22,13 @@ package hotplug_volume
 import (
 	//"encoding/json"
 	"fmt"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 
 	. "github.com/onsi/gomega"
 
@@ -57,7 +58,6 @@ var (
 	orgIsBlockDevice     = isBlockDevice
 	orgFindMntByVolume   = findMntByVolume
 	orgFindMntByDevice   = findMntByDevice
-
 )
 
 //func decodeDeviceRules(marshalledRules string) (unmarshalledRules []*devices.Rule, err error) {
@@ -85,8 +85,8 @@ var (
 
 var _ = Describe("hotplug debug", func() {
 	var (
-		m      *volumeMounter
-		vmi    *v1.VirtualMachineInstance
+		m   *volumeMounter
+		vmi *v1.VirtualMachineInstance
 	)
 
 	It("getMountTargetRecord should error if vmi UID is empty", func() {
@@ -140,10 +140,10 @@ var _ = FDescribe("HotplugVolume block devices", func() {
 
 		m = &volumeMounter{
 			//podIsolationDetector: &mockIsolationDetector{},
-			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
-			mountStateDir:        tempDir,
-			skipSafetyCheck:      true,
-			hotplugDiskManager:   hotplugdisk.NewHotplugDiskWithOptions(tempDir),
+			mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
+			mountStateDir:      tempDir,
+			skipSafetyCheck:    true,
+			hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 		}
 		record = &vmiMountTargetRecord{}
 
@@ -253,15 +253,15 @@ var _ = FDescribe("HotplugVolume block devices", func() {
 	//	err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record)
 	//	Expect(err).ToNot(HaveOccurred())
 
-		//allow, err := ioutil.ReadFile(allowFile)
-		//list, err := ioutil.ReadFile(devicesFile)
-		//allowStr := string(allow)
-		//listStr := string(list)
-		//if err != nil || allowStr == "" || listStr == "" {
-		//
-		//}
-		//
-		//Expect(err).ToNot(HaveOccurred())
+	//allow, err := ioutil.ReadFile(allowFile)
+	//list, err := ioutil.ReadFile(devicesFile)
+	//allowStr := string(allow)
+	//listStr := string(list)
+	//if err != nil || allowStr == "" || listStr == "" {
+	//
+	//}
+	//
+	//Expect(err).ToNot(HaveOccurred())
 	//	By("Verifying the block file exists")
 	//	_, err = os.Stat(filepath.Join(targetPodPath, "testvolume"))
 	//	Expect(err).ToNot(HaveOccurred())
@@ -586,9 +586,9 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 
 		m = &volumeMounter{
 			//podIsolationDetector: &mockIsolationDetector{},
-			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
-			mountStateDir:        tempDir,
-			hotplugDiskManager:   hotplugdisk.NewHotplugDiskWithOptions(tempDir),
+			mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
+			mountStateDir:      tempDir,
+			hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 		}
 
 		deviceBasePath = func(sourceUID types.UID) string {
@@ -652,9 +652,9 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 			return expectedPath
 		}
 		//isolationDetector = func(path string) isolation.PodIsolationDetector {
-			//return &mockIsolationDetector{
-			//	pid: 40,
-			//}
+		//return &mockIsolationDetector{
+		//	pid: 40,
+		//}
 		//}
 
 		Expect(err).ToNot(HaveOccurred())
@@ -798,10 +798,10 @@ var _ = Describe("HotplugVolume volumes", func() {
 
 		m = &volumeMounter{
 			//podIsolationDetector: &mockIsolationDetector{},
-			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
-			mountStateDir:        tempDir,
-			skipSafetyCheck:      true,
-			hotplugDiskManager:   hotplugdisk.NewHotplugDiskWithOptions(tempDir),
+			mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
+			mountStateDir:      tempDir,
+			skipSafetyCheck:    true,
+			hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 		}
 
 		deviceBasePath = func(sourceUID types.UID) string {
