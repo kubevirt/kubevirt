@@ -38,11 +38,23 @@ type ContextExecutor struct {
 	executor      Executor
 }
 
-func NewContextExecutor(pid int, cmd *exec.Cmd) (*ContextExecutor, error) {
-	return newContextExecutor(pid, cmd, SELinuxExecutor{})
+func NewContextExecutorFromPid(cmd *exec.Cmd, pid int) (*ContextExecutor, error) {
+	const emptyLabel = ""
+	return newContextExecutor(cmd, pid, emptyLabel, SELinuxExecutor{})
 }
 
-func newContextExecutor(pid int, cmd *exec.Cmd, executor Executor) (*ContextExecutor, error) {
+func NewContextExecutorWithLabel(cmd *exec.Cmd, label string) (*ContextExecutor, error) {
+	const emptyPid = -1
+	return newContextExecutor(cmd, emptyPid, label, SELinuxExecutor{})
+}
+
+func newContextExecutor(cmd *exec.Cmd, pid int, desiredLabel string, executor Executor) (*ContextExecutor, error) {
+	var err error
+
+	if pid == -1 && desiredLabel == "" {
+		return nil, fmt.Errorf("either pid or label arguments must not be empty")
+	}
+
 	ce := &ContextExecutor{
 		pid:          pid,
 		cmdToExecute: cmd,
@@ -50,9 +62,10 @@ func newContextExecutor(pid int, cmd *exec.Cmd, executor Executor) (*ContextExec
 	}
 
 	if ce.isSELinuxEnabled() {
-		desiredLabel, err := ce.getLabelForPID(pid)
-		if err != nil {
-			return nil, err
+		if desiredLabel == "" {
+			if desiredLabel, err = ce.getLabelForPID(pid); err != nil {
+				return nil, err
+			}
 		}
 		originalLabel, err := ce.getLabelForPID(os.Getpid())
 		if err != nil {

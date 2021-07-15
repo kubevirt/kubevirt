@@ -33,7 +33,7 @@ var (
 const (
 	HostRootPath       = "/proc/1/root" // ihol3
 	cgroupBasePath     = "/sys/fs/cgroup"
-	hostCgroupBasePath = HostRootPath + cgroupBasePath
+	HostCgroupBasePath = HostRootPath + cgroupBasePath
 )
 
 // ihol3 Change name?
@@ -71,7 +71,7 @@ func NewManagerFromPid(pid int) (Manager, error) {
 	}
 
 	config := &configs.Cgroup{
-		Path:      hostCgroupBasePath,
+		Path:      HostCgroupBasePath,
 		Paths:     controllerPaths,
 		Resources: &configs.Resources{},
 	}
@@ -150,9 +150,9 @@ func getBasePathToHostController(controller string) (string, error) {
 	// if controller not supported -> error?
 
 	if cgroups.IsCgroup2UnifiedMode() {
-		return hostCgroupBasePath, nil
+		return HostCgroupBasePath, nil
 	}
-	return filepath.Join(hostCgroupBasePath, controller), nil
+	return filepath.Join(HostCgroupBasePath, controller), nil
 }
 
 // ihol3 Clean those up properly..
