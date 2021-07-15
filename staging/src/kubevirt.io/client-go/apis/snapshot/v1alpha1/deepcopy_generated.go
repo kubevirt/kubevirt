@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	types "k8s.io/apimachinery/pkg/types"
 
@@ -438,6 +439,11 @@ func (in *VirtualMachineSnapshotSpec) DeepCopyInto(out *VirtualMachineSnapshotSp
 	if in.DeletionPolicy != nil {
 		in, out := &in.DeletionPolicy, &out.DeletionPolicy
 		*out = new(DeletionPolicy)
+		**out = **in
+	}
+	if in.FailureDeadline != nil {
+		in, out := &in.FailureDeadline, &out.FailureDeadline
+		*out = new(metav1.Duration)
 		**out = **in
 	}
 	return

@@ -20,12 +20,16 @@
 package v1alpha1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
+
+const DefaultFailureDeadline = 5 * time.Minute
 
 // VirtualMachineSnapshot defines the operation of snapshotting a VM
 // +genclient
@@ -60,6 +64,13 @@ type VirtualMachineSnapshotSpec struct {
 
 	// +optional
 	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// This time represents the number of seconds we permit the vm snapshot
+	// to take. In case we pass this deadline we mark this snapshot
+	// as failed.
+	// Defaults to DefaultFailureDeadline - 5min
+	// +optional
+	FailureDeadline *metav1.Duration `json:"failureDeadline,omitempty"`
 }
 
 // Indication is a way to indicate the state of the vm when taking the snapshot
