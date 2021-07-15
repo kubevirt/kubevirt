@@ -41,11 +41,12 @@ const (
 )
 
 var (
-	vmUID            types.UID = "vm-uid"
-	vmAPIGroup                 = "kubevirt.io"
-	storageClassName           = "rook-ceph-block"
-	t                          = true
-	f                          = false
+	vmUID             types.UID        = "vm-uid"
+	vmAPIGroup                         = "kubevirt.io"
+	storageClassName                   = "rook-ceph-block"
+	t                                  = true
+	f                                  = false
+	noFailureDeadline *metav1.Duration = &metav1.Duration{Duration: 0}
 )
 
 var _ = Describe("Snapshot controlleer", func() {
@@ -794,6 +795,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.Status.Phase = snapshotv1.InProgress
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
@@ -1047,6 +1049,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			})
 
 			It("should update VirtualMachineSnapshotContent", func() {
+				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshotContent := createVMSnapshotContent()
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
@@ -1055,6 +1058,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					CreationTime: timeFunc(),
 				}
 
+				vmSnapshotSource.Add(vmSnapshot)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 
@@ -1077,6 +1081,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			})
 
 			It("should update VirtualMachineSnapshotContent no snapshots", func() {
+				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshotContent := createVMSnapshotContent()
 				for i := range vmSnapshotContent.Spec.VolumeBackups {
 					vmSnapshotContent.Spec.VolumeBackups[i].VolumeSnapshotName = nil
@@ -1090,11 +1095,13 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
+				vmSnapshotSource.Add(vmSnapshot)
 				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 			})
 
 			DescribeTable("should update VirtualMachineSnapshotContent on error", func(rtu bool, ct *metav1.Time) {
+				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshotContent := createVMSnapshotContent()
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
@@ -1103,6 +1110,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					CreationTime: ct,
 				}
 
+				vmSnapshotSource.Add(vmSnapshot)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 
@@ -1903,6 +1911,7 @@ func createVirtualMachineSnapshot(namespace, name, vmName string) *snapshotv1.Vi
 				Kind:     "VirtualMachine",
 				Name:     vmName,
 			},
+			FailureDeadline: noFailureDeadline,
 		},
 	}
 }
