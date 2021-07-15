@@ -21267,12 +21267,18 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 							Format: "",
 						},
 					},
+					"failureDeadline": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+			"k8s.io/api/core/v1.TypedLocalObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 
