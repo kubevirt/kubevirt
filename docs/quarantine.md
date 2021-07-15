@@ -37,7 +37,7 @@ would lead to a terrible 41.81% passing rate of the whole suite (0.95 ** 17 = 0.
 
 In order to remove as much as possible the influence of changes in PRs to
 determine the stability of the suite, we will take into account only results
-from the periodics that run e2e tests from master (hese jobs can be checked
+from the periodics that run e2e tests from main (hese jobs can be checked
 [on testgrid]) and presubmits that are executed on merged code (on tide merge
 batches as reported by flakefinder).
 
@@ -72,7 +72,7 @@ Each quarantined test must have a team owner. The PR will add the text
 
 When a test marked with the [release-blocker] meets the conditions to be
 quarantined we will:
-* Create github issue with a comment `/release-blocker master` to ensure that
+* Create github issue with a comment `/release-blocker main` to ensure that
 the issue is addressed before a new release is cut.
 * Ensure that the github issue is assigned to an individual who will own bringing
 the blocker to completion within a quick time frame.
