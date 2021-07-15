@@ -50,6 +50,7 @@ ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
 
 ENV GIMME_GO_VERSION=1.16.6
 
+# reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
     https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
     HOME=/gimme bash >> /etc/profile.d/gimme.sh

@@ -91,6 +91,7 @@ elif [ "$OUTPUT_FORMAT" = "markdown" ]; then
     # Generate TOC for definitions & operations as README.md
     cd "$WORKDIR"
     echo "# KubeVirt API Reference" >README.md
+    # reference to master is for an external repo and can't yet be changed
     curl \
         https://raw.githubusercontent.com/ekalinin/github-markdown-toc/master/gh-md-toc |
         bash -s "definitions.md" "operations.md" |

@@ -55,7 +55,7 @@ title="Run hack/bump-kubevirtci.sh, updating to ${kubevirtci_git_hash:0:8}..."
 git commit -s -m "${title}"
 git push -f "https://${user}@github.com/${user}/kubevirt.git" HEAD:kubevirtci
 
-echo "Creating PR to merge ${user}:kubevirtci into master..." >&2
+echo "Creating PR to merge ${user}:kubevirtci into main..." >&2
 pr-creator \
     --github-token-path="${token}" \
     --org=kubevirt --repo=kubevirt --branch=main \

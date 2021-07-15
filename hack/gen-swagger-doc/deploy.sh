@@ -30,7 +30,7 @@ Content of this repository is generated from OpenAPI specification of
 
 ## KubeVirt API References
 
-* [master](${GITHUB_IO_FQDN}/master/index.html)
+* [main](${GITHUB_IO_FQDN}/main/index.html)
 __EOF__
 find * -type d -regex "^v[0-9.]*" \
     -exec echo "* [{}](${GITHUB_IO_FQDN}/{}/index.html)" \; | sort -r --version-sort -t '[' --key 2 >>README.md

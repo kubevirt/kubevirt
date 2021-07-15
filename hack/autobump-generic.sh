@@ -55,7 +55,7 @@ title="Run make $@"
 git commit -s -m "${title}"
 git push -f "https://${user}@github.com/${user}/kubevirt.git" HEAD:autoupdate-$@
 
-echo "Creating PR to merge ${user}:autoupdate into master..." >&2
+echo "Creating PR to merge ${user}:autoupdate into main..." >&2
 pr-creator \
     --github-token-path="${token}" \
     --org=kubevirt --repo=kubevirt --branch=main \
