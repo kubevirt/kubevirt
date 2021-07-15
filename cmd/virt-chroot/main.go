@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/user"
@@ -8,6 +10,14 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"kubevirt.io/client-go/log"
+
+	runc_fs2 "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
+	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/devices"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
@@ -192,6 +202,65 @@ func main() {
 	removeMDEVCmd := NewRemoveMDEVCommand()
 	removeMDEVCmd.Flags().String("uuid", "", "uuid of the mediated device to remove")
 
+	cgroupsV2DeviceCmd := &cobra.Command{
+		Use:   "set-cgroupsv2-devices",
+		Short: "Set cgroups v2 device rules",
+		//Args:  cobra.MinimumNArgs(1), // ihol3 change to 4
+		RunE: func(cmd *cobra.Command, args []string) error {
+			//origLabel, err := selinux.CurrentLabel()
+			//fmt.Printf("virt-chroot's label: %s. err: %v\n", origLabel, err)
+			//const desiredType = "container_runtime_t"
+			//if !strings.Contains(origLabel, desiredType) {
+			//	const labelSeparator = ":"
+			//	const labelTypeIdx = 2
+			//	splittedCurrentLabel := strings.Split(origLabel, labelSeparator)
+			//	splittedCurrentLabel[labelTypeIdx] = desiredType
+			//	desiredLabel := strings.Join(splittedCurrentLabel, labelSeparator)
+			//
+			//	err := selinux.SetTaskLabel(desiredLabel)
+			//	if err != nil {
+			//		return fmt.Errorf("cannot set label. err: %v", err)
+			//	}
+			//}
+			//origLabel, err = selinux.FileLabel(fmt.Sprintf("/proc/%d/attr/current", os.Getpid()))
+			//fmt.Printf("virt-chroot's label: %s. err: %v\n", origLabel, err)
+
+			vmiPidFromHostView, err := strconv.ParseUint(cmd.Flag("pid").Value.String(), 10, 32)
+			if err != nil {
+				log.Log.Infof("hotplug [virt-chroot]: cannot convert PID into uint32. err: %v", err)
+				return fmt.Errorf("cannot convert PID into uint32. err: %v", err)
+			}
+			path := cmd.Flag("path").Value.String()
+			marshalledRulesHash := cmd.Flag("rules").Value.String()
+			fmt.Printf("Original marshalled: %s\n", marshalledRulesHash)
+			isRootless, err := strconv.ParseBool(cmd.Flag("rootless").Value.String())
+			if err != nil {
+				log.Log.Infof("hotplug [virt-chroot]: cannot convert rootless into bool. err: %v", err)
+				return fmt.Errorf("cannot convert rootless into bool. err: %v", err)
+			}
+
+			unmarshalledRules, err := decodeDeviceRules(marshalledRulesHash)
+			if err != nil {
+				return fmt.Errorf("Cannot decode rules. err: %v", err) // ihol3
+			}
+			if err = validateCgroupsArguments(vmiPidFromHostView, path, unmarshalledRules, isRootless); err != nil {
+				log.Log.Infof("hotplug [virt-chroot]: validateCgroupsArguments err: %v", err)
+				return err
+			}
+			if err = setCgroupDeviceRules(vmiPidFromHostView, path, unmarshalledRules, isRootless); err != nil {
+				log.Log.Infof("hotplug [virt-chroot]: setCgroupDeviceRules err: %v", err)
+				return err
+			}
+			log.Log.Infof("hotplug [virt-chroot]: no errors :)")
+			return nil
+		},
+	}
+
+	cgroupsV2DeviceCmd.Flags().Uint32("pid", 0, "VMI's PID from the host's viewpoint")
+	cgroupsV2DeviceCmd.Flags().String("path", "", "path to cgroups v2 directory") // ihol3 example
+	cgroupsV2DeviceCmd.Flags().String("rules", "", "marshalled []*Rule type (defined in github.com/opencontainers/runc/libcontainer/devices), encoded to hex format")
+	cgroupsV2DeviceCmd.Flags().Bool("rootless", false, "true to run rootless")
+
 	rootCmd.AddCommand(
 		execCmd,
 		mntCmd,
@@ -206,4 +275,83 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func validateCgroupsArguments(vmiPidFromHostView uint64, cgroupDirPath string, marshalledDeviceRules []*devices.Rule, isRootless bool) error {
+	const cannotBeEmptyFormat = "\"%s\" argument cannot be empty"
+
+	if vmiPidFromHostView == 0 {
+		return fmt.Errorf("\"pid\" argument must be greater than zero")
+	}
+	if cgroupDirPath == "" {
+		return fmt.Errorf(cannotBeEmptyFormat, "path")
+	}
+	if marshalledDeviceRules == nil {
+		return fmt.Errorf(cannotBeEmptyFormat, "rules") // ihol3 maybe change
+	}
+
+	return nil
+}
+
+func decodeDeviceRules(marshalledRulesHash string) (unmarshalledRules []*devices.Rule, err error) {
+	// ihol3 doc
+	// workaround to decode (https://stackoverflow.com/a/50151862/12787266)
+
+	//type wrapper struct {
+	//	Data string
+	//}
+	//var wrapperObj wrapper
+	//
+	//fmt.Printf("marshalledRules: %s\n", marshalledRules)
+	//marshalledWrapper := []byte("{\"data\":\"" + marshalledRules + "\"}")
+	//err = json.Unmarshal(marshalledWrapper, &wrapperObj)
+	//if err != err {
+	//	return nil, err
+	//}
+	//
+	//fmt.Printf("wrapperObj.Data: %s\n", wrapperObj.Data)
+	//err = json.Unmarshal([]byte(wrapperObj.Data), &unmarshalledRules)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	marshalledRules, err := base64.StdEncoding.DecodeString(marshalledRulesHash)
+	if err != err {
+		return nil, err
+	}
+	fmt.Printf("marshalledRules: %s\n", string(marshalledRules))
+	err = json.Unmarshal(marshalledRules, &unmarshalledRules)
+	if err != nil {
+		return nil, err
+	}
+
+	return unmarshalledRules, err
+}
+
+func setCgroupDeviceRules(vmiPidFromHostView uint64, cgroupDirPath string, marshalledDeviceRules []*devices.Rule, isRootless bool) error {
+	//deviceRules, err := decodeDeviceRules(marshalledDeviceRules)
+	//if err != nil {
+	//	return fmt.Errorf("cannot unmarshall deviceRules. err: %v", err)
+	//}
+	deviceRules := marshalledDeviceRules
+
+	config := &configs.Cgroup{
+		Path:      cgroup.HostCgroupBasePath,
+		Paths:     map[string]string{"": cgroupDirPath},
+		Resources: &configs.Resources{},
+	}
+
+	cgroupV2Manager, err := runc_fs2.NewManager(config, cgroupDirPath, isRootless)
+	if err != nil {
+		return fmt.Errorf("cannot create cgroups v2 manager from pid %d. err: %v", vmiPidFromHostView, err)
+	}
+
+	err = cgroupV2Manager.Set(&configs.Resources{
+		Devices: deviceRules,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot set device rules. err: %v", err)
+	}
+
+	return nil
 }
