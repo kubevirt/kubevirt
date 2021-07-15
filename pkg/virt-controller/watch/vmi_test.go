@@ -1560,6 +1560,79 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("and in succeeded state", k8sv1.PodSucceeded),
 			table.Entry("and in failed state", k8sv1.PodFailed),
 		)
+
+		table.DescribeTable("should set a Synchronized=False condition when pod runs into image pull errors", func(initContainer bool, containerWaitingReason string) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
+
+			containerStatus := &pod.Status.ContainerStatuses[0]
+			if initContainer {
+				pod.Status.InitContainerStatuses = []k8sv1.ContainerStatus{{}}
+				containerStatus = &pod.Status.InitContainerStatuses[0]
+			}
+			containerStatus.State.Waiting = &k8sv1.ContainerStateWaiting{
+				Reason: containerWaitingReason,
+			}
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":   Equal(v1.VirtualMachineInstanceSynchronized),
+						"Status": Equal(k8sv1.ConditionFalse),
+						"Reason": Equal(containerWaitingReason),
+					})))
+			})
+
+			controller.Execute()
+		},
+			table.Entry("ErrImagePull in init container", true, ErrImagePullReason),
+			table.Entry("ImagePullBackOff in init container", true, ImagePullBackOffReason),
+			table.Entry("ErrImagePull in compute container", false, ErrImagePullReason),
+			table.Entry("ImagePullBackOff in compute container", false, ImagePullBackOffReason),
+		)
+
+		table.DescribeTable("should override Synchronized=False condition reason when it's already set", func(prevReason, newReason string) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
+
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceSynchronized,
+					Status: k8sv1.ConditionFalse,
+					Reason: prevReason,
+				},
+			}
+
+			pod.Status.InitContainerStatuses = []k8sv1.ContainerStatus{{
+				State: k8sv1.ContainerState{
+					Waiting: &k8sv1.ContainerStateWaiting{
+						Reason: newReason,
+					},
+				},
+			}}
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":   Equal(v1.VirtualMachineInstanceSynchronized),
+						"Status": Equal(k8sv1.ConditionFalse),
+						"Reason": Equal(newReason),
+					})))
+			})
+
+			controller.Execute()
+		},
+			table.Entry("ErrImagePull --> ImagePullBackOff", ErrImagePullReason, ImagePullBackOffReason),
+			table.Entry("ImagePullBackOff --> ErrImagePull", ImagePullBackOffReason, ErrImagePullReason),
+		)
 	})
 
 	Context("hotplug volume", func() {
