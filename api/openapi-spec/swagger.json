@@ -13398,6 +13398,9 @@
       },
       "x-kubernetes-list-type": "set"
      },
+     "phase": {
+      "type": "string"
+     },
      "readyToUse": {
       "type": "boolean"
      },

@@ -22,6 +22,7 @@ func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 		"sourceUID":                         "+optional",
 		"virtualMachineSnapshotContentName": "+optional",
 		"creationTime":                      "+optional\n+nullable",
+		"phase":                             "+optional",
 		"readyToUse":                        "+optional",
 		"error":                             "+optional",
 		"conditions":                        "+optional",

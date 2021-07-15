@@ -71,6 +71,7 @@ var _ = Describe("Snapshot controlleer", func() {
 		vms.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 			ReadyToUse:   &t,
 			CreationTime: timeFunc(),
+			Phase:        snapshotv1.Succeeded,
 		}
 
 		return vms
@@ -81,6 +82,7 @@ var _ = Describe("Snapshot controlleer", func() {
 		vms.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
 		vms.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 			ReadyToUse: &f,
+			Phase:      snapshotv1.InProgress,
 		}
 
 		return vms
@@ -716,6 +718,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
 				updatedSnapshot.Status.CreationTime = timeFunc()
 				updatedSnapshot.Status.ReadyToUse = &t
+				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
 				updatedSnapshot.Status.Indications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
@@ -1043,6 +1046,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
 				updatedSnapshot.Status.CreationTime = timeFunc()
 				updatedSnapshot.Status.ReadyToUse = &t
+				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Operation complete"),

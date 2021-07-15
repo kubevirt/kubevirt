@@ -388,6 +388,8 @@ func (ctrl *VMSnapshotController) initVMSnapshot(vmSnapshot *snapshotv1.VirtualM
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	controller.AddFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
 
+	vmSnapshotCpy.Status.Phase = snapshotv1.InProgress
+
 	onlineSnapshot, err := ctrl.checkOnlineSnapshotting(vmSnapshotCpy)
 	if err != nil {
 		return false, err
@@ -664,9 +666,11 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Error"))
 	} else if vmSnapshotReady(vmSnapshotCpy) {
+		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 	} else {
+		vmSnapshotCpy.Status.Phase = snapshotv1.Unknown
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionUnknown, "Unknown state"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionUnknown, "Unknown state"))
 	}

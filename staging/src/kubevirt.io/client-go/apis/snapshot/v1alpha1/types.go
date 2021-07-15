@@ -71,6 +71,17 @@ const (
 	VMSnapshotGuestAgentIndication     Indication = "GuestAgent"
 )
 
+// VirtualMachineSnapshotPhase is the current phase of the VirtualMachineSnapshot
+type VirtualMachineSnapshotPhase string
+
+const (
+	PhaseUnset VirtualMachineSnapshotPhase = ""
+	InProgress VirtualMachineSnapshotPhase = "InProgress"
+	Succeeded  VirtualMachineSnapshotPhase = "Succeeded"
+	Failed     VirtualMachineSnapshotPhase = "Failed"
+	Unknown    VirtualMachineSnapshotPhase = "Unknown"
+)
+
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource
 type VirtualMachineSnapshotStatus struct {
 	// +optional
@@ -82,6 +93,9 @@ type VirtualMachineSnapshotStatus struct {
 	// +optional
 	// +nullable
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
+
+	// +optional
+	Phase VirtualMachineSnapshotPhase `json:"phase,omitempty"`
 
 	// +optional
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
