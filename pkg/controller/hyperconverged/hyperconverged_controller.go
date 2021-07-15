@@ -5,6 +5,7 @@ import (
 	"fmt"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"os"
 	"reflect"
 	"strings"
@@ -136,6 +137,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		&schedulingv1.PriorityClass{},
 		&vmimportv1beta1.VMImportConfig{},
 		&corev1.ConfigMap{},
+		&rbacv1.Role{},
+		&rbacv1.RoleBinding{},
 	}
 	if ci.IsOpenshift() {
 		secondaryResources = append(secondaryResources, []client.Object{

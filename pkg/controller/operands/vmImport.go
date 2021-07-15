@@ -43,8 +43,7 @@ func (h *vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 	}
 	return h.cache, nil
 }
-func (h vmImportHooks) getEmptyCr() client.Object                              { return &vmimportv1beta1.VMImportConfig{} }
-func (h vmImportHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
+func (h vmImportHooks) getEmptyCr() client.Object { return &vmimportv1beta1.VMImportConfig{} }
 func (h vmImportHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return osConditionsToK8s(cr.(*vmimportv1beta1.VMImportConfig).Status.Conditions)
 }
@@ -122,7 +121,6 @@ func (h imsConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 }
 func (h imsConfigHooks) getEmptyCr() client.Object { return &corev1.ConfigMap{} }
 
-func (h imsConfigHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
 func (h imsConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta
 }

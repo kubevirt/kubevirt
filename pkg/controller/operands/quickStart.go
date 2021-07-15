@@ -59,8 +59,6 @@ func (h qsHooks) getEmptyCr() client.Object {
 	}
 }
 
-func (h qsHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
-
 func (h qsHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*consolev1.ConsoleQuickStart).ObjectMeta
 }

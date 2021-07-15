@@ -174,8 +174,7 @@ func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 	return h.cache, nil
 }
 
-func (h kubevirtHooks) getEmptyCr() client.Object                          { return &kubevirtv1.KubeVirt{} }
-func (h kubevirtHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
+func (h kubevirtHooks) getEmptyCr() client.Object { return &kubevirtv1.KubeVirt{} }
 func (h kubevirtHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return translateKubeVirtConds(cr.(*kubevirtv1.KubeVirt).Status.Conditions)
 }
@@ -477,8 +476,7 @@ type kvPriorityClassHooks struct{}
 func (h kvPriorityClassHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewKubeVirtPriorityClass(hc), nil
 }
-func (h kvPriorityClassHooks) getEmptyCr() client.Object                              { return &schedulingv1.PriorityClass{} }
-func (h kvPriorityClassHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
+func (h kvPriorityClassHooks) getEmptyCr() client.Object { return &schedulingv1.PriorityClass{} }
 func (h kvPriorityClassHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*schedulingv1.PriorityClass).ObjectMeta
 }

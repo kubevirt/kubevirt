@@ -52,8 +52,6 @@ type hcoResourceHooks interface {
 	// Generate an empty resource, to be used as the input of the client.Get method. After calling this method, it will
 	// contains the actual values in K8s.
 	getEmptyCr() client.Object
-	// an optional hook that is called just after getting the resource from K8s
-	postFound(*common.HcoRequest, runtime.Object) error
 	// check if there is a change between the required resource and the resource read from K8s, and update K8s accordingly.
 	updateCr(*common.HcoRequest, client.Client, runtime.Object, runtime.Object) (bool, bool, error)
 	// cast he specific resource to *metav1.ObjectMeta
@@ -101,10 +99,6 @@ func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 
 func (h *genericOperand) handleExistingCr(req *common.HcoRequest, key client.ObjectKey, found client.Object, cr client.Object, res *EnsureResult) *EnsureResult {
 	req.Logger.Info(h.crType+" already exists", h.crType+".Namespace", key.Namespace, h.crType+".Name", key.Name)
-
-	if err := h.hooks.postFound(req, found); err != nil {
-		return res.Error(err)
-	}
 
 	h.doRemoveExistingOwners(req, found)
 

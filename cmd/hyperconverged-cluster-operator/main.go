@@ -165,6 +165,14 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 					Label: labelSelector,
 					Field: namespaceSelector,
 				},
+				&rbacv1.Role{}: {
+					Label: labelSelector,
+					Field: namespaceSelector,
+				},
+				&rbacv1.RoleBinding{}: {
+					Label: labelSelector,
+					Field: namespaceSelector,
+				},
 			},
 		},
 	)

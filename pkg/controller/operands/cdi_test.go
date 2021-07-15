@@ -1067,15 +1067,12 @@ var _ = Describe("CDI Operand", func() {
 			})
 		})
 
-		Context("KubeVirt Storage Role", func() {
+		Context("Config Reader Role", func() {
 			It("should do nothing if exists", func() {
-				existsCdi, err := NewCDI(hco)
-				expectedRole := NewKubeVirtStorageRoleForCR(hco, hco.Namespace, commonTestUtils.GetScheme())
-				Expect(err).ToNot(HaveOccurred())
+				expectedRole := NewConfigReaderRoleForCR(hco, hco.Namespace)
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedRole})
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCdi, expectedRole})
-
-				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				handler := (*genericOperand)(newConfigReaderRoleHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
 
@@ -1091,15 +1088,13 @@ var _ = Describe("CDI Operand", func() {
 			})
 
 			It("should update if labels are missing", func() {
-				existsCdi, err := NewCDI(hco)
-				expectedRole := NewKubeVirtStorageRoleForCR(hco, hco.Namespace, commonTestUtils.GetScheme())
+				expectedRole := NewConfigReaderRoleForCR(hco, hco.Namespace)
 				expectedLabels := expectedRole.Labels
 				expectedRole.Labels = nil
-				Expect(err).ToNot(HaveOccurred())
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCdi, expectedRole})
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedRole})
 
-				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				handler := (*genericOperand)(newConfigReaderRoleHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
 
@@ -1114,16 +1109,13 @@ var _ = Describe("CDI Operand", func() {
 			})
 		})
 
-		Context("KubeVirt Storage Role Binding", func() {
-			scheme := commonTestUtils.GetScheme()
+		Context("Config Reader Role Binding", func() {
 			It("should do nothing if exists", func() {
-				existsCdi, err := NewCDI(hco)
-				expectedRoleBinding := NewKubeVirtStorageRoleBindingForCR(hco, hco.Namespace, scheme)
-				Expect(err).ToNot(HaveOccurred())
+				expectedRoleBinding := NewConfigReaderRoleBindingForCR(hco, hco.Namespace)
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCdi, expectedRoleBinding})
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedRoleBinding})
 
-				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				handler := (*genericOperand)(newConfigReaderRoleBindingHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
 
@@ -1138,15 +1130,13 @@ var _ = Describe("CDI Operand", func() {
 			})
 
 			It("should update if labels are missing", func() {
-				existsCdi, err := NewCDI(hco)
-				expectedRoleBinding := NewKubeVirtStorageRoleBindingForCR(hco, hco.Namespace, scheme)
+				expectedRoleBinding := NewConfigReaderRoleBindingForCR(hco, hco.Namespace)
 				expectedLabels := expectedRoleBinding.Labels
 				expectedRoleBinding.Labels = nil
-				Expect(err).ToNot(HaveOccurred())
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCdi, expectedRoleBinding})
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedRoleBinding})
 
-				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				handler := (*genericOperand)(newConfigReaderRoleBindingHandler(cl, commonTestUtils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
 

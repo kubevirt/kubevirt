@@ -49,8 +49,7 @@ func (h *cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	return h.cache, nil
 }
 
-func (h cnaHooks) getEmptyCr() client.Object                          { return &networkaddonsv1.NetworkAddonsConfig{} }
-func (h cnaHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
+func (h cnaHooks) getEmptyCr() client.Object { return &networkaddonsv1.NetworkAddonsConfig{} }
 func (h cnaHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return osConditionsToK8s(cr.(*networkaddonsv1.NetworkAddonsConfig).Status.Conditions)
 }

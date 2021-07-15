@@ -126,8 +126,7 @@ func (h *sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	}
 	return h.cache, nil
 }
-func (h sspHooks) getEmptyCr() client.Object                          { return &sspv1beta1.SSP{} }
-func (h sspHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
+func (h sspHooks) getEmptyCr() client.Object { return &sspv1beta1.SSP{} }
 func (h sspHooks) getConditions(cr runtime.Object) []metav1.Condition {
 	return osConditionsToK8s(cr.(*sspv1beta1.SSP).Status.Conditions)
 }

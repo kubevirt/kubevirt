@@ -54,8 +54,6 @@ func (h dashboardHooks) getEmptyCr() client.Object {
 	}
 }
 
-func (h dashboardHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
-
 func (h dashboardHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*v1.ConfigMap).ObjectMeta
 }

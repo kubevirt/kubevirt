@@ -39,8 +39,6 @@ func (h cliDownloadHooks) getEmptyCr() client.Object {
 	return &consolev1.ConsoleCLIDownload{}
 }
 
-func (h cliDownloadHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
-
 func (h cliDownloadHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*consolev1.ConsoleCLIDownload).ObjectMeta
 }
