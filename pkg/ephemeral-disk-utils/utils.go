@@ -24,14 +24,11 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"syscall"
 )
 
 // TODO this should be part of structs, instead of a global
 var DefaultOwnershipManager OwnershipManagerInterface = &OwnershipManager{user: "qemu"}
-
-func SetNonRootDefault() {
-	DefaultOwnershipManager = &nonOpManager{}
-}
 
 // For testing
 func MockDefaultOwnershipManager() {
@@ -64,6 +61,19 @@ func (om *OwnershipManager) SetFileOwnership(file string) error {
 	if err != nil {
 		return fmt.Errorf("failed to convert GID %s of user %s: %v", owner.Gid, om.user, err)
 	}
+	fileInfo, err := os.Stat(file)
+	if err != nil {
+		return err
+	}
+
+	if stat, ok := fileInfo.Sys().(*syscall.Stat_t); ok {
+		if uid == int(stat.Uid) && gid == int(stat.Gid) {
+			return nil
+		}
+	} else {
+		return fmt.Errorf("failed to convert stat info")
+	}
+
 	return os.Chown(file, uid, gid)
 }
 
