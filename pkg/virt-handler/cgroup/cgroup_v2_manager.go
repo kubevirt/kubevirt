@@ -1,7 +1,10 @@
 package cgroup
 
 import (
+	"fmt"
+	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"math"
+	"os/exec"
 	"strconv"
 
 	"github.com/cilium/ebpf/asm"
@@ -42,7 +45,16 @@ func (v *v2Manager) Set(r *runc_configs.Resources) error {
 	//resourcesWithoutDevices.Devices = nil
 	//
 	//return v.Manager.Set(&resourcesWithoutDevices)
-	return v.Manager.Set(r)
+
+	//return v.Manager.Set(r)
+
+	cgroupsV2DeviceMutatorArgs := []string{
+		"create-tap",
+		"--tap-name", "tapName",
+	}
+	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
+	cmd := exec.Command("virt-chroot", cgroupsV2DeviceMutatorArgs...)
+	//return selinux.NewContextExecutorFromPid(virtLauncherPID, cmd)
 }
 
 type program struct {
