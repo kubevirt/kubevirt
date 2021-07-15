@@ -66,7 +66,7 @@ const (
 	testNewVolume2 = "some-new-volume2"
 )
 
-var _ = SIGDescribe("Hotplug", func() {
+var _ = FDescribe("Hotplug", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -257,6 +257,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				return fmt.Errorf(waitVolumeTemplateError)
 			}
 
+			fmt.Printf("\n=============== required volumes: \"%v\", foundDisk=%d, foundVolume=%d\n", volumeNames, foundDisk, foundVolume)
 			return nil
 		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
@@ -299,13 +300,23 @@ var _ = SIGDescribe("Hotplug", func() {
 		Eventually(func() error {
 			updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			if err != nil {
+				fmt.Printf("\n============== ERR: %v\n", err)
+
 				return err
 			}
 
+			//var lastName string
+			//var lastPhase kubevirtv1.VolumePhase
+
 			foundVolume := 0
 			for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
-				log.Log.Infof("Volume Status, name: %s, target [%s], phase:%s, reason: %s", volumeStatus.Name, volumeStatus.Target, volumeStatus.Phase, volumeStatus.Reason)
+				//log.Log.Infof("Volume Status, name: %s, target [%s], phase:%s, reason: %s", volumeStatus.Name, volumeStatus.Target, volumeStatus.Phase, volumeStatus.Reason)
 				if _, ok := nameMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil {
+					//if volumeStatus.Name != lastName || volumeStatus.Phase != lastPhase {
+					//	lastName = volumeStatus.Name
+					//	lastPhase = volumeStatus.Phase
+					//}
+					fmt.Printf("\n================= found volume name: \"%v\". phase: %s", volumeStatus.Name, volumeStatus.Phase)
 					if volumeStatus.Phase == phase {
 						foundVolume++
 					}
@@ -313,9 +324,12 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 
 			if foundVolume != len(volumeNames) {
-				return fmt.Errorf("waiting on volume statuses for hotplug disks to be ready")
+				err = fmt.Errorf("\nwaiting on volume statuses for hotplug disks to be ready. found=%d, required=%d\n", foundVolume, len(volumeNames))
+				fmt.Printf("\n============== ERR: %v\n", err)
+				return err
 			}
 
+			fmt.Printf("\n ======== VOLUME READY ======= \n")
 			return nil
 		}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
@@ -461,8 +475,11 @@ var _ = SIGDescribe("Hotplug", func() {
 	verifyHotplugAttachedAndUseable := func(vmi *kubevirtv1.VirtualMachineInstance, names []string) []string {
 		targets := getTargetsFromVolumeStatus(vmi, names...)
 		for _, target := range targets {
+			fmt.Printf("\n==== TARGET: %s \n", target)
 			verifyVolumeAccessible(vmi, target)
+			fmt.Printf("\n==== verifyVolumeAccessible DONE\n")
 			verifyCreateData(vmi, target)
+			fmt.Printf("\n==== verifyCreateData DONE\n")
 		}
 		return targets
 	}
@@ -657,16 +674,26 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+				fmt.Printf("\n\n\n VOLUME READYYYYY!! woohoooo :D :D :D \n\n\n")
+
+				//fmt.Printf("\n\nSLEEPING.....\n\n")
+				//time.Sleep(3 * time.Hour)
+
 				getVmiConsoleAndLogin(vmi)
+				fmt.Printf("\n1\n")
 				targets := verifyHotplugAttachedAndUseable(vmi, []string{"testvolume"})
 				verifySingleAttachmentPod(vmi)
+				fmt.Printf("\n2\n")
 				By("removing volume from VM")
 				removeVolumeFunc(vm.Name, vm.Namespace, "testvolume")
+				fmt.Printf("\n3\n")
 				if !vmiOnly {
 					By("Verifying the volume no longer exists in VM")
 					verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 				}
+				fmt.Printf("\n4\n")
 				verifyVolumeNolongerAccessible(vmi, targets[0])
+				fmt.Printf("\n5\n")
 			},
 				table.Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
 				table.Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
@@ -674,7 +701,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				table.Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
 				table.Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
 				table.Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
-				table.Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
+				table.FEntry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
 			)
 
 			table.DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
@@ -714,7 +741,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.FEntry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
 			table.DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {

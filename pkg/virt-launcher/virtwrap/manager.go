@@ -788,6 +788,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 	//Look up all the disks to attach
+	log.Log.Infof("hotplug [SyncVMI] - attaching hotplug")
 	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
 		allowAttach, err := checkIfDiskReadyToUse(getSourceFile(attachDisk))
 		if err != nil {
@@ -825,6 +826,7 @@ var checkIfDiskReadyToUse = checkIfDiskReadyToUseFunc
 
 func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	info, err := os.Stat(filename)
+	log.Log.Infof("hotplug [checkIfDiskReadyToUseFunc] info == %v, err == %v", info, err)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -835,10 +837,15 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	if (info.Mode() & os.ModeDevice) != 0 {
 		file, err := os.OpenFile(filename, os.O_RDONLY, 0600)
 		if err != nil {
+			log.Log.Infof("hotplug [checkIfDiskReadyToUseFunc] Unable to open file: %v", err)
 			log.DefaultLogger().V(1).Infof("Unable to open file: %v", err)
 			return false, nil
 		}
+		perms, _ := file.Stat()
+		perms.Mode().Perm()
+		log.Log.Infof("hotplug [checkIfDiskReadyToUseFunc] file's mode: %v", perms)
 		if err := file.Close(); err != nil {
+			log.Log.Infof("hotplug [checkIfDiskReadyToUseFunc] Unable to close file: %s, err: %v", file.Name(), err)
 			return false, fmt.Errorf("Unable to close file: %s", file.Name())
 		}
 		return true, nil
@@ -846,11 +853,15 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	// Before attempting to attach, ensure we can open the file
 	file, err := os.OpenFile(filename, os.O_RDWR, 0600)
 	if err != nil {
+		log.Log.Infof("hotplug [checkIfDiskReadyToUseFunc] Unable to open2 file: %s, err: %v", file.Name(), err)
 		return false, nil
 	}
 	if err := file.Close(); err != nil {
+		log.Log.Infof("hotplug [checkIfDiskReadyToUseFunc] Unable to close2 file: %s, err: %v", file.Name(), err)
 		return false, fmt.Errorf("Unable to close file: %s", file.Name())
 	}
+
+	log.Log.Infof("hotplug [checkIfDiskReadyToUseFunc] ALL GOOD - exiting without error")
 	return true, nil
 }
 
@@ -873,6 +884,8 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 }
 
 func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
+	log.Log.Infof("hotplug [getAttachedDisks] - old Disks (len %d) - %v", len(oldDisks), oldDisks)
+	log.Log.Infof("hotplug [getAttachedDisks] - new Disks (len %d) - %v", len(newDisks), newDisks)
 	oldDiskMap := make(map[string]api.Disk)
 	for _, disk := range oldDisks {
 		file := getSourceFile(disk)

@@ -978,8 +978,11 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 	ready := true
 	wffc := false
 
+	log.Log.Infof("hotplug [handleSyncDataVolumes]: dataVolumes == %v", dataVolumes)
 	for _, volume := range vmi.Spec.Volumes {
 		// Check both DVs and PVCs
+		log.Log.Infof("hotplug [handleSyncDataVolumes]: volume.VolumeSource.DataVolume == %v", volume.VolumeSource.DataVolume)
+		log.Log.Infof("hotplug [handleSyncDataVolumes]: volume.VolumeSource.PersistentVolumeClaim == %v", volume.VolumeSource.PersistentVolumeClaim)
 		if volume.VolumeSource.DataVolume != nil || volume.VolumeSource.PersistentVolumeClaim != nil {
 			volumeReady, volumeWffc, err := c.volumeReadyToAttachToNode(vmi.Namespace, volume, dataVolumes)
 			if err != nil {
@@ -997,6 +1000,7 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 			wffc = wffc || volumeWffc
 			// Ready only becomes false if WFFC is also false.
 			ready = ready && (volumeReady || volumeWffc)
+			log.Log.Infof("hotplug [handleSyncDataVolumes]: ready == %v", ready)
 		}
 	}
 
@@ -1868,7 +1872,10 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 		hotplugVolumesMap[volume.Name] = volume
 	}
 
+	log.Log.Infof("hotplug [updateVolumeStatus]: old status == %v", oldStatusMap)
+	log.Log.Infof("hotplug [updateVolumeStatus]: hotplugVolumesMap == %v", hotplugVolumesMap)
 	attachmentPods, err := controller.AttachmentPods(virtlauncherPod, c.podInformer)
+
 	if err != nil {
 		return err
 	}
@@ -1883,12 +1890,15 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 		}
 		// Remove from map so I can detect existing volumes that have been removed from spec.
 		delete(oldStatusMap, volume.Name)
+		log.Log.Infof("hotplug [updateVolumeStatus]: iteration %d, volume: %v", i, volume.Name)
 		if _, ok := hotplugVolumesMap[volume.Name]; ok {
+			log.Log.Infof("hotplug [updateVolumeStatus]: OK == true")
 			// Hotplugged volume
 			if status.HotplugVolume == nil {
 				status.HotplugVolume = &virtv1.HotplugVolumeStatus{}
 			}
 			attachmentPod := c.findAttachmentPodByVolumeName(volume.Name, attachmentPods)
+			log.Log.Infof("hotplug [updateVolumeStatus]: attachmentPod == nil? %v", attachmentPod == nil)
 			if attachmentPod == nil {
 				status.HotplugVolume.AttachPodName = ""
 				status.HotplugVolume.AttachPodUID = ""
@@ -1899,9 +1909,15 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				status.Reason = reason
 			} else {
 				status.HotplugVolume.AttachPodName = attachmentPod.Name
+				log.Log.Infof("hotplug [updateVolumeStatus]: len(attachmentPod.Status.ContainerStatuses) == %v", len(attachmentPod.Status.ContainerStatuses))
+				log.Log.Infof("hotplug [updateVolumeStatus]: attachmentPod.Status.ContainerStatuses == %v", attachmentPod.Status.ContainerStatuses)
+				log.Log.Infof("hotplug [updateVolumeStatus]: attachmentPod.Status.ContainerStatuses[0].Ready == %v", attachmentPod.Status.ContainerStatuses[0].Ready)
+				log.Log.Infof("hotplug [updateVolumeStatus]: attachmentPod.Status.ContainerStatuses == %v", attachmentPod.Status.ContainerStatuses)
 				if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
 					status.HotplugVolume.AttachPodUID = attachmentPod.UID
 				}
+				log.Log.Infof("hotplug [updateVolumeStatus]: status.Phase == %v", status.Phase)
+				log.Log.Infof("hotplug [updateVolumeStatus]: c.canMoveToAttachedPhase(status.Phase) == %v", c.canMoveToAttachedPhase(status.Phase))
 				if c.canMoveToAttachedPhase(status.Phase) {
 					status.Phase = virtv1.HotplugVolumeAttachedToNode
 					status.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
@@ -1909,6 +1925,8 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, status.Reason, status.Message)
 				}
 			}
+		} else {
+			log.Log.Infof("hotplug [updateVolumeStatus]: OK == false")
 		}
 
 		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil {
