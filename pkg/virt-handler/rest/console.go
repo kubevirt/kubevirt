@@ -73,10 +73,8 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 	}
 	uid := vmi.GetUID()
 	stopChn := newStopChan(uid, t.vncLock, t.vncStopChans)
-	cleanup := func() {
-		deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
-	}
-	t.stream(vmi, request, response, unixSocketPath, stopChn, cleanup)
+	defer deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
+	t.stream(vmi, request, response, unixSocketPath, stopChn)
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
@@ -94,10 +92,8 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 	}
 	uid := vmi.GetUID()
 	stopCh := newStopChan(uid, t.serialLock, t.serialStopChans)
-	cleanup := func() {
-		deleteStopChan(uid, stopCh, t.serialLock, t.serialStopChans)
-	}
-	t.stream(vmi, request, response, unixSocketPath, stopCh, cleanup)
+	defer deleteStopChan(uid, stopCh, t.serialLock, t.serialStopChans)
+	t.stream(vmi, request, response, unixSocketPath, stopCh)
 }
 
 func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID](chan struct{})) chan struct{} {
@@ -137,9 +133,7 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	return socketPath, nil
 }
 
-type cleanupOnError func()
-
-func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, unixSocketPath string, stopCh chan struct{}, cleanup cleanupOnError) {
+func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, unixSocketPath string, stopCh chan struct{}) {
 	var upgrader = kubecli.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
@@ -183,7 +177,5 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 			log.Log.Object(vmi).Reason(err).Error("Error in proxing websocket and unix socket")
 			response.WriteHeader(http.StatusInternalServerError)
 		}
-
-		cleanup()
 	}
 }
