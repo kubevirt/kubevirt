@@ -391,6 +391,7 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
 		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
+		{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 		{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
 		{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
 		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
