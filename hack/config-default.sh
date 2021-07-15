@@ -15,6 +15,7 @@ kubevirtci_git_hash="2107080951-4492ebe"
 conn_check_ipv4_address=${CONN_CHECK_IPV4_ADDRESS:-""}
 conn_check_ipv6_address=${CONN_CHECK_IPV6_ADDRESS:-""}
 conn_check_dns=${CONN_CHECK_DNS:-""}
+apply_default_e2e_configuration=${APPLY_DEFAULT_E2E_CONFIGURATION:-true}
 
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
 default_csv_version="${docker_tag/latest/0.0.0}"
