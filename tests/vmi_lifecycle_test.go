@@ -40,25 +40,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	k8sWatch "k8s.io/apimachinery/pkg/watch"
 
-	"kubevirt.io/kubevirt/tests/util"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
-	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
-
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/controller"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
+	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 func newCirrosVMI() *v1.VirtualMachineInstance {
@@ -748,11 +746,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Eventually(func() string {
 					curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-					if curVMI.Status.Conditions != nil {
-						return curVMI.Status.Conditions[0].Reason
+					scheduledCond := controller.NewVirtualMachineInstanceConditionManager().
+						GetCondition(curVMI, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+					if scheduledCond != nil {
+						return scheduledCond.Reason
 					}
 					return ""
-				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unschedulable")
+				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unschedulable")
 			})
 		})
 
@@ -810,11 +810,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Eventually(func() string {
 					curVmiB, err := virtClient.VirtualMachineInstance(vmiB.Namespace).Get(vmiB.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMIB")
-					if curVmiB.Status.Conditions != nil {
-						return curVmiB.Status.Conditions[0].Reason
+					scheduledCond := controller.NewVirtualMachineInstanceConditionManager().
+						GetCondition(curVmiB, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+					if scheduledCond != nil {
+						return scheduledCond.Reason
 					}
 					return ""
-				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unchedulable")
+				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unchedulable")
 
 			})
 
@@ -1030,11 +1032,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Eventually(func() string {
 					curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get vmi")
-					if curVMI.Status.Conditions != nil {
-						return curVMI.Status.Conditions[0].Reason
+					scheduledCond := controller.NewVirtualMachineInstanceConditionManager().
+						GetCondition(curVMI, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+					if scheduledCond != nil {
+						return scheduledCond.Reason
 					}
 					return ""
-				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unchedulable")
+				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unchedulable")
 			})
 
 			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", func() {
@@ -1088,18 +1092,16 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
-				Eventually(func() bool {
+				Eventually(func() string {
 					curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get vmi")
-					if curVMI.Status.Conditions != nil {
-						for _, condition := range curVMI.Status.Conditions {
-							if condition.Reason == "Unschedulable" {
-								return true
-							}
-						}
+					scheduledCond := controller.NewVirtualMachineInstanceConditionManager().
+						GetCondition(curVMI, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+					if scheduledCond != nil {
+						return scheduledCond.Reason
 					}
-					return false
-				}, 60*time.Second, 1*time.Second).Should(Equal(true), "VMI should be unchedulable")
+					return ""
+				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unchedulable")
 			})
 
 			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
@@ -1126,11 +1128,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Eventually(func() string {
 					curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get vmi")
-					if curVMI.Status.Conditions != nil {
-						return curVMI.Status.Conditions[0].Reason
+					scheduledCond := controller.NewVirtualMachineInstanceConditionManager().
+						GetCondition(curVMI, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+					if scheduledCond != nil {
+						return scheduledCond.Reason
 					}
 					return ""
-				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unschedulable")
+				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unschedulable")
 			})
 
 		})

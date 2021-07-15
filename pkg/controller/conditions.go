@@ -62,6 +62,23 @@ func (d *VirtualMachineConditionManager) RemoveCondition(vm *v1.VirtualMachine, 
 type VirtualMachineInstanceConditionManager struct {
 }
 
+// UpdateCondition updates the given VirtualMachineCondition, unless it is already set with the same status and reason.
+func (d *VirtualMachineConditionManager) UpdateCondition(vm *v1.VirtualMachine, cond *v1.VirtualMachineCondition) {
+	for i, c := range vm.Status.Conditions {
+		if c.Type != cond.Type {
+			continue
+		}
+
+		if c.Status != cond.Status || c.Reason != cond.Reason {
+			vm.Status.Conditions[i] = *cond
+		}
+
+		return
+	}
+
+	vm.Status.Conditions = append(vm.Status.Conditions, *cond)
+}
+
 func (d *VirtualMachineInstanceConditionManager) CheckFailure(vmi *v1.VirtualMachineInstance, syncErr error, reason string) (changed bool) {
 	if syncErr != nil && !d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
@@ -114,6 +131,23 @@ func (d *VirtualMachineInstanceConditionManager) RemoveCondition(vmi *v1.Virtual
 		conds = append(conds, c)
 	}
 	vmi.Status.Conditions = conds
+}
+
+// UpdateCondition updates the given VirtualMachineInstanceCondition, unless it is already set with the same status and reason.
+func (d *VirtualMachineInstanceConditionManager) UpdateCondition(vmi *v1.VirtualMachineInstance, cond *v1.VirtualMachineInstanceCondition) {
+	for i, c := range vmi.Status.Conditions {
+		if c.Type != cond.Type {
+			continue
+		}
+
+		if c.Status != cond.Status || c.Reason != cond.Reason {
+			vmi.Status.Conditions[i] = *cond
+		}
+
+		return
+	}
+
+	vmi.Status.Conditions = append(vmi.Status.Conditions, *cond)
 }
 
 // AddPodCondition add pod condition to the VM.

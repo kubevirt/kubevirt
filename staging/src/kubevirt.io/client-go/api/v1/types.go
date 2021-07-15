@@ -365,7 +365,7 @@ const (
 	// and some actions are taken to provision the PVCs for the DataVolumes
 	VirtualMachineInstanceProvisioning VirtualMachineInstanceConditionType = "Provisioning"
 
-	// VMIReady means the pod is able to service requests and should be added to the
+	// Ready means the VMI is able to service requests and should be added to the
 	// load balancing pools of all matching services.
 	VirtualMachineInstanceReady VirtualMachineInstanceConditionType = "Ready"
 
@@ -400,8 +400,17 @@ const (
 )
 
 const (
-	// PodTerminatingReason indicates on the PodReady condition on the VMI if the underlying pod is terminating
+	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
 	PodTerminatingReason = "PodTerminating"
+
+	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist
+	PodNotExistsReason = "PodNotExists"
+
+	// PodConditionMissingReason indicates on the Ready condition on the VMI if the underlying pod does not report a Ready condition
+	PodConditionMissingReason = "PodConditionMissing"
+
+	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
+	GuestNotRunningReason = "GuestNotRunning"
 )
 
 // +k8s:openapi-gen=true

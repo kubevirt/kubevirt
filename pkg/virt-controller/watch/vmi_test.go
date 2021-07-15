@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	gomegaTypes "github.com/onsi/gomega/types"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -128,7 +129,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduled))
 			Expect(len(arg.(*v1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
 			Expect(len(arg.(*v1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(len(vmi.Status.PhaseTransitionTimestamps)))
-			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
 		}).Return(vmi, nil)
 	}
 
@@ -142,7 +142,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	shouldExpectVirtualMachineSchedulingState := func(vmi *v1.VirtualMachineInstance) {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduling))
-			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
+				Fields{"Type": Equal(v1.VirtualMachineInstanceReady)})))
 			Expect(len(arg.(*v1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
 			Expect(len(arg.(*v1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(len(vmi.Status.PhaseTransitionTimestamps)))
 		}).Return(vmi, nil)
@@ -151,7 +152,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	shouldExpectVirtualMachineScheduledState := func(vmi *v1.VirtualMachineInstance) {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduled))
-			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
+				Fields{"Type": Equal(v1.VirtualMachineInstanceReady)})))
 			Expect(len(arg.(*v1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
 			Expect(len(arg.(*v1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(len(vmi.Status.PhaseTransitionTimestamps)))
 		}).Return(vmi, nil)
@@ -160,7 +162,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	shouldExpectVirtualMachineFailedState := func(vmi *v1.VirtualMachineInstance) {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Failed))
-			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
+				Fields{"Type": Equal(v1.VirtualMachineInstanceReady)})))
 			Expect(len(arg.(*v1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(0))
 			Expect(len(arg.(*v1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).ToNot(Equal(len(vmi.Status.PhaseTransitionTimestamps)))
 		}).Return(vmi, nil)
@@ -295,7 +298,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceProvisioning))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{"Type": Equal(v1.VirtualMachineInstanceProvisioning)})))
 			}).Return(vmi, nil)
 
 			IsPodWithoutVmPayload := WithTransform(
@@ -534,7 +538,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceProvisioning))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{"Type": Equal(v1.VirtualMachineInstanceProvisioning)})))
 			}).Return(vmi, nil)
 
 			IsPodWithoutVmPayload := WithTransform(
@@ -682,8 +687,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		table.DescribeTable("should delete the corresponding Pods on VirtualMachineInstance deletion with vmi", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
+
 			vmi.Status.Phase = phase
 			vmi.DeletionTimestamp = now()
+
+			if vmi.IsRunning() {
+				setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
+			} else {
+				setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
+			}
 
 			// 2 pods are owned by VMI
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -733,6 +745,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in scheduling state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
+
 			vmi.Status.Phase = v1.Scheduling
 			vmi.DeletionTimestamp = now()
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -758,6 +772,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		table.DescribeTable("should not delete the corresponding Pod if the vmi is in", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
+
 			vmi.Status.Phase = phase
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -789,7 +805,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal("FailedCreate"))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":   Equal(v1.VirtualMachineInstanceSynchronized),
+						"Status": Equal(k8sv1.ConditionFalse),
+						"Reason": Equal("FailedCreate"),
+					})))
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -806,7 +827,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal("FailedCreate"))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":   Equal(v1.VirtualMachineInstanceSynchronized),
+						"Status": Equal(k8sv1.ConditionFalse),
+						"Reason": Equal("FailedCreate"),
+					})))
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -817,7 +843,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should remove the error condition if the sync finally succeeds", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceSynchronized}}
+
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{Type: v1.VirtualMachineInstanceSynchronized})
 
 			addVirtualMachine(vmi)
 
@@ -830,7 +857,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).ToNot(ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type": Equal(v1.VirtualMachineInstanceSynchronized),
+					})))
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -840,8 +870,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		It("should create PodScheduled and Synchronized conditions exactly once each for repeated FailedPvcNotFoundReason sync error", func() {
 
 			expectConditions := func(vmi *v1.VirtualMachineInstance) {
-				// PodScheduled and Synchronized
-				Expect(len(vmi.Status.Conditions)).To(Equal(2), "there should be exactly 2 conditions")
+				// PodScheduled and Synchronized (as well as Ready)
+				Expect(len(vmi.Status.Conditions)).To(Equal(3), "there should be exactly 3 conditions")
 
 				getType := func(c v1.VirtualMachineInstanceCondition) string { return string(c.Type) }
 				getReason := func(c v1.VirtualMachineInstanceCondition) string { return c.Reason }
@@ -863,6 +893,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodNotExistsReason)
+
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "test",
@@ -902,6 +934,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pod := NewPodForVirtualMachine(vmi, phase)
 			pod.Status.ContainerStatuses[0].Ready = isReady
 
+			unreadyReason := v1.GuestNotRunningReason
+			if phase == k8sv1.PodSucceeded || phase == k8sv1.PodFailed {
+				unreadyReason = v1.PodTerminatingReason
+			}
+			setReadyCondition(vmi, k8sv1.ConditionFalse, unreadyReason)
+
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 			addActivePods(vmi, pod.UID, "")
@@ -925,6 +963,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		Context("when pod failed to schedule", func() {
 			It("should set scheduling pod condition on the VirtualMachineInstance", func() {
 				vmi := NewPendingVirtualMachine("testvmi")
+				setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 				vmi.Status.Phase = v1.Scheduling
 
 				pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
@@ -941,11 +980,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 					Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduling))
-					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).NotTo(BeEmpty())
-					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Message).To(Equal("Insufficient memory"))
-					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal("Unschedulable"))
-					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+						Fields{
+							"Type":    Equal(v1.VirtualMachineInstanceConditionType((k8sv1.PodScheduled))),
+							"Status":  Equal(k8sv1.ConditionFalse),
+							"Reason":  Equal("Unschedulable"),
+							"Message": Equal("Insufficient memory"),
+						})))
 				}).Return(vmi, nil)
 
 				controller.Execute()
@@ -955,6 +996,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		Context("when Pod recovers from scheduling issues", func() {
 			table.DescribeTable("it should remove scheduling pod condition from the VirtualMachineInstance if the pod", func(owner string, podPhase k8sv1.PodPhase) {
 				vmi := NewPendingVirtualMachine("testvmi")
+				setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
 				vmi.Status.Phase = v1.Scheduling
 
 				pod := NewPodForVirtualMachine(vmi, podPhase)
@@ -970,7 +1012,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				podFeeder.Add(pod)
 
 				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).ToNot(ContainElement(MatchFields(IgnoreExtras,
+						Fields{
+							"Type": Equal(v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)),
+						})))
 				}).Return(vmi, nil)
 
 				ignorePodUpdates()
@@ -1007,6 +1052,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		table.DescribeTable("should hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = containerStatus
@@ -1034,6 +1080,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 		table.DescribeTable("should not hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = containerStatus
@@ -1054,6 +1101,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("should ignore migration target pods", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
 			vmi.Status.Phase = v1.Running
 			vmi.Status.NodeName = "curnode"
 
@@ -1083,6 +1131,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("should set an error condition if deleting the virtual machine pod fails", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.DeletionTimestamp = now()
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -1095,7 +1144,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal(FailedDeletePodReason))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":   Equal(v1.VirtualMachineInstanceSynchronized),
+						"Status": Equal(k8sv1.ConditionFalse),
+						"Reason": Equal(FailedDeletePodReason),
+					})))
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -1104,6 +1158,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should set an error condition if when pod cannot guarantee resources when cpu pinning has been requested", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -1124,7 +1179,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal(FailedGuaranteePodResourcesReason))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":   Equal(v1.VirtualMachineInstanceSynchronized),
+						"Status": Equal(k8sv1.ConditionFalse),
+						"Reason": Equal(FailedGuaranteePodResourcesReason),
+					})))
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -1142,7 +1202,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal(FailedCreatePodReason))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":   Equal(v1.VirtualMachineInstanceSynchronized),
+						"Status": Equal(k8sv1.ConditionFalse),
+						"Reason": Equal(FailedCreatePodReason),
+					})))
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -1151,6 +1216,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should update the virtual machine to scheduled if pod is ready, runnning and handed over to virt-handler", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -1163,6 +1229,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should update the virtual machine QOS class if the pod finally has a QOS class assigned", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.QOSClass = k8sv1.PodQOSGuaranteed
@@ -1178,6 +1245,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should update the virtual machine to scheduled if pod is ready, triggered by pod change", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
 
@@ -1197,6 +1265,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should update the virtual machine to failed if pod was not ready, triggered by pod delete", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
 			vmi.Status.Phase = v1.Scheduling
 
@@ -1214,6 +1283,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should update the virtual machine to failed if compute container is terminated while still scheduling", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodTerminatingReason)
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
 			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Name: "compute", State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{}}}}
 			vmi.Status.Phase = v1.Scheduling
@@ -1244,19 +1314,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Expect(arg.(*v1.VirtualMachineInstance).Status.LauncherContainerImageVersion).To(Equal(""))
 
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(phase))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
 				Expect(arg.(*v1.VirtualMachineInstance).Finalizers).ToNot(ContainElement(v1.VirtualMachineInstanceFinalizer))
 			}).Return(vmi, nil)
 
 			controller.Execute()
 		},
-			table.Entry("failed state", v1.Succeeded),
-			table.Entry("succeeded state", v1.Failed),
+			table.Entry("succeeded state", v1.Succeeded),
+			table.Entry("failed state", v1.Failed),
 		)
 		table.DescribeTable("should do nothing if pod is handed to virt-handler", func(phase k8sv1.PodPhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Scheduled
 			pod := NewPodForVirtualMachine(vmi, phase)
+
+			unreadyReason := v1.GuestNotRunningReason
+			if phase == k8sv1.PodSucceeded || phase == k8sv1.PodFailed {
+				unreadyReason = v1.PodTerminatingReason
+			}
+			setReadyCondition(vmi, k8sv1.ConditionFalse, unreadyReason)
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -1271,22 +1346,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("and in pending state", k8sv1.PodPending),
 		)
 
-		It("should remove ready condition when VMI is in a finalized state", func() {
-			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = v1.Succeeded
-
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceReady}}
-			addVirtualMachine(vmi)
-
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Conditions)).To(Equal(0))
-			}).Return(vmi, nil)
-
-			controller.Execute()
-		})
-
 		It("should add outdated label if pod's image is outdated and VMI is in running state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionTrue, "")
 			vmi.Status.Phase = v1.Running
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
@@ -1300,7 +1362,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			patch := `[ { "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }, { "op": "add", "path": "/status/launcherContainerImageVersion", "value": "madeup" }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} } ]`
+			patch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "madeup" }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }]`
 
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
@@ -1308,6 +1370,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should remove outdated label if pod's image up-to-date and VMI is in running state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionTrue, "")
 			vmi.Status.Phase = v1.Running
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
@@ -1327,7 +1390,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			patch := `[ { "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }, { "op": "add", "path": "/status/launcherContainerImageVersion", "value": "a" }, { "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {} } ]`
+			patch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "a" }, { "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {} }]`
 
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
@@ -1336,6 +1399,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("should add a ready condition if it is present on the pod and the VMI is in running state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Conditions = nil
 			vmi.Status.Phase = v1.Running
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
@@ -1344,7 +1408,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			patch := `[ { "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] } ]`
+			patch := `[{ "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
 			controller.Execute()
@@ -1352,6 +1416,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("should indicate on the ready condition if the pod is terminating", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Conditions = nil
 			vmi.Status.Phase = v1.Running
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.DeletionTimestamp = now()
@@ -1379,11 +1444,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				return patchedVMI, nil
 			})
 			controller.Execute()
-			testutils.ExpectEvent(recorder, v1.PodTerminatingReason)
 		})
 
 		It("should add active pods to status if VMI is in running state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
 			vmi.Status.Phase = v1.Running
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.UID = "someUID"
@@ -1392,31 +1457,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-			patch := `[ { "op": "test", "path": "/status/activePods", "value": {} }, { "op": "replace", "path": "/status/activePods", "value": {"someUID":"someHost"} } ]`
+			patch := `[{ "op": "test", "path": "/status/activePods", "value": {} }, { "op": "replace", "path": "/status/activePods", "value": {"someUID":"someHost"} }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
 			controller.Execute()
 		})
 
-		table.DescribeTable("should not add a ready condition if the vmi is", func(phase v1.VirtualMachineInstancePhase) {
-			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = phase
-			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
-
-			addVirtualMachine(vmi)
-			podFeeder.Add(pod)
-			addActivePods(vmi, pod.UID, "")
-
-			controller.Execute()
-		},
-			table.Entry("in succeeded state", v1.Succeeded),
-			table.Entry("in failed state", v1.Failed),
-			table.Entry("in scheduled state", v1.Scheduled),
-		)
-
 		It("should not remove sync conditions from virt-handler if it is in scheduled state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Conditions = append(vmi.Status.Conditions,
 				v1.VirtualMachineInstanceCondition{Type: v1.VirtualMachineInstanceSynchronized, Status: k8sv1.ConditionFalse})
@@ -1444,6 +1493,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		table.DescribeTable("should move the vmi to failed if pod is not handed over", func(phase k8sv1.PodPhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodTerminatingReason)
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, phase)
 
@@ -2060,6 +2110,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("Should properly create attachmentpod, if correct volume and disk are added", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
 			volumes := make([]v1.Volume, 0)
 			volumes = append(volumes, v1.Volume{
 				Name: "existing",
@@ -2140,7 +2191,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
-			patch := `[ { "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","hotplugVolume":{}}] } ]`
+			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","hotplugVolume":{}}] }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -2149,6 +2200,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("Should properly delete attachment, if volume and disk are removed", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
 			volumes := make([]v1.Volume, 0)
 			volumes = append(volumes, v1.Volume{
 				Name: "existing",
@@ -2229,7 +2281,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
-			patch := `[ { "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] } ]`
+			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
@@ -2285,12 +2337,21 @@ func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMI(name)
 	vmi.UID = "1234"
 	vmi.Status.Phase = v1.Pending
+	setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodNotExistsReason)
 	kvcontroller.SetLatestApiVersionAnnotation(vmi)
 	vmi.Status.ActivePods = make(map[types.UID]string)
 	vmi.Status.VolumeStatus = make([]v1.VolumeStatus, 0)
 	return vmi
 }
 
+func setReadyCondition(vmi *v1.VirtualMachineInstance, status k8sv1.ConditionStatus, reason string) {
+	kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceReady)
+	vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+		Type:   v1.VirtualMachineInstanceReady,
+		Status: status,
+		Reason: reason,
+	})
+}
 func NewPodForVirtualMachine(vmi *v1.VirtualMachineInstance, phase k8sv1.PodPhase) *k8sv1.Pod {
 	return &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2380,6 +2441,10 @@ func markAsPodTerminating(vmi *v1.VirtualMachineInstance) {
 func markAsNonReady(vmi *v1.VirtualMachineInstance) {
 	kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
 	kvcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse})
+}
+
+func unmarkReady(vmi *v1.VirtualMachineInstance) {
+	kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
 }
 
 func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName string) *v1.VirtualMachineInstance {
