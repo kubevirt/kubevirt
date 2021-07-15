@@ -140,6 +140,9 @@ const (
 
 	// ConditionProgressing is the "progressing" condition type
 	ConditionProgressing ConditionType = "Progressing"
+
+	// ConditionFailure is the "failure" condition type
+	ConditionFailure ConditionType = "Failure"
 )
 
 // Condition defines conditions

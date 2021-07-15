@@ -67,6 +67,15 @@ func newProgressingCondition(status corev1.ConditionStatus, reason string) snaps
 	}
 }
 
+func newFailureCondition(status corev1.ConditionStatus, reason string) snapshotv1.Condition {
+	return snapshotv1.Condition{
+		Type:               snapshotv1.ConditionFailure,
+		Status:             status,
+		Reason:             reason,
+		LastTransitionTime: *currentTime(),
+	}
+}
+
 func updateCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition, includeReason bool) []snapshotv1.Condition {
 	found := false
 	for i := range conditions {
@@ -154,4 +163,23 @@ func podsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcN
 	}
 
 	return pods, nil
+}
+
+func getFailureDeadline(vmSnapshot *snapshotv1.VirtualMachineSnapshot) time.Duration {
+	failureDeadline := snapshotv1.DefaultFailureDeadline
+	if vmSnapshot.Spec.FailureDeadline != nil {
+		failureDeadline = vmSnapshot.Spec.FailureDeadline.Duration
+	}
+
+	return failureDeadline
+}
+
+func timeUntilDeadline(vmSnapshot *snapshotv1.VirtualMachineSnapshot) time.Duration {
+	failureDeadline := getFailureDeadline(vmSnapshot)
+	// No Deadline set by user
+	if failureDeadline == 0 {
+		return failureDeadline
+	}
+	deadline := vmSnapshot.CreationTimestamp.Add(failureDeadline)
+	return time.Until(deadline)
 }
