@@ -53,9 +53,10 @@ type Manager interface {
 	//GetControllerPath(controller string) string
 }
 
+// ihol3 maybe rename to vmiPidFromHostView or something similar
 func NewManagerFromPid(pid int) (Manager, error) {
 	const errorFormat = "error creating new manager err: ...." //ihol3
-	const isRootless = true
+	const isRootless = false
 
 	//controllerPath, err := getBasePathToHostController("devices")
 	//if err != nil {
@@ -81,7 +82,7 @@ func NewManagerFromPid(pid int) (Manager, error) {
 		log.Log.Infof("hotplug procCgroupBasePath: %s", procCgroupBasePath)
 		log.Log.Infof("hotplug slicePath: %s", slicePath)
 
-		return newV2Manager(config, slicePath, isRootless)
+		return newV2Manager(config, slicePath, isRootless, pid)
 	} else {
 
 		return newV1Manager(config, controllerPaths, isRootless)
