@@ -1,3 +1,4 @@
 FROM src
 
+RUN yum install -y expect
 COPY oc /usr/bin/oc
