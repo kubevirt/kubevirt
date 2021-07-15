@@ -125,6 +125,7 @@ go_test(
         "kubectl_test.go",
         "kubevirt_configmap_test.go",
         "migration_test.go",
+        "nonroot_test.go",
         "operator_test.go",
         "pausing_test.go",
         "portforward_test.go",

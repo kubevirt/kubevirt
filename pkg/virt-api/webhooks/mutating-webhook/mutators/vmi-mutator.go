@@ -121,7 +121,14 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		newVMI.Status.Phase = v1.Pending
 
 		if mutator.ClusterConfig.NonRootEnabled() {
-			if canBeNonRoot(newVMI) {
+			if err := canBeNonRoot(newVMI); err != nil {
+				return &admissionv1.AdmissionResponse{
+					Result: &metav1.Status{
+						Message: err.Error(),
+						Code:    http.StatusUnprocessableEntity,
+					},
+				}
+			} else {
 				if newVMI.ObjectMeta.Annotations == nil {
 					newVMI.ObjectMeta.Annotations = make(map[string]string)
 				}
@@ -328,7 +335,14 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 	}
 }
 
-func canBeNonRoot(vmi *v1.VirtualMachineInstance) bool {
+func canBeNonRoot(vmi *v1.VirtualMachineInstance) error {
 	// VirtioFS doesn't work with session mode
-	return !util.IsVMIVirtiofsEnabled(vmi) && !util.IsSRIOVVmi(vmi)
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		return fmt.Errorf("VirtioFS doesn't work with session mode(used by nonroot)")
+	}
+
+	if util.IsSRIOVVmi(vmi) {
+		return fmt.Errorf("SRIOV doesn't work with nonroot")
+	}
+	return nil
 }
