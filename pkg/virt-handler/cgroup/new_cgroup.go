@@ -29,7 +29,8 @@ var (
 )
 
 const (
-	hostBasePath = "/proc/1/root/sys/fs/cgroup"
+	ProcMountPointNew = "/proc/1/root" // ihol3
+	hostBasePath      = ProcMountPointNew + "/sys/fs/cgroup"
 )
 
 // ihol3 Change name?
@@ -37,6 +38,7 @@ type Manager interface {
 	//DeviceManager
 	//cpuManager
 
+	Set(r *configs.Resources) error
 	cgroups.Manager
 
 	// ihol3 doc!
@@ -51,13 +53,23 @@ type Manager interface {
 }
 
 func NewManagerFromPid(pid int) (Manager, error) {
-	const isRootless = false
-	config := &configs.Cgroup{}
+	const isRootless = true
+
+	//controllerPath, err := getBasePathToHostController("devices")
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	cgroupBasePath := getCgroupBasePath(pid)
 	controllerPaths, err := cgroups.ParseCgroupFile(cgroupBasePath)
 	if err != nil {
 		return nil, err
+	}
+
+	config := &configs.Cgroup{
+		Path:      hostBasePath,
+		Paths:     controllerPaths,
+		Resources: &configs.Resources{},
 	}
 
 	if cgroups.IsCgroup2UnifiedMode() {

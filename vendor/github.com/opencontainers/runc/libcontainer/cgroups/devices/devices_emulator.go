@@ -32,51 +32,51 @@ import (
 	"github.com/pkg/errors"
 )
 
-// deviceMeta is a Rule without the Allow or Permissions fields, and no
+// DeviceMeta is a Rule without the Allow or Permissions fields, and no
 // wildcard-type support. It's effectively the "match" portion of a metadata
 // rule, for the purposes of our emulation.
-type deviceMeta struct {
-	node  devices.Type
-	major int64
-	minor int64
+type DeviceMeta struct {
+	Node  devices.Type
+	Major int64
+	Minor int64
 }
 
-// deviceRule is effectively the tuple (deviceMeta, Permissions).
+// deviceRule is effectively the tuple (DeviceMeta, Permissions).
 type deviceRule struct {
-	meta  deviceMeta
-	perms devices.Permissions
+	Meta  DeviceMeta
+	Perms devices.Permissions
 }
 
 // deviceRules is a mapping of device metadata rules to the associated
 // permissions in the ruleset.
-type deviceRules map[deviceMeta]devices.Permissions
+type deviceRules map[DeviceMeta]devices.Permissions
 
-func (r deviceRules) orderedEntries() []deviceRule {
+func (r deviceRules) OrderedEntries() []deviceRule {
 	var rules []deviceRule
-	for meta, perms := range r {
-		rules = append(rules, deviceRule{meta: meta, perms: perms})
+	for Meta, Perms := range r {
+		rules = append(rules, deviceRule{Meta: Meta, Perms: Perms})
 	}
 	sort.Slice(rules, func(i, j int) bool {
-		// Sort by (major, minor, type).
-		a, b := rules[i].meta, rules[j].meta
-		return a.major < b.major ||
-			(a.major == b.major && a.minor < b.minor) ||
-			(a.major == b.major && a.minor == b.minor && a.node < b.node)
+		// Sort by (Major, Minor, type).
+		a, b := rules[i].Meta, rules[j].Meta
+		return a.Major < b.Major ||
+			(a.Major == b.Major && a.Minor < b.Minor) ||
+			(a.Major == b.Major && a.Minor == b.Minor && a.Node < b.Node)
 	})
 	return rules
 }
 
 type Emulator struct {
-	defaultAllow bool
-	rules        deviceRules
+	DefaultAllow bool
+	Rules        deviceRules
 }
 
 func (e *Emulator) IsBlacklist() bool {
-	return e.defaultAllow
+	return e.DefaultAllow
 }
 
 func (e *Emulator) IsAllowAll() bool {
-	return e.IsBlacklist() && len(e.rules) == 0
+	return e.IsBlacklist() && len(e.Rules) == 0
 }
 
 var devicesListRegexp = regexp.MustCompile(`^([abc])\s+(\d+|\*):(\d+|\*)\s+([rwm]+)$`)
@@ -88,14 +88,14 @@ func parseLine(line string) (*deviceRule, error) {
 	}
 	var (
 		rule  deviceRule
-		node  = matches[1]
-		major = matches[2]
-		minor = matches[3]
-		perms = matches[4]
+		Node  = matches[1]
+		Major = matches[2]
+		Minor = matches[3]
+		Perms = matches[4]
 	)
 
-	// Parse the node type.
-	switch node {
+	// Parse the Node type.
+	switch Node {
 	case "a":
 		// Super-special case -- "a" always means every device with every
 		// access mode. In fact, for devices.list this actually indicates that
@@ -103,54 +103,54 @@ func parseLine(line string) (*deviceRule, error) {
 		// TODO: Double-check that the entire file is "a *:* rwm".
 		return nil, nil
 	case "b":
-		rule.meta.node = devices.BlockDevice
+		rule.Meta.Node = devices.BlockDevice
 	case "c":
-		rule.meta.node = devices.CharDevice
+		rule.Meta.Node = devices.CharDevice
 	default:
 		// Should never happen!
-		return nil, errors.Errorf("unknown device type %q", node)
+		return nil, errors.Errorf("unknown device type %q", Node)
 	}
 
-	// Parse the major number.
-	if major == "*" {
-		rule.meta.major = devices.Wildcard
+	// Parse the Major number.
+	if Major == "*" {
+		rule.Meta.Major = devices.Wildcard
 	} else {
-		val, err := strconv.ParseUint(major, 10, 32)
+		val, err := strconv.ParseUint(Major, 10, 32)
 		if err != nil {
-			return nil, errors.Wrap(err, "parse major number")
+			return nil, errors.Wrap(err, "parse Major number")
 		}
-		rule.meta.major = int64(val)
+		rule.Meta.Major = int64(val)
 	}
 
-	// Parse the minor number.
-	if minor == "*" {
-		rule.meta.minor = devices.Wildcard
+	// Parse the Minor number.
+	if Minor == "*" {
+		rule.Meta.Minor = devices.Wildcard
 	} else {
-		val, err := strconv.ParseUint(minor, 10, 32)
+		val, err := strconv.ParseUint(Minor, 10, 32)
 		if err != nil {
-			return nil, errors.Wrap(err, "parse minor number")
+			return nil, errors.Wrap(err, "parse Minor number")
 		}
-		rule.meta.minor = int64(val)
+		rule.Meta.Minor = int64(val)
 	}
 
 	// Parse the access permissions.
-	rule.perms = devices.Permissions(perms)
-	if !rule.perms.IsValid() || rule.perms.IsEmpty() {
+	rule.Perms = devices.Permissions(Perms)
+	if !rule.Perms.IsValid() || rule.Perms.IsEmpty() {
 		// Should never happen!
-		return nil, errors.Errorf("parse access mode: contained unknown modes or is empty: %q", perms)
+		return nil, errors.Errorf("parse access mode: contained unknown modes or is empty: %q", Perms)
 	}
 	return &rule, nil
 }
 
 func (e *Emulator) addRule(rule deviceRule) error {
-	if e.rules == nil {
-		e.rules = make(map[deviceMeta]devices.Permissions)
+	if e.Rules == nil {
+		e.Rules = make(map[DeviceMeta]devices.Permissions)
 	}
 
 	// Merge with any pre-existing permissions.
-	oldPerms := e.rules[rule.meta]
-	newPerms := rule.perms.Union(oldPerms)
-	e.rules[rule.meta] = newPerms
+	oldPerms := e.Rules[rule.Meta]
+	newPerms := rule.Perms.Union(oldPerms)
+	e.Rules[rule.Meta] = newPerms
 	return nil
 }
 
@@ -164,33 +164,33 @@ func (e *Emulator) rmRule(rule deviceRule) error {
 	// requests to remove partial exceptions, but we really shouldn't do that.
 	//
 	// It may seem like we could just "split" wildcard rules which hit this
-	// issue, but unfortunately there are 2^32 possible major and minor
+	// issue, but unfortunately there are 2^32 possible Major and Minor
 	// numbers, which would exhaust kernel memory quickly if we did this. Not
 	// to mention it'd be really slow (the kernel side is implemented as a
 	// linked-list of exceptions).
-	for _, partialMeta := range []deviceMeta{
-		{node: rule.meta.node, major: devices.Wildcard, minor: rule.meta.minor},
-		{node: rule.meta.node, major: rule.meta.major, minor: devices.Wildcard},
-		{node: rule.meta.node, major: devices.Wildcard, minor: devices.Wildcard},
+	for _, partialMeta := range []DeviceMeta{
+		{Node: rule.Meta.Node , Major: devices.Wildcard, Minor: rule.Meta.Minor},
+		{Node: rule.Meta.Node , Major: rule.Meta.Major, Minor: devices.Wildcard},
+		{Node: rule.Meta.Node , Major: devices.Wildcard, Minor: devices.Wildcard},
 	} {
 		// This wildcard rule is equivalent to the requested rule, so skip it.
-		if rule.meta == partialMeta {
+		if rule.Meta == partialMeta {
 			continue
 		}
 		// Only give an error if the set of permissions overlap.
-		partialPerms := e.rules[partialMeta]
-		if !partialPerms.Intersection(rule.perms).IsEmpty() {
-			return errors.Errorf("requested rule [%v %v] not supported by devices cgroupv1 (cannot punch hole in existing wildcard rule [%v %v])", rule.meta, rule.perms, partialMeta, partialPerms)
+		partialPerms := e.Rules[partialMeta]
+		if !partialPerms.Intersection(rule.Perms).IsEmpty() {
+			return errors.Errorf("requested rule [%v %v] not supported by devices cgroupv1 (cannot punch hole in existing wildcard rule [%v %v])", rule.Meta, rule.Perms, partialMeta, partialPerms)
 		}
 	}
 
 	// Subtract all of the permissions listed from the full match rule. If the
 	// rule didn't exist, all of this is a no-op.
-	newPerms := e.rules[rule.meta].Difference(rule.perms)
+	newPerms := e.Rules[rule.Meta].Difference(rule.Perms)
 	if newPerms.IsEmpty() {
-		delete(e.rules, rule.meta)
+		delete(e.Rules, rule.Meta)
 	} else {
-		e.rules[rule.meta] = newPerms
+		e.Rules[rule.Meta] = newPerms
 	}
 	// TODO: The actual cgroup code doesn't care if an exception didn't exist
 	//       during removal, so not erroring out here is /accurate/ but quite
@@ -202,16 +202,16 @@ func (e *Emulator) rmRule(rule deviceRule) error {
 func (e *Emulator) allow(rule *deviceRule) error {
 	// This cgroup is configured as a black-list. Reset the entire emulator,
 	// and put is into black-list mode.
-	if rule == nil || rule.meta.node == devices.WildcardDevice {
+	if rule == nil || rule.Meta.Node == devices.WildcardDevice {
 		*e = Emulator{
-			defaultAllow: true,
-			rules:        nil,
+			DefaultAllow: true,
+			Rules:        nil,
 		}
 		return nil
 	}
 
 	var err error
-	if e.defaultAllow {
+	if e.DefaultAllow {
 		err = errors.Wrap(e.rmRule(*rule), "remove 'deny' exception")
 	} else {
 		err = errors.Wrap(e.addRule(*rule), "add 'allow' exception")
@@ -222,16 +222,16 @@ func (e *Emulator) allow(rule *deviceRule) error {
 func (e *Emulator) deny(rule *deviceRule) error {
 	// This cgroup is configured as a white-list. Reset the entire emulator,
 	// and put is into white-list mode.
-	if rule == nil || rule.meta.node == devices.WildcardDevice {
+	if rule == nil || rule.Meta.Node == devices.WildcardDevice {
 		*e = Emulator{
-			defaultAllow: false,
-			rules:        nil,
+			DefaultAllow: false,
+			Rules:        nil,
 		}
 		return nil
 	}
 
 	var err error
-	if e.defaultAllow {
+	if e.DefaultAllow {
 		err = errors.Wrap(e.addRule(*rule), "add 'deny' exception")
 	} else {
 		err = errors.Wrap(e.rmRule(*rule), "remove 'allow' exception")
@@ -245,14 +245,14 @@ func (e *Emulator) Apply(rule devices.Rule) error {
 	}
 
 	innerRule := &deviceRule{
-		meta: deviceMeta{
-			node:  rule.Type,
-			major: rule.Major,
-			minor: rule.Minor,
+		Meta: DeviceMeta{
+			Node:  rule.Type,
+			Major: rule.Major,
+			Minor: rule.Minor,
 		},
-		perms: rule.Permissions,
+		Perms: rule.Permissions,
 	}
-	if innerRule.meta.node == devices.WildcardDevice {
+	if innerRule.Meta.Node == devices.WildcardDevice {
 		innerRule = nil
 	}
 
@@ -274,7 +274,7 @@ func EmulatorFromList(list io.Reader) (*Emulator, error) {
 	// allow-all rule. So we default to a white-list, and the existence of an
 	// "a *:* rwm" entry will tell us otherwise.
 	e := &Emulator{
-		defaultAllow: false,
+		DefaultAllow: false,
 	}
 
 	// Parse the "devices.list".
@@ -309,7 +309,7 @@ func EmulatorFromList(list io.Reader) (*Emulator, error) {
 // device errors (if possible).
 func (source *Emulator) Transition(target *Emulator) ([]*devices.Rule, error) {
 	var transitionRules []*devices.Rule
-	oldRules := source.rules
+	oldRules := source.Rules
 
 	// If the default policy doesn't match, we need to include a "disruptive"
 	// rule (either allow-all or deny-all) in order to switch the cgroup to the
@@ -318,13 +318,13 @@ func (source *Emulator) Transition(target *Emulator) ([]*devices.Rule, error) {
 	// However, due to a limitation in "devices.list" we cannot be sure what
 	// deny rules are in place in a black-list cgroup. Thus if the source is a
 	// black-list we also have to include a disruptive rule.
-	if source.IsBlacklist() || source.defaultAllow != target.defaultAllow {
+	if source.IsBlacklist() || source.DefaultAllow != target.DefaultAllow {
 		transitionRules = append(transitionRules, &devices.Rule{
 			Type:        'a',
 			Major:       -1,
 			Minor:       -1,
 			Permissions: devices.Permissions("rwm"),
-			Allow:       target.defaultAllow,
+			Allow:       target.DefaultAllow,
 		})
 		// The old rules are only relevant if we aren't starting out with a
 		// disruptive rule.
@@ -337,17 +337,17 @@ func (source *Emulator) Transition(target *Emulator) ([]*devices.Rule, error) {
 	// First, we create inverse rules for any old rules not in the new set.
 	// This includes partial-inverse rules for specific permissions. This is a
 	// no-op if we added a disruptive rule, since oldRules will be empty.
-	for _, rule := range oldRules.orderedEntries() {
-		meta, oldPerms := rule.meta, rule.perms
-		newPerms := target.rules[meta]
+	for _, rule := range oldRules.OrderedEntries() {
+		Meta, oldPerms := rule.Meta, rule.Perms
+		newPerms := target.Rules[Meta]
 		droppedPerms := oldPerms.Difference(newPerms)
 		if !droppedPerms.IsEmpty() {
 			transitionRules = append(transitionRules, &devices.Rule{
-				Type:        meta.node,
-				Major:       meta.major,
-				Minor:       meta.minor,
+				Type:        Meta.Node,
+				Major:       Meta.Major,
+				Minor:       Meta.Minor,
 				Permissions: droppedPerms,
-				Allow:       target.defaultAllow,
+				Allow:       target.DefaultAllow,
 			})
 		}
 	}
@@ -355,17 +355,17 @@ func (source *Emulator) Transition(target *Emulator) ([]*devices.Rule, error) {
 	// Add any additional rules which weren't in the old set. We happen to
 	// filter out rules which are present in both sets, though this isn't
 	// strictly necessary.
-	for _, rule := range target.rules.orderedEntries() {
-		meta, newPerms := rule.meta, rule.perms
-		oldPerms := oldRules[meta]
+	for _, rule := range target.Rules.OrderedEntries() {
+		Meta, newPerms := rule.Meta, rule.Perms
+		oldPerms := oldRules[Meta]
 		gainedPerms := newPerms.Difference(oldPerms)
 		if !gainedPerms.IsEmpty() {
 			transitionRules = append(transitionRules, &devices.Rule{
-				Type:        meta.node,
-				Major:       meta.major,
-				Minor:       meta.minor,
+				Type:        Meta.Node,
+				Major:       Meta.Major,
+				Minor:       Meta.Minor,
 				Permissions: gainedPerms,
-				Allow:       !target.defaultAllow,
+				Allow:       !target.DefaultAllow,
 			})
 		}
 	}

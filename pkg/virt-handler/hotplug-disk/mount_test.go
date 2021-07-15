@@ -475,7 +475,7 @@ var _ = FDescribe("HotplugVolume block devices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Create(denyFile)
 		Expect(err).ToNot(HaveOccurred())
-		err = m.allowBlockMajorMinor(34, 53, filepath.Dir(allowFile))
+		err = m.allowBlockMajorMinor(34, 53)
 		Expect(err).ToNot(HaveOccurred())
 		content, err := ioutil.ReadFile(allowFile)
 		Expect(err).ToNot(HaveOccurred())
@@ -491,7 +491,7 @@ var _ = FDescribe("HotplugVolume block devices", func() {
 	It("Should error if allow/deny cannot be found", func() {
 		allowFile := filepath.Join(tempDir, "devices.allow")
 		denyFile := filepath.Join(tempDir, "devices.deny")
-		err = m.allowBlockMajorMinor(34, 53, filepath.Dir(allowFile))
+		err = m.allowBlockMajorMinor(34, 53)
 		Expect(err).To(HaveOccurred())
 
 		err = m.removeBlockMajorMinor(34, 53, filepath.Dir(denyFile))
