@@ -141,6 +141,9 @@ const (
 
 	// ConditionFreezing is the "freezing" condition type
 	ConditionFreezing ConditionType = "Freezing"
+
+	// ConditionFailure is the "failure" condition type
+	ConditionFailure ConditionType = "Failure"
 )
 
 // Condition defines conditions

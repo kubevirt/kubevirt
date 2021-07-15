@@ -78,6 +78,15 @@ func newFreezingCondition(status corev1.ConditionStatus, reason string) snapshot
 	}
 }
 
+func newFailureCondition(status corev1.ConditionStatus, reason string) snapshotv1.Condition {
+	return snapshotv1.Condition{
+		Type:               snapshotv1.ConditionFailure,
+		Status:             status,
+		Reason:             reason,
+		LastTransitionTime: *currentTime(),
+	}
+}
+
 func findCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition) bool {
 	for i := range conditions {
 		if conditions[i].Type == c.Type && conditions[i].Status == c.Status && conditions[i].Reason == c.Reason {
