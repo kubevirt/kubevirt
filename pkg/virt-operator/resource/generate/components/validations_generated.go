@@ -11840,6 +11840,9 @@ var CRDsValidation map[string]string = map[string]string{
             type: string
           type: array
           x-kubernetes-list-type: set
+        phase:
+          description: VirtualMachineSnapshotPhase is the current phase of the VirtualMachineSnapshot
+          type: string
         readyToUse:
           type: boolean
         sourceUID:
