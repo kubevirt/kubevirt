@@ -99,7 +99,7 @@ func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
 	curLabel, err := realselinux.CurrentLabel()
 	log.Log.Infof("hotplug [SETv2] - curLabel label: %v, err: %v", curLabel, err)
 	//finalCmd, err := selinux.NewContextExecutorWithType(cmd, 12345, containerRuntimeLabel)
-	finalCmd, err := selinux.NewContextExecutorFromPid(cmd, v.pid)
+	finalCmd, err := selinux.NewContextExecutorFromPid(cmd, v.pid, true)
 	//output, err := cmd.CombinedOutput()
 	//if err != nil {
 	//	return fmt.Errorf("failed running ><> command %s, err: %v, output: %s", cmd.String(), err, output)
