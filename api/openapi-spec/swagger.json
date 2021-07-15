@@ -13369,6 +13369,11 @@
      "deletionPolicy": {
       "type": "string"
      },
+     "failureDeadlineSeconds": {
+      "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadlineSeconds - 300 sec",
+      "type": "integer",
+      "format": "int64"
+     },
      "source": {
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
      }

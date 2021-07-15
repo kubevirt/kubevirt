@@ -27,6 +27,8 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
+const DefaultFailureDeadlineSeconds int64 = 300
+
 // VirtualMachineSnapshot defines the operation of snapshotting a VM
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -60,6 +62,13 @@ type VirtualMachineSnapshotSpec struct {
 
 	// +optional
 	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// This time represents the number of seconds we permit the vm snapshot
+	// to take. In case we pass this deadline we mark this snapshot
+	// as failed.
+	// Defaults to DefaultFailureDeadlineSeconds - 300 sec
+	// +optional
+	FailureDeadlineSeconds *int64 `json:"failureDeadlineSeconds,omitempty"`
 }
 
 // Indication is a way to indicate the state of the vm when taking the snapshot

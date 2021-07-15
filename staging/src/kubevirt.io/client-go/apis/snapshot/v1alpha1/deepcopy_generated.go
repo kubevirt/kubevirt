@@ -440,6 +440,11 @@ func (in *VirtualMachineSnapshotSpec) DeepCopyInto(out *VirtualMachineSnapshotSp
 		*out = new(DeletionPolicy)
 		**out = **in
 	}
+	if in.FailureDeadlineSeconds != nil {
+		in, out := &in.FailureDeadlineSeconds, &out.FailureDeadlineSeconds
+		*out = new(int64)
+		**out = **in
+	}
 	return
 }
 

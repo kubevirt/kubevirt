@@ -21152,6 +21152,13 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 							Format: "",
 						},
 					},
+					"failureDeadlineSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadlineSeconds - 300 sec",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
