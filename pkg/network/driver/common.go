@@ -403,7 +403,7 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 	}
 	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
-	return selinux.NewContextExecutorFromPid(cmd, virtLauncherPID)
+	return selinux.NewContextExecutorFromPid(cmd, virtLauncherPID, false)
 }
 
 func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {
