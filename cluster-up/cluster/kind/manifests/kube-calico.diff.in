@@ -6,7 +6,7 @@
    # set to your network MTU - 50.
 -  veth_mtu: "1440"
 +  veth_mtu: "$CNI_MTU"
- 
+
    # The CNI network configuration to install on each node.  The special
    # values in this config will be automatically populated.
 @@ -32,6 +32,9 @@
@@ -24,7 +24,7 @@
          # upgraded to use calico-ipam.
          - name: upgrade-ipam
 -          image: calico/cni:v3.14.1
-+          image: quay.io/kubevirtci/calico_cni:v3.14.1
++          image: quay.io/kubevirtci/calico_cni:v3.19.1
            command: ["/opt/cni/bin/calico-ipam", "-upgrade"]
            env:
              - name: KUBERNETES_NODE_NAME
@@ -33,7 +33,7 @@
          # and CNI network config file on each node.
          - name: install-cni
 -          image: calico/cni:v3.14.1
-+          image: quay.io/kubevirtci/calico_cni:v3.14.1
++          image: quay.io/kubevirtci/calico_cni:v3.19.1
            command: ["/install-cni.sh"]
            env:
              # Name of the CNI config file to create.
@@ -42,7 +42,7 @@
          # to communicate with Felix over the Policy Sync API.
          - name: flexvol-driver
 -          image: calico/pod2daemon-flexvol:v3.14.1
-+          image: quay.io/kubevirtci/calico_pod2daemon-flexvol:v3.14.1
++          image: quay.io/kubevirtci/calico_pod2daemon-flexvol:v3.19.1
            volumeMounts:
            - name: flexvol-driver-host
              mountPath: /host/driver
@@ -51,7 +51,7 @@
          # host.
          - name: calico-node
 -          image: calico/node:v3.14.1
-+          image: quay.io/kubevirtci/calico_node:v3.14.1
++          image: quay.io/kubevirtci/calico_node:v3.19.1
            env:
              # Use Kubernetes API as the backing datastore.
              - name: DATASTORE_TYPE
@@ -60,7 +60,7 @@
        containers:
          - name: calico-kube-controllers
 -          image: calico/kube-controllers:v3.14.1
-+          image: quay.io/kubevirtci/calico_kube-controllers:v3.14.1
++          image: quay.io/kubevirtci/calico_kube-controllers:v3.19.1
            env:
              # Choose which controllers to run.
              - name: ENABLED_CONTROLLERS
