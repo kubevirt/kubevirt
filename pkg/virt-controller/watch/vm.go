@@ -1523,6 +1523,8 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
 		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
+		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
+		{virtv1.VirtualMachineStatusImagePullBackOff, c.isVirtualMachineStatusImagePullBackOff},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
 		{virtv1.VirtualMachineStatusCrashLoopBackOff, c.isVirtualMachineStatusCrashLoopBackOff},
 		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
@@ -1630,6 +1632,18 @@ func (c *VMController) isVirtualMachineStatusUnschedulable(vm *virtv1.VirtualMac
 		virtv1.VirtualMachineInstanceConditionType(k8score.PodScheduled),
 		k8score.ConditionFalse,
 		k8score.PodReasonUnschedulable)
+}
+
+// isVirtualMachineStatusErrImagePull determines whether the VM status field should be set to "ErrImagePull"
+func (c *VMController) isVirtualMachineStatusErrImagePull(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	syncCond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	return syncCond != nil && syncCond.Status == k8score.ConditionFalse && syncCond.Reason == ErrImagePullReason
+}
+
+// isVirtualMachineStatusImagePullBackOff determines whether the VM status field should be set to "ImagePullBackOff"
+func (c *VMController) isVirtualMachineStatusImagePullBackOff(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	syncCond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	return syncCond != nil && syncCond.Status == k8score.ConditionFalse && syncCond.Reason == ImagePullBackOffReason
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
