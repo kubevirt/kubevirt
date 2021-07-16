@@ -322,6 +322,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - datasources
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - configmaps

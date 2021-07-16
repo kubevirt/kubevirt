@@ -1886,7 +1886,7 @@ func newRandomDataVolumeWithRegistryImport(imageUrl, namespace, storageClass str
 			Namespace: namespace,
 		},
 		Spec: cdiv1.DataVolumeSpec{
-			Source: cdiv1.DataVolumeSource{
+			Source: &cdiv1.DataVolumeSource{
 				Registry: &cdiv1.DataVolumeSourceRegistry{
 					URL: imageUrl,
 				},
@@ -1921,7 +1921,7 @@ func newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass string,
 			Namespace: namespace,
 		},
 		Spec: cdiv1.DataVolumeSpec{
-			Source: cdiv1.DataVolumeSource{
+			Source: &cdiv1.DataVolumeSource{
 				HTTP: &cdiv1.DataVolumeSourceHTTP{
 					URL: imageUrl,
 				},
@@ -1956,7 +1956,7 @@ func newRandomBlankDataVolume(namespace, storageClass, size string, accessMode k
 			Namespace: namespace,
 		},
 		Spec: cdiv1.DataVolumeSpec{
-			Source: cdiv1.DataVolumeSource{
+			Source: &cdiv1.DataVolumeSource{
 				Blank: &cdiv1.DataVolumeBlankImage{},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
@@ -1994,7 +1994,7 @@ func NewRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceNam
 			Namespace: targetNamespace,
 		},
 		Spec: cdiv1.DataVolumeSpec{
-			Source: cdiv1.DataVolumeSource{
+			Source: &cdiv1.DataVolumeSource{
 				PVC: &cdiv1.DataVolumeSourcePVC{
 					Namespace: sourceNamespace,
 					Name:      sourceName,

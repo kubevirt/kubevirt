@@ -893,7 +893,7 @@ func GetVMDataVolume() *v1.VirtualMachine {
 			Name: "alpine-dv",
 		},
 		Spec: cdiv1.DataVolumeSpec{
-			Source: cdiv1.DataVolumeSource{
+			Source: &cdiv1.DataVolumeSource{
 				HTTP: &cdiv1.DataVolumeSourceHTTP{
 					URL: "http://cdi-http-import-server.kubevirt/images/alpine.iso",
 				},

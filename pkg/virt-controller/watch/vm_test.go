@@ -679,7 +679,7 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv1",
 				},
 				Spec: cdiv1.DataVolumeSpec{
-					Source: cdiv1.DataVolumeSource{
+					Source: &cdiv1.DataVolumeSource{
 						PVC: &cdiv1.DataVolumeSourcePVC{
 							Namespace: "ns1",
 							Name:      "source-pvc",
@@ -693,10 +693,38 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv2",
 				},
 				Spec: cdiv1.DataVolumeSpec{
-					Source: cdiv1.DataVolumeSource{
+					Source: &cdiv1.DataVolumeSource{
 						PVC: &cdiv1.DataVolumeSourcePVC{
 							Name: "source-pvc",
 						},
+					},
+				},
+			}
+
+			ds := &cdiv1.DataSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns2",
+					Name:      "source-ref",
+				},
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
+							Namespace: "ns1",
+							Name:      "source-pvc",
+						},
+					},
+				},
+			}
+
+			dv3 := &v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv3",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					SourceRef: &cdiv1.DataVolumeSourceRef{
+						Kind:      "DataSource",
+						Namespace: &ds.Namespace,
+						Name:      ds.Name,
 					},
 				},
 			}
@@ -710,7 +738,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			}
 
-			table.DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *v1.DataVolumeTemplateSpec, saVol *v1.Volume, fail bool) {
+			table.DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *v1.DataVolumeTemplateSpec, saVol *v1.Volume, ds *cdiv1.DataSource, fail bool) {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
 					v1.Volume{
@@ -738,14 +766,29 @@ var _ = Describe("VirtualMachine", func() {
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 				}
 
+				if ds != nil {
+					cdiClient.PrependReactor("get", "datasources", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+						ga := action.(testing.GetAction)
+						Expect(ga.GetNamespace()).To(Equal(ds.Namespace))
+						Expect(ga.GetName()).To(Equal(ds.Name))
+						return true, ds, nil
+					})
+				}
+
 				controller.cloneAuthFunc = func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
-					if dv.Spec.Source.PVC.Namespace != "" {
-						Expect(pvcNamespace).Should(Equal(dv.Spec.Source.PVC.Namespace))
+					if dv.Spec.Source != nil {
+						if dv.Spec.Source.PVC.Namespace != "" {
+							Expect(pvcNamespace).Should(Equal(dv.Spec.Source.PVC.Namespace))
+						} else {
+							Expect(pvcNamespace).Should(Equal(vm.Namespace))
+						}
+
+						Expect(pvcName).Should(Equal(dv.Spec.Source.PVC.Name))
 					} else {
-						Expect(pvcNamespace).Should(Equal(vm.Namespace))
+						Expect(pvcNamespace).Should(Equal(ds.Spec.Source.PVC.Namespace))
+						Expect(pvcName).Should(Equal(ds.Spec.Source.PVC.Name))
 					}
 
-					Expect(pvcName).Should(Equal(dv.Spec.Source.PVC.Name))
 					Expect(saNamespace).Should(Equal(vm.Namespace))
 
 					if saVol != nil {
@@ -769,10 +812,11 @@ var _ = Describe("VirtualMachine", func() {
 					testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 				}
 			},
-				table.Entry("with auth and source namespace defined", dv1, serviceAccountVol, false),
-				table.Entry("with auth and no source namespace defined", dv2, serviceAccountVol, false),
-				table.Entry("with auth and source namespace no serviceaccount defined", dv1, nil, false),
-				table.Entry("with no auth and source namespace defined", dv1, serviceAccountVol, true),
+				table.Entry("with auth and source namespace defined", dv1, serviceAccountVol, nil, false),
+				table.Entry("with auth and no source namespace defined", dv2, serviceAccountVol, nil, false),
+				table.Entry("with auth and source namespace no serviceaccount defined", dv1, nil, nil, false),
+				table.Entry("with no auth and source namespace defined", dv1, serviceAccountVol, nil, true),
+				table.Entry("with auth, datasource and source namespace defined", dv3, serviceAccountVol, ds, false),
 			)
 		})
 

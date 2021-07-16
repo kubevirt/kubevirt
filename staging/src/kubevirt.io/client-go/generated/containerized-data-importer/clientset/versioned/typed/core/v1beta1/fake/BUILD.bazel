@@ -7,6 +7,8 @@ go_library(
         "fake_cdi.go",
         "fake_cdiconfig.go",
         "fake_core_client.go",
+        "fake_dataimportcron.go",
+        "fake_datasource.go",
         "fake_datavolume.go",
         "fake_objecttransfer.go",
         "fake_storageprofile.go",
