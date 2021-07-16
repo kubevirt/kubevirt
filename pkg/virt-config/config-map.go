@@ -486,9 +486,6 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 
 // getCPUArchSpecificDefault get arch specific default config
 func getCPUArchSpecificDefault(cpuArch string) (string, string, []string) {
-	if cpuArch == "" {
-		cpuArch = runtime.GOARCH
-	}
 	// get arch specific default config
 	switch cpuArch {
 	case "arm64":

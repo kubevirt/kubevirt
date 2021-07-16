@@ -237,3 +237,8 @@ func (c *ClusterConfig) GetMinCPUModel() string {
 func (c *ClusterConfig) GetObsoleteCPUModels() map[string]bool {
 	return c.GetConfig().ObsoleteCPUModels
 }
+
+//GetClusterCPUArch return the CPU architecture in ClusterConfig
+func (c *ClusterConfig) GetClusterCPUArch() string {
+	return c.cpuArch
+}
