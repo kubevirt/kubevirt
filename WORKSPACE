@@ -2845,14 +2845,13 @@ rpm(
 )
 
 rpm(
-    name = "kernel-debug-core-0__5.11.22-100.fc32.x86_64",
-    sha256 = "827f2e7b0908777a3806ca10283027771e7014571bc817e9859367256be3b644",
+    name = "kernel-core-0__5.11.22-100.fc32.x86_64",
+    sha256 = "1329e02a1b0cf37041fe3286d609a1ffe31c60a5342658e46cba6430c9df4a69",
     urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-debug-core-5.11.22-100.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-debug-core-5.11.22-100.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-debug-core-5.11.22-100.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-debug-core-5.11.22-100.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/827f2e7b0908777a3806ca10283027771e7014571bc817e9859367256be3b644",
+        "https://mirror.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
+        "https://mirror.lax.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
+        "https://mirror.arizona.edu/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
+        "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
     ],
 )
 
@@ -3573,18 +3572,6 @@ rpm(
         "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libepoxy-1.5.4-2.fc32.x86_64.rpm",
         "https://ftp.fau.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libepoxy-1.5.4-2.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/76c22bfdaab3fe575abe813cbb9a1c3816d8cf50d3c25c9280d07031403ccf30",
-    ],
-)
-
-rpm(
-    name = "libev-0__4.31-2.fc32.x86_64",
-    sha256 = "765176863b582a8de7db2d076bd7dbcef05c6f9993f44ad9918e0ca1f9507d11",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libev-4.31-2.fc32.x86_64.rpm",
-        "https://mirror.dogado.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libev-4.31-2.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libev-4.31-2.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libev-4.31-2.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/765176863b582a8de7db2d076bd7dbcef05c6f9993f44ad9918e0ca1f9507d11",
     ],
 )
 
@@ -5053,14 +5040,13 @@ rpm(
 )
 
 rpm(
-    name = "libverto-libev-0__0.3.0-9.fc32.x86_64",
-    sha256 = "ce35e4c3f232c62b75288a7dd7ada055d5742f25ac9411a2d0877a5b93e8ae58",
+    name = "libverto-libevent-0__0.3.0-9.fc32.x86_64",
+    sha256 = "7a865b390748c0e45c9c53e19927d32330e75d0d3960c03dbd0f3de3da15990a",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libev-0.3.0-9.fc32.x86_64.rpm",
-        "https://mirror.dogado.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libev-0.3.0-9.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libev-0.3.0-9.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libev-0.3.0-9.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/ce35e4c3f232c62b75288a7dd7ada055d5742f25ac9411a2d0877a5b93e8ae58",
+        "https://mirrors.rit.edu/fedora/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libevent-0.3.0-9.fc32.x86_64.rpm",
+        "https://fedora.mirror.constant.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libevent-0.3.0-9.fc32.x86_64.rpm",
+        "https://mirror.lax.genesisadaptive.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libevent-0.3.0-9.fc32.x86_64.rpm",
+        "https://mirror.genesisadaptive.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libverto-libevent-0.3.0-9.fc32.x86_64.rpm",
     ],
 )
 
@@ -8760,6 +8746,17 @@ rpm(
         "https://mirror.23media.com/fedora/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-3.14.5-46.fc32.noarch.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-3.14.5-46.fc32.noarch.rpm",
         "https://storage.googleapis.com/builddeps/3bb33f22612d187d5acab1efb108b08270f8e568d0ebb7a3591598829eced000",
+    ],
+)
+
+rpm(
+    name = "selinux-policy-minimum-0__3.14.5-46.fc32.x86_64",
+    sha256 = "e2f818bcc72c9face05bbbf75c0e1bf3a3ee69a457d07128a27e060e95feaf70",
+    urls = [
+        "https://mirror.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-minimum-3.14.5-46.fc32.noarch.rpm",
+        "https://mirror.lax.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-minimum-3.14.5-46.fc32.noarch.rpm",
+        "https://mirror.arizona.edu/fedora/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-minimum-3.14.5-46.fc32.noarch.rpm",
+        "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-minimum-3.14.5-46.fc32.noarch.rpm",
     ],
 )
 
