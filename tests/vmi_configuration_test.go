@@ -566,17 +566,17 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Eventually(logs,
 					30*time.Second,
 					500*time.Millisecond).
-					Should(ContainSubstring("EFI OVMF roms missing"))
+					Should(ContainSubstring("EFI OVMF rom missing"))
 			default:
 				tests.WaitUntilVMIReady(vmi, loginTo)
 				By(msg)
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring(fileName))
+				Expect(domXml).To(MatchRegexp(fileName))
 			}
 		},
-			table.Entry("[Serial][test_id:1668]should use EFI", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", "OVMF_CODE.fd"),
-			table.Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", "OVMF_CODE.secboot.fd"),
+			table.Entry("[Serial][test_id:1668]should use EFI without secure boot", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
+			table.Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
 		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
