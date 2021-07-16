@@ -7,6 +7,8 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
+// Adding useless comment.
+
 const ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
 const RequestHeaderClientCAFileKey = "requestheader-client-ca-file"
 const VirtShareDir = "/var/run/kubevirt"
