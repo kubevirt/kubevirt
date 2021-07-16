@@ -108,6 +108,8 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 	for _, handler := range h.operands {
 		res := handler.ensure(req)
 		if res.Err != nil {
+			req.Logger.Error(res.Err, "failed to ensure an operand")
+
 			req.ComponentUpgradeInProgress = false
 			req.Conditions.SetStatusCondition(metav1.Condition{
 				Type:               hcov1beta1.ConditionReconcileComplete,

@@ -26,7 +26,8 @@ const (
 	APIVersionBeta         = "v1beta1"
 	CurrentAPIVersion      = APIVersionBeta
 	APIVersionGroup        = "hco.kubevirt.io"
-	APIVersion             = APIVersionGroup + "/" + APIVersionBeta
+	APIVersion             = APIVersionGroup + "/" + CurrentAPIVersion
+	HyperConvergedKind     = "HyperConverged"
 	// Recommended labels by Kubernetes. See
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
 	AppLabelPrefix    = "app.kubernetes.io"

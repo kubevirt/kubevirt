@@ -127,7 +127,7 @@ func main() {
 	}
 
 	services := []v1.Service{
-		components.GetServiceWebhook(*operatorNamespace),
+		components.GetServiceWebhook(),
 	}
 
 	serviceAccounts := map[string]v1.ServiceAccount{

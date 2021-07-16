@@ -11,6 +11,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -60,11 +61,12 @@ var (
 		csvv1alpha1.AddToScheme,
 		vmimportv1beta1.AddToScheme,
 		admissionregistrationv1.AddToScheme,
-		consolev1.AddToScheme,
-		openshiftconfigv1.AddToScheme,
+		consolev1.Install,
+		openshiftconfigv1.Install,
 		monitoringv1.AddToScheme,
 		apiextensionsv1.AddToScheme,
 		kubevirtv1.AddToScheme,
+		coordinationv1.AddToScheme,
 	}
 )
 

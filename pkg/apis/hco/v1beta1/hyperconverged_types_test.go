@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
@@ -314,7 +316,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 		hco := HyperConverged{
 			TypeMeta: metav1.TypeMeta{
-				Kind: "Hyperconverged",
+				Kind: util.HyperConvergedKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "Hyperconverged",
@@ -431,7 +433,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 		It("Should copy the HC type", func() {
 			aCopy := hco.DeepCopy()
 
-			Expect(aCopy.Kind).Should(Equal("Hyperconverged"))
+			Expect(aCopy.Kind).Should(Equal(util.HyperConvergedKind))
 			Expect(aCopy.Name).Should(Equal("Hyperconverged"))
 			Expect(aCopy.Namespace).Should(Equal("namespace"))
 			Expect(aCopy.Spec.LocalStorageClassName).Should(Equal("LocalStorageClassName"))
