@@ -9,4 +9,6 @@ source hack/config.sh
 # are signed with known GPG keysin repo.yaml
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- verify
+    //:bazeldnf -- verify \
+    --repofile rpm/centos-repo.yaml \
+    --repofile rpm/fedora-repo.yaml

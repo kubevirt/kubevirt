@@ -1,0 +1,25 @@
+repositories:
+- arch: x86_64
+  baseurl: http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/
+  name: centos/stream8-baseos-x86_64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: x86_64
+  baseurl: http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/
+  name: centos/stream8-appstream-x86_64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: x86_64
+  baseurl: http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/
+  name: centos/stream8-advancedvirt-x86_64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-SIG-Virtualization
+- arch: aarch64
+  baseurl: http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/
+  name: centos/stream8-baseos-aarch64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: aarch64
+  baseurl: http://mirror.centos.org/centos/8-stream/AppStream/aarch64/os/
+  name: centos/stream8-appstream-aarch64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: aarch64
+  baseurl: http://mirror.centos.org/centos/8-stream/virt/aarch64/advancedvirt-common/
+  name: centos/stream8-advancedvirt-aarch64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-SIG-Virtualization
