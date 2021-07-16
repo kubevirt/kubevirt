@@ -59,6 +59,7 @@ go_test(
         "conditions_test.go",
         "controller_ref_manager_test.go",
         "controller_suite_test.go",
+        "controller_test.go",
         "expectations_test.go",
     ],
     embed = [":go_default_library"],
