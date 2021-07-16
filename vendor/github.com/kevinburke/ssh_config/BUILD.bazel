@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "lexer.go",
+        "parser.go",
+        "position.go",
+        "token.go",
+        "validators.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/kevinburke/ssh_config",
+    importpath = "github.com/kevinburke/ssh_config",
+    visibility = ["//visibility:public"],
+)

@@ -73,11 +73,12 @@ var (
 )
 
 var (
-	// GroupVersionKind
 	VirtualMachineInstanceGroupVersionKind           = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstance"}
+	VirtualMachineInstanceGroupVersionResource       = schema.GroupVersionResource{Group: GroupName, Version: GroupVersion.Version, Resource: "virtualmachineinstances"}
 	VirtualMachineInstanceReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceReplicaSet"}
 	VirtualMachineInstancePresetGroupVersionKind     = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstancePreset"}
 	VirtualMachineGroupVersionKind                   = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
+	VirtualMachineGroupVersionResource               = schema.GroupVersionResource{Group: GroupName, Version: GroupVersion.Version, Resource: "virtualmachines"}
 	VirtualMachineInstanceMigrationGroupVersionKind  = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
 	KubeVirtGroupVersionKind                         = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "KubeVirt"}
 )

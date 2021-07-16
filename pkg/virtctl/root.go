@@ -8,6 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/config_ssh"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
@@ -27,7 +29,7 @@ var programName string
 
 func NewVirtctlCommand() *cobra.Command {
 
-	programName := GetProgramName(filepath.Base(os.Args[0]))
+	programName := templates.GetProgramName(filepath.Base(os.Args[0]))
 
 	// used in cobra templates to display either `kubectl virt` or `virtctl`
 	cobra.AddTemplateFunc(
@@ -88,22 +90,10 @@ func NewVirtctlCommand() *cobra.Command {
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),
 		guestfs.NewGuestfsShellCommand(clientConfig),
+		config_ssh.NewConfigSSHCommand(clientConfig),
 		optionsCmd,
 	)
 	return rootCmd
-}
-
-// GetProgramName returns the command name to display in help texts.
-// If `virtctl` is installed via krew to be used as a kubectl plugin, it's run via a symlink, so the basename then
-// is `kubectl-virt`. In this case we want to accommodate the user by adjusting the help text (usage, examples and
-// the like) by displaying `kubectl virt <command>` instead of `virtctl <command>`.
-// see https://github.com/kubevirt/kubevirt/issues/2356 for more details
-// see also templates.go
-func GetProgramName(binary string) string {
-	if strings.HasSuffix(binary, "-virt") {
-		return fmt.Sprintf("%s virt", strings.TrimSuffix(binary, "-virt"))
-	}
-	return "virtctl"
 }
 
 func Execute() {

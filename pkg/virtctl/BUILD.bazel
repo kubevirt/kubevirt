@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virtctl/config_ssh:go_default_library",
         "//pkg/virtctl/console:go_default_library",
         "//pkg/virtctl/expose:go_default_library",
         "//pkg/virtctl/guestfs:go_default_library",
@@ -34,7 +35,7 @@ go_test(
         "root_test.go",
     ],
     deps = [
-        ":go_default_library",
+        "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
