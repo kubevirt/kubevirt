@@ -481,6 +481,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					Message:            "The Pod is terminating",
 				})
 				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, virtv1.PodTerminatingReason, "Pod %s is terminating, marking VMI as not ready.", pod.Name)
+				log.Log.Object(vmi).Infof("Pod %s is terminating, marking VMI as not ready.", pod.Name)
 			}
 		} else if cond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); cond != nil {
 			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
