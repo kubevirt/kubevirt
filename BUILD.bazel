@@ -354,6 +354,16 @@ genrule(
 )
 
 genrule(
+    name = "build-perfscale-audit",
+    srcs = [
+        "//tools/perfscale-audit",
+    ],
+    outs = ["perfscale-audit-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
     name = "build-junit-merger",
     srcs = [
         "//tools/junit-merger",
