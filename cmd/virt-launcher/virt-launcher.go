@@ -510,55 +510,37 @@ func ForkAndMonitor(containerDiskDir string) (int, error) {
 		return 1, err
 	}
 
-	exitStatus := make(chan syscall.WaitStatus, 10)
-	sigs := make(chan os.Signal, 10)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGCHLD)
-	go func() {
-		for sig := range sigs {
-			switch sig {
-			case syscall.SIGCHLD:
-				var wstatus syscall.WaitStatus
-				wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
-				}
-
-				// there's a race between cmd.Wait() and syscall.Wait4 when
-				// cleaning up the cmd's pid after it exits. This allows us
-				// to detect the correct exit code regardless of which wait
-				// wins the race.
-				if wpid == cmd.Process.Pid {
-					exitStatus <- wstatus
-				}
-
-			default:
-				log.Log.V(3).Log("signalling virt-launcher to shut down")
-				err := cmd.Process.Signal(syscall.SIGTERM)
-				sig.Signal()
-				if err != nil {
-					log.Log.Reason(err).Errorf("received signal %s but can't signal virt-launcher to shut down", sig.String())
-				}
-			}
-		}
-	}()
+	sigChan := make(chan os.Signal)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGCHLD)
 
 	// wait for virt-launcher and collect the exit code
 	exitCode := 0
-	if err := cmd.Wait(); err != nil {
-		select {
-		case status := <-exitStatus:
-			exitCode = int(status)
-		default:
-			exitCode = 1
-			if exiterr, ok := err.(*exec.ExitError); ok {
-				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					exitCode = status.ExitStatus()
-				}
+	virtLauncherDone := false
+	for !virtLauncherDone {
+		switch sig := <-sigChan; sig {
+		case syscall.SIGCHLD:
+			var wstatus syscall.WaitStatus
+			wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
+			if err != nil {
+				log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
 			}
-			log.Log.Reason(err).Error("dirty virt-launcher shutdown")
-		}
 
+			if wpid == cmd.Process.Pid {
+				exitCode = wstatus.ExitStatus()
+				virtLauncherDone = true
+			}
+
+		default:
+			log.Log.V(3).Log("signalling virt-launcher to shut down")
+			err := cmd.Process.Signal(syscall.SIGTERM)
+			sig.Signal()
+			if err != nil {
+				log.Log.Reason(err).Errorf("received signal %s but can't signal virt-launcher to shut down", sig.String())
+				virtLauncherDone = true
+			}
+		}
 	}
+
 	// give qemu some time to shut down in case it survived virt-handler
 	// Most of the time we call `qemu-system=* binaries, but qemu-system-* packages
 	// are not everywhere available where libvirt and qemu are. There we usually call qemu-kvm
