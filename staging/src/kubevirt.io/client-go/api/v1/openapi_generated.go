@@ -421,6 +421,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Disk":                                                      schema_kubevirtio_client_go_api_v1_Disk(ref),
 		"kubevirt.io/client-go/api/v1.DiskDevice":                                                schema_kubevirtio_client_go_api_v1_DiskDevice(ref),
 		"kubevirt.io/client-go/api/v1.DiskTarget":                                                schema_kubevirtio_client_go_api_v1_DiskTarget(ref),
+		"kubevirt.io/client-go/api/v1.DiskVerification":                                          schema_kubevirtio_client_go_api_v1_DiskVerification(ref),
 		"kubevirt.io/client-go/api/v1.DomainSpec":                                                schema_kubevirtio_client_go_api_v1_DomainSpec(ref),
 		"kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource":                                   schema_kubevirtio_client_go_api_v1_DownwardAPIVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource":                               schema_kubevirtio_client_go_api_v1_DownwardMetricsVolumeSource(ref),
@@ -19685,6 +19686,11 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 							Format:      "int64",
 						},
 					},
+					"diskVerification": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.DiskVerification"),
+						},
+					},
 					"logVerbosity": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/client-go/api/v1.LogVerbosity"),
@@ -19694,7 +19700,7 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.LogVerbosity"},
+			"kubevirt.io/client-go/api/v1.DiskVerification", "kubevirt.io/client-go/api/v1.LogVerbosity"},
 	}
 }
 
@@ -20036,6 +20042,27 @@ func schema_kubevirtio_client_go_api_v1_DiskTarget(ref common.ReferenceCallback)
 				},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_DiskVerification(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DiskVerification holds container disks verification limits",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"memoryLimit": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+				Required: []string{"memoryLimit"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

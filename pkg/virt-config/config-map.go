@@ -195,6 +195,9 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	}
 	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
 	DefaultOVMFPath, DefaultMachineType, emulatedMachinesDefault := getCPUArchSpecificDefault(cpuArch)
+	defaultDiskVerification := &v1.DiskVerification{
+		MemoryLimit: resource.NewScaledQuantity(DefaultDiskVerificationMemoryLimitMBytes, resource.Mega),
+	}
 
 	return &v1.KubeVirtConfiguration{
 		ImagePullPolicy: DefaultImagePullPolicy,
@@ -205,6 +208,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 			MinimumReservePVCBytes: DefaultMinimumReservePVCBytes,
 			NodeSelectors:          nodeSelectorsDefault,
 			CPUAllocationRatio:     DefaultCPUAllocationRatio,
+			DiskVerification:       defaultDiskVerification,
 			LogVerbosity: &v1.LogVerbosity{
 				VirtAPI:        DefaultVirtAPILogVerbosity,
 				VirtOperator:   DefaultVirtOperatorLogVerbosity,

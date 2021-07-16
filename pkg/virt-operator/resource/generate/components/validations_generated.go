@@ -514,6 +514,19 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 cpuAllocationRatio:
                   type: integer
+                diskVerification:
+                  description: DiskVerification holds container disks verification
+                    limits
+                  properties:
+                    memoryLimit:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                  required:
+                  - memoryLimit
+                  type: object
                 featureGates:
                   items:
                     type: string
