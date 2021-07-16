@@ -106,6 +106,8 @@ const (
 	VMISignalDeletion = "Signaled Deletion"
 )
 
+var cgroupsSet = false // ihol3 delete this ugly workaround
+
 var RequiredGuestAgentCommands = []string{
 	"guest-ping",
 	"guest-get-time",
@@ -169,7 +171,7 @@ func NewController(
 		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
 		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
-		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
+		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter( /*podIsolationDetector,*/ virtPrivateDir + "/hotplug-volume-mount-state"), // ihol3
 		clusterConfig:               clusterConfig,
 		networkCacheStoreFactory:    netcache.NewInterfaceCacheFactory(),
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
@@ -747,7 +749,9 @@ func (d *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 	needsRefresh := false
 	if volumeStatus.Target == "" {
 		needsRefresh = true
-		if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
+		mounted, err := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID)
+		log.Log.Object(vmi).Errorf("hotplug error: %v", err)
+		if mounted {
 			if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
 				log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
 				// mounted, and still in spec, and in phase we can change, update status to mounted.
@@ -776,6 +780,7 @@ func (d *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 
 func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	hasHotplug := false
+	log.Log.Infof("hotplug [updateVolumeStatusesFromDomain]: len(vmi.Status.VolumeStatus) == %d", len(vmi.Status.VolumeStatus))
 	if len(vmi.Status.VolumeStatus) > 0 {
 		diskDeviceMap := make(map[string]string)
 		for _, disk := range domain.Spec.Devices.Disks {
@@ -788,6 +793,8 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 		newStatusMap := make(map[string]v1.VolumeStatus)
 		newStatuses := make([]v1.VolumeStatus, 0)
 		needsRefresh := false
+		log.Log.Infof("hotplug [updateVolumeStatusesFromDomain]: vmi.Status.VolumeStatus == %v", vmi.Status.VolumeStatus)
+		log.Log.Infof("hotplug [updateVolumeStatusesFromDomain]: diskDeviceMap == %v", diskDeviceMap)
 		for _, volumeStatus := range vmi.Status.VolumeStatus {
 			if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
 				volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
@@ -1685,6 +1692,13 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	if syncErr != nil {
 		return syncErr
+	}
+
+	// Set default cgroups permissions
+	if vmiExists && vmi.Status.Phase == v1.Running {
+		if err = d.setDefaultCgroup(vmi); err != nil {
+			return err
+		}
 	}
 
 	log.Log.Object(vmi).V(3).Info("Synchronization loop succeeded.")
@@ -2728,4 +2742,53 @@ func nodeHasHostModelLabel(node *k8sv1.Node) bool {
 		}
 	}
 	return false
+}
+
+func (d *VirtualMachineController) setDefaultCgroup(vmi *v1.VirtualMachineInstance) error {
+	//if cgroups.IsCgroup2UnifiedMode() && !cgroupsSet { // ihol3 take care of that...
+	//	manager, err := cgroup.NewManagerFromVM(vmi)
+	//	if err != nil {
+	//		log.Log.Object(vmi).Infof("hotplug [setDefaultCgroup] manager created. err: %v", err)
+	//		return err
+	//	}
+	//
+	//	const permissions = "rwm"
+	//	const toAllow = true
+	//
+	//	defaultRules := []*devices.Rule{
+	//		{ // /dev/ptmx (PTY master multiplex)
+	//			Type:        devices.CharDevice,
+	//			Major:       5,
+	//			Minor:       2,
+	//			Permissions: permissions,
+	//			Allow:       toAllow,
+	//		},
+	//		{ // /dev/null (Null device)
+	//			Type:        devices.CharDevice,
+	//			Major:       1,
+	//			Minor:       3,
+	//			Permissions: permissions,
+	//			Allow:       toAllow,
+	//		},
+	//		{ // /dev/pts/... (PTY slaves)
+	//			Type:        devices.CharDevice,
+	//			Major:       136,
+	//			Minor:       -1,
+	//			Permissions: permissions,
+	//			Allow:       toAllow,
+	//		},
+	//	}
+	//
+	//	err = manager.Set(&configs.Resources{
+	//		Devices: defaultRules,
+	//	})
+	//
+	//	log.Log.Object(vmi).Infof("hotplug [setDefaultCgroup] rules are set. err: %v", err)
+	//	if err != nil {
+	//		return err // ihol3 "set" should have proper error or change that
+	//	}
+	//}
+	//
+	//cgroupsSet = true
+	return nil
 }

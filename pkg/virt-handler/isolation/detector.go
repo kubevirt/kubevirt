@@ -35,7 +35,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -59,18 +58,19 @@ type PodIsolationDetector interface {
 const isolationDialTimeout = 5
 
 type socketBasedIsolationDetector struct {
-	socketDir    string
-	controller   []string
-	cgroupParser cgroup.Parser
+	socketDir  string
+	controller []string
+	//cgroupParser cgroup.Parser
 }
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
-func NewSocketBasedIsolationDetector(socketDir string, cgroupParser cgroup.Parser) PodIsolationDetector {
+// ihol3 - change the use of Slice here to Cgroup!
+func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
 	return &socketBasedIsolationDetector{
-		socketDir:    socketDir,
-		controller:   []string{"devices"},
-		cgroupParser: cgroupParser,
+		socketDir:  socketDir,
+		controller: []string{"devices"},
+		//cgroupParser: cgroupParser,
 	}
 }
 
@@ -87,9 +87,9 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
 	var pid int
 	var ppid int
-	var slice string
+	//var slice string
 	var err error
-	var controller []string
+	//var controller []string
 
 	if pid, err = s.getPid(socket); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
@@ -101,13 +101,14 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 		return nil, err
 	}
 
-	// Look up the cgroup slice based on the whitelisted controller
-	if controller, slice, err = s.getSlice(pid); err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Could not get cgroup slice for Pid %d", pid)
-		return nil, err
-	}
+	//// Look up the cgroup slice based on the whitelisted controller
+	//if controller, slice, err = s.getSlice(pid); err != nil {
+	//	log.Log.Object(vm).Reason(err).Errorf("Could not get cgroup slice for Pid %d", pid)
+	//	return nil, err
+	//}
+	// ihol3 remove
 
-	return NewIsolationResult(pid, ppid, slice, controller), nil
+	return NewIsolationResult(pid, ppid), nil
 }
 
 func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolationDetector {
@@ -265,31 +266,33 @@ func getPPid(pid int) (int, error) {
 }
 
 func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, slice string, err error) {
-	slices, err := s.cgroupParser.Parse(pid)
-	if err != nil {
-		return
-	}
-
-	// Skip not supported cgroup controller
-	for _, c := range s.controller {
-		if s, ok := slices[c]; ok {
-			// Set and check cgroup slice
-			if slice == "" {
-				slice = s
-			} else if slice != s {
-				err = fmt.Errorf("Process is part of more than one slice. Expected %s, found %s", slice, s)
-				return
-			}
-			// Add controller
-			controllers = append(controllers, c)
-		}
-	}
-
-	if slice == "" {
-		err = fmt.Errorf("Could not detect slice of whitelisted controllers: %v", s.controller)
-	}
-
 	return
+
+	//slices, err := s.cgroupParser.Parse(pid)
+	//if err != nil {
+	//	return
+	//}
+	//
+	//// Skip not supported cgroup controller
+	//for _, c := range s.controller {
+	//	if s, ok := slices[c]; ok {
+	//		// Set and check cgroup slice
+	//		if slice == "" {
+	//			slice = s
+	//		} else if slice != s {
+	//			err = fmt.Errorf("Process is part of more than one slice. Expected %s, found %s", slice, s)
+	//			return
+	//		}
+	//		// Add controller
+	//		controllers = append(controllers, c)
+	//	}
+	//}
+	//
+	//if slice == "" {
+	//	err = fmt.Errorf("Could not detect slice of whitelisted controllers: %v", s.controller)
+	//}
+	//
+	//return
 }
 
 // consider reusing getMemoryOverhead()

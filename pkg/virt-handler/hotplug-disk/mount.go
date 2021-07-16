@@ -1,16 +1,13 @@
 package hotplug_volume
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,9 +20,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups/devices"
-	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
 	"github.com/opencontainers/runc/libcontainer/configs"
+
+	"github.com/opencontainers/runc/libcontainer/devices"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -75,19 +72,20 @@ var (
 	}
 
 	isolationDetector = func(path string) isolation.PodIsolationDetector {
-		return isolation.NewSocketBasedIsolationDetector(path, cgroup.NewParser())
+		return isolation.NewSocketBasedIsolationDetector(path)
 	}
 )
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type volumeMounter struct {
-	podIsolationDetector isolation.PodIsolationDetector
-	mountStateDir        string
-	mountRecords         map[types.UID]*vmiMountTargetRecord
-	mountRecordsLock     sync.Mutex
-	skipSafetyCheck      bool
-	hotplugDiskManager   hotplugdisk.HotplugDiskManagerInterface
+	//podIsolationDetector isolation.PodIsolationDetector // ihol3 remove
+	cgroupManager      cgroup.Manager
+	mountStateDir      string
+	mountRecords       map[types.UID]*vmiMountTargetRecord
+	mountRecordsLock   sync.Mutex
+	skipSafetyCheck    bool
+	hotplugDiskManager hotplugdisk.HotplugDiskManagerInterface
 }
 
 // VolumeMounter is the interface used to mount and unmount volumes to/from a running virtlauncher pod.
@@ -111,12 +109,12 @@ type vmiMountTargetRecord struct {
 }
 
 // NewVolumeMounter creates a new VolumeMounter
-func NewVolumeMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string) VolumeMounter {
+func NewVolumeMounter( /*isoDetector isolation.PodIsolationDetector,*/ mountStateDir string) VolumeMounter {
 	return &volumeMounter{
-		podIsolationDetector: isoDetector,
-		mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
-		mountStateDir:        mountStateDir,
-		hotplugDiskManager:   hotplugdisk.NewHotplugDiskManager(),
+		//podIsolationDetector: isoDetector, // ihol3 remove
+		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
+		mountStateDir:      mountStateDir,
+		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(),
 	}
 }
 
@@ -293,9 +291,21 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 	}
 
 	deviceName := filepath.Join(targetPath, volume)
+	isolationRes, err := detectVMIsolation(vmi)
+	if err != nil {
+		return err
+	}
+
+	pid := isolationRes.Pid()
+
+	cgroupsManager, err := getCgroupsManager(vmi, sourceUID)
+	if err != nil {
+		return fmt.Errorf("could not create cgroup manager. err: %v", err)
+	}
 
 	if isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists {
-		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
+		log.Log.Infof("hotplug [mountBlockHotplugVolume]: isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists")
+		//computeCGroupPath, err := m.getTargetCgroupPath(vmi)
 		if err != nil {
 			return err
 		}
@@ -306,16 +316,23 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err := m.writePathToMountRecord(deviceName, vmi, record); err != nil {
 			return err
 		}
+		log.Log.Infof("hotplug [mountBlockHotplugVolume]: FINISHED writePathToMountRecord. err: %v", err)
 		// allow block devices
-		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, computeCGroupPath); err != nil {
+		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, cgroupsManager, pid); err != nil {
 			return err
 		}
+		log.Log.Infof("hotplug [mountBlockHotplugVolume]: FINISHED allowBlockMajorMinor. err: %v", err)
+
 		if _, err = m.createBlockDeviceFile(deviceName, sourceMajor, sourceMinor, permissions); err != nil {
 			return err
 		}
+
+		log.Log.Infof("hotplug [mountBlockHotplugVolume]: FINISHED createBlockDeviceFile. err: %v", err)
+
 	} else if isBlockExists && !m.volumeStatusReady(volume, vmi) {
+		log.Log.Infof("hotplug [mountBlockHotplugVolume]: isBlockExists && !m.volumeStatusReady(volume, vmi)")
 		// Block device exists already, but the volume is not ready yet, ensure that the device is allowed.
-		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
+		//computeCGroupPath, err := m.getTargetCgroupPath(vmi)
 		if err != nil {
 			return err
 		}
@@ -323,7 +340,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err != nil {
 			return err
 		}
-		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, computeCGroupPath); err != nil {
+		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, cgroupsManager, pid); err != nil {
 			return err
 		}
 	}
@@ -432,95 +449,256 @@ func (m *volumeMounter) getBlockFileMajorMinor(fileName string) (int64, int64, s
 	return int64(result[0]), int64(result[1]), split[2], nil
 }
 
-// getTargetCgroupPath returns the container cgroup path of the compute container in the pod.
-func (m *volumeMounter) getTargetCgroupPath(vmi *v1.VirtualMachineInstance) (string, error) {
-	basePath := cgroupsBasePath()
-	isoRes, err := m.podIsolationDetector.Detect(vmi)
+//// getTargetCgroupPath returns the container cgroup path of the compute container in the pod.
+//func (m *volumeMounter) getTargetCgroupPath(vmi *v1.VirtualMachineInstance) (string, error) {
+//	basePath := cgroupsBasePath()
+//	isoRes, err := m.podIsolationDetector.Detect(vmi)
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	virtlauncherCgroupPath := filepath.Join(basePath, )//isoRes.Slice())
+//	fileInfo, err := os.Stat(virtlauncherCgroupPath)
+//	if err != nil {
+//		return "", err
+//	}
+//	if !fileInfo.IsDir() {
+//		return "", fmt.Errorf("detected path %s, but it is not a directory", virtlauncherCgroupPath)
+//	}
+//	return virtlauncherCgroupPath, nil
+//}
+
+func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, manager cgroup.Manager) error {
+	//idx := strings.Index(path, "/sys/fs/cgroup/")
+	//chrootPath := path[:idx] // ihol3 rename me
+	//newPath := path[idx:]
+
+	return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
+		return m.updateBlockMajorMinor(major, minor, false, manager, -1)
+	})
+}
+
+// DELETE ME!!!!!!! ihol3
+func logRootFiles(name string, path string) {
+	const filePattern = " (name: %s, is dir? %v) "
+	filesStr := ""
+	files, err := ioutil.ReadDir(path)
 	if err != nil {
-		return "", err
+		log.Log.Infof("hotplug [%s]. ERR READING FILES: %v", name, err)
 	}
 
-	virtlauncherCgroupPath := filepath.Join(basePath, isoRes.Slice())
-	fileInfo, err := os.Stat(virtlauncherCgroupPath)
-	if err != nil {
-		return "", err
+	for _, f := range files {
+		filesStr += fmt.Sprintf(filePattern, f.Name(), f.IsDir())
 	}
-	if !fileInfo.IsDir() {
-		return "", fmt.Errorf("detected path %s, but it is not a directory", virtlauncherCgroupPath)
-	}
-	return virtlauncherCgroupPath, nil
+
+	log.Log.Infof("hotplug [%s]. ls on %s: [%s]", name, path, filesStr)
 }
 
-func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, path string) error {
-	return m.updateBlockMajorMinor(major, minor, path, false)
+func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, manager cgroup.Manager, pid int) error {
+	//const cgroupBase = "/sys/fs/cgroup/devices/"
+	//cgroupBase, err := manager.GetBasePathToHostController("devices")
+	//if err != nil {
+	//	// ihol3 maybe expand error
+	//	return err
+	//}
+
+	//idx := strings.Index(path, cgroupBase)
+	//var newPath string
+	//
+	//if idx > -1 {
+	//	newPath = path[idx:]
+	//} else {
+	//	//newPath := filepath.Join("/sys/fs/cgroup/", path)
+	//	//_, err := os.Stat(newPath)
+	//	//return m.updateBlockMajorMinor(major, minor, "", true, manager)
+	//	newPath = path
+	//}
+	log.Log.Infof("hotplug [allowBlockMajorMinor]. PATHS=%s", manager.GetPaths())
+	//logRootFiles("allowBlockMajorMinor", "/")
+	//logRootFiles("allowBlockMajorMinor", cgroup.HostRootPath)
+
+	//if pid > -1 {
+	//	err = manager.Apply(pid)
+	//	log.Log.Infof("hotplug [updateBlockMajorMinor]: APPLIED. err: %v", err)
+	//	log.Log.Infof("hotplug [allowBlockMajorMinor]. PATHS (after applying)=%s", manager.GetPaths())
+	//}
+
+	log.Log.Infof("hotplug [allowBlockMajorMinor]. CHROOTING TO: %s", cgroup.HostRootPath)
+
+	//return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
+	//	return m.updateBlockMajorMinor(major, minor, true, manager, pid)
+	//})
+
+	return m.updateBlockMajorMinor(major, minor, true, manager, pid)
 }
 
-func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, path string) error {
-	return m.updateBlockMajorMinor(major, minor, path, true)
-}
-
-func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, allow bool) error {
-	deviceRule := &configs.DeviceRule{
-		Type:        configs.BlockDevice,
+func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, manager cgroup.Manager, pid int) error {
+	var err error
+	deviceRule := &devices.Rule{
+		Type:        devices.BlockDevice,
 		Major:       major,
 		Minor:       minor,
 		Permissions: "rwm",
 		Allow:       allow,
 	}
-	if err := m.updateDevicesList(path, deviceRule); err != nil {
-		return err
+	log.Log.Infof("hotplug [updateBlockMajorMinor]: major == %v, minor == %v", major, minor)
+
+	//err := manager.Set(&configs.Resources{
+	//	Devices: []*devices.Rule{deviceRule},
+	//})
+	devicesPath, ok := manager.GetPaths()[""]
+	//devicesPath = filepath.Join("/sys/fs/cgroup/", devicesPath)
+	log.Log.Infof("hotplug [updateBlockMajorMinor]: devicesPath() == %s, ok == %v", devicesPath, ok)
+
+	if _, err := os.Stat(devicesPath); os.IsNotExist(err) {
+		log.Log.Infof("hotplug [updateBlockMajorMinor]: devicesPath does NOT exist!!!!!!!!!!!!!!!!")
 	}
-	return nil
+
+	logRootFiles("updateBlockMajorMinor", devicesPath)
+
+	log.Log.Infof("hotplug [updateBlockMajorMinor]: RULE -> %+v", deviceRule)
+	//err = set_del(devicesPath, &configs.Resources{
+	//	Devices: []*devices.Rule{deviceRule},
+	//})
+
+	const permissions = "rwm"
+	const toAllow = true
+
+	defaultRules := []*devices.Rule{
+		deviceRule,
+		{ // /dev/ptmx (PTY master multiplex)
+			Type:        devices.CharDevice,
+			Major:       5,
+			Minor:       2,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
+		{ // /dev/null (Null device)
+			Type:        devices.CharDevice,
+			Major:       1,
+			Minor:       3,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
+		{ // /dev/pts/... (PTY slaves)
+			Type:        devices.CharDevice,
+			Major:       136,
+			Minor:       -1,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
+	}
+
+	err = manager.Set(&configs.Resources{
+		Devices: defaultRules,
+	})
+	logRootFiles("updateBlockMajorMinor", "/")
+
+	log.Log.Infof("setting rule. err: %v", err)
+
+	return err
+
+	//var manager cgroups.Manager
+	//var err error
+	//var config *configs.Cgroup
+	//var dirPath string
+	//var rootless bool
+	//dirPath = path
+
+	//if !cgroups.IsCgroup2UnifiedMode() {
+	//	// ihol3
+	//	// key is cgroup. how do I get it?
+	//	//cgroups.cgrou
+	//	//manager = fs.NewManager(config, map[string]string{"devices": dirPath}, rootless)
+	//	//deviceManager := manager.(*fs.DevicesGroup)
+	//
+	//	//m.podIsolationDetector.De
+	//
+	//	if err := m.updateDevicesList(path, deviceRule); err != nil {
+	//		return err
+	//	} else {
+	//		return nil
+	//	}
+	//} else {
+	//	//manager, err = fs2.NewManager(config, dirPath, rootless)
+	//	resourceConfig := &configs.Resources{
+	//		Devices:     []*devices.Rule{deviceRule},
+	//		SkipDevices: false,
+	//	}
+	//	if err := m.setDevices(path, resourceConfig); err != nil {
+	//		return err
+	//	} else {
+	//		return nil
+	//	}
+	//}
+	//path_cgroups := manager.Path()
+	//
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//err = manager.Set(&configs.Resources{
+	//	Devices: []*devices.Rule{deviceRule},
+	//})
+	//if err != nil {
+	//	return err
+	//}
+
+	//return nil
 }
 
-func (m *volumeMounter) loadEmulator(path string) (*devices.Emulator, error) {
-	list, err := fscommon.ReadFile(path, "devices.list")
-	if err != nil {
-		return nil, err
-	}
-	return devices.EmulatorFromList(bytes.NewBufferString(list))
-}
+//func (m *volumeMounter) loadEmulator(path string) (*cgroupdevices.Emulator, error) {
+//	list, err := fscommon.ReadFile(path, "devices.list")
+//	if err != nil {
+//		return nil, err
+//	}
+//	return cgroupdevices.EmulatorFromList(bytes.NewBufferString(list))
+//}
 
-func (m *volumeMounter) updateDevicesList(path string, rule *configs.DeviceRule) error {
-	// Create the target emulator for comparison later.
-	target, err := m.loadEmulator(path)
-	if err != nil {
-		return err
-	}
-	target.Apply(*rule)
-
-	file := "devices.deny"
-	if rule.Allow {
-		file = "devices.allow"
-	}
-	if err := fscommon.WriteFile(path, file, rule.CgroupString()); err != nil {
-		return err
-	}
-
-	// Final safety check -- ensure that the resulting state is what was
-	// requested. This is only really correct for white-lists, but for
-	// black-lists we can at least check that the cgroup is in the right mode.
-	currentAfter, err := m.loadEmulator(path)
-	if err != nil {
-		return err
-	}
-	if !m.skipSafetyCheck {
-		if !target.IsBlacklist() && !reflect.DeepEqual(currentAfter, target) {
-			return errors.New("resulting devices cgroup doesn't precisely match target")
-		} else if target.IsBlacklist() != currentAfter.IsBlacklist() {
-			return errors.New("resulting devices cgroup doesn't match target mode")
-		}
-	}
-	return nil
-}
+// ihol3 delete this and others that aren't in use here
+//func (m *volumeMounter) updateDevicesList(path string, rule *configs.DeviceRule) error {
+//	// Create the target emulator for comparison later.
+//	target, err := m.loadEmulator(path)
+//	if err != nil {
+//		return err
+//	}
+//	target.Apply(*rule)
+//
+//	file := "devices.deny"
+//	if rule.Allow {
+//		file = "devices.allow"
+//	}
+//	if err := fscommon.WriteFile(path, file, rule.CgroupString()); err != nil {
+//		return err
+//	}
+//
+//	// Final safety check -- ensure that the resulting state is what was
+//	// requested. This is only really correct for white-lists, but for
+//	// black-lists we can at least check that the cgroup is in the right mode.
+//	currentAfter, err := m.loadEmulator(path)
+//	if err != nil {
+//		return err
+//	}
+//	if !m.skipSafetyCheck {
+//		if !target.IsBlacklist() && !reflect.DeepEqual(currentAfter, target) {
+//			return errors.New("resulting devices cgroup doesn't precisely match target")
+//		} else if target.IsBlacklist() != currentAfter.IsBlacklist() {
+//			return errors.New("resulting devices cgroup doesn't match target mode")
+//		}
+//	}
+//	return nil
+//}
 
 func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor int64, blockDevicePermissions string) (string, error) {
+	log.Log.Infof("hotplug [createBlockDeviceFile]: deviceName == %s", deviceName)
 	exists, err := diskutils.FileExists(deviceName)
+	log.Log.Infof("hotplug [createBlockDeviceFile]: exists == %v, err: %v", exists, err)
 	if err != nil {
 		return "", err
 	}
 	if !exists {
 		out, err := mknodCommand(deviceName, major, minor, blockDevicePermissions)
+		log.Log.Infof("hotplug [createBlockDeviceFile]: MKNOD! err: %v, out: %v", err, out)
 		if err != nil {
 			log.DefaultLogger().Errorf("Error creating block device file: %s, %v", out, err)
 			return "", err
@@ -692,6 +870,11 @@ func (m *volumeMounter) unmountFileSystemHotplugVolumes(diskPath string) error {
 }
 
 func (m *volumeMounter) unmountBlockHotplugVolumes(diskPath string, vmi *v1.VirtualMachineInstance) error {
+	cgroupsManager, err := getCgroupsManager(vmi, "")
+	if err != nil {
+		return fmt.Errorf("could not create cgroup manager. err: %v", err)
+	}
+
 	// Get major and minor so we can deny the container.
 	major, minor, _, err := m.getBlockFileMajorMinor(diskPath)
 	if err != nil {
@@ -702,11 +885,11 @@ func (m *volumeMounter) unmountBlockHotplugVolumes(diskPath string, vmi *v1.Virt
 	if err != nil {
 		return err
 	}
-	path, err := m.getTargetCgroupPath(vmi)
-	if err != nil {
-		return err
-	}
-	if err := m.removeBlockMajorMinor(major, minor, path); err != nil {
+	//path, err := m.getTargetCgroupPath(vmi)
+	//if err != nil {
+	//	return err
+	//}
+	if err := m.removeBlockMajorMinor(major, minor, cgroupsManager); err != nil {
 		return err
 	}
 	return nil
@@ -764,4 +947,290 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		return isBlockExists, nil
 	}
 	return isMounted(filepath.Join(targetPath, volume))
+}
+
+//func (m *volumeMounter) setDevices(dirPath string, r *configs.Resources) error {
+//	if r.SkipDevices {
+//		return nil
+//	}
+//	// XXX: This is currently a white-list (but all callers pass a blacklist of
+//	//      devices). This is bad for a whole variety of reasons, but will need
+//	//      to be fixed with co-ordinated effort with downstreams.
+//	insts, license, err := devicefilter.DeviceFilter(r.Devices)
+//	if err != nil {
+//		return err
+//	}
+//	dirFD, err := unix.Open(dirPath, unix.O_DIRECTORY|unix.O_RDONLY, 0600)
+//	if err != nil {
+//		return fmt.Errorf("cannot get dir FD for %s", dirPath)
+//	}
+//	defer unix.Close(dirFD)
+//	// XXX: This code is currently incorrect when it comes to updating an
+//	//      existing cgroup with new rules (new rulesets are just appended to
+//	//      the program list because this uses BPF_F_ALLOW_MULTI). If we didn't
+//	//      use BPF_F_ALLOW_MULTI we could actually atomically swap the
+//	//      programs.
+//	//
+//	//      The real issue is that BPF_F_ALLOW_MULTI makes it hard to have a
+//	//      race-free blacklist because it acts as a whitelist by default, and
+//	//      having a deny-everything program cannot be overridden by other
+//	//      programs. You could temporarily insert a deny-everything program
+//	//      but that would result in spurrious failures during updates.
+//	if _, err := ebpf.LoadAttachCgroupDeviceFilter(insts, license, dirFD); err != nil {
+//		if !canSkipEBPFError(r) {
+//			return err
+//		}
+//	}
+//	return nil
+//}
+//
+//// This is similar to the logic applied in crun for handling errors from bpf(2)
+//// <https://github.com/containers/crun/blob/0.17/src/libcrun/cgroup.c#L2438-L2470>.
+//func canSkipEBPFError(r *configs.Resources) bool {
+//	// If we're running in a user namespace we can ignore eBPF rules because we
+//	// usually cannot use bpf(2), as well as rootless containers usually don't
+//	// have the necessary privileges to mknod(2) device inodes or access
+//	// host-level instances (though ideally we would be blocking device access
+//	// for rootless containers anyway).
+//	if userns.RunningInUserNS() {
+//		return true
+//	}
+//
+//	// We cannot ignore an eBPF load error if any rule if is a block rule or it
+//	// doesn't permit all access modes.
+//	//
+//	// NOTE: This will sometimes trigger in cases where access modes are split
+//	//       between different rules but to handle this correctly would require
+//	//       using ".../libcontainer/cgroup/devices".Emulator.
+//	for _, dev := range r.Devices {
+//		if !dev.Allow || !isRWM(dev.Permissions) {
+//			return false
+//		}
+//	}
+//	return true
+//}
+//
+//func isRWM(perms devices.Permissions) bool {
+//	var r, w, m bool
+//	for _, perm := range perms {
+//		switch perm {
+//		case 'r':
+//			r = true
+//		case 'w':
+//			w = true
+//		case 'm':
+//			m = true
+//		}
+//	}
+//	return r && w && m
+//}
+
+// ihol3 consider to delete
+func getCgroupsManager(vmi *v1.VirtualMachineInstance, sourceUID types.UID) (manager cgroup.Manager, err error) {
+	manager, err = cgroup.NewManagerFromVM(vmi)
+	log.Log.Object(vmi).Infof("creating new manager. err: %v", err)
+
+	//if sourceUID == "" {
+	//	manager, err = cgroup.NewManagerFromVM(vmi)
+	//	log.Log.Object(vmi).Infof("creating new manager. err: %v", err)
+	//} else {
+	//	socketPath := socketPath(sourceUID) // ihol3 refactor to getSocketPath
+	//	manager, err = cgroup.NewManagerFromVMAndSocket(vmi, socketPath)
+	//	log.Log.Object(vmi).Infof("creating new manager. socket: \"%s\", err: %v", socketPath, err)
+	//}
+
+	return manager, err
+}
+
+// --------------- DELETE THOSE:
+
+//func set_del(path string, r *configs.Resources) error {
+//	log.Log.Infof("hotplug [set_del]: userns.RunningInUserNS() || r.SkipDevices == %v", userns.RunningInUserNS() || r.SkipDevices)
+//	if userns.RunningInUserNS() || r.SkipDevices {
+//		return nil
+//	}
+//
+//	// Generate two emulators, one for the current state of the cgroup and one
+//	// for the requested state by the user.
+//	current, err := loadEmulator(path)
+//	if err != nil {
+//		return err
+//	}
+//	target, err := buildEmulator(r.Devices)
+//	if err != nil {
+//		return err
+//	}
+//
+//	log.Log.Infof("hotplug [set_del]: current == %v, target == %v", current, target)
+//	rule := *r.Devices[0]
+//	//current.Apply(rule)
+//	//log.Log.Infof("hotplug [set_del]: APPLYING rule == %v. target == %v", rule, target)
+//	file := "devices.deny"
+//	if rule.Allow {
+//		file = "devices.allow"
+//	}
+//	content, err := fscommon.ReadFile(path, "devices.list")
+//	log.Log.Infof("hotplug [set_del]: ReadFile - err: %v, Content: %s", err, content)
+//
+//	//if err := fscommon.WriteFile(path, file, rule.CgroupString()); err != nil {
+//	//	return err
+//	//}
+//	//log.Log.Infof("hotplug [set_del]: WriteFile - ERR: %v", err)
+//	//log.Log.Infof("hotplug [set_del]: WriteFile - Rule: %s", rule.CgroupString())
+//
+//	//Compute the minimal set of transition rules needed to achieve the
+//	//requested state.
+//	transitionRules, err := transition(target, current)
+//	if err != nil {
+//		return err
+//	}
+//
+//	log.Log.Infof("hotplug [set_del]: len(transitionRules) == %v", len(transitionRules))
+//	log.Log.Infof("hotplug [set_del]: transitionRules == %v", transitionRules)
+//	for _, rule := range transitionRules {
+//		file := "devices.deny"
+//		if rule.Allow {
+//			file = "devices.allow"
+//		}
+//		log.Log.Infof("hotplug [set_del]: path == %v, file == %v, rule.CgroupString() == %v, ", path, file, rule.CgroupString())
+//		if err := fscommon.WriteFile(path, file, rule.CgroupString()); err != nil {
+//			return err
+//		}
+//	}
+//
+//	if len(transitionRules) == 0 {
+//		log.Log.Infof("hotplug [set_del]: len(transitionRules) == 0")
+//
+//		if err := fscommon.WriteFile(path, file, rule.CgroupString()); err != nil {
+//			return err
+//		}
+//		log.Log.Infof("hotplug [set_del]: WriteFile - ERR: %v", err)
+//		log.Log.Infof("hotplug [set_del]: WriteFile - Rule: %s", rule.CgroupString())
+//	}
+//
+//	content, err = fscommon.ReadFile(path, "devices.list")
+//	log.Log.Infof("hotplug [set_del]: ReadFile - err: %v, Content: %s", err, content)
+//
+//	// Final safety check -- ensure that the resulting state is what was
+//	// requested. This is only really correct for white-lists, but for
+//	// black-lists we can at least check that the cgroup is in the right mode.
+//	//
+//	// This safety-check is skipped for the unit tests because we cannot
+//	// currently mock devices.list correctly.
+//	//currentAfter, err := loadEmulator(path)
+//	//if err != nil {
+//	//	return err
+//	//}
+//	//if !target.IsBlacklist() && !reflect.DeepEqual(currentAfter, target) {
+//	//	return errors.New("resulting devices cgroup doesn't precisely match target")
+//	//} else if target.IsBlacklist() != currentAfter.IsBlacklist() {
+//	//	return errors.New("resulting devices cgroup doesn't match target mode")
+//	//}
+//	return nil
+//}
+
+//func loadEmulator(path string) (*cgroupdevices.Emulator, error) {
+//	list, err := fscommon.ReadFile(path, "devices.list")
+//	if err != nil {
+//		return nil, err
+//	}
+//	return cgroupdevices.EmulatorFromList(bytes.NewBufferString(list))
+//}
+//
+//func buildEmulator(rules []*devices.Rule) (*cgroupdevices.Emulator, error) {
+//	// This defaults to a white-list -- which is what we want!
+//	emu := &cgroupdevices.Emulator{}
+//	for _, rule := range rules {
+//		if err := emu.Apply(*rule); err != nil {
+//			return nil, err
+//		}
+//	}
+//	return emu, nil
+//}
+
+//func transition(target *cgroupdevices.Emulator, source *cgroupdevices.Emulator) ([]*devices.Rule, error) {
+//	var transitionRules []*devices.Rule
+//	oldRules := source.Rules
+//
+//	// If the default policy doesn't match, we need to include a "disruptive"
+//	// rule (either allow-all or deny-all) in order to switch the cgroup to the
+//	// correct default policy.
+//	//
+//	// However, due to a limitation in "devices.list" we cannot be sure what
+//	// deny rules are in place in a black-list cgroup. Thus if the source is a
+//	// black-list we also have to include a disruptive rule.
+//	if source.IsBlacklist() || source.DefaultAllow != target.DefaultAllow {
+//		transitionRules = append(transitionRules, &devices.Rule{
+//			Type:        'a',
+//			Major:       -1,
+//			Minor:       -1,
+//			Permissions: devices.Permissions("rwm"),
+//			Allow:       target.DefaultAllow,
+//		})
+//		// The old rules are only relevant if we aren't starting out with a
+//		// disruptive rule.
+//		oldRules = nil
+//	}
+//
+//	// NOTE: We traverse through the rules in a sorted order so we always write
+//	//       the same set of rules (this is to aid testing).
+//
+//	// First, we create inverse rules for any old rules not in the new set.
+//	// This includes partial-inverse rules for specific permissions. This is a
+//	// no-op if we added a disruptive rule, since oldRules will be empty.
+//	log.Log.Infof("hotplug [transition]: oldRules == %v, ", oldRules.OrderedEntries())
+//	log.Log.Infof("hotplug [transition]: target.Rules == %v, ", target.Rules.OrderedEntries())
+//
+//	for _, rule := range oldRules.OrderedEntries() {
+//		meta, oldPerms := rule.Meta, rule.Perms
+//		newPerms := target.Rules[meta]
+//		droppedPerms := oldPerms.Difference(newPerms)
+//		log.Log.Infof("hotplug [transition]: oldPerms == %v, ", oldPerms)
+//		log.Log.Infof("hotplug [transition]: oldPerms == %v, ", newPerms)
+//		log.Log.Infof("hotplug [transition]: difference(droppedPerms) == %v, ", droppedPerms)
+//		if !droppedPerms.IsEmpty() {
+//			transitionRules = append(transitionRules, &devices.Rule{
+//				Type:        meta.Node,
+//				Major:       meta.Major,
+//				Minor:       meta.Minor,
+//				Permissions: droppedPerms,
+//				Allow:       target.DefaultAllow,
+//			})
+//		}
+//	}
+//
+//	// Add any additional rules which weren't in the old set. We happen to
+//	// filter out rules which are present in both sets, though this isn't
+//	// strictly necessary.
+//	for _, rule := range target.Rules.OrderedEntries() {
+//		meta, newPerms := rule.Meta, rule.Perms
+//		oldPerms := oldRules[meta]
+//		gainedPerms := newPerms.Difference(oldPerms)
+//		log.Log.Infof("hotplug [transition]: oldPerms == %v, ", oldPerms)
+//		log.Log.Infof("hotplug [transition]: oldPerms == %v, ", newPerms)
+//		log.Log.Infof("hotplug [transition]: difference(gainedPerms) == %v, ", gainedPerms)
+//		if !gainedPerms.IsEmpty() {
+//			transitionRules = append(transitionRules, &devices.Rule{
+//				Type:        meta.Node,
+//				Major:       meta.Major,
+//				Minor:       meta.Minor,
+//				Permissions: gainedPerms,
+//				Allow:       !target.DefaultAllow,
+//			})
+//		}
+//	}
+//	return transitionRules, nil
+//}
+
+func detectVMIsolation(vm *v1.VirtualMachineInstance) (isolationRes isolation.IsolationResult, err error) {
+	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
+	detector := isolation.NewSocketBasedIsolationDetector(util.VirtShareDir)
+
+	isolationRes, err = detector.Detect(vm)
+
+	if err != nil {
+		return nil, fmt.Errorf(detectionErrFormat, vm.Name, err)
+	}
+
+	return isolationRes, nil
 }

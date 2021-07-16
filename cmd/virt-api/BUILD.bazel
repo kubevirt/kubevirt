@@ -11,7 +11,7 @@ go_library(
         "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/virt-api:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )
 
