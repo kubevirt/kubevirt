@@ -27,6 +27,8 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
+const DefaultFailureDeadlineSeconds int64 = 300
+
 // VirtualMachineSnapshot defines the operation of snapshotting a VM
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -60,6 +62,13 @@ type VirtualMachineSnapshotSpec struct {
 
 	// +optional
 	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// This time represents the number of seconds we permit the vm snapshot
+	// to take. In case we pass this deadline we mark this snapshot
+	// as failed.
+	// Defaults to DefaultFailureDeadlineSeconds - 300 sec
+	// +optional
+	FailureDeadlineSeconds *int64 `json:"failureDeadlineSeconds,omitempty"`
 }
 
 // Indication is a way to indicate the state of the vm when taking the snapshot
@@ -68,6 +77,18 @@ type Indication string
 const (
 	VMSnapshotOnlineSnapshotIndication Indication = "Online"
 	VMSnapshotNoGuestAgentIndication   Indication = "NoGuestAgent"
+	VMSnapshotGuestAgentIndication     Indication = "GuestAgent"
+)
+
+// VirtualMachineSnapshotPhase is the current phase of the VirtualMachineSnapshot
+type VirtualMachineSnapshotPhase string
+
+const (
+	PhaseUnset VirtualMachineSnapshotPhase = ""
+	InProgress VirtualMachineSnapshotPhase = "InProgress"
+	Succeeded  VirtualMachineSnapshotPhase = "Succeeded"
+	Failed     VirtualMachineSnapshotPhase = "Failed"
+	Unknown    VirtualMachineSnapshotPhase = "Unknown"
 )
 
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource
@@ -81,6 +102,9 @@ type VirtualMachineSnapshotStatus struct {
 	// +optional
 	// +nullable
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
+
+	// +optional
+	Phase VirtualMachineSnapshotPhase `json:"phase,omitempty"`
 
 	// +optional
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
@@ -114,6 +138,12 @@ const (
 
 	// ConditionProgressing is the "progressing" condition type
 	ConditionProgressing ConditionType = "Progressing"
+
+	// ConditionFreezing is the "freezing" condition type
+	ConditionFreezing ConditionType = "Freezing"
+
+	// ConditionFailure is the "failure" condition type
+	ConditionFailure ConditionType = "Failure"
 )
 
 // Condition defines conditions

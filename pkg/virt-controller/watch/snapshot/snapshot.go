@@ -56,6 +56,12 @@ const (
 
 	volumeSnapshotMissingEvent = "VolumeSnapshotMissing"
 
+	vmSnapshotSourceFrozen = "vmsnapshot source frozen"
+
+	vmSnapshotSourceThawed = "vmsnapshot source thawed"
+
+	vmSnapshotDeadlineExceededError = "snapshot deadline exceeded"
+
 	snapshotRetryInterval = 5 * time.Second
 )
 
@@ -87,6 +93,14 @@ func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.
 		return vmSnapshot.Status.Error
 	}
 	return nil
+}
+
+func vmSnapshotFailed(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	return vmSnapshot.Status.Phase == snapshotv1.Failed
+}
+
+func vmSnapshotSucceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	return vmSnapshot.Status.Phase == snapshotv1.Succeeded
 }
 
 func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
@@ -125,6 +139,11 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		return 0, err
 	}
 
+	if vmSnapshotDeadlineExceeded(vmSnapshot) {
+		err = ctrl.handleVMSnapshotDeadlineExceeded(vmSnapshot, source)
+		return 0, err
+	}
+
 	// unlock the source if done/error
 	if !vmSnapshotProgressing(vmSnapshot) && source != nil {
 		if updated, err := source.Unlock(); updated || err != nil {
@@ -154,7 +173,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		// add source finalizer and maybe other stuff
 		updated, err := ctrl.initVMSnapshot(vmSnapshot)
 		if updated || err != nil {
-			return 0, err
+			return timeUntilDeadline(vmSnapshot), err
 		}
 
 		content, err := ctrl.getContent(vmSnapshot)
@@ -164,7 +183,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 
 		// create content if does not exist
 		if content == nil {
-			return 0, ctrl.createContent(vmSnapshot)
+			return timeUntilDeadline(vmSnapshot), ctrl.createContent(vmSnapshot)
 		}
 	}
 
@@ -172,7 +191,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		return 0, err
 	}
 
-	return 0, nil
+	return timeUntilDeadline(vmSnapshot), nil
 }
 
 func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) (time.Duration, error) {
@@ -181,8 +200,17 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	var volumeSnapshotStatus []snapshotv1.VolumeSnapshotStatus
 	var deletedSnapshots, skippedSnapshots []string
 
+	vmSnapshot, err := ctrl.getVMSnapshot(content)
+	if err != nil {
+		return 0, err
+	}
+	if vmSnapshotFailed(vmSnapshot) {
+		return 0, nil
+	}
+
 	currentlyReady := vmSnapshotContentReady(content)
 	currentlyError := content.Status != nil && content.Status.Error != nil
+	checkedGuestAgentParticipation := false
 
 	for _, volumeBackup := range content.Spec.VolumeBackups {
 		if volumeBackup.VolumeSnapshotName == nil {
@@ -215,6 +243,14 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 				log.Log.V(3).Infof("Not creating snapshot %s because in error state", vsName)
 				skippedSnapshots = append(skippedSnapshots, vsName)
 				continue
+			}
+
+			if !checkedGuestAgentParticipation {
+				err = ctrl.freezeGuestFSIfNeeded(vmSnapshot)
+				if err != nil {
+					return 0, err
+				}
+				checkedGuestAgentParticipation = true
 			}
 
 			volumeSnapshot, err = ctrl.createVolumeSnapshot(content, volumeBackup)
@@ -370,6 +406,19 @@ func (ctrl *VMSnapshotController) initVMSnapshot(vmSnapshot *snapshotv1.VirtualM
 
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	controller.AddFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
+
+	vmSnapshotCpy.Status.Phase = snapshotv1.InProgress
+
+	onlineSnapshot, err := ctrl.checkOnlineSnapshotting(vmSnapshotCpy)
+	if err != nil {
+		return false, err
+	}
+
+	if onlineSnapshot {
+		log.Log.V(3).Infof("Updating snapshot indications that the vm is online during the snapshot")
+		vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
+		vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+	}
 
 	if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshot.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 		return false, err
@@ -558,6 +607,17 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string
 	return "", fmt.Errorf("%d matching VolumeSnapshotClasses for %s", len(matches), storageClassName)
 }
 
+func (ctrl *VMSnapshotController) updateVMSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot, reason string) error {
+	vmSnapshot.Status.Error = newError(reason)
+	updateSnapshotCondition(vmSnapshot, newProgressingCondition(corev1.ConditionFalse, reason))
+	updateSnapshotCondition(vmSnapshot, newReadyCondition(corev1.ConditionFalse, reason))
+	if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshot.Namespace).Update(context.Background(), vmSnapshot, metav1.UpdateOptions{}); err != nil {
+		log.Log.Errorf("Failed to update error: '%s' on the vm snapshot %s", reason, vmSnapshot.Name)
+		return err
+	}
+	return nil
+}
+
 func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) error {
 	f := false
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
@@ -588,23 +648,20 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 
 		if content != nil && content.Status != nil {
 			// content exists and is initialized
-			if !vmSnapshotReady(vmSnapshotCpy) && vmSnapshotContentReady(content) {
-				onlineSnapshot, err := ctrl.checkOnlineSnapshotting(vmSnapshotCpy)
-				if err != nil {
-					return err
-				}
-
-				if onlineSnapshot {
-					log.Log.V(3).Infof("Updating snapshot indications that the vm was online")
-					vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
-					log.Log.V(3).Infof("Updating snapshot indications that it was taken without guest agent participation")
-					vmSnapshotCpy.Status.Indications = append(vmSnapshotCpy.Status.Indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
-				}
-			}
 			vmSnapshotCpy.Status.VirtualMachineSnapshotContentName = &content.Name
 			vmSnapshotCpy.Status.CreationTime = content.Status.CreationTime
 			vmSnapshotCpy.Status.ReadyToUse = content.Status.ReadyToUse
 			vmSnapshotCpy.Status.Error = content.Status.Error
+
+			if vmSnapshotReady(vmSnapshotCpy) {
+				err := ctrl.unfreezeGuestFSIfNeeded(vmSnapshotCpy)
+				if err != nil {
+					reason := "Failed unfreezing guest FS"
+					ctrl.updateVMSnapshotError(vmSnapshotCpy, reason)
+					return err
+				}
+			}
+
 		}
 	}
 
@@ -628,9 +685,11 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Error"))
 	} else if vmSnapshotReady(vmSnapshotCpy) {
+		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 	} else {
+		vmSnapshotCpy.Status.Phase = snapshotv1.Unknown
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionUnknown, "Unknown state"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionUnknown, "Unknown state"))
 	}
@@ -641,6 +700,88 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		}
 	}
 
+	return nil
+}
+
+func vmsnapshotHasIndication(vmSnapshot *snapshotv1.VirtualMachineSnapshot, indication snapshotv1.Indication) bool {
+	for _, currIndication := range vmSnapshot.Status.Indications {
+		if indication == currIndication {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctrl *VMSnapshotController) checkGuestAgentParticipation(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (bool, error) {
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	vm, err := ctrl.getVM(vmSnapshot)
+	if err != nil {
+		return false, err
+	}
+	vmi, exists, err := ctrl.getVMI(vm)
+	if err != nil || !exists {
+		return false, err
+	}
+
+	return condManager.HasCondition(vmi, kubevirtv1.VirtualMachineInstanceAgentConnected), nil
+}
+
+func (ctrl *VMSnapshotController) replaceGuestAgentIndication(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+	for i, indication := range vmSnapshot.Status.Indications {
+		if indication == snapshotv1.VMSnapshotNoGuestAgentIndication {
+			vmSnapshot.Status.Indications[i] = snapshotv1.VMSnapshotGuestAgentIndication
+			break
+		}
+	}
+
+	if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshot.Namespace).Update(context.Background(), vmSnapshot, metav1.UpdateOptions{}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ctrl *VMSnapshotController) freezeGuestFSIfNeeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+	if !vmsnapshotHasIndication(vmSnapshot, snapshotv1.VMSnapshotOnlineSnapshotIndication) {
+		return nil
+	}
+
+	GAParticipation, err := ctrl.checkGuestAgentParticipation(vmSnapshot)
+	if err != nil || !GAParticipation {
+		return err
+	}
+
+	vmName := vmSnapshot.Spec.Source.Name
+	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", vmName)
+
+	startTime := time.Now()
+	err = ctrl.Client.VirtualMachineInstance(vmSnapshot.Namespace).Freeze(vmName)
+	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", vmName))
+	if err != nil {
+		reason := "Failed freezing guest FS"
+		ctrl.updateVMSnapshotError(vmSnapshot, reason)
+		return err
+	}
+
+	updateSnapshotCondition(vmSnapshot, newFreezingCondition(corev1.ConditionTrue, vmSnapshotSourceFrozen))
+	return ctrl.replaceGuestAgentIndication(vmSnapshot)
+}
+
+func (ctrl *VMSnapshotController) unfreezeGuestFSIfNeeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+	if !findCondition(vmSnapshot.Status.Conditions, newFreezingCondition(corev1.ConditionTrue, vmSnapshotSourceFrozen)) {
+		return nil
+	}
+
+	vmName := vmSnapshot.Spec.Source.Name
+	log.Log.V(3).Infof("Unfreezing vm %s file system after taking the snapshot", vmName)
+
+	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", vmName))
+	err := ctrl.Client.VirtualMachineInstance(vmSnapshot.Namespace).Unfreeze(vmName)
+	if err != nil {
+		return err
+	}
+
+	updateSnapshotCondition(vmSnapshot, newFreezingCondition(corev1.ConditionFalse, vmSnapshotSourceThawed))
 	return nil
 }
 
@@ -820,13 +961,36 @@ func checkVMRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
 	return rs != kubevirtv1.RunStrategyHalted, nil
 }
 
-func (ctrl *VMSnapshotController) checkVMIRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
-	key, err := controller.KeyFunc(vm)
-	if err != nil {
-		return false, err
+func (ctrl *VMSnapshotController) getVMSnapshot(vmSnapshotContent *snapshotv1.VirtualMachineSnapshotContent) (*snapshotv1.VirtualMachineSnapshot, error) {
+	vmSnapshotName := vmSnapshotContent.Spec.VirtualMachineSnapshotName
+	if vmSnapshotName == nil {
+		return nil, fmt.Errorf("VirtualMachineSnapshotName is not initialized in vm snapshot content")
 	}
 
-	_, exists, err := ctrl.VMIInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshotContent.Namespace, *vmSnapshotName))
+	if err != nil || !exists {
+		return nil, err
+	}
+
+	return obj.(*snapshotv1.VirtualMachineSnapshot).DeepCopy(), nil
+}
+
+func (ctrl *VMSnapshotController) getVMI(vm *kubevirtv1.VirtualMachine) (*kubevirtv1.VirtualMachineInstance, bool, error) {
+	key, err := controller.KeyFunc(vm)
+	if err != nil {
+		return nil, false, err
+	}
+
+	obj, exists, err := ctrl.VMIInformer.GetStore().GetByKey(key)
+	if err != nil || !exists {
+		return nil, exists, err
+	}
+
+	return obj.(*kubevirtv1.VirtualMachineInstance).DeepCopy(), true, nil
+}
+
+func (ctrl *VMSnapshotController) checkVMIRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
+	_, exists, err := ctrl.getVMI(vm)
 	return exists, err
 }
 
@@ -847,6 +1011,42 @@ func (ctrl *VMSnapshotController) checkOnlineSnapshotting(vmSnapshot *snapshotv1
 	}
 
 	return (vmRunning || exists), nil
+}
+
+func (ctrl *VMSnapshotController) handleVMSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) error {
+	if vmSnapshotFailed(vmSnapshot) && vmSnapshot.DeletionTimestamp == nil {
+		return nil
+	}
+
+	if source != nil {
+		if _, err := source.Unlock(); err != nil {
+			return err
+		}
+	}
+
+	vmSnapshotCpy := vmSnapshot.DeepCopy()
+	err := ctrl.unfreezeGuestFSIfNeeded(vmSnapshotCpy)
+	if err != nil {
+		reason := "Failed unfreezing guest FS"
+		ctrl.updateVMSnapshotError(vmSnapshotCpy, reason)
+		return err
+	}
+
+	if vmSnapshot.DeletionTimestamp != nil {
+		return ctrl.cleanupVMSnapshot(vmSnapshotCpy)
+	}
+
+	log.Log.Errorf("vm Snapshot %s deadline exceeded, marking as failed", vmSnapshot.Name)
+	vmSnapshotCpy.Status.Phase = snapshotv1.Failed
+	updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, vmSnapshotDeadlineExceededError))
+	updateSnapshotCondition(vmSnapshotCpy, newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError))
+	if !reflect.DeepEqual(vmSnapshot, vmSnapshotCpy) {
+		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *vmSnapshotSource) UID() types.UID {
@@ -983,4 +1183,42 @@ func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
 
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
 	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c, false)
+}
+
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Log.Infof("%s took %s", name, elapsed)
+}
+
+func getFailureDeadlineSeconds(vmSnapshot *snapshotv1.VirtualMachineSnapshot) int64 {
+	failureDeadlineSeconds := snapshotv1.DefaultFailureDeadlineSeconds
+	if vmSnapshot.Spec.FailureDeadlineSeconds != nil {
+		failureDeadlineSeconds = *vmSnapshot.Spec.FailureDeadlineSeconds
+	}
+
+	return failureDeadlineSeconds
+}
+
+func timeUntilDeadline(vmSnapshot *snapshotv1.VirtualMachineSnapshot) time.Duration {
+	failureDeadlineSeconds := getFailureDeadlineSeconds(vmSnapshot)
+	// No Deadline set by user
+	if failureDeadlineSeconds == 0 {
+		return 0
+	}
+	deadline := vmSnapshot.CreationTimestamp.Add(time.Duration(failureDeadlineSeconds) * time.Second)
+	t := time.Until(deadline)
+	return t
+}
+
+func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	if vmSnapshotSucceeded(vmSnapshot) {
+		return false
+	}
+	failureDeadlineSeconds := getFailureDeadlineSeconds(vmSnapshot)
+	// No Deadline set by user
+	if failureDeadlineSeconds == 0 {
+		return false
+	}
+	deadline := vmSnapshot.CreationTimestamp.Add(time.Duration(failureDeadlineSeconds) * time.Second)
+	return deadline.Before(time.Now())
 }

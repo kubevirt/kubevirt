@@ -2064,7 +2064,7 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 		},
 	})
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	return vmi
 }
 
@@ -2111,7 +2111,7 @@ func NewRandomVMWithDataVolumeInStorageClass(imageUrl, namespace, storageClass s
 	return vm
 }
 
-func newRandomVMWithDataVolumeAndUserDataInStorageClass(dataVolume *cdiv1.DataVolume, userData string) *v1.VirtualMachine {
+func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData string) *v1.VirtualMachine {
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	AddUserData(vmi, "cloud-init", userData)
 	vm := NewRandomVirtualMachine(vmi, false)
@@ -2124,12 +2124,12 @@ func NewRandomVMWithBlockDataVolumeAndUserDataInStorageClass(imageUrl, namespace
 	dataVolume := NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
 	volumeMode := k8sv1.PersistentVolumeBlock
 	dataVolume.Spec.PVC.VolumeMode = &volumeMode
-	return newRandomVMWithDataVolumeAndUserDataInStorageClass(dataVolume, userData)
+	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
 }
 
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
-	return newRandomVMWithDataVolumeAndUserDataInStorageClass(dataVolume, userData)
+	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
 }
 
 func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace string) *v1.VirtualMachine {
