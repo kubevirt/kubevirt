@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -144,6 +145,35 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).To(BeNil())
 				By("Checking that the VirtualMachineInstance spec did not change")
 				Expect(startedVMI.Spec).To(Equal(vmi.Spec))
+			})
+		})
+		Context("[Serial]should obey the disk verification limits in the KubeVirt CR", func() {
+			It("disk verification should fail when the memory limit is too low", func() {
+				By("Reducing the diskVerificaton memory usage limit")
+				kv := util.GetCurrentKv(virtClient)
+				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+					DiskVerification: &v1.DiskVerification{
+						MemoryLimit: resource.NewScaledQuantity(42, resource.Kilo),
+					},
+				}
+				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				Expect(err).To(BeNil())
+
+				By("Starting the VirtualMachineInstance")
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(BeNil())
+				By("Checking that the VMI failed")
+				Eventually(func() bool {
+					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range vmi.Status.Conditions {
+						if condition.Type == v1.VirtualMachineInstanceSynchronized && condition.Status == k8sv1.ConditionFalse {
+							return strings.Contains(condition.Message, "failed to invoke qemu-img")
+						}
+					}
+					return false
+				}, 3*time.Minute, 2*time.Second).Should(BeTrue())
 			})
 		})
 	})

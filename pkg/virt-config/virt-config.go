@@ -64,6 +64,7 @@ const (
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
+	DefaultDiskVerificationMemoryLimitMBytes        = 1200
 	DefaultVirtAPILogVerbosity                      = 2
 	DefaultVirtControllerLogVerbosity               = 2
 	DefaultVirtHandlerLogVerbosity                  = 2
@@ -124,6 +125,10 @@ func (c *ClusterConfig) GetCPUModel() string {
 
 func (c *ClusterConfig) GetCPURequest() *resource.Quantity {
 	return c.GetConfig().CPURequest
+}
+
+func (c *ClusterConfig) GetDiskVerification() *v1.DiskVerification {
+	return c.GetConfig().DeveloperConfiguration.DiskVerification
 }
 
 func (c *ClusterConfig) GetMemoryOvercommit() int {

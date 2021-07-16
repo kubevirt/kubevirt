@@ -13,10 +13,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var mntNamespace string
-var cpuTime uint32
-var megabyte uint32
-var targetUser string
+var (
+	mntNamespace string
+	cpuTime      uint64
+	memoryBytes  uint64
+	targetUser   string
+)
 
 func init() {
 	// main needs to be locked on one thread and no go routines
@@ -57,8 +59,8 @@ func main() {
 
 			if cpuTime > 0 {
 				value := &syscall.Rlimit{
-					Cur: uint64(cpuTime),
-					Max: uint64(cpuTime),
+					Cur: cpuTime,
+					Max: cpuTime,
 				}
 				err := syscall.Setrlimit(unix.RLIMIT_CPU, value)
 				if err != nil {
@@ -66,10 +68,10 @@ func main() {
 				}
 			}
 
-			if megabyte > 0 {
+			if memoryBytes > 0 {
 				value := &syscall.Rlimit{
-					Cur: uint64(megabyte) * 1000000,
-					Max: uint64(megabyte) * 1000000,
+					Cur: memoryBytes,
+					Max: memoryBytes,
 				}
 				err := syscall.Setrlimit(unix.RLIMIT_AS, value)
 				if err != nil {
@@ -108,8 +110,8 @@ func main() {
 		},
 	}
 
-	rootCmd.PersistentFlags().Uint32Var(&cpuTime, "cpu", 0, "cpu time in seconds for the process")
-	rootCmd.PersistentFlags().Uint32Var(&megabyte, "memory", 0, "memory in megabyte for the process")
+	rootCmd.PersistentFlags().Uint64Var(&cpuTime, "cpu", 0, "cpu time in seconds for the process")
+	rootCmd.PersistentFlags().Uint64Var(&memoryBytes, "memory", 0, "memory in bytes for the process")
 	rootCmd.PersistentFlags().StringVar(&mntNamespace, "mount", "", "mount namespace to use")
 	rootCmd.PersistentFlags().StringVar(&targetUser, "user", "", "switch to this targetUser to e.g. drop privileges")
 

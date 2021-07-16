@@ -1882,6 +1882,12 @@ type MigrationConfiguration struct {
 	DisableTLS                        *bool              `json:"disableTLS,omitempty"`
 }
 
+// DiskVerification holds container disks verification limits
+// +k8s:openapi-gen=true
+type DiskVerification struct {
+	MemoryLimit *resource.Quantity `json:"memoryLimit"`
+}
+
 // DeveloperConfiguration holds developer options
 // +k8s:openapi-gen=true
 type DeveloperConfiguration struct {
@@ -1894,8 +1900,9 @@ type DeveloperConfiguration struct {
 	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
 	// Allow overriding the automatically determined minimum TSC frequency of the cluster
 	// and fixate the minimum to this frequency.
-	MinimumClusterTSCFrequency *int64        `json:"minimumClusterTSCFrequency,omitempty"`
-	LogVerbosity               *LogVerbosity `json:"logVerbosity,omitempty"`
+	MinimumClusterTSCFrequency *int64            `json:"minimumClusterTSCFrequency,omitempty"`
+	DiskVerification           *DiskVerification `json:"diskVerification,omitempty"`
+	LogVerbosity               *LogVerbosity     `json:"logVerbosity,omitempty"`
 }
 
 // LogVerbosity sets log verbosity level of  various components
