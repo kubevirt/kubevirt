@@ -999,6 +999,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			const mac = "de:ad:00:00:be:ef"
 
+			const attachSRIOVDeviceTimeout = 30
+			const reattachSRIOVDeviceTimeout = 90
+
 			BeforeEach(func() {
 				// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
 				vmi = getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
@@ -1007,19 +1010,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
 
-				var interfaceName string
-
-				// It may take some time for the VMI interface status to be updated with the information reported by
-				// the guest-agent.
-				Eventually(func() error {
-					var err error
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					interfaceName, err = getInterfaceNameByMAC(vmi, mac)
-					return err
-				}, 30*time.Second, 5*time.Second).Should(Succeed())
-
-				Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
+				expectInterfaceToExistByMac(virtClient, vmi, mac, attachSRIOVDeviceTimeout,
+					"SR-IOV VF is expected to exist in the guest before migration")
 			})
 
 			It("should be successful with a running VMI on the target", func() {
@@ -1028,21 +1020,76 @@ var _ = Describe("[Serial]SRIOV", func() {
 				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 
-				// It may take some time for the VMI interface status to be updated with the information reported by
-				// the guest-agent.
-				Eventually(func() error {
-					updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
-					if err != nil {
-						return err
-					}
-					return checkMacAddress(updatedVMI, interfaceName, mac)
-				}, 30*time.Second, 5*time.Second).Should(Succeed(),
+				expectInterfaceToExistByMac(virtClient, vmi, mac, attachSRIOVDeviceTimeout,
 					"SR-IOV VF is expected to exist in the guest after migration")
 			})
-		})
 
+			It("should re-attach sriov devices on source VMI when failed during setup", func() {
+				By("annotate the VMI with functest force migration failure annotation")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				vmi.Annotations = map[string]string{v1.FuncTestForceLauncherMigrationFailureAnnotation: ""}
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Update(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectFailure(virtClient, migration, tests.MigrationWaitTime)
+				tests.ConfirmVMIPostMigrationFailed(virtClient, vmi, migrationUID)
+
+				expectInterfaceToExistByMac(virtClient, vmi, mac, reattachSRIOVDeviceTimeout,
+					"SR-IOV VF is expected to exist on source after migration was failing during setup")
+			})
+
+			When("aborted", func() {
+				const migrationRunningTimeout = 180 * time.Second
+				const migrationCompleteTimeout = 180
+
+				const targetPodDisposalTimeout = 120
+
+				const vmiMemoryStressSize = 200
+				const vmiStressTimeout = 600
+
+				var migration *v1.VirtualMachineInstanceMigration
+
+				BeforeEach(func() {
+					// slow down migration in order to assert on migration phase
+					// running by putting pressure on VMI memory
+					tests.RunStressTest(vmi, vmiMemoryStressSize, vmiStressTimeout)
+
+					By("Starting a migration")
+					migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+
+					Expect(tests.WaitForMigrationRunning(virtClient, migration, vmi, migrationRunningTimeout)).To(Succeed())
+				})
+
+				It("should re-attach SRIOV host-devices to the source VM when failed", func() {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Cause migration failure")
+					// simulate migration target node shutdown by deleting the target pod
+					migrationTargetPod := vmi.Status.MigrationState.TargetPod
+					Expect(virtClient.CoreV1().Pods(migration.Namespace).Delete(context.Background(), migrationTargetPod, metav1.DeleteOptions{})).To(Succeed())
+					tests.WaitForPodToDisappearWithTimeout(migrationTargetPod, targetPodDisposalTimeout)
+
+					tests.ConfirmVMIPostMigrationFailed(virtClient, vmi, string(migration.UID))
+
+					expectInterfaceToExistByMac(virtClient, vmi, mac, reattachSRIOVDeviceTimeout,
+						"SR-IOV VF is expected to exist on source after migration failed")
+				})
+
+				It("should re-attach SRIOV host-devices to the source VM when is canceled by the client", func() {
+					By("Cancel migration")
+					err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					tests.ConfirmVMIPostMigrationAborted(virtClient, vmi, string(migration.UID), migrationCompleteTimeout)
+
+					expectInterfaceToExistByMac(virtClient, vmi, mac, reattachSRIOVDeviceTimeout,
+						"SR-IOV VF is expected to exist in the guest after migration was canceled")
+				})
+			})
+		})
 	})
 })
 
@@ -1250,6 +1297,20 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 		})
 	})
 })
+
+func expectInterfaceToExistByMac(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, macAddress string, timeout int, assertMessage string) {
+	// It may take some time for the VMI interface status to be updated with the information reported by
+	// the guest-agent.
+	EventuallyWithOffset(1, func() error {
+		updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		interfaceName, err := getInterfaceNameByMAC(updatedVMI, macAddress)
+		if err != nil {
+			return err
+		}
+		return checkMacAddress(updatedVMI, interfaceName, macAddress)
+	}, timeout, 5*time.Second).Should(Succeed(), assertMessage)
+}
 
 func cidrToIP(cidr string) (string, error) {
 	ip, _, err := net.ParseCIDR(cidr)

@@ -17,7 +17,8 @@ The following images stored at `dockerhub.com/kubevirt` and can be used in Kubev
     Fedora cloud edition image with contains all necessary configuration and drivers for sriov lane tests.    
     - This image contained the packages:  
         - kernel-modules (includes sriov drivers)  
-        - qemu-guest-agent  
+        - qemu-guest-agent
+        - stress
     - Configurations:  
         - Enable and start qemu-guest-agent  
         - Load kernel modules needed for sriov  

@@ -865,6 +865,12 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		}
 	}
 
+	if shouldImmediatelyFailMigration(vmi) {
+		log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
+		l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
+		return fmt.Errorf("Failed migration to satisfy functional test condition")
+	}
+
 	// initiate the live migration
 	dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(ip.GetLoopbackAddress(), strconv.Itoa(LibvirtLocalConnectionPort)))
 	err = dom.MigrateToURI3(dstURI, params, migrateFlags)
@@ -894,12 +900,6 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 
 	// get connection proxies for tunnelling migration through virt-handler
 	go func() {
-		if shouldImmediatelyFailMigration(vmi) {
-			log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
-			l.setMigrationResult(vmi, true, "Failed migration to satisfy functional test condition", "")
-			return
-		}
-
 		migrationErrorChan := make(chan error, 1)
 		defer close(migrationErrorChan)
 
@@ -918,6 +918,10 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
 			migrationErrorChan <- err
+
+			if err := l.hotPlugHostDevices(vmi); err != nil {
+				log.Log.Error("failed to hot-plug host-devices after migration failure")
+			}
 			return
 		}
 
