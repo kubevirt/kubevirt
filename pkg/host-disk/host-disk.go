@@ -58,6 +58,13 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 		passthoughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
 	}
 
+	hotplugVolumes := make(map[string]bool)
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.HotplugVolume != nil {
+			hotplugVolumes[volumeStatus.Name] = true
+		}
+	}
+
 	for i := range vmi.Spec.Volumes {
 		volume := vmi.Spec.Volumes[i]
 		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
@@ -65,6 +72,11 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 			// not be created.
 			if _, isPassthoughFSVolume := passthoughFSVolumes[volume.Name]; isPassthoughFSVolume {
 				log.Log.V(4).Infof("this volume %s is mapped as a filesystem passthrough, will not be replaced by HostDisk", volume.Name)
+				continue
+			}
+
+			if hotplugVolumes[volume.Name] {
+				log.Log.V(4).Infof("this volume %s is hotplugged, will not be replaced by HostDisk", volume.Name)
 				continue
 			}
 

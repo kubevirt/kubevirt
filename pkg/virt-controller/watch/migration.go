@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -66,6 +67,7 @@ type MigrationController struct {
 	podInformer        cache.SharedIndexInformer
 	migrationInformer  cache.SharedIndexInformer
 	nodeInformer       cache.SharedIndexInformer
+	pvcInformer        cache.SharedIndexInformer
 	recorder           record.EventRecorder
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	migrationStartLock *sync.Mutex
@@ -78,6 +80,7 @@ func NewMigrationController(templateService services.TemplateService,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	nodeInformer cache.SharedIndexInformer,
+	pvcInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -90,6 +93,7 @@ func NewMigrationController(templateService services.TemplateService,
 		podInformer:        podInformer,
 		migrationInformer:  migrationInformer,
 		nodeInformer:       nodeInformer,
+		pvcInformer:        pvcInformer,
 		recorder:           recorder,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -320,12 +324,22 @@ func (c *MigrationController) canMigrateVMI(migration *virtv1.VirtualMachineInst
 func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
+	var attachmentPod *k8sv1.Pod = nil
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
 	migrationCopy := migration.DeepCopy()
 
-	podExists := len(pods) > 0
+	podExists, attachmentPodExists := len(pods) > 0, false
 	if podExists {
 		pod = pods[0]
+
+		if attachmentPods, err := controller.AttachmentPods(pod, c.podInformer); err != nil {
+			return fmt.Errorf("failed to get attachment pods: %v", err)
+		} else {
+			attachmentPodExists = len(attachmentPods) > 0
+			if attachmentPodExists {
+				attachmentPod = attachmentPods[0]
+			}
+		}
 	}
 
 	// Remove the finalizer and conditions if the migration has already completed
@@ -379,6 +393,10 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 			LastProbeTime: v1.Now(),
 		}
 		migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
+	} else if attachmentPodExists && podIsDown(attachmentPod) {
+		migrationCopy.Status.Phase = virtv1.MigrationFailed
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because target attachment pod shutdown during migration")
+		log.Log.Object(migration).Errorf("target attachment pod %s/%s shutdown during migration", attachmentPod.Namespace, attachmentPod.Name)
 	} else {
 
 		switch migration.Status.Phase {
@@ -399,11 +417,24 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 			}
 		case virtv1.MigrationPending:
 			if podExists {
-				migrationCopy.Status.Phase = virtv1.MigrationScheduling
+				if controller.VMIHasHotplugVolumes(vmi) {
+					if attachmentPodExists {
+						migrationCopy.Status.Phase = virtv1.MigrationScheduling
+					}
+				} else {
+					migrationCopy.Status.Phase = virtv1.MigrationScheduling
+				}
 			}
 		case virtv1.MigrationScheduling:
 			if isPodReady(pod) {
-				migrationCopy.Status.Phase = virtv1.MigrationScheduled
+				if controller.VMIHasHotplugVolumes(vmi) {
+					if attachmentPodExists && isPodReady(attachmentPod) {
+						log.Log.Object(migration).Infof("Attachment pod %s for vmi %s/%s is ready", attachmentPod.Name, vmi.Namespace, vmi.Name)
+						migrationCopy.Status.Phase = virtv1.MigrationScheduled
+					}
+				} else {
+					migrationCopy.Status.Phase = virtv1.MigrationScheduled
+				}
 			}
 		case virtv1.MigrationScheduled:
 			if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNode != "" {
@@ -576,6 +607,19 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 	// the vmi and prepare the local environment for the migration
 	vmiCopy.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] = pod.Spec.NodeName
 
+	if controller.VMIHasHotplugVolumes(vmiCopy) {
+		attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
+		if err != nil {
+			return fmt.Errorf("failed to get attachment pods: %v", err)
+		}
+		if len(attachmentPods) > 0 {
+			log.Log.Object(migration).Infof("Target attachment pod for vmi %s/%s: %s", vmiCopy.Namespace, vmiCopy.Name, string(attachmentPods[0].UID))
+			vmiCopy.Status.MigrationState.TargetAttachmentPodUID = attachmentPods[0].UID
+		} else {
+			return fmt.Errorf("target attachment pod not found")
+		}
+	}
+
 	err := c.patchVMI(vmi, vmiCopy)
 	if err != nil {
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
@@ -668,6 +712,50 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	return nil
 }
 
+func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) error {
+	sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+	if err != nil {
+		return fmt.Errorf("failed to get current VMI pod: %v", err)
+	}
+
+	volumes := getHotplugVolumes(vmi, sourcePod)
+
+	volumeNamesPVCMap, err := kubevirttypes.VirtVolumesToPVCMap(volumes, c.pvcInformer.GetStore(), virtLauncherPod.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get PVC map: %v", err)
+	}
+
+	// Reset the hotplug volume statuses to enforce mount
+	vmiCopy := vmi.DeepCopy()
+	vmiCopy.Status.VolumeStatus = []virtv1.VolumeStatus{}
+	attachmentPodTemplate, err := c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtLauncherPod, vmiCopy, volumeNamesPVCMap, false)
+	if err != nil {
+		return fmt.Errorf("failed to render attachment pod template: %v", err)
+	}
+
+	if attachmentPodTemplate.ObjectMeta.Labels == nil {
+		attachmentPodTemplate.ObjectMeta.Labels = make(map[string]string)
+	}
+
+	if attachmentPodTemplate.ObjectMeta.Annotations == nil {
+		attachmentPodTemplate.ObjectMeta.Annotations = make(map[string]string)
+	}
+
+	attachmentPodTemplate.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
+	attachmentPodTemplate.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = string(migration.Name)
+
+	key := controller.MigrationKey(migration)
+	c.podExpectations.ExpectCreations(key, 1)
+	attachmentPod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
+	if err != nil {
+		c.podExpectations.CreationObserved(key)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating attachment pod: %v", err)
+		return fmt.Errorf("failed to create attachment pod: %v", err)
+	}
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created attachment pod %s", attachmentPod.Name)
+	return nil
+}
+
 func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
@@ -696,6 +784,17 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 	case virtv1.MigrationPending:
 		if !podExists {
 			return c.handleTargetPodCreation(key, migration, vmi)
+		} else if isPodReady(pod) {
+			if controller.VMIHasHotplugVolumes(vmi) {
+				attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
+				if err != nil {
+					return fmt.Errorf("failed to get attachment pods: %v", err)
+				}
+				if len(attachmentPods) == 0 {
+					log.Log.Object(migration).Infof("Creating attachment pod for vmi %s/%s on node %s", vmi.Namespace, vmi.Name, pod.Spec.NodeName)
+					return c.createAttachmentPod(migration, vmi, pod)
+				}
+			}
 		}
 	case virtv1.MigrationScheduled:
 		// once target pod is running, then alert the VMI of the migration by

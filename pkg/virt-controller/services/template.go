@@ -409,6 +409,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
+	hotplugVolumes := make(map[string]bool)
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.HotplugVolume != nil {
+			hotplugVolumes[volumeStatus.Name] = true
+		}
+	}
+
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
 	if t.IsPPC64() {
 		privileged = true
@@ -458,6 +465,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	serviceAccountName := ""
 
 	for _, volume := range vmi.Spec.Volumes {
+		if hotplugVolumes[volume.Name] {
+			continue
+		}
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
@@ -1430,13 +1440,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		}
 	}
 	for _, volume := range volumes {
-		claimName := ""
-		if volume.DataVolume != nil {
-			// TODO, look up the correct PVC name based on the datavolume, right now they match, but that will not always be true.
-			claimName = volume.DataVolume.Name
-		} else if volume.PersistentVolumeClaim != nil {
-			claimName = volume.PersistentVolumeClaim.ClaimName
-		}
+		claimName := types.PVCNameFromVirtVolume(volume)
 		if claimName == "" {
 			continue
 		}

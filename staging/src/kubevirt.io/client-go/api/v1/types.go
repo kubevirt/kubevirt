@@ -530,6 +530,8 @@ type VirtualMachineInstanceMigrationState struct {
 	TargetNode string `json:"targetNode,omitempty"`
 	// The target pod that the VMI is moving to
 	TargetPod string `json:"targetPod,omitempty"`
+	// The UID of the target attachment pod for hotplug volumes
+	TargetAttachmentPodUID types.UID `json:"targetAttachmentPodUID,omitempty"`
 	// The source node that the VMI originated on
 	SourceNode string `json:"sourceNode,omitempty"`
 	// Indicates the migration completed

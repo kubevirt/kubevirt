@@ -427,6 +427,14 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 		if len(causes) > 0 {
 			return causes, nil
 		}
+
+		if vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.Completed {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("Cannot handle volume requests while VMI migration is in progress"),
+				Field:   k8sfield.NewPath("spec").String(),
+			}}, nil
+		}
 	}
 
 	return nil, nil
