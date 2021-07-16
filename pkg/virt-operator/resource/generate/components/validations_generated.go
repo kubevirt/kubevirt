@@ -5083,6 +5083,35 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'Volume''s name. Must be a DNS_LABEL and unique
                           within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                         type: string
+                      networkVolume:
+                        description: NetworkVolumeSource represents a volume from
+                          a network URI
+                        properties:
+                          certConfigMap:
+                            description: CertConfigMap is a configmap reference, containing
+                              a Certificate Authority(CA) public key, and a base64
+                              encoded pem certificate
+                            type: string
+                          format:
+                            description: Format represents the format of the network
+                              volume
+                            type: string
+                          readOnly:
+                            description: Will force the ReadOnly setting in VolumeMounts.
+                              Default false.
+                            type: boolean
+                          secretRef:
+                            description: SecretRef A Secret reference, the secret
+                              should contain accessKeyId (user name) base64 encoded,
+                              and secretKey (password) also base64 encoded
+                            type: string
+                          uri:
+                            description: URI represents the URI of the network volume
+                            type: string
+                        required:
+                        - format
+                        - uri
+                        type: object
                       persistentVolumeClaim:
                         description: 'PersistentVolumeClaimVolumeSource represents
                           a reference to a PersistentVolumeClaim in the same namespace.
@@ -7683,6 +7712,34 @@ var CRDsValidation map[string]string = map[string]string{
                 description: 'Volume''s name. Must be a DNS_LABEL and unique within
                   the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                 type: string
+              networkVolume:
+                description: NetworkVolumeSource represents a volume from a network
+                  URI
+                properties:
+                  certConfigMap:
+                    description: CertConfigMap is a configmap reference, containing
+                      a Certificate Authority(CA) public key, and a base64 encoded
+                      pem certificate
+                    type: string
+                  format:
+                    description: Format represents the format of the network volume
+                    type: string
+                  readOnly:
+                    description: Will force the ReadOnly setting in VolumeMounts.
+                      Default false.
+                    type: boolean
+                  secretRef:
+                    description: SecretRef A Secret reference, the secret should contain
+                      accessKeyId (user name) base64 encoded, and secretKey (password)
+                      also base64 encoded
+                    type: string
+                  uri:
+                    description: URI represents the URI of the network volume
+                    type: string
+                required:
+                - format
+                - uri
+                type: object
               persistentVolumeClaim:
                 description: 'PersistentVolumeClaimVolumeSource represents a reference
                   to a PersistentVolumeClaim in the same namespace. Directly attached
@@ -11462,6 +11519,35 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'Volume''s name. Must be a DNS_LABEL and unique
                           within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                         type: string
+                      networkVolume:
+                        description: NetworkVolumeSource represents a volume from
+                          a network URI
+                        properties:
+                          certConfigMap:
+                            description: CertConfigMap is a configmap reference, containing
+                              a Certificate Authority(CA) public key, and a base64
+                              encoded pem certificate
+                            type: string
+                          format:
+                            description: Format represents the format of the network
+                              volume
+                            type: string
+                          readOnly:
+                            description: Will force the ReadOnly setting in VolumeMounts.
+                              Default false.
+                            type: boolean
+                          secretRef:
+                            description: SecretRef A Secret reference, the secret
+                              should contain accessKeyId (user name) base64 encoded,
+                              and secretKey (password) also base64 encoded
+                            type: string
+                          uri:
+                            description: URI represents the URI of the network volume
+                            type: string
+                        required:
+                        - format
+                        - uri
+                        type: object
                       persistentVolumeClaim:
                         description: 'PersistentVolumeClaimVolumeSource represents
                           a reference to a PersistentVolumeClaim in the same namespace.
@@ -15009,6 +15095,37 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: 'Volume''s name. Must be a DNS_LABEL
                                       and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
+                                  networkVolume:
+                                    description: NetworkVolumeSource represents a
+                                      volume from a network URI
+                                    properties:
+                                      certConfigMap:
+                                        description: CertConfigMap is a configmap
+                                          reference, containing a Certificate Authority(CA)
+                                          public key, and a base64 encoded pem certificate
+                                        type: string
+                                      format:
+                                        description: Format represents the format
+                                          of the network volume
+                                        type: string
+                                      readOnly:
+                                        description: Will force the ReadOnly setting
+                                          in VolumeMounts. Default false.
+                                        type: boolean
+                                      secretRef:
+                                        description: SecretRef A Secret reference,
+                                          the secret should contain accessKeyId (user
+                                          name) base64 encoded, and secretKey (password)
+                                          also base64 encoded
+                                        type: string
+                                      uri:
+                                        description: URI represents the URI of the
+                                          network volume
+                                        type: string
+                                    required:
+                                    - format
+                                    - uri
+                                    type: object
                                   persistentVolumeClaim:
                                     description: 'PersistentVolumeClaimVolumeSource
                                       represents a reference to a PersistentVolumeClaim
