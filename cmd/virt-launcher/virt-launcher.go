@@ -535,7 +535,7 @@ func ForkAndMonitor(containerDiskDir string) (int, error) {
 		return 1, err
 	}
 
-	exitStatus := make(chan syscall.WaitStatus, 10)
+	exitStatus := make(chan int, 10)
 	sigs := make(chan os.Signal, 10)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGCHLD)
 	go func() {
@@ -549,12 +549,8 @@ func ForkAndMonitor(containerDiskDir string) (int, error) {
 				}
 
 				log.Log.Infof("Reaped pid %d with status %d", wpid, int(wstatus))
-				// there's a race between cmd.Wait() and syscall.Wait4 when
-				// cleaning up the cmd's pid after it exits. This allows us
-				// to detect the correct exit code regardless of which wait
-				// wins the race.
 				if wpid == cmd.Process.Pid {
-					exitStatus <- wstatus
+					exitStatus <- wstatus.ExitStatus()
 				}
 
 			default:
@@ -568,22 +564,9 @@ func ForkAndMonitor(containerDiskDir string) (int, error) {
 		}
 	}()
 
-	// wait for virt-launcher and collect the exit code
-	exitCode := 0
-	if err := cmd.Wait(); err != nil {
-		select {
-		case status := <-exitStatus:
-			exitCode = int(status)
-		default:
-			exitCode = 1
-			if exiterr, ok := err.(*exec.ExitError); ok {
-				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					exitCode = status.ExitStatus()
-				}
-			}
-			log.Log.Reason(err).Error("dirty virt-launcher shutdown")
-		}
-
+	exitCode := <-exitStatus
+	if exitCode != 0 {
+		log.Log.Errorf("dirty virt-launcher shutdown: exit-code %d", exitCode)
 	}
 
 	// give qemu some time to shut down in case it survived virt-handler
