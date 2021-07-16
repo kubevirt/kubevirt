@@ -124,7 +124,8 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	return nil
 }
 
-// This returns domain xml without the metadata sections
+// This returns domain xml without the migration metadata section, as it is only relevant to the source domain
+// Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
 func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string, error) {
 	xmlstr, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
 	if err != nil {
@@ -138,14 +139,15 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 	depth := 0
 	inMeta := false
 	inMetaKV := false
+	inMetaKVMigration := false
 	for {
-		token, err := decoder.Token()
+		token, err := decoder.RawToken()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			log.Log.Object(vmi).Errorf("error getting token: %v\n", err)
-			break
+			return "", err
 		}
 
 		switch v := token.(type) {
@@ -154,29 +156,36 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 				inMeta = true
 			} else if inMeta && depth == 2 && v.Name.Local == "kubevirt" {
 				inMetaKV = true
+			} else if inMetaKV && depth == 3 && v.Name.Local == "migration" {
+				inMetaKVMigration = true
 			}
 			depth++
 		case xml.EndElement:
 			depth--
+			if inMetaKVMigration && depth == 3 && v.Name.Local == "migration" {
+				inMetaKVMigration = false
+				continue // Skip </migration>
+			}
 			if inMetaKV && depth == 2 && v.Name.Local == "kubevirt" {
 				inMetaKV = false
-				continue // Skip </kubevirt>
 			}
 			if inMeta && depth == 1 && v.Name.Local == "metadata" {
 				inMeta = false
 			}
 		}
-		if inMetaKV {
-			continue // We're inside metadata/kubevirt, continuing to skip elements
+		if inMetaKVMigration {
+			continue // We're inside metadata/kubevirt/migration, continuing to skip elements
 		}
 
 		if err := encoder.EncodeToken(xml.CopyToken(token)); err != nil {
 			log.Log.Object(vmi).Reason(err)
+			return "", err
 		}
 	}
 
 	if err := encoder.Flush(); err != nil {
 		log.Log.Object(vmi).Reason(err)
+		return "", err
 	}
 
 	return string(buf.Bytes()), nil
