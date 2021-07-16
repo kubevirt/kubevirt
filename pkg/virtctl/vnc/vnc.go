@@ -84,37 +84,51 @@ type VNC struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-func (o *VNC) Run(cmd *cobra.Command, args []string) error {
-	namespace, _, err := o.clientConfig.Namespace()
-	if err != nil {
-		return err
-	}
-
-	vmi := args[0]
-
-	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
-	if err != nil {
-		return err
-	}
-
-	// setup connection with VM
-	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi)
-	if err != nil {
-		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
-	}
-
+func (o *VNC) createLocalProxyForVmiWebsocketConn(vmiName string) (*net.TCPListener, error) {
 	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", customPort))
 	if err != nil {
-		return fmt.Errorf("Can't resolve the address: %s", err.Error())
+		return nil, fmt.Errorf("Can't resolve the address: %s", err.Error())
 	}
 
-	// The local tcp server is used to proxy the podExec websock connection to vnc client
 	ln, err := net.ListenTCP("tcp", lnAddr)
 	if err != nil {
-		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
+		return nil, fmt.Errorf("Can't listen on unix socket: %s", err.Error())
 	}
-	// End of pre-flight checks. Everything looks good, we can start
-	// the goroutines and let the data flow
+
+	return ln, nil
+}
+
+func (o *VNC) getVmiVncStream(vmiName string) (kubecli.StreamInterface, error) {
+	namespace, _, err := o.clientConfig.Namespace()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot obtain KubeVirt client namespace: %v", err)
+	}
+
+	kubevirtClient, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
+	}
+
+	vnc, err := kubevirtClient.VirtualMachineInstance(namespace).VNC(vmiName)
+	if err != nil {
+		return nil, fmt.Errorf("Can't access VMI %s: %s", vmiName, err.Error())
+	}
+
+	return vnc, nil
+}
+
+func (o *VNC) Run(cmd *cobra.Command, args []string) error {
+	vmiName := args[0]
+
+	vnc, err := o.getVmiVncStream(vmiName)
+	if err != nil {
+		return err
+	}
+
+	ln, err := o.createLocalProxyForVmiWebsocketConn(vmiName)
+	if err != nil {
+		return err
+	}
 
 	//                                       -> pipeInWriter  -> pipeInReader
 	// remote-viewer -> unix sock connection
