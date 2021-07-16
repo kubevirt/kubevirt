@@ -4,6 +4,7 @@ metadata:
   name: hostpath-provisioner
   labels:
     app: hostpath-provisioner
+    test: should-be-ignored
 spec:
   selector:
     matchLabels:
