@@ -1868,11 +1868,12 @@ type KubeVirtConfiguration struct {
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
 	// deprecated
-	SupportedGuestAgentVersions []string              `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod       *uint32               `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices        *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
-	MinCPUModel                 string                `json:"minCPUModel,omitempty"`
-	ObsoleteCPUModels           map[string]bool       `json:"obsoleteCPUModels,omitempty"`
+	SupportedGuestAgentVersions  []string                      `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod        *uint32                       `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices         *PermittedHostDevices         `json:"permittedHostDevices,omitempty"`
+	MediatedDevicesConfiguration *MediatedDevicesConfiguration `json:"mediatedDevicesConfiguration,omitempty"`
+	MinCPUModel                  string                        `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels            map[string]bool               `json:"obsoleteCPUModels,omitempty"`
 }
 
 //
@@ -1966,6 +1967,14 @@ type MediatedHostDevice struct {
 	MDEVNameSelector         string `json:"mdevNameSelector"`
 	ResourceName             string `json:"resourceName"`
 	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
+}
+
+// MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+// +k8s:openapi-gen=true
+type MediatedDevicesConfiguration struct {
+	// +listType=atomic
+	MediatedDevicesTypes []string            `json:"mediatedDevicesTypes,omitempty"`
+	NodeMediatedDevices  map[string][]string `json:"nodeMediatedDevices,omitempty"`
 }
 
 // NetworkConfiguration holds network options

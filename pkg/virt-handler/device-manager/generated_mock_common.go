@@ -81,3 +81,34 @@ func (_m *MockDeviceHandler) GetMdevParentPCIAddr(mdevUUID string) (string, erro
 func (_mr *_MockDeviceHandlerRecorder) GetMdevParentPCIAddr(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMdevParentPCIAddr", arg0)
 }
+
+func (_m *MockDeviceHandler) CreateMDEVType(mdevType string, parentID string) error {
+	ret := _m.ctrl.Call(_m, "CreateMDEVType", mdevType, parentID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDeviceHandlerRecorder) CreateMDEVType(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateMDEVType", arg0, arg1)
+}
+
+func (_m *MockDeviceHandler) RemoveMDEVType(mdevUUID string) error {
+	ret := _m.ctrl.Call(_m, "RemoveMDEVType", mdevUUID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDeviceHandlerRecorder) RemoveMDEVType(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveMDEVType", arg0)
+}
+
+func (_m *MockDeviceHandler) ReadMDEVAvailableInstances(mdevType string, parentID string) (int, error) {
+	ret := _m.ctrl.Call(_m, "ReadMDEVAvailableInstances", mdevType, parentID)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDeviceHandlerRecorder) ReadMDEVAvailableInstances(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadMDEVAvailableInstances", arg0, arg1)
+}
