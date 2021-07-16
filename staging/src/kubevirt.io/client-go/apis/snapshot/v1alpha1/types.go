@@ -68,6 +68,7 @@ type Indication string
 const (
 	VMSnapshotOnlineSnapshotIndication Indication = "Online"
 	VMSnapshotNoGuestAgentIndication   Indication = "NoGuestAgent"
+	VMSnapshotGuestAgentIndication     Indication = "GuestAgent"
 )
 
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource
@@ -114,6 +115,9 @@ const (
 
 	// ConditionProgressing is the "progressing" condition type
 	ConditionProgressing ConditionType = "Progressing"
+
+	// ConditionFreezing is the "freezing" condition type
+	ConditionFreezing ConditionType = "Freezing"
 )
 
 // Condition defines conditions

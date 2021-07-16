@@ -396,7 +396,7 @@ func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStor
 			}
 			agentStore.Store(GET_USERS, users)
 		case GET_FSFREEZE_STATUS:
-			fsfreezeStatus, err := parseFSFreezeStatus(cmdResult)
+			fsfreezeStatus, err := ParseFSFreezeStatus(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent fsfreeze status %s", err.Error())
 			}

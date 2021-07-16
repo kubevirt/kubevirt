@@ -149,7 +149,7 @@ func parseHostname(agentReply string) (string, error) {
 }
 
 // parseFSFreezeStatus from the agent response
-func parseFSFreezeStatus(agentReply string) (api.FSFreeze, error) {
+func ParseFSFreezeStatus(agentReply string) (api.FSFreeze, error) {
 	response := stripAgentStringResponse(agentReply)
 	if response == "" {
 		return api.FSFreeze{}, fmt.Errorf("Failed to strip FSFreeze status: %v", agentReply)

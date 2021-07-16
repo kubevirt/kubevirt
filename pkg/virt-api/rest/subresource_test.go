@@ -1700,6 +1700,55 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 	})
 
+	Context("Freezing", func() {
+		It("Should freeze a running VMI", func() {
+
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/freeze"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
+			expectVMI(true, false)
+
+			app.FreezeVMIRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("Should fail freezing a not running VMI", func() {
+
+			expectVMI(false, false)
+
+			app.FreezeVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("Should fail unfreezing a not running VMI", func() {
+
+			expectVMI(false, false)
+
+			app.UnfreezeVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("Should unfreeze a running VMI", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/unfreeze"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
+			expectVMI(true, false)
+
+			app.UnfreezeVMIRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+	})
+
 	Context("Pausing", func() {
 		It("Should pause a running, not paused VMI", func() {
 
