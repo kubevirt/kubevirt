@@ -9,7 +9,12 @@ The KubeVirt Users should have the same experience when searching for a node, co
 
 **Naming requirements:**
 1. Check if a similar Kubernetes metric, for node, container or pod, exists and try to align to it.
-2. KubeVirt metric for a running VM should have a `kubevirt_vmi_` prefix
+2. KubeVirt metrics prefixes:
+   1.  Running VM metrics should have a `kubevirt_vmi_` prefix
+   2.  HCO operator metrics should have a `kubevirt_hco_` prefix
+   3.  Network operator metrics should have a `kubevirt_network_` prefix
+   4.  Storage operator metrics should have a `kubevirt_cdi_` prefix
+   5.  SSP operator metrics should have a `kubevirt_ssp_` prefix
 
 For Example, see the following Kubernetes network metrics:
 - **node**_network_receive_packets_total
