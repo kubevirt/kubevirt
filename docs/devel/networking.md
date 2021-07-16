@@ -151,7 +151,7 @@ the VIF, along with any routes CNI has configured.
 
 In the `preparePodNetworkInterfaces` method, KubeVirt randomizes the in-pod
 veth mac-address; the original one, will be plugged into the VM. It also
-creates an in-pod bridge, and sets the pod networking interface as a slave to
+creates an in-pod bridge, and sets the pod networking interface as a port to
 this bridge. This happens in phase#1 - i.e. performed by virt-handler on
 behalf of virt-launcher.
 
@@ -192,8 +192,8 @@ stage, will look like:
 
 Once the VM is booted, libvirt will consume the interface xml definition and
 create a tap device - named after the `target` parameter. That tap device will
-have the in-pod bridge as its master, and the tap device's MAC address, and
-link MTU will be configured according to the values set in the domain xml.
+be attached to the in-pod bridge as its port, and the tap device's MAC address,
+and link MTU will be configured according to the values set in the domain xml.
 
 Finally, and depending if the pod networking interface had configured IP
 address(es), an in-pod DHCP server will be created to advertise the IP address
@@ -265,11 +265,11 @@ NAT is configured in the `preparePodNetworkInterfaces` method. The bridge is
 configured with the IP address previously reserved for the VM's gateway.
 
 The bridge acts as the vm's default gateway and not as a L2 bridge,
-therefore, the pod networking interface is not set as its slave.
-Since a linux bridge gets the MAC address of its first slave and we don't want it to
+therefore, the pod networking interface is not set as its port.
+Since a linux bridge gets the MAC address of its first port and we don't want it to
 take the MAC address of the first tap device attached to it,
 `preparePodNetworkInterfaces` creates a dummy nic and sets it as the first
-slave of the bridge.
+port of the bridge.
 
 Afterwards, the nftables / iptables rules are provisioned in the NAT table. It
 follows a standard one to one NAT implementation using netfilter.
