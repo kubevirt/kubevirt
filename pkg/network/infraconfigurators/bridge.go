@@ -46,6 +46,9 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podIfaceName)
 		return err
 	}
+	if err := validateMTU(link.Attrs().MTU); err != nil {
+		return err
+	}
 	b.podNicLink = link
 
 	addrList, err := b.handler.AddrList(b.podNicLink, netlink.FAMILY_V4)
@@ -71,10 +74,6 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 	}
 	if b.vmMac == nil {
 		b.vmMac = &b.podNicLink.Attrs().HardwareAddr
-	}
-
-	if err := validateMTU(b.podNicLink.Attrs().MTU); err != nil {
-		return err
 	}
 
 	return nil
