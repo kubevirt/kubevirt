@@ -19,7 +19,7 @@ SRIOV_TESTS_NS="${SRIOV_TESTS_NS:-kubevirt-test-default1}"
 
 function set_kind_params() {
     export KIND_VERSION="${KIND_VERSION:-0.11.1}"
-    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-quay.io/kubevirtci/kindest_node:v1.19.11@sha256:cbecc517bfad65e368cd7975d1e8a4f558d91160c051d0b1d10ff81488f5fb06}"
+    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-docker.io/quiquell/kindest_node:v1.19.12@sha256:7f7bbaec1caab98ab9ef2c65bcee28ed363dddbcf6fcf2460c93e1908dc48357}"
     export KUBECTL_PATH="${KUBECTL_PATH:-/bin/kubectl}"
 }
 
@@ -37,16 +37,9 @@ function up() {
 
     ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/config_sriov_cluster.sh
 
-    # In order to support live migration on containerized cluster we need to workaround
-    # Libvirt uuid check for source and target nodes.
-    # To do that we create PodPreset that mounts fake random product_uuid to virt-launcher pods,
-    # and kubevirt SRIOV tests namespace for the PodPrest beforhand.
-    podpreset::expose_unique_product_uuid_per_node "$CLUSTER_NAME" "$SRIOV_TESTS_NS"
-
     echo "$KUBEVIRT_PROVIDER cluster '$CLUSTER_NAME' is ready"
 }
 
 set_kind_params
 
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
-source ${KUBEVIRTCI_PATH}/cluster/kind/podpreset.sh
