@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
+
 	"github.com/coreos/prometheus-operator/pkg/apis/monitoring"
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -480,6 +482,58 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 
 	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachineFlavorCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.Name = "virtualmachineflavors." + flavorv1alpha1.SchemeGroupVersion.Group
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: flavorv1alpha1.SchemeGroupVersion.Group,
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachineflavors",
+			ShortNames: []string{"vmflavor", "vmflavors"},
+			Kind:       "VirtualMachineFlavor",
+			Categories: []string{"all"},
+		},
+		Scope: extv1.NamespaceScoped,
+		Versions: []extv1.CustomResourceDefinitionVersion{{
+			Name:    flavorv1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: true,
+		}},
+	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.Name = "virtualmachineclusterflavors." + flavorv1alpha1.SchemeGroupVersion.Group
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: flavorv1alpha1.SchemeGroupVersion.Group,
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachineclusterflavors",
+			ShortNames: []string{"vmclusterflavor", "vmclusterflavors"},
+			Kind:       "VirtualMachineClusterFlavor",
+			Categories: []string{"all"},
+		},
+		Scope: extv1.ClusterScoped,
+		Versions: []extv1.CustomResourceDefinitionVersion{{
+			Name:    flavorv1alpha1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: true,
+		}},
+	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil

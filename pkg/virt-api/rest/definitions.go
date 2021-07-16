@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"strings"
 
+	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
+
 	restful "github.com/emicklei/go-restful"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,17 +38,25 @@ import (
 )
 
 func ComposeAPIDefinitions() []*restful.WebService {
+	var result []*restful.WebService
+	for _, f := range []func() []*restful.WebService{
+		kubevirtApiServiceDefinitions,
+		snapshotApiServiceDefinitions,
+		flavorApiServiceDefinitions,
+	} {
+		result = append(result, f()...)
+	}
 
+	return result
+}
+
+func kubevirtApiServiceDefinitions() []*restful.WebService {
 	vmiGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstances"}
 	vmirsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancereplicasets"}
 	vmipGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancepresets"}
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancemigrations"}
 	kubeVirtGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "kubevirt"}
-
-	vmsGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
-	vmscGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
-	vmrGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinerestores")
 
 	ws, err := GroupVersionProxyBase(v1.GroupVersion)
 	if err != nil {
@@ -82,37 +92,66 @@ func ComposeAPIDefinitions() []*restful.WebService {
 		panic(err)
 	}
 
-	ws1, err := ResourceProxyAutodiscovery(vmiGVR)
+	ws2, err := ResourceProxyAutodiscovery(vmiGVR)
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err := GroupVersionProxyBase(schema.GroupVersion{Group: snapshotv1.SchemeGroupVersion.Group, Version: snapshotv1.SchemeGroupVersion.Version})
+	return []*restful.WebService{ws, ws2}
+}
+
+func snapshotApiServiceDefinitions() []*restful.WebService {
+	vmsGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
+	vmscGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
+	vmrGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinerestores")
+
+	ws, err := GroupVersionProxyBase(schema.GroupVersion{Group: snapshotv1.SchemeGroupVersion.Group, Version: snapshotv1.SchemeGroupVersion.Version})
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err = GenericResourceProxy(ws2, vmsGVR, &snapshotv1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1.VirtualMachineSnapshotList{})
+	ws, err = GenericResourceProxy(ws, vmsGVR, &snapshotv1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1.VirtualMachineSnapshotList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err = GenericResourceProxy(ws2, vmscGVR, &snapshotv1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1.VirtualMachineSnapshotContentList{})
+	ws, err = GenericResourceProxy(ws, vmscGVR, &snapshotv1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1.VirtualMachineSnapshotContentList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err = GenericResourceProxy(ws2, vmrGVR, &snapshotv1.VirtualMachineRestore{}, "VirtualMachineRestore", &snapshotv1.VirtualMachineRestoreList{})
+	ws, err = GenericResourceProxy(ws, vmrGVR, &snapshotv1.VirtualMachineRestore{}, "VirtualMachineRestore", &snapshotv1.VirtualMachineRestoreList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws3, err := ResourceProxyAutodiscovery(vmsGVR)
+	ws2, err := ResourceProxyAutodiscovery(vmsGVR)
+	if err != nil {
+		panic(err)
+	}
+	return []*restful.WebService{ws, ws2}
+}
+
+func flavorApiServiceDefinitions() []*restful.WebService {
+	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineflavors")
+	//clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineclusterflavors")
+
+	ws, err := GroupVersionProxyBase(flavorv1alpha1.SchemeGroupVersion)
 	if err != nil {
 		panic(err)
 	}
 
-	return []*restful.WebService{ws, ws1, ws2, ws3}
+	ws, err = GenericResourceProxy(ws, flavorGVR, &flavorv1alpha1.VirtualMachineFlavor{}, "VirtualMachineFlavor", &flavorv1alpha1.VirtualMachineFlavorList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err := ResourceProxyAutodiscovery(flavorGVR)
+	if err != nil {
+		panic(err)
+	}
+
+	return []*restful.WebService{ws, ws2}
 }
 
 func GroupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) {
