@@ -155,6 +155,10 @@ func RequestFromConfig(config *rest.Config, resource, name, namespace, subresour
 	return req, nil
 }
 
+func (v *vmis) USBRedir(name string) (StreamInterface, error) {
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir")
+}
+
 func (v *vmis) VNC(name string) (StreamInterface, error) {
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc")
 }

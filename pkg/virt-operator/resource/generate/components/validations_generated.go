@@ -3678,6 +3678,10 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether or not to enable virtio multi-queue
                             for block devices. Defaults to false.
                           type: boolean
+                        clientPassthrough:
+                          description: To configure and access client devices such
+                            as redirecting USB
+                          type: object
                         disableHotplug:
                           description: DisableHotplug disabled the ability to hotplug
                             disks.
@@ -6357,6 +6361,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether or not to enable virtio multi-queue for block
                     devices. Defaults to false.
                   type: boolean
+                clientPassthrough:
+                  description: To configure and access client devices such as redirecting
+                    USB
+                  type: object
                 disableHotplug:
                   description: DisableHotplug disabled the ability to hotplug disks.
                   type: boolean
@@ -8286,6 +8294,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether or not to enable virtio multi-queue for block
                     devices. Defaults to false.
                   type: boolean
+                clientPassthrough:
+                  description: To configure and access client devices such as redirecting
+                    USB
+                  type: object
                 disableHotplug:
                   description: DisableHotplug disabled the ability to hotplug disks.
                   type: boolean
@@ -10045,6 +10057,10 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether or not to enable virtio multi-queue
                             for block devices. Defaults to false.
                           type: boolean
+                        clientPassthrough:
+                          description: To configure and access client devices such
+                            as redirecting USB
+                          type: object
                         disableHotplug:
                           description: DisableHotplug disabled the ability to hotplug
                             disks.
@@ -13456,6 +13472,10 @@ var CRDsValidation map[string]string = map[string]string{
                                         multi-queue for block devices. Defaults to
                                         false.
                                       type: boolean
+                                    clientPassthrough:
+                                      description: To configure and access client
+                                        devices such as redirecting USB
+                                      type: object
                                     disableHotplug:
                                       description: DisableHotplug disabled the ability
                                         to hotplug disks.

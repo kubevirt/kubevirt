@@ -134,6 +134,7 @@ go_test(
         "sysprep_test.go",
         "template_test.go",
         "tests_suite_test.go",
+        "usbredir_test.go",
         "version_test.go",
         "virt_control_plane_test.go",
         "vm_test.go",

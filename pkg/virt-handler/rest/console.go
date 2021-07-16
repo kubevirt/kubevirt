@@ -20,6 +20,7 @@
 package rest
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -45,6 +46,12 @@ type ConsoleHandler struct {
 	serialLock           *sync.Mutex
 	vncLock              *sync.Mutex
 	vmiInformer          cache.SharedIndexInformer
+	usbredir             map[types.UID]UsbredirHandlerVMI
+	usbredirLock         *sync.Mutex
+}
+
+type UsbredirHandlerVMI struct {
+	stopChans map[int](chan struct{})
 }
 
 func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiInformer cache.SharedIndexInformer) *ConsoleHandler {
@@ -54,8 +61,73 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 		vncStopChans:         make(map[types.UID](chan struct{})),
 		serialLock:           &sync.Mutex{},
 		vncLock:              &sync.Mutex{},
+		usbredirLock:         &sync.Mutex{},
 		vmiInformer:          vmiInformer,
+		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
 	}
+}
+
+func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, t.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
+		response.WriteError(code, err)
+		return
+	}
+
+	uid := vmi.GetUID()
+	stopChan := make(chan struct{})
+	var slotId int
+	var unixSocketPath string
+	ok := func() bool {
+		// For simplicity, we handle one usbredir request at the time, for all VMIs
+		// handled by virt-handler
+		t.usbredirLock.Lock()
+		defer t.usbredirLock.Unlock()
+
+		if _, exists := t.usbredir[uid]; !exists {
+			// Initialize
+			t.usbredir[uid] = UsbredirHandlerVMI{
+				stopChans: make(map[int](chan struct{})),
+			}
+		}
+
+		usbHandler := t.usbredir[uid]
+		// Find the first USB device slot available
+		for slotId = 0; slotId < v1.UsbClientPassthroughMaxNumberOf; slotId++ {
+			if _, inUse := usbHandler.stopChans[slotId]; !inUse {
+				break
+			}
+		}
+
+		if slotId == v1.UsbClientPassthroughMaxNumberOf {
+			log.Log.Object(vmi).Reason(err).Errorf("All USB devices are in use.")
+			response.WriteError(http.StatusServiceUnavailable, err)
+			return false
+		}
+
+		unixSocketPath, err = t.getUnixSocketPath(vmi, fmt.Sprintf("virt-usbredir-%d", slotId))
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Failed on finding unix socket for USBRedir")
+			response.WriteError(http.StatusBadRequest, err)
+			return false
+		}
+
+		usbHandler.stopChans[slotId] = stopChan
+		return true
+	}()
+
+	if !ok {
+		return
+	}
+
+	defer func() {
+		t.usbredirLock.Lock()
+		defer t.usbredirLock.Unlock()
+		usbHandler := t.usbredir[uid]
+		delete(usbHandler.stopChans, slotId)
+	}()
+	t.stream(vmi, request, response, unixSocketPath, stopChan)
 }
 
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
@@ -73,10 +145,8 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 	}
 	uid := vmi.GetUID()
 	stopChn := newStopChan(uid, t.vncLock, t.vncStopChans)
-	cleanup := func() {
-		deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
-	}
-	t.stream(vmi, request, response, unixSocketPath, stopChn, cleanup)
+	defer deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
+	t.stream(vmi, request, response, unixSocketPath, stopChn)
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
@@ -94,10 +164,8 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 	}
 	uid := vmi.GetUID()
 	stopCh := newStopChan(uid, t.serialLock, t.serialStopChans)
-	cleanup := func() {
-		deleteStopChan(uid, stopCh, t.serialLock, t.serialStopChans)
-	}
-	t.stream(vmi, request, response, unixSocketPath, stopCh, cleanup)
+	defer deleteStopChan(uid, stopCh, t.serialLock, t.serialStopChans)
+	t.stream(vmi, request, response, unixSocketPath, stopCh)
 }
 
 func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID](chan struct{})) chan struct{} {
@@ -137,9 +205,7 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	return socketPath, nil
 }
 
-type cleanupOnError func()
-
-func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, unixSocketPath string, stopCh chan struct{}, cleanup cleanupOnError) {
+func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, unixSocketPath string, stopCh chan struct{}) {
 	var upgrader = kubecli.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
@@ -183,7 +249,5 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 			log.Log.Object(vmi).Reason(err).Error("Error in proxing websocket and unix socket")
 			response.WriteHeader(http.StatusInternalServerError)
 		}
-
-		cleanup()
 	}
 }

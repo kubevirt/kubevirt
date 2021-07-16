@@ -6733,6 +6733,35 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/usbredir": {
+    "get": {
+     "description": "Open a websocket connection to connect to USB device on the specified VirtualMachineInstance.",
+     "operationId": "v1usbredir",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/userlist": {
     "get": {
      "description": "Get list of active users via guest agent",
@@ -7646,6 +7675,35 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/usbredir": {
+    "get": {
+     "description": "Open a websocket connection to connect to USB device on the specified VirtualMachineInstance.",
+     "operationId": "v1alpha3usbredir",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
       }
      }
     },
@@ -9497,6 +9555,10 @@
      }
     }
    },
+   "v1.ClientPassthroughDevices": {
+    "description": "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no imediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
+    "type": "object"
+   },
    "v1.Clock": {
     "description": "Represents the clock and timers of a vmi.",
     "type": "object",
@@ -9858,6 +9920,10 @@
      "blockMultiQueue": {
       "description": "Whether or not to enable virtio multi-queue for block devices. Defaults to false.",
       "type": "boolean"
+     },
+     "clientPassthrough": {
+      "description": "To configure and access client devices such as redirecting USB",
+      "$ref": "#/definitions/v1.ClientPassthroughDevices"
      },
      "disableHotplug": {
       "description": "DisableHotplug disabled the ability to hotplug disks.",

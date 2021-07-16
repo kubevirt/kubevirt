@@ -439,6 +439,20 @@ type Devices struct {
 	Watchdog    *Watchdog          `xml:"watchdog,omitempty"`
 	Rng         *Rng               `xml:"rng,omitempty"`
 	Filesystems []FilesystemDevice `xml:"filesystem,omitempty"`
+	Redirs      []RedirectedDevice `xml:"redirdev,omitempty"`
+}
+
+// RedirectedDevice describes a device to be redirected
+// See: https://libvirt.org/formatdomain.html#redirected-devices
+type RedirectedDevice struct {
+	Type   string                 `xml:"type,attr"`
+	Bus    string                 `xml:"bus,attr"`
+	Source RedirectedDeviceSource `xml:"source"`
+}
+
+type RedirectedDeviceSource struct {
+	Mode string `xml:"mode,attr"`
+	Path string `xml:"path,attr"`
 }
 
 type FilesystemDevice struct {

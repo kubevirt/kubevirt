@@ -11,6 +11,7 @@ go_library(
         "portforward.go",
         "streamer.go",
         "subresource.go",
+        "usbredir.go",
         "vnc.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/rest",

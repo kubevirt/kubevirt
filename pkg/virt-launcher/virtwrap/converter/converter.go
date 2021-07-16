@@ -903,6 +903,33 @@ func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) err
 	return nil
 }
 
+func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) (bool, error) {
+	clientDevices := vmi.Spec.Domain.Devices.ClientPassthrough
+
+	// Default is to have USB Redirection disabled
+	if clientDevices == nil {
+		return false, nil
+	}
+
+	// Note that at the moment, we don't require any specific input to configure the USB devices
+	// so we simply create the maximum allowed dictated by v1.UsbClientPassthroughMaxNumberOf
+	redirectDevices := make([]api.RedirectedDevice, v1.UsbClientPassthroughMaxNumberOf)
+
+	for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {
+		path := fmt.Sprintf("/var/run/kubevirt-private/%s/virt-usbredir-%d", vmi.ObjectMeta.UID, i)
+		redirectDevices[i] = api.RedirectedDevice{
+			Type: "unix",
+			Bus:  "usb",
+			Source: api.RedirectedDeviceSource{
+				Mode: "bind",
+				Path: path,
+			},
+		}
+	}
+	domainDevices.Redirs = redirectDevices
+	return true, nil
+}
+
 func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
 	if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
@@ -1507,6 +1534,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Inputs = inputDevices
 	}
 
+	isUSBRedirEnabled, err := Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
+	if err != nil {
+		return err
+	}
+
 	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
 	ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
 
@@ -1515,7 +1547,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	//In ppc64le usb devices like mouse / keyboard are set by default,
 	//so we can't disable the controller otherwise we run into the following error:
 	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
-	if !isUSBDevicePresent && c.Architecture != "ppc64le" {
+	if !isUSBDevicePresent && !isUSBRedirEnabled && c.Architecture != "ppc64le" {
 		// disable usb controller
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:  "usb",
