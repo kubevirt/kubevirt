@@ -91,6 +91,9 @@ functest-image-push: functest-image-build
 conformance:
 	hack/dockerized "export SKIP_OUTSIDE_CONN_TESTS=${SKIP_OUTSIDE_CONN_TESTS} && hack/conformance.sh"
 
+perftest: build-functests
+	hack/perftests.sh
+
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
 	hack/dockerized "bazel clean --expunge"
