@@ -40,6 +40,7 @@ func main() {
 	command := pflag.String("command", "", "Command to execute on the guest")
 	memProfile := pflag.String("memProfile", "", "Path to store a memory profile. Profiling is skipped if empty")
 	timeoutSeconds := pflag.Int32("timeoutSeconds", 1, "Duration in seconds the probe will wait for the guest command to return.")
+	guestAgentPing := pflag.Bool("guestAgentPing", false, "Flag to specify readiness probe based of guest-agent ping")
 
 	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 	pflag.Parse()
@@ -50,6 +51,15 @@ func main() {
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to connect cmd client")
 		os.Exit(1)
+	}
+
+	if *guestAgentPing {
+		err := client.GuestPing(*domainName, *timeoutSeconds)
+		if err != nil {
+			log.Log.Reason(err).Critical("Failed to ping the guest")
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	exitCode, stdOut, err := client.Exec(*domainName, *command, pflag.Args(), *timeoutSeconds)

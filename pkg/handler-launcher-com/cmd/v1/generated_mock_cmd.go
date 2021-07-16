@@ -318,6 +318,22 @@ func (_mr *_MockCmdClientRecorder) Exec(arg0, arg1 interface{}, arg2 ...interfac
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Exec", _s...)
 }
 
+func (_m *MockCmdClient) GuestPing(ctx context.Context, in *GuestPingRequest, opts ...grpc.CallOption) (*GuestPingResponse, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "GuestPing", _s...)
+	ret0, _ := ret[0].(*GuestPingResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) GuestPing(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestPing", _s...)
+}
+
 // Mock of CmdServer interface
 type MockCmdServer struct {
 	ctrl     *gomock.Controller
@@ -535,4 +551,15 @@ func (_m *MockCmdServer) Exec(_param0 context.Context, _param1 *ExecRequest) (*E
 
 func (_mr *_MockCmdServerRecorder) Exec(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Exec", arg0, arg1)
+}
+
+func (_m *MockCmdServer) GuestPing(_param0 context.Context, _param1 *GuestPingRequest) (*GuestPingResponse, error) {
+	ret := _m.ctrl.Call(_m, "GuestPing", _param0, _param1)
+	ret0, _ := ret[0].(*GuestPingResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) GuestPing(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestPing", arg0, arg1)
 }

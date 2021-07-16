@@ -255,12 +255,13 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(client.FinalizeVirtualMachineMigration(vmi)).ToNot(Succeed())
 		})
 
-		Context("exec", func() {
+		Context("exec & guestPing", func() {
 			var (
 				testDomainName           = "test"
 				testCommand              = "testCmd"
 				testArgs                 = []string{"-v", "2"}
 				testExecErr              = errors.New("exec error")
+				testGuestPingErr         = errors.New("guest ping error")
 				testStdOut               = "stdOut"
 				testTimeoutSeconds int32 = 10
 
@@ -277,6 +278,15 @@ var _ = Describe("Virt remote commands", func() {
 						DomainName:     testDomainName,
 						Command:        testCommand,
 						Args:           testArgs,
+						TimeoutSeconds: testTimeoutSeconds,
+					}
+				}
+				expectGuestPing = func() *gomock.Call {
+					return domainManager.EXPECT().GuestPing(testDomainName)
+				}
+				guestPingRequest = func() *cmdv1.GuestPingRequest {
+					return &cmdv1.GuestPingRequest{
+						DomainName:     testDomainName,
 						TimeoutSeconds: testTimeoutSeconds,
 					}
 				}
@@ -327,6 +337,23 @@ var _ = Describe("Virt remote commands", func() {
 				// then success should not be true.
 				expectExec().Times(1).Return(testStdOut, agent.ExecExitCode{ExitCode: 1})
 				resp, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).To(BeNil())
+				Expect(resp.Response.Success).To(BeTrue())
+			})
+			It("should call guest ping", func() {
+				expectGuestPing().Times(1)
+				server.GuestPing(context.TODO(), guestPingRequest())
+			})
+			It("returns errors in the response", func() {
+				expectGuestPing().Times(1).Return(testGuestPingErr)
+				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+				Expect(err).To(HaveOccurred())
+				Expect(resp.Response.Success).To(BeFalse())
+				Expect(resp.Response.Message).To(Equal(testGuestPingErr.Error()))
+			})
+			It("returns zero exit code", func() {
+				expectGuestPing().Times(1).Return(nil)
+				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
 				Expect(err).To(BeNil())
 				Expect(resp.Response.Success).To(BeTrue())
 			})

@@ -106,6 +106,7 @@ type DomainManager interface {
 	InterfacesStatus(domainInterfaces []api.Interface) []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
 	Exec(string, string, []string, int32) (string, error)
+	GuestPing(string) error
 }
 
 type LibvirtDomainManager struct {
@@ -333,6 +334,12 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 
 func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, timeoutSeconds int32) (string, error) {
 	return agent.GuestExec(l.virConn, domainName, command, args, timeoutSeconds)
+}
+
+func (l *LibvirtDomainManager) GuestPing(domainName string) error {
+	pingCmd := `{"execute":"guest-ping"}`
+	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
+	return err
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {

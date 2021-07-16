@@ -464,6 +464,21 @@ func (l *Launcher) Exec(ctx context.Context, request *cmdv1.ExecRequest) (*cmdv1
 	return resp, nil
 }
 
+func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingRequest) (*cmdv1.GuestPingResponse, error) {
+	resp := &cmdv1.GuestPingResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+	err := l.domainManager.GuestPing(request.DomainName)
+	if err != nil {
+		resp.Response.Success = false
+		resp.Response.Message = err.Error()
+		return resp, err
+	}
+	return resp, nil
+}
+
 func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},

@@ -10409,6 +10409,10 @@
      }
     }
    },
+   "v1.GuestAgentPing": {
+    "description": "GuestAgentPing configures the guest-agent based ping probe",
+    "type": "object"
+   },
    "v1.HPETTimer": {
     "type": "object",
     "properties": {
@@ -11311,6 +11315,10 @@
       "description": "Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1.",
       "type": "integer",
       "format": "int32"
+     },
+     "guestAgentPing": {
+      "description": "GuestAgentPing contacts the qemu-guest-agent for availability checks.",
+      "$ref": "#/definitions/v1.GuestAgentPing"
      },
      "httpGet": {
       "description": "HTTPGet specifies the http request to perform.",

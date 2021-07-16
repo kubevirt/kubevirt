@@ -656,6 +656,9 @@ func validateProbe(field *k8sfield.Path, probe *v1.Probe) (causes []metav1.Statu
 	if probe.Exec != nil {
 		numHandlers++
 	}
+	if probe.GuestAgentPing != nil {
+		numHandlers++
+	}
 
 	if numHandlers > 1 {
 		causes = append(causes, metav1.StatusCause{

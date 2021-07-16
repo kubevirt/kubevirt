@@ -186,6 +186,12 @@ var _ = Describe("Virt remote commands", func() {
 						TimeoutSeconds: testTimeoutSeconds,
 					})
 				}
+				expectGuestPing = func() *gomock.Call {
+					return mockCmdClient.EXPECT().GuestPing(gomock.Any(), &cmdv1.GuestPingRequest{
+						DomainName:     testDomainName,
+						TimeoutSeconds: testTimeoutSeconds,
+					})
+				}
 			)
 			It("calls cmdclient.Exec", func() {
 				expectExec().Times(1)
@@ -212,6 +218,20 @@ var _ = Describe("Virt remote commands", func() {
 					return nil, nil
 				})
 				client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+			})
+			It("calls cmdclient.GuestPing", func() {
+				expectGuestPing().Times(1)
+				client.GuestPing(testDomainName, testTimeoutSeconds)
+			})
+			It("returns client error", func() {
+				expectGuestPing().Times(1).Return(&cmdv1.GuestPingResponse{}, testClientErr)
+				err := client.GuestPing(testDomainName, testTimeoutSeconds)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should succeed", func() {
+				expectGuestPing().Times(1).Return(&cmdv1.GuestPingResponse{Response: &cmdv1.Response{Success: true}}, nil)
+				err := client.GuestPing(testDomainName, testTimeoutSeconds)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})

@@ -22,6 +22,7 @@ service Cmd {
   rpc GetFilesystems(EmptyRequest) returns (GuestFilesystemsResponse) {}
   rpc Ping(EmptyRequest) returns (Response) {}
   rpc Exec(ExecRequest) returns (ExecResponse) {}
+  rpc GuestPing(GuestPingRequest) returns (GuestPingResponse) {}
 }
 
 message VMI {
@@ -128,4 +129,13 @@ message ExecResponse {
   Response response = 1;
   int32 exitCode = 2;
   string stdOut = 3;
+}
+
+message GuestPingRequest {
+  string domainName = 1;
+  int32 timeoutSeconds = 2;
+}
+
+message GuestPingResponse {
+  Response response = 1;
 }
