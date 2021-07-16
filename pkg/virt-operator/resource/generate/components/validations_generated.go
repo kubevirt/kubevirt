@@ -599,6 +599,8 @@ var CRDsValidation map[string]string = map[string]string{
                 completionTimeoutPerGiB:
                   format: int64
                   type: integer
+                dedicatedMigrationNetwork:
+                  type: string
                 disableTLS:
                   type: boolean
                 nodeDrainTaintKey:
