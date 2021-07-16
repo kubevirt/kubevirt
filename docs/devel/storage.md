@@ -36,7 +36,7 @@ After a few moments the hostpath-provisioner pod should be running, we are now r
 The Containerized Data Importer controller is a controller that watches for PVCs with a specific annotation. If that annotation is detected, it will use the 'storage.image.endpoint' URL to download the image, convert it if needed and write it to the requested PVC. One can then use the PVC to start a VM using the image in it. To deploy the CDI controller run this:
 
 ```bash
-cluster-up/kubectl.sh apply -f https://raw.githubusercontent.com/kubevirt/containerized-data-importer/master/manifests/controller/cdi-controller-deployment.yaml
+cluster-up/kubectl.sh apply -f https://raw.githubusercontent.com/kubevirt/containerized-data-importer/main/manifests/controller/cdi-controller-deployment.yaml
 ```
 
 This will create

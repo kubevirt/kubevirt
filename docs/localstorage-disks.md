@@ -48,7 +48,7 @@ This flow differs from standard scenario (import/upload/clone on storage with Im
 Note: 
 `WaitForFirstConsumer` state for DataVolumes is available in CDI from v1.21.0 and toggled by a `HonorWaitForFirstConsumer` feature gate. 
 When the `HonorWaitForFirstConsumer` feature gate is enabled, the `CDI` is not starting any worker pods when the PVCs StorageClass binding mode is `WaitForFirstConsumer`. In such case the `CDI` puts the DataVolume in a new state `WaitForFirstConsumer`.
-More in CDI docs [here](https://github.com/kubevirt/containerized-data-importer/blob/master/doc/waitforfirstconsumer-storage-handling.md).
+More in CDI docs [here](https://github.com/kubevirt/containerized-data-importer/blob/main/doc/waitforfirstconsumer-storage-handling.md).
 
 ## Interaction with virtctl
 

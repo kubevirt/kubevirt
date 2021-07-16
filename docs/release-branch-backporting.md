@@ -1,13 +1,13 @@
 # Release Branch Backporting Policy
 
-Bug fixes are eligible to be backported from the master branch to any previous
+Bug fixes are eligible to be backported from the main branch to any previous
 release branch. The following criteria must be met before a backport can be
 considered. It is the reviewer's and approver's responsibility to uphold this
 policy.
 
-- **Bug Fix Only:** The backport must be a [bug fix](https://github.com/kubevirt/kubevirt/blob/master/docs/release-branch-backporting.md#bug-fix-definition) and the bug fix must be
-first merged into the master branch. The only exception is when a bug only
-exists in a stable branch and does not exist in the master branch.
+- **Bug Fix Only:** The backport must be a [bug fix](https://github.com/kubevirt/kubevirt/blob/main/docs/release-branch-backporting.md#bug-fix-definition) and the bug fix must be
+first merged into the main branch. The only exception is when a bug only
+exists in a stable branch and does not exist in the main branch.
 
 - **Release Note** The PR description's release-note section must indicate in
 a brief one line statement what the backport addresses. This note gets

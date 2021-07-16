@@ -45,7 +45,7 @@ if [ "${CLIENT_UPDATED}" = "true" ]; then
     git add -A .
     git commit --message "Client Python update by KubeVirt Prow build ${BUILD_ID}"
 
-    git push origin master >/dev/null 2>&1
+    git push origin main >/dev/null 2>&1
     echo "Client Python updated."
 else
     echo "Client Python hasn't changed."

@@ -30,7 +30,7 @@ Content of this repository is generated from OpenAPI specification of
 
 ## KubeVirt API References
 
-* [master](${GITHUB_IO_FQDN}/master/index.html)
+* [main](${GITHUB_IO_FQDN}/main/index.html)
 __EOF__
 find * -type d -regex "^v[0-9.]*" \
     -exec echo "* [{}](${GITHUB_IO_FQDN}/{}/index.html)" \; | sort -r --version-sort -t '[' --key 2 >>README.md
@@ -43,7 +43,7 @@ if git status --porcelain | grep -v "index[.]html" | grep --quiet "^ [AM]"; then
     git add -A README.md "${TARGET_DIR}"/*.html
     git commit --message "API Reference update by KubeVirt Prow build ${BUILD_ID}"
 
-    git push origin master >/dev/null 2>&1
+    git push origin main >/dev/null 2>&1
     echo "API Reference updated for ${TARGET_DIR}."
 else
     echo "API Reference hasn't changed."
