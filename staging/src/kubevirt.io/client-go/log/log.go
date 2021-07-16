@@ -433,3 +433,10 @@ func LogQemuLogLine(logger *FilteredLogger, line string) {
 		"msg", line,
 	)
 }
+func EventLoggerSink(event *v1.Event) {
+	if event.Type == v1.EventTypeWarning {
+		DefaultLogger().ObjectRef(&event.InvolvedObject).With("event", event.Type).Reason(fmt.Errorf(event.Reason)).Error(event.Message)
+	} else {
+		DefaultLogger().ObjectRef(&event.InvolvedObject).With("event", event.Type).Reason(fmt.Errorf(event.Reason)).Info(event.Message)
+	}
+}
