@@ -42,11 +42,6 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 		return nil, err
 	}
 
-	mac, err := virtnetlink.RetrieveMacAddressFromVMISpecIface(d.vmiSpecIface)
-	if err != nil {
-		return nil, err
-	}
-
 	dhcpConfig.Name = podNicLink.Attrs().Name
 	dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
 
@@ -65,8 +60,5 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 	dhcpConfig.IPv6 = *ipv6
 	dhcpConfig.AdvertisingIPv6Addr = ipv6Gateway.IP.To16()
 
-	if mac != nil {
-		dhcpConfig.MAC = *mac
-	}
 	return dhcpConfig, nil
 }

@@ -40,7 +40,6 @@ type Configurator interface {
 type configurator struct {
 	advertisingIfaceName string
 	configGenerator      ConfigGenerator
-	filterByMac          bool
 	handler              netdriver.NetworkHandler
 	dhcpStartedDirectory string
 	podInterfaceName     string
@@ -55,7 +54,6 @@ func NewBridgeConfigurator(cacheFactory cache.InterfaceCacheFactory, launcherPID
 	return &configurator{
 		podInterfaceName:     podInterfaceName,
 		advertisingIfaceName: advertisingIfaceName,
-		filterByMac:          true,
 		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
 		configGenerator:      &BridgeConfigGenerator{handler: handler, cacheFactory: cacheFactory, podInterfaceName: podInterfaceName, launcherPID: launcherPID, vmiSpecIfaces: vmiSpecIfaces, vmiSpecIface: vmiSpecIface},
@@ -67,7 +65,6 @@ func NewMasqueradeConfigurator(advertisingIfaceName string, handler netdriver.Ne
 		podInterfaceName:     podInterfaceName,
 		advertisingIfaceName: advertisingIfaceName,
 		configGenerator:      &MasqueradeConfigGenerator{handler: handler, vmiSpecIface: vmiSpecIface, vmiSpecNetwork: vmiSpecNetwork, podInterfaceName: podInterfaceName},
-		filterByMac:          false,
 		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
 	}
@@ -80,7 +77,7 @@ func (d *configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConf
 	dhcpStartedFile := d.getDHCPStartedFilePath(podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
-		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions, d.filterByMac); err != nil {
+		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}
 		newFile, err := os.Create(dhcpStartedFile)

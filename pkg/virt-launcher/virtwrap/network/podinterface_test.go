@@ -218,7 +218,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)).Return(bridgeAddr, nil)
 		mockNetwork.EXPECT().LinkSetMaster(primaryPodInterfaceAfterNameChange, bridgeTest).Return(nil)
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
-		mockNetwork.EXPECT().StartDHCP(testNic, api.DefaultBridgeName, nil, true)
+		mockNetwork.EXPECT().StartDHCP(testNic, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu, libvirtUser).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
 		mockNetwork.EXPECT().DisableTXOffloadChecksum(bridgeTest.Name).Return(nil)
@@ -240,7 +240,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().LinkSetMaster(masqueradeDummy, masqueradeBridgeTest).Return(nil)
 		mockNetwork.EXPECT().AddrAdd(masqueradeBridgeTest, masqueradeGwAddr).Return(nil)
 		mockNetwork.EXPECT().AddrAdd(masqueradeBridgeTest, masqueradeIpv6GwAddr).Return(nil)
-		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, api.DefaultBridgeName, nil, false)
+		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().DisableTXOffloadChecksum(bridgeTest.Name).Return(nil)
 		// Global nat rules using iptables
 		for _, proto := range ipProtocols() {

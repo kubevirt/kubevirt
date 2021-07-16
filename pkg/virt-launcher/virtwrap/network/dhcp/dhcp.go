@@ -49,7 +49,6 @@ var searchDomainValidationRegex = regexp.MustCompile(`^(?:[_a-z0-9](?:[_a-z0-9-]
 
 func SingleClientDHCPServer(
 	clientMAC net.HardwareAddr,
-	filterByMAC bool,
 	clientIP net.IP,
 	clientMask net.IPMask,
 	serverIface string,
@@ -76,7 +75,6 @@ func SingleClientDHCPServer(
 	handler := &DHCPHandler{
 		clientIP:      clientIP,
 		clientMAC:     clientMAC,
-		filterByMAC:   filterByMAC,
 		serverIP:      serverIP.To4(),
 		leaseDuration: infiniteLease,
 		options:       options,
@@ -184,14 +182,13 @@ type DHCPHandler struct {
 	serverIP      net.IP
 	clientIP      net.IP
 	clientMAC     net.HardwareAddr
-	filterByMAC   bool
 	leaseDuration time.Duration
 	options       dhcp.Options
 }
 
 func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, _ dhcp.Options) (d dhcp.Packet) {
 	log.Log.V(4).Info("Serving a new request")
-	if h.filterByMAC {
+	if len(h.clientMAC) != 0 {
 		if mac := p.CHAddr(); !bytes.Equal(mac, h.clientMAC) {
 			log.Log.V(4).Info("The request is not from our client")
 			return nil // Is not our client
