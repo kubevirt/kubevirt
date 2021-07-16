@@ -1303,9 +1303,6 @@ var _ = Describe("Manager", func() {
 		})
 
 		It("should prepare the target pod", func() {
-			updateHostsFile = func(entry string) error {
-				return nil
-			}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: "111222333",

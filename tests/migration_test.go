@@ -326,7 +326,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				continue
 			}
 			words := strings.Fields(str)
-			Expect(len(words)).To(Equal(5))
+
+			Expect(len(words)).To(Equal(7), fmt.Sprintf("Found %s", words))
 
 			// verify it is numeric
 			_, err = strconv.Atoi(words[0])

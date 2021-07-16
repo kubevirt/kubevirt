@@ -430,6 +430,7 @@ var _ = SIGDescribe("Storage", func() {
 			var pvc = "empty-pvc1"
 
 			BeforeEach(func() {
+				tests.SkipIfNonRoot(virtClient, "VirtioFS")
 				tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
 				tests.CreateHostPathPVC(pvc, "1G")
 			}, 120)
@@ -480,6 +481,7 @@ var _ = SIGDescribe("Storage", func() {
 		Context("Run a VMI with VirtIO-FS and a datavolume", func() {
 			var dataVolume *cdiv1.DataVolume
 			BeforeEach(func() {
+				tests.SkipIfNonRoot(virtClient, "VirtioFS")
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
@@ -876,12 +878,27 @@ var _ = SIGDescribe("Storage", func() {
 
 			Context("With multiple empty PVCs", func() {
 
-				var pvcs = [...]string{"empty-pvc1", "empty-pvc2", "empty-pvc3"}
+				var pvcs = []string{}
+				var node string
+				var nodeSelector map[string]string
 
 				BeforeEach(func() {
+					for i := 0; i < 3; i++ {
+						pvcs = append(pvcs, fmt.Sprintf("empty-pvc-%d-%s", i, rand.String(5)))
+					}
 					for _, pvc := range pvcs {
-						tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
+						hostpath := filepath.Join(tests.HostPathBase, pvc)
+						node = tests.CreateHostPathPv(pvc, hostpath)
 						tests.CreateHostPathPVC(pvc, "1G")
+						if checks.HasFeature(virtconfig.NonRoot) {
+							nodeSelector = map[string]string{"kubernetes.io/hostname": node}
+							By("changing permissions to qemu")
+							args := []string{fmt.Sprintf(`chown 107 %s`, hostpath)}
+							pod := tests.RenderHostPathPod("tmp-change-owner-job", hostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+
+							pod.Spec.NodeSelector = nodeSelector
+							runHostPathJobAndExpectCompletion(pod)
+						}
 					}
 				}, 120)
 
@@ -893,10 +910,11 @@ var _ = SIGDescribe("Storage", func() {
 				}, 120)
 
 				// Not a candidate for NFS testing because multiple VMIs are started
-				It("[test_id:868]Should initialize an empty PVC by creating a disk.img", func() {
+				It("[test_id:868] Should initialize an empty PVC by creating a disk.img", func() {
 					for _, pvc := range pvcs {
 						By("starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithPVC(fmt.Sprintf("disk-%s", pvc))
+						vmi.Spec.NodeSelector = nodeSelector
 						tests.RunVMIAndExpectLaunch(vmi, 90)
 
 						By("Checking if disk.img exists")

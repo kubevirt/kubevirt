@@ -34,10 +34,12 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
@@ -375,7 +377,12 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
-			Expect(newVmi.Annotations).To(BeNil())
+			if checks.HasFeature(virtconfig.NonRoot) {
+				Expect(newVmi.Annotations).To(Equal(map[string]string{"kubevirt.io/nonroot": ""}))
+			} else {
+				Expect(newVmi.Annotations).To(BeNil())
+			}
+
 			label, ok := vmi.Labels[overrideKey]
 			Expect(ok).To(BeTrue())
 			Expect(label).To(Equal(overrideFlavor))

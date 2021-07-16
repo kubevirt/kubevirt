@@ -17,6 +17,15 @@ const HostRootMount = "/proc/1/root/"
 const CPUManagerOS3Path = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
 const CPUManagerPath = HostRootMount + "var/lib/kubelet/cpu_manager_state"
 
+const NonRootUID = 107
+const NonRootUserString = "qemu"
+const RootUser = 0
+
+func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
+	_, ok := vmi.Annotations[v1.NonRootVMIAnnotation]
+	return ok
+}
+
 func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.SRIOV != nil {
@@ -63,6 +72,15 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, useEmulation bool) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if !useEmulation && (iface.Model == "" || iface.Model == "virtio") {
+			return true
+		}
+	}
+	return false
+}
+
 func ResourceNameToEnvVar(prefix string, resourceName string) string {
 	varName := strings.ToUpper(resourceName)
 	varName = strings.Replace(varName, "/", "_", -1)
@@ -82,4 +100,8 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 	}
 
 	return true
+}
+
+func HasHugePages(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
 }

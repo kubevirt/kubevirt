@@ -49,6 +49,7 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
+	putil "kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -110,9 +111,15 @@ func startCmdServer(socketPath string,
 	return done
 }
 
-func createLibvirtConnection() virtcli.Connection {
+func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	libvirtUri := "qemu:///system"
-	domainConn, err := virtcli.NewConnection(libvirtUri, "", "", 10*time.Second)
+	user := ""
+	if runWithNonRoot {
+		user = putil.NonRootUserString
+		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock"
+	}
+
+	domainConn, err := virtcli.NewConnection(libvirtUri, user, "", 10*time.Second)
 	if err != nil {
 		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
 	}
@@ -159,7 +166,6 @@ func initializeDirs(ephemeralDiskDir string,
 	defer syscall.Umask(mask)
 
 	err := virtlauncher.InitializePrivateDirectories(filepath.Join("/var/run/kubevirt-private", uid))
-
 	if err != nil {
 		panic(err)
 	}
@@ -338,6 +344,7 @@ func main() {
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
 	gracePeriodSeconds := pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vmi process")
 	useEmulation := pflag.Bool("use-emulation", false, "Use software emulation")
+	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run libvirtd with the 'virt' user")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	noFork := pflag.Bool("no-fork", false, "Fork and let virt-launcher watch itself to react to crashes if set to false")
 	lessPVCSpaceToleration := pflag.Int("less-pvc-space-toleration", 0, "Toleration in percent when PVs' available space is smaller than requested")
@@ -394,16 +401,19 @@ func main() {
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
 
-	err = util.SetupLibvirt()
+	l := util.NewLibvirtWrapper(*runWithNonRoot)
+	err = l.SetupLibvirt()
 	if err != nil {
 		panic(err)
 	}
-	util.StartLibvirt(stopChan)
+
+	l.StartLibvirt(stopChan)
 	// only single domain should be present
 	domainName := api.VMINamespaceKeyFunc(vmi)
-	util.StartVirtlog(stopChan, domainName)
 
-	domainConn := createLibvirtConnection()
+	util.StartVirtlog(stopChan, domainName, *runWithNonRoot)
+
+	domainConn := createLibvirtConnection(*runWithNonRoot)
 	defer domainConn.Close()
 
 	var agentStore = agentpoller.NewAsyncAgentStore()

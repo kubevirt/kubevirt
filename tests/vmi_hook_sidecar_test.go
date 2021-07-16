@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	putil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo"
@@ -111,7 +112,8 @@ var _ = Describe("[sig-compute]HookSidecars", func() {
 				tests.SkipIfNoCmd("kubectl")
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				tests.WaitForSuccessfulVMIStart(vmi)
-				domainXml := getVmDomainXml(virtClient, vmi)
+				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
@@ -175,13 +177,18 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	podName := tests.GetVmPodName(virtCli, vmi)
 
+	arg := ""
+	if putil.IsNonRootVMI(vmi) {
+		arg = "-c " + "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock"
+	}
+
 	// passing an empty namespace allows to position --namespace argument correctly
-	vmNameListRaw, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "list", "--name")
+	vmNameListRaw, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", arg, "list", "--name")
 	Expect(err).ToNot(HaveOccurred())
 
 	vmName := strings.Split(vmNameListRaw, "\n")[0]
 	// passing an empty namespace allows to position --namespace argument correctly
-	vmDomainXML, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "dumpxml", vmName)
+	vmDomainXML, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", arg, "dumpxml", vmName)
 	Expect(err).ToNot(HaveOccurred())
 
 	return vmDomainXML

@@ -14,6 +14,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/dhcp"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -50,6 +51,7 @@ var _ = Describe("podNIC", func() {
 		return podnic, nil
 	}
 	BeforeEach(func() {
+		dutils.MockDefaultOwnershipManager()
 		var err error
 		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
 		Expect(err).ToNot(HaveOccurred())

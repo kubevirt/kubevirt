@@ -37,6 +37,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -89,6 +90,7 @@ var _ = Describe("Pod Network", func() {
 	var libvirtUser string
 
 	BeforeEach(func() {
+		dutils.MockDefaultOwnershipManager()
 		var err error
 		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
 		Expect(err).ToNot(HaveOccurred())
