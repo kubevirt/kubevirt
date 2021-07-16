@@ -198,21 +198,6 @@ func (b *MasqueradePodNetworkConfigurator) createBridge() error {
 	return nil
 }
 
-func (b *MasqueradePodNetworkConfigurator) skipForwardingForReservedPortsUsingNftables(proto iptables.Protocol) error {
-	chainWhereDnatIsPerformed := "output"
-	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
-	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
-		err := b.handler.NftablesAppendRule(proto, "nat", chain,
-			"tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(PortsUsedByLiveMigration(), ", ")),
-			b.handler.GetNFTIPString(proto), "saddr", GetLoopbackAdrress(proto),
-			"counter", "return")
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func hasIstioSidecarInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {
 	if val, ok := vmi.GetAnnotations()[consts.ISTIO_INJECT_ANNOTATION]; ok {
 		return strings.ToLower(val) == "true"
