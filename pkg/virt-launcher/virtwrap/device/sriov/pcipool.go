@@ -22,47 +22,48 @@ package sriov
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
 
 type PCIAddressPool struct {
-	networkToAddresses map[string][]string
+	pool              *hostdevice.AddressPool
+	networkToResource map[string]string
 }
+
+const resourcePrefix = "PCIDEVICE"
 
 // NewPCIAddressPool creates a PCI address pool based on the provided list of interfaces and
 // the environment variables that describe the SRIOV devices.
 func NewPCIAddressPool(ifaces []v1.Interface) *PCIAddressPool {
 	pool := &PCIAddressPool{
-		networkToAddresses: make(map[string][]string),
+		networkToResource: make(map[string]string),
 	}
-	pool.load(ifaces)
+	pool.loadResourcesNames(ifaces)
+	pool.loadResourcesAddresses()
 	return pool
 }
 
-func (p *PCIAddressPool) load(ifaces []v1.Interface) {
+func (p *PCIAddressPool) loadResourcesNames(ifaces []v1.Interface) {
 	for _, iface := range ifaces {
-		p.networkToAddresses[iface.Name] = []string{}
 		resourceEnvVarName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", iface.Name)
-		resourceName, isSet := os.LookupEnv(resourceEnvVarName)
+		resource, isSet := os.LookupEnv(resourceEnvVarName)
 		if !isSet {
 			log.Log.Warningf("%s not set for SR-IOV interface %s", resourceEnvVarName, iface.Name)
 			continue
 		}
-
-		pciAddrEnvVarName := util.ResourceNameToEnvVar("PCIDEVICE", resourceName)
-		pciAddrString, isSet := os.LookupEnv(pciAddrEnvVarName)
-		if !isSet {
-			log.Log.Warningf("%s not set for SR-IOV interface %s", pciAddrEnvVarName, iface.Name)
-			continue
-		}
-
-		pciAddrString = strings.TrimSuffix(pciAddrString, ",")
-		p.networkToAddresses[iface.Name] = strings.Split(pciAddrString, ",")
+		p.networkToResource[iface.Name] = resource
 	}
+}
+
+func (p *PCIAddressPool) loadResourcesAddresses() {
+	var resources []string
+	for _, resource := range p.networkToResource {
+		resources = append(resources, resource)
+	}
+	p.pool = hostdevice.NewAddressPool(resourcePrefix, resources)
 }
 
 // Pop gets the next PCI address available to a particular SR-IOV network. The
@@ -70,24 +71,14 @@ func (p *PCIAddressPool) load(ifaces []v1.Interface) {
 // callers, whether they request an address for the same network or another
 // network that is backed by the same resourceName.
 func (p *PCIAddressPool) Pop(networkName string) (string, error) {
-	if len(p.networkToAddresses[networkName]) > 0 {
-		addr := p.networkToAddresses[networkName][0]
-
-		for networkName, addrs := range p.networkToAddresses {
-			p.networkToAddresses[networkName] = filterOutAddress(addrs, addr)
-		}
-
-		return addr, nil
+	resource, exists := p.networkToResource[networkName]
+	if !exists {
+		return "", fmt.Errorf("resource for SR-IOV network %s does not exist", networkName)
 	}
-	return "", fmt.Errorf("no more SR-IOV PCI addresses to allocate for network %s", networkName)
-}
 
-func filterOutAddress(addrs []string, addr string) []string {
-	var res []string
-	for _, a := range addrs {
-		if a != addr {
-			res = append(res, a)
-		}
+	pciAddress, err := p.pool.Pop(resource)
+	if err != nil {
+		return "", fmt.Errorf("failed to allocate SR-IOV PCI address for network %s: %v", networkName, err)
 	}
-	return res
+	return pciAddress, nil
 }
