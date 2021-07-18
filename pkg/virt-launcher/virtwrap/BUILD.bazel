@@ -35,7 +35,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/legacy:go_default_library",
-        "//pkg/virt-launcher/virtwrap/device/sriov:go_default_library",
+        "//pkg/virt-launcher/virtwrap/device/hostdevice/sriov:go_default_library",
         "//pkg/virt-launcher/virtwrap/efi:go_default_library",
         "//pkg/virt-launcher/virtwrap/errors:go_default_library",
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",

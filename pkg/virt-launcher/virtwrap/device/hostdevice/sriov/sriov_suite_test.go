@@ -26,7 +26,7 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestNetwork(t *testing.T) {
+func TestSRIOV(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }
 
