@@ -470,7 +470,7 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 }
 
 func SynchronizedAfterTestSuiteCleanup() {
-	RestoreKubeVirtResource()
+	UpdateKubevirtCRAndWait(OriginalCR)
 
 	if Config.ManageStorageClasses {
 		deleteStorageClass(Config.StorageClassHostPath)
@@ -706,16 +706,18 @@ func BeforeTestSuitSetup(_ []byte) {
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 }
 
-var originalKV *v1.KubeVirt
+var OriginalCR *v1.KubeVirt
+var E2eCR *v1.KubeVirt
 
 func AdjustKubeVirtResource() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
 	kv := util2.GetCurrentKv(virtClient)
-	originalKV = kv.DeepCopy()
+	OriginalCR = kv.DeepCopy()
+	E2eCR = kv.DeepCopy()
 
-	KubeVirtDefaultConfig = originalKV.Spec.Configuration
+	KubeVirtDefaultConfig = OriginalCR.Spec.Configuration
 
 	if !flags.ApplyDefaulte2eConfiguration {
 		return
@@ -760,6 +762,7 @@ func AdjustKubeVirtResource() {
 	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
 	util2.PanicOnError(err)
+	E2eCR = adjustedKV.DeepCopy()
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
 	CDIInsecureRegistryConfig, err = virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Get(context.Background(), insecureRegistryConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -772,16 +775,25 @@ func AdjustKubeVirtResource() {
 	}
 }
 
-func RestoreKubeVirtResource() {
-	if originalKV != nil {
-		virtClient, err := kubecli.GetKubevirtClient()
-		util2.PanicOnError(err)
-		data, err := json.Marshal(originalKV.Spec)
-		Expect(err).ToNot(HaveOccurred())
-		patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData))
-		util2.PanicOnError(err)
+func UpdateKubevirtCRAndWait(kv *v1.KubeVirt) {
+	if kv == nil {
+		return
 	}
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+	currentKv := util2.GetCurrentKv(virtClient)
+
+	if reflect.DeepEqual(kv.Spec, currentKv.Spec) {
+		return
+	}
+
+	data, err := json.Marshal(kv.Spec)
+	Expect(err).ToNot(HaveOccurred())
+	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
+	newKv, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
+	util2.PanicOnError(err)
+	waitForConfigToBePropagated(newKv.ResourceVersion)
 }
 
 func createStorageClass(name string) {
@@ -4558,7 +4570,7 @@ func resetToDefaultConfig() {
 		return
 	}
 
-	UpdateKubeVirtConfigValueAndWait(KubeVirtDefaultConfig)
+	UpdateKubevirtCRAndWait(E2eCR)
 	UpdateCDIConfigMap(CDIInsecureRegistryConfig)
 }
 
