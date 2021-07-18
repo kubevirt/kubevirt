@@ -454,6 +454,35 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 			})
 
+			It("should unfreeze vm if was marked as frozen when completed", func() {
+				vmSnapshot := createVMSnapshotSuccess()
+				vmSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newFreezingCondition(corev1.ConditionTrue, "vmsnapshot source frozen"),
+				}
+				vm := createLockedVM()
+				vmSource.Add(vm)
+				updatedVM := vm.DeepCopy()
+				updatedVM.Finalizers = []string{}
+				updatedVM.ResourceVersion = "1"
+				vmi := createVMI(vm)
+				vmiSource.Add(vmi)
+
+				updatedVMSnapshot := vmSnapshot.DeepCopy()
+				updatedVMSnapshot.ResourceVersion = "1"
+				updatedVMSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newFreezingCondition(corev1.ConditionFalse, "vmsnapshot source thawed"),
+				}
+
+				vmiInterface.EXPECT().Unfreeze(vm.Name).Return(nil)
+				vmInterface.EXPECT().Update(updatedVM).Return(updatedVM, nil)
+				statusUpdate := updatedVM.DeepCopy()
+				statusUpdate.Status.SnapshotInProgress = nil
+				vmInterface.EXPECT().UpdateStatus(statusUpdate).Return(statusUpdate, nil)
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
 			It("should finish unlock source VirtualMachine", func() {
 				vmSnapshot := createVMSnapshotSuccess()
 				vm := createLockedVM()

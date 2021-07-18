@@ -129,8 +129,13 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		return 0, err
 	}
 
-	// unlock the source if done/error
 	if !vmSnapshotProgressing(vmSnapshot) && source != nil {
+		// unfreeze vm if done/error
+		if updated, err := ctrl.unfreezeGuestFSIfNeeded(vmSnapshot); updated || err != nil {
+			return 0, err
+		}
+
+		// unlock the source if done/error
 		if updated, err := source.Unlock(); updated || err != nil {
 			return 0, err
 		}
@@ -631,16 +636,6 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 			vmSnapshotCpy.Status.CreationTime = content.Status.CreationTime
 			vmSnapshotCpy.Status.ReadyToUse = content.Status.ReadyToUse
 			vmSnapshotCpy.Status.Error = content.Status.Error
-
-			if vmSnapshotReady(vmSnapshotCpy) {
-				err := ctrl.unfreezeGuestFSIfNeeded(vmSnapshotCpy)
-				if err != nil {
-					reason := "Failed unfreezing guest FS"
-					ctrl.updateVMSnapshotError(vmSnapshotCpy, reason)
-					return err
-				}
-			}
-
 		}
 	}
 
@@ -745,9 +740,9 @@ func (ctrl *VMSnapshotController) freezeGuestFSIfNeeded(vmSnapshot *snapshotv1.V
 	return ctrl.replaceGuestAgentIndication(vmSnapshot)
 }
 
-func (ctrl *VMSnapshotController) unfreezeGuestFSIfNeeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+func (ctrl *VMSnapshotController) unfreezeGuestFSIfNeeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (bool, error) {
 	if !findCondition(vmSnapshot.Status.Conditions, newFreezingCondition(corev1.ConditionTrue, vmSnapshotSourceFrozen)) {
-		return nil
+		return false, nil
 	}
 
 	vmName := vmSnapshot.Spec.Source.Name
@@ -756,11 +751,18 @@ func (ctrl *VMSnapshotController) unfreezeGuestFSIfNeeded(vmSnapshot *snapshotv1
 	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", vmName))
 	err := ctrl.Client.VirtualMachineInstance(vmSnapshot.Namespace).Unfreeze(vmName)
 	if err != nil {
-		return err
+		reason := "Failed unfreezing guest FS"
+		ctrl.updateVMSnapshotError(vmSnapshot, reason)
+		return false, err
 	}
 
-	updateSnapshotCondition(vmSnapshot, newFreezingCondition(corev1.ConditionFalse, vmSnapshotSourceThawed))
-	return nil
+	vmSnapshotCpy := vmSnapshot.DeepCopy()
+	updateSnapshotCondition(vmSnapshotCpy, newFreezingCondition(corev1.ConditionFalse, vmSnapshotSourceThawed))
+	if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.VirtualMachine) error {
