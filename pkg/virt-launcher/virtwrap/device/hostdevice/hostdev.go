@@ -60,6 +60,12 @@ func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPoo
 			return nil, fmt.Errorf("failed to create hostdevice for %s: %v", hostDeviceData.Name, err)
 		}
 
+		// if pop succeeded but the address is empty, ignore the device and let the caller
+		// decide if this is acceptable or not.
+		if address == "" {
+			continue
+		}
+
 		hostDevice, err := createHostDev(hostDeviceData, address)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create hostdevice for %s: %v", hostDeviceData.Name, err)

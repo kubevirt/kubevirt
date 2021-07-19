@@ -36,6 +36,9 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
+
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -748,7 +751,17 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		c.LegacyHostDevices = legacyGPUDevices
 		c.LegacyHostDevices = append(c.LegacyHostDevices, legacyVGPUDevices...)
 
-		c.HostDevices = getDevicesForAssignment(vmi.Spec.Domain.Devices)
+		genericHostDevices, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)
+		if err != nil {
+			return nil, err
+		}
+		c.GenericHostDevices = genericHostDevices
+
+		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+		if err != nil {
+			return nil, err
+		}
+		c.GPUHostDevices = gpuHostDevices
 	}
 
 	return c, nil

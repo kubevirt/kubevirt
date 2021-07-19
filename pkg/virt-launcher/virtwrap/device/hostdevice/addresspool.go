@@ -91,3 +91,18 @@ func filterOutAddress(addrs []string, addr string) []string {
 	}
 	return res
 }
+
+type BestEffortAddressPool struct {
+	pool AddressPooler
+}
+
+// NewBestEffortAddressPool creates a pool that wraps a provided pool
+// and allows `Pop` calls to always succeed (even when a resource is missing).
+func NewBestEffortAddressPool(pool AddressPooler) *BestEffortAddressPool {
+	return &BestEffortAddressPool{pool}
+}
+
+func (p *BestEffortAddressPool) Pop(resource string) (string, error) {
+	address, _ := p.pool.Pop(resource)
+	return address, nil
+}

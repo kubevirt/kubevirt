@@ -107,7 +107,8 @@ type ConverterContext struct {
 	SMBios                *cmdv1.SMBios
 	SRIOVDevices          []api.HostDevice
 	LegacyHostDevices     []api.HostDevice
-	HostDevices           map[string]HostDevicesList
+	GenericHostDevices    []api.HostDevice
+	GPUHostDevices        []api.HostDevice
 	EmulatorThreadCpu     *int
 	EFIConfiguration      *EFIConfiguration
 	MemBalloonStatsPeriod uint
@@ -138,51 +139,6 @@ func isARM64(arch string) bool {
 		return true
 	}
 	return false
-}
-
-// pop next device ID or address from a list
-// these can either be PCI addresses or UUIDs for MDEVs
-func popDeviceIDFromList(addrList []string) (string, []string) {
-	address := addrList[0]
-	if len(addrList) > 1 {
-		return address, addrList[1:]
-	}
-	return address, []string{}
-}
-
-func getHostDeviceByResourceName(c *ConverterContext, resourceName string, name string) (api.HostDevice, error) {
-	if device, exist := c.HostDevices[resourceName]; len(device.AddrList) != 0 && exist {
-		addr, remainingAddresses := popDeviceIDFromList(device.AddrList)
-		domainHostDev, err := createHostDevicesFromAddress(device.Type, addr, name)
-		if err != nil {
-			return domainHostDev, err
-		}
-		device.AddrList = remainingAddresses
-		c.HostDevices[resourceName] = device
-		return domainHostDev, nil
-	}
-	return api.HostDevice{}, fmt.Errorf("failed to allocated a host device for resource: %s", resourceName)
-}
-
-// Both HostDevices and GPUs can allocate PCI devices or a MDEVs
-func Convert_HostDevices_And_GPU(devices v1.Devices, domain *api.Domain, c *ConverterContext) error {
-	for _, hostDev := range devices.HostDevices {
-		hostDevice, err := getHostDeviceByResourceName(c, hostDev.DeviceName, hostDev.Name)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevice)
-	}
-	for _, gpu := range devices.GPUs {
-		hostDevice, err := getHostDeviceByResourceName(c, gpu.DeviceName, gpu.Name)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevice)
-	}
-
-	return nil
-
 }
 
 func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint) error {
@@ -1655,10 +1611,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			}
 		}
 	}
-	err = Convert_HostDevices_And_GPU(vmi.Spec.Domain.Devices, domain, c)
-	if err != nil {
-		log.Log.Reason(err).Error("Unable to prepare host devices, fall back to legacy")
-	}
+
+	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GenericHostDevices...)
+	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GPUHostDevices...)
 
 	// This is needed to support a legacy approach to device assignment
 	// Append HostDevices to DomXML if GPU is requested
@@ -1916,52 +1871,6 @@ func boolToString(value *bool, defaultPositive bool, positive string, negative s
 		return toString(defaultPositive)
 	}
 	return toString(*value)
-}
-
-func createHostDevicesFromAddress(devType HostDeviceType, deviceID string, name string) (api.HostDevice, error) {
-	switch devType {
-	case HostDevicePCI:
-		return createHostDevicesFromPCIAddress(deviceID, name)
-	case HostDeviceMDEV:
-		return createHostDevicesFromMdevUUID(deviceID, name)
-	}
-	return api.HostDevice{}, fmt.Errorf("failed to create host devices for invalid type %s", devType)
-}
-
-func createHostDevicesFromPCIAddress(pciAddr string, name string) (api.HostDevice, error) {
-	address, err := device.NewPciAddressField(pciAddr)
-	if err != nil {
-		return api.HostDevice{}, err
-	}
-
-	hostDev := api.HostDevice{
-		Source: api.HostDeviceSource{
-			Address: address,
-		},
-		Type:    "pci",
-		Managed: "yes",
-	}
-	hostDev.Alias = api.NewUserDefinedAlias(name)
-
-	return hostDev, nil
-}
-
-func createHostDevicesFromMdevUUID(mdevUUID string, name string) (api.HostDevice, error) {
-	decoratedAddrField := &api.Address{
-		UUID: mdevUUID,
-	}
-
-	hostDev := api.HostDevice{
-		Source: api.HostDeviceSource{
-			Address: decoratedAddrField,
-		},
-		Type:  "mdev",
-		Mode:  "subsystem",
-		Model: "vfio-pci",
-	}
-	hostDev.Alias = api.NewUserDefinedAlias(name)
-
-	return hostDev, nil
 }
 
 func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
