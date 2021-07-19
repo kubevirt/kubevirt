@@ -45,6 +45,7 @@ import (
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/status"
+	typesutil "kubevirt.io/kubevirt/pkg/util/types"
 )
 
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
@@ -357,16 +358,10 @@ func createDataVolumeManifest(dataVolumeTemplate *virtv1.DataVolumeTemplateSpec,
 }
 
 func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
-	if dataVolume.Spec.Source.PVC == nil {
-		return nil
+	cloneSource, err := typesutil.GetCloneSource(context.TODO(), c.clientset, vm, &dataVolume.Spec)
+	if cloneSource == nil || err != nil {
+		return err
 	}
-
-	pvcNamespace := dataVolume.Spec.Source.PVC.Namespace
-	if pvcNamespace == "" {
-		pvcNamespace = vm.Namespace
-	}
-
-	pvcName := dataVolume.Spec.Source.PVC.Name
 
 	serviceAccount := "default"
 	for _, vol := range vm.Spec.Template.Spec.Volumes {
@@ -375,7 +370,7 @@ func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume
 		}
 	}
 
-	allowed, reason, err := c.cloneAuthFunc(pvcNamespace, pvcName, vm.Namespace, serviceAccount)
+	allowed, reason, err := c.cloneAuthFunc(cloneSource.Namespace, cloneSource.Name, vm.Namespace, serviceAccount)
 	if err != nil {
 		return err
 	}

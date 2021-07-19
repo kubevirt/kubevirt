@@ -152,7 +152,7 @@ var _ = Describe("ImageUpload", func() {
 			},
 			Status: cdiv1.DataVolumeStatus{Phase: cdiv1.WaitForFirstConsumer},
 			Spec: cdiv1.DataVolumeSpec{
-				Source: cdiv1.DataVolumeSource{Upload: &cdiv1.DataVolumeSourceUpload{}},
+				Source: &cdiv1.DataVolumeSource{Upload: &cdiv1.DataVolumeSourceUpload{}},
 				PVC:    &v1.PersistentVolumeClaimSpec{},
 			},
 		}

@@ -29,7 +29,7 @@ import (
 	k8ssnapshotfake "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
@@ -269,7 +269,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
-			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1alpha1.DataVolume{})
+			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -1010,12 +1010,12 @@ var _ = Describe("Snapshot controlleer", func() {
 						StorageClassName: &storageClassName,
 					},
 				}
-				dv1 := cdiv1alpha1.DataVolume{
+				dv1 := cdiv1.DataVolume{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "alpine-dv",
 						Namespace: testNamespace,
 					},
-					Spec: cdiv1alpha1.DataVolumeSpec{
+					Spec: cdiv1.DataVolumeSpec{
 						PVC: &corev1.PersistentVolumeClaimSpec{
 							StorageClassName: &storageClassName,
 						},
@@ -1183,34 +1183,34 @@ var _ = Describe("Snapshot controlleer", func() {
 				pvcSource.Add(&pvc8)
 
 				emptyString := ""
-				dv3 := cdiv1alpha1.DataVolume{
+				dv3 := cdiv1.DataVolume{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "dv-with-pvc-unsnapshottable-storage-class",
 						Namespace: testNamespace,
 					},
-					Spec: cdiv1alpha1.DataVolumeSpec{
+					Spec: cdiv1.DataVolumeSpec{
 						PVC: &corev1.PersistentVolumeClaimSpec{
 							StorageClassName: &emptyString,
 						},
 					},
 				}
-				dv5 := cdiv1alpha1.DataVolume{
+				dv5 := cdiv1.DataVolume{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "dv-without-pvc-and-storageclass",
 						Namespace: testNamespace,
 					},
-					Spec: cdiv1alpha1.DataVolumeSpec{
+					Spec: cdiv1.DataVolumeSpec{
 						PVC: &corev1.PersistentVolumeClaimSpec{
 							StorageClassName: &localStorageClassName,
 						},
 					},
 				}
-				dv8 := cdiv1alpha1.DataVolume{
+				dv8 := cdiv1.DataVolume{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "dv-with-pvc-without-storage-class",
 						Namespace: testNamespace,
 					},
-					Spec: cdiv1alpha1.DataVolumeSpec{
+					Spec: cdiv1.DataVolumeSpec{
 						PVC: &corev1.PersistentVolumeClaimSpec{
 							StorageClassName: nil,
 						},
@@ -1307,12 +1307,12 @@ var _ = Describe("Snapshot controlleer", func() {
 						StorageClassName: &storageClassName,
 					},
 				}
-				dv := cdiv1alpha1.DataVolume{
+				dv := cdiv1.DataVolume{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "alpine-dv",
 						Namespace: testNamespace,
 					},
-					Spec: cdiv1alpha1.DataVolumeSpec{
+					Spec: cdiv1.DataVolumeSpec{
 						PVC: &corev1.PersistentVolumeClaimSpec{
 							StorageClassName: &storageClassName,
 						},
@@ -1383,7 +1383,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				}
 				emptyString := ""
-				dv1 := cdiv1alpha1.DataVolume{
+				dv1 := cdiv1.DataVolume{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "alpine-dv",
 						Namespace: testNamespace,
@@ -1394,7 +1394,7 @@ var _ = Describe("Snapshot controlleer", func() {
 							},
 						},
 					},
-					Spec: cdiv1alpha1.DataVolumeSpec{
+					Spec: cdiv1.DataVolumeSpec{
 						PVC: &corev1.PersistentVolumeClaimSpec{
 							StorageClassName: &emptyString,
 						},
@@ -1599,9 +1599,9 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "alpine-dv",
 					},
-					Spec: cdiv1alpha1.DataVolumeSpec{
-						Source: cdiv1alpha1.DataVolumeSource{
-							HTTP: &cdiv1alpha1.DataVolumeSourceHTTP{
+					Spec: cdiv1.DataVolumeSpec{
+						Source: &cdiv1.DataVolumeSource{
+							HTTP: &cdiv1.DataVolumeSourceHTTP{
 								URL: "http://cdi-http-import-server.kubevirt/images/alpine.iso",
 							},
 						},

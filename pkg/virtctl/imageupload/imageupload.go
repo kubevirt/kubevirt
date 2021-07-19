@@ -530,7 +530,7 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 			Namespace: namespace,
 		},
 		Spec: cdiv1.DataVolumeSpec{
-			Source: cdiv1.DataVolumeSource{
+			Source: &cdiv1.DataVolumeSource{
 				Upload: &cdiv1.DataVolumeSourceUpload{},
 			},
 			PVC: pvcSpec,
