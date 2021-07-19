@@ -184,12 +184,22 @@ func main() {
 	createTapCmd.Flags().Uint32("queue-number", 0, "the number of queues to use on multi-queued devices")
 	createTapCmd.Flags().Uint32("mtu", 1500, "the link MTU of the tap device")
 
+	createMDEVCmd := NewCreateMDEVCommand()
+	createMDEVCmd.Flags().String("type", "", "the type of a mediated device")
+	createMDEVCmd.Flags().String("parent", "", "id of a parent (e.g. PCI_ID) for the new mediated device")
+	createMDEVCmd.Flags().String("uuid", "", "uuid for the new mediated device")
+
+	removeMDEVCmd := NewRemoveMDEVCommand()
+	removeMDEVCmd.Flags().String("uuid", "", "uuid of the mediated device to remove")
+
 	rootCmd.AddCommand(
 		execCmd,
 		mntCmd,
 		umntCmd,
 		selinuxCmd,
 		createTapCmd,
+		createMDEVCmd,
+		removeMDEVCmd,
 	)
 
 	if err := rootCmd.Execute(); err != nil {
