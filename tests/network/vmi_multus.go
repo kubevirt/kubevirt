@@ -1254,7 +1254,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
 			})
 
-			It("[QUARANTINE] should keep connectivity after a migration", func() {
+			It("should keep connectivity after a migration", func() {
 				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
 				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
