@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"kubevirt.io/client-go/log"
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
 
 type DeviceHandler interface {
@@ -125,38 +127,40 @@ func (h *DeviceUtilsHandler) GetMdevParentPCIAddr(mdevUUID string) (string, erro
 
 func (h *DeviceUtilsHandler) CreateMDEVType(mdevType string, parentID string) error {
 	uid := uuid.NewUUID()
-
 	path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "create")
-	f, err := os.OpenFile(path, os.O_WRONLY, 0200)
+	_, err := virt_chroot.CreateMDEVType(mdevType, parentID, string(uid)).Output()
 	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			if len(e.Stderr) > 0 {
+				msg := fmt.Sprintf("failed to create mdev type %s, err: %v", mdevType, string(e.Stderr))
+				errMsg := fmt.Errorf(msg)
+				log.Log.Reason(err).Errorf(msg)
+				return errMsg
+			}
+		}
 		log.Log.Reason(err).Errorf("failed to create mdev type %s, can't open path %s", mdevType, path)
 		return err
 	}
-
-	defer f.Close()
-
-	if _, err = f.WriteString(string(uid)); err != nil {
-		log.Log.Reason(err).Errorf("failed to create mdev type %s, can't write to %s", mdevType, path)
-		return err
-	}
+	fmt.Printf("Successfully created mdev %s - %s\n", mdevType, uid)
 	return nil
 }
 
 func (h *DeviceUtilsHandler) RemoveMDEVType(mdevUUID string) error {
 	removePath := filepath.Join(mdevBasePath, mdevUUID, "remove")
-
-	f, err := os.OpenFile(removePath, os.O_WRONLY, 0200)
+	_, err := virt_chroot.RemoveMDEVType(mdevUUID).Output()
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to remove mdev %s, can't open path %s", mdevUUID, removePath)
-		return err
-	}
-
-	defer f.Close()
-
-	if _, err = f.WriteString("1"); err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			if len(e.Stderr) > 0 {
+				msg := fmt.Sprintf("failed to remove mdev %s, can't write to %s, err: %v", mdevUUID, removePath, string(e.Stderr))
+				errMsg := fmt.Errorf(msg)
+				log.Log.Reason(err).Errorf(msg)
+				return errMsg
+			}
+		}
 		log.Log.Reason(err).Errorf("failed to remove mdev %s, can't write to %s", mdevUUID, removePath)
 		return err
 	}
+	log.Log.Infof("Successfully removed mdev %s", mdevUUID)
 	return nil
 }
 
