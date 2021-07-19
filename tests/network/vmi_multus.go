@@ -1200,6 +1200,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 
 		Context("with live traffic", func() {
 			var serverVMI *v1.VirtualMachineInstance
+			var serverVMIPodName string
 			var serverIP string
 
 			getVMMacvtapIfaceIP := func(vmi *v1.VirtualMachineInstance, macAddress string) (string, error) {
@@ -1226,12 +1227,24 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 				return vmiIP, nil
 			}
 
+			waitForPodCompleted := func(podNamespace string, podName string) error {
+				pod, err := virtClient.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
+					return nil
+				}
+				return fmt.Errorf("pod hasn't completed, current Phase: %s", pod.Status.Phase)
+			}
+
 			BeforeEach(func() {
 				macAddress := "02:03:04:05:06:aa"
 
 				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
 				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
+				serverVMIPodName = tests.GetVmPodName(virtClient, serverVMI)
 
 				serverIP, err = getVMMacvtapIfaceIP(serverVMI, macAddress)
 				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
@@ -1244,7 +1257,11 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 			It("[QUARANTINE] should keep connectivity after a migration", func() {
 				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
 				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-
+				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
+				// will be reachable only when the original launcher pod terminates.
+				Eventually(func() error {
+					return waitForPodCompleted(serverVMI.Namespace, serverVMIPodName)
+				}, tests.ContainerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod: %s", serverVMIPodName))
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
 			})
 		})
