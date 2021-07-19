@@ -228,6 +228,11 @@ func (c *ClusterConfig) GetVirtLauncherVerbosity() uint {
 	return logConf.VirtLauncher
 }
 
+func (c *ClusterConfig) GetLibvirtLogLevel() int {
+	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
+	return logConf.LibvirtLogLevel
+}
+
 //GetMinCPUModel return minimal cpu which is used in node-labeller
 func (c *ClusterConfig) GetMinCPUModel() string {
 	return c.GetConfig().MinCPUModel

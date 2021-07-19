@@ -11065,6 +11065,10 @@
     "description": "LogVerbosity sets log verbosity level of  various components",
     "type": "object",
     "properties": {
+     "libvirtLogLevel": {
+      "type": "integer",
+      "format": "int32"
+     },
      "nodeVerbosity": {
       "description": "NodeVerbosity represents a map of nodes with a specific verbosity level",
       "type": "object",

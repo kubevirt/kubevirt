@@ -126,6 +126,8 @@ spec:
                         description: LogVerbosity sets log verbosity level of  various
                           components
                         properties:
+                          libvirtLogLevel:
+                            type: integer
                           nodeVerbosity:
                             additionalProperties:
                               type: integer
@@ -2023,6 +2025,8 @@ spec:
                         description: LogVerbosity sets log verbosity level of  various
                           components
                         properties:
+                          libvirtLogLevel:
+                            type: integer
                           nodeVerbosity:
                             additionalProperties:
                               type: integer

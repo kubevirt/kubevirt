@@ -21979,6 +21979,12 @@ func schema_kubevirtio_client_go_api_v1_LogVerbosity(ref common.ReferenceCallbac
 							Format: "int32",
 						},
 					},
+					"libvirtLogLevel": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 					"nodeVerbosity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NodeVerbosity represents a map of nodes with a specific verbosity level",

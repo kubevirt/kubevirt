@@ -534,6 +534,8 @@ var CRDsValidation map[string]string = map[string]string{
                 logVerbosity:
                   description: LogVerbosity sets log verbosity level of  various components
                   properties:
+                    libvirtLogLevel:
+                      type: integer
                     nodeVerbosity:
                       additionalProperties:
                         type: integer

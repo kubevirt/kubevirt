@@ -479,6 +479,12 @@ func SetupLibvirt() (err error) {
 			return err
 		}
 	}
+	if envVarValue, ok := os.LookupEnv("LIBVIRT_LOG_LEVEL"); ok && (envVarValue != "0") {
+		_, err = libvirtConf.WriteString("log_level = " + envVarValue + "\n")
+		if err != nil {
+			return err
+		}
+	}
 	if envVarValue, ok := os.LookupEnv("VIRTIOFSD_DEBUG_LOGS"); ok && (envVarValue == "1") {
 		_, err = qemuConf.WriteString("virtiofsd_debug = 1\n")
 		if err != nil {

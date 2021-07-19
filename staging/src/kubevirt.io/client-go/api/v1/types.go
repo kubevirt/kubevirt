@@ -1926,11 +1926,12 @@ type DeveloperConfiguration struct {
 // LogVerbosity sets log verbosity level of  various components
 // +k8s:openapi-gen=true
 type LogVerbosity struct {
-	VirtAPI        uint `json:"virtAPI,omitempty"`
-	VirtController uint `json:"virtController,omitempty"`
-	VirtHandler    uint `json:"virtHandler,omitempty"`
-	VirtLauncher   uint `json:"virtLauncher,omitempty"`
-	VirtOperator   uint `json:"virtOperator,omitempty"`
+	VirtAPI         uint `json:"virtAPI,omitempty"`
+	VirtController  uint `json:"virtController,omitempty"`
+	VirtHandler     uint `json:"virtHandler,omitempty"`
+	VirtLauncher    uint `json:"virtLauncher,omitempty"`
+	VirtOperator    uint `json:"virtOperator,omitempty"`
+	LibvirtLogLevel int  `json:"libvirtLogLevel,omitempty"`
 	// NodeVerbosity represents a map of nodes with a specific verbosity level
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
