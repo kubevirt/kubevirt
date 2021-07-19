@@ -1465,6 +1465,17 @@ rpm(
 )
 
 rpm(
+    name = "ebtables-legacy-0__2.0.11-5.fc32.x86_64",
+    sha256 = "2eca40e72fdd3ea19d22f00c127c4d166eaf7687cc0a8c1056ae3a6264cda56d",
+    urls = [
+        "https://mirror.atl.genesisadaptive.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
+        "https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
+        "https://mirrors.xmission.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
+        "https://fedora.mirror.constant.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
+    ],
+)
+
+rpm(
     name = "edk2-aarch64-0__20200801stable-1.fc32.aarch64",
     sha256 = "672d0a48607a2b2532f31647163fab0a659a8a9e02f6d9abfe626b75e4d8f7f8",
     urls = [
@@ -2629,18 +2640,6 @@ rpm(
 )
 
 rpm(
-    name = "iptables-nft-0__1.8.4-9.fc32.x86_64",
-    sha256 = "b81b7935915e07fe9fec3cfb0a25c27baa051ad9ee5a3f3a0ffd22b1615eccb9",
-    urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/i/iptables-nft-1.8.4-9.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/i/iptables-nft-1.8.4-9.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/updates/32/Everything/x86_64/Packages/i/iptables-nft-1.8.4-9.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/i/iptables-nft-1.8.4-9.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/b81b7935915e07fe9fec3cfb0a25c27baa051ad9ee5a3f3a0ffd22b1615eccb9",
-    ],
-)
-
-rpm(
     name = "iputils-0__20200821-1.fc32.aarch64",
     sha256 = "315899519ad1c8cc335b8e63579b012d98aaf0400a602322935c82f07b4f063a",
     urls = [
@@ -2845,14 +2844,13 @@ rpm(
 )
 
 rpm(
-    name = "kernel-debug-core-0__5.11.22-100.fc32.x86_64",
-    sha256 = "827f2e7b0908777a3806ca10283027771e7014571bc817e9859367256be3b644",
+    name = "kernel-core-0__5.11.22-100.fc32.x86_64",
+    sha256 = "1329e02a1b0cf37041fe3286d609a1ffe31c60a5342658e46cba6430c9df4a69",
     urls = [
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-debug-core-5.11.22-100.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-debug-core-5.11.22-100.fc32.x86_64.rpm",
-        "https://mirror.23media.com/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-debug-core-5.11.22-100.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-debug-core-5.11.22-100.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/827f2e7b0908777a3806ca10283027771e7014571bc817e9859367256be3b644",
+        "https://mirror.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
+        "https://mirror.arizona.edu/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
+        "https://mirror.lax.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
+        "https://mirrors.rit.edu/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
     ],
 )
 
