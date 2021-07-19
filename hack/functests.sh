@@ -22,6 +22,7 @@ set -e
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
 KUBEVIRT_E2E_PARALLEL_NODES=${KUBEVIRT_E2E_PARALLEL_NODES:-3}
+KUBEVIRT_FUNC_TEST_GINKGO_ARGS=${FUNC_TEST_ARGS:-${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}}
 
 source hack/common.sh
 source hack/config.sh
@@ -40,17 +41,17 @@ rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 function functest() {
-    EXTRA_ARGS="-apply-default-e2e-configuration \
+    KUBEVIRT_FUNC_TEST_SUITE_ARGS="-apply-default-e2e-configuration \
 	    -conn-check-ipv4-address=${conn_check_ipv4_address} \
 	    -conn-check-ipv6-address=${conn_check_ipv6_address} \
 	    -conn-check-dns=${conn_check_dns} \
-	    ${EXTRA_ARGS}"
+	    ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-1\.16)|(k8s-1\.17)|k8s-sriov.* ]]; then
         echo "Will skip test asserting the cluster is in dual-stack mode."
-        EXTRA_ARGS="-skip-dual-stack-test ${EXTRA_ARGS}"
+        KUBEVIRT_FUNC_TEST_SUITE_ARGS="-skip-dual-stack-test ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     fi
 
-    _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS} ${EXTRA_ARGS}
+    _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}
 }
 
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
@@ -74,14 +75,14 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
 
     return_value=0
     set +e
-    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${FUNC_TEST_ARGS}
+    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
     return_value="$?"
     set -e
     if [ "$return_value" -ne 0 ] && ! [ "$KUBEVIRT_E2E_RUN_ALL_SUITES" == "true" ]; then
         exit "$return_value"
     fi
-    EXTRA_ARGS="-junit-output ${ARTIFACTS}/partial.junit.functest.xml ${EXTRA_ARGS}"
-    functest ${serial_test_args} ${FUNC_TEST_ARGS}
+    KUBEVIRT_FUNC_TEST_SUITE_ARGS="-junit-output ${ARTIFACTS}/partial.junit.functest.xml ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
+    functest ${serial_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
     exit "$return_value"
 else
     additional_test_args=""
@@ -93,5 +94,5 @@ else
         additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
     fi
 
-    functest ${additional_test_args} ${FUNC_TEST_ARGS}
+    functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
 fi
