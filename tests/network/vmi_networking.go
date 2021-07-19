@@ -68,7 +68,6 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 
 	const (
 		testPort                   = 1500
-		LibvirtLocalConnectionPort = 22222
 		LibvirtDirectMigrationPort = 49152
 		LibvirtBlockMigrationPort  = 49153
 	)
@@ -679,7 +678,6 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 
 		portsUsedByLiveMigration := func() []v1.Port {
 			return []v1.Port{
-				{Port: LibvirtLocalConnectionPort},
 				{Port: LibvirtDirectMigrationPort},
 				{Port: LibvirtBlockMigrationPort},
 			}
@@ -741,7 +739,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
 			},
 				table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtLocalConnectionPort, ""),
+				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				table.Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
 				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
 			)
@@ -798,7 +796,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
 				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtLocalConnectionPort, ""),
+				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				table.Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
 				table.Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
 			)
