@@ -3,8 +3,9 @@
 set -x
 
 # Setup Environment Variables
-HCO_VERSION="${HCO_VERSION:-1.5.0}"
+HCO_VERSION="${HCO_VERSION:-}"
 HCO_CHANNEL="${HCO_CHANNEL:-1.5.0}"
+HCO_INDEX_IMAGE="${HCO_INDEX_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-index:1.5.0-unstable}"
 MARKETPLACE_MODE="${MARKETPLACE_MODE:-true}"
 PRIVATE_REPO="${PRIVATE_REPO:-false}"
 QUAY_USERNAME="${QUAY_USERNAME:-}"
@@ -21,8 +22,12 @@ main() {
   sed -i "s/- kubevirt-hyperconverged/- $TARGET_NAMESPACE/" $SCRIPT_DIR/base/operator_group.yaml
 
   # setting appropriate version and channel in the subscription manifest
-  sed -ri "s|(startingCSV.+v)[0-9].+|\1${HCO_VERSION}|" $SCRIPT_DIR/base/subscription.yaml
+  if [ -n "$HCO_VERSION" ]; then
+    sed -ri "s|(startingCSV.+v)[0-9].+|\1${HCO_VERSION}|" $SCRIPT_DIR/base/subscription.yaml
+    sed -ri "s|#startingCSV|startingCSV|" $SCRIPT_DIR/base/subscription.yaml
+  fi
   sed -ri "s|(channel: ).+|\1\"${HCO_CHANNEL}\"|" $SCRIPT_DIR/base/subscription.yaml
+  sed -ri "s|(image: ).+|\1\"${HCO_INDEX_IMAGE}\"|" $SCRIPT_DIR/image_registry/catalog_source.yaml
 
   TMPDIR=$(mktemp -d)
   cp -r $SCRIPT_DIR/* $TMPDIR
