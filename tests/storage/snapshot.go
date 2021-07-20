@@ -66,13 +66,36 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 		}, 180*time.Second, time.Second).Should(BeTrue())
 	}
 
-	deleteWebhook := func() {
-		err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, metav1.DeleteOptions{})
-		if errors.IsNotFound(err) {
-			webhook = nil
-		} else {
+	waitDeleted := func(deleteFunc func() error) {
+		Eventually(func() bool {
+			err := deleteFunc()
+			if errors.IsNotFound(err) {
+				return true
+			}
 			Expect(err).ToNot(HaveOccurred())
-		}
+			return false
+		}, 180*time.Second, time.Second).Should(BeTrue())
+	}
+
+	deleteVM := func() {
+		waitDeleted(func() error {
+			return virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+		})
+		vm = nil
+	}
+
+	deleteSnapshot := func() {
+		waitDeleted(func() error {
+			return virtClient.VirtualMachineSnapshot(snapshot.Namespace).Delete(context.Background(), snapshot.Name, metav1.DeleteOptions{})
+		})
+		snapshot = nil
+	}
+
+	deleteWebhook := func() {
+		waitDeleted(func() error {
+			return virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, metav1.DeleteOptions{})
+		})
+		webhook = nil
 	}
 
 	createDenyVolumeSnapshotCreateWebhook := func() {
@@ -115,38 +138,21 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 		webhook = wh
 	}
 
-	deleteSnapshot := func() {
-		err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Delete(context.Background(), snapshot.Name, metav1.DeleteOptions{})
-		if errors.IsNotFound(err) {
-			snapshot = nil
-		} else {
-			Expect(err).ToNot(HaveOccurred())
-		}
-	}
-
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 	})
 
 	AfterEach(func() {
-		Eventually(func() bool {
-			if vm != nil {
-				err := virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
-				if errors.IsNotFound(err) {
-					vm = nil
-				} else {
-					Expect(err).ToNot(HaveOccurred())
-				}
-			}
-			if snapshot != nil {
-				deleteSnapshot()
-			}
-			if webhook != nil {
-				deleteWebhook()
-			}
-			return vm == nil && snapshot == nil && webhook == nil
-		}, 90*time.Second, time.Second).Should(BeTrue())
+		if vm != nil {
+			deleteVM()
+		}
+		if snapshot != nil {
+			deleteSnapshot()
+		}
+		if webhook != nil {
+			deleteWebhook()
+		}
 	})
 
 	Context("With simple VM", func() {
