@@ -2,6 +2,7 @@ package operands
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 
@@ -27,6 +28,12 @@ const (
 	alertRuleGroup          = "kubevirt.hyperconverged.rules"
 	outOfBandUpdateAlert    = "KubevirtHyperconvergedClusterOperatorCRModification"
 	unsafeModificationAlert = "KubevirtHyperconvergedClusterOperatorUSModification"
+	runbookUrlTemplate      = "https://github.com/kubevirt/monitoring/blob/main/runbooks/%s.md"
+)
+
+var (
+	outOfBandUpdateRunbookUrl    = fmt.Sprintf(runbookUrlTemplate, outOfBandUpdateAlert)
+	unsafeModificationRunbookUrl = fmt.Sprintf(runbookUrlTemplate, unsafeModificationAlert)
 )
 
 type metricsServiceHandler genericOperand
@@ -254,6 +261,7 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 					Annotations: map[string]string{
 						"description": "Out-of-band modification for {{ $labels.component_name }}.",
 						"summary":     "{{ $value }} out-of-band CR modifications were detected in the last 10 minutes.",
+						"runbook_url": outOfBandUpdateRunbookUrl,
 					},
 					Labels: map[string]string{
 						"severity": "warning",
@@ -265,6 +273,7 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 					Annotations: map[string]string{
 						"description": "unsafe modification for the {{ $labels.annotation_name }} annotation in the HyperConverged resource.",
 						"summary":     "{{ $value }} unsafe modifications were detected in the HyperConverged resource.",
+						"runbook_url": unsafeModificationRunbookUrl,
 					},
 					Labels: map[string]string{
 						"severity": "info",
