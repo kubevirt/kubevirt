@@ -235,13 +235,13 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 			f, err := os.OpenFile(filepath.Join(logsdir, fileName),
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to open the file %s: %v", fileName, err)
+				fmt.Fprintf(os.Stderr, "failed to open the file %s: %v\n", fileName, err)
 				return
 			}
 			defer f.Close()
 			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v", node, err)
+				fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v\n", node, err)
 				return
 			}
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
@@ -249,7 +249,7 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
-					"failed to execute command %s on node %s, stdout: %s, error: %v",
+					"failed to execute command %s on node %s, stdout: %s, error: %v\n",
 					[]string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "--decode"},
 					node, stdout, err,
 				)
@@ -266,7 +266,7 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 					}
 					timestamp, err := time.Parse("Mon Jan 2 15:04:05 2006", matches[1])
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "failed to convert iso timestamp: %v", err)
+						fmt.Fprintf(os.Stderr, "failed to convert iso timestamp: %v\n", err)
 						continue
 					}
 					if !timestamp.UTC().Before(since.UTC()) {
@@ -295,13 +295,13 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 			f, err := os.OpenFile(filepath.Join(logsdir, fileName),
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to open the file %s: %v", fileName, err)
+				fmt.Fprintf(os.Stderr, "failed to open the file %s: %v\n", fileName, err)
 				return
 			}
 			defer f.Close()
 			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v", node, err)
+				fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v\n", node, err)
 				return
 			}
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
@@ -310,7 +310,7 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
-					"failed to execute command %s on node %s, stdout: %s, error: %v",
+					"failed to execute command %s on node %s, stdout: %s, error: %v\n",
 					getAuditLogCmd, node, stdout, err,
 				)
 				return
@@ -326,7 +326,7 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 					}
 					timestamp, err := strconv.ParseInt(matches[1], 10, 64)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "failed to convert string to unix timestamp: %v", err)
+						fmt.Fprintf(os.Stderr, "failed to convert string to unix timestamp: %v\n", err)
 						continue
 					}
 					if !time.Unix(timestamp, 0).Before(since) {
@@ -361,7 +361,7 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 	for _, node := range nodes {
 		pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v", node, err)
+			fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v\n", node, err)
 			continue
 		}
 
@@ -381,7 +381,7 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 		if err != nil {
 			fmt.Fprintf(
 				os.Stderr,
-				"failed to execute command %s on node %s, stdout: %s, stderr: %s, error: %v",
+				"failed to execute command %s on node %s, stdout: %s, stderr: %s, error: %v\n",
 				commands, node, stdout, stderr, err,
 			)
 			continue
@@ -390,7 +390,7 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 		fileName := fmt.Sprintf("%d_%s_%s.log", r.failureCount, component, node)
 		err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to write node %s logs: %v", node, err)
+			fmt.Fprintf(os.Stderr, "failed to write node %s logs: %v\n", node, err)
 			continue
 		}
 	}
@@ -406,7 +406,7 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, pods *v1.Po
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_pods.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()
@@ -423,7 +423,7 @@ func (r *KubernetesReporter) logServices(virtCli kubecli.KubevirtClient) {
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_services.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()
@@ -446,7 +446,7 @@ func (r *KubernetesReporter) logAPIServices(virtCli kubecli.KubevirtClient) {
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_apiServices.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()
@@ -474,7 +474,7 @@ func (r *KubernetesReporter) logEndpoints(virtCli kubecli.KubevirtClient) {
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_endpoints.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()
@@ -497,7 +497,7 @@ func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_configmaps.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()
@@ -520,7 +520,7 @@ func (r *KubernetesReporter) logKubeVirtCR(virtCli kubecli.KubevirtClient) {
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_kubevirtCR.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()
@@ -543,7 +543,7 @@ func (r *KubernetesReporter) logSecrets(virtCli kubecli.KubevirtClient) {
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_secrets.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()
@@ -878,13 +878,13 @@ func (r *KubernetesReporter) logClusterOverview() {
 
 	stdout, stderr, err := tests.RunCommandWithNS("", binary, "get", "all", "--all-namespaces", "-o", "wide")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch cluster overview: %v, %s", err, stderr)
+		fmt.Fprintf(os.Stderr, "failed to fetch cluster overview: %v, %s\n", err, stderr)
 		return
 	}
 	filePath := filepath.Join(r.artifactsDir, fmt.Sprintf("%d_overview.log", r.failureCount))
 	err = writeStringToFile(filePath, stdout)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to write cluster overview: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to write cluster overview: %v\n", err)
 		return
 	}
 }
