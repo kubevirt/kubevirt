@@ -20,21 +20,19 @@
 package network
 
 import (
-	"bufio"
 	"fmt"
-
+	"os"
+	"os/exec"
 	"strconv"
+	"time"
 
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
-	"os/exec"
-	"strings"
-	"time"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type LibvirtSpecGenerator interface {
@@ -181,39 +179,51 @@ type SlirpLibvirtSpecGenerator struct {
 	domain       *api.Domain
 }
 
+// Passt
 func (b *SlirpLibvirtSpecGenerator) generate() error {
-	err := downloadPasstBinaries()
+	_, err := os.Stat("/usr/bin/passt")
+	if !os.IsNotExist(err) {
+		log.Log.Infof("passt already exists")
+		return nil
+	}
+
+	var retries int
+	for err = downloadPasstBinaries(); err != nil && retries < 5; retries++ {
+		time.Sleep(5 * time.Second)
+		err = downloadPasstBinaries()
+	}
 	if err != nil {
 		return err
 	}
 
-	cmd := exec.Command("/usr/bin/passt")
-	// connect passt's stderr to our own stdout in order to see the logs in the container logs
-	reader, err := cmd.StderrPipe()
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to start passt cmd")
-	}
+	exec.Command("sh", "-c", "/usr/bin/passt 2> /tmp/error.txt 1> /tmp/output.txt").Start()
+	//cmd := exec.Command("/usr/bin/passt")
+	//// connect passt's stderr to our own stdout in order to see the logs in the container logs
+	//reader, err := cmd.StderrPipe()
+	//if err != nil {
+	//	log.Log.Reason(err).Errorf("failed to start passt cmd")
+	//}
 
-	go func() {
-		scanner := bufio.NewScanner(reader)
-		scanner.Buffer(make([]byte, 1024), 512*1024)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if len(strings.TrimSpace(line)) == 0 {
-				continue
-			}
-			log.Log.Infof(line)
-			time.Sleep(30 * time.Second)
-		}
+	//go func() {
+	//	scanner := bufio.NewScanner(reader)
+	//	scanner.Buffer(make([]byte, 1024), 512*1024)
+	//	for scanner.Scan() {
+	//		line := scanner.Text()
+	//		if len(strings.TrimSpace(line)) == 0 {
+	//			continue
+	//		}
+	//		log.Log.Infof(line)
+	//		time.Sleep(30 * time.Second)
+	//	}
+	//
+	//	if err := scanner.Err(); err != nil {
+	//		log.Log.Reason(err).Errorf("failed to read passt logs")
+	//	}
+	//}()
 
-		if err := scanner.Err(); err != nil {
-			log.Log.Reason(err).Errorf("failed to read passt logs")
-		}
-	}()
-
-	err = cmd.Start()
+	//err = cmd.Start()
 	// TODO: remove the sleep and change to a while waiting for the /tmp/passt_1.socket
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to start passt")
 	}
@@ -243,13 +253,13 @@ func (b *SlirpLibvirtSpecGenerator) generate() error {
 
 func downloadPasstBinaries() error {
 	//curl -k https://passt.top/builds/static/passt --output /usr/bin/passt
-	output, err := exec.Command("curl", "-k", "https://passt.top/builds/static/passt", "--output", "/usr/bin/passt").CombinedOutput()
+	output, err := exec.Command("curl", "--retry", "10", "--retry-connrefused", "-k", "https://passt.top/builds/static/passt", "--output", "/usr/bin/passt").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s", string(output))
 	}
 
 	//curl -k https://passt.top/builds/static/qrap --output /usr/bin/qrap
-	output, err = exec.Command("curl", "-k", "https://passt.top/builds/static/qrap", "--output", "/usr/bin/qrap").CombinedOutput()
+	output, err = exec.Command("curl", "--retry", "10", "--retry-connrefused", "-k", "https://passt.top/builds/static/qrap", "--output", "/usr/bin/qrap").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s", string(output))
 	}
