@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
@@ -44,7 +43,6 @@ type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
 	maxFails     int
-	mux          sync.Mutex
 }
 
 func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesReporter {
@@ -68,8 +66,6 @@ func (r *KubernetesReporter) SpecWillRun(_ *types.SpecSummary) {
 }
 
 func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
-	r.mux.Lock()
-	defer r.mux.Unlock()
 	if r.failureCount > r.maxFails {
 		return
 	}
