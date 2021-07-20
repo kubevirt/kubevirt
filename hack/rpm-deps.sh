@@ -102,7 +102,12 @@ bazel run \
     //:bazeldnf -- rpmtree --public --name libguestfs-tools \
     $basesystem \
     libguestfs \
-    libguestfs-tools
+    libguestfs-tools \
+    --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
+    --force-ignore-with-dependencies '^(python[3]{0,1}-|perl[3]{0,1}-)' \
+    --force-ignore-with-dependencies '^(mesa-|libwayland-|selinux-policy|mozjs60)' \
+    --force-ignore-with-dependencies '^(libvirt-daemon-driver-storage|swtpm)' \
+    --force-ignore-with-dependencies '^(man-db|mandoc)'
 
 # remove all RPMs which are no longer referenced by a rpmtree
 bazel run \
