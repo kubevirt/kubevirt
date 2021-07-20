@@ -91,6 +91,9 @@ func addFieldsToAllVersions(crd *extv1.CustomResourceDefinition, fields ...inter
 
 func patchValidation(crd *extv1.CustomResourceDefinition, version *extv1.CustomResourceDefinitionVersion) error {
 	name := crd.Spec.Names.Singular
+	if name == "" {
+		name = strings.ToLower(crd.Spec.Names.Kind)
+	}
 
 	crd.Spec.PreserveUnknownFields = PreserveUnknownFieldsFalse
 	validation, ok := CRDsValidation[name]

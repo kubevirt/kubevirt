@@ -9,6 +9,14 @@ import (
 
 var _ = Describe("CRDs", func() {
 
+	newVirtualMachineCrdWOSingular := func() (*extv1.CustomResourceDefinition, error) {
+		crd, err := NewVirtualMachineCrd()
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+		crd.Spec.Names.Singular = ""
+		return crd, err
+	}
+
 	table.DescribeTable("Should patch validation", func(crdFunc func() (*extv1.CustomResourceDefinition, error)) {
 		crd, err := crdFunc()
 		Expect(err).NotTo(HaveOccurred())
@@ -18,6 +26,7 @@ var _ = Describe("CRDs", func() {
 		}
 	},
 		table.Entry("for VM", NewVirtualMachineCrd),
+		table.Entry("for VM without singular name set", newVirtualMachineCrdWOSingular),
 		table.Entry("for VMI", NewVirtualMachineInstanceCrd),
 		table.Entry("for VMIPRESET", NewPresetCrd),
 		table.Entry("for VMIRS", NewReplicaSetCrd),
