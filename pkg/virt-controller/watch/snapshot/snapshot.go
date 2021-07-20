@@ -190,9 +190,12 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	var volumeSnapshotStatus []snapshotv1.VolumeSnapshotStatus
 	var deletedSnapshots, skippedSnapshots []string
 
+	vmSnapshot, err := ctrl.getVMSnapshot(content)
+	if err != nil || vmSnapshot == nil {
+		return 0, err
+	}
 	currentlyReady := vmSnapshotContentReady(content)
-	currentlyError := content.Status != nil && content.Status.Error != nil
-	checkedGuestAgentParticipation := false
+	currentlyError := (content.Status != nil && content.Status.Error != nil) || vmSnapshotError(vmSnapshot) != nil
 
 	for _, volumeBackup := range content.Spec.VolumeBackups {
 		if volumeBackup.VolumeSnapshotName == nil {
@@ -227,16 +230,9 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 				continue
 			}
 
-			if !checkedGuestAgentParticipation {
-				vmSnapshot, err := ctrl.getVMSnapshot(content)
-				if err != nil {
-					return 0, err
-				}
-				err = ctrl.freezeGuestFSIfNeeded(vmSnapshot)
-				if err != nil {
-					return 0, err
-				}
-				checkedGuestAgentParticipation = true
+			err = ctrl.freezeGuestFSIfNeeded(vmSnapshot)
+			if err != nil {
+				return 0, err
 			}
 
 			volumeSnapshot, err = ctrl.createVolumeSnapshot(content, volumeBackup)

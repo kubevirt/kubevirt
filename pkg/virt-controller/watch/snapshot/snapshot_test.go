@@ -1023,13 +1023,14 @@ var _ = Describe("Snapshot controlleer", func() {
 			)
 
 			It("should update VirtualMachineSnapshotContent when VolumeSnapshot deleted", func() {
+				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse:   &t,
 					CreationTime: timeFunc(),
 				}
 				updatedContent := vmSnapshotContent.DeepCopy()
-				updatedContent.ResourceVersion = "2"
+				updatedContent.ResourceVersion = "1"
 				updatedContent.Status.ReadyToUse = &f
 				updatedContent.Status.CreationTime = nil
 
@@ -1048,7 +1049,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				}
 
-				vmSnapshotContentSource.Add(vmSnapshotContent)
+				vmSnapshotSource.Add(vmSnapshot)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
