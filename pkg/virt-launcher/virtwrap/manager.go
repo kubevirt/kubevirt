@@ -387,20 +387,6 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 	return l.startMigration(vmi, options)
 }
 
-var updateHostsFile = func(entry string) (err error) {
-	file, err := kutil.OpenFileWithNosec("/etc/hosts", os.O_WRONLY|os.O_APPEND)
-	if err != nil {
-		return fmt.Errorf("failed opening file: %s", err)
-	}
-	defer kutil.CloseIOAndCheckErr(file, &err)
-
-	_, err = file.WriteString(entry)
-	if err != nil {
-		return fmt.Errorf("failed writing to file: %s", err)
-	}
-	return nil
-}
-
 func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain) error {
 	var devicesMetadata []cloudinit.DeviceData
 	// this is the point where we need to build the devices metadata if it was requested.

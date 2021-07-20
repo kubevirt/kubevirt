@@ -90,9 +90,6 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 	}
 
 	loopbackAddress := ip.GetLoopbackAddress()
-	if err := updateHostsFile(fmt.Sprintf("%s %s\n", loopbackAddress, vmi.Status.MigrationState.TargetPod)); err != nil {
-		return fmt.Errorf("failed to update the hosts file: %v", err)
-	}
 
 	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
 	for _, port := range migrationPortsRange {

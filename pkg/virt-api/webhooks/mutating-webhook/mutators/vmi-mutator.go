@@ -33,6 +33,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -119,6 +120,22 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// Set the phase to pending to avoid blank status
 		newVMI.Status.Phase = v1.Pending
 
+		if mutator.ClusterConfig.NonRootEnabled() {
+			if err := canBeNonRoot(newVMI); err != nil {
+				return &admissionv1.AdmissionResponse{
+					Result: &metav1.Status{
+						Message: err.Error(),
+						Code:    http.StatusUnprocessableEntity,
+					},
+				}
+			} else {
+				if newVMI.ObjectMeta.Annotations == nil {
+					newVMI.ObjectMeta.Annotations = make(map[string]string)
+				}
+				newVMI.ObjectMeta.Annotations[v1.NonRootVMIAnnotation] = ""
+			}
+		}
+
 		var value interface{}
 		value = newVMI.Spec
 		patch = append(patch, utiltypes.PatchOperation{
@@ -140,6 +157,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			Path:  "/status",
 			Value: value,
 		})
+
 	} else if ar.Request.Operation == admissionv1.Update {
 		// Ignore status updates if they are not coming from our service accounts
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
@@ -315,4 +333,16 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 		}
 		resources.Requests[k8sv1.ResourceCPU] = *mutator.ClusterConfig.GetCPURequest()
 	}
+}
+
+func canBeNonRoot(vmi *v1.VirtualMachineInstance) error {
+	// VirtioFS doesn't work with session mode
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		return fmt.Errorf("VirtioFS doesn't work with session mode(used by nonroot)")
+	}
+
+	if util.IsSRIOVVmi(vmi) {
+		return fmt.Errorf("SRIOV doesn't work with nonroot")
+	}
+	return nil
 }

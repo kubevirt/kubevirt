@@ -74,7 +74,7 @@ const (
 
 const (
 	multiQueueMaxQueues  = uint32(256)
-	QEMUSeaBiosDebugPipe = "/QEMUSeaBiosDebugPipe"
+	QEMUSeaBiosDebugPipe = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
 )
 
 type deviceNamer struct {

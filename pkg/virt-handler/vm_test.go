@@ -118,6 +118,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var certDir string
 
 	BeforeEach(func() {
+		diskutils.MockDefaultOwnershipManager()
+
 		wg = &sync.WaitGroup{}
 		stop = make(chan struct{})
 		eventChan = make(chan watch.Event, 100)
@@ -286,6 +288,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 	}
 
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
+		BeforeEach(func() {
+			diskutils.MockDefaultOwnershipManager()
+		})
 
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)

@@ -28,10 +28,12 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -237,7 +239,13 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 				}
 			}
 			caps := *container.SecurityContext.Capabilities
-			Expect(len(caps.Add)).To(Equal(2), fmt.Sprintf("Capabilities in compute %s", caps.Add))
+			if checks.HasFeature(virtconfig.NonRoot) {
+				Expect(len(caps.Add)).To(Equal(1), fmt.Sprintf("Expecting to found \"NET_BIND_SERVICE\". Found capabilities %s", caps.Add))
+				Expect(caps.Add[0]).To(Equal(k8sv1.Capability("NET_BIND_SERVICE")))
+			} else {
+				Expect(len(caps.Add)).To(Equal(2), fmt.Sprintf("Found capabilities %s, expecting SYS_NICE and NET_BIND_SERVICE ", caps.Add))
+				Expect(caps.Add).To(ContainElements(k8sv1.Capability("NET_BIND_SERVICE"), k8sv1.Capability("SYS_NICE")))
+			}
 
 			By("Checking virt-launcher Pod's compute container has precisely the documented extra capabilities")
 			for _, cap := range caps.Add {
