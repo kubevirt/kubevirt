@@ -160,7 +160,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		}
 	}
 
-	if vmSnapshot.DeletionTimestamp != nil && content != nil {
+	if (vmSnapshot.DeletionTimestamp != nil || vmSnapshotDeadlineExceeded(vmSnapshot)) && content != nil {
 		if controller.HasFinalizer(content, vmSnapshotContentFinalizer) {
 			cpy := content.DeepCopy()
 			controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
