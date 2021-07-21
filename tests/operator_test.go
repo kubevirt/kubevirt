@@ -455,7 +455,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			Eventually(func() error {
+			Consistently(func() error {
 				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
 
 				return err
