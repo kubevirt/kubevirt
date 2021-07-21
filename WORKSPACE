@@ -1472,6 +1472,7 @@ rpm(
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
         "https://mirrors.xmission.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
         "https://fedora.mirror.constant.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/2eca40e72fdd3ea19d22f00c127c4d166eaf7687cc0a8c1056ae3a6264cda56d",
     ],
 )
 
@@ -2851,6 +2852,7 @@ rpm(
         "https://mirror.arizona.edu/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
         "https://mirror.lax.genesisadaptive.com/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
         "https://mirrors.rit.edu/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/k/kernel-core-5.11.22-100.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/1329e02a1b0cf37041fe3286d609a1ffe31c60a5342658e46cba6430c9df4a69",
     ],
 )
 
