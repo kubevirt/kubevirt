@@ -564,11 +564,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 						updatedVMI.Status.FSFreezeStatus == "frozen"
 				}, 30*time.Second, 2*time.Second).Should(BeTrue())
 
+				contentName := fmt.Sprintf("%s-%s", "vmsnapshot-content", snapshot.UID)
 				Eventually(func() bool {
 					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
+					_, contentErr := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 					return snapshot.Status != nil &&
 						len(snapshot.Status.Conditions) == 3 &&
 						snapshot.Status.Conditions[0].Status == corev1.ConditionFalse &&
@@ -579,7 +581,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 						snapshot.Status.Conditions[2].Type == snapshotv1.ConditionFailure &&
 						strings.Contains(snapshot.Status.Conditions[2].Reason, "snapshot deadline exceeded") &&
 						snapshot.Status.Phase == snapshotv1.Failed &&
-						updatedVMI.Status.FSFreezeStatus == ""
+						updatedVMI.Status.FSFreezeStatus == "" &&
+						errors.IsNotFound(contentErr)
 				}, time.Minute, 2*time.Second).Should(BeTrue())
 			})
 		})
@@ -844,9 +847,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				contentName := fmt.Sprintf("%s-%s", "vmsnapshot-content", snapshot.UID)
 				Eventually(func() bool {
 					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
+					_, contentErr := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 					return snapshot.Status != nil &&
 						len(snapshot.Status.Conditions) == 3 &&
 						snapshot.Status.Conditions[0].Status == corev1.ConditionFalse &&
@@ -856,7 +861,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 						snapshot.Status.Conditions[2].Status == corev1.ConditionTrue &&
 						snapshot.Status.Conditions[2].Type == snapshotv1.ConditionFailure &&
 						strings.Contains(snapshot.Status.Conditions[2].Reason, "snapshot deadline exceeded") &&
-						snapshot.Status.Phase == snapshotv1.Failed
+						snapshot.Status.Phase == snapshotv1.Failed &&
+						errors.IsNotFound(contentErr)
 				}, time.Minute, 2*time.Second).Should(BeTrue())
 
 				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -865,11 +871,6 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(updatedVM.Finalizers).To(BeEmpty())
 
 				Expect(snapshot.Status.CreationTime).To(BeNil())
-
-				contentName := fmt.Sprintf("%s-%s", "vmsnapshot-content", snapshot.UID)
-				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(content.Status).To(BeNil())
 			})
 		})
 	})
