@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/utils/pointer"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"github.com/golang/mock/gomock"
@@ -2327,6 +2329,35 @@ var _ = Describe("Converter", func() {
 			table.Entry("and add the graphics and video device if it is not set", nil, 1),
 			table.Entry("and add the graphics and video device if it is set to true", True(), 1),
 			table.Entry("and not add the graphics and video device if it is set to false", False(), 0),
+		)
+	})
+
+	Context("KVM features", func() {
+		table.DescribeTable("should convert the pollControl feature", func(pollControl *v1.FeatureState, result *api.FeatureState) {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Features: &v1.Features{
+							KVM: &v1.FeatureKVM{
+								PollControl: pollControl,
+							},
+						},
+					},
+				},
+			}
+
+			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			Expect(domain.Spec.Features.KVM.PollControl).To(Equal(result))
+
+		},
+			table.Entry("to unset if not set on the api", nil, nil),
+			table.Entry("to on if set to on on the api", &v1.FeatureState{Enabled: pointer.BoolPtr(true)}, &api.FeatureState{State: "on"}),
+			table.Entry("to off if set to off on the api", &v1.FeatureState{Enabled: pointer.BoolPtr(false)}, &api.FeatureState{State: "off"}),
 		)
 	})
 

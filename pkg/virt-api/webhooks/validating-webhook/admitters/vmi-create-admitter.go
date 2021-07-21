@@ -1013,6 +1013,22 @@ func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 		causes = append(causes, validateRequestLimitOrCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
 		causes = append(causes, validateRequestEqualsLimitOnDedicatedCPUPlacement(field, spec)...)
 		causes = append(causes, validateRequestOrLimitWithCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
+	} else {
+		causes = append(causes, validateCPUPinningFeatures(field, spec)...)
+	}
+	return causes
+}
+
+func validateCPUPinningFeatures(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Features != nil && spec.Domain.Features.KVM != nil {
+		if spec.Domain.Features.KVM.PollControl != nil && spec.Domain.Features.KVM.PollControl.Enabled != nil && *spec.Domain.Features.KVM.PollControl.Enabled == true {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("The pollControl feature can only be used together dedicated CPU placement: %s",
+					field.Child("domain", "features", "kvm", "pollControl").String()),
+				Field: field.Child("domain", "features", "kvm", "pollControl").String(),
+			})
+		}
 	}
 	return causes
 }

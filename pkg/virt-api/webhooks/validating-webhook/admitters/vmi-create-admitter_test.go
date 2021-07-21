@@ -2252,6 +2252,28 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 	})
 
+	Context("without cpu pinning", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: false}
+		})
+		It("should deny pollControl", func() {
+			vmi.Spec.Domain.CPU.Cores = 4
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("4"),
+			}
+			vmi.Spec.Domain.Features = &v1.Features{
+				KVM: &v1.FeatureKVM{
+					PollControl: &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("The pollControl feature can only be used together dedicated CPU placement"))
+		})
+	})
+
 	Context("with cpu pinning", func() {
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
@@ -2298,6 +2320,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
 				k8sv1.ResourceCPU: resource.MustParse("4"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+		It("should accept pollControl", func() {
+			vmi.Spec.Domain.CPU.Cores = 4
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("4"),
+			}
+			vmi.Spec.Domain.Features = &v1.Features{
+				KVM: &v1.FeatureKVM{
+					PollControl: &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
