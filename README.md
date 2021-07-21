@@ -16,9 +16,9 @@ Kubernetes.
 
 **Note:** KubeVirt is a heavy work in progress.
 
-# Introduction
+## Introduction
 
-## Virtualization extension for Kubernetes
+### Virtualization extension for Kubernetes
 
 At its core, KubeVirt extends [Kubernetes][k8s] by adding
 additional virtualization resource types (especially the `VM` type) through
@@ -46,8 +46,7 @@ Click the image below to see an example video:
 
 [![asciicast](https://asciinema.org/a/96275.png)](https://asciinema.org/a/96275)
 
-
-# To start using KubeVirt
+## To start using KubeVirt
 
 Try our quickstart at [kubevirt.io](http://kubevirt.io/get_kubevirt/).
 
@@ -58,7 +57,7 @@ Once you have the basics, you can learn more about how to run KubeVirt and its n
  * [KubeVirt blog](https://kubevirt.io/blogs/)
  * [KubeVirt Youtube channel](https://www.youtube.com/channel/UC2FH36TbZizw25pVT1P3C3g)
 
-# To start developing KubeVirt
+## To start developing KubeVirt
 
 To set up a development environment please read our
 [Getting Started Guide](docs/getting-started.md). To learn how to contribute, please read our [contribution guide](https://github.com/kubevirt/kubevirt/blob/main/CONTRIBUTING.md).
@@ -71,8 +70,7 @@ and learn more about the major components by taking a look at
  * [Components](docs/components.md) - Detailed look at all components
  * [API Reference](https://kubevirt.io/api-reference/)
 
-
-# Community
+## Community
 
 If you got enough of code and want to speak to people, then you got a couple
 of options:
@@ -82,14 +80,14 @@ of options:
 * Discuss with us on the [kubevirt-dev Google Group](https://groups.google.com/forum/#!forum/kubevirt-dev)
 * Stay informed about designs and upcoming events by watching our [community content](https://github.com/kubevirt/community/)
 
-## Related resources
+### Related resources
 
  * [Kubernetes][k8s]
  * [Libvirt][libvirt]
  * [Cockpit][cockpit]
  * [Kubevirt-ansible][kubevirt-ansible]
 
-## Submitting patches
+### Submitting patches
 
 When sending patches to the project, the submitter is required to certify that
 they have the legal right to submit the code. This is achieved by adding a line
@@ -130,5 +128,6 @@ KubeVirt is distributed under the
    [libvirt]: https://www.libvirt.org
    [kubevirt-ansible]: https://github.com/kubevirt/kubevirt-ansible
 
+## FOSSA Status
 
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt?ref=badge_large)
