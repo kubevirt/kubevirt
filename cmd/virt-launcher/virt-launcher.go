@@ -355,6 +355,8 @@ func main() {
 	qemuAgentUserInterval := pflag.Duration("qemu-agent-user-interval", 10, "Interval in seconds between consecutive qemu agent calls for user command")
 	qemuAgentVersionInterval := pflag.Duration("qemu-agent-version-interval", 300, "Interval in seconds between consecutive qemu agent calls for version command")
 	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5, "Interval in seconds between consecutive qemu agent calls for fsfreeze status command")
+	keepAfterFailure := pflag.Bool("keep-after-failure", false, "virt-launcher will be kept alive after failure for debugging if set to true")
+
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
 
@@ -375,6 +377,10 @@ func main() {
 
 	if !*noFork {
 		exitCode, err := ForkAndMonitor(*containerDiskDir)
+		if *keepAfterFailure && (exitCode != 0 || err != nil) {
+			log.Log.Infof("keeping virt-launcher container alive since --keep-after-failure is set to true")
+			<-make(chan struct{})
+		}
 		if err != nil {
 			log.Log.Reason(err).Error("monitoring virt-launcher failed")
 			os.Exit(1)
@@ -569,6 +575,7 @@ func ForkAndMonitor(containerDiskDir string) (int, error) {
 		}
 
 	}
+
 	// give qemu some time to shut down in case it survived virt-handler
 	// Most of the time we call `qemu-system=* binaries, but qemu-system-* packages
 	// are not everywhere available where libvirt and qemu are. There we usually call qemu-kvm
