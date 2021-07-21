@@ -1001,10 +1001,10 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
 	return nil
 }
 
-func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
+func convertFeatureState(source *v1.FeatureState, defaultOn bool) *api.FeatureState {
 	if source != nil {
 		return &api.FeatureState{
-			State: boolToOnOff(source.Enabled, true),
+			State: boolToOnOff(source.Enabled, defaultOn),
 		}
 	}
 	return nil
@@ -1036,6 +1036,7 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 			Hidden: &api.FeatureState{
 				State: boolToOnOff(&source.KVM.Hidden, false),
 			},
+			PollControl: convertFeatureState(source.KVM.PollControl, false),
 		}
 	}
 	if source.Pvspinlock != nil {
@@ -1060,18 +1061,18 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 		}
 	}
 
-	hyperv.Relaxed = convertFeatureState(source.Relaxed)
-	hyperv.Reset = convertFeatureState(source.Reset)
-	hyperv.Runtime = convertFeatureState(source.Runtime)
-	hyperv.SyNIC = convertFeatureState(source.SyNIC)
+	hyperv.Relaxed = convertFeatureState(source.Relaxed, true)
+	hyperv.Reset = convertFeatureState(source.Reset, true)
+	hyperv.Runtime = convertFeatureState(source.Runtime, true)
+	hyperv.SyNIC = convertFeatureState(source.SyNIC, true)
 	hyperv.SyNICTimer = convertV1ToAPISyNICTimer(source.SyNICTimer)
-	hyperv.VAPIC = convertFeatureState(source.VAPIC)
-	hyperv.VPIndex = convertFeatureState(source.VPIndex)
-	hyperv.Frequencies = convertFeatureState(source.Frequencies)
-	hyperv.Reenlightenment = convertFeatureState(source.Reenlightenment)
-	hyperv.TLBFlush = convertFeatureState(source.TLBFlush)
-	hyperv.IPI = convertFeatureState(source.IPI)
-	hyperv.EVMCS = convertFeatureState(source.EVMCS)
+	hyperv.VAPIC = convertFeatureState(source.VAPIC, true)
+	hyperv.VPIndex = convertFeatureState(source.VPIndex, true)
+	hyperv.Frequencies = convertFeatureState(source.Frequencies, true)
+	hyperv.Reenlightenment = convertFeatureState(source.Reenlightenment, true)
+	hyperv.TLBFlush = convertFeatureState(source.TLBFlush, true)
+	hyperv.IPI = convertFeatureState(source.IPI, true)
+	hyperv.EVMCS = convertFeatureState(source.EVMCS, true)
 	return nil
 }
 

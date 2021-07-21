@@ -4266,6 +4266,16 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Hide the KVM hypervisor from standard MSR
                                 based discovery. Defaults to false
                               type: boolean
+                            pollControl:
+                              description: Decrease IO completion latency by introducing
+                                a grace period of busy waiting after vCPUs have ceded.
+                              properties:
+                                enabled:
+                                  description: Enabled determines if the feature should
+                                    be enabled or disabled on the guest. Defaults
+                                    to true.
+                                  type: boolean
+                              type: object
                           type: object
                         pvspinlock:
                           description: Notify the guest that the host supports paravirtual
@@ -6912,6 +6922,15 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Hide the KVM hypervisor from standard MSR based
                         discovery. Defaults to false
                       type: boolean
+                    pollControl:
+                      description: Decrease IO completion latency by introducing a
+                        grace period of busy waiting after vCPUs have ceded.
+                      properties:
+                        enabled:
+                          description: Enabled determines if the feature should be
+                            enabled or disabled on the guest. Defaults to true.
+                          type: boolean
+                      type: object
                   type: object
                 pvspinlock:
                   description: Notify the guest that the host supports paravirtual
@@ -8845,6 +8864,15 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Hide the KVM hypervisor from standard MSR based
                         discovery. Defaults to false
                       type: boolean
+                    pollControl:
+                      description: Decrease IO completion latency by introducing a
+                        grace period of busy waiting after vCPUs have ceded.
+                      properties:
+                        enabled:
+                          description: Enabled determines if the feature should be
+                            enabled or disabled on the guest. Defaults to true.
+                          type: boolean
+                      type: object
                   type: object
                 pvspinlock:
                   description: Notify the guest that the host supports paravirtual
@@ -10645,6 +10673,16 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Hide the KVM hypervisor from standard MSR
                                 based discovery. Defaults to false
                               type: boolean
+                            pollControl:
+                              description: Decrease IO completion latency by introducing
+                                a grace period of busy waiting after vCPUs have ceded.
+                              properties:
+                                enabled:
+                                  description: Enabled determines if the feature should
+                                    be enabled or disabled on the guest. Defaults
+                                    to true.
+                                  type: boolean
+                              type: object
                           type: object
                         pvspinlock:
                           description: Notify the guest that the host supports paravirtual
@@ -14123,6 +14161,17 @@ var CRDsValidation map[string]string = map[string]string{
                                             standard MSR based discovery. Defaults
                                             to false
                                           type: boolean
+                                        pollControl:
+                                          description: Decrease IO completion latency
+                                            by introducing a grace period of busy
+                                            waiting after vCPUs have ceded.
+                                          properties:
+                                            enabled:
+                                              description: Enabled determines if the
+                                                feature should be enabled or disabled
+                                                on the guest. Defaults to true.
+                                              type: boolean
+                                          type: object
                                       type: object
                                     pvspinlock:
                                       description: Notify the guest that the host

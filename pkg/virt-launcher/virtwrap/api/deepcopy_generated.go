@@ -1273,6 +1273,11 @@ func (in *FeatureKVM) DeepCopyInto(out *FeatureKVM) {
 		*out = new(FeatureState)
 		**out = **in
 	}
+	if in.PollControl != nil {
+		in, out := &in.PollControl, &out.PollControl
+		*out = new(FeatureState)
+		**out = **in
+	}
 	return
 }
 

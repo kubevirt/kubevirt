@@ -10260,6 +10260,10 @@
      "hidden": {
       "description": "Hide the KVM hypervisor from standard MSR based discovery. Defaults to false",
       "type": "boolean"
+     },
+     "pollControl": {
+      "description": "Decrease IO completion latency by introducing a grace period of busy waiting after vCPUs have ceded.",
+      "$ref": "#/definitions/v1.FeatureState"
      }
     }
    },

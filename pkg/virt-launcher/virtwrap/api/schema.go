@@ -324,7 +324,8 @@ type FeatureState struct {
 }
 
 type FeatureKVM struct {
-	Hidden *FeatureState `xml:"hidden,omitempty"`
+	Hidden      *FeatureState `xml:"hidden,omitempty"`
+	PollControl *FeatureState `xml:"poll-control,omitempty"`
 }
 
 type Metadata struct {

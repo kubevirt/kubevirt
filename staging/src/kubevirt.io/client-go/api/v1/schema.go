@@ -1136,6 +1136,9 @@ type FeatureKVM struct {
 	// Hide the KVM hypervisor from standard MSR based discovery.
 	// Defaults to false
 	Hidden bool `json:"hidden,omitempty"`
+	// Decrease IO completion latency by introducing a grace period of busy waiting
+	// after vCPUs have ceded.
+	PollControl *FeatureState `json:"pollControl,omitempty"`
 }
 
 // WatchdogAction defines the watchdog action, if a watchdog gets triggered.

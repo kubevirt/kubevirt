@@ -15478,9 +15478,17 @@ func schema_kubevirtio_client_go_api_v1_FeatureKVM(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"pollControl": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Decrease IO completion latency by introducing a grace period of busy waiting after vCPUs have ceded.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureState"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.FeatureState"},
 	}
 }
 

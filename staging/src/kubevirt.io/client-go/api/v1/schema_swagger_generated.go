@@ -566,8 +566,9 @@ func (FeatureHyperv) SwaggerDoc() map[string]string {
 
 func (FeatureKVM) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "+k8s:openapi-gen=true",
-		"hidden": "Hide the KVM hypervisor from standard MSR based discovery.\nDefaults to false",
+		"":            "+k8s:openapi-gen=true",
+		"hidden":      "Hide the KVM hypervisor from standard MSR based discovery.\nDefaults to false",
+		"pollControl": "Decrease IO completion latency by introducing a grace period of busy waiting\nafter vCPUs have ceded.",
 	}
 }
 
