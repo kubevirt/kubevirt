@@ -406,3 +406,6 @@ if [ -n "$RUN_REST_COVERAGE" ]; then
     --ignore-resource-version
   echo "REST API coverage report generated"
 fi
+
+# Sanity check test execution by looking at results file
+./automation/assert-not-all-tests-skipped.sh "${ARTIFACTS}/junit.functest.xml"
