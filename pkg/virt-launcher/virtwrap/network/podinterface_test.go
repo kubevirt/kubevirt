@@ -337,26 +337,7 @@ var _ = Describe("Pod Network", func() {
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			TestPodInterfaceIPBinding(vm, domain)
 		})
-		It("should return an error if the MTU is out or range", func() {
-			primaryPodInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 65536}}
-			domain := NewDomainWithBridgeInterface()
-			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-			mockNetwork.EXPECT().ReadIPAddressesFromLink(primaryPodInterfaceName).Return("", "", nil)
-			mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(primaryPodInterface, nil).Times(2)
-			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_ALL).Return(addrList, nil)
-			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
-			mockNetwork.EXPECT().GetMacDetails(primaryPodInterfaceName).Return(fakeMac, nil)
-			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
-			mockNetwork.EXPECT().RouteList(primaryPodInterface, netlink.FAMILY_V4).Return(routeList, nil)
-
-			podnic, err := newPhase1PodNIC(vm, &vm.Spec.Networks[0], mockNetwork, cacheFactory, &pid)
-			Expect(err).ToNot(HaveOccurred())
-			err = podnic.PlugPhase1()
-			Expect(err).To(HaveOccurred())
-		})
 		Context("func filterPodNetworkRoutes()", func() {
 			defRoute := netlink.Route{
 				Gw: net.IPv4(10, 35, 0, 1),
