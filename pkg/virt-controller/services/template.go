@@ -107,7 +107,6 @@ type TemplateService interface {
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	GetLauncherImage() string
-	GetCpuArch() string
 	IsPPC64() bool
 	IsARM64() bool
 }
@@ -124,7 +123,6 @@ type templateService struct {
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
 	launcherSubGid             int64
-	cpuArch                    string
 }
 
 type PvcNotFoundError error
@@ -374,26 +372,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	return t.renderLaunchManifest(vmi, false)
 }
 
-func (t *templateService) GetCpuArch() string {
-	return t.getCpuArch()
-}
-
-func (t *templateService) getCpuArch() string {
-	return t.cpuArch
-}
-
 func (t *templateService) IsPPC64() bool {
-	if t.cpuArch == "ppc64le" {
-		return true
-	}
-	return false
+	return t.clusterConfig.GetClusterCPUArch() == "ppc64le"
 }
 
 func (t *templateService) IsARM64() bool {
-	if t.cpuArch == "arm64" {
-		return true
-	}
-	return false
+	return t.clusterConfig.GetClusterCPUArch() == "arm64"
 }
 
 func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, tempPod bool) (*k8sv1.Pod, error) {
@@ -821,7 +805,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
-	memoryOverhead := getMemoryOverhead(vmi, t.cpuArch)
+	memoryOverhead := getMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
@@ -974,12 +958,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		}
 		// allocate 1 more pcpu if IsolateEmulatorThread request
 		if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-			emulatorThreadCpu := resource.NewQuantity(1, resource.BinarySI)
+			emulatorThreadCPU := resource.NewQuantity(1, resource.BinarySI)
 			limits := resources.Limits[k8sv1.ResourceCPU]
-			limits.Add(*emulatorThreadCpu)
+			limits.Add(*emulatorThreadCPU)
 			resources.Limits[k8sv1.ResourceCPU] = limits
 			if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-				cpuRequest.Add(*emulatorThreadCpu)
+				cpuRequest.Add(*emulatorThreadCPU)
 				resources.Requests[k8sv1.ResourceCPU] = cpuRequest
 			}
 		}
@@ -1961,8 +1945,7 @@ func NewTemplateService(launcherImage string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
-	launcherSubGid int64,
-	cpuArch string) TemplateService {
+	launcherSubGid int64) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
@@ -1977,7 +1960,6 @@ func NewTemplateService(launcherImage string,
 		virtClient:                 virtClient,
 		clusterConfig:              clusterConfig,
 		launcherSubGid:             launcherSubGid,
-		cpuArch:                    cpuArch,
 	}
 	return &svc
 }

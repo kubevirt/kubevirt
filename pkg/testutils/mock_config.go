@@ -38,6 +38,10 @@ func NewFakeClusterConfigWithCPUArch(cfgMap *v1.ConfigMap, CPUArch string) (*vir
 }
 
 func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+	return NewFakeClusterConfigUsingKVWithCPUArch(kv, runtime.GOARCH)
+}
+
+func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	kv.ResourceVersion = rand.String(10)
 	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	crdInformer, _ := NewFakeInformerFor(&extv1.CustomResourceDefinition{})
@@ -47,7 +51,7 @@ func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, 
 
 	AddDataVolumeAPI(crdInformer)
 
-	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, namespace), configMapInformer, crdInformer, kubeVirtInformer
+	return virtconfig.NewClusterConfigWithCPUArch(configMapInformer, crdInformer, kubeVirtInformer, namespace, CPUArch), configMapInformer, crdInformer, kubeVirtInformer
 }
 
 func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {

@@ -462,7 +462,6 @@ func (vca *VirtControllerApp) initCommon() {
 		virtClient,
 		vca.clusterConfig,
 		vca.launcherSubGid,
-		runtime.GOARCH,
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH, vca.clusterConfig)
