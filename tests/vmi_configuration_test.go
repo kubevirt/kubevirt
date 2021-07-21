@@ -1473,6 +1473,24 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 		})
 
+		It("the vmi with pollControl feature should have it enabled on the domain", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmi.Spec.Domain.Features = &v1.Features{
+				KVM: &v1.FeatureKVM{PollControl: &v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
+			}
+
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+
+			Expect(*vmi.Spec.Domain.Features.KVM.PollControl.Enabled).ToNot(BeTrue())
+			domain, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domain.Features.KVM.PollControl.State).To(Equal("on"))
+		})
+
 		Context("with TSC timer", func() {
 			It("should set a TSC fequency and have the CPU flag avaliable in the guest", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
