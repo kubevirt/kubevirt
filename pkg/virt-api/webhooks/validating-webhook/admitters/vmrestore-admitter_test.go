@@ -21,6 +21,7 @@ package admitters
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -318,6 +319,33 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
+			})
+
+			It("should reject when snapshot has failed", func() {
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+					},
+				}
+
+				vm.Spec.Running = &f
+				s := snapshot.DeepCopy()
+				s.Status.Phase = snapshotv1.Failed
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %q has failed and is invalid to use", vmSnapshotName)))
 			})
 
 			It("should reject when snapshot not ready", func() {
