@@ -365,7 +365,7 @@ const (
 	// and some actions are taken to provision the PVCs for the DataVolumes
 	VirtualMachineInstanceProvisioning VirtualMachineInstanceConditionType = "Provisioning"
 
-	// VMIReady means the pod is able to service requests and should be added to the
+	// Ready means the VMI is able to service requests and should be added to the
 	// load balancing pools of all matching services.
 	VirtualMachineInstanceReady VirtualMachineInstanceConditionType = "Ready"
 
@@ -400,8 +400,17 @@ const (
 )
 
 const (
-	// PodTerminatingReason indicates on the PodReady condition on the VMI if the underlying pod is terminating
+	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
 	PodTerminatingReason = "PodTerminating"
+
+	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist
+	PodNotExistsReason = "PodNotExists"
+
+	// PodConditionMissingReason indicates on the Ready condition on the VMI if the underlying pod does not report a Ready condition
+	PodConditionMissingReason = "PodConditionMissing"
+
+	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
+	GuestNotRunningReason = "GuestNotRunning"
 )
 
 // +k8s:openapi-gen=true
@@ -714,6 +723,12 @@ const (
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
+
+	// This annotation represents vmi running nonroot implementation
+	NonRootVMIAnnotation = "kubevirt.io/nonroot"
+
+	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
+	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1348,6 +1363,9 @@ type Handler struct {
 	// If the guest agent is not available, this probe will fail.
 	// +optional
 	Exec *k8sv1.ExecAction `json:"exec,omitempty" protobuf:"bytes,1,opt,name=exec"`
+	// GuestAgentPing contacts the qemu-guest-agent for availability checks.
+	// +optional
+	GuestAgentPing *GuestAgentPing `json:"guestAgentPing,omitempty"`
 	// HTTPGet specifies the http request to perform.
 	// +optional
 	HTTPGet *k8sv1.HTTPGetAction `json:"httpGet,omitempty"`
@@ -1888,6 +1906,12 @@ type MigrationConfiguration struct {
 	DisableTLS                        *bool              `json:"disableTLS,omitempty"`
 }
 
+// DiskVerification holds container disks verification limits
+// +k8s:openapi-gen=true
+type DiskVerification struct {
+	MemoryLimit *resource.Quantity `json:"memoryLimit"`
+}
+
 // DeveloperConfiguration holds developer options
 // +k8s:openapi-gen=true
 type DeveloperConfiguration struct {
@@ -1900,8 +1924,9 @@ type DeveloperConfiguration struct {
 	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
 	// Allow overriding the automatically determined minimum TSC frequency of the cluster
 	// and fixate the minimum to this frequency.
-	MinimumClusterTSCFrequency *int64        `json:"minimumClusterTSCFrequency,omitempty"`
-	LogVerbosity               *LogVerbosity `json:"logVerbosity,omitempty"`
+	MinimumClusterTSCFrequency *int64            `json:"minimumClusterTSCFrequency,omitempty"`
+	DiskVerification           *DiskVerification `json:"diskVerification,omitempty"`
+	LogVerbosity               *LogVerbosity     `json:"logVerbosity,omitempty"`
 }
 
 // LogVerbosity sets log verbosity level of  various components
@@ -1955,4 +1980,9 @@ type NetworkConfiguration struct {
 	NetworkInterface                  string `json:"defaultNetworkInterface,omitempty"`
 	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,omitempty"`
 	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,omitempty"`
+}
+
+// GuestAgentPing configures the guest-agent based ping probe
+// +k8s:openapi-gen=true
+type GuestAgentPing struct {
 }

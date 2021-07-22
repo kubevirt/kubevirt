@@ -29,16 +29,6 @@ func (_m *MockIsolationResult) EXPECT() *_MockIsolationResultRecorder {
 	return _m.recorder
 }
 
-func (_m *MockIsolationResult) Slice() string {
-	ret := _m.ctrl.Call(_m, "Slice")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-func (_mr *_MockIsolationResultRecorder) Slice() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Slice")
-}
-
 func (_m *MockIsolationResult) Pid() int {
 	ret := _m.ctrl.Call(_m, "Pid")
 	ret0, _ := ret[0].(int)

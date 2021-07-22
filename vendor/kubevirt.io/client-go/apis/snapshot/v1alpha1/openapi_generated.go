@@ -297,6 +297,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.CPUFeature":                                            schema_kubevirtio_client_go_api_v1_CPUFeature(ref),
 		"kubevirt.io/client-go/api/v1.CertConfig":                                            schema_kubevirtio_client_go_api_v1_CertConfig(ref),
 		"kubevirt.io/client-go/api/v1.Chassis":                                               schema_kubevirtio_client_go_api_v1_Chassis(ref),
+		"kubevirt.io/client-go/api/v1.ClientPassthroughDevices":                              schema_kubevirtio_client_go_api_v1_ClientPassthroughDevices(ref),
 		"kubevirt.io/client-go/api/v1.Clock":                                                 schema_kubevirtio_client_go_api_v1_Clock(ref),
 		"kubevirt.io/client-go/api/v1.ClockOffset":                                           schema_kubevirtio_client_go_api_v1_ClockOffset(ref),
 		"kubevirt.io/client-go/api/v1.ClockOffsetUTC":                                        schema_kubevirtio_client_go_api_v1_ClockOffsetUTC(ref),
@@ -319,6 +320,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Disk":                                                  schema_kubevirtio_client_go_api_v1_Disk(ref),
 		"kubevirt.io/client-go/api/v1.DiskDevice":                                            schema_kubevirtio_client_go_api_v1_DiskDevice(ref),
 		"kubevirt.io/client-go/api/v1.DiskTarget":                                            schema_kubevirtio_client_go_api_v1_DiskTarget(ref),
+		"kubevirt.io/client-go/api/v1.DiskVerification":                                      schema_kubevirtio_client_go_api_v1_DiskVerification(ref),
 		"kubevirt.io/client-go/api/v1.DomainSpec":                                            schema_kubevirtio_client_go_api_v1_DomainSpec(ref),
 		"kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource":                               schema_kubevirtio_client_go_api_v1_DownwardAPIVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource":                           schema_kubevirtio_client_go_api_v1_DownwardMetricsVolumeSource(ref),
@@ -340,6 +342,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.GPU":                                                   schema_kubevirtio_client_go_api_v1_GPU(ref),
 		"kubevirt.io/client-go/api/v1.GenerationStatus":                                      schema_kubevirtio_client_go_api_v1_GenerationStatus(ref),
 		"kubevirt.io/client-go/api/v1.GuestAgentCommandInfo":                                 schema_kubevirtio_client_go_api_v1_GuestAgentCommandInfo(ref),
+		"kubevirt.io/client-go/api/v1.GuestAgentPing":                                        schema_kubevirtio_client_go_api_v1_GuestAgentPing(ref),
 		"kubevirt.io/client-go/api/v1.HPETTimer":                                             schema_kubevirtio_client_go_api_v1_HPETTimer(ref),
 		"kubevirt.io/client-go/api/v1.HostDevice":                                            schema_kubevirtio_client_go_api_v1_HostDevice(ref),
 		"kubevirt.io/client-go/api/v1.HostDisk":                                              schema_kubevirtio_client_go_api_v1_HostDisk(ref),
@@ -14127,6 +14130,17 @@ func schema_kubevirtio_client_go_api_v1_Chassis(ref common.ReferenceCallback) co
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_ClientPassthroughDevices(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no imediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_Clock(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -14756,6 +14770,11 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 							Format:      "int64",
 						},
 					},
+					"diskVerification": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.DiskVerification"),
+						},
+					},
 					"logVerbosity": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/client-go/api/v1.LogVerbosity"),
@@ -14765,7 +14784,7 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.LogVerbosity"},
+			"kubevirt.io/client-go/api/v1.DiskVerification", "kubevirt.io/client-go/api/v1.LogVerbosity"},
 	}
 }
 
@@ -14936,11 +14955,17 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 							},
 						},
 					},
+					"clientPassthrough": {
+						SchemaProps: spec.SchemaProps{
+							Description: "To configure and access client devices such as redirecting USB",
+							Ref:         ref("kubevirt.io/client-go/api/v1.ClientPassthroughDevices"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/client-go/api/v1.Filesystem", "kubevirt.io/client-go/api/v1.GPU", "kubevirt.io/client-go/api/v1.HostDevice", "kubevirt.io/client-go/api/v1.Input", "kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/client-go/api/v1.Watchdog"},
+			"kubevirt.io/client-go/api/v1.ClientPassthroughDevices", "kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/client-go/api/v1.Filesystem", "kubevirt.io/client-go/api/v1.GPU", "kubevirt.io/client-go/api/v1.HostDevice", "kubevirt.io/client-go/api/v1.Input", "kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/client-go/api/v1.Watchdog"},
 	}
 }
 
@@ -15107,6 +15132,27 @@ func schema_kubevirtio_client_go_api_v1_DiskTarget(ref common.ReferenceCallback)
 				},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_DiskVerification(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DiskVerification holds container disks verification limits",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"memoryLimit": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+				Required: []string{"memoryLimit"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -15822,6 +15868,17 @@ func schema_kubevirtio_client_go_api_v1_GuestAgentCommandInfo(ref common.Referen
 					},
 				},
 				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_GuestAgentPing(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GuestAgentPing configures the guest-agent based ping probe",
+				Type:        []string{"object"},
 			},
 		},
 	}
@@ -17574,6 +17631,12 @@ func schema_kubevirtio_client_go_api_v1_Probe(ref common.ReferenceCallback) comm
 							Ref:         ref("k8s.io/api/core/v1.ExecAction"),
 						},
 					},
+					"guestAgentPing": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.GuestAgentPing"),
+						},
+					},
 					"httpGet": {
 						SchemaProps: spec.SchemaProps{
 							Description: "HTTPGet specifies the http request to perform.",
@@ -17625,7 +17688,7 @@ func schema_kubevirtio_client_go_api_v1_Probe(ref common.ReferenceCallback) comm
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ExecAction", "k8s.io/api/core/v1.HTTPGetAction", "k8s.io/api/core/v1.TCPSocketAction"},
+			"k8s.io/api/core/v1.ExecAction", "k8s.io/api/core/v1.HTTPGetAction", "k8s.io/api/core/v1.TCPSocketAction", "kubevirt.io/client-go/api/v1.GuestAgentPing"},
 	}
 }
 
