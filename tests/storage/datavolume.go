@@ -980,7 +980,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			dv.Annotations = map[string]string{"user.custom.annotation/storage.thick-provisioned": "false"}
 			return dv
 		}
-		table.DescribeTable("[rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller, withOCS bool) {
+		table.DescribeTable("[QUARANTINE][rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller, withOCS bool) {
 			dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.FedoraHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("5Gi")
 			dataVolume = dvChange(dataVolume)
@@ -1074,7 +1074,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			Expect(err).To(BeNil())
 		},
 			table.Entry("[test_id:5894]by default, fstrim will make the image smaller", noop, true, false),
-			table.Entry("[QUARANTINE][test_id:5898]with preallocation true, fstrim has no effect", addPreallocationTrue, false, false),
+			table.Entry("[test_id:5898]with preallocation true, fstrim has no effect", addPreallocationTrue, false, false),
 			table.Entry("[test_id:5897]with preallocation false, fstrim will make the image smaller", addPreallocationFalse, true, false),
 			table.Entry("[test_id:5899]with thick provision true, fstrim has no effect", addThickProvisionedTrueAnnotation, false, false),
 			table.Entry("[test_id:5896]with thick provision false, fstrim will make the image smaller", addThickProvisionedFalseAnnotation, true, false),
