@@ -56,7 +56,7 @@ func NewConfigSSHCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config-ssh",
 		Short: "Write VM(I)s into ~/.ssh/config.",
-		Long: `Write VM(I)s into .ssh/config to get convenient aliases in ~/.ssh/config for quickly accessingVMs with ssh.
+		Long: `Write VM(I)s into .ssh/config to get convenient aliases in ~/.ssh/config for quickly accessing VMs with ssh.
 On most system this will give auto-completion for ssh invocations.
 `,
 		Example: examples(),
@@ -225,9 +225,8 @@ func loadSSHConfig(path string) (*ssh_config.Config, os.FileMode, error) {
 		return &ssh_config.Config{}, fileMode, nil
 	} else if err != nil {
 		return nil, fileMode, fmt.Errorf("failed to determine if %s exists: %v", path, err)
-	} else {
-		fileMode = fileInfo.Mode()
 	}
+	fileMode = fileInfo.Mode()
 
 	config, err := os.Open(path)
 	if err != nil {
@@ -236,7 +235,7 @@ func loadSSHConfig(path string) (*ssh_config.Config, os.FileMode, error) {
 	defer config.Close()
 	cfg, err := ssh_config.Decode(config)
 	if err != nil {
-		return nil, fileMode, fmt.Errorf("failed to decote %s: %v", path, err)
+		return nil, fileMode, fmt.Errorf("failed to decode %s: %v", path, err)
 	}
 	return cfg, fileMode, nil
 }
@@ -245,13 +244,19 @@ func examples() string {
 	return `  # Add ssh entries for all VMs and VMIs existing in the current namespace and context:
   {{ProgramName}} config-ssh
 
+  # Add ssh entries for all VMs and VMIs from all namespaces in the current context:
+  {{ProgramName}} config-ssh --all-namespaces
+
+  # Add ssh entries for all VMs and VMIs from all namespaces in a non-default context:
+  {{ProgramName}} config-ssh --all-namespaces --context=othercontext
+
   # VMIs can be accessed via vmi/NAME.NAMESPACE.CONTEXT
   ssh vmi/<name>.<namespace>.<context>
 
   # VMs can be accessed via vm/NAME.NAMESPACE.CONTEXT
   ssh vm/<name>.<namespace>.<context>
 
-  # Remove all kubevirt related entries
+  # Remove all kubevirt related entries from ~/.ssh/config
   {{ProgramName}} config-ssh --remove
 `
 }
