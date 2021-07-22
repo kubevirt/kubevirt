@@ -64,6 +64,8 @@ type program struct {
 }
 
 func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
+	//time.Sleep(20 * time.Second)
+	log.Log.Info("hotplug setDevices SETV2 SLEEPINGGG")
 	const containerRuntimeLabel = "container_runtime_t"
 	//const containerRuntimeLabel = "spc_t"
 	marshalledRules, err := json.Marshal(deviceRules)

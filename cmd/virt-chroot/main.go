@@ -269,6 +269,7 @@ func main() {
 		createTapCmd,
 		createMDEVCmd,
 		removeMDEVCmd,
+		cgroupsV2DeviceCmd,
 	)
 
 	if err := rootCmd.Execute(); err != nil {

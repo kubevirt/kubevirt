@@ -310,13 +310,13 @@ var _ = FDescribe("Hotplug", func() {
 
 			foundVolume := 0
 			for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
-				//log.Log.Infof("Volume Status, name: %s, target [%s], phase:%s, reason: %s", volumeStatus.Name, volumeStatus.Target, volumeStatus.Phase, volumeStatus.Reason)
+				log.Log.Infof("Volume Status, name: %s, target [%s], phase:%s, reason: %s", volumeStatus.Name, volumeStatus.Target, volumeStatus.Phase, volumeStatus.Reason)
 				if _, ok := nameMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil {
 					//if volumeStatus.Name != lastName || volumeStatus.Phase != lastPhase {
 					//	lastName = volumeStatus.Name
 					//	lastPhase = volumeStatus.Phase
 					//}
-					//fmt.Printf("\n================= found volume name: \"%v\". phase: %s", volumeStatus.Name, volumeStatus.Phase)
+					fmt.Printf("\n================= found volume name: \"%v\". phase: %s", volumeStatus.Name, volumeStatus.Phase)
 					if volumeStatus.Phase == phase {
 						foundVolume++
 					}
@@ -325,11 +325,11 @@ var _ = FDescribe("Hotplug", func() {
 
 			if foundVolume != len(volumeNames) {
 				err = fmt.Errorf("\nwaiting on volume statuses for hotplug disks to be ready. found=%d, required=%d\n", foundVolume, len(volumeNames))
-				//fmt.Printf("\n============== ERR: %v\n", err)
+				fmt.Printf("\n============== ERR: %v\n", err)
 				return err
 			}
 
-			//fmt.Printf("\n ======== VOLUME READY ======= \n")
+			fmt.Printf("\n ======== VOLUME READY ======= \n")
 			return nil
 		}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
@@ -674,7 +674,7 @@ var _ = FDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
-				//fmt.Printf("\n\n\n VOLUME READYYYYY!! woohoooo :D :D :D \n\n\n")
+				fmt.Printf("\n\n\n VOLUME READYYYYY!! woohoooo :D :D :D \n\n\n")
 
 				//fmt.Printf("\n\nSLEEPING.....\n\n")
 				//time.Sleep(3 * time.Hour)
