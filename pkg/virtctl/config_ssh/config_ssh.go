@@ -49,6 +49,7 @@ var (
 	dryRun        bool
 	removeEntries bool
 	sshConfigFile string
+	allNamespaces bool
 )
 
 func NewConfigSSHCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -68,6 +69,7 @@ On most system this will give auto-completion for ssh invocations.
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().BoolVar(&allNamespaces, "all-namespaces", false, "If present, selects the requested object(s) across all namespaces. Namespace in current context is ignored even if specified with --namespace.")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show ssh config changes instead of writing them to the file.")
 	cmd.Flags().BoolVar(&removeEntries, "remove", false, "Remove all host entries from the ssh config file added by KubeVirt.")
 	cmd.Flags().StringVar(&sshConfigFile, "ssh-config-file", "", "Specifies an alternative per-user SSH configuration file. By default, this is ~/.ssh/config.")
@@ -95,12 +97,16 @@ func (vc *VirtCommand) Run(args []string) error {
 		return err
 	}
 
-	cfg.Hosts = removeHostEntries(cfg.Hosts)
-
-	if !removeEntries {
+	if removeEntries {
+		cfg.Hosts = removeHostEntries(cfg.Hosts)
+	} else if !removeEntries {
 		namespace, _, err := vc.clientConfig.Namespace()
 		if err != nil {
 			return err
+		}
+
+		if allNamespaces {
+			namespace = ""
 		}
 
 		virtClient, err := kubecli.GetKubevirtClientFromClientConfig(vc.clientConfig)
@@ -112,6 +118,8 @@ func (vc *VirtCommand) Run(args []string) error {
 			return fmt.Errorf("failed to determine current context: %v", err)
 		}
 		currentContext := rawConfig.CurrentContext
+
+		cfg.Hosts = removeHostEntriesForRegenerate(cfg.Hosts, namespace, currentContext)
 
 		for _, gvr := range []schema.GroupVersionResource{k6sv1.VirtualMachineInstanceGroupVersionResource, k6sv1.VirtualMachineGroupVersionResource} {
 			objects, err := virtClient.DynamicClient().Resource(gvr).Namespace(namespace).List(context.Background(), v1.ListOptions{})
@@ -142,6 +150,34 @@ func removeHostEntries(hosts []*ssh_config.Host) (cleanedList []*ssh_config.Host
 		}
 	}
 	return cleanedList
+}
+
+func removeHostEntriesForRegenerate(hosts []*ssh_config.Host, namespace string, context string) (cleanedList []*ssh_config.Host) {
+	for i, host := range hosts {
+		if toClean := matchByNamespaceAndContext(host, namespace, context); !toClean {
+			cleanedList = append(cleanedList, hosts[i])
+		}
+	}
+	return cleanedList
+}
+
+func matchByNamespaceAndContext(host *ssh_config.Host, namespace string, context string) bool {
+	if host.EOLComment != KubeVirtEOLComment {
+		return false
+	}
+	split := strings.SplitN(host.Patterns[0].String(), ".", 3)
+	context = strings.ReplaceAll(context, "@", "_")
+	if len(split) != 3 {
+		return false
+	}
+	if split[2] != context {
+		return false
+	}
+
+	if namespace != "" && split[1] != namespace {
+		return false
+	}
+	return true
 }
 
 func generateHostEntries(programName string, currentContext string, objects []unstructured.Unstructured) (hosts []*ssh_config.Host, err error) {

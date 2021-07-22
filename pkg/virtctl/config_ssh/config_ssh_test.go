@@ -5,7 +5,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/kevinburke/ssh_config"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -65,7 +67,66 @@ var _ = Describe("config-ssh", func() {
 			Expect(host.EOLComment).ToNot(Equal(KubeVirtEOLComment))
 		}
 	})
+
+	Context("with existing entries when regenerating the config", func() {
+
+		table.DescribeTable("should remove entries", func(namespace string, context string, targetedHosts []*ssh_config.Host, hostsToKeep []*ssh_config.Host) {
+
+			hosts := []*ssh_config.Host{}
+			hosts = append(hosts, targetedHosts...)
+			hosts = append(hosts, hostsToKeep...)
+			hosts = removeHostEntriesForRegenerate(hosts, namespace, context)
+			Expect(hosts).To(ConsistOf(hostsToKeep))
+		},
+			table.Entry("matching the current context",
+				"mynamespace",
+				"mycontext",
+				hostEntriesForContext("mycontext", []unstructured.Unstructured{
+					*vmi("myvmi", "mynamespace"),
+					*vm("myvm", "mynamespace"),
+				}),
+				hostEntriesForContext("mycontext1", []unstructured.Unstructured{
+					*vmi("myvmi", "mynamespace"),
+					*vm("myvm", "mynamespace"),
+				}),
+			),
+			table.Entry("matching namespaces inside the current context",
+				"mynamespace",
+				"mycontext",
+				hostEntriesForContext("mycontext", []unstructured.Unstructured{
+					*vmi("myvmi", "mynamespace"),
+					*vm("myvm", "mynamespace"),
+				}),
+				hostEntriesForContext("mycontext", []unstructured.Unstructured{
+					*vmi("myvmi", "mynamespace1"),
+					*vm("myvm", "mynamespace2"),
+				}),
+			),
+			table.Entry("matching all VMs from a context if namespace is empty",
+				"",
+				"mycontext",
+				hostEntriesForContext("mycontext", []unstructured.Unstructured{
+					*vmi("myvmi", "mynamespace"),
+					*vm("myvm", "mynamespace"),
+					*vmi("myvmi", "mynamespace1"),
+					*vm("myvm", "mynamespace2"),
+				}),
+				hostEntriesForContext("mycontext1", []unstructured.Unstructured{
+					*vmi("myvmi", "mynamespace"),
+					*vm("myvm", "mynamespace"),
+				}),
+			),
+		)
+	})
 })
+
+func hostEntriesForContext(context string, objects []unstructured.Unstructured) []*ssh_config.Host {
+	hosts, err := generateHostEntries("virtctl", context, objects)
+	if err != nil {
+		panic(err)
+	}
+	return hosts
+}
 
 func vmi(name, namespace string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
