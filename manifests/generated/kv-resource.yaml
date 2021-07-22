@@ -295,6 +295,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  virtualMachineInstancesPerNode:
+                    type: integer
                 type: object
               customizeComponents:
                 properties:
@@ -2192,6 +2194,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  virtualMachineInstancesPerNode:
+                    type: integer
                 type: object
               customizeComponents:
                 properties:

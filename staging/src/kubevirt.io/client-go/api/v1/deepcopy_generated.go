@@ -2015,6 +2015,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 			(*out)[key] = val
 		}
 	}
+	if in.VirtualMachineInstancesPerNode != nil {
+		in, out := &in.VirtualMachineInstancesPerNode, &out.VirtualMachineInstancesPerNode
+		*out = new(int)
+		**out = **in
+	}
 	return
 }
 
