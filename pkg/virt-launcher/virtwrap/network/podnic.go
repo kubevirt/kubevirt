@@ -34,6 +34,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const defaultState = cache.PodIfaceNetworkPreparationPending
+
 type podNIC struct {
 	vmi               *v1.VirtualMachineInstance
 	podInterfaceName  string
@@ -168,13 +170,15 @@ func (l *podNIC) PlugPhase1() error {
 		return nil
 	}
 
-	cachedDomainIface, err := l.cachedDomainInterface()
+	state, err := l.state()
 	if err != nil {
 		return err
 	}
 
-	doesExist := cachedDomainIface != nil
-	if doesExist {
+	switch state {
+	case cache.PodIfaceNetworkPreparationStarted:
+		return errors.CreateCriticalNetworkError(fmt.Errorf("pod interface %s network preparation cannot be resumed", l.podInterfaceName))
+	case cache.PodIfaceNetworkPreparationFinished:
 		return nil
 	}
 
@@ -194,12 +198,22 @@ func (l *podNIC) PlugPhase1() error {
 	if dhcpConfig != nil {
 		log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
 		if err := l.cacheFactory.CacheDHCPConfigForPid(getPIDString(l.launcherPID)).Write(l.podInterfaceName, dhcpConfig); err != nil {
-			log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
-			return errors.CreateCriticalNetworkError(err)
+			return fmt.Errorf("failed to save DHCP configuration: %w", err)
 		}
 	}
 
-	domainIface := l.infraConfigurator.GenerateDomainIfaceSpec()
+	domainIface := l.infraConfigurator.GenerateNonRecoverableDomainIfaceSpec()
+	if domainIface != nil {
+		log.Log.V(4).Infof("The generated libvirt domain interface: %+v", *domainIface)
+		if err := l.storeCachedDomainIface(*domainIface); err != nil {
+			return fmt.Errorf("failed to save libvirt domain interface: %w", err)
+		}
+	}
+
+	if err := l.setState(cache.PodIfaceNetworkPreparationStarted); err != nil {
+		return fmt.Errorf("failed setting state to PodIfaceNetworkPreparationStarted: %w", err)
+	}
+
 	// preparePodNetworkInterface must be called *after* the generate
 	// methods since it mutates the pod interface from which those
 	// generator methods get their info from.
@@ -208,11 +222,8 @@ func (l *podNIC) PlugPhase1() error {
 		return errors.CreateCriticalNetworkError(err)
 	}
 
-	// caching the domain interface *must* be the last thing done in phase
-	// 1, since retrieving it is the criteria to configure the pod
-	// networking infrastructure.
-	if err := l.storeCachedDomainIface(domainIface); err != nil {
-		log.Log.Reason(err).Error("failed to save interface configuration")
+	if err := l.setState(cache.PodIfaceNetworkPreparationFinished); err != nil {
+		log.Log.Reason(err).Error("failed setting state to PodIfaceNetworkPreparationFinished")
 		return errors.CreateCriticalNetworkError(err)
 	}
 
@@ -308,6 +319,38 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 
 func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.vmiSpecIface.Name, &domainIface)
+}
+
+func (l *podNIC) setState(state cache.PodIfaceState) error {
+	podIfaceCaches := l.cacheFactory.CacheForVMI(l.vmi)
+	podIfaceCache, err := podIfaceCaches.Read(l.vmiSpecIface.Name)
+	if err != nil && !os.IsNotExist(err) {
+		log.Log.Reason(err).Errorf("failed to read pod interface network state from cache, %s", err.Error())
+		return err
+	}
+	if os.IsNotExist(err) {
+		podIfaceCache = &cache.PodCacheInterface{}
+	}
+	podIfaceCache.State = state
+	err = podIfaceCaches.Write(l.vmiSpecIface.Name, podIfaceCache)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to write pod interface network state to cache, %s", err.Error())
+		return err
+	}
+	return nil
+}
+
+func (l *podNIC) state() (cache.PodIfaceState, error) {
+	podIfaceCaches := l.cacheFactory.CacheForVMI(l.vmi)
+	podIfaceCache, err := podIfaceCaches.Read(l.vmiSpecIface.Name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return defaultState, nil
+		}
+		log.Log.Reason(err).Errorf("failed to read pod interface network state from cache %s", err.Error())
+		return defaultState, err
+	}
+	return podIfaceCache.State, nil
 }
 
 func generateInPodBridgeInterfaceName(podInterfaceName string) string {

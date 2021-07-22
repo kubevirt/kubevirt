@@ -162,8 +162,8 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 	return nil
 }
 
-func (b *BridgePodNetworkConfigurator) GenerateDomainIfaceSpec() api.Interface {
-	return api.Interface{
+func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDomainIfaceSpec() *api.Interface {
+	return &api.Interface{
 		MAC: &api.MAC{MAC: b.vmMac.String()},
 	}
 }
