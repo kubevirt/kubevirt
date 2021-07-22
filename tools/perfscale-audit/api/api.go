@@ -51,6 +51,10 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	}
 }
 
+type InputThreshold struct {
+	Value float64 `json:"value"`
+}
+
 type InputConfig struct {
 
 	// StartTime when set, represents the beginning of the metric time range
@@ -69,18 +73,34 @@ type InputConfig struct {
 	PrometheusPassword    string `json:"prometheusPassword"`
 	PrometheusBearerToken string `json:"prometheusBearerToken"`
 	PrometheusVerifyTLS   bool   `json:"prometheusVerifyTLS"`
+
+	ThresholdExpectations map[ResultType]InputThreshold `json:"thresholdExpectations,omitempty"`
 }
 
 func (i *InputConfig) GetDuration() time.Duration {
 	return time.Duration(*i.Duration)
-
 }
 
-type ResultPhaseTransitionPercentiles struct {
-	SecondsFromCreationToRunningPercentiles map[int]float64 `json:"secondsFromCreationToRunningPercentiles"`
+type ResultType string
+
+const (
+	ResultTypeVMICreationToRunningP99 ResultType = "vmiCreationToRunningSecondsP99"
+	ResultTypeVMICreationToRunningP95 ResultType = "vmiCreationToRunningSecondsP95"
+	ResultTypeVMICreationToRunningP50 ResultType = "vmiCreationToRunningSecondsP50"
+)
+
+type ThresholdResult struct {
+	ThresholdValue    float64 `json:"thresholdValue"`
+	ThresholdExceeded bool    `json:"thresholdExceeded"`
 }
+
+type ResultValue struct {
+	Value           float64          `json:"value"`
+	ThresholdResult *ThresholdResult `json:"thresholdResult,omitempty"`
+}
+
 type Result struct {
-	PhaseTransitionPercentiles ResultPhaseTransitionPercentiles `json:"phaseTransitionPercentiles"`
+	Values map[ResultType]ResultValue
 }
 
 func (r *Result) toString() (string, error) {

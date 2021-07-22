@@ -92,7 +92,7 @@ func NewMetricClient(cfg *audit_api.InputConfig) (*MetricClient, error) {
 }
 
 func (m *MetricClient) query(query string) (model.Value, error) {
-	log.Printf("Makeing query [%s]", query)
+	log.Printf("Making query [%s]", query)
 	val, _, err := m.client.Query(context.TODO(), query, *m.cfg.EndTime)
 	if err != nil {
 		return val, err
@@ -152,18 +152,80 @@ func (m *MetricClient) getCreationToRunningTimePercentile(percentile int) (float
 	return results[0].value, nil
 }
 
-func (m *MetricClient) GenerateResults() (*audit_api.Result, error) {
-	var err error
-	r := &audit_api.Result{}
+func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
+	r := &audit_api.Result{
+		Values: make(map[audit_api.ResultType]audit_api.ResultValue),
+	}
 
-	percentiles := []int{99, 95, 50}
-	r.PhaseTransitionPercentiles.SecondsFromCreationToRunningPercentiles = make(map[int]float64)
+	type percentile struct {
+		p int
+		t audit_api.ResultType
+	}
+	percentiles := []percentile{
+		{
+			p: 99,
+			t: audit_api.ResultTypeVMICreationToRunningP99,
+		},
+		{
+			p: 95,
+			t: audit_api.ResultTypeVMICreationToRunningP95,
+		},
+		{
+			p: 50,
+			t: audit_api.ResultTypeVMICreationToRunningP50,
+		},
+	}
 
 	for _, percentile := range percentiles {
-		r.PhaseTransitionPercentiles.SecondsFromCreationToRunningPercentiles[percentile], err = m.getCreationToRunningTimePercentile(percentile)
+		val, err := m.getCreationToRunningTimePercentile(percentile.p)
 		if err != nil {
 			return nil, err
 		}
+		r.Values[percentile.t] = audit_api.ResultValue{
+			Value: val,
+		}
+	}
+
+	return r, nil
+}
+
+func (m *MetricClient) calculateThresholds(r *audit_api.Result) error {
+
+	inputCfg := m.cfg
+
+	if len(inputCfg.ThresholdExpectations) == 0 {
+		return nil
+	}
+
+	for key, v := range inputCfg.ThresholdExpectations {
+		result, ok := r.Values[key]
+		if !ok {
+			return fmt.Errorf("Unknown threshold type [%s]", key)
+		}
+
+		thresholdResult := audit_api.ThresholdResult{
+			ThresholdValue:    v.Value,
+			ThresholdExceeded: false,
+		}
+		if result.Value > v.Value {
+			thresholdResult.ThresholdExceeded = true
+		}
+		result.ThresholdResult = &thresholdResult
+		r.Values[key] = result
+	}
+
+	return nil
+}
+
+func (m *MetricClient) GenerateResults() (*audit_api.Result, error) {
+	r, err := m.gatherMetrics()
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.calculateThresholds(r)
+	if err != nil {
+		return nil, err
 	}
 
 	return r, nil
