@@ -98,7 +98,7 @@ const (
 	podIpAddress = ""
 
 	// This value is derived from default MaxPods in Kubelet Config
-	maxDevices = 110
+	maxDevices = 1000
 
 	maxRequestsInFlight = 3
 	// Default port that virt-handler listens to console requests
