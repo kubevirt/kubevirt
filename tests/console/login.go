@@ -108,7 +108,24 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer expecter.Close()
 
+	err = expecter.Send("\n")
+	if err != nil {
+		return err
+	}
+
+	// Do not login, if we already logged in
 	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: PromptExpression},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: RetValue("0")},
+	})
+	_, err = expecter.ExpectBatch(b, 30*time.Second)
+	if err == nil {
+		return nil
+	}
+
+	b = append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
 		&expect.BCas{C: []expect.Caser{

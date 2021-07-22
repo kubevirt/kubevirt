@@ -90,6 +90,8 @@ type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
 	PauseVMI(*v1.VirtualMachineInstance) error
 	UnpauseVMI(*v1.VirtualMachineInstance) error
+	FreezeVMI(*v1.VirtualMachineInstance) error
+	UnfreezeVMI(*v1.VirtualMachineInstance) error
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
@@ -1111,6 +1113,42 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
 	}
 
+	return nil
+}
+
+func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance) error {
+	domainName := api.VMINamespaceKeyFunc(vmi)
+
+	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, domainName)
+	if err != nil {
+		log.Log.Errorf("Failed to get status before freeze vmi, %s", err.Error())
+		return err
+	}
+	fsfreezeStatus, err := agentpoller.ParseFSFreezeStatus(cmdResult)
+	if err != nil {
+		log.Log.Errorf("Failed to parse status before freeze vmi, %s", err.Error())
+		return err
+	}
+	// idempotent - prevent failuer in case fs is already frozen
+	if fsfreezeStatus.Status == api.FSFrozen {
+		return nil
+	}
+	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, domainName)
+	if err != nil {
+		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
+		return err
+	}
+	return nil
+}
+
+func (l *LibvirtDomainManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error {
+	domainName := api.VMINamespaceKeyFunc(vmi)
+	// fs thaw is idempotent by itself
+	_, err := l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, domainName)
+	if err != nil {
+		log.Log.Errorf("Failed to unfreeze vmi, %s", err.Error())
+		return err
+	}
 	return nil
 }
 
