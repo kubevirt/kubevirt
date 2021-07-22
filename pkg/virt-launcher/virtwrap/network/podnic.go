@@ -31,6 +31,7 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
+	"kubevirt.io/kubevirt/pkg/network/nispor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -162,6 +163,13 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 }
 
 func (l *podNIC) PlugPhase1() error {
+
+	netState, err := nispor.RetrieveNetStateJSON()
+	if err != nil {
+		return err
+	}
+
+	log.Log.Infof("net state: %s", netState)
 
 	// There is nothing to plug for SR-IOV devices
 	if l.vmiSpecIface.SRIOV != nil {

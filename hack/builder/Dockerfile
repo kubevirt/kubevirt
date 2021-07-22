@@ -1,5 +1,5 @@
 ARG ARCH
-FROM ${ARCH}/fedora:32
+FROM ${ARCH}/fedora:33
 
 COPY qemu-aarch64-static /usr/bin/qemu-aarch64-static
 

@@ -34,12 +34,8 @@ go_library(
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/watchdog:go_default_library",
-        "//staging/src/github.com/golang/glog:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
+        "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
@@ -50,6 +46,10 @@ go_library(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/kubevirt.io/client-go/util:go_default_library",
     ],
 )
 
@@ -147,6 +147,16 @@ container_image(
     }),
 )
 
+pkg_tar(
+    name = "usr-bin-tar",
+    srcs = [
+        ":virt-handler",
+        "//cmd/container-disk-v2alpha:container-disk",
+        "//cmd/virt-chroot",
+    ],
+    package_dir = "/usr/bin/",
+)
+
 container_image(
     name = "virt-handler-image",
     architecture = select({
@@ -154,12 +164,10 @@ container_image(
         "//conditions:default": "amd64",
     }),
     base = ":version-container",
-    directory = "/usr/bin/",
     entrypoint = ["/usr/bin/virt-handler"],
-    files = [
-        ":virt-handler",
-        "//cmd/container-disk-v2alpha:container-disk",
-        "//cmd/virt-chroot",
+    tars = [
+        ":usr-bin-tar",
+        "@nispor//:libpkg",
     ],
     visibility = ["//visibility:public"],
 )
