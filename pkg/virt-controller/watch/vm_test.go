@@ -1632,6 +1632,27 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 			})
+
+			It("should set a FailedUnschedulable status when VMI has a PodScheduled=False condition with Unschedulable reason", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vmi.Status.Phase = virtv1.Scheduling
+				vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
+					Status: k8sv1.ConditionFalse,
+					Reason: k8sv1.PodReasonUnschedulable,
+				})
+
+				addVirtualMachine(vm)
+				vmiFeeder.Add(vmi)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					objVM := obj.(*v1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusUnschedulable))
+				})
+
+				controller.Execute()
+			})
+
 		})
 	})
 })
