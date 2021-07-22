@@ -329,14 +329,11 @@ func GetKubevirtSubresourceClient() (KubevirtClient, error) {
 	return GetKubevirtSubresourceClientFromFlags(master, kubeconfig)
 }
 
+// Deprecated: Use GetKubevirtClientConfig instead
 func GetConfig() (*restclient.Config, error) {
 	return clientcmd.BuildConfigFromFlags(master, kubeconfig)
 }
 
 func GetKubevirtClientConfig() (*rest.Config, error) {
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
+	return GetConfig()
 }

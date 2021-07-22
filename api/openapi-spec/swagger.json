@@ -10974,6 +10974,12 @@
     "description": "KubeVirtConfiguration holds all kubevirt configurations",
     "type": "object",
     "properties": {
+     "apiConfiguration": {
+      "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
+     },
+     "controllerConfiguration": {
+      "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
+     },
      "cpuModel": {
       "type": "string"
      },
@@ -10991,6 +10997,9 @@
       "items": {
        "type": "string"
       }
+     },
+     "handlerConfiguration": {
+      "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
      },
      "imagePullPolicy": {
       "type": "string"
@@ -11042,6 +11051,9 @@
      "virtualMachineInstancesPerNode": {
       "type": "integer",
       "format": "int32"
+     },
+     "webhookConfiguration": {
+      "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
      }
     }
    },
@@ -11648,6 +11660,16 @@
    "v1.QemuGuestAgentUserPasswordAccessCredentialPropagation": {
     "type": "object"
    },
+   "v1.RESTClientConfiguration": {
+    "description": "RESTClientConfiguration allows configuring certain aspects of the k8s rest client.",
+    "type": "object",
+    "properties": {
+     "rateLimiter": {
+      "description": "RateLimiter allows selecting and configuring different rate limiters for the k8s client.",
+      "$ref": "#/definitions/v1.RateLimiter"
+     }
+    }
+   },
    "v1.RTCTimer": {
     "type": "object",
     "properties": {
@@ -11662,6 +11684,24 @@
      "track": {
       "description": "Track the guest or the wall clock.",
       "type": "string"
+     }
+    }
+   },
+   "v1.RateLimiter": {
+    "type": "object",
+    "properties": {
+     "tokenBucketRateLimiter": {
+      "$ref": "#/definitions/v1.TokenBucketRateLimiter"
+     }
+    }
+   },
+   "v1.ReloadableComponentConfiguration": {
+    "description": "ReloadableComponentConfiguration holds all generic k8s configuration options which can be reloaded by components without requiring a restart.",
+    "type": "object",
+    "properties": {
+     "restClient": {
+      "description": "RestClient can be used to tune certain aspects of the k8s client in use.",
+      "$ref": "#/definitions/v1.RESTClientConfiguration"
      }
     }
    },
@@ -11875,6 +11915,25 @@
      "rtc": {
       "description": "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
       "$ref": "#/definitions/v1.RTCTimer"
+     }
+    }
+   },
+   "v1.TokenBucketRateLimiter": {
+    "type": "object",
+    "required": [
+     "qps",
+     "burst"
+    ],
+    "properties": {
+     "burst": {
+      "description": "Maximum burst for throttle. If it's zero, the component default will be used",
+      "type": "integer",
+      "format": "int32"
+     },
+     "qps": {
+      "description": "QPS indicates the maximum QPS to the apiserver from this client. If it's zero, the component default will be used",
+      "type": "number",
+      "format": "float"
      }
     }
    },

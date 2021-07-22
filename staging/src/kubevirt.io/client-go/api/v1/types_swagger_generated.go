@@ -584,6 +584,34 @@ func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (TokenBucketRateLimiter) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "+k8s:openapi-gen=true",
+		"qps":   "QPS indicates the maximum QPS to the apiserver from this client.\nIf it's zero, the component default will be used",
+		"burst": "Maximum burst for throttle.\nIf it's zero, the component default will be used",
+	}
+}
+
+func (RateLimiter) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (RESTClientConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "RESTClientConfiguration allows configuring certain aspects of the k8s rest client.\n+k8s:openapi-gen=true",
+		"rateLimiter": "RateLimiter allows selecting and configuring different rate limiters for the k8s client.",
+	}
+}
+
+func (ReloadableComponentConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "ReloadableComponentConfiguration holds all generic k8s configuration options which can\nbe reloaded by components without requiring a restart.\n+k8s:openapi-gen=true",
+		"restClient": "RestClient can be used to tune certain aspects of the k8s client in use.",
+	}
+}
+
 func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                            "KubeVirtConfiguration holds all kubevirt configurations\n+k8s:openapi-gen=true",
