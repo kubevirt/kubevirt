@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "dhcp.go",
-        "ethtool.go",
         "socket_listener.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp",

@@ -40,6 +40,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
@@ -431,7 +432,7 @@ func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName s
 }
 
 func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
-	if err := dhcp.EthtoolTXOff(ifaceName); err != nil {
+	if err := link.EthtoolTXOff(ifaceName); err != nil {
 		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", ifaceName)
 		return err
 	}

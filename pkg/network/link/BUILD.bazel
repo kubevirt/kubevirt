@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "address.go",
+        "ethtool.go",
         "names.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/link",

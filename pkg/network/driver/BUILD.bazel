@@ -10,6 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/network/cache:go_default_library",
+        "//pkg/network/link:go_default_library",
         "//pkg/util/sysctl:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
