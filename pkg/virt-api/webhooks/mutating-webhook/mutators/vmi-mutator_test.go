@@ -935,20 +935,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(meta.Annotations).To(HaveKeyWithValue("kubevirt.io/nonroot", ""))
 		})
 
-		It("Should reject SRIOV vmi", func() {
-			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
-				v1.Interface{
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						SRIOV: &v1.InterfaceSRIOV{},
-					},
-				},
-			)
-
-			resp := admitVMI()
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(And(ContainSubstring("SRIOV"), ContainSubstring("nonroot")))
-		})
-
 		It("Should reject VirtioFS vmi", func() {
 			vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 				Virtiofs: &v1.FilesystemVirtiofs{},

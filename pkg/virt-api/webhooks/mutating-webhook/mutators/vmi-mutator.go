@@ -363,10 +363,6 @@ func canBeNonRoot(vmi *v1.VirtualMachineInstance) error {
 	if util.IsVMIVirtiofsEnabled(vmi) {
 		return fmt.Errorf("VirtioFS doesn't work with session mode(used by nonroot)")
 	}
-
-	if util.IsSRIOVVmi(vmi) {
-		return fmt.Errorf("SRIOV doesn't work with nonroot")
-	}
 	return nil
 }
 
