@@ -114,6 +114,10 @@ func main() {
 		GeneratedManifests: make(map[string]string),
 	}
 
+	if featureGates != nil && strings.Contains(*featureGates, "NonRoot") && !strings.Contains(*featureGates, "NonRootExperimental") {
+		*featureGates = *featureGates + ",NonRootExperimental"
+	}
+
 	if *processVars {
 		data.Namespace = *namespace
 		data.CSVNamespace = *csvNamespace
