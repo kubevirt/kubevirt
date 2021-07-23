@@ -20,8 +20,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/network",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/network/consts:go_default_library",
-        "//pkg/network/infraconfigurators:go_default_library",
+        "//pkg/network/istio:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
