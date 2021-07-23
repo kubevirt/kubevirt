@@ -17,7 +17,7 @@
  *
  */
 
-package dhcp
+package server
 
 import (
 	"bytes"
@@ -34,7 +34,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/network/dhcp/server"
 )
 
 const (
@@ -81,7 +80,7 @@ func SingleClientDHCPServer(
 		options:       options,
 	}
 
-	l, err := server.NewUDP4FilterListener(serverIface, ":67")
+	l, err := NewUDP4FilterListener(serverIface, ":67")
 	if err != nil {
 		return err
 	}
