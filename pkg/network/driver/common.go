@@ -40,10 +40,10 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/network/dhcp/server"
+	dhcpserver "kubevirt.io/kubevirt/pkg/network/dhcp/server"
+	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
 )
 
 const (
@@ -441,8 +441,8 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 }
 
 // Allow mocking for tests
-var DHCPServer = server.SingleClientDHCPServer
-var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
+var DHCPServer = dhcpserver.SingleClientDHCPServer
+var DHCPv6Server = dhcpserverv6.SingleClientDHCPv6Server
 
 // filter out irrelevant routes
 func FilterPodNetworkRoutes(routes []netlink.Route, nic *cache.DHCPConfig) (filteredRoutes []netlink.Route) {
