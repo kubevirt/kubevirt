@@ -178,6 +178,7 @@ http_archive(
     strip_prefix = "bazeldnf-0.3.1",
     urls = [
         "https://github.com/rmohr/bazeldnf/archive/v0.3.1.tar.gz",
+        "https://storage.googleapis.com/builddeps/4197e2cf741dd2c56471b80dddd22a180f6eac7dbd18fac9a03e6ea2c8ee539d",
     ],
 )
 
@@ -1435,6 +1436,7 @@ rpm(
         "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
         "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
         "https://mirror.23media.com/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/2eca40e72fdd3ea19d22f00c127c4d166eaf7687cc0a8c1056ae3a6264cda56d",
     ],
 )
 
