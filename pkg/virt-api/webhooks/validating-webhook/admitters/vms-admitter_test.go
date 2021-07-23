@@ -148,6 +148,80 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
+	table.DescribeTable("should reject VolumeRequests on a migrating vm", func(requests []v1.VirtualMachineVolumeRequest) {
+		now := metav1.Now()
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Status = v1.VirtualMachineInstanceStatus{
+			MigrationState: &v1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &now,
+			},
+		}
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "testdisk",
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "testdisk",
+			VolumeSource: v1.VolumeSource{
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
+			},
+		})
+
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: *vmi.Spec.DeepCopy(),
+				},
+			},
+			Status: v1.VirtualMachineStatus{
+				VolumeRequests: requests,
+				Ready:          true,
+			},
+		}
+		vmBytes, _ := json.Marshal(&vm)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachineGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: vmBytes,
+				},
+			},
+		}
+
+		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Return(vmi, nil)
+		resp := vmsAdmitter.Admit(ar)
+		Expect(resp.Allowed).To(Equal(false))
+	},
+		table.Entry("with valid request to add volume", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testdisk2",
+					Disk: &v1.Disk{
+						Name: "testdisk2",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "scsi",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "madeup",
+						},
+					},
+				},
+			},
+		}),
+		table.Entry("with valid request to remove volume", []v1.VirtualMachineVolumeRequest{
+			{
+				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+					Name: "testdisk",
+				},
+			},
+		}),
+	)
+
 	table.DescribeTable("should validate VolumeRequest on running vm", func(requests []v1.VirtualMachineVolumeRequest, isValid bool) {
 		vmi := v1.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{

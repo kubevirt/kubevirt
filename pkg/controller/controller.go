@@ -313,3 +313,29 @@ func SetVMIPhaseTransitionTimestamp(oldVMI *v1.VirtualMachineInstance, newVMI *v
 		})
 	}
 }
+
+func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.HotplugVolume != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) ([]*k8sv1.Pod, error) {
+	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	attachmentPods := []*k8sv1.Pod{}
+	for _, obj := range objs {
+		pod := obj.(*k8sv1.Pod)
+		ownerRef := GetControllerOf(pod)
+		if ownerRef == nil || ownerRef.UID != ownerPod.UID {
+			continue
+		}
+		attachmentPods = append(attachmentPods, pod)
+	}
+	return attachmentPods, nil
+}

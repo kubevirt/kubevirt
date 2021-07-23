@@ -1581,10 +1581,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{invalidVolume})
 			Expect(pod).To(BeNil())
-			Expect(err).To(BeNil())
+			Expect(err).To(HaveOccurred())
 		})
 
-		It("CreateAttachmentPodTemplate should return nil if volume has PVC that doesn't exist", func() {
+		It("CreateAttachmentPodTemplate should return error if volume has PVC that doesn't exist", func() {
 			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, nil, k8serrors.NewNotFound(k8sv1.Resource("persistentvolumeclaim"), "noclaim")
 			})
@@ -1602,7 +1602,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{nopvcVolume})
 			Expect(pod).To(BeNil())
-			Expect(err).To(BeNil())
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("CreateAttachmentPodTemplate should return nil pod if only one DV exists and owning PVC doesn't exist", func() {
@@ -1630,7 +1630,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{volume})
 			Expect(pod).To(BeNil())
-			Expect(err).To(BeNil())
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("CreateAttachmentPodTemplate should set status to pending if DV owning PVC is not ready", func() {
@@ -1979,7 +1979,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				podInformer.GetIndexer().Add(attachmentPod)
 			}
 
-			res, err := controller.virtlauncherAttachmentPods(virtlauncherPod)
+			res, err := kvcontroller.AttachmentPods(virtlauncherPod, podInformer)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(res)).To(Equal(podCount))
 		},
@@ -1995,7 +1995,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			virtlauncherPod.Spec.Volumes = virtlauncherVolumes
-			res := controller.getHotplugVolumes(vmi, virtlauncherPod)
+			res := getHotplugVolumes(vmi, virtlauncherPod)
 			Expect(len(res)).To(Equal(len(expectedIndexes)))
 			for _, index := range expectedIndexes {
 				found := false
