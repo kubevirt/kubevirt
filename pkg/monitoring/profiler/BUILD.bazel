@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["http-client-profiler.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/profiler",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/k8s.io/client-go/rest:go_default_library"],
+)
