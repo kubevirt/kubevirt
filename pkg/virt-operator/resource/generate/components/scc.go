@@ -74,7 +74,12 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 	scc.SELinuxContext = secv1.SELinuxContextStrategyOptions{
 		Type: secv1.SELinuxStrategyRunAsAny,
 	}
-	scc.AllowedCapabilities = []corev1.Capability{"SYS_NICE"}
+	scc.AllowedCapabilities = []corev1.Capability{
+		// add a CAP_SYS_NICE capability to allow setting cpu affinity
+		"SYS_NICE",
+		// add CAP_NET_BIND_SERVICE capability to allow dhcp and slirp operations
+		"NET_BIND_SERVICE",
+	}
 	scc.AllowHostDirVolumePlugin = true
 	scc.AllowHostNetwork = true
 	scc.Users = []string{fmt.Sprintf("system:serviceaccount:%s:kubevirt-controller", namespace)}
