@@ -706,6 +706,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		getSriovVmi := func(networks []string, cloudInitNetworkData string) *v1.VirtualMachineInstance {
 
 			withVmiOptions := []libvmi.Option{
+				libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentUserData(), false),
 				libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkData, false),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),

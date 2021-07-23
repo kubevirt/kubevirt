@@ -126,20 +126,6 @@ container_image(
 )
 
 container_image(
-    name = "fedora-sriov-lane-container-disk-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
-    base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_sriov_lane_aarch64//image",
-        "//conditions:default": "@fedora_sriov_lane//image",
-    }),
-    mode = "444",
-    visibility = ["//visibility:public"],
-)
-
-container_image(
     name = "fedora-with-test-tooling",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",

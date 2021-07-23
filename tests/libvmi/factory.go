@@ -54,7 +54,7 @@ func NewTestToolingFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 // building its extra properties based on the specified With* options, the
 // image used include Guest Agent and some moduled needed by SRIOV.
 func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	return newFedora(cd.ContainerDiskFedoraSRIOVLane, opts...)
+	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
 }
 
 // NewFedora instantiates a new Fedora based VMI configuration with specified
