@@ -197,7 +197,6 @@ container_bundle(
         # Kernel boot container
         "$(container_prefix)/$(image_prefix)alpine-ext-kernel-boot-demo:$(container_tag)": "//containerimages:alpine-ext-kernel-boot-demo-container",
         # Customized container-disk images
-        "$(container_prefix)/$(image_prefix)fedora-sriov-lane-container-disk:$(container_tag)": "//containerimages:fedora-sriov-lane-container-disk-image",
         "$(container_prefix)/$(image_prefix)fedora-with-test-tooling-container-disk:$(container_tag)": "//containerimages:fedora-with-test-tooling",
         # testing images
         "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
