@@ -145,6 +145,11 @@ var (
 	}
 )
 
+// KubeVirt containerDisk verification memory usage limit
+var (
+	kvDiskVerificationMemoryLimit, _ = resource.ParseQuantity("2G")
+)
+
 // ************  KubeVirt Handler  **************
 type kubevirtHandler genericOperand
 
@@ -393,16 +398,21 @@ func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtv1
 }
 
 func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.DeveloperConfiguration, error) {
-	fgs := getKvFeatureGateList(&hc.Spec.FeatureGates)
-
-	if len(fgs) > 0 || useKVMEmulation {
-		return &kubevirtv1.DeveloperConfiguration{
-			FeatureGates: fgs,
-			UseEmulation: useKVMEmulation,
-		}, nil
+	devConf := &kubevirtv1.DeveloperConfiguration{
+		DiskVerification: &kubevirtv1.DiskVerification{
+			MemoryLimit: &kvDiskVerificationMemoryLimit,
+		},
 	}
 
-	return nil, nil
+	fgs := getKvFeatureGateList(&hc.Spec.FeatureGates)
+	if len(fgs) > 0 {
+		devConf.FeatureGates = fgs
+	}
+	if useKVMEmulation {
+		devConf.UseEmulation = useKVMEmulation
+	}
+
+	return devConf, nil
 }
 
 func NewKubeVirtWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.KubeVirt {
