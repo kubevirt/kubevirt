@@ -11,10 +11,10 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -144,7 +144,7 @@ func (b *MasqueradePodNetworkConfigurator) GenerateNonRecoverableDomainIfaceSpec
 }
 
 func (b *MasqueradePodNetworkConfigurator) createBridge() error {
-	mac, err := net.ParseMAC(network.StaticMasqueradeBridgeMAC)
+	mac, err := net.ParseMAC(link.StaticMasqueradeBridgeMAC)
 	if err != nil {
 		return err
 	}

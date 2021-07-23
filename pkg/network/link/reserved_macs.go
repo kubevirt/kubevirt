@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package link
 
 const StaticMasqueradeBridgeMAC = "02:00:00:00:00:00"
 
