@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["socket_listener.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/network/dhcp/server",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/krolaw/dhcp4/conn:go_default_library",
+        "//vendor/golang.org/x/net/ipv4:go_default_library",
+    ],
+)
