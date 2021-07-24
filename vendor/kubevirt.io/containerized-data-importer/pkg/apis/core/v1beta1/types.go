@@ -355,10 +355,12 @@ type ClaimPropertySet struct {
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
 	// +optional
 	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty" protobuf:"bytes,1,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
-	// volumeMode defines what type of volume is required by the claim.
+	// VolumeMode defines what type of volume is required by the claim.
 	// Value of Filesystem is implied when not included in claim spec.
 	// +optional
 	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode,omitempty" protobuf:"bytes,6,opt,name=volumeMode,casttype=PersistentVolumeMode"`
+	// CloneStrategy defines the preferred method for performing a CDI clone
+	CloneStrategy *CDICloneStrategy `json:"cloneStrategy,omitempty"`
 }
 
 //StorageProfileList provides the needed parameters to request a list of StorageProfile from the system
@@ -573,6 +575,9 @@ const (
 
 	// CloneStrategySnapshot specifies snapshot-based copying
 	CloneStrategySnapshot = "snapshot"
+
+	// CloneStrategyCsiClone specifies csi volume clone based cloning
+	CloneStrategyCsiClone = "csi-clone"
 )
 
 // CDIUninstallStrategy defines the state to leave CDI on uninstall

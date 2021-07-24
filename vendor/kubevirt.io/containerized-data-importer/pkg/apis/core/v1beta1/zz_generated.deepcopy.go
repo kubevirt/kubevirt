@@ -360,6 +360,11 @@ func (in *ClaimPropertySet) DeepCopyInto(out *ClaimPropertySet) {
 		*out = new(v1.PersistentVolumeMode)
 		**out = **in
 	}
+	if in.CloneStrategy != nil {
+		in, out := &in.CloneStrategy, &out.CloneStrategy
+		*out = new(CDICloneStrategy)
+		**out = **in
+	}
 	return
 }
 

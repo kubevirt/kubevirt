@@ -14797,7 +14797,14 @@ func schema_pkg_apis_core_v1beta1_ClaimPropertySet(ref common.ReferenceCallback)
 					},
 					"volumeMode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.",
+							Description: "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cloneStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CloneStrategy defines the preferred method for performing a CDI clone",
 							Type:        []string{"string"},
 							Format:      "",
 						},

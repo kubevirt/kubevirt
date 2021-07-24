@@ -565,7 +565,7 @@ k8s.io/utils/trace
 ## explicit
 kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/precond
-# kubevirt.io/containerized-data-importer v1.36.0
+# kubevirt.io/containerized-data-importer v1.37.0
 ## explicit
 kubevirt.io/containerized-data-importer/pkg/apis/core
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1

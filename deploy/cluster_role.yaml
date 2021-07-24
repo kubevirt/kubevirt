@@ -1474,6 +1474,13 @@ rules:
 - apiGroups:
   - cdi.kubevirt.io
   resources:
+  - datasources
+  verbs:
+  - list
+  - get
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
   - cdis
   verbs:
   - get
