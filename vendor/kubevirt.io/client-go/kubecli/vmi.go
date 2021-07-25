@@ -232,6 +232,18 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 	}
 }
 
+func (v *vmis) Freeze(name string) error {
+	log.Log.Infof("Freeze VMI")
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "freeze")
+	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+}
+
+func (v *vmis) Unfreeze(name string) error {
+	log.Log.Infof("Unfreeze VMI")
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unfreeze")
+	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+}
+
 func (v *vmis) Pause(name string) error {
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "pause")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()

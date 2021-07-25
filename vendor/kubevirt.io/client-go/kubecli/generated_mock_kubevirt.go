@@ -957,6 +957,26 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unpause(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unpause", arg0)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) Freeze(name string) error {
+	ret := _m.ctrl.Call(_m, "Freeze", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Freeze(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Freeze", arg0)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) Unfreeze(name string) error {
+	ret := _m.ctrl.Call(_m, "Unfreeze", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unfreeze(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unfreeze", arg0)
+}
+
 func (_m *MockVirtualMachineInstanceInterface) GuestOsInfo(name string) (v117.VirtualMachineInstanceGuestAgentInfo, error) {
 	ret := _m.ctrl.Call(_m, "GuestOsInfo", name)
 	ret0, _ := ret[0].(v117.VirtualMachineInstanceGuestAgentInfo)
