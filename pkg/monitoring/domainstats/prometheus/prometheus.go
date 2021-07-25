@@ -82,7 +82,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 	if mem.AvailableSet {
 		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_available_bytes",
-			"amount of usable memory as seen by the domain.",
+			"amount of `usable` memory as seen by the domain.",
 			prometheus.GaugeValue,
 			float64(mem.Available)*1024,
 		)
@@ -91,7 +91,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 	if mem.UnusedSet {
 		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_unused_bytes",
-			"amount of unused memory as seen by the domain.",
+			"amount of `unused` memory as seen by the domain.",
 			prometheus.GaugeValue,
 			float64(mem.Unused)*1024,
 		)
@@ -100,7 +100,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 	if mem.SwapInSet {
 		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_swap_in_traffic_bytes_total",
-			"Swap in memory traffic in bytes",
+			"Swap in memory traffic in bytes.",
 			prometheus.GaugeValue,
 			float64(mem.SwapIn)*1024,
 		)
@@ -109,7 +109,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 	if mem.SwapOutSet {
 		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_swap_out_traffic_bytes_total",
-			"Swap out memory traffic in bytes",
+			"Swap out memory traffic in bytes.",
 			prometheus.GaugeValue,
 			float64(mem.SwapOut)*1024,
 		)
@@ -174,7 +174,7 @@ func (metrics *vmiMetrics) updateCPUAffinity(cpuMap [][]bool) {
 
 	metrics.pushCustomMetric(
 		"kubevirt_vmi_cpu_affinity",
-		"vcpu affinity details",
+		"The vcpu affinity details.",
 		prometheus.CounterValue, 1,
 		affinityLabels,
 		affinityValues,
@@ -188,7 +188,7 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 		if vcpu.StateSet && vcpu.TimeSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_vcpu_seconds",
-				"Vcpu elapsed time.",
+				"Amount of time spent in each state by each vcpu. Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`].",
 				prometheus.CounterValue,
 				float64(vcpu.Time/1000000000),
 				[]string{"id", "state"},
@@ -199,7 +199,7 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 		if vcpu.WaitSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_vcpu_wait_seconds",
-				"vcpu time spent by waiting on I/O.",
+				"Amount of time spent by each vcpu while waiting on I/O.",
 				prometheus.CounterValue,
 				float64(vcpu.Wait/1000000),
 				[]string{"id"},
@@ -226,7 +226,7 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 		if block.RdReqsSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_storage_iops_read_total",
-				"I/O read operations",
+				"I/O read operations.",
 				prometheus.CounterValue,
 				float64(block.RdReqs),
 				blkLabels,
@@ -237,7 +237,7 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 		if block.WrReqsSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_storage_iops_write_total",
-				"I/O write operations",
+				"I/O write operations.",
 				prometheus.CounterValue,
 				float64(block.WrReqs),
 				blkLabels,
@@ -248,7 +248,7 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 		if block.RdBytesSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_storage_read_traffic_bytes_total",
-				"Storage read traffic in bytes",
+				"Storage read traffic in bytes.",
 				prometheus.CounterValue,
 				float64(block.RdBytes),
 				blkLabels,
@@ -259,7 +259,7 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 		if block.WrBytesSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_storage_write_traffic_bytes_total",
-				"Storage write traffic in bytes",
+				"Storage write traffic in bytes.",
 				prometheus.CounterValue,
 				float64(block.WrBytes),
 				blkLabels,
@@ -270,7 +270,7 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 		if block.RdTimesSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_storage_read_times_ms_total",
-				"Storage read operation time",
+				"Storage read operation time.",
 				prometheus.CounterValue,
 				float64(block.RdTimes)/1000000,
 				blkLabels,
@@ -281,7 +281,7 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 		if block.WrTimesSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_storage_write_times_ms_total",
-				"Storage write operation time",
+				"Storage write operation time.",
 				prometheus.CounterValue,
 				float64(block.WrTimes)/1000000,
 				blkLabels,
@@ -330,7 +330,7 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 		if net.RxBytesSet || net.TxBytesSet {
 			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_network_traffic_bytes_total",
-				"network traffic.",
+				"deprecated.",
 				[]string{"interface", "type"},
 			)
 
@@ -338,7 +338,7 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.RxBytes), []string{net.Name, "rx"})
 				metrics.pushCustomMetric(
 					"kubevirt_vmi_network_receive_bytes_total",
-					"Network traffic receive in bytes",
+					"Network traffic receive in bytes.",
 					prometheus.CounterValue,
 					float64(net.RxBytes),
 					netLabels,
@@ -350,7 +350,7 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.TxBytes), []string{net.Name, "tx"})
 				metrics.pushCustomMetric(
 					"kubevirt_vmi_network_transmit_bytes_total",
-					"Network traffic transmit in bytes",
+					"Network traffic transmit in bytes.",
 					prometheus.CounterValue,
 					float64(net.TxBytes),
 					netLabels,
@@ -362,7 +362,7 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 		if net.RxPktsSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_network_receive_packets_total",
-				"Network traffic receive packets",
+				"Network traffic receive packets.",
 				prometheus.CounterValue,
 				float64(net.RxPkts),
 				netLabels,
@@ -373,7 +373,7 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 		if net.TxPktsSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_network_transmit_packets_total",
-				"Network traffic transmit packets",
+				"Network traffic transmit packets.",
 				prometheus.CounterValue,
 				float64(net.TxPkts),
 				netLabels,
@@ -384,7 +384,7 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 		if net.RxErrsSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_network_receive_errors_total",
-				"Network receive error packets",
+				"Network receive error packets.",
 				prometheus.CounterValue,
 				float64(net.RxErrs),
 				netLabels,
@@ -395,7 +395,7 @@ func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 		if net.TxErrsSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_network_transmit_errors_total",
-				"Network transmit error packets",
+				"Network transmit error packets.",
 				prometheus.CounterValue,
 				float64(net.TxErrs),
 				netLabels,
