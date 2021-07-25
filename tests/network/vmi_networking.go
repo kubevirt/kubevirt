@@ -796,6 +796,9 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				tests.StartPythonHttpServer(serverVMI, tcpPort)
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
+
+				//inject error
+				Expect(1).To(Equal(2))
 			},
 				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
 				table.Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtLocalConnectionPort, ""),
