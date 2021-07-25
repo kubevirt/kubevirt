@@ -151,41 +151,4 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			},
 		}, 0),
 	)
-
-	It("should reject with JSON patch validation invalid", func() {
-		kvAdmitter := getAdmitter(true)
-		kv := getKV()
-		kvBytes, _ := json.Marshal(&kv)
-
-		cc := getComponentConfig()
-		kv.Spec.Workloads = &cc
-		kv.Spec.CustomizeComponents = v1.CustomizeComponents{
-			Patches: []v1.CustomizeComponentsPatch{
-				{
-					ResourceName: "virt-api",
-					ResourceType: "Deployment",
-					Type:         v1.StrategicMergePatchType,
-					Patch:        ``,
-				},
-			},
-		}
-		kvUpdateBytes, _ := json.Marshal(&kv)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.KubeVirtGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: kvUpdateBytes,
-				},
-				OldObject: runtime.RawExtension{
-					Raw: kvBytes,
-				},
-				Operation: admissionv1.Update,
-			},
-		}
-
-		resp := kvAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(BeFalse())
-		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-	})
 })
