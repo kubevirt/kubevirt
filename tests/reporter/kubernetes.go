@@ -103,7 +103,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	since := time.Now().Add(-duration)
 
 	nodes := getNodeList(virtCli)
-	nodesWithVirtLauncher := getNodesWithVirtLauncher(virtCli)
+	virtHandlerPods := getVirtHandlerList(virtCli)
 	pods := getPodList(virtCli)
 	vmis := getVMIList(virtCli)
 
@@ -123,10 +123,10 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logPods(virtCli, pods)
 	r.logVMs(virtCli)
 
-	r.logAuditLogs(virtCli, nodesDir, nodesWithVirtLauncher, since)
-	r.logDMESG(virtCli, nodesDir, nodesWithVirtLauncher, since)
-	r.logJournal(virtCli, nodesDir, nodesWithVirtLauncher, duration, "")
-	r.logJournal(virtCli, nodesDir, nodesWithVirtLauncher, duration, "kubelet")
+	r.logAuditLogs(virtCli, nodesDir, virtHandlerPods, since)
+	r.logDMESG(virtCli, nodesDir, virtHandlerPods, since)
+	r.logJournal(virtCli, nodesDir, virtHandlerPods, duration, "")
+	r.logJournal(virtCli, nodesDir, virtHandlerPods, duration, "kubelet")
 
 	r.logLogs(virtCli, podsDir, pods, since)
 
@@ -217,7 +217,12 @@ func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, vmis *v12.V
 	fmt.Fprintln(f, string(j))
 }
 
-func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir string, nodes []string, since time.Time) {
+func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir string, pods *v1.PodList, since time.Time) {
+
+	if pods == nil {
+		fmt.Fprintf(os.Stderr, "pod list is empty, skipping logDMESG\n")
+		return
+	}
 
 	if logsdir == "" {
 		fmt.Fprintf(os.Stderr, "logsdir is empty, skipping logDMESG\n")
@@ -225,9 +230,14 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 	}
 
 	timestampRexp := regexp.MustCompile(`\[([^]]+)]`)
-	for _, node := range nodes {
+	for _, pod := range pods.Items {
 		func() {
-			fileName := fmt.Sprintf("%d_dmesg_%s.log", r.failureCount, node)
+			if pod.Status.Phase != "Running" {
+				fmt.Fprintf(os.Stderr, "skipping node's %s pod %s, phase is not Running\n", pod.Spec.NodeName, pod.ObjectMeta.Name)
+				return
+			}
+
+			fileName := fmt.Sprintf("%d_dmesg_%s.log", r.failureCount, pod.Spec.NodeName)
 			f, err := os.OpenFile(filepath.Join(logsdir, fileName),
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
@@ -235,19 +245,15 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 				return
 			}
 			defer f.Close()
-			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v\n", node, err)
-				return
-			}
+
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
-			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", []string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "--decode"})
+			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, &pod, "virt-handler", []string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "--decode"})
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
 					"failed to execute command %s on node %s, stdout: %s, error: %v\n",
 					[]string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "--decode"},
-					node, stdout, err,
+					pod.Spec.NodeName, stdout, err,
 				)
 				return
 			}
@@ -277,7 +283,12 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 	}
 }
 
-func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdir string, nodes []string, since time.Time) {
+func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdir string, pods *v1.PodList, since time.Time) {
+
+	if pods == nil {
+		fmt.Fprintf(os.Stderr, "pod list is empty, skipping logAuditLogs\n")
+		return
+	}
 
 	if logsdir == "" {
 		fmt.Fprintf(os.Stderr, "logsdir is empty, skipping logAuditLogs\n")
@@ -285,9 +296,14 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 	}
 
 	timestampRexp := regexp.MustCompile(`audit\(([0-9]+)[0-9.:]+\)`)
-	for _, node := range nodes {
+	for _, pod := range pods.Items {
 		func() {
-			fileName := fmt.Sprintf("%d_auditlog_%s.log", r.failureCount, node)
+			if pod.Status.Phase != "Running" {
+				fmt.Fprintf(os.Stderr, "skipping node's %s pod %s, phase is not Running\n", pod.Spec.NodeName, pod.ObjectMeta.Name)
+				return
+			}
+
+			fileName := fmt.Sprintf("%d_auditlog_%s.log", r.failureCount, pod.Spec.NodeName)
 			f, err := os.OpenFile(filepath.Join(logsdir, fileName),
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
@@ -295,19 +311,15 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 				return
 			}
 			defer f.Close()
-			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v\n", node, err)
-				return
-			}
+
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
 			getAuditLogCmd := []string{"cat", "/proc/1/root/var/log/audit/audit.log"}
-			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", getAuditLogCmd)
+			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, &pod, "virt-handler", getAuditLogCmd)
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
 					"failed to execute command %s on node %s, stdout: %s, error: %v\n",
-					getAuditLogCmd, node, stdout, err,
+					getAuditLogCmd, pod.Spec.NodeName, stdout, err,
 				)
 				return
 			}
@@ -337,7 +349,12 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 	}
 }
 
-func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir string, nodes []string, duration time.Duration, unit string) {
+func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir string, pods *v1.PodList, duration time.Duration, unit string) {
+
+	if pods == nil {
+		fmt.Fprintf(os.Stderr, "pod list is empty, skipping logJournal\n")
+		return
+	}
 
 	if logsdir == "" {
 		fmt.Fprintf(os.Stderr, "logsdir is empty, skipping logJournal\n")
@@ -354,10 +371,9 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 
 	logDuration := strconv.FormatInt(int64(duration/time.Second), 10)
 
-	for _, node := range nodes {
-		pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v\n", node, err)
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != "Running" {
+			fmt.Fprintf(os.Stderr, "skipping node's %s pod %s, phase is not Running\n", pod.Spec.NodeName, pod.ObjectMeta.Name)
 			continue
 		}
 
@@ -373,20 +389,20 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 		}
 		commands = append(commands, unitCommandArgs...)
 
-		stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", commands)
+		stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtCli, &pod, "virt-handler", commands)
 		if err != nil {
 			fmt.Fprintf(
 				os.Stderr,
 				"failed to execute command %s on node %s, stdout: %s, stderr: %s, error: %v\n",
-				commands, node, stdout, stderr, err,
+				commands, pod.Spec.NodeName, stdout, stderr, err,
 			)
 			continue
 		}
 
-		fileName := fmt.Sprintf("%d_%s_%s.log", r.failureCount, component, node)
+		fileName := fmt.Sprintf("%d_%s_%s.log", r.failureCount, component, pod.Spec.NodeName)
 		err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to write node %s logs: %v\n", node, err)
+			fmt.Fprintf(os.Stderr, "failed to write node %s logs: %v\n", pod.Spec.NodeName, err)
 			continue
 		}
 	}
@@ -705,6 +721,17 @@ func getVMIList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceList 
 	return vmis
 }
 
+func getVirtHandlerList(virtCli kubecli.KubevirtClient) *v1.PodList {
+
+	pods, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=virt-handler", v12.AppLabel)})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch virt-handler pods: %v\n", err)
+		return nil
+	}
+
+	return pods
+}
+
 func getNodeList(virtCli kubecli.KubevirtClient) *v1.NodeList {
 
 	nodes, err := virtCli.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
@@ -883,29 +910,6 @@ func (r *KubernetesReporter) logClusterOverview() {
 		fmt.Fprintf(os.Stderr, "failed to write cluster overview: %v\n", err)
 		return
 	}
-}
-
-//getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
-func getNodesWithVirtLauncher(virtCli kubecli.KubevirtClient) []string {
-	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=virt-launcher", v12.AppLabel)})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
-		return nil
-	}
-
-	nodeMap := map[string]struct{}{}
-	for _, pod := range pods.Items {
-		if pod.Spec.NodeName != "" {
-			nodeMap[pod.Spec.NodeName] = struct{}{}
-		}
-	}
-
-	nodes := []string{}
-	for k := range nodeMap {
-		nodes = append(nodes, k)
-	}
-
-	return nodes
 }
 
 func writeStringToFile(filePath string, data string) error {
