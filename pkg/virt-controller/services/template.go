@@ -451,10 +451,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	nodeSelector := map[string]string{}
 
-	var volumes []k8sv1.Volume
-	var volumeDevices []k8sv1.VolumeDevice
-	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
+
+	volumes, volumeDevices, volumeMounts, hotplugVolumes := renderLaunchManifestInitDefaultVolumes(t, vmi)
 
 	var userId int64 = util.RootUser
 	var privileged bool = false
@@ -462,41 +461,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	nonRoot := util.IsNonRootVMI(vmi)
 	if nonRoot {
 		userId = util.NonRootUID
-	}
-
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "private",
-		MountPath: util.VirtPrivateDir,
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "private",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-		},
-	})
-
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "public",
-		MountPath: util.VirtShareDir,
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "public",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-		},
-	})
-
-	hotplugVolumes := make(map[string]bool)
-	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.HotplugVolume != nil {
-			hotplugVolumes[volumeStatus.Name] = true
-		}
-	}
-	// This detects hotplug volumes for a started but not ready VMI
-	for _, volume := range vmi.Spec.Volumes {
-		if (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) {
-			hotplugVolumes[volume.Name] = true
-		}
 	}
 
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
@@ -508,42 +472,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
-
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "ephemeral-disks",
-		MountPath: t.ephemeralDiskDir,
-	})
-
-	prop := k8sv1.MountPropagationHostToContainer
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:             "container-disks",
-		MountPath:        t.containerDiskDir,
-		MountPropagation: &prop,
-	})
-	if !vmi.Spec.Domain.Devices.DisableHotplug {
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:             "hotplug-disks",
-			MountPath:        t.hotplugDiskDir,
-			MountPropagation: &prop,
-		})
-	}
-
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "libvirt-runtime",
-		MountPath: "/var/run/libvirt",
-	})
-
-	// virt-launcher cmd socket dir
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "sockets",
-		MountPath: filepath.Join(t.virtShareDir, "sockets"),
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "sockets",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-		},
-	})
 
 	serviceAccountName := ""
 
@@ -1738,6 +1666,83 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 		})
 	}
 	return pod, nil
+}
+
+func renderLaunchManifestInitDefaultVolumes(t *templateService, vmi *v1.VirtualMachineInstance) (v []k8sv1.Volume, vd []k8sv1.VolumeDevice, vmo []k8sv1.VolumeMount, hotplugVolumes map[string]bool) {
+
+	hotplugVolumes = make(map[string]bool)
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.HotplugVolume != nil {
+			hotplugVolumes[volumeStatus.Name] = true
+		}
+	}
+
+	vmo = append(vmo, k8sv1.VolumeMount{
+		Name:      "private",
+		MountPath: util.VirtPrivateDir,
+	})
+	v = append(v, k8sv1.Volume{
+		Name: "private",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+
+	vmo = append(vmo, k8sv1.VolumeMount{
+		Name:      "public",
+		MountPath: util.VirtShareDir,
+	})
+	v = append(v, k8sv1.Volume{
+		Name: "public",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+
+	vmo = append(vmo, k8sv1.VolumeMount{
+		Name:      "ephemeral-disks",
+		MountPath: t.ephemeralDiskDir,
+	})
+
+	prop := k8sv1.MountPropagationHostToContainer
+	vmo = append(vmo, k8sv1.VolumeMount{
+		Name:             "container-disks",
+		MountPath:        t.containerDiskDir,
+		MountPropagation: &prop,
+	})
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		vmo = append(vmo, k8sv1.VolumeMount{
+			Name:             "hotplug-disks",
+			MountPath:        t.hotplugDiskDir,
+			MountPropagation: &prop,
+		})
+	}
+
+	vmo = append(vmo, k8sv1.VolumeMount{
+		Name:      "libvirt-runtime",
+		MountPath: "/var/run/libvirt",
+	})
+
+	// virt-launcher cmd socket dir
+	vmo = append(vmo, k8sv1.VolumeMount{
+		Name:      "sockets",
+		MountPath: filepath.Join(t.virtShareDir, "sockets"),
+	})
+	v = append(v, k8sv1.Volume{
+		Name: "sockets",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+
+	// This detects hotplug volumes for a started but not ready VMI
+	for _, volume := range vmi.Spec.Volumes {
+		if (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) {
+			hotplugVolumes[volume.Name] = true
+		}
+	}
+
+	return
 }
 
 func getVirtiofsCapabilities() []k8sv1.Capability {
