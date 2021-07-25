@@ -20,111 +20,14 @@
 package webhooks
 
 import (
-	"encoding/json"
-
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
-
-	getAdmitter := func(needsVMIMock bool) *KubeVirtUpdateAdmitter {
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-
-		if needsVMIMock {
-			vmiInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-			virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
-		}
-
-		return NewKubeVirtUpdateAdmitter(virtClient)
-	}
-
-	getKV := func() v1.KubeVirt {
-		return v1.KubeVirt{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "default",
-			},
-			Spec: v1.KubeVirtSpec{
-				Workloads: nil,
-			},
-		}
-	}
-
-	getComponentConfig := func() v1.ComponentConfig {
-		return v1.ComponentConfig{
-			NodePlacement: &v1.NodePlacement{
-				NodeSelector: map[string]string{
-					"kubernetes.io/hostname": "node01",
-				},
-			},
-		}
-	}
-
-	It("should accept workload update when no VMIS are running", func() {
-		kvAdmitter := getAdmitter(true)
-		kv := getKV()
-		kvBytes, _ := json.Marshal(&kv)
-
-		cc := getComponentConfig()
-		kv.Spec.Workloads = &cc
-		kvUpdateBytes, _ := json.Marshal(&kv)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.KubeVirtGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: kvUpdateBytes,
-				},
-				OldObject: runtime.RawExtension{
-					Raw: kvBytes,
-				},
-				Operation: admissionv1.Update,
-			},
-		}
-
-		resp := kvAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(BeTrue())
-	})
-
-	It("should accept KV update with VMIS running if workloads object is not changed", func() {
-		kvAdmitter := getAdmitter(false)
-		kv := getKV()
-		cc := getComponentConfig()
-		kv.Spec.Workloads = &cc
-
-		kvBytes, _ := json.Marshal(&kv)
-
-		kv.ObjectMeta.Labels = map[string]string{
-			"kubevirt.io": "new-label",
-		}
-		kvUpdateBytes, _ := json.Marshal(&kv)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.KubeVirtGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: kvUpdateBytes,
-				},
-				OldObject: runtime.RawExtension{
-					Raw: kvBytes,
-				},
-				Operation: admissionv1.Update,
-			},
-		}
-
-		resp := kvAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(BeTrue())
-	})
 
 	table.DescribeTable("test validateCustomizeComponents", func(cc v1.CustomizeComponents, expectedCauses int) {
 		causes := validateCustomizeComponents(cc)
@@ -137,6 +40,16 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 					ResourceType: "Deployment",
 					Type:         v1.StrategicMergePatchType,
 					Patch:        `{"json: "not valid"}`,
+				},
+			},
+		}, 1),
+		table.Entry("empty patch field rejected", v1.CustomizeComponents{
+			Patches: []v1.CustomizeComponentsPatch{
+				{
+					ResourceName: "virt-api",
+					ResourceType: "Deployment",
+					Type:         v1.StrategicMergePatchType,
+					Patch:        "",
 				},
 			},
 		}, 1),
