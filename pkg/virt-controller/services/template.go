@@ -446,9 +446,10 @@ func (t *templateService) addPVCToLaunchManifest(volume v1.Volume, claimName str
 }
 
 func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, tempPod bool) (*k8sv1.Pod, error) {
+	var err error
 	precond.MustNotBeNil(vmi)
-	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	nodeSelector := map[string]string{}
 
 	var imagePullSecrets []k8sv1.LocalObjectReference
@@ -456,7 +457,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	volumes, volumeDevices, volumeMounts, hotplugVolumes := renderLaunchManifestInitDefaultVolumes(t, vmi)
 
 	var userId int64 = util.RootUser
-	var privileged bool = false
+	privileged := false
 
 	nonRoot := util.IsNonRootVMI(vmi)
 	if nonRoot {
@@ -468,370 +469,27 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		privileged = true
 	}
 
-	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
-	if vmi.Spec.TerminationGracePeriodSeconds != nil {
-		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
-	}
-
 	serviceAccountName := ""
-
-	for _, volume := range vmi.Spec.Volumes {
-		if hotplugVolumes[volume.Name] {
-			continue
-		}
-		if volume.PersistentVolumeClaim != nil {
-			claimName := volume.PersistentVolumeClaim.ClaimName
-			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
-				return nil, err
-			}
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: volume.PersistentVolumeClaim.ClaimName,
-						ReadOnly:  volume.PersistentVolumeClaim.ReadOnly,
-					},
-				},
-			})
-		}
-		if volume.Ephemeral != nil {
-			claimName := volume.Ephemeral.PersistentVolumeClaim.ClaimName
-			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
-				return nil, err
-			}
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: volume.Ephemeral.PersistentVolumeClaim,
-				},
-			})
-		}
-		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullSecret != "" {
-			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
-				Name: volume.ContainerDisk.ImagePullSecret,
-			})
-		}
-		if volume.HostDisk != nil {
-			var hostPathType k8sv1.HostPathType
-
-			switch hostType := volume.HostDisk.Type; hostType {
-			case v1.HostDiskExists:
-				hostPathType = k8sv1.HostPathDirectory
-			case v1.HostDiskExistsOrCreate:
-				hostPathType = k8sv1.HostPathDirectoryOrCreate
-			}
-
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
-			})
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					HostPath: &k8sv1.HostPathVolumeSource{
-						Path: filepath.Dir(volume.HostDisk.Path),
-						Type: &hostPathType,
-					},
-				},
-			})
-		}
-		if volume.DataVolume != nil {
-			claimName := volume.DataVolume.Name
-			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
-				return nil, err
-			}
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: claimName,
-					},
-				},
-			})
-		}
-		if volume.ConfigMap != nil {
-			// attach a ConfigMap to the pod
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: filepath.Join(config.ConfigMapSourceDir, volume.Name),
-				ReadOnly:  true,
-			})
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					ConfigMap: &k8sv1.ConfigMapVolumeSource{
-						LocalObjectReference: volume.ConfigMap.LocalObjectReference,
-						Optional:             volume.ConfigMap.Optional,
-					},
-				},
-			})
-		}
-
-		if volume.Secret != nil {
-			// attach a Secret to the pod
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
-				ReadOnly:  true,
-			})
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{
-						SecretName: volume.Secret.SecretName,
-						Optional:   volume.Secret.Optional,
-					},
-				},
-			})
-		}
-
-		if volume.DownwardAPI != nil {
-			// attach a Secret to the pod
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: filepath.Join(config.DownwardAPISourceDir, volume.Name),
-				ReadOnly:  true,
-			})
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
-						Items: volume.DownwardAPI.Fields,
-					},
-				},
-			})
-		}
-
-		if volume.ServiceAccount != nil {
-			serviceAccountName = volume.ServiceAccount.ServiceAccountName
-		}
-
-		if volume.DownwardMetrics != nil {
-			sizeLimit := resource.MustParse("1Mi")
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					EmptyDir: &k8sv1.EmptyDirVolumeSource{
-						Medium:    "Memory",
-						SizeLimit: &sizeLimit,
-					},
-				},
-			})
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: config.DownwardMetricDisksDir,
-			})
-		}
-
-		if volume.CloudInitNoCloud != nil {
-			if volume.CloudInitNoCloud.UserDataSecretRef != nil {
-				// attach a secret referenced by the user
-				volumeName := volume.Name + "-udata"
-				volumes = append(volumes, k8sv1.Volume{
-					Name: volumeName,
-					VolumeSource: k8sv1.VolumeSource{
-						Secret: &k8sv1.SecretVolumeSource{
-							SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
-						},
-					},
-				})
-				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-					Name:      volumeName,
-					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userdata"),
-					SubPath:   "userdata",
-					ReadOnly:  true,
-				})
-				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-					Name:      volumeName,
-					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userData"),
-					SubPath:   "userData",
-					ReadOnly:  true,
-				})
-			}
-			if volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
-				// attach a secret referenced by the networkdata
-				volumeName := volume.Name + "-ndata"
-				volumes = append(volumes, k8sv1.Volume{
-					Name: volumeName,
-					VolumeSource: k8sv1.VolumeSource{
-						Secret: &k8sv1.SecretVolumeSource{
-							SecretName: volume.CloudInitNoCloud.NetworkDataSecretRef.Name,
-						},
-					},
-				})
-				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-					Name:      volumeName,
-					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
-					SubPath:   "networkdata",
-					ReadOnly:  true,
-				})
-				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-					Name:      volumeName,
-					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
-					SubPath:   "networkData",
-					ReadOnly:  true,
-				})
-			}
-		}
-
-		if volume.Sysprep != nil {
-			var volumeSource k8sv1.VolumeSource
-			// attach a Secret or ConfigMap referenced by the user
-			volumeSource, err := sysprepVolumeSource(*volume.Sysprep)
-			if err != nil {
-				return nil, err
-			}
-			volumes = append(volumes, k8sv1.Volume{
-				Name:         volume.Name,
-				VolumeSource: volumeSource,
-			})
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: filepath.Join(config.SysprepSourceDir, volume.Name),
-				ReadOnly:  true,
-			})
-		}
-
-		if volume.CloudInitConfigDrive != nil {
-			if volume.CloudInitConfigDrive.UserDataSecretRef != nil {
-				// attach a secret referenced by the user
-				volumeName := volume.Name + "-udata"
-				volumes = append(volumes, k8sv1.Volume{
-					Name: volumeName,
-					VolumeSource: k8sv1.VolumeSource{
-						Secret: &k8sv1.SecretVolumeSource{
-							SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
-						},
-					},
-				})
-				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-					Name:      volumeName,
-					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userdata"),
-					SubPath:   "userdata",
-					ReadOnly:  true,
-				})
-				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-					Name:      volumeName,
-					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userData"),
-					SubPath:   "userData",
-					ReadOnly:  true,
-				})
-			}
-			if volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
-				// attach a secret referenced by the networkdata
-				volumeName := volume.Name + "-ndata"
-				volumes = append(volumes, k8sv1.Volume{
-					Name: volumeName,
-					VolumeSource: k8sv1.VolumeSource{
-						Secret: &k8sv1.SecretVolumeSource{
-							SecretName: volume.CloudInitConfigDrive.NetworkDataSecretRef.Name,
-						},
-					},
-				})
-				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-					Name:      volumeName,
-					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
-					SubPath:   "networkdata",
-					ReadOnly:  true,
-				})
-				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-					Name:      volumeName,
-					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
-					SubPath:   "networkData",
-					ReadOnly:  true,
-				})
-			}
-		}
-	}
-
-	for _, accessCred := range vmi.Spec.AccessCredentials {
-		secretName := ""
-		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.Source.Secret != nil {
-			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
-		} else if accessCred.UserPassword != nil && accessCred.UserPassword.Source.Secret != nil {
-			secretName = accessCred.UserPassword.Source.Secret.SecretName
-		}
-
-		if secretName == "" {
-			continue
-		}
-		volumeName := secretName + "-access-cred"
-		volumes = append(volumes, k8sv1.Volume{
-			Name: volumeName,
-			VolumeSource: k8sv1.VolumeSource{
-				Secret: &k8sv1.SecretVolumeSource{
-					SecretName: secretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:      volumeName,
-			MountPath: filepath.Join(config.SecretSourceDir, volumeName),
-			ReadOnly:  true,
-		})
-	}
-
-	if t.imagePullSecret != "" {
-		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
-			Name: t.imagePullSecret,
-		})
+	volumes, volumeDevices, volumeMounts, imagePullSecrets, serviceAccountName, err = renderLaunchManifestVolumes(t, vmi, volumes, volumeDevices, volumeMounts, hotplugVolumes, namespace)
+	if err != nil {
+		return nil, err
 	}
 
 	// Pad the virt-launcher grace period.
 	// Ideally we want virt-handler to handle tearing down
 	// the vmi without virt-launcher's termination forcing
 	// the vmi down.
+	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
+	if vmi.Spec.TerminationGracePeriodSeconds != nil {
+		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
+	}
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
 	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
 
-	// Consider CPU and memory requests and limits for pod scheduling
-	resources := k8sv1.ResourceRequirements{}
-	vmiResources := vmi.Spec.Domain.Resources
-
-	resources.Requests = make(k8sv1.ResourceList)
-	resources.Limits = make(k8sv1.ResourceList)
-
-	// Set Default CPUs request
-	if !vmi.IsCPUDedicated() {
-		vcpus := int64(1)
-		if vmi.Spec.Domain.CPU != nil {
-			vcpus = hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-		}
-		cpuAllocationRatio := t.clusterConfig.GetCPUAllocationRatio()
-		if vcpus != 0 && cpuAllocationRatio > 0 {
-			val := float64(vcpus) / float64(cpuAllocationRatio)
-			vcpusStr := fmt.Sprintf("%g", val)
-			if val < 1 {
-				val *= 1000
-				vcpusStr = fmt.Sprintf("%gm", val)
-			}
-			resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
-		}
-	}
-	// Copy vmi resources requests to a container
-	for key, value := range vmiResources.Requests {
-		resources.Requests[key] = value
-	}
-
-	// Copy vmi resources limits to a container
-	for key, value := range vmiResources.Limits {
-		resources.Limits[key] = value
-	}
-
-	// Add ephemeral storage request to container to be used by Kubevirt. This amount of ephemeral storage
-	// should be added to the user's request.
-	ephemeralStorageOverhead := resource.MustParse(ephemeralStorageOverheadSize)
-	ephemeralStorageRequested := resources.Requests[k8sv1.ResourceEphemeralStorage]
-	ephemeralStorageRequested.Add(ephemeralStorageOverhead)
-	resources.Requests[k8sv1.ResourceEphemeralStorage] = ephemeralStorageRequested
-
-	if ephemeralStorageLimit, ephemeralStorageLimitDefined := resources.Limits[k8sv1.ResourceEphemeralStorage]; ephemeralStorageLimitDefined {
-		ephemeralStorageLimit.Add(ephemeralStorageOverhead)
-		resources.Limits[k8sv1.ResourceEphemeralStorage] = ephemeralStorageLimit
-	}
+	resources := renderLaunchManifestRequirements(t, vmi)
 
 	// Consider hugepages resource for pod scheduling
 	if util.HasHugePages(vmi) {
@@ -1645,6 +1303,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					},
 				},
 			},
+			HostNetwork:                   true,
 			TerminationGracePeriodSeconds: &zero,
 		},
 	}
@@ -1670,6 +1329,22 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 
 func renderLaunchManifestInitDefaultVolumes(t *templateService, vmi *v1.VirtualMachineInstance) (v []k8sv1.Volume, vd []k8sv1.VolumeDevice, vmo []k8sv1.VolumeMount, hotplugVolumes map[string]bool) {
 
+	addVolume := func(name string) {
+		v = append(v, k8sv1.Volume{
+			Name: name,
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		})
+	}
+	addVolumeMount := func(name, path string, mode *k8sv1.MountPropagationMode) {
+		vmo = append(vmo, k8sv1.VolumeMount{
+			Name:             name,
+			MountPath:        path,
+			MountPropagation: mode,
+		})
+	}
+
 	hotplugVolumes = make(map[string]bool)
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume != nil {
@@ -1677,63 +1352,336 @@ func renderLaunchManifestInitDefaultVolumes(t *templateService, vmi *v1.VirtualM
 		}
 	}
 
-	vmo = append(vmo, k8sv1.VolumeMount{
-		Name:      "private",
-		MountPath: util.VirtPrivateDir,
-	})
-	v = append(v, k8sv1.Volume{
-		Name: "private",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-		},
-	})
+	addVolumeMount("private", util.VirtPrivateDir, nil)
+	addVolume("private")
 
-	vmo = append(vmo, k8sv1.VolumeMount{
-		Name:      "public",
-		MountPath: util.VirtShareDir,
-	})
-	v = append(v, k8sv1.Volume{
-		Name: "public",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-		},
-	})
+	addVolumeMount("public", util.VirtShareDir, nil)
+	addVolume("public")
 
-	vmo = append(vmo, k8sv1.VolumeMount{
-		Name:      "ephemeral-disks",
-		MountPath: t.ephemeralDiskDir,
-	})
+	addVolumeMount("ephemeral-disks", t.ephemeralDiskDir, nil)
 
 	prop := k8sv1.MountPropagationHostToContainer
-	vmo = append(vmo, k8sv1.VolumeMount{
-		Name:             "container-disks",
-		MountPath:        t.containerDiskDir,
-		MountPropagation: &prop,
-	})
+
+	addVolumeMount("container-disks", t.containerDiskDir, &prop)
 	if !vmi.Spec.Domain.Devices.DisableHotplug {
-		vmo = append(vmo, k8sv1.VolumeMount{
-			Name:             "hotplug-disks",
-			MountPath:        t.hotplugDiskDir,
-			MountPropagation: &prop,
+		addVolumeMount("hotplug-disks", t.hotplugDiskDir, &prop)
+	}
+
+	addVolumeMount("libvirt-runtime", "/var/run/libvirt", nil)
+
+	// virt-launcher cmd socket dir
+	addVolumeMount("sockets", filepath.Join(t.virtShareDir, "sockets"), nil)
+	addVolume("sockets")
+
+	return
+}
+
+func renderLaunchManifestVolumes(t *templateService, vmi *v1.VirtualMachineInstance, volumes []k8sv1.Volume, volumeDevices []k8sv1.VolumeDevice, volumeMounts []k8sv1.VolumeMount, hotplugVolumes map[string]bool, namespace string) ([]k8sv1.Volume, []k8sv1.VolumeDevice, []k8sv1.VolumeMount, []k8sv1.LocalObjectReference, string, error) {
+	var imagePullSecrets []k8sv1.LocalObjectReference
+	serviceAccountName := ""
+
+	for _, volume := range vmi.Spec.Volumes {
+		if hotplugVolumes[volume.Name] {
+			continue
+		}
+		if volume.PersistentVolumeClaim != nil {
+			claimName := volume.PersistentVolumeClaim.ClaimName
+			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
+				return nil, nil, nil, nil, "", err
+			}
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: volume.PersistentVolumeClaim.ClaimName,
+						ReadOnly:  volume.PersistentVolumeClaim.ReadOnly,
+					},
+				},
+			})
+		}
+		if volume.Ephemeral != nil {
+			claimName := volume.Ephemeral.PersistentVolumeClaim.ClaimName
+			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
+				return nil, nil, nil, nil, "", err
+			}
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: volume.Ephemeral.PersistentVolumeClaim,
+				},
+			})
+		}
+		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullSecret != "" {
+			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
+				Name: volume.ContainerDisk.ImagePullSecret,
+			})
+		}
+		if volume.HostDisk != nil {
+			var hostPathType k8sv1.HostPathType
+
+			switch hostType := volume.HostDisk.Type; hostType {
+			case v1.HostDiskExists:
+				hostPathType = k8sv1.HostPathDirectory
+			case v1.HostDiskExistsOrCreate:
+				hostPathType = k8sv1.HostPathDirectoryOrCreate
+			}
+
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					HostPath: &k8sv1.HostPathVolumeSource{
+						Path: filepath.Dir(volume.HostDisk.Path),
+						Type: &hostPathType,
+					},
+				},
+			})
+		}
+		if volume.DataVolume != nil {
+			claimName := volume.DataVolume.Name
+			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
+				return nil, nil, nil, nil, "", err
+			}
+
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: claimName,
+					},
+				},
+			})
+		}
+		if volume.ConfigMap != nil {
+			// attach a ConfigMap to the pod
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.ConfigMapSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					ConfigMap: &k8sv1.ConfigMapVolumeSource{
+						LocalObjectReference: volume.ConfigMap.LocalObjectReference,
+						Optional:             volume.ConfigMap.Optional,
+					},
+				},
+			})
+		}
+
+		if volume.Secret != nil {
+			// attach a Secret to the pod
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: volume.Secret.SecretName,
+						Optional:   volume.Secret.Optional,
+					},
+				},
+			})
+		}
+
+		if volume.DownwardAPI != nil {
+			// attach a Secret to the pod
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.DownwardAPISourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+						Items: volume.DownwardAPI.Fields,
+					},
+				},
+			})
+		}
+
+		if volume.ServiceAccount != nil {
+			serviceAccountName = volume.ServiceAccount.ServiceAccountName
+		}
+
+		if volume.DownwardMetrics != nil {
+			sizeLimit := resource.MustParse("1Mi")
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					EmptyDir: &k8sv1.EmptyDirVolumeSource{
+						Medium:    "Memory",
+						SizeLimit: &sizeLimit,
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: config.DownwardMetricDisksDir,
+			})
+		}
+
+		if volume.CloudInitNoCloud != nil {
+			if volume.CloudInitNoCloud.UserDataSecretRef != nil {
+				// attach a secret referenced by the user
+				volumeName := volume.Name + "-udata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
+						},
+					},
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userdata"),
+					SubPath:   "userdata",
+					ReadOnly:  true,
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userData"),
+					SubPath:   "userData",
+					ReadOnly:  true,
+				})
+			}
+			if volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
+				// attach a secret referenced by the networkdata
+				volumeName := volume.Name + "-ndata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitNoCloud.NetworkDataSecretRef.Name,
+						},
+					},
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
+					SubPath:   "networkdata",
+					ReadOnly:  true,
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
+					SubPath:   "networkData",
+					ReadOnly:  true,
+				})
+			}
+		}
+
+		if volume.Sysprep != nil {
+			var volumeSource k8sv1.VolumeSource
+			// attach a Secret or ConfigMap referenced by the user
+			volumeSource, err := sysprepVolumeSource(*volume.Sysprep)
+			if err != nil {
+				return nil, nil, nil, nil, "", err
+			}
+			volumes = append(volumes, k8sv1.Volume{
+				Name:         volume.Name,
+				VolumeSource: volumeSource,
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.SysprepSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+		}
+
+		if volume.CloudInitConfigDrive != nil {
+			if volume.CloudInitConfigDrive.UserDataSecretRef != nil {
+				// attach a secret referenced by the user
+				volumeName := volume.Name + "-udata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
+						},
+					},
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userdata"),
+					SubPath:   "userdata",
+					ReadOnly:  true,
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userData"),
+					SubPath:   "userData",
+					ReadOnly:  true,
+				})
+			}
+			if volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+				// attach a secret referenced by the networkdata
+				volumeName := volume.Name + "-ndata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitConfigDrive.NetworkDataSecretRef.Name,
+						},
+					},
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
+					SubPath:   "networkdata",
+					ReadOnly:  true,
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
+					SubPath:   "networkData",
+					ReadOnly:  true,
+				})
+			}
+		}
+	}
+
+	for _, accessCred := range vmi.Spec.AccessCredentials {
+		secretName := ""
+		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.Source.Secret != nil {
+			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
+		} else if accessCred.UserPassword != nil && accessCred.UserPassword.Source.Secret != nil {
+			secretName = accessCred.UserPassword.Source.Secret.SecretName
+		}
+
+		if secretName == "" {
+			continue
+		}
+		volumeName := secretName + "-access-cred"
+		volumes = append(volumes, k8sv1.Volume{
+			Name: volumeName,
+			VolumeSource: k8sv1.VolumeSource{
+				Secret: &k8sv1.SecretVolumeSource{
+					SecretName: secretName,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      volumeName,
+			MountPath: filepath.Join(config.SecretSourceDir, volumeName),
+			ReadOnly:  true,
 		})
 	}
 
-	vmo = append(vmo, k8sv1.VolumeMount{
-		Name:      "libvirt-runtime",
-		MountPath: "/var/run/libvirt",
-	})
-
-	// virt-launcher cmd socket dir
-	vmo = append(vmo, k8sv1.VolumeMount{
-		Name:      "sockets",
-		MountPath: filepath.Join(t.virtShareDir, "sockets"),
-	})
-	v = append(v, k8sv1.Volume{
-		Name: "sockets",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-		},
-	})
+	if t.imagePullSecret != "" {
+		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
+			Name: t.imagePullSecret,
+		})
+	}
 
 	// This detects hotplug volumes for a started but not ready VMI
 	for _, volume := range vmi.Spec.Volumes {
@@ -1742,7 +1690,57 @@ func renderLaunchManifestInitDefaultVolumes(t *templateService, vmi *v1.VirtualM
 		}
 	}
 
-	return
+	return volumes, volumeDevices, volumeMounts, imagePullSecrets, serviceAccountName, nil
+}
+
+func renderLaunchManifestRequirements(t *templateService, vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
+	// Consider CPU and memory requests and limits for pod scheduling
+	resources := k8sv1.ResourceRequirements{}
+	vmiResources := vmi.Spec.Domain.Resources
+
+	resources.Requests = make(k8sv1.ResourceList)
+	resources.Limits = make(k8sv1.ResourceList)
+
+	// Set Default CPUs request
+	if !vmi.IsCPUDedicated() {
+		vcpus := int64(1)
+		if vmi.Spec.Domain.CPU != nil {
+			vcpus = hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+		}
+		cpuAllocationRatio := t.clusterConfig.GetCPUAllocationRatio()
+		if vcpus != 0 && cpuAllocationRatio > 0 {
+			val := float64(vcpus) / float64(cpuAllocationRatio)
+			vcpusStr := fmt.Sprintf("%g", val)
+			if val < 1 {
+				val *= 1000
+				vcpusStr = fmt.Sprintf("%gm", val)
+			}
+			resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
+		}
+	}
+	// Copy vmi resources requests to a container
+	for key, value := range vmiResources.Requests {
+		resources.Requests[key] = value
+	}
+
+	// Copy vmi resources limits to a container
+	for key, value := range vmiResources.Limits {
+		resources.Limits[key] = value
+	}
+
+	// Add ephemeral storage request to container to be used by Kubevirt. This amount of ephemeral storage
+	// should be added to the user's request.
+	ephemeralStorageOverhead := resource.MustParse(ephemeralStorageOverheadSize)
+	ephemeralStorageRequested := resources.Requests[k8sv1.ResourceEphemeralStorage]
+	ephemeralStorageRequested.Add(ephemeralStorageOverhead)
+	resources.Requests[k8sv1.ResourceEphemeralStorage] = ephemeralStorageRequested
+
+	if ephemeralStorageLimit, ephemeralStorageLimitDefined := resources.Limits[k8sv1.ResourceEphemeralStorage]; ephemeralStorageLimitDefined {
+		ephemeralStorageLimit.Add(ephemeralStorageOverhead)
+		resources.Limits[k8sv1.ResourceEphemeralStorage] = ephemeralStorageLimit
+	}
+
+	return resources
 }
 
 func getVirtiofsCapabilities() []k8sv1.Capability {
