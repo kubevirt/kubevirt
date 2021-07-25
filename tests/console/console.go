@@ -203,7 +203,7 @@ func NewExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance,
 	}()
 
 	opts = append(opts, expect.SendTimeout(timeout))
-	opts = append(opts, expect.Verbose(true))
+	opts = append(opts, expect.Verbose(false)) // TODO remove
 	opts = append(opts, expect.VerboseWriter(GinkgoWriter))
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmiWriter,
