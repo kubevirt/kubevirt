@@ -486,78 +486,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	// Get memory overhead
-	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
-
 	resources := renderLaunchManifestResourceRequirements(t, vmi)
-
-	// Consider hugepages resource for pod scheduling
-	if util.HasHugePages(vmi) {
-		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
-		hugepagesMemReq := vmi.Spec.Domain.Resources.Requests.Memory()
-
-		// If requested, use the guest memory to allocate hugepages
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
-			guest := vmi.Spec.Domain.Memory.Guest.Value()
-			if requests > guest {
-				hugepagesMemReq = vmi.Spec.Domain.Memory.Guest
-			}
-		}
-		resources.Requests[hugepageType] = *hugepagesMemReq
-		resources.Limits[hugepageType] = *hugepagesMemReq
-
-		// Configure hugepages mount on a pod
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:      "hugepages",
-			MountPath: filepath.Join("/dev/hugepages"),
-		})
-		volumes = append(volumes, k8sv1.Volume{
-			Name: "hugepages",
-			VolumeSource: k8sv1.VolumeSource{
-				EmptyDir: &k8sv1.EmptyDirVolumeSource{
-					Medium: k8sv1.StorageMediumHugePages,
-				},
-			},
-		})
-
-		reqMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
-		limMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
-		// In case the guest memory and the requested memeory are different, add the difference
-		// to the to the overhead
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
-			limits := vmi.Spec.Domain.Resources.Limits.Memory().Value()
-			guest := vmi.Spec.Domain.Memory.Guest.Value()
-			if requests > guest {
-				reqMemDiff.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
-				reqMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
-			}
-			if limits > guest {
-				limMemDiff.Add(*vmi.Spec.Domain.Resources.Limits.Memory())
-				limMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
-			}
-		}
-		// Set requested memory equals to overhead memory
-		reqMemDiff.Add(*memoryOverhead)
-		resources.Requests[k8sv1.ResourceMemory] = *reqMemDiff
-		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			limMemDiff.Add(*memoryOverhead)
-			resources.Limits[k8sv1.ResourceMemory] = *limMemDiff
-		}
-	} else {
-		// Add overhead memory
-		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
-		if !vmi.Spec.Domain.Resources.OvercommitGuestOverhead {
-			memoryRequest.Add(*memoryOverhead)
-		}
-		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
-
-		if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			memoryLimit.Add(*memoryOverhead)
-			resources.Limits[k8sv1.ResourceMemory] = memoryLimit
-		}
-	}
+	resources, volumes, volumeMounts = renderLaunchManifestHugePages(t, vmi, resources, volumes, volumeMounts)
 
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
@@ -1741,6 +1671,79 @@ func renderLaunchManifestResourceRequirements(t *templateService, vmi *v1.Virtua
 	}
 
 	return resources
+}
+
+func renderLaunchManifestHugePages(t *templateService, vmi *v1.VirtualMachineInstance, resources k8sv1.ResourceRequirements, volumes []k8sv1.Volume, volumeMounts []k8sv1.VolumeMount) (k8sv1.ResourceRequirements, []k8sv1.Volume, []k8sv1.VolumeMount) {
+	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
+
+	if util.HasHugePages(vmi) {
+		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
+		hugepagesMemReq := vmi.Spec.Domain.Resources.Requests.Memory()
+
+		// If requested, use the guest memory to allocate hugepages
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
+			guest := vmi.Spec.Domain.Memory.Guest.Value()
+			if requests > guest {
+				hugepagesMemReq = vmi.Spec.Domain.Memory.Guest
+			}
+		}
+		resources.Requests[hugepageType] = *hugepagesMemReq
+		resources.Limits[hugepageType] = *hugepagesMemReq
+
+		// Configure hugepages mount on a pod
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      "hugepages",
+			MountPath: filepath.Join("/dev/hugepages"),
+		})
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "hugepages",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{
+					Medium: k8sv1.StorageMediumHugePages,
+				},
+			},
+		})
+
+		reqMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		limMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		// In case the guest memory and the requested memeory are different, add the difference
+		// to the to the overhead
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
+			limits := vmi.Spec.Domain.Resources.Limits.Memory().Value()
+			guest := vmi.Spec.Domain.Memory.Guest.Value()
+			if requests > guest {
+				reqMemDiff.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+				reqMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
+			}
+			if limits > guest {
+				limMemDiff.Add(*vmi.Spec.Domain.Resources.Limits.Memory())
+				limMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
+			}
+		}
+		// Set requested memory equals to overhead memory
+		reqMemDiff.Add(*memoryOverhead)
+		resources.Requests[k8sv1.ResourceMemory] = *reqMemDiff
+		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
+			limMemDiff.Add(*memoryOverhead)
+			resources.Limits[k8sv1.ResourceMemory] = *limMemDiff
+		}
+	} else {
+		// Add overhead memory
+		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
+		if !vmi.Spec.Domain.Resources.OvercommitGuestOverhead {
+			memoryRequest.Add(*memoryOverhead)
+		}
+		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
+
+		if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
+			memoryLimit.Add(*memoryOverhead)
+			resources.Limits[k8sv1.ResourceMemory] = memoryLimit
+		}
+	}
+
+	return resources, volumes, volumeMounts
 }
 
 func getVirtiofsCapabilities() []k8sv1.Capability {
