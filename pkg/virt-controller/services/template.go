@@ -450,7 +450,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	precond.MustNotBeNil(vmi)
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-	nodeSelector := map[string]string{}
 
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
@@ -508,36 +507,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		})
 	}
 
-	// Handle CPU pinning
-	if vmi.IsCPUDedicated() {
-		// schedule only on nodes with a running cpu manager
-		nodeSelector[v1.CPUManager] = "true"
-
-		vcpus := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-
-		if vcpus != 0 {
-			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(vcpus, resource.BinarySI)
-		} else {
-			if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-				resources.Requests[k8sv1.ResourceCPU] = cpuLimit
-			} else if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-				resources.Limits[k8sv1.ResourceCPU] = cpuRequest
-			}
-		}
-		// allocate 1 more pcpu if IsolateEmulatorThread request
-		if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-			emulatorThreadCPU := resource.NewQuantity(1, resource.BinarySI)
-			limits := resources.Limits[k8sv1.ResourceCPU]
-			limits.Add(*emulatorThreadCPU)
-			resources.Limits[k8sv1.ResourceCPU] = limits
-			if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-				cpuRequest.Add(*emulatorThreadCPU)
-				resources.Requests[k8sv1.ResourceCPU] = cpuRequest
-			}
-		}
-
-		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
-	}
+	var nodeSelector map[string]string
+	nodeSelector, resources = renderLaunchManifestCPUDedicated(vmi, resources)
 
 	ovmfPath := t.clusterConfig.GetOVMFPath()
 
@@ -1744,6 +1715,42 @@ func renderLaunchManifestHugePages(t *templateService, vmi *v1.VirtualMachineIns
 	}
 
 	return resources, volumes, volumeMounts
+}
+
+func renderLaunchManifestCPUDedicated(vmi *v1.VirtualMachineInstance, resources k8sv1.ResourceRequirements) (nodeSelector map[string]string, newResources k8sv1.ResourceRequirements) {
+	nodeSelector = map[string]string{}
+
+	if vmi.IsCPUDedicated() {
+		// schedule only on nodes with a running cpu manager
+		nodeSelector[v1.CPUManager] = "true"
+
+		vcpus := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+
+		if vcpus != 0 {
+			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(vcpus, resource.BinarySI)
+		} else {
+			if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+				resources.Requests[k8sv1.ResourceCPU] = cpuLimit
+			} else if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+				resources.Limits[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+		// allocate 1 more pcpu if IsolateEmulatorThread request
+		if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+			emulatorThreadCPU := resource.NewQuantity(1, resource.BinarySI)
+			limits := resources.Limits[k8sv1.ResourceCPU]
+			limits.Add(*emulatorThreadCPU)
+			resources.Limits[k8sv1.ResourceCPU] = limits
+			if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+				cpuRequest.Add(*emulatorThreadCPU)
+				resources.Requests[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+
+		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
+	}
+
+	return nodeSelector, resources
 }
 
 func getVirtiofsCapabilities() []k8sv1.Capability {
