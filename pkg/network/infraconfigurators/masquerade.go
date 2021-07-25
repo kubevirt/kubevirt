@@ -511,7 +511,7 @@ func (b *MasqueradePodNetworkConfigurator) geVmIfaceIpByProtocol(proto iptables.
 func (b *MasqueradePodNetworkConfigurator) getSrcAddressesToSnat(proto iptables.Protocol) string {
 	addresses := []string{getLoopbackAdrress(proto)}
 	if hasIstioSidecarInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
-		addresses = append(addresses, getEnvoyLoopbackAddress())
+		addresses = append(addresses, GetEnvoyLoopbackAddress())
 	}
 	return fmt.Sprintf("{ %s }", strings.Join(addresses, ", "))
 }
@@ -526,10 +526,6 @@ func (b *MasqueradePodNetworkConfigurator) getDstAddressesToDnat(proto iptables.
 		addresses = append(addresses, ipv4)
 	}
 	return fmt.Sprintf("{ %s }", strings.Join(addresses, ", ")), nil
-}
-
-func getEnvoyLoopbackAddress() string {
-	return "127.0.0.6"
 }
 
 func getLoopbackAdrress(proto iptables.Protocol) string {
