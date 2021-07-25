@@ -2172,7 +2172,7 @@ spec:
 			patchKvWorkloads(nil, false, "")
 		})
 
-		It("should reject infra placement configuration with incorrect toleraion operator", func() {
+		It("should reject infra placement configuration with incorrect toleration operator", func() {
 			incorrectOperator := "foo"
 			incorrectWorkload := v1.ComponentConfig{
 				NodePlacement: &v1.NodePlacement{
