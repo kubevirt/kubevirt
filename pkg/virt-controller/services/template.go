@@ -489,7 +489,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// Get memory overhead
 	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
 
-	resources := renderLaunchManifestRequirements(t, vmi)
+	resources := renderLaunchManifestResourceRequirements(t, vmi)
 
 	// Consider hugepages resource for pod scheduling
 	if util.HasHugePages(vmi) {
@@ -1693,7 +1693,7 @@ func renderLaunchManifestVolumes(t *templateService, vmi *v1.VirtualMachineInsta
 	return volumes, volumeDevices, volumeMounts, imagePullSecrets, serviceAccountName, nil
 }
 
-func renderLaunchManifestRequirements(t *templateService, vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
+func renderLaunchManifestResourceRequirements(t *templateService, vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
 	vmiResources := vmi.Spec.Domain.Resources
