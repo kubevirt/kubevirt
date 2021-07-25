@@ -337,7 +337,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					It("Should not be able to reach http service outside of mesh", func() {
 						Eventually(func() error {
 							return checkHTTPServiceReturnCode(serverVMIAddress, testPort, generateExpectedHTTPReturnCodeRegex("5.."))
-						}, externalServiceCheckTimeout, externalServiceCheckInterval)
+						}, externalServiceCheckTimeout, externalServiceCheckInterval).Should(Succeed())
 					})
 				})
 			})
