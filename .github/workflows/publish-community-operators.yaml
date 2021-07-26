@@ -9,6 +9,10 @@ jobs:
     if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
     name: Publish HCO tagged version to community-operators
     runs-on: ubuntu-latest
+    env:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+      REGISTRY_NAMESPACE: kubevirt
     steps:
       - name: resolve the correct branch of the tag
         run: |
