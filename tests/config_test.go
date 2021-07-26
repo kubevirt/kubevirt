@@ -365,7 +365,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
 					cd.ContainerDiskFor(
-						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+						cd.ContainerDiskFedoraTestTooling), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
 				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
 				tests.AddSecretDisk(vmi, secretName, secretName)
 				tests.AddConfigMapDiskWithCustomLabel(vmi, configMapName, "random1", "configlabel")
@@ -484,7 +484,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				By("Running VMI")
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
 					cd.ContainerDiskFor(
-						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+						cd.ContainerDiskFedoraTestTooling), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
 				tests.AddSecretDisk(vmi, secretName, secretName)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
