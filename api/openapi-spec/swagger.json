@@ -6279,6 +6279,19 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1/dump-cluster-profiler": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1dump-cluster-profiler",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io/v1/guestfs": {
     "get": {
      "produces": [
@@ -7286,6 +7299,32 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/start-cluster-profiler": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1start-cluster-profiler",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1/stop-cluster-profiler": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1stop-cluster-profiler",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io/v1/version": {
     "get": {
      "produces": [
@@ -7321,6 +7360,19 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/dump-cluster-profiler": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3dump-cluster-profiler",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
       }
      }
     }
@@ -8331,6 +8383,32 @@
       "required": true
      }
     ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/start-cluster-profiler": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3start-cluster-profiler",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/stop-cluster-profiler": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3stop-cluster-profiler",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
    },
    "/apis/subresources.kubevirt.io/v1alpha3/version": {
     "get": {
