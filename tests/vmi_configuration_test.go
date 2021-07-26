@@ -2553,11 +2553,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
 					cd.ContainerDiskFor(
-						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+						cd.ContainerDiskFedoraTestTooling), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
 
 				cpuvmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
 					cd.ContainerDiskFor(
-						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+						cd.ContainerDiskFedoraTestTooling), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
 				cpuvmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,

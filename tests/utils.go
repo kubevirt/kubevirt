@@ -2223,7 +2223,7 @@ func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInst
 	vmi := NewRandomVMI()
 
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
-	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedora) {
+	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
 		vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
 	}
 	return vmi

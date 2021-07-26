@@ -351,7 +351,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 				"#cloud-config\npassword: %s\nchpasswd: { expire: False }\n",
 				fedoraPassword,
 			)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData)
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
 			vmi.Namespace = util.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{

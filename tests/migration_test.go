@@ -1229,7 +1229,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(nfsIP).NotTo(BeEmpty())
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
-				os := string(cd.ContainerDiskFedora)
+				os := string(cd.ContainerDiskFedoraTestTooling)
 				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
 
 				cfg := getCurrentKv()
@@ -1904,7 +1904,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			}
 
 			newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-				// It could have been cleaner to import cd.ContainerDiskFedora from cdi-http-server but that does
+				// It could have been cleaner to import cd.ContainerDiskFedoraTestTooling from cdi-http-server but that does
 				// not work so as a temporary workaround the following imports the image from an ISCSI target pod
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
@@ -2147,7 +2147,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			tests.CreateConfigMap(configMapName, config_data)
 			tests.CreateSecret(secretName, secret_data)
 
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora))
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 			tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
 			tests.AddConfigMapDisk(vmi, configMapName, configMapName)
