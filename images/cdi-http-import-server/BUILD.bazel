@@ -46,26 +46,6 @@ pkg_tar(
     package_dir = "usr/share/nginx/html/images",
 )
 
-genrule(
-    name = "fedora-img",
-    srcs = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": ["@fedora_with_test_tooling_aarch64//file"],
-        "//conditions:default": ["@fedora_with_test_tooling//file"],
-    }),
-    outs = ["usr/share/nginx/html/images/fedora.img"],
-    cmd = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "mkdir disk && cat $(location @fedora_with_test_tooling_aarch64//file) > $@",
-        "//conditions:default": "mkdir disk && cat $(location @fedora_with_test_tooling//file) > $@",
-    }),
-)
-
-pkg_tar(
-    name = "fedora-img-tar",
-    srcs = [":fedora-img"],
-    mode = "644",
-    package_dir = "usr/share/nginx/html/images",
-)
-
 pkg_tar(
     name = "nginx-config-tar",
     srcs = [
@@ -92,7 +72,6 @@ container_image(
     tars = [
         ":alpine-tar",
         ":cirros-img-tar",
-        ":fedora-img-tar",
         ":nginx-config-tar",
     ],
     visibility = ["//visibility:public"],

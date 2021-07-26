@@ -725,7 +725,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				if isHTTP {
 					vm = tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault)
 				} else {
-					url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
+					url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
 					vm = tests.NewRandomVMWithRegistryDataVolume(url, util.NamespaceTestDefault)
 				}
 				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
@@ -981,7 +981,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			return dv
 		}
 		table.DescribeTable("[QUARANTINE][rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller, withOCS bool) {
-			dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.FedoraHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+			dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			dataVolume.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("5Gi")
 			dataVolume = dvChange(dataVolume)
 			preallocated := dataVolume.Spec.Preallocation != nil && *dataVolume.Spec.Preallocation

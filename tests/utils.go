@@ -132,7 +132,6 @@ const (
 	AlpineHttpUrl = iota
 	DummyFileHttpUrl
 	CirrosHttpUrl
-	FedoraHttpUrl
 	VirtWhatCpuidHelperHttpUrl
 )
 
@@ -192,7 +191,6 @@ const (
 var (
 	HostPathAlpine string
 	HostPathCustom string
-	HostPathFedora string
 )
 
 const (
@@ -683,7 +681,6 @@ func BeforeTestSuitSetup(_ []byte) {
 	worker := config.GinkgoConfig.ParallelNode
 	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
-	HostPathFedora = filepath.Join(HostPathBase, "fedora-cloud")
 
 	BlockDiskForTest = fmt.Sprintf("block-disk-for-tests%v", worker)
 
@@ -1845,7 +1842,7 @@ func createNamespaces() {
 }
 
 func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	return newRandomDataVolumeWithRegistryImport(imageUrl, namespace, Config.StorageClassLocal, accessMode)
+	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, Config.StorageClassLocal, accessMode)
 }
 
 func NewRandomDataVolumeWithHttpImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
@@ -1879,7 +1876,7 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 
-func newRandomDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	name := "test-datavolume-" + rand.String(12)
 	quantity, err := resource.ParseQuantity("1Gi")
 	util2.PanicOnError(err)
@@ -4776,8 +4773,6 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", flags.KubeVirtInstallNamespace)
 	case CirrosHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/cirros.img", flags.KubeVirtInstallNamespace)
-	case FedoraHttpUrl:
-		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/fedora.img", flags.KubeVirtInstallNamespace)
 	case VirtWhatCpuidHelperHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/virt-what-cpuid-helper", flags.KubeVirtInstallNamespace)
 	default:
