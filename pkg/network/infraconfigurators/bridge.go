@@ -75,10 +75,6 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 		b.vmMac = &b.podNicLink.Attrs().HardwareAddr
 	}
 
-	if err := validateMTU(b.podNicLink.Attrs().MTU); err != nil {
-		return err
-	}
-
 	return nil
 }
 

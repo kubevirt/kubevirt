@@ -66,10 +66,6 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 	}
 	b.podNicLink = link
 
-	if err := validateMTU(b.podNicLink.Attrs().MTU); err != nil {
-		return err
-	}
-
 	if err := b.computeIPv4GatewayAndVmIp(); err != nil {
 		return err
 	}
