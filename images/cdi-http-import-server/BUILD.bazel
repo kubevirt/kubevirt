@@ -49,13 +49,13 @@ pkg_tar(
 genrule(
     name = "fedora-img",
     srcs = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": ["@fedora_image_aarch64//file"],
-        "//conditions:default": ["@fedora_image//file"],
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["@fedora_with_test_tooling_aarch64//file"],
+        "//conditions:default": ["@fedora_with_test_tooling//file"],
     }),
     outs = ["usr/share/nginx/html/images/fedora.img"],
     cmd = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "mkdir disk && cat $(location @fedora_image_aarch64//file) > $@",
-        "//conditions:default": "mkdir disk && cat $(location @fedora_image//file) > $@",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "mkdir disk && cat $(location @fedora_with_test_tooling_aarch64//file) > $@",
+        "//conditions:default": "mkdir disk && cat $(location @fedora_with_test_tooling//file) > $@",
     }),
 )
 
