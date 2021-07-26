@@ -245,21 +245,37 @@ var _ = Describe("Template", func() {
 					map[string]string{
 						"kubectl.kubernetes.io/last-applied-configuration": "open",
 					},
-					map[string]string{"kubevirt.io/domain": "testvmi"},
+					map[string]string{
+						"kubevirt.io/domain":                   "testvmi",
+						"pre.hook.backup.velero.io/container":  "compute",
+						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"post.hook.backup.velero.io/container": "compute",
+						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					},
 				),
 				table.Entry("and don't contain kubevirt annotation added by apiserver",
 					map[string]string{
 						"kubevirt.io/latest-observed-api-version":  "source",
 						"kubevirt.io/storage-observed-api-version": ".com",
 					},
-					map[string]string{"kubevirt.io/domain": "testvmi"},
+					map[string]string{
+						"kubevirt.io/domain":                   "testvmi",
+						"pre.hook.backup.velero.io/container":  "compute",
+						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"post.hook.backup.velero.io/container": "compute",
+						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					},
 				),
 				table.Entry("and contain kubevirt domain annotation",
 					map[string]string{
 						"kubevirt.io/domain": "fedora",
 					},
 					map[string]string{
-						"kubevirt.io/domain": "fedora",
+						"kubevirt.io/domain":                   "fedora",
+						"pre.hook.backup.velero.io/container":  "compute",
+						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"post.hook.backup.velero.io/container": "compute",
+						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 					},
 				),
 				table.Entry("and contain kubernetes annotation",
@@ -269,6 +285,10 @@ var _ = Describe("Template", func() {
 					map[string]string{
 						"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
 						"kubevirt.io/domain":                             "testvmi",
+						"pre.hook.backup.velero.io/container":            "compute",
+						"pre.hook.backup.velero.io/command":              "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"post.hook.backup.velero.io/container":           "compute",
+						"post.hook.backup.velero.io/command":             "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 					},
 				),
 				table.Entry("and contain kubevirt ignitiondata annotation",
@@ -286,6 +306,10 @@ var _ = Describe("Template", func() {
 								"version": "3"
 							 },
 						}`,
+						"pre.hook.backup.velero.io/container":  "compute",
+						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"post.hook.backup.velero.io/container": "compute",
+						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 					},
 				),
 			)
@@ -322,9 +346,13 @@ var _ = Describe("Template", func() {
 					v1.CreatedByLabel: "1234",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					v1.DomainAnnotation:                 "testvmi",
-					"test":                              "shouldBeInPod",
-					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
+					v1.DomainAnnotation:                    "testvmi",
+					"test":                                 "shouldBeInPod",
+					hooks.HookSidecarListAnnotationName:    `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
+					"pre.hook.backup.velero.io/container":  "compute",
+					"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					"post.hook.backup.velero.io/container": "compute",
+					"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 				}))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
 					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),

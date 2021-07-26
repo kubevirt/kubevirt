@@ -226,6 +226,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			var (
 				snapshotStorageClass string
 			)
+			const VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION = "pre.hook.backup.velero.io/container"
+			const VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION = "pre.hook.backup.velero.io/command"
+			const VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION = "post.hook.backup.velero.io/container"
+			const VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION = "post.hook.backup.velero.io/command"
 
 			BeforeEach(func() {
 				sc, err := getSnapshotStorageClass(virtClient)
@@ -297,6 +301,23 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 						}, 30)).To(Succeed())
 					}
 				}
+			}
+
+			callVeleroHook := func(vmi *v1.VirtualMachineInstance, annoContainer, annoCommand string) error {
+				pod := tests.GetPodByVirtualMachineInstance(vmi)
+
+				command := pod.Annotations[annoCommand]
+				command = strings.Trim(command, "[]")
+				commandSlice := []string{}
+				for _, c := range strings.Split(command, ",") {
+					commandSlice = append(commandSlice, strings.Trim(c, "\" "))
+				}
+				virtClient, err := kubecli.GetKubevirtClient()
+				if err != nil {
+					return err
+				}
+				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
+				return err
 			}
 
 			It("[test_id:6767]with volumes and guest agent available", func() {
@@ -584,6 +605,57 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 						updatedVMI.Status.FSFreezeStatus == "" &&
 						errors.IsNotFound(contentErr)
 				}, time.Minute, 2*time.Second).Should(BeTrue())
+			})
+
+			It("Calling Velero hooks should freeze/unfreeze VM", func() {
+				By("Creating VM")
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Namespace = util.NamespaceTestDefault
+				vm = tests.NewRandomVirtualMachine(vmi, false)
+
+				vm, vmi = createAndStartVM(vm)
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Logging into Fedora")
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+
+				By("Calling Velero pre-backup hook")
+				err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Veryfing the VM was frozen")
+				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
+				expectedFreezeOutput := "executing fsfreeze hook with arg 'freeze'"
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedFreezeOutput)},
+					&expect.BExp{R: fmt.Sprintf(".*qemu-ga.*%s.*", expectedFreezeOutput)},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 30)).To(Succeed())
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vmi.Status.FSFreezeStatus == "frozen"
+				}, 180*time.Second, time.Second).Should(BeTrue())
+
+				By("Calling Velero post-backup hook")
+				err = callVeleroHook(vmi, VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Veryfing the VM was thawed")
+				expectedThawOutput := "executing fsfreeze hook with arg 'thaw'"
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedThawOutput)},
+					&expect.BExp{R: fmt.Sprintf(".*qemu-ga.*%s.*", expectedThawOutput)},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 30)).To(Succeed())
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vmi.Status.FSFreezeStatus == ""
+				}, 180*time.Second, time.Second).Should(BeTrue())
 			})
 		})
 

@@ -94,6 +94,11 @@ const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
 // Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
 const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
 
+const VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION = "pre.hook.backup.velero.io/container"
+const VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION = "pre.hook.backup.velero.io/command"
+const VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION = "post.hook.backup.velero.io/container"
+const VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION = "post.hook.backup.velero.io/command"
+
 const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
 const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
 const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
@@ -2086,6 +2091,17 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
 		annotationsSet[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
+	annotationsSet[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+	annotationsSet[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
+		vmi.GetObjectMeta().GetName(),
+		vmi.GetObjectMeta().GetNamespace())
+	annotationsSet[VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+	annotationsSet[VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+		"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
+		vmi.GetObjectMeta().GetName(),
+		vmi.GetObjectMeta().GetNamespace())
+
 	return annotationsSet, nil
 }
 

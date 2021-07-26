@@ -159,6 +159,7 @@ container_image(
     files = [
         "node-labeller/node-labeller.sh",
         "//cmd/container-disk-v2alpha:container-disk",
+        "//cmd/virt-freezer",
         "//cmd/virt-probe",
     ],
     tars = [":setcaps"],
