@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "http-client-profiler.go",
         "process-profiler.go",
+        "profile-manager.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/profiler",
     visibility = ["//visibility:public"],

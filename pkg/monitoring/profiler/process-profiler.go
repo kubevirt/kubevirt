@@ -32,6 +32,7 @@ type pprofData struct {
 	cpuf        *os.File
 	memf        *os.File
 	isProfiling bool
+	hasResults  bool
 	lock        sync.Mutex
 }
 
@@ -42,11 +43,14 @@ var ProcessProfileBaseDir = "/profile-data"
 var cpuProfileFilePath = filepath.Join(ProcessProfileBaseDir, "cpu-profile.pprof")
 var memProfileFilePath = filepath.Join(ProcessProfileBaseDir, "mem-profile.pprof")
 
-func StartProcessProfiler() error {
+func startProcessProfiler() error {
 	var err error
 
 	globalProcessProfiler.lock.Lock()
 	defer globalProcessProfiler.lock.Unlock()
+
+	globalProcessProfiler.hasResults = false
+	globalProcessProfiler.isProfiling = true
 
 	globalProcessProfiler.cpuf, err = os.Create(cpuProfileFilePath)
 	if err != nil {
@@ -70,18 +74,30 @@ func StartProcessProfiler() error {
 	return nil
 }
 
-func StopProcessProfiler() {
+func stopProcessProfiler(clearResults bool) {
 	globalProcessProfiler.lock.Lock()
 	defer globalProcessProfiler.lock.Unlock()
+
 	pprof.StopCPUProfile()
 	globalProcessProfiler.cpuf.Close()
 	globalProcessProfiler.memf.Close()
+	globalProcessProfiler.hasResults = true
+	globalProcessProfiler.isProfiling = false
+	if clearResults {
+		globalProcessProfiler.hasResults = false
+	}
 
 }
 
-func DumpProcessProfilerResults() (map[string][]byte, error) {
+func dumpProcessProfilerResults() (map[string][]byte, error) {
 	var err error
 	res := make(map[string][]byte)
+
+	globalProcessProfiler.lock.Lock()
+	defer globalProcessProfiler.lock.Unlock()
+	if !globalProcessProfiler.hasResults {
+		return res, nil
+	}
 
 	res["cpu-profile-dump"], err = ioutil.ReadFile(cpuProfileFilePath)
 	if err != nil {

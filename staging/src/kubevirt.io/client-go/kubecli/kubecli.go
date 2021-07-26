@@ -237,7 +237,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		config.UserAgent = restclient.DefaultKubernetesUserAgent()
 	}
 
-	profiler.AddHttpRoundTripProfiler(&shallowCopy)
+	profiler.AddHTTPRoundTripProfiler(&shallowCopy)
 
 	restClient, err := rest.RESTClientFor(&shallowCopy)
 	if err != nil {

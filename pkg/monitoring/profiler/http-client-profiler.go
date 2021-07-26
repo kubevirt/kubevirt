@@ -20,7 +20,6 @@
 package profiler
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -37,30 +36,24 @@ type counter struct {
 
 var globalCounter counter
 
-func StartHttpProfiler() {
+func startHTTPProfiler() {
 	globalCounter.lock.Lock()
 	defer globalCounter.lock.Unlock()
 	globalCounter.counter = make(map[string]int)
 	globalCounter.isProfiling = true
 }
 
-func StopHttpProfiler() {
+func stopHTTPProfiler(clearResults bool) {
 	globalCounter.lock.Lock()
 	defer globalCounter.lock.Unlock()
-	globalCounter.isProfiling = true
-}
+	globalCounter.isProfiling = false
 
-func DumpHttpProfilerResultsString() (string, error) {
-	globalCounter.lock.Lock()
-	defer globalCounter.lock.Unlock()
-	b, err := json.MarshalIndent(globalCounter.counter, "", "  ")
-	if err != nil {
-		return "", err
+	if clearResults {
+		globalCounter.counter = make(map[string]int)
 	}
-	return string(b), nil
 }
 
-func DumpHttpProfilerResults() map[string]int {
+func dumpHTTPProfilerResults() map[string]int {
 	globalCounter.lock.Lock()
 	defer globalCounter.lock.Unlock()
 
@@ -113,7 +106,7 @@ func (r *rtWrapper) RoundTrip(request *http.Request) (*http.Response, error) {
 	return r.origRoundTripper.RoundTrip(request)
 }
 
-func AddHttpRoundTripProfiler(config *rest.Config) {
+func AddHTTPRoundTripProfiler(config *rest.Config) {
 	fn := func(rt http.RoundTripper) http.RoundTripper {
 		return &rtWrapper{
 			origRoundTripper: rt,
