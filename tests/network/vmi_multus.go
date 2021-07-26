@@ -423,7 +423,6 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentUserData(), false),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", "10.1.1.2/24"), false))
 				vmiTwo = tests.StartVmOnNode(vmiTwo, nodes.Items[0].Name)
 
@@ -435,7 +434,6 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentUserData(), false),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, "10.1.1.1/24"), false))
 				vmiOne = tests.StartVmOnNode(vmiOne, nodes.Items[0].Name)
 
@@ -590,8 +588,6 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				ep2CidrV6 := ep2IpV6 + v6Mask
 
 				userdata := fmt.Sprintf(`#!/bin/bash
-                    echo "fedora" |passwd fedora --stdin
-                    setenforce 0
                     ip link add ep1 type veth peer name ep2
                     ip addr add %s dev ep1
                     ip addr add %s dev ep2
@@ -706,7 +702,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 		getSriovVmi := func(networks []string, cloudInitNetworkData string) *v1.VirtualMachineInstance {
 
 			withVmiOptions := []libvmi.Option{
-				libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentUserData(), false),
 				libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkData, false),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -1131,7 +1126,6 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 				*libvmi.InterfaceWithMac(
 					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentUserData(), false),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
 	}
 

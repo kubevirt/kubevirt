@@ -29,24 +29,18 @@ import (
 const (
 	DefaultTestGracePeriod int64 = 0
 	DefaultVmiName               = "testvmi"
-
-	userDataSetPassword = `#!/bin/bash
-	echo "fedora" | passwd fedora --stdin
-	echo `
 )
 
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	opts = append([]Option{WithCloudInitNoCloudUserData(userDataSetPassword, false)}, opts...)
-	return newFedora(cd.ContainerDiskFedora, opts...)
+	return NewTestToolingFedora(opts...)
 }
 
 // NewTestToolingFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 // This image has tooling for the guest agent, stress, and more
 func NewTestToolingFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	opts = append([]Option{WithCloudInitNoCloudUserData(userDataSetPassword, false)}, opts...)
 	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
 }
 

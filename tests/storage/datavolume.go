@@ -999,7 +999,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 			vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = "scsi"
-			tests.AddUserData(vmi, "cloud-init", tests.GetFedoraToolsGuestAgentUserData())
+			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\n echo hello\n")
 
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

@@ -455,7 +455,7 @@ var _ = SIGDescribe("Storage", func() {
                                    mount -t virtiofs %s %s
                                    touch %s
                            `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
-				userData := fmt.Sprintf("%s\n%s", tests.GetFedoraToolsGuestAgentUserData(), mountVirtiofsCommands)
+				userData := mountVirtiofsCommands
 				tests.AddUserData(vmi, "cloud-init", userData)
 
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
@@ -513,8 +513,7 @@ var _ = SIGDescribe("Storage", func() {
                                        mount -t virtiofs %s %s
                                        touch %s
                                `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
-				userData := fmt.Sprintf("%s\n%s", tests.GetFedoraToolsGuestAgentUserData(), mountVirtiofsCommands)
-				tests.AddUserData(vmi, "cloud-init", userData)
+				tests.AddUserData(vmi, "cloud-init", mountVirtiofsCommands)
 
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
