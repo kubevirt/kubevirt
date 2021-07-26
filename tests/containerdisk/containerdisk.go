@@ -51,3 +51,7 @@ func ContainerDiskFor(name ContainerDisk) string {
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }
+
+func DataVolumeImportUrlForContainerDisk(name ContainerDisk) string {
+	return fmt.Sprintf("docker://%s", ContainerDiskFor(name))
+}

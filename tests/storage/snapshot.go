@@ -462,9 +462,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(content.Spec.VolumeBackups).Should(BeEmpty())
 			})
 
-			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", func() {
-				dataVolume := tests.NewRandomDataVolumeWithHttpImportInStorageClass(
-					tests.GetUrl(tests.FedoraHttpUrl),
+			It("[test_id:6837]delete snapshot after freeze, excpect vm unfreeze", func() {
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce)
@@ -517,7 +517,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 			It("should unfreeze vm if snapshot fails when deadline exceeded", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImportInStorageClass(
-					tests.GetUrl(tests.FedoraHttpUrl),
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce)

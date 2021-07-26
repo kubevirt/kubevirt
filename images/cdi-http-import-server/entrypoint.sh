@@ -24,15 +24,12 @@ trap 'echo "Graceful exit"; exit 0' SIGINT SIGQUIT SIGTERM
 
 ALPINE_IMAGE_PATH=/usr/share/nginx/html/images/alpine.iso
 CIRROS_IMAGE_PATH=/usr/share/nginx/html/images/cirros.img
-FEDORA_IMAGE_PATH=/usr/share/nginx/html/images/fedora.img
 IMAGE_PATH=/images
 IMAGE_NAME=${IMAGE_NAME:-cirros}
 
 case "$IMAGE_NAME" in
 cirros) CONVERT_PATH=$CIRROS_IMAGE_PATH ;;
 alpine) CONVERT_PATH=$ALPINE_IMAGE_PATH ;;
-fedora-cloud) CONVERT_PATH=$FEDORA_IMAGE_PATH ;;
-fedora-with-test-tooling) CONVERT_PATH=$FEDORA_IMAGE_PATH ;;
 *)
     echo "failed to find image $IMAGE_NAME"
     ;;

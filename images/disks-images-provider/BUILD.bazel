@@ -31,19 +31,6 @@ genrule(
 )
 
 genrule(
-    name = "fedora-img",
-    srcs = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": ["@fedora_with_test_tooling_aarch64//file"],
-        "//conditions:default": ["@fedora_with_test_tooling//file"],
-    }),
-    outs = ["images/fedora-cloud/disk.qcow2"],
-    cmd = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "mkdir -p images/fedora-cloud && cat $(location @fedora_image_aarch64//file) > $@",
-        "//conditions:default": "mkdir -p images/fedora-cloud && cat $(location @fedora_image//file) > $@",
-    }),
-)
-
-genrule(
     name = "custom-img",
     srcs = [],
     outs = ["images/custom/disk.img"],
@@ -67,14 +54,6 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "fedora-tar",
-    srcs = [
-        ":fedora-img",
-    ],
-    package_dir = "images/fedora-cloud",
-)
-
-pkg_tar(
     name = "custom-tar",
     srcs = [
         ":custom-img",
@@ -95,7 +74,6 @@ container_image(
     tars = [
         ":alpine-tar",
         ":cirros-tar",
-        ":fedora-tar",
         ":custom-tar",
     ],
     visibility = ["//visibility:public"],
