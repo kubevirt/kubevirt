@@ -156,6 +156,23 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 	return podTemplateSpec, nil
 }
 
+func attachProfileVolume(spec *corev1.PodSpec) {
+
+	volume := corev1.Volume{
+		Name: "profile-data",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+	volumeMount := corev1.VolumeMount{
+		Name:      "profile-data",
+		MountPath: "/profile-data",
+	}
+	spec.Volumes = append(spec.Volumes, volume)
+	spec.Containers[0].VolumeMounts = append(spec.Containers[0].VolumeMounts, volumeMount)
+
+}
+
 func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath string) {
 	True := true
 	secretVolume := corev1.Volume{
@@ -255,6 +272,8 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtApiCertSecretName, "/etc/virt-api/certificates")
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
+	attachProfileVolume(&deployment.Spec.Template.Spec)
+
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = rbac.ApiServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
@@ -375,6 +394,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	}
 
 	attachCertificateSecret(pod, VirtControllerCertSecretName, "/etc/virt-controller/certificates")
+	attachProfileVolume(pod)
 
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -537,6 +557,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 	}
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtOperatorCertSecretName, "/etc/virt-operator/certificates")
+	attachProfileVolume(&deployment.Spec.Template.Spec)
 
 	return deployment, nil
 }

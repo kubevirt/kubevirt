@@ -8345,6 +8345,17 @@
      }
     }
    },
+   "/dump-profiler": {
+    "get": {
+     "description": "dump profiler results endpoint",
+     "operationId": "HandleDumpProfiler",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
    "/healthz": {
     "get": {
      "description": "Health endpoint",
@@ -8365,6 +8376,28 @@
       "application/json"
      ],
      "operationId": "func7",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/start-profiler": {
+    "get": {
+     "description": "start profiler endpoint",
+     "operationId": "HandleStartProfiler",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/stop-profiler": {
+    "get": {
+     "description": "stop profiler endpoint",
+     "operationId": "HandleStopProfiler",
      "responses": {
       "401": {
        "description": "Unauthorized"

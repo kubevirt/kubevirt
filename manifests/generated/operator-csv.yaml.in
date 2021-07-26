@@ -888,6 +888,8 @@ spec:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
                   readOnly: true
+                - mountPath: /profile-data
+                  name: profile-data
               priorityClassName: kubevirt-cluster-critical
               securityContext:
                 runAsNonRoot: true
@@ -900,6 +902,8 @@ spec:
                 secret:
                   optional: true
                   secretName: kubevirt-operator-certs
+              - emptyDir: {}
+                name: profile-data
       permissions:
       - rules:
         - apiGroups:
