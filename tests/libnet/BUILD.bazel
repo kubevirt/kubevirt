@@ -6,6 +6,7 @@ go_library(
         "cloudinit.go",
         "cluster.go",
         "dns.go",
+        "expose_util.go",
         "ipaddress.go",
         "ipv6.go",
         "namespace.go",
@@ -16,6 +17,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/libnet",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virtctl/expose:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

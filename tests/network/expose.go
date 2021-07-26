@@ -22,7 +22,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
@@ -158,13 +157,10 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
-
-				vmiExposeArgs = []string{
-					expose.COMMAND_EXPOSE,
-					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
-					"--port", servicePort, "--name", serviceName,
-					"--target-port", strconv.Itoa(testPort),
-				}
+				vmiExposeArgs = libnet.NewVMIExposeArgs(tcpVM,
+					libnet.WithPort(servicePort),
+					libnet.WithServiceName(serviceName),
+					libnet.WithTargetPort(strconv.Itoa(testPort)))
 			})
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func(ipFamily ipFamily) {
@@ -204,12 +200,10 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
-
-				vmiExposeArgs = []string{
-					expose.COMMAND_EXPOSE,
-					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", "http",
-				}
+				vmiExposeArgs = libnet.NewVMIExposeArgs(tcpVM,
+					libnet.WithPort(servicePort),
+					libnet.WithServiceName(serviceName),
+					libnet.WithTargetPort("http"))
 			})
 
 			table.DescribeTable("Should expose a ClusterIP service and connect to the vm on port 80", func(ipFamily ipFamily) {
@@ -259,12 +253,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
-
-				vmiExposeArgs = []string{
-					expose.COMMAND_EXPOSE,
-					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
-					"--name", serviceName,
-				}
+				vmiExposeArgs = libnet.NewVMIExposeArgs(tcpVM,
+					libnet.WithServiceName(serviceName))
 			})
 
 			table.DescribeTable("Should expose a ClusterIP service and connect to all ports defined on the vmi", func(ipFamily ipFamily) {
@@ -308,12 +298,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
-
-				vmiExposeArgs = []string{
-					expose.COMMAND_EXPOSE,
-					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
-					"--name", serviceName,
-				}
+				vmiExposeArgs = libnet.NewVMIExposeArgs(tcpVM,
+					libnet.WithServiceName(serviceName))
 			})
 
 			table.DescribeTable("Should expose a ClusterIP service with the correct IPFamilyPolicy", func(ipFamiyPolicy k8sv1.IPFamilyPolicyType) {
@@ -368,12 +354,11 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
-				vmiExposeArgs = []string{
-					expose.COMMAND_EXPOSE,
-					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--type", "NodePort",
-				}
+				vmiExposeArgs = libnet.NewVMIExposeArgs(tcpVM,
+					libnet.WithPort(servicePort),
+					libnet.WithServiceName(serviceName),
+					libnet.WithTargetPort(strconv.Itoa(testPort)),
+					libnet.WithType("NodePort"))
 			})
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily ipFamily) {
@@ -446,13 +431,11 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
-
-				vmiExposeArgs = []string{
-					expose.COMMAND_EXPOSE,
-					"virtualmachineinstance", "--namespace", udpVM.GetNamespace(), udpVM.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--protocol", "UDP",
-				}
+				vmiExposeArgs = libnet.NewVMIExposeArgs(udpVM,
+					libnet.WithPort(servicePort),
+					libnet.WithServiceName(serviceName),
+					libnet.WithTargetPort(strconv.Itoa(testPort)),
+					libnet.WithProtocol("UDP"))
 			})
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a ClusterIP service on a VMI and connect to it", func(ipFamily ipFamily) {
@@ -494,13 +477,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
-
-				vmiExposeArgs = []string{
-					expose.COMMAND_EXPOSE,
-					"virtualmachineinstance", "--namespace", udpVM.GetNamespace(), udpVM.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--type", "NodePort", "--protocol", "UDP",
-				}
+				vmiExposeArgs = libnet.NewVMIExposeArgs(udpVM,
+					libnet.WithPort(servicePort),
+					libnet.WithServiceName(serviceName),
+					libnet.WithTargetPort(strconv.Itoa(testPort)),
+					libnet.WithType("NodePort"),
+					libnet.WithProtocol("UDP"))
 			})
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily ipFamily) {
@@ -611,12 +593,10 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
-
-				vmirsExposeArgs = []string{
-					expose.COMMAND_EXPOSE,
-					"vmirs", "--namespace", vmrs.GetNamespace(), vmrs.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-				}
+				vmirsExposeArgs = libnet.NewVMIRSExposeArgs(vmrs,
+					libnet.WithPort(servicePort),
+					libnet.WithServiceName(serviceName),
+					libnet.WithTargetPort(strconv.Itoa(testPort)))
 			})
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it", func(ipFamily ipFamily) {
@@ -711,12 +691,10 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
-
-				vmExposeArgs = []string{
-					expose.COMMAND_EXPOSE,
-					"virtualmachine", "--namespace", vm.GetNamespace(), vm.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-				}
+				vmExposeArgs = libnet.NewVMExposeArgs(vm,
+					libnet.WithPort(servicePort),
+					libnet.WithServiceName(serviceName),
+					libnet.WithTargetPort(strconv.Itoa(testPort)))
 			})
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Connect to ClusterIP service that was set when VM was offline.", func(ipFamily ipFamily) {
