@@ -191,7 +191,6 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
         "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",
         "$(container_prefix)/$(image_prefix)cirros-custom-container-disk-demo:$(container_tag)": "//containerimages:cirros-custom-container-disk-image",
-        "$(container_prefix)/$(image_prefix)fedora-cloud-container-disk-demo:$(container_tag)": "//containerimages:fedora-cloud-container-disk-image",
         "$(container_prefix)/$(image_prefix)microlivecd-container-disk-demo:$(container_tag)": "//containerimages:microlivecd-container-disk-image",
         "$(container_prefix)/$(image_prefix)virtio-container-disk:$(container_tag)": "//containerimages:virtio-container-disk-image",
         # Kernel boot container
