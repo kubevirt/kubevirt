@@ -2308,57 +2308,131 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 	})
-	Context("When VirtualMachineInstance is connected to a network", func() {
-
-		It("should only report the pod network in status", func() {
-
-			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.ObjectMeta.ResourceVersion = "1"
-			interfaceName := "interface_name"
-			vmi.Spec.Networks = []v1.Network{
-				{
-					Name:          interfaceName,
-					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-				},
-				{
-					Name: "testmultus",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{
-							NetworkName: "multus",
-						},
-					},
-				},
-			}
-			vmi.Status.Phase = v1.Scheduled
-			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
-
-			podCacheInterface := &netcache.PodCacheInterface{
+	Context("When VirtualMachineInstance is connected to one or more networks", func() {
+		makePodCacheInterface := func(interfaceName, podIp string, podIps ...string) *netcache.PodCacheInterface {
+			return &netcache.PodCacheInterface{
 				Iface: &v1.Interface{
 					Name: interfaceName,
 				},
-				PodIP:  "1.1.1.1",
-				PodIPs: []string{"1.1.1.1", "fd10:244::8c4c"},
+				PodIP:  podIp,
+				PodIPs: podIps,
 			}
-			err = controller.networkCacheStoreFactory.CacheForVMI(vmi).Write(interfaceName, podCacheInterface)
-			Expect(err).ToNot(HaveOccurred())
+		}
 
-			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+		Context("with a secondary network", func() {
+			var (
+				vmi                    *v1.VirtualMachineInstance
+				interfaceName          string
+				interfaceIp            string
+				interfaceIpv6          string
+				secondaryInterfaceName string
+				secondaryInterfaceIp   string
+				secondaryInterfaceIpv6 string
+				domain                 *api.Domain
+			)
 
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(podCacheInterface.Iface.Name))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podCacheInterface.PodIP))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs).To(Equal(podCacheInterface.PodIPs))
-			}).Return(vmi, nil)
+			getScheduledVmiWithPodNetworkAndMultusNetwork := func(phase v1.VirtualMachineInstancePhase, vmiName, interfaceName, secondaryInterfaceName string) *v1.VirtualMachineInstance {
+				vmi = v1.NewMinimalVMI(vmiName)
+				vmi.Spec.Networks = []v1.Network{
+					{
+						Name:          interfaceName,
+						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+					},
+					{
+						Name: secondaryInterfaceName,
+						NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{
+								NetworkName: "multus",
+							},
+						},
+					},
+				}
+				vmi.ObjectMeta.ResourceVersion = "1"
+				vmi.Status.Phase = phase
+				return vmi
+			}
 
-			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIStarted)
-			Expect(controller.podInterfaceCache.Size()).To(Equal(1))
+			BeforeEach(func() {
+				const vmiName = "testvmi"
+				interfaceName = "interface_name"
+				interfaceIp = "1.1.1.1"
+				interfaceIpv6 = "fd10:244::8c4c"
+				secondaryInterfaceName = "secondary_interface_name"
+				secondaryInterfaceIp = "1.1.1.2"
+				secondaryInterfaceIpv6 = "fd10:244::8c4e"
+				domain = api.NewMinimalDomainWithUUID(vmiName, vmiTestUUID)
+
+				vmi = getScheduledVmiWithPodNetworkAndMultusNetwork(v1.Scheduled, vmiName, interfaceName, secondaryInterfaceName)
+				vmi.UID = vmiTestUUID
+				vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+
+				podCacheInterface := makePodCacheInterface(interfaceName, interfaceIp, interfaceIp, interfaceIpv6)
+				Expect(controller.networkCacheStoreFactory.CacheForVMI(vmi).Write(interfaceName, podCacheInterface)).To(Succeed())
+
+				podCacheSecondaryInterface := makePodCacheInterface(secondaryInterfaceName, secondaryInterfaceIp, secondaryInterfaceIp, secondaryInterfaceIpv6)
+				Expect(controller.networkCacheStoreFactory.CacheForVMI(vmi).Write(secondaryInterfaceName, podCacheSecondaryInterface)).To(Succeed())
+
+				mockWatchdog.CreateFile(vmi)
+				domain.Status.Status = api.Running
+			})
+
+			table.DescribeTable("should report all networks in status", func(overrideWithGuestAgent bool) {
+				if overrideWithGuestAgent {
+					interfaceName = "overridden_interface_name"
+					interfaceIp = "overridden_ip"
+					interfaceIpv6 = "overridden_ipv6"
+					secondaryInterfaceName = "overridden_secondary_interface_name"
+					secondaryInterfaceIp = "overridden_secondary_ip"
+					secondaryInterfaceIpv6 = "overridden_secondary_ipv6"
+					mac := "1C:CE:C0:01:BE:E7"
+					secondaryMac := "1C:CE:C0:01:BE:E9"
+
+					domain.Spec.Devices.Interfaces = []api.Interface{
+						{
+							MAC:   &api.MAC{MAC: mac},
+							Alias: api.NewUserDefinedAlias(interfaceName),
+						},
+						{
+							MAC:   &api.MAC{MAC: secondaryMac},
+							Alias: api.NewUserDefinedAlias(secondaryInterfaceName),
+						},
+					}
+
+					domain.Status.Interfaces = []api.InterfaceStatus{
+						{
+							Name: interfaceName,
+							Ip:   interfaceIp,
+							IPs:  []string{interfaceIp, interfaceIpv6},
+							Mac:  mac,
+						},
+						{
+							Name: secondaryInterfaceName,
+							Ip:   secondaryInterfaceIp,
+							IPs:  []string{secondaryInterfaceIp, secondaryInterfaceIpv6},
+							Mac:  secondaryMac,
+						},
+					}
+				}
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+
+				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+					Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(2))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(interfaceName))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(interfaceIp))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs).To(Equal([]string{interfaceIp, interfaceIpv6}))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[1].Name).To(Equal(secondaryInterfaceName))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[1].IP).To(Equal(secondaryInterfaceIp))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[1].IPs).To(Equal([]string{secondaryInterfaceIp, secondaryInterfaceIpv6}))
+				}).Return(vmi, nil)
+
+				controller.Execute()
+				testutils.ExpectEvent(recorder, VMIStarted)
+				Expect(controller.podInterfaceCache.Size()).To(Equal(2))
+			},
+				table.Entry("using info from the pod interface", false),
+				table.Entry("guest agent interface info overrides the pod interface cache", true),
+			)
 		})
 
 		table.DescribeTable("Should update masquerade interface with the pod IP", func(podIPs ...string) {
@@ -2435,6 +2509,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			table.Entry("Dual stack", "2.2.2.2", "fd10:244::8c4c"),
 		)
 	})
+
 	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {
 		It("should update existing interface with MAC", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
