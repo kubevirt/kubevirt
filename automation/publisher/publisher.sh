@@ -1,7 +1,8 @@
 set -ex
 
 function main() {
-  TARGET_REPO=${TARGET_REPO:-"operator-framework/community-operators"}
+  TARGET_REPO_UPSTREAM=${TARGET_REPO_UPSTREAM:-"k8s-operatorhub/community-operators"}
+  TARGET_REPO_COMMUNITY=${TARGET_REPO_COMMUNITY:-"redhat-openshift-ecosystem/community-operators-prod"}
   PACKAGE_DIR=${PACKAGE_DIR:-"deploy/olm-catalog/community-kubevirt-hyperconverged"}
   PR_TEMPLATE="https://raw.githubusercontent.com/operator-framework/community-operators/master/docs/pull_request_template.md"
   BOT_USERNAME="hco-bot"
@@ -61,33 +62,33 @@ function main() {
   gh auth login --with-token < token.txt
   rm -f token.txt
 
-  create_pr community-operators
-  create_pr upstream-community-operators
+  create_pr ${TARGET_REPO_UPSTREAM}
+  create_pr ${TARGET_REPO_COMMUNITY}
 }
 
 function create_pr() {
-  TARGET_FOLDER=$1
+  TARGET_REPO=$1
 
   echo "Clone the community operators repo"
   gh repo clone ${TARGET_REPO}
 
-  echo "Update HCO manifests in ${TARGET_FOLDER}"
-  BUNDLE_DIR=${TARGET_REPO##*/}/${TARGET_FOLDER}/community-kubevirt-hyperconverged/${TAGGED_VERSION}
+  echo "Update HCO manifests"
+  BUNDLE_DIR=${TARGET_REPO##*/}/operators/community-kubevirt-hyperconverged/${TAGGED_VERSION}
   mkdir -p ${BUNDLE_DIR}
   cp -r hco_bundle/* ${BUNDLE_DIR}
 
-  echo "Open a pull request to community operators"
+  echo "Open a pull request to ${TARGET_REPO}"
   cd ${TARGET_REPO##*/}
   git config user.name "hco-bot"
   git config user.email "hco-bot@redhat.com"
   git add .
-  BRANCH_NAME=${TARGET_FOLDER%%-*}-release_hco_v${TAGGED_VERSION}
+  BRANCH_NAME=${TARGET_REPO%%/*}-release_hco_v${TAGGED_VERSION}
   git checkout -b ${BRANCH_NAME}
   git status
   git commit -asm "Release Kubevirt HCO v${TAGGED_VERSION}"
   git push https://${HCO_BOT_TOKEN}@github.com/${BOT_USERNAME}/${TARGET_REPO##*/}.git
-  echo "Create a pull request to community operator with tagged HCO version"
-  gh pr create --title "[${TARGET_FOLDER%%-*}]: Release Kubevirt HCO v${TAGGED_VERSION}" --body "${PR_BODY}" \
+  echo "Create a pull request to ${TARGET_REPO} with tagged HCO version"
+  gh pr create --title "[${TARGET_REPO%%/*}]: Release Kubevirt HCO v${TAGGED_VERSION}" --body "${PR_BODY}" \
     --repo ${TARGET_REPO} --head ${BOT_USERNAME}:${BRANCH_NAME}
   cd ..
   rm -rf ${TARGET_REPO##*/}
