@@ -695,3 +695,21 @@ func (GuestAgentPing) SwaggerDoc() map[string]string {
 		"": "GuestAgentPing configures the guest-agent based ping probe\n+k8s:openapi-gen=true",
 	}
 }
+
+func (ClusterProfilerOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "ClusterProfilerOptions is provided when enabling the control plane profiler\n+k8s:openapi-gen=true",
+	}
+}
+
+func (ProfilerResult) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (ClusterProfilerResults) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}

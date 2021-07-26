@@ -25,16 +25,13 @@ import (
 	"net/http"
 	"sync"
 
+	v1 "kubevirt.io/client-go/api/v1"
+
 	restful "github.com/emicklei/go-restful"
 )
 
 type profileManager struct {
 	lock sync.Mutex
-}
-
-type ProfilerOptions struct {
-	ProfileProcess bool
-	ProfileHTTP    bool
 }
 
 type ProfilerResults struct {
@@ -44,7 +41,7 @@ type ProfilerResults struct {
 
 var globalManager profileManager
 
-func startProfiler(options *ProfilerOptions) error {
+func startProfiler(options *v1.ClusterProfilerOptions) error {
 
 	// make sure all profilers are stopped before
 	// we attempt to start again
@@ -75,19 +72,19 @@ func stopProfiler(clearResults bool) error {
 	return nil
 }
 
-func dumpProfilerResultsString() (string, error) {
+func dumpProfilerResultString() (string, error) {
 	pprofResults, err := dumpProcessProfilerResults()
 	if err != nil {
 		return "", err
 	}
 	httpResults := dumpHTTPProfilerResults()
 
-	profilerResults := &ProfilerResults{
-		ProcessProfilerResults: pprofResults,
-		HTTPProfilerResults:    httpResults,
+	profilerResult := &v1.ProfilerResult{
+		PprofData:         pprofResults,
+		HTTPRequestCounts: httpResults,
 	}
 
-	b, err := json.MarshalIndent(profilerResults, "", "  ")
+	b, err := json.MarshalIndent(profilerResult, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -95,16 +92,16 @@ func dumpProfilerResultsString() (string, error) {
 
 }
 
-func dumpProfilerResults() (*ProfilerResults, error) {
+func dumpProfilerResult() (*v1.ProfilerResult, error) {
 	pprofResults, err := dumpProcessProfilerResults()
 	if err != nil {
 		return nil, err
 	}
 	httpResults := dumpHTTPProfilerResults()
 
-	profilerResults := &ProfilerResults{
-		ProcessProfilerResults: pprofResults,
-		HTTPProfilerResults:    httpResults,
+	profilerResults := &v1.ProfilerResult{
+		PprofData:         pprofResults,
+		HTTPRequestCounts: httpResults,
 	}
 
 	return profilerResults, nil
@@ -113,7 +110,7 @@ func dumpProfilerResults() (*ProfilerResults, error) {
 
 func HandleStartProfiler(_ *restful.Request, response *restful.Response) {
 
-	options := &ProfilerOptions{
+	options := &v1.ClusterProfilerOptions{
 		ProfileProcess: true,
 		ProfileHTTP:    true,
 	}
@@ -138,7 +135,7 @@ func HandleStopProfiler(_ *restful.Request, response *restful.Response) {
 
 func HandleDumpProfiler(_ *restful.Request, response *restful.Response) {
 
-	res, err := dumpProfilerResults()
+	res, err := dumpProfilerResult()
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("could not dump internal profiling: %v", err))
 		return
