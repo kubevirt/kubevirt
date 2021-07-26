@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
+	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -538,6 +539,9 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
 		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
 	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
+	ws.Route(ws.GET("/start-profiler").To(profiler.HandleStartProfiler).Doc("start profiler endpoint"))
+	ws.Route(ws.GET("/stop-profiler").To(profiler.HandleStopProfiler).Doc("stop profiler endpoint"))
+	ws.Route(ws.GET("/dump-profiler").To(profiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
 
 	for _, version := range v1.SubresourceGroupVersions {
 		// K8s needs the ability to query info about a specific API group

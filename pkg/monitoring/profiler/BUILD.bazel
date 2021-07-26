@@ -9,5 +9,8 @@ go_library(
     ],
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/profiler",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/k8s.io/client-go/rest:go_default_library"],
+    deps = [
+        "//vendor/github.com/emicklei/go-restful:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+    ],
 )

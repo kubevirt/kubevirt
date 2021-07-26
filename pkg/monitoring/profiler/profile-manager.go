@@ -21,7 +21,11 @@ package profiler
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"sync"
+
+	restful "github.com/emicklei/go-restful"
 )
 
 type profileManager struct {
@@ -40,11 +44,11 @@ type ProfilerResults struct {
 
 var globalManager profileManager
 
-func StartProfiler(options *ProfilerOptions) error {
+func startProfiler(options *ProfilerOptions) error {
 
 	// make sure all profilers are stopped before
 	// we attempt to start again
-	err := StopProfiler(true)
+	err := stopProfiler(true)
 	if err != nil {
 		return err
 	}
@@ -52,7 +56,7 @@ func StartProfiler(options *ProfilerOptions) error {
 	if options.ProfileProcess {
 		err = startProcessProfiler()
 		if err != nil {
-			StopProfiler(true)
+			stopProfiler(true)
 			return err
 		}
 	}
@@ -64,14 +68,14 @@ func StartProfiler(options *ProfilerOptions) error {
 	return nil
 }
 
-func StopProfiler(clearResults bool) error {
+func stopProfiler(clearResults bool) error {
 	stopProcessProfiler(clearResults)
 	stopHTTPProfiler(clearResults)
 
 	return nil
 }
 
-func DumpProfilerResults() (string, error) {
+func dumpProfilerResultsString() (string, error) {
 	pprofResults, err := dumpProcessProfilerResults()
 	if err != nil {
 		return "", err
@@ -89,4 +93,56 @@ func DumpProfilerResults() (string, error) {
 	}
 	return string(b), nil
 
+}
+
+func dumpProfilerResults() (*ProfilerResults, error) {
+	pprofResults, err := dumpProcessProfilerResults()
+	if err != nil {
+		return nil, err
+	}
+	httpResults := dumpHTTPProfilerResults()
+
+	profilerResults := &ProfilerResults{
+		ProcessProfilerResults: pprofResults,
+		HTTPProfilerResults:    httpResults,
+	}
+
+	return profilerResults, nil
+
+}
+
+func HandleStartProfiler(_ *restful.Request, response *restful.Response) {
+
+	options := &ProfilerOptions{
+		ProfileProcess: true,
+		ProfileHTTP:    true,
+	}
+
+	err := startProfiler(options)
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("could not start internal profiling: %v", err))
+		return
+	}
+	response.WriteHeader(http.StatusOK)
+}
+
+func HandleStopProfiler(_ *restful.Request, response *restful.Response) {
+	err := stopProfiler(false)
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("could not stop internal profiling: %v", err))
+		return
+	}
+
+	response.WriteHeader(http.StatusOK)
+}
+
+func HandleDumpProfiler(_ *restful.Request, response *restful.Response) {
+
+	res, err := dumpProfilerResults()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("could not dump internal profiling: %v", err))
+		return
+	}
+
+	response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
 }

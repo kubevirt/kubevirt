@@ -197,6 +197,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	}
 	attachCertificateSecret(pod, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	attachCertificateSecret(pod, VirtHandlerServerCertSecretName, "/etc/virt-handler/servercertificates")
+	attachProfileVolume(pod)
 
 	bidi := corev1.MountPropagationBidirectional
 	// NOTE: the 'kubelet-pods-shortened' volume mounts the same host path as 'kubelet-pods'
