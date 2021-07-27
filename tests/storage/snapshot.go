@@ -472,27 +472,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				var vmi *v1.VirtualMachineInstance
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserData(
 					dataVolume,
-					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }\npackages:\n qemu-guest-agent",
+					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n",
 				))
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
-				Eventually(func() error {
-					var batch []expect.Batcher
-					batch = append(batch, []expect.Batcher{
-						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "sudo systemctl start qemu-guest-agent\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-						&expect.BSnd{S: "sudo systemctl enable qemu-guest-agent\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-					}...)
-
-					return console.SafeExpectBatch(vmi, batch, 120)
-				}, 720*time.Second, 1*time.Second).Should(Succeed())
 				tests.WaitAgentConnected(virtClient, vmi)
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
 				createDenyVolumeSnapshotCreateWebhook()
 				defer deleteWebhook()

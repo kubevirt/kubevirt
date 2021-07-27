@@ -593,10 +593,6 @@ var _ = SIGDescribe("[Serial]Multus", func() {
                     ip addr add %s dev ep2
                     ip addr add %s dev ep1
                     ip addr add %s dev ep2
-                    sudo cp /home/fedora/qemu-guest-agent.service /lib/systemd/system/
-                    sudo systemctl daemon-reload
-                    sudo systemctl start qemu-guest-agent
-                    sudo systemctl enable qemu-guest-agent
                 `, ep1Cidr, ep2Cidr, ep1CidrV6, ep2CidrV6)
 				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userdata)
 
