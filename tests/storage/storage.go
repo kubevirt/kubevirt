@@ -450,13 +450,12 @@ var _ = SIGDescribe("Storage", func() {
 				fs := vmi.Spec.Domain.Devices.Filesystems[0]
 				virtiofsMountPath := fmt.Sprintf("/mnt/virtiof_%s", fs.Name)
 				virtiofsTestFile := fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath)
-				mountVirtiofsCommands := fmt.Sprintf(`
+				mountVirtiofsCommands := fmt.Sprintf(`#!/bin/bash
                                    mkdir %s
                                    mount -t virtiofs %s %s
                                    touch %s
                            `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
-				userData := mountVirtiofsCommands
-				tests.AddUserData(vmi, "cloud-init", userData)
+				tests.AddUserData(vmi, "cloud-init", mountVirtiofsCommands)
 
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
@@ -508,7 +507,7 @@ var _ = SIGDescribe("Storage", func() {
 				fs := vmi.Spec.Domain.Devices.Filesystems[0]
 				virtiofsMountPath := fmt.Sprintf("/mnt/virtiof_%s", fs.Name)
 				virtiofsTestFile := fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath)
-				mountVirtiofsCommands := fmt.Sprintf(`
+				mountVirtiofsCommands := fmt.Sprintf(`#!/bin/bash
                                        mkdir %s
                                        mount -t virtiofs %s %s
                                        touch %s

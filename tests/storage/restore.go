@@ -814,7 +814,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				dataVolume.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("6Gi")
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserData(
 					dataVolume,
-					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }\npackages:\n qemu-guest-agent",
+					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }",
 				))
 				tests.WaitAgentConnected(virtClient, vmi)
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
