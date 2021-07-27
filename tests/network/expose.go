@@ -140,6 +140,32 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		return tests.WaitForJobToSucceed(job, time.Duration(120)*time.Second)
 	}
 
+	executeVirtctlExposeCommand := func(ExposeArgs []string) error {
+		virtctl := tests.NewRepeatableVirtctlCommand(ExposeArgs...)
+		return virtctl()
+	}
+
+	getService := func(namespace, serviceName string) (*k8sv1.Service, error) {
+		svc, err := virtClient.CoreV1().Services(namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		return svc, nil
+	}
+
+	runJobsAgainstService := func(svc *k8sv1.Service, namespace string, jobs ...func(host, port, namespace string) *batchv1.Job) {
+		serviceIPs := svc.Spec.ClusterIPs
+		for _, job := range jobs {
+			for ipOrderNum, ip := range serviceIPs {
+				assert.XFail(xfailError, func() {
+					servicePort := fmt.Sprint(svc.Spec.Ports[0].Port)
+					Expect(createAndWaitForJobToSucceed(job, namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
+				}, ipOrderNum > 0)
+			}
+		}
+	}
+
 	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance
 		tests.BeforeAll(func() {
@@ -168,21 +194,16 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
-				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
-				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				By("Getting and validating the cluster IP given for the service")
+				svc, err := getService(tcpVM.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
+				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
+				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs")
-				serviceIPs := svc.Spec.ClusterIPs
-				for ipOrderNum, ip := range serviceIPs {
-					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, ip, servicePort, fmt.Sprintf("%dst ClusterIP", ipOrderNum+1))).To(Succeed())
-					}, ipOrderNum > 0)
-				}
+				By("Iterating over the ClusterIPs and run hello-world job")
+				runJobsAgainstService(svc, tcpVM.Namespace, runHelloWorldJob)
 			},
 				table.Entry("[test_id:1531] over default IPv4 IP family", ipv4),
 				table.Entry("over IPv6 IP family", ipv6),
@@ -211,8 +232,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
-				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
@@ -262,8 +282,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
-				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
@@ -329,11 +348,10 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = append(vmiExposeArgs, "--ip-family-policy", string(ipFamiyPolicy))
 
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
-				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
-				By("Getting back the service")
-				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				By("Getting the service")
+				svc, err := getService(tcpVM.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Validating the num of cluster ips")
@@ -366,12 +384,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
-				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
-				By("Getting back the service")
-				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				By("Getting the service")
+				svc, err := getService(tcpVM.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
+
 				nodePort := svc.Spec.Ports[0].NodePort
 				Expect(nodePort).To(BeNumerically(">", 0))
 
@@ -443,23 +461,16 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
-				Expect(virtctl()).To(Succeed(), "should succeed exposing a service via `virtctl expose ...`")
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
-				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				By("Getting and validating the cluster IP given for the service")
+				svc, err := getService(udpVM.Namespace, serviceName)
+				Expect(err).ToNot(HaveOccurred())
+				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Validating the ClusterIP")
-				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
-				serviceIPs := svc.Spec.ClusterIPs
-
-				By("Iterating over the ClusterIPs")
-				for ipOrderNum, ip := range serviceIPs {
-					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ip, servicePort, fmt.Sprintf("%dst ClusterIP", ipOrderNum+1))).To(Succeed())
-					}, ipOrderNum > 0)
-				}
+				By("Iterating over the ClusterIPs and run hello-world job")
+				runJobsAgainstService(svc, udpVM.Namespace, runHelloWorldJobUDP)
 			},
 				table.Entry("[test_id:1535] over default IPv4 IP family", ipv4),
 				table.Entry("over IPv6 IP family", ipv6),
@@ -490,23 +501,19 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
 
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
-				Expect(virtctl()).ToNot(HaveOccurred())
+				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
-				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				By("Getting and validating the cluster IP given for the service")
+				svc, err := getService(udpVM.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
+				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
+				Expect(err).ToNot(HaveOccurred())
+
 				nodePort := svc.Spec.Ports[0].NodePort
 				Expect(nodePort).To(BeNumerically(">", 0))
 
-				By("Iterating over the ClusterIPs")
-				serviceIPs := svc.Spec.ClusterIPs
-				for ipOrderNum, ip := range serviceIPs {
-					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
-					}, ipOrderNum > 0)
-				}
+				By("Iterating over the ClusterIPs and run hello-world job")
+				runJobsAgainstService(svc, udpVM.Namespace, runHelloWorldJobUDP)
 
 				By("Getting the node IP from all nodes")
 				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
@@ -555,6 +562,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		var vmrs *v1.VirtualMachineInstanceReplicaSet
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
+
 			By("Creating a VMRS object with 2 replicas")
 			template := newLabeledVMI("vmirs", virtClient, false)
 			vmrs = tests.NewRandomReplicaSetFromVMI(template, int32(numberOfVMs))
@@ -603,23 +611,17 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				skipIfNotSupportedCluster(ipFamily)
 				vmirsExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmirsExposeArgs)
 
-				By("Expose a service on the VMRS using virtctl")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmirsExposeArgs...)
+				By("Exposing the service via virtctl command")
+				Expect(executeVirtctlExposeCommand(vmirsExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
-				Expect(virtctl()).To(Succeed(), "should succeed exposing a service via `virtctl expose ...`")
-
-				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(vmrs.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				By("Getting and validating the cluster IP given for the service")
+				svc, err := getService(vmrs.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
+				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
+				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs")
-				serviceIPs := svc.Spec.ClusterIPs
-				for ipOrderNum, ip := range serviceIPs {
-					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmrs.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
-					}, ipOrderNum > 0)
-				}
+				By("Iterating over the ClusterIPs and run hello-world job")
+				runJobsAgainstService(svc, vmrs.Namespace, runHelloWorldJob)
 			},
 				table.Entry("[test_id:1537] over default IPv4 IP family", ipv4),
 				table.Entry("over IPv6 IP family", ipv6),
@@ -701,28 +703,22 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				skipIfNotSupportedCluster(ipFamily)
 				vmExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmExposeArgs)
 
-				By("Exposing a service to the VM using virtctl")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmExposeArgs...)
-				Expect(virtctl()).ToNot(HaveOccurred(), "should succeed exposing a service via `virtctl expose ...`")
+				By("Exposing the service via virtctl command")
+				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				vmi := startVMWithServer(virtClient, "tcp", testPort)
 				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
 
 				// This TC also covers:
 				// [test_id:1795] Exposed VM (as a service) can be reconnected multiple times.
-				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				By("Getting and validating the cluster IP given for the service")
+				svc, err := getService(vm.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
+				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
+				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs")
-				serviceIPs := svc.Spec.ClusterIPs
-				for ipOrderNum, ip := range serviceIPs {
-					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vm.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJobHttp, vm.Namespace, ip, servicePort, fmt.Sprintf("same %dst ClusterIP, this time over HTTP", ipOrderNum+1))).To(Succeed())
-					}, ipOrderNum > 0)
-				}
+				By("Iterating over the ClusterIPs and run hello-world job")
+				runJobsAgainstService(svc, vm.Namespace, runHelloWorldJob, runHelloWorldJobHttp)
 			},
 				table.Entry("[test_id:1538] over default IPv4 IP family", ipv4),
 				table.Entry("over IPv6 IP family", ipv6),
@@ -734,27 +730,22 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				skipIfNotSupportedCluster(ipFamily)
 				vmExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmExposeArgs)
 
-				vmObj := vm
-
-				By("Exposing a service to the VM using virtctl")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmExposeArgs...)
-				Expect(virtctl()).ToNot(HaveOccurred(), "should succeed exposing a service via `virtctl expose ...`")
+				By("Exposing the service via virtctl command")
+				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				vmi := startVMWithServer(virtClient, "tcp", testPort)
 				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
 
-				By("Getting back the service's allocated cluster IP.")
-				svc, err := virtClient.CoreV1().Services(vmObj.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(validateClusterIp(svc.Spec.ClusterIP, ipFamily)).To(Succeed())
+				vmObj := vm
 
-				By("Iterating over the ClusterIPs")
-				serviceIPs := svc.Spec.ClusterIPs
-				for ipOrderNum, ip := range serviceIPs {
-					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmObj.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
-					}, ipOrderNum > 0)
-				}
+				By("Getting and validating the cluster IP given for the service")
+				svc, err := getService(vmObj.Namespace, serviceName)
+				Expect(err).ToNot(HaveOccurred())
+				err = validateClusterIp(svc.Spec.ClusterIP, ipFamily)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Iterating over the ClusterIPs and run hello-world job")
+				runJobsAgainstService(svc, vmObj.Namespace, runHelloWorldJob)
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
 				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
@@ -762,7 +753,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
 
 				By("Restarting the running VM.")
-				virtctl = tests.NewRepeatableVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
+				virtctl := tests.NewRepeatableVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -782,11 +773,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				tests.GenerateHelloWorldServer(vmi, testPort, "tcp")
 
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
-				for ipOrderNum, ip := range serviceIPs {
-					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vmObj.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
-					}, ipOrderNum > 0)
-				}
+				By("Iterating over the ClusterIPs and run hello-world job")
+				runJobsAgainstService(svc, vmObj.Namespace, runHelloWorldJob)
 			},
 				table.Entry("[test_id:345] over default IPv4 IP family", ipv4),
 				table.Entry("over IPv6 IP family", ipv6),
@@ -816,26 +804,20 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					return primaryAddr, secondaryAddr
 				}
 
-				By("Exposing a service to the VM using virtctl")
-				virtctl := tests.NewRepeatableVirtctlCommand(vmExposeArgs...)
-				Expect(virtctl()).ToNot(HaveOccurred(), "should succeed exposing a service via `virtctl expose ...`")
+				By("Exposing the service via virtctl command")
+				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				vmi := startVMWithServer(virtClient, "tcp", testPort)
 				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
 
-				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
+				By("Getting and validating the cluster IP given for the service")
+				svc, err := getService(vm.Namespace, serviceName)
 				Expect(err).ToNot(HaveOccurred())
-				serviceIP := svc.Spec.ClusterIP
-				Expect(validateClusterIp(svc.Spec.ClusterIP, svcIpFamily)).To(Succeed())
+				err = validateClusterIp(svc.Spec.ClusterIP, svcIpFamily)
+				Expect(err).ToNot(HaveOccurred())
 
-				By("Iterating over the ClusterIPs")
-				serviceIPs := svc.Spec.ClusterIPs
-				for ipOrderNum, ip := range serviceIPs {
-					assert.XFail(xfailError, func() {
-						Expect(createAndWaitForJobToSucceed(runHelloWorldJob, vm.Namespace, ip, servicePort, fmt.Sprintf("%d ClusterIP", ipOrderNum+1))).To(Succeed())
-					}, ipOrderNum > 0)
-				}
+				By("Iterating over the ClusterIPs and run hello-world job")
+				runJobsAgainstService(svc, vm.Namespace, runHelloWorldJob, runHelloWorldJob)
 
 				By("Comparing the service's endpoints IP address to the VM pod IP address.")
 				// Get the IP address of the VM pod.
@@ -885,7 +867,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(svcEndpoints.Subsets).To(BeNil())
 
 				By("Starting a job which tries to reach the VMI via the ClusterIP service.")
-				job := runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
+				job := runHelloWorldJob(svc.Spec.ClusterIP, servicePort, vm.Namespace)
 
 				By("Waiting for the job to report a failed connection attempt.")
 				Expect(tests.WaitForJobToFail(job, 240*time.Second)).To(Succeed())
