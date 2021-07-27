@@ -97,7 +97,7 @@ const (
 
 	podIpAddress = ""
 
-	// This value is derived from default MaxPods in Kubelet Config
+	// This value reflects in the max number of VMIs per node
 	maxDevices = 1000
 
 	maxRequestsInFlight = 3
