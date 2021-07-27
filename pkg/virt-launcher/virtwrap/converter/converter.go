@@ -48,6 +48,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -120,6 +121,7 @@ type ConverterContext struct {
 	CpuScheduler          *api.VCPUScheduler
 	ExpandDisksEnabled    bool
 	UseLaunchSecurity     bool
+	SEVConfiguration      *launchsecurity.SEVConfiguration
 }
 
 func contains(volumes []string, name string) bool {
@@ -1277,9 +1279,15 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
 			Type:            "sev",
-			Cbitpos:         strconv.FormatUint(uint64(vmi.Spec.Domain.LaunchSecurity.SEV.Cbitpos), 10),
-			ReducedPhysBits: strconv.FormatUint(uint64(vmi.Spec.Domain.LaunchSecurity.SEV.ReducedPhysBits), 10),
+			Cbitpos:         c.SEVConfiguration.Cbitpos,
+			ReducedPhysBits: c.SEVConfiguration.ReducedPhysBits,
 			Policy:          "0x" + strconv.FormatUint(uint64(sevPolicy), 16),
+		}
+		if vmi.Spec.Domain.LaunchSecurity.SEV.Cbitpos != nil {
+			domain.Spec.LaunchSecurity.Cbitpos = strconv.FormatUint(uint64(*vmi.Spec.Domain.LaunchSecurity.SEV.Cbitpos), 10)
+		}
+		if vmi.Spec.Domain.LaunchSecurity.SEV.ReducedPhysBits != nil {
+			domain.Spec.LaunchSecurity.ReducedPhysBits = strconv.FormatUint(uint64(*vmi.Spec.Domain.LaunchSecurity.SEV.ReducedPhysBits), 10)
 		}
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",

@@ -4754,9 +4754,6 @@ var CRDsValidation map[string]string = map[string]string{
                             reducedPhysBits:
                               description: No. of physical bits in address space
                               type: integer
-                          required:
-                          - cbitpos
-                          - reducedPhysBits
                           type: object
                       type: object
                     machine:
@@ -7757,9 +7754,6 @@ var CRDsValidation map[string]string = map[string]string{
                     reducedPhysBits:
                       description: No. of physical bits in address space
                       type: integer
-                  required:
-                  - cbitpos
-                  - reducedPhysBits
                   type: object
               type: object
             machine:
@@ -9854,9 +9848,6 @@ var CRDsValidation map[string]string = map[string]string{
                     reducedPhysBits:
                       description: No. of physical bits in address space
                       type: integer
-                  required:
-                  - cbitpos
-                  - reducedPhysBits
                   type: object
               type: object
             machine:
@@ -11729,9 +11720,6 @@ var CRDsValidation map[string]string = map[string]string{
                             reducedPhysBits:
                               description: No. of physical bits in address space
                               type: integer
-                          required:
-                          - cbitpos
-                          - reducedPhysBits
                           type: object
                       type: object
                     machine:
@@ -18704,9 +18692,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           description: No. of physical bits in address
                                             space
                                           type: integer
-                                      required:
-                                      - cbitpos
-                                      - reducedPhysBits
                                       type: object
                                   type: object
                                 machine:

@@ -14686,10 +14686,6 @@
    },
    "v1.SEV": {
     "type": "object",
-    "required": [
-     "cbitpos",
-     "reducedPhysBits"
-    ],
     "properties": {
      "cbitpos": {
       "description": "CBit Position",

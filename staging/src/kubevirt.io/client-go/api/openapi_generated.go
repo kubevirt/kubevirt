@@ -18811,7 +18811,6 @@ func schema_kubevirtio_api_core_v1_SEV(ref common.ReferenceCallback) common.Open
 						},
 					},
 				},
-				Required: []string{"cbitpos", "reducedPhysBits"},
 			},
 		},
 	}
