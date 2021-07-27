@@ -22,6 +22,8 @@ package launchsecurity
 import (
 	"encoding/xml"
 	"fmt"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 type Features struct {
@@ -44,4 +46,24 @@ func QuerySEVConfiguration(virsh Virsh) (*SEVConfiguration, error) {
 		return nil, fmt.Errorf("failed to parse domain capabilities: %v", err)
 	}
 	return &features.SEV, nil
+}
+
+func SEVPolicyToBits(policy []v1.SEVPolicy) (uint, error) {
+	sevPolicyToBitMap := map[v1.SEVPolicy]uint{
+		v1.SEVPolicyNoDebug:        (1 << 0),
+		v1.SEVPolicyNoKeysSharing:  (1 << 1),
+		v1.SEVPolicyEncryptedState: (1 << 2),
+		v1.SEVPolicyNoSend:         (1 << 3),
+		v1.SEVPolicyDomain:         (1 << 4),
+		v1.SEVPolicySEV:            (1 << 5),
+	}
+	bits := uint(0)
+	for _, p := range policy {
+		if bit, ok := sevPolicyToBitMap[p]; ok {
+			bits = bits | bit
+		} else {
+			return 0, fmt.Errorf("Unknown SEV policy item: %s", p)
+		}
+	}
+	return bits, nil
 }

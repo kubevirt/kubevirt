@@ -1261,27 +1261,15 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
 	if c.UseLaunchSecurity {
-		sevPolicyBits := map[v1.SEVPolicy]uint{
-			v1.SEVPolicyNoDebug:        (1 << 0),
-			v1.SEVPolicyNoKeysSharing:  (1 << 1),
-			v1.SEVPolicyEncryptedState: (1 << 2),
-			v1.SEVPolicyNoSend:         (1 << 3),
-			v1.SEVPolicyDomain:         (1 << 4),
-			v1.SEVPolicySEV:            (1 << 5),
-		}
-		sevPolicy := uint(0)
-		for _, p := range vmi.Spec.Domain.LaunchSecurity.SEV.Policy {
-			if bit, ok := sevPolicyBits[p]; ok {
-				sevPolicy = sevPolicy | bit
-			} else {
-				return fmt.Errorf("Unknown SEV policy item: %s", p)
-			}
+		sevPolicyBits, err := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
+		if err != nil {
+			return err
 		}
 		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
 			Type:            "sev",
 			Cbitpos:         c.SEVConfiguration.Cbitpos,
 			ReducedPhysBits: c.SEVConfiguration.ReducedPhysBits,
-			Policy:          "0x" + strconv.FormatUint(uint64(sevPolicy), 16),
+			Policy:          "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
 		}
 		if vmi.Spec.Domain.LaunchSecurity.SEV.Cbitpos != nil {
 			domain.Spec.LaunchSecurity.Cbitpos = strconv.FormatUint(uint64(*vmi.Spec.Domain.LaunchSecurity.SEV.Cbitpos), 10)
