@@ -74,11 +74,10 @@ import (
 )
 
 const (
-	LibvirtLocalConnectionPort = 22222
-	gpuEnvPrefix               = "GPU_PASSTHROUGH_DEVICES"
-	vgpuEnvPrefix              = "VGPU_PASSTHROUGH_DEVICES"
-	PCI_RESOURCE_PREFIX        = "PCI_RESOURCE"
-	MDEV_RESOURCE_PREFIX       = "MDEV_PCI_RESOURCE"
+	gpuEnvPrefix         = "GPU_PASSTHROUGH_DEVICES"
+	vgpuEnvPrefix        = "VGPU_PASSTHROUGH_DEVICES"
+	PCI_RESOURCE_PREFIX  = "PCI_RESOURCE"
+	MDEV_RESOURCE_PREFIX = "MDEV_PCI_RESOURCE"
 )
 
 type contextStore struct {

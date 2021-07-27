@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	LibvirtLocalConnectionPort         = 22222
 	LibvirtDirectMigrationPort         = 49152
 	LibvirtBlockMigrationPort          = 49153
 	EnvoyAdminPort                     = 15000
@@ -219,7 +218,6 @@ func GetLoopbackAdrress(proto iptables.Protocol) string {
 
 func PortsUsedByLiveMigration() []string {
 	return []string{
-		fmt.Sprint(LibvirtLocalConnectionPort),
 		fmt.Sprint(LibvirtDirectMigrationPort),
 		fmt.Sprint(LibvirtBlockMigrationPort),
 	}
@@ -534,7 +532,6 @@ func getLoopbackAdrress(proto iptables.Protocol) string {
 
 func portsUsedByLiveMigration() []string {
 	return []string{
-		fmt.Sprint(LibvirtLocalConnectionPort),
 		fmt.Sprint(LibvirtDirectMigrationPort),
 		fmt.Sprint(LibvirtBlockMigrationPort),
 	}
