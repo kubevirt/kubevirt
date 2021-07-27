@@ -74,7 +74,29 @@ const (
 	sriovnet3 = "sriov3"
 )
 
-const ptpSubnet = "10.1.1.0/24"
+const (
+	ptpSubnet     = "10.1.1.0/24"
+	ptpSubnetMask = "/24"
+	ptpSubnetIP1  = "10.1.1.1"
+	ptpSubnetIP2  = "10.1.1.2"
+	ptpConf1      = "ptp-conf-1"
+	ptpConf2      = "ptp-conf-2"
+)
+
+const (
+	masqueradeIfaceName          = "default"
+	linuxBridgeIfaceName         = "linux-bridge"
+	linuxBridgeWithIPAMIfaceName = "linux-bridge-with-ipam"
+)
+
+const (
+	linuxBridgeVlan100Network         = "linux-bridge-net-vlan100"
+	linuxBridgeVlan100WithIPAMNetwork = "linux-bridge-net-ipam"
+)
+
+const (
+	helloWorldCloudInitData = "#!/bin/bash\necho 'hello'\n"
+)
 
 var _ = SIGDescribe("[Serial]Multus", func() {
 
@@ -84,47 +106,47 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 	var nodes *k8sv1.NodeList
 
 	defaultInterface := v1.Interface{
-		Name: "default",
+		Name: masqueradeIfaceName,
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{
 			Masquerade: &v1.InterfaceMasquerade{},
 		},
 	}
 
 	linuxBridgeInterface := v1.Interface{
-		Name: "linux-bridge",
+		Name: linuxBridgeIfaceName,
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{
 			Bridge: &v1.InterfaceBridge{},
 		},
 	}
 
 	linuxBridgeInterfaceWithIPAM := v1.Interface{
-		Name: "linux-bridge-with-ipam",
+		Name: linuxBridgeWithIPAMIfaceName,
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{
 			Bridge: &v1.InterfaceBridge{},
 		},
 	}
 
 	defaultNetwork := v1.Network{
-		Name: "default",
+		Name: masqueradeIfaceName,
 		NetworkSource: v1.NetworkSource{
 			Pod: &v1.PodNetwork{},
 		},
 	}
 
 	linuxBridgeNetwork := v1.Network{
-		Name: "linux-bridge",
+		Name: linuxBridgeIfaceName,
 		NetworkSource: v1.NetworkSource{
 			Multus: &v1.MultusNetwork{
-				NetworkName: "linux-bridge-net-vlan100",
+				NetworkName: linuxBridgeVlan100Network,
 			},
 		},
 	}
 
 	linuxBridgeWithIPAMNetwork := v1.Network{
-		Name: "linux-bridge-with-ipam",
+		Name: linuxBridgeWithIPAMIfaceName,
 		NetworkSource: v1.NetworkSource{
 			Multus: &v1.MultusNetwork{
-				NetworkName: "linux-bridge-net-ipam",
+				NetworkName: linuxBridgeVlan100WithIPAMNetwork,
 			},
 		},
 	}
@@ -150,20 +172,20 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		configureNodeNetwork(virtClient)
 		const vlanId = 100
-		Expect(createBridgeNetworkAttachementDefinition("linux-bridge-net-vlan100", vlanId, "")).To(Succeed())
+		Expect(createBridgeNetworkAttachementDefinition(linuxBridgeVlan100Network, vlanId, "")).To(Succeed())
 
 		// Create ptp crds with tuning plugin enabled in two different namespaces
 		result := virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, util.NamespaceTestDefault, "ptp-conf-1")).
-			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-1", util.NamespaceTestDefault, ptpSubnet))).
+			RequestURI(fmt.Sprintf(postUrl, util.NamespaceTestDefault, ptpConf1)).
+			Body([]byte(fmt.Sprintf(ptpConfCRD, ptpConf1, util.NamespaceTestDefault, ptpSubnet))).
 			Do(context.Background())
 		Expect(result.Error()).NotTo(HaveOccurred())
 
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestAlternative, "ptp-conf-2")).
-			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-2", tests.NamespaceTestAlternative, ptpSubnet))).
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestAlternative, ptpConf2)).
+			Body([]byte(fmt.Sprintf(ptpConfCRD, ptpConf2, tests.NamespaceTestAlternative, ptpSubnet))).
 			Do(context.Background())
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
@@ -182,7 +204,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 	})
 
 	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
-		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\n")
+		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), helloWorldCloudInitData)
 		vmi.Spec.Domain.Devices.Interfaces = interfaces
 		vmi.Spec.Networks = networks
 
@@ -195,15 +217,15 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 	}
 
 	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance using different types of interfaces.", func() {
-		const ptpGateway = "10.1.1.1"
+		const ptpGateway = ptpSubnetIP1
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
 			It("[test_id:1751]should create a virtual machine with one interface", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-1"},
+						Multus: &v1.MultusNetwork{NetworkName: ptpConf1},
 					}},
 				}
 
@@ -217,11 +239,11 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
 				tests.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-2")},
+						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, ptpConf2)},
 					}},
 				}
 
@@ -234,7 +256,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 			It("[test_id:1753]should create a virtual machine with two interfaces", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
 
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
@@ -242,7 +264,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				detachedVMI.Spec.Networks = []v1.Network{
 					defaultNetwork,
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-1"},
+						Multus: &v1.MultusNetwork{NetworkName: ptpConf1},
 					}},
 				}
 
@@ -271,12 +293,12 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		Context("VirtualMachineInstance with multus network as default network", func() {
 			It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", func() {
-				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), helloWorldCloudInitData)
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
-							NetworkName: fmt.Sprintf("%s/%s", util.NamespaceTestDefault, "ptp-conf-1"),
+							NetworkName: fmt.Sprintf("%s/%s", util.NamespaceTestDefault, ptpConf1),
 							Default:     true,
 						}}},
 				}
@@ -318,7 +340,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					Name: "ptp",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
-							NetworkName: "ptp-conf-1",
+							NetworkName: ptpConf1,
 						},
 					},
 				}
@@ -332,7 +354,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
 				By("Configuring static IP address to ptp interface.")
-				Expect(configInterface(vmiOne, "eth0", "10.1.1.1/24")).To(Succeed())
+				Expect(configInterface(vmiOne, "eth0", ptpSubnetIP1+ptpSubnetMask)).To(Succeed())
 
 				By("Verifying the desired custom MAC is the one that was actually configured on the interface.")
 				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
@@ -377,7 +399,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 			table.DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface, networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string) {
 				if staticIPVm2 == "" || staticIPVm1 == "" {
-					ipam := generateIPAMConfig("host-local", "10.1.1.0/24")
+					ipam := generateIPAMConfig("host-local", ptpSubnet)
 					Expect(createBridgeNetworkAttachementDefinition("linux-bridge-net-ipam", 0, ipam)).To(Succeed())
 				}
 
@@ -408,8 +430,8 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				By("ping between virtual machines")
 				Expect(libnet.PingFromVMConsole(vmiOne, ipAddr)).To(Succeed())
 			},
-				table.Entry("[test_id:1577]with secondary network only", []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0", "10.1.1.1/24", "10.1.1.2/24"),
-				table.Entry("[test_id:1578]with default network and secondary network", []v1.Interface{defaultInterface, linuxBridgeInterface}, []v1.Network{defaultNetwork, linuxBridgeNetwork}, "eth1", "10.1.1.1/24", "10.1.1.2/24"),
+				table.Entry("[test_id:1577]with secondary network only", []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
+				table.Entry("[test_id:1578]with default network and secondary network", []v1.Interface{defaultInterface, linuxBridgeInterface}, []v1.Network{defaultNetwork, linuxBridgeNetwork}, "eth1", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
 				table.Entry("with default network and secondary network with IPAM", []v1.Interface{defaultInterface, linuxBridgeInterfaceWithIPAM}, []v1.Network{defaultNetwork, linuxBridgeWithIPAMNetwork}, "eth1", "", ""),
 			)
 		})
@@ -423,7 +445,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", "10.1.1.2/24"), false))
+					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", ptpSubnetIP2+ptpSubnetMask), false))
 				vmiTwo = tests.StartVmOnNode(vmiTwo, nodes.Items[0].Name)
 
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
@@ -434,7 +456,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, "10.1.1.1/24"), false))
+					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, ptpSubnetIP1+ptpSubnetMask), false))
 				vmiOne = tests.StartVmOnNode(vmiOne, nodes.Items[0].Name)
 
 				vmiOne = tests.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
@@ -458,7 +480,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 				By("Ping from the VM with the custom MAC to the other VM.")
 				tests.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
-				Expect(libnet.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmiOne, ptpSubnetIP2)).To(Succeed())
 			})
 		})
 
@@ -491,9 +513,9 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					Expect(is_present).To(BeTrue())
 					Expect(ifc.MAC).To(Not(BeZero()))
 				}
-				Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["linux-bridge"].MAC)))
+				Expect(interfacesByName[masqueradeIfaceName].MAC).To(Not(Equal(interfacesByName[linuxBridgeIfaceName].MAC)))
 				Expect(runSafeCommand(vmiOne, fmt.Sprintf("ip addr show eth0 | grep %s\n", interfacesByName["default"].MAC))).To(Succeed())
-				Expect(runSafeCommand(vmiOne, fmt.Sprintf("ip addr show eth1 | grep %s\n", interfacesByName["linux-bridge"].MAC))).To(Succeed())
+				Expect(runSafeCommand(vmiOne, fmt.Sprintf("ip addr show eth1 | grep %s\n", interfacesByName[linuxBridgeIfaceName].MAC))).To(Succeed())
 			})
 
 			It("should have the correct MTU on the secondary interface with no dhcp server", func() {
@@ -542,7 +564,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				By("Start VMI")
 				linuxBridgeIfIdx := 1
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), helloWorldCloudInitData)
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
 					linuxBridgeInterface,
@@ -625,10 +647,10 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				for _, ifc := range updatedVmi.Status.Interfaces {
 					interfaceByIfcName[ifc.InterfaceName] = ifc
 				}
-				Expect(interfaceByIfcName["eth0"].Name).To(Equal("default"))
+				Expect(interfaceByIfcName["eth0"].Name).To(Equal(masqueradeIfaceName))
 				Expect(interfaceByIfcName["eth0"].InterfaceName).To(Equal("eth0"))
 
-				Expect(interfaceByIfcName["eth1"].Name).To(Equal("linux-bridge"))
+				Expect(interfaceByIfcName["eth1"].Name).To(Equal(linuxBridgeIfaceName))
 				Expect(interfaceByIfcName["eth1"].InterfaceName).To(Equal("eth1"))
 
 				Expect(interfaceByIfcName["ep1"].Name).To(Equal(""))
