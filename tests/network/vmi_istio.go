@@ -380,7 +380,8 @@ var _ = SIGDescribe("[Serial] Istio + Passt", func() {
 				})
 			})
 
-			Context("With Sidecar allowing only registered external services", func() {
+			// The test has a bug - https://github.com/kubevirt/kubevirt/pull/5883
+			XContext("With Sidecar allowing only registered external services", func() {
 				// Istio Envoy will intercept the request because of the OutboundTrafficPolicy set to REGISTRY_ONLY.
 				// Envoy responds with 502 Bad Gateway return code.
 				// After Sidecar with OutboundTrafficPolicy is created, it may take a while for the Envoy proxy
