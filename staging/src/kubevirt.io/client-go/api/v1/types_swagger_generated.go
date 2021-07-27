@@ -616,7 +616,7 @@ func (PermittedHostDevices) SwaggerDoc() map[string]string {
 func (PciHostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                         "PciHostDevice represents a host PCI device allowed for passthrough\n+k8s:openapi-gen=true",
-		"pciVendorSelector":        "The vendor_id:product_id tupple of the PCI device",
+		"pciVendorSelector":        "The vendor_id:product_id tuple of the PCI device",
 		"resourceName":             "The name of the resource that is representing the device. Exposed by\na device plugin and requested by VMs. Typically of the form\nvendor.com/product_nameThe name of the resource that is representing\nthe device. Exposed by a device plugin and requested by VMs.\nTypically of the form vendor.com/product_name",
 		"externalResourceProvider": "If true, KubeVirt will leave the allocation and monitoring to an\nexternal device plugin",
 	}

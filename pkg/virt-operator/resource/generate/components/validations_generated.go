@@ -678,7 +678,7 @@ var CRDsValidation map[string]string = map[string]string{
                           monitoring to an external device plugin
                         type: boolean
                       pciVendorSelector:
-                        description: The vendor_id:product_id tupple of the PCI device
+                        description: The vendor_id:product_id tuple of the PCI device
                         type: string
                       resourceName:
                         description: The name of the resource that is representing

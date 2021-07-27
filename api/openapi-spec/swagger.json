@@ -11468,7 +11468,7 @@
       "type": "boolean"
      },
      "pciVendorSelector": {
-      "description": "The vendor_id:product_id tupple of the PCI device",
+      "description": "The vendor_id:product_id tuple of the PCI device",
       "type": "string"
      },
      "resourceName": {
