@@ -53,11 +53,21 @@ import (
 const (
 	istioDeployedEnvVariable = "KUBEVIRT_DEPLOY_ISTIO"
 	vmiAppSelector           = "istio-vmi-app"
+	vmiServerAppSelector     = "vmi-server-app"
+	vmiServerHostName        = "vmi-server"
+	vmiServerGateway         = "vmi-server-gw"
+	vmiServerTestPort        = 4200
 	svcDeclaredTestPort      = 1500
 	svcUndeclaredTestPort    = 1501
 	// Istio uses certain ports for it's own purposes, this port server to verify that traffic is not routed
 	// into the VMI for these ports. https://istio.io/latest/docs/ops/deployment/requirements/
 	istioRestrictedPort = infraconfigurators.EnvoyTunnelPort
+)
+
+const (
+	networkingIstioIO = "networking.istio.io"
+	securityIstioIO   = "security.istio.io"
+	istioApiVersion   = "v1beta1"
 )
 
 var _ = SIGDescribe("[Serial] Istio", func() {
@@ -108,7 +118,11 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Creating k8s service for the VMI")
-			service := newService()
+			service := newService(
+				fmt.Sprintf("%s-service", vmiAppSelector),
+				map[string]string{"app": vmiAppSelector},
+				[]corev1.ServicePort{{Port: svcDeclaredTestPort}},
+			)
 			_, err = virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 		})
@@ -209,7 +223,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 
 			Context("With PeerAuthentication enforcing mTLS", func() {
 				BeforeEach(func() {
-					peerAuthenticationRes := schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}
+					peerAuthenticationRes := schema.GroupVersionResource{Group: "security.istio.io", Version: istioApiVersion, Resource: "peerauthentications"}
 					peerAuthentication := generateStrictPeerAuthentication()
 					_, err = virtClient.DynamicClient().Resource(peerAuthenticationRes).Namespace(util.NamespaceTestDefault).Create(context.Background(), peerAuthentication, metav1.CreateOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
@@ -242,15 +256,15 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 			const (
 				externalServiceCheckTimeout  = 5 * time.Second
 				externalServiceCheckInterval = 1 * time.Second
+				istioNamespace               = "istio-system"
 			)
 			var (
-				serverVMIAddress string
-				serverVMI        *v1.VirtualMachineInstance
-				testPort         = 4200
+				ingressGatewayServiceIP string
+				serverVMI               *v1.VirtualMachineInstance
 			)
 
-			curlCommand := func(serverIP string, port int) string {
-				return fmt.Sprintf("curl -sD - -o /dev/null http://%s:%d | head -n 1\n", serverIP, port)
+			curlCommand := func(ingressGatewayIP string) string {
+				return fmt.Sprintf("curl -sD - -o /dev/null -Hhost:%s.example.com http://%s | head -n 1\n", vmiServerHostName, ingressGatewayIP)
 			}
 
 			generateExpectedHTTPReturnCodeRegex := func(codeRegex string) string {
@@ -261,25 +275,54 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				serverVMI = libvmi.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
+					libvmi.WithLabel("version", "v1"),
+					libvmi.WithLabel("app", vmiServerAppSelector),
 				)
 				serverVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
+
+				serverVMIService := newService(
+					"vmi-server",
+					map[string]string{"app": vmiServerAppSelector},
+					[]corev1.ServicePort{{Port: vmiServerTestPort}},
+				)
+				_, err = virtClient.CoreV1().Services(util.NamespaceTestDefault).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
 				Expect(console.LoginToCirros(serverVMI)).To(Succeed())
-
 				By("Starting HTTP Server")
-				tests.StartHTTPServer(serverVMI, testPort)
+				tests.StartHTTPServer(serverVMI, vmiServerTestPort)
 
-				By("Getting back the Server VMI IP")
-				serverVMI, err = virtClient.VirtualMachineInstance(serverVMI.Namespace).Get(serverVMI.Name, &metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-				serverVMIAddress = serverVMI.Status.Interfaces[0].IP
+				By("Creating Istio VirtualService")
+				virtualServicesRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "virtualservices"}
+				virtualService := generateVirtualService()
+				_, err = virtClient.DynamicClient().Resource(virtualServicesRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), virtualService, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating Istio DestinationRule")
+				destinationRulesRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "destinationrules"}
+				destinationRule := generateDestinationRule()
+				_, err = virtClient.DynamicClient().Resource(destinationRulesRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), destinationRule, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating Istio Gateway")
+				gatewaysRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "gateways"}
+				gateway := generateGateway()
+				_, err = virtClient.DynamicClient().Resource(gatewaysRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), gateway, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Getting Istio ingressgateway IP")
+				ingressGatewayService, err := virtClient.CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				ingressGatewayServiceIP = ingressGatewayService.Spec.ClusterIP
+
 			})
 
-			checkHTTPServiceReturnCode := func(serverAddress string, port int, returnCode string) error {
+			checkHTTPServiceReturnCode := func(ingressGatewayAddress string, returnCode string) error {
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: curlCommand(serverAddress, port)},
+					&expect.BSnd{S: curlCommand(ingressGatewayAddress)},
 					&expect.BExp{R: returnCode},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
@@ -292,7 +335,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				})
 				It("Should be able to reach http server outside of mesh", func() {
 					Expect(
-						checkHTTPServiceReturnCode(serverVMIAddress, testPort, generateExpectedHTTPReturnCodeRegex("200")),
+						checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("200")),
 					).ToNot(HaveOccurred())
 				})
 			})
@@ -302,7 +345,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				})
 				It("Should be able to reach http server outside of mesh", func() {
 					Expect(
-						checkHTTPServiceReturnCode(serverVMIAddress, testPort, generateExpectedHTTPReturnCodeRegex("200")),
+						checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("200")),
 					).ToNot(HaveOccurred())
 				})
 			})
@@ -314,10 +357,10 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 				// to sync with the change, first request may still get through, hence the Eventually used for assertions.
 
 				BeforeEach(func() {
-					sidecarRes := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "sidecars"}
+					sidecarRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
 					registryOnlySidecar := generateRegistryOnlySidecar()
 					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(util.NamespaceTestDefault).Create(context.TODO(), registryOnlySidecar, metav1.CreateOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 				})
 
 				Context("VMI with explicit ports", func() {
@@ -326,8 +369,8 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					})
 					It("Should not be able to reach http service outside of mesh", func() {
 						Eventually(func() error {
-							return checkHTTPServiceReturnCode(serverVMIAddress, testPort, generateExpectedHTTPReturnCodeRegex("5.."))
-						}, externalServiceCheckTimeout, externalServiceCheckInterval)
+							return checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("5.."))
+						}, externalServiceCheckTimeout, externalServiceCheckInterval).Should(Succeed())
 					})
 				})
 				Context("VMI with no explicit ports", func() {
@@ -336,7 +379,7 @@ var _ = SIGDescribe("[Serial] Istio", func() {
 					})
 					It("Should not be able to reach http service outside of mesh", func() {
 						Eventually(func() error {
-							return checkHTTPServiceReturnCode(serverVMIAddress, testPort, generateExpectedHTTPReturnCodeRegex("5.."))
+							return checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("5.."))
 						}, externalServiceCheckTimeout, externalServiceCheckInterval).Should(Succeed())
 					})
 				})
@@ -353,20 +396,14 @@ func istioServiceMeshDeployed() bool {
 	return false
 }
 
-func newService() *corev1.Service {
+func newService(name string, selector map[string]string, ports []corev1.ServicePort) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-service", vmiAppSelector),
+			Name: name,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{
-				"app": vmiAppSelector,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Port: svcDeclaredTestPort,
-				},
-			},
+			Selector: selector,
+			Ports:    ports,
 		},
 	}
 }
@@ -393,7 +430,7 @@ func generateIstioCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.Netwo
 func generateStrictPeerAuthentication() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "security.istio.io/v1beta1",
+			"apiVersion": fmt.Sprintf("%s/%s", securityIstioIO, istioApiVersion),
 			"kind":       "PeerAuthentication",
 			"metadata": map[string]interface{}{
 				"name": "strict-pa",
@@ -410,7 +447,7 @@ func generateStrictPeerAuthentication() *unstructured.Unstructured {
 func generateRegistryOnlySidecar() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "networking.istio.io/v1beta1",
+			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
 			"kind":       "Sidecar",
 			"metadata": map[string]interface{}{
 				"name": "registry-only-sidecar",
@@ -418,6 +455,100 @@ func generateRegistryOnlySidecar() *unstructured.Unstructured {
 			"spec": map[string]interface{}{
 				"outboundTrafficPolicy": map[string]interface{}{
 					"mode": "REGISTRY_ONLY",
+				},
+			},
+		},
+	}
+}
+
+func generateVirtualService() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
+			"kind":       "VirtualService",
+			"metadata": map[string]interface{}{
+				"name": "vmi-server-vs",
+			},
+			"spec": map[string]interface{}{
+				"gateways": []string{
+					vmiServerGateway,
+				},
+				"hosts": []string{
+					fmt.Sprintf("%s.example.com", vmiServerHostName),
+				},
+				"http": []interface{}{
+					map[string]interface{}{
+						"match": []map[string]interface{}{
+							{
+								"uri": map[string]interface{}{
+									"prefix": "/",
+								},
+							},
+						},
+						"route": []map[string]interface{}{
+							{
+								"destination": map[string]interface{}{
+									"port": map[string]interface{}{
+										"number": vmiServerTestPort,
+									},
+									"host":   vmiServerHostName,
+									"subset": "v1",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func generateDestinationRule() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
+			"kind":       "DestinationRule",
+			"metadata": map[string]interface{}{
+				"name": "vmi-server-dr",
+			},
+			"spec": map[string]interface{}{
+				"host": vmiServerHostName,
+				"subsets": []map[string]interface{}{
+					{
+						"name": "v1",
+						"labels": map[string]interface{}{
+							"version": "v1",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func generateGateway() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
+			"kind":       "Gateway",
+			"metadata": map[string]interface{}{
+				"name": vmiServerGateway,
+			},
+			"spec": map[string]interface{}{
+				"selector": map[string]interface{}{
+					"istio": "ingressgateway",
+				},
+				"servers": []map[string]interface{}{
+					{
+						"port": map[string]interface{}{
+							"number":   80,
+							"name":     "http",
+							"protocol": "HTTP",
+						},
+						"hosts": []string{
+							fmt.Sprintf("%s.example.com", vmiServerHostName),
+						},
+					},
 				},
 			},
 		},
