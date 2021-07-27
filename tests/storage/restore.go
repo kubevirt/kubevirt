@@ -746,7 +746,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			})
 
-			It("should restore a vm from an online snapshot with guest agent", func() {
+			It("[test_id:6766]should restore a vm from an online snapshot with guest agent", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
@@ -799,7 +799,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			})
 
-			It("should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func() {
+			It("[test_id:6836]should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImportInStorageClass(
 					tests.GetUrl(tests.FedoraHttpUrl),
 					util.NamespaceTestDefault,

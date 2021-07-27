@@ -320,7 +320,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 			}
 
-			It("with volumes and guest agent available", func() {
+			It("[test_id:6767]with volumes and guest agent available", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
@@ -388,7 +388,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(content.Spec.VolumeBackups).Should(HaveLen(len(vm.Spec.DataVolumeTemplates)))
 			})
 
-			It("with volumes and no guest agent available", func() {
+			It("[test_id:6768]with volumes and no guest agent available", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi := tests.NewRandomFedoraVMI()
@@ -455,7 +455,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(content.Spec.VolumeBackups).Should(HaveLen(len(vm.Spec.DataVolumeTemplates)))
 			})
 
-			It("without volumes with guest agent available", func() {
+			It("[test_id:6769]without volumes with guest agent available", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Namespace = util.NamespaceTestDefault
 				vm = tests.NewRandomVirtualMachine(vmi, false)
@@ -483,7 +483,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(content.Spec.VolumeBackups).Should(BeEmpty())
 			})
 
-			It("delete snapshot after freeze, excpect vm unfreeze", func() {
+			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImportInStorageClass(
 					tests.GetUrl(tests.FedoraHttpUrl),
 					util.NamespaceTestDefault,
