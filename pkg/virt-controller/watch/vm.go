@@ -21,7 +21,10 @@ package watch
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math"
+	"math/rand"
 	"reflect"
 	"time"
 
@@ -58,6 +61,8 @@ const (
 	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
 )
+
+const defaultMaxCrashLoopBackoffDelaySeconds = 300
 
 func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
@@ -536,6 +541,11 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
 		return err
 	}
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching vmKey: %v", err)
+		return err
+	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
 	isStopRequestForVMI := func(vm *virtv1.VirtualMachine) bool {
@@ -578,6 +588,13 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			return nil
 		}
 
+		timeLeft := startFailureBackoffTimeLeft(vm)
+		if timeLeft > 0 {
+			log.Log.Object(vm).Infof("Delaying start of VM %s with 'runStrategy: %s' due to start failure backoff. Waiting %d more seconds before starting.", startingVmMsg, runStrategy, timeLeft)
+			c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
+			return nil
+		}
+
 		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
 		err := c.startVMI(vm)
 		if err != nil {
@@ -607,6 +624,13 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				// return to let the controller pick up the expected deletion
 			}
 			// VirtualMachineInstance is OK no need to do anything
+			return nil
+		}
+
+		timeLeft := startFailureBackoffTimeLeft(vm)
+		if timeLeft > 0 {
+			log.Log.Object(vm).Infof("Delaying start of VM %s with 'runStrategy: %s' due to start failure backoff. Waiting %d more seconds before starting.", startingVmMsg, runStrategy, timeLeft)
+			c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
 			return nil
 		}
 
@@ -724,6 +748,9 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 
 	// start it
 	vmi := c.setupVMIFromVM(vm)
+	// add a finalizer to ensure the VM controller has a chance to see
+	// the VMI before it is deleted
+	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(vmi)
@@ -737,6 +764,133 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 
 	return nil
+}
+
+// Returns in seconds how long to wait before trying to start the VM again.
+func calculateStartBackoffTime(failCount int, maxDelay int) int {
+	// The algorithm is designed to work well with a dynamic maxDelay
+	// if we decide to expose this as a tuning in the future.
+	minInterval := 10
+	delaySeconds := 0
+
+	if failCount <= 0 {
+		failCount = 1
+	}
+
+	multiplier := int(math.Pow(float64(failCount), float64(2)))
+	interval := maxDelay / 30
+
+	if interval < minInterval {
+		interval = minInterval
+	}
+
+	delaySeconds = (interval * multiplier)
+	randomRange := (delaySeconds / 2) + 1
+	// add randomized seconds to offset multiple failing VMs from one another
+	delaySeconds += rand.Intn(randomRange)
+
+	if delaySeconds > maxDelay {
+		delaySeconds = maxDelay
+	}
+
+	return delaySeconds
+}
+
+// Reports if vmi has ever hit a running state
+func wasVMIInRunningPhase(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+
+	for _, ts := range vmi.Status.PhaseTransitionTimestamps {
+		if ts.Phase == virtv1.Running {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Reports if vmi failed before ever hitting a running state
+func vmiFailedEarly(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil || !vmi.IsFinal() {
+		return false
+	}
+
+	if wasVMIInRunningPhase(vmi) {
+		return false
+	}
+
+	return true
+}
+
+// clear start failure tracking if...
+// 1. VMI exists and ever hit running phase
+// 2. run strategy is not set to automatically restart failed VMIs
+func shouldClearStartFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+
+	if wasVMIInRunningPhase(vmi) {
+		return true
+	}
+
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		return false
+	}
+
+	if runStrategy != virtv1.RunStrategyAlways && runStrategy != virtv1.RunStrategyRerunOnFailure {
+		return true
+	}
+
+	return false
+}
+
+func startFailureBackoffTimeLeft(vm *virtv1.VirtualMachine) int64 {
+
+	if vm.Status.StartFailure == nil {
+		return 0
+	}
+
+	now := time.Now().UTC().Unix()
+	retryAfter := vm.Status.StartFailure.RetryAfterTimestamp.Time.UTC().Unix()
+
+	diff := retryAfter - now
+
+	if diff > 0 {
+		return diff
+	}
+	return 0
+}
+
+func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	if shouldClearStartFailure(vm, vmi) {
+		// if a vmi associated with the vm hits a running phase, then reset the start failure counter
+		vm.Status.StartFailure = nil
+
+	} else if vmi != nil && vmiFailedEarly(vmi) {
+		// if the VMI failed without ever hitting running successfully,
+		// record this as a start failure so we can back off retrying
+		if vm.Status.StartFailure != nil && vm.Status.StartFailure.LastFailedVMIUID == vmi.UID {
+			// already counted this failure
+			return
+		}
+		count := 1
+
+		if vm.Status.StartFailure != nil {
+			count = vm.Status.StartFailure.ConsecutiveFailCount + 1
+		}
+
+		now := v1.NewTime(time.Now())
+		delaySeconds := calculateStartBackoffTime(count, defaultMaxCrashLoopBackoffDelaySeconds)
+		retryAfter := v1.NewTime(now.Time.Add(time.Duration(int64(delaySeconds)) * time.Second))
+
+		vm.Status.StartFailure = &virtv1.VirtualMachineStartFailure{
+			LastFailedVMIUID:     vmi.UID,
+			RetryAfterTimestamp:  &retryAfter,
+			ConsecutiveFailCount: count,
+		}
+	}
 }
 
 // here is stop
@@ -1173,6 +1327,31 @@ func (c *VMController) enqueueVm(obj interface{}) {
 	c.Queue.Add(key)
 }
 
+func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) error {
+	vmiCopy := vmi.DeepCopy()
+	controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineControllerFinalizer)
+
+	if reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) {
+		return nil
+	}
+
+	log.Log.V(3).Object(vmi).Infof("VMI is in a final state. Removing VM controller finalizer")
+
+	ops := []string{}
+	newFinalizers, err := json.Marshal(vmiCopy.Finalizers)
+	if err != nil {
+		return err
+	}
+	oldFinalizers, err := json.Marshal(vmi.Finalizers)
+	if err != nil {
+		return err
+	}
+	ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/finalizers", "value": %s }`, string(oldFinalizers)))
+	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/finalizers", "value": %s }`, string(newFinalizers)))
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops))
+	return err
+}
+
 func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) error {
 	vm := vmOrig.DeepCopy()
 
@@ -1271,6 +1450,8 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 		vm.Status.StateChangeRequests = vm.Status.StateChangeRequests[1:]
 	}
 
+	syncStartFailureStatus(vm, vmi)
+
 	c.syncReadyConditionFromVMI(vm, vmi)
 
 	// Add/Remove Failure condition if necessary
@@ -1309,6 +1490,15 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 		}
 	}
 
+	if vmi != nil && vmi.IsFinal() && len(vmi.Finalizers) > 0 {
+		// Remove our finalizer off of a finalized VMI now that we've been able
+		// to record any status info from the VMI onto the VM object.
+		err := c.removeVMIFinalizer(vmi)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -1333,6 +1523,7 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
+		{virtv1.VirtualMachineStatusCrashLoopBackOff, c.isVirtualMachineStatusCrashLoopBackOff},
 		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
 	}
 
@@ -1344,6 +1535,29 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 	}
 
 	vm.Status.PrintableStatus = virtv1.VirtualMachineStatusUnknown
+}
+
+// isVirtualMachineStatusCrashLoopBackOff determines whether the VM status field should be set to "CrashLoop".
+func (c *VMController) isVirtualMachineStatusCrashLoopBackOff(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi != nil && !vmi.IsFinal() {
+		return false
+	} else if c.isVMIStartExpected(vm) {
+		return false
+	}
+
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		return false
+	}
+
+	if vm.Status.StartFailure != nil &&
+		vm.Status.StartFailure.ConsecutiveFailCount > 0 &&
+		(runStrategy == virtv1.RunStrategyAlways || runStrategy == virtv1.RunStrategyRerunOnFailure) {
+		return true
+	}
+
+	return false
 }
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Stopped".
