@@ -7,6 +7,7 @@ go_library(
         "restore_base.go",
         "snapshot.go",
         "snapshot_base.go",
+        "source.go",
         "util.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot",
