@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -71,8 +72,17 @@ func writeResultsToDisk(results *v1.ClusterProfilerResults) error {
 		return err
 	}
 
-	aggregatedRequestCountFilePath := filepath.Join(dir, "aggregated-http-request-counts.json")
-	aggregatedRequestCountMap := make(map[string]int)
+	globalAggregatedRequestCountFilePath := filepath.Join(dir, "global-aggregated-http-request-counts.json")
+	globalAggregatedRequestCountMap := make(map[string]int)
+
+	controllerAggregatedRequestCountFilePath := filepath.Join(dir, "virt-controller-aggregated-http-request-counts.json")
+	controllerAggregatedRequestCountMap := make(map[string]int)
+
+	handlerAggregatedRequestCountFilePath := filepath.Join(dir, "virt-handler-aggregated-http-request-counts.json")
+	handlerAggregatedRequestCountMap := make(map[string]int)
+
+	apiAggregatedRequestCountFilePath := filepath.Join(dir, "virt-api-aggregated-http-request-counts.json")
+	apiAggregatedRequestCountMap := make(map[string]int)
 
 	for key, val := range results.ComponentResults {
 		componentDir := filepath.Join(dir, key)
@@ -103,24 +113,75 @@ func writeResultsToDisk(results *v1.ClusterProfilerResults) error {
 
 		for httpKey, count := range val.HTTPRequestCounts {
 
-			curCount, ok := aggregatedRequestCountMap[httpKey]
+			curCount, ok := globalAggregatedRequestCountMap[httpKey]
 			if ok {
-				aggregatedRequestCountMap[httpKey] = curCount + count
+				globalAggregatedRequestCountMap[httpKey] = curCount + count
 			} else {
+				globalAggregatedRequestCountMap[httpKey] = count
+			}
 
-				aggregatedRequestCountMap[httpKey] = count
+			if strings.Contains(key, "virt-controller") {
+				curCount, ok := controllerAggregatedRequestCountMap[httpKey]
+				if ok {
+					controllerAggregatedRequestCountMap[httpKey] = curCount + count
+				} else {
+					controllerAggregatedRequestCountMap[httpKey] = count
+				}
+			} else if strings.Contains(key, "virt-handler") {
+				curCount, ok := handlerAggregatedRequestCountMap[httpKey]
+				if ok {
+					handlerAggregatedRequestCountMap[httpKey] = curCount + count
+				} else {
+					handlerAggregatedRequestCountMap[httpKey] = count
+				}
+			} else if strings.Contains(key, "virt-api") {
+				curCount, ok := apiAggregatedRequestCountMap[httpKey]
+				if ok {
+					apiAggregatedRequestCountMap[httpKey] = curCount + count
+				} else {
+					apiAggregatedRequestCountMap[httpKey] = count
+				}
 			}
 		}
 	}
-	b, err := json.MarshalIndent(aggregatedRequestCountMap, "", "  ")
+
+	b, err := json.MarshalIndent(globalAggregatedRequestCountMap, "", "  ")
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(aggregatedRequestCountFilePath, b, 0644)
+	err = ioutil.WriteFile(globalAggregatedRequestCountFilePath, b, 0644)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Cluster profile results writen to directory %s\n", dir)
+
+	b, err = json.MarshalIndent(controllerAggregatedRequestCountMap, "", "  ")
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(controllerAggregatedRequestCountFilePath, b, 0644)
+	if err != nil {
+		return err
+	}
+
+	b, err = json.MarshalIndent(handlerAggregatedRequestCountMap, "", "  ")
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(handlerAggregatedRequestCountFilePath, b, 0644)
+	if err != nil {
+		return err
+	}
+
+	b, err = json.MarshalIndent(apiAggregatedRequestCountMap, "", "  ")
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(apiAggregatedRequestCountFilePath, b, 0644)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("SUCCESS: Results written to [%s]\n", dir)
 
 	return nil
 }
