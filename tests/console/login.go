@@ -149,7 +149,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 				Rt: 10,
 			},
 			&expect.Case{
-				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@%s ~\]\$ `, vmi.Name)),
+				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@(localhost|%s) ~\]\$ `, vmi.Name)),
 				T: expect.OK(),
 			},
 		}},
