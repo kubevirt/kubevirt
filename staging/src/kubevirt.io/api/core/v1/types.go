@@ -419,6 +419,8 @@ const (
 	VirtualMachineInstanceReasonVirtIOFSNotMigratable = "VirtIOFSNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses PCI host devices
 	VirtualMachineInstanceReasonHostDeviceNotMigratable = "HostDeviceNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses Secure Encrypted Virtualization (SEV)
+	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
 )
 
 const (
