@@ -693,6 +693,36 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Should(Equal(k8sv1.ConditionFalse))
 		})
 
+		table.DescribeTable("[test_id:todo]should report an error status when VM scheduling error occurs", func(unschedulableFunc func(vmi *v1.VirtualMachineInstance)) {
+			vmi := tests.NewRandomVMIWithEphemeralDisk("no-such-image")
+			unschedulableFunc(vmi)
+
+			vm := createVirtualMachine(true, vmi)
+
+			vmPrintableStatus := func() v1.VirtualMachinePrintableStatus {
+				updatedVm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return updatedVm.Status.PrintableStatus
+			}
+
+			By("Verifying that the VM status eventually gets set to FailedUnschedulable")
+			Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).
+				Should(Equal(v1.VirtualMachineStatusUnschedulable))
+		},
+			table.Entry("unsatisfiable resource requirements", func(vmi *v1.VirtualMachineInstance) {
+				vmi.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					// This may stop working sometime around 2040
+					corev1.ResourceMemory: resource.MustParse("1Ei"),
+					corev1.ResourceCPU:    resource.MustParse("1M"),
+				}
+			}),
+			table.Entry("unsatisfiable scheduling constraints", func(vmi *v1.VirtualMachineInstance) {
+				vmi.Spec.NodeSelector = map[string]string{
+					"node-label": "that-doesnt-exist",
+				}
+			}),
+		)
+
 		Context("Using virtctl interface", func() {
 			It("[test_id:1529]should start a VirtualMachineInstance once", func() {
 				By("getting a VM")

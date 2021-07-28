@@ -1521,6 +1521,7 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusMigrating, c.isVirtualMachineStatusMigrating},
 		{virtv1.VirtualMachineStatusPaused, c.isVirtualMachineStatusPaused},
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
+		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
 		{virtv1.VirtualMachineStatusCrashLoopBackOff, c.isVirtualMachineStatusCrashLoopBackOff},
@@ -1621,6 +1622,14 @@ func (c *VMController) isVirtualMachineStatusTerminating(vm *virtv1.VirtualMachi
 // isVirtualMachineStatusPaused determines whether the VM status field should be set to "Migrating".
 func (c *VMController) isVirtualMachineStatusMigrating(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return vmi != nil && migrations.IsMigrating(vmi)
+}
+
+// isVirtualMachineStatusUnschedulable determines whether the VM status field should be set to "FailedUnschedulable".
+func (c *VMController) isVirtualMachineStatusUnschedulable(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
+		virtv1.VirtualMachineInstanceConditionType(k8score.PodScheduled),
+		k8score.ConditionFalse,
+		k8score.PodReasonUnschedulable)
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {

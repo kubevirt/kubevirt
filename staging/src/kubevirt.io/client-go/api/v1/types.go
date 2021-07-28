@@ -1222,6 +1222,9 @@ const (
 	// VirtualMachineStatusUnknown indicates that the state of the virtual machine could not be obtained,
 	// typically due to an error in communicating with the host on which it's running.
 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
+	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machime,
+	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
+	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "FailedUnschedulable"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
