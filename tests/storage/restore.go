@@ -79,7 +79,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		Eventually(func() bool {
 			s, err = virtClient.VirtualMachineSnapshot(s.Namespace).Get(context.Background(), s.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			return s.Status != nil && s.Status.ReadyToUse != nil && *s.Status.ReadyToUse
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return s.Status != nil && s.Status.ReadyToUse != nil && *s.Status.ReadyToUse && vm.Status.SnapshotInProgress == nil
 		}, 180*time.Second, time.Second).Should(BeTrue())
 
 		return s
