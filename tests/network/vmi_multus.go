@@ -1391,6 +1391,7 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 // Set creates a linux bridge and configures the firewall. We use iptables-compat in order to work with
 // both iptables and newer nftables.
 func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
+	const networkConfigName = "network-config"
 
 	// Fetching the kubevirt-operator image from the pod makes this independent from the installation method / image used
 	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
@@ -1406,21 +1407,21 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 			Kind:       "DaemonSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "network-config",
+			Name:      networkConfigName,
 			Namespace: metav1.NamespaceSystem,
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"name": "network-config"},
+				MatchLabels: map[string]string{"name": networkConfigName},
 			},
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"name": "network-config"},
+					Labels: map[string]string{"name": networkConfigName},
 				},
 				Spec: k8sv1.PodSpec{
 					Containers: []k8sv1.Container{
 						{
-							Name: "network-config",
+							Name: networkConfigName,
 							// Reuse image which is already installed in the cluster. All we need is chroot.
 							// Local OKD cluster doesn't allow us to pull from the outside.
 							Image: virtHandlerImage,
