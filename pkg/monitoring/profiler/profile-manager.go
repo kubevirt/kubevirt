@@ -36,12 +36,11 @@ type profileManager struct {
 
 type ProfilerResults struct {
 	ProcessProfilerResults map[string][]byte `json:"processProfilerResults,omitempty"`
-	HTTPProfilerResults    map[string]int    `json:"httpProfilerResults,omitempty"`
 }
 
 var globalManager profileManager
 
-func startProfiler(options *v1.ClusterProfilerOptions) error {
+func startProfiler() error {
 
 	// make sure all profilers are stopped before
 	// we attempt to start again
@@ -50,16 +49,10 @@ func startProfiler(options *v1.ClusterProfilerOptions) error {
 		return err
 	}
 
-	if options.ProfileProcess {
-		err = startProcessProfiler()
-		if err != nil {
-			stopProfiler(true)
-			return err
-		}
-	}
-
-	if options.ProfileHTTP {
-		startHTTPProfiler()
+	err = startProcessProfiler()
+	if err != nil {
+		stopProfiler(true)
+		return err
 	}
 
 	return nil
@@ -67,7 +60,6 @@ func startProfiler(options *v1.ClusterProfilerOptions) error {
 
 func stopProfiler(clearResults bool) error {
 	stopProcessProfiler(clearResults)
-	stopHTTPProfiler(clearResults)
 
 	return nil
 }
@@ -77,11 +69,8 @@ func dumpProfilerResultString() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	httpResults := dumpHTTPProfilerResults()
-
 	profilerResult := &v1.ProfilerResult{
-		PprofData:         pprofResults,
-		HTTPRequestCounts: httpResults,
+		PprofData: pprofResults,
 	}
 
 	b, err := json.MarshalIndent(profilerResult, "", "  ")
@@ -97,11 +86,8 @@ func dumpProfilerResult() (*v1.ProfilerResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	httpResults := dumpHTTPProfilerResults()
-
 	profilerResults := &v1.ProfilerResult{
-		PprofData:         pprofResults,
-		HTTPRequestCounts: httpResults,
+		PprofData: pprofResults,
 	}
 
 	return profilerResults, nil
@@ -110,12 +96,7 @@ func dumpProfilerResult() (*v1.ProfilerResult, error) {
 
 func HandleStartProfiler(_ *restful.Request, response *restful.Response) {
 
-	options := &v1.ClusterProfilerOptions{
-		ProfileProcess: true,
-		ProfileHTTP:    true,
-	}
-
-	err := startProfiler(options)
+	err := startProfiler()
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("could not start internal profiling: %v", err))
 		return

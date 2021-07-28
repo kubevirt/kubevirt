@@ -405,7 +405,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ClockOffsetUTC":                                            schema_kubevirtio_client_go_api_v1_ClockOffsetUTC(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource":                                schema_kubevirtio_client_go_api_v1_CloudInitConfigDriveSource(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitNoCloudSource":                                    schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref),
-		"kubevirt.io/client-go/api/v1.ClusterProfilerOptions":                                    schema_kubevirtio_client_go_api_v1_ClusterProfilerOptions(ref),
 		"kubevirt.io/client-go/api/v1.ClusterProfilerResults":                                    schema_kubevirtio_client_go_api_v1_ClusterProfilerResults(ref),
 		"kubevirt.io/client-go/api/v1.ComponentConfig":                                           schema_kubevirtio_client_go_api_v1_ComponentConfig(ref),
 		"kubevirt.io/client-go/api/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation":        schema_kubevirtio_client_go_api_v1_ConfigDriveSSHPublicKeyAccessCredentialPropagation(ref),
@@ -19286,31 +19285,6 @@ func schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref common.Refere
 	}
 }
 
-func schema_kubevirtio_client_go_api_v1_ClusterProfilerOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ClusterProfilerOptions is provided when enabling the control plane profiler",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"profileProcess": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"profileHTTP": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_kubevirtio_client_go_api_v1_ClusterProfilerResults(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22880,20 +22854,6 @@ func schema_kubevirtio_client_go_api_v1_ProfilerResult(ref common.ReferenceCallb
 									SchemaProps: spec.SchemaProps{
 										Type:   []string{"string"},
 										Format: "byte",
-									},
-								},
-							},
-						},
-					},
-					"httpRequestCounts": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"integer"},
-										Format: "int32",
 									},
 								},
 							},

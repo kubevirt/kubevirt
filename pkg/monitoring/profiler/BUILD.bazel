@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "http-client-profiler.go",
         "process-profiler.go",
         "profile-manager.go",
     ],
@@ -12,6 +11,5 @@ go_library(
     deps = [
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
-        "//vendor/k8s.io/client-go/rest:go_default_library",
     ],
 )

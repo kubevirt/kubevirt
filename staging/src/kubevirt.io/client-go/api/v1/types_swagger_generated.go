@@ -696,12 +696,6 @@ func (GuestAgentPing) SwaggerDoc() map[string]string {
 	}
 }
 
-func (ClusterProfilerOptions) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "ClusterProfilerOptions is provided when enabling the control plane profiler\n+k8s:openapi-gen=true",
-	}
-}
-
 func (ProfilerResult) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "+k8s:openapi-gen=true",

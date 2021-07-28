@@ -2099,17 +2099,9 @@ type NetworkConfiguration struct {
 type GuestAgentPing struct {
 }
 
-// ClusterProfilerOptions is provided when enabling the control plane profiler
-// +k8s:openapi-gen=true
-type ClusterProfilerOptions struct {
-	ProfileProcess bool `json:"profileProcess,omitempty"`
-	ProfileHTTP    bool `json:"profileHTTP,omitempty"`
-}
-
 // +k8s:openapi-gen=true
 type ProfilerResult struct {
-	PprofData         map[string][]byte `json:"pprofData,omitempty"`
-	HTTPRequestCounts map[string]int    `json:"httpRequestCounts,omitempty"`
+	PprofData map[string][]byte `json:"pprofData,omitempty"`
 }
 
 // +k8s:openapi-gen=true

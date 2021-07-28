@@ -20,6 +20,7 @@
 package profiler
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -30,18 +31,14 @@ import (
 
 type pprofData struct {
 	cpuf        *os.File
-	memf        *os.File
 	isProfiling bool
 	hasResults  bool
 	lock        sync.Mutex
 }
 
 var globalProcessProfiler pprofData
-
 var ProcessProfileBaseDir = "/profile-data"
-
-var cpuProfileFilePath = filepath.Join(ProcessProfileBaseDir, "cpu-profile.pprof")
-var memProfileFilePath = filepath.Join(ProcessProfileBaseDir, "mem-profile.pprof")
+var cpuProfileFilePath = filepath.Join(ProcessProfileBaseDir, "cpu.pprof")
 
 func startProcessProfiler() error {
 	var err error
@@ -61,16 +58,6 @@ func startProcessProfiler() error {
 		return err
 	}
 
-	globalProcessProfiler.memf, err = os.Create(memProfileFilePath)
-	if err != nil {
-		return err
-	}
-
-	runtime.GC()
-	if err = pprof.WriteHeapProfile(globalProcessProfiler.memf); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -79,8 +66,8 @@ func stopProcessProfiler(clearResults bool) {
 	defer globalProcessProfiler.lock.Unlock()
 
 	pprof.StopCPUProfile()
+
 	globalProcessProfiler.cpuf.Close()
-	globalProcessProfiler.memf.Close()
 	globalProcessProfiler.hasResults = true
 	globalProcessProfiler.isProfiling = false
 	if clearResults {
@@ -93,17 +80,31 @@ func dumpProcessProfilerResults() (map[string][]byte, error) {
 	var err error
 	res := make(map[string][]byte)
 
+	dumpTypes := []string{
+		"goroutine",
+		"heap",
+		"allocs",
+		"threadcreate",
+		"block",
+		"mutex",
+	}
+
+	for _, dump := range dumpTypes {
+		runtime.GC()
+		var buf bytes.Buffer
+		if err := pprof.Lookup(dump).WriteTo(&buf, 2); err != nil {
+			return res, err
+		}
+		res[dump+".pprof"] = buf.Bytes()
+	}
+
 	globalProcessProfiler.lock.Lock()
 	defer globalProcessProfiler.lock.Unlock()
 	if !globalProcessProfiler.hasResults {
 		return res, nil
 	}
 
-	res["cpu-profile-dump"], err = ioutil.ReadFile(cpuProfileFilePath)
-	if err != nil {
-		return res, err
-	}
-	res["mem-profile-dump"], err = ioutil.ReadFile(memProfileFilePath)
+	res["cpu.pprof"], err = ioutil.ReadFile(cpuProfileFilePath)
 	if err != nil {
 		return res, err
 	}
