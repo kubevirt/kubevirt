@@ -658,6 +658,7 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/guestosinfo
           verbs:
           - get
         - apiGroups:
@@ -715,6 +716,7 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/guestosinfo
           verbs:
           - get
         - apiGroups:
@@ -772,6 +774,12 @@ spec:
           verbs:
           - get
           - list
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachineinstances/guestosinfo
+          verbs:
+          - get
         - apiGroups:
           - kubevirt.io
           resources:
