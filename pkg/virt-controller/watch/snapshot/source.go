@@ -30,6 +30,7 @@ import (
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -184,10 +185,14 @@ func (s *vmSnapshotSource) Frozen() (bool, error) {
 		return false, err
 	}
 
-	return vmi.Status.FSFreezeStatus == "frozen", nil
+	return vmi.Status.FSFreezeStatus == launcherapi.FSFrozen, nil
 }
 
 func (s *vmSnapshotSource) Freeze() error {
+	if !s.Locked() {
+		return fmt.Errorf("attempting to freeze unlocked VM")
+	}
+
 	exists, err := s.GuestAgent()
 	if !exists || err != nil {
 		return err
@@ -206,6 +211,10 @@ func (s *vmSnapshotSource) Freeze() error {
 }
 
 func (s *vmSnapshotSource) Unfreeze() error {
+	if !s.Locked() {
+		return nil
+	}
+
 	exists, err := s.GuestAgent()
 	if !exists || err != nil {
 		return err
