@@ -49,7 +49,7 @@ import (
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	networkconsts "kubevirt.io/kubevirt/pkg/network/consts"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -1001,7 +1001,7 @@ var _ = Describe("Template", func() {
 						Namespace: "default",
 						UID:       "1234",
 						Annotations: map[string]string{
-							networkconsts.ISTIO_INJECT_ANNOTATION: "true",
+							istio.ISTIO_INJECT_ANNOTATION: "true",
 						},
 					},
 				}

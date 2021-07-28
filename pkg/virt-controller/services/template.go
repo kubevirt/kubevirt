@@ -48,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/network/consts"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -1418,7 +1418,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		pod.Spec.ServiceAccountName = serviceAccountName
 		automount := true
 		pod.Spec.AutomountServiceAccountToken = &automount
-	} else if val, ok := vmi.GetAnnotations()[consts.ISTIO_INJECT_ANNOTATION]; ok && strings.ToLower(val) == "true" {
+	} else if istio.ProxyInjectionEnabled(vmi) {
 		automount := true
 		pod.Spec.AutomountServiceAccountToken = &automount
 	} else {

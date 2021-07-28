@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
-	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	putil "kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -644,7 +644,7 @@ func terminateIstioProxy() {
 			return false
 		}
 		err := retry.OnError(retry.DefaultBackoff, isRetriable, func() error {
-			resp, err := httpClient.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", infraconfigurators.EnvoyMergedPrometheusTelemetryPort), "", nil)
+			resp, err := httpClient.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", istio.EnvoyMergedPrometheusTelemetryPort), "", nil)
 			if err != nil {
 				log.Log.Reason(err).Error("failed to request istio-proxy termination, retrying...")
 				return err
@@ -670,7 +670,7 @@ func istioProxyPresent(httpClient *http.Client) bool {
 		return false
 	}
 	err := retry.OnError(retry.DefaultBackoff, isRetriable, func() error {
-		resp, err := httpClient.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", infraconfigurators.EnvoyHealthCheckPort))
+		resp, err := httpClient.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", istio.EnvoyHealthCheckPort))
 		if err != nil {
 			log.Log.Reason(err).Error("error when checking for istio-proxy presence")
 			return err
