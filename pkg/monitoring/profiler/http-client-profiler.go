@@ -84,17 +84,97 @@ func (r *rtWrapper) RoundTrip(request *http.Request) (*http.Response, error) {
 	}
 
 	pathSplit := strings.Split(request.URL.Path, "/")
-	if len(pathSplit) < 7 {
+	var resource string
+	var operation string
+
+	isWatch := false
+	individualResource := false
+
+	if pathSplit[1] == "api" {
+		// native k8s api
+		if len(pathSplit) < 4 {
+			return r.origRoundTripper.RoundTrip(request)
+		}
+
+		if len(pathSplit) >= 5 && pathSplit[3] == "watch" {
+			// example URL   -  /api/v1/watch/namespaces/kubevirt/pods
+			// example URL   -  /api/v1/watch/pods
+			isWatch = true
+			resource = pathSplit[4]
+		} else if len(pathSplit) >= 6 && pathSplit[3] == "namespaces" {
+			// example URL   -  /api/v1/namespaces/kubevirt/endpoints/virt-controller
+			// example split - 0|1  |2 |3         |4       |5        |6
+			resource = pathSplit[5]
+			if len(pathSplit) >= 7 {
+				individualResource = true
+			}
+		} else {
+			// example URL   -  /api/v1/endpoints
+			resource = pathSplit[3]
+			if len(pathSplit) >= 5 {
+				individualResource = true
+			}
+		}
+
+	} else if pathSplit[1] == "apis" {
+		// Custom Resource api
+
+		// example URL   -  /apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/vmi-ephemeral
+		// example split - 0|1   |2          |3       |4         |5      |6
+
+		if len(pathSplit) < 5 {
+			return r.origRoundTripper.RoundTrip(request)
+		}
+
+		if len(pathSplit) >= 6 && pathSplit[4] == "watch" {
+			// example URL   -  /apis/kubevirt.io/v1/watch/namespaces/kubevirt/virtualmachineinstances
+			// example URL   -  /apis/kubevirt.io/v1/watch/virtualmachineinstances
+			isWatch = true
+			resource = pathSplit[5]
+		} else if len(pathSplit) >= 7 && pathSplit[4] == "namespaces" {
+			// example URL   -  /apis/kubevirt.io/v1/namespaces/kubevirt/virtualmachineinstances
+			// example split - 0|1   |2          |3 |4         |5       |6
+			resource = pathSplit[6]
+			if len(pathSplit) >= 8 {
+				// example URL   -  /apis/kubevirt.io/v1/namespaces/kubevirt/virtualmachineinstances/myvm
+				// example split - 0|1   |2          |3 |4         |5       |6                      |7
+				individualResource = true
+			}
+		} else {
+			// example URL   -  /apis/kubevirt.io/v1alpha3/kubevirts
+			// example split - 0|1   |2          |3       |4
+			resource = pathSplit[4]
+			if len(pathSplit) >= 6 {
+				// example URL   -  /apis/kubevirt.io/v1alpha3/kubevirts/my-kubevirt
+				individualResource = true
+			}
+		}
+
+	} else {
+		// unknown
 		return r.origRoundTripper.RoundTrip(request)
 	}
 
-	group := pathSplit[2]
-	version := pathSplit[3]
-	//namespace := pathSplit[5]
-	resource := pathSplit[6]
+	operation = request.Method
+	switch request.Method {
+	case "GET":
+		operation = "GET"
+		if isWatch {
+			operation = "WATCH"
+		} else if !individualResource {
+			operation = "LIST"
+		}
+	case "PUT":
+		operation = "UPDATE"
+	case "PATCH":
+		operation = "PATCH"
+	case "POST":
+		operation = "CREATE"
+	case "DELETE":
+		operation = "DELETE"
+	}
 
-	method := request.Method
-	key := fmt.Sprintf("%s/%s/%s/%s", group, version, resource, method)
+	key := fmt.Sprintf("%s %s", operation, resource)
 
 	// Don't use a defer for the Unlock because we don't want to hold the
 	// lock during the round tripper execution during the return
