@@ -450,12 +450,6 @@ func configureQemuConf(qemuFilename string) (err error) {
 	}
 	defer util.CloseIOAndCheckErr(qemuConf, &err)
 
-	// We are in a container, don't try to stuff qemu inside special cgroups
-	_, err = qemuConf.WriteString("cgroup_controllers = [ ]\n")
-	if err != nil {
-		return err
-	}
-
 	// If hugepages exist, tell libvirt about them
 	_, err = os.Stat("/dev/hugepages")
 	if err == nil {
@@ -505,16 +499,13 @@ func (l LibvirtWraper) SetupLibvirt() (err error) {
 		return err
 	}
 
-	libvirdDConf, err := os.OpenFile(runtimeLibvirtdConfPath, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer util.CloseIOAndCheckErr(libvirdDConf, &err)
-
-	// Let libvirt log to stderr
-	_, err = libvirdDConf.WriteString("log_outputs = \"1:stderr\"\n")
-
 	if envVarValue, ok := os.LookupEnv("LIBVIRT_DEBUG_LOGS"); ok && (envVarValue == "1") {
+		libvirdDConf, err := os.OpenFile(runtimeLibvirtdConfPath, os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		defer util.CloseIOAndCheckErr(libvirdDConf, &err)
+
 		// see https://libvirt.org/kbase/debuglogs.html for details
 		_, err = libvirdDConf.WriteString("log_filters=\"3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*\"\n")
 		if err != nil {
