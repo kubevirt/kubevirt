@@ -560,6 +560,7 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/guestosinfo
   verbs:
   - get
 - apiGroups:
@@ -617,6 +618,7 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/guestosinfo
   verbs:
   - get
 - apiGroups:
@@ -674,6 +676,12 @@ rules:
   verbs:
   - get
   - list
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/guestosinfo
+  verbs:
+  - get
 - apiGroups:
   - kubevirt.io
   resources:
