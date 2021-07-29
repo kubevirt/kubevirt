@@ -110,6 +110,10 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 
 	if !vmSnapshotProgressing(vmSnapshot) {
 		if source != nil {
+			if err := source.Unfreeze(); err != nil {
+				return 0, err
+			}
+
 			// unlock the source if done/error
 			if _, err := source.Unlock(); err != nil {
 				return 0, err
@@ -122,6 +126,13 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 			}
 		}
 	} else if source != nil {
+		// add source finalizer and maybe other stuff
+		// since updating metadata, don't attempt to update status
+		updated, err := ctrl.initVMSnapshot(vmSnapshot)
+		if updated || err != nil {
+			return 0, err
+		}
+
 		// attempt to lock source
 		// if fails will attempt again when source is updated
 		if !source.Locked() {
@@ -134,13 +145,6 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 
 			retry = snapshotRetryInterval
 		} else {
-			// add source finalizer and maybe other stuff
-			// since updating metadata, don't attempt to update status
-			updated, err := ctrl.initVMSnapshot(vmSnapshot)
-			if updated || err != nil {
-				return 0, err
-			}
-
 			content, err := ctrl.getContent(vmSnapshot)
 			if err != nil {
 				return 0, err
@@ -605,13 +609,6 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	if vmSnapshotCpy.DeletionTimestamp != nil {
 		// go into error state
 		if vmSnapshotProgressing(vmSnapshotCpy) {
-			if source != nil {
-				if err := source.Unfreeze(); err != nil {
-					log.Log.Info("XXX unfreeze error")
-					return err
-				}
-			}
-
 			reason := "Snapshot cancelled"
 			vmSnapshotCpy.Status.Error = newError(reason)
 			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, reason))

@@ -10,10 +10,6 @@ import (
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 
-	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/util"
-
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,7 +22,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
@@ -272,43 +271,30 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(snapshot.Status.Conditions[1].Type).To(Equal(snapshotv1.ConditionReady))
 				Expect(snapshot.Status.Conditions[1].Status).To(Equal(corev1.ConditionTrue))
 
-				if shouldFreeze {
-					Eventually(func() bool {
-						updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						return updatedVMI.Status.FSFreezeStatus == ""
-					}, time.Minute, 2*time.Second).Should(BeTrue())
-				}
-
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
 				expectedFreezeOutput := "executing fsfreeze hook with arg 'freeze'"
 				expectedThawOutput := "executing fsfreeze hook with arg 'thaw'"
-				if shouldFreeze {
-					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-						&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedFreezeOutput)},
-						&expect.BExp{R: fmt.Sprintf(".*qemu-ga.*%s.*", expectedFreezeOutput)},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-						&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedThawOutput)},
-						&expect.BExp{R: fmt.Sprintf(".*qemu-ga.*%s.*", expectedThawOutput)},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-					}, 30)).To(Succeed())
-				} else {
-					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-						&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedFreezeOutput)},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("1")},
-						// always thaw
-						/*
+				if hasGuestAgent {
+					if shouldFreeze {
+						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+							&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedFreezeOutput)},
+							&expect.BExp{R: fmt.Sprintf(".*qemu-ga.*%s.*", expectedFreezeOutput)},
+							&expect.BSnd{S: "echo $?\n"},
+							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedThawOutput)},
+							&expect.BExp{R: fmt.Sprintf(".*qemu-ga.*%s.*", expectedThawOutput)},
+							&expect.BSnd{S: "echo $?\n"},
+							&expect.BExp{R: console.RetValue("0")},
+						}, 30)).To(Succeed())
+					} else {
+						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+							&expect.BSnd{S: fmt.Sprintf("%s | grep \"%s\"\n", journalctlCheck, expectedFreezeOutput)},
 							&expect.BExp{R: console.PromptExpression},
 							&expect.BSnd{S: "echo $?\n"},
 							&expect.BExp{R: console.RetValue("1")},
-						*/
-					}, 30)).To(Succeed())
+						}, 30)).To(Succeed())
+					}
 				}
 			}
 
