@@ -52,10 +52,6 @@ const (
 
 	volumeSnapshotMissingEvent = "VolumeSnapshotMissing"
 
-	vmSnapshotSourceFrozen = "vmsnapshot source frozen"
-
-	vmSnapshotSourceThawed = "vmsnapshot source thawed"
-
 	snapshotRetryInterval = 5 * time.Second
 )
 
@@ -285,9 +281,11 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		}
 	}
 
-	if ready && (contentCpy.Status.ReadyToUse == nil || !*contentCpy.Status.ReadyToUse) {
+	if ready && contentCpy.Status.CreationTime == nil {
 		contentCpy.Status.CreationTime = currentTime()
 
+		// TODO revisit with deadline
+		// currently only go into error after becoming ready once
 		source, err := ctrl.getSnapshotSource(vmSnapshot)
 		if err != nil {
 			return 0, err
@@ -607,6 +605,13 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	if vmSnapshotCpy.DeletionTimestamp != nil {
 		// go into error state
 		if vmSnapshotProgressing(vmSnapshotCpy) {
+			if source != nil {
+				if err := source.Unfreeze(); err != nil {
+					log.Log.Info("XXX unfreeze error")
+					return err
+				}
+			}
+
 			reason := "Snapshot cancelled"
 			vmSnapshotCpy.Status.Error = newError(reason)
 			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, reason))
@@ -656,16 +661,6 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 				if ga {
 					indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
 
-					frozen, err := source.Frozen()
-					if err != nil {
-						return err
-					}
-
-					if frozen {
-						updateSnapshotCondition(vmSnapshotCpy, newFreezingCondition(corev1.ConditionTrue, vmSnapshotSourceFrozen))
-					} else {
-						updateSnapshotCondition(vmSnapshotCpy, newFreezingCondition(corev1.ConditionFalse, vmSnapshotSourceThawed))
-					}
 				} else {
 					indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
 				}
@@ -682,15 +677,6 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	} else if vmSnapshotReady(vmSnapshotCpy) {
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
-		// relying on the fact that content thaws before setting ready
-		if vmsnapshotHasIndication(vmSnapshotCpy, snapshotv1.VMSnapshotOnlineSnapshotIndication) {
-			for _, c := range vmSnapshotCpy.Status.Conditions {
-				if c.Type == snapshotv1.ConditionFreezing && c.Status == corev1.ConditionTrue {
-					updateSnapshotCondition(vmSnapshot, newFreezingCondition(corev1.ConditionFalse, vmSnapshotSourceThawed))
-					break
-				}
-			}
-		}
 	} else {
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionUnknown, "Unknown state"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionUnknown, "Unknown state"))
@@ -908,15 +894,6 @@ func (ctrl *VMSnapshotController) getVMI(vm *kubevirtv1.VirtualMachine) (*kubevi
 func (ctrl *VMSnapshotController) checkVMIRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
 	_, exists, err := ctrl.getVMI(vm)
 	return exists, err
-}
-
-func vmsnapshotHasIndication(vmSnapshot *snapshotv1.VirtualMachineSnapshot, indication snapshotv1.Indication) bool {
-	for _, currIndication := range vmSnapshot.Status.Indications {
-		if indication == currIndication {
-			return true
-		}
-	}
-	return false
 }
 
 func checkVMRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {

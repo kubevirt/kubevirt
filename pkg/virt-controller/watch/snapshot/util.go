@@ -74,15 +74,6 @@ func newProgressingCondition(status corev1.ConditionStatus, reason string) snaps
 	}
 }
 
-func newFreezingCondition(status corev1.ConditionStatus, reason string) snapshotv1.Condition {
-	return snapshotv1.Condition{
-		Type:               snapshotv1.ConditionFreezing,
-		Status:             status,
-		Reason:             reason,
-		LastTransitionTime: *currentTime(),
-	}
-}
-
 func updateCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition, includeReason bool) []snapshotv1.Condition {
 	found := false
 	for i := range conditions {

@@ -231,6 +231,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
+					if vm.Status.SnapshotInProgress != nil {
+						return false
+					}
+
 					origSpec = vm.Spec.DeepCopy()
 					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("128Mi")))
 
