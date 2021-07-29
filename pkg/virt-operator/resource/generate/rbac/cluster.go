@@ -141,9 +141,10 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/unpause",
 					"virtualmachineinstances/addvolume",
 					"virtualmachineinstances/removevolume",
+					"virtualmachineinstances/freeze",
+					"virtualmachineinstances/unfreeze",
 				},
 				Verbs: []string{
-					"get",
 					"update",
 				},
 			},
@@ -230,9 +231,10 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/unpause",
 					"virtualmachineinstances/addvolume",
 					"virtualmachineinstances/removevolume",
+					"virtualmachineinstances/freeze",
+					"virtualmachineinstances/unfreeze",
 				},
 				Verbs: []string{
-					"get",
 					"update",
 				},
 			},
