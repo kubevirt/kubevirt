@@ -108,6 +108,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		vmCopy.Status.SnapshotInProgress = &s.snapshot.Name
 		// unfortunately, status updater does not return the updated resource
 		// but the controller is watching VMs so will get notified
+		// returning here because following Update will always block
 		return false, s.controller.vmStatusUpdater.UpdateStatus(vmCopy)
 	}
 

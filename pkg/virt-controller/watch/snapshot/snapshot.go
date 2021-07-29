@@ -96,17 +96,17 @@ func translateError(e *vsv1beta1.VolumeSnapshotError) *snapshotv1.Error {
 func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (time.Duration, error) {
 	log.Log.V(3).Infof("Updating VirtualMachineSnapshot %s/%s", vmSnapshot.Namespace, vmSnapshot.Name)
 
-	// Make sure status is initialized
-	if vmSnapshot.Status == nil {
-		return 0, ctrl.updateSnapshotStatus(vmSnapshot, nil)
-	}
-
-	var retry time.Duration = 0
-
 	source, err := ctrl.getSnapshotSource(vmSnapshot)
 	if err != nil {
 		return 0, err
 	}
+
+	// Make sure status is initialized
+	if vmSnapshot.Status == nil {
+		return 0, ctrl.updateSnapshotStatus(vmSnapshot, source)
+	}
+
+	var retry time.Duration = 0
 
 	if !vmSnapshotProgressing(vmSnapshot) {
 		if source != nil {
@@ -633,11 +633,6 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	if vmSnapshotProgressing(vmSnapshotCpy) {
-		source, err := ctrl.getSnapshotSource(vmSnapshot)
-		if err != nil {
-			return err
-		}
-
 		if source != nil {
 			if source.Locked() {
 				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"))
