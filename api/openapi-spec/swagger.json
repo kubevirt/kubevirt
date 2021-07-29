@@ -11035,6 +11035,10 @@
       "items": {
        "type": "string"
       }
+     },
+     "virtualMachineInstancesPerNode": {
+      "type": "integer",
+      "format": "int32"
      }
     }
    },

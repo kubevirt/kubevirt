@@ -715,6 +715,8 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+            virtualMachineInstancesPerNode:
+              type: integer
           type: object
         customizeComponents:
           properties:

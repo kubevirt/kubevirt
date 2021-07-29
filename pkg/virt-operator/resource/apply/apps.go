@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -89,6 +90,10 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 	injectOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
 	injectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec)
 
+	if daemonSet.GetName() == "virt-handler" {
+		setMaxDevices(r.kv, daemonSet)
+	}
+
 	var cachedDaemonSet *appsv1.DaemonSet
 	obj, exists, _ := r.stores.DaemonSetCache.Get(daemonSet)
 
@@ -138,6 +143,16 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 	log.Log.V(2).Infof("daemonSet %v updated", daemonSet.GetName())
 
 	return nil
+}
+
+func setMaxDevices(kv *v1.KubeVirt, vh *appsv1.DaemonSet) {
+	if kv.Spec.Configuration.VirtualMachineInstancesPerNode == nil {
+		return
+	}
+
+	vh.Spec.Template.Spec.Containers[0].Command = append(vh.Spec.Template.Spec.Containers[0].Command,
+		"--maxDevices",
+		fmt.Sprintf("%d", *kv.Spec.Configuration.VirtualMachineInstancesPerNode))
 }
 
 func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) error {
