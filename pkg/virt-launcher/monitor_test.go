@@ -142,6 +142,16 @@ var _ = Describe("VirtLauncher", func() {
 				VerifyProcessStopped()
 			})
 
+			It("verify zombie pid detection works", func() {
+				StartProcess()
+				VerifyProcessStarted()
+				StopProcess()
+				VerifyProcessStopped()
+
+				// cleanup after stopping ensures zombie process is detected
+				CleanupProcess()
+			})
+
 			It("verify start timeout works", func() {
 				stopChan := make(chan struct{})
 				done := make(chan string)
