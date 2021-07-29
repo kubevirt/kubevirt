@@ -86,17 +86,17 @@ var PausedReasonTranslationMap = map[libvirt.DomainPausedReason]api.StateChangeR
 	libvirt.DOMAIN_PAUSED_POSTCOPY_FAILED: api.ReasonPausedPostcopyFailed,
 }
 
-type LibvirtWraper struct {
+type LibvirtWrapper struct {
 	user uint32
 }
 
-func NewLibvirtWrapper(nonRoot bool) *LibvirtWraper {
+func NewLibvirtWrapper(nonRoot bool) *LibvirtWrapper {
 	if nonRoot {
-		return &LibvirtWraper{
+		return &LibvirtWrapper{
 			user: util.NonRootUID,
 		}
 	}
-	return &LibvirtWraper{
+	return &LibvirtWrapper{
 		user: util.RootUser,
 	}
 }
@@ -221,7 +221,7 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
-func (l LibvirtWraper) StartLibvirt(stopChan chan struct{}) {
+func (l LibvirtWrapper) StartLibvirt(stopChan chan struct{}) {
 	// we spawn libvirt from virt-launcher in order to ensure the libvirtd+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
 	// to perform special shutdown logic. These processes need to live in the same
@@ -490,7 +490,7 @@ func copyFile(from, to string) error {
 	return err
 }
 
-func (l LibvirtWraper) SetupLibvirt() (err error) {
+func (l LibvirtWrapper) SetupLibvirt() (err error) {
 	runtimeQemuConfPath := path.Join(libvirtRuntimePath, "qemu.conf")
 	if err := copyFile(qemuConfPath, runtimeQemuConfPath); err != nil {
 		return err
@@ -539,6 +539,6 @@ func getDomainModificationImpactFlag(dom cli.VirDomain) (libvirt.DomainModificat
 	return libvirt.DOMAIN_AFFECT_CONFIG, nil
 }
 
-func (l LibvirtWraper) root() bool {
+func (l LibvirtWrapper) root() bool {
 	return l.user == 0
 }
