@@ -238,6 +238,10 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			table.Entry("on vmi guestosinfo", "virtualmachineinstances", "guestosinfo", allowGetFor("admin", "edit", "view"), denyAllFor("default")),
 			table.Entry("on vmi userlist", "virtualmachineinstances", "userlist", allowGetFor("admin", "edit", "view"), denyAllFor("default")),
 			table.Entry("on vmi filesystemlist", "virtualmachineinstances", "filesystemlist", allowGetFor("admin", "edit", "view"), denyAllFor("default")),
+			table.Entry("on vmi addvolume", "virtualmachineinstances", "addvolume", allowUpdateFor("admin", "edit"), denyAllFor("view", "default")),
+			table.Entry("on vmi removevolume", "virtualmachineinstances", "removevolume", allowUpdateFor("admin", "edit"), denyAllFor("view", "default")),
+			table.Entry("on vmi freeze", "virtualmachineinstances", "freeze", allowUpdateFor("admin", "edit"), denyAllFor("view", "default")),
+			table.Entry("on vmi unfreeze", "virtualmachineinstances", "unfreeze", allowUpdateFor("admin", "edit"), denyAllFor("view", "default")),
 		)
 	})
 

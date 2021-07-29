@@ -527,7 +527,6 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           verbs:
-          - get
           - update
         - apiGroups:
           - cdi.kubevirt.io
@@ -670,8 +669,9 @@ spec:
           - virtualmachineinstances/unpause
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
+          - virtualmachineinstances/freeze
+          - virtualmachineinstances/unfreeze
           verbs:
-          - get
           - update
         - apiGroups:
           - subresources.kubevirt.io
@@ -730,8 +730,9 @@ spec:
           - virtualmachineinstances/unpause
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
+          - virtualmachineinstances/freeze
+          - virtualmachineinstances/unfreeze
           verbs:
-          - get
           - update
         - apiGroups:
           - subresources.kubevirt.io
