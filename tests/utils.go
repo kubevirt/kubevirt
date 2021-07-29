@@ -2120,13 +2120,6 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 	return vm
 }
 
-func NewRandomVMWithBlockDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
-	volumeMode := k8sv1.PersistentVolumeBlock
-	dataVolume.Spec.PVC.VolumeMode = &volumeMode
-	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
-}
-
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
@@ -2379,18 +2372,12 @@ func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
-	userData := `#!/bin/bash
-	    echo "fedora" |passwd fedora --stdin
-	`
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 	return vmi
 }
 
 func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
-	userData := `#!/bin/bash
-	    echo "fedora" |passwd fedora --stdin
-	`
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 	return vmi
 }
 

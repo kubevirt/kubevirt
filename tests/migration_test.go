@@ -2147,9 +2147,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			tests.CreateConfigMap(configMapName, config_data)
 			tests.CreateSecret(secretName, secret_data)
 
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-			tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
+			vmi := libvmi.NewTestToolingFedora(
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			)
+			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tests.AddConfigMapDisk(vmi, configMapName, configMapName)
 			tests.AddSecretDisk(vmi, secretName, secretName)
 			tests.AddServiceAccountDisk(vmi, "default")
@@ -2160,10 +2162,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
 			}
 			tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
-
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Tag: "testnic",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Masquerade: &v1.InterfaceMasquerade{}}}}
 
 			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(6))
 			Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))
