@@ -548,6 +548,7 @@ func ForkAndMonitor(containerDiskDir string) (int, error) {
 					log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
 				}
 
+				log.Log.Infof("Reaped pid %d with status %d", wpid, int(wstatus))
 				// there's a race between cmd.Wait() and syscall.Wait4 when
 				// cleaning up the cmd's pid after it exits. This allows us
 				// to detect the correct exit code regardless of which wait
