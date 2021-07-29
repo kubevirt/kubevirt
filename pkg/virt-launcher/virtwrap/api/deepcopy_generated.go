@@ -1295,6 +1295,11 @@ func (in *FeatureKVM) DeepCopyInto(out *FeatureKVM) {
 		*out = new(FeatureState)
 		**out = **in
 	}
+	if in.HintDedicated != nil {
+		in, out := &in.HintDedicated, &out.HintDedicated
+		*out = new(FeatureState)
+		**out = **in
+	}
 	return
 }
 
