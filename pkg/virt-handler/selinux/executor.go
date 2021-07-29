@@ -76,7 +76,7 @@ func (se SELinuxExecutor) Run(cmd *exec.Cmd) error {
 	if err != nil {
 		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
 	} else {
-		log.Log.Infof("hotplug [Run] - err: %v, output: %s", cmd.String(), err, output)
+		log.Log.Infof("hotplug [Run] - command: %s, err: %v, output: %s", cmd.String(), err, output)
 	}
 	return nil
 }

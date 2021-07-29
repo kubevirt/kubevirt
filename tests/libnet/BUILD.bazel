@@ -30,9 +30,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/strategicpatch:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
-        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
-        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
-        "//vendor/kubevirt.io/client-go/log:go_default_library",
         "//vendor/sigs.k8s.io/yaml:go_default_library",
     ],
 )

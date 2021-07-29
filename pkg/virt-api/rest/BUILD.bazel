@@ -67,6 +67,9 @@ go_test(
         "//pkg/testutils:go_default_library",
         "//pkg/util/status:go_default_library",
         "//pkg/virt-config:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
@@ -79,8 +82,5 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/util/uuid:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
-        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
-        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
-        "//vendor/kubevirt.io/client-go/testutils:go_default_library",
     ],
 )
