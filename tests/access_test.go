@@ -236,6 +236,8 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			table.Entry("[test_id:3233]on vm stop", "virtualmachines", "stop", allowUpdateFor("admin", "edit"), denyAllFor("view", "default")),
 			table.Entry("[test_id:3234]on vm restart", "virtualmachines", "restart", allowUpdateFor("admin", "edit"), denyAllFor("view", "default")),
 			table.Entry("on vmi guestosinfo", "virtualmachineinstances", "guestosinfo", allowGetFor("admin", "edit", "view"), denyAllFor("default")),
+			table.Entry("on vmi userlist", "virtualmachineinstances", "userlist", allowGetFor("admin", "edit", "view"), denyAllFor("default")),
+			table.Entry("on vmi filesystemlist", "virtualmachineinstances", "filesystemlist", allowGetFor("admin", "edit", "view"), denyAllFor("default")),
 		)
 	})
 
