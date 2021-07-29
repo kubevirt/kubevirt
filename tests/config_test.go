@@ -363,9 +363,9 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("Running VMI")
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
+				vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(
 					cd.ContainerDiskFor(
-						cd.ContainerDiskFedoraTestTooling), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+						cd.ContainerDiskFedoraTestTooling))
 				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
 				tests.AddSecretDisk(vmi, secretName, secretName)
 				tests.AddConfigMapDiskWithCustomLabel(vmi, configMapName, "random1", "configlabel")
@@ -401,7 +401,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					// mount ConfigMap image
 					&expect.BSnd{S: "sudo su -\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "mount /dev/vdc /mnt\n"},
+					&expect.BSnd{S: "mount /dev/vdb /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
@@ -426,7 +426,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount Secret image
-					&expect.BSnd{S: "mount /dev/vdd /mnt\n"},
+					&expect.BSnd{S: "mount /dev/vdc /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
@@ -436,13 +436,13 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("checking that all disk labels match the expectations")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vdb\n"},
+					&expect.BExp{R: "cfgdata"}, // default value
 					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vdc\n"},
 					&expect.BExp{R: "cfgdata"}, // default value
 					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vdd\n"},
-					&expect.BExp{R: "cfgdata"}, // default value
-					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vde\n"},
 					&expect.BExp{R: "configlabel"}, // custom value
-					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vdf\n"},
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vde\n"},
 					&expect.BExp{R: "secretlabel"}, // custom value
 				}, 200)).To(Succeed())
 			})
@@ -482,9 +482,9 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				expectedPublicKey := string(publicKeyBytes)
 
 				By("Running VMI")
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
+				vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(
 					cd.ContainerDiskFor(
-						cd.ContainerDiskFedoraTestTooling), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+						cd.ContainerDiskFedoraTestTooling))
 				tests.AddSecretDisk(vmi, secretName, secretName)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
