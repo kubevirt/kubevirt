@@ -561,6 +561,8 @@ rules:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
   - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/userlist
   verbs:
   - get
 - apiGroups:
@@ -619,6 +621,8 @@ rules:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
   - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/userlist
   verbs:
   - get
 - apiGroups:
@@ -680,6 +684,8 @@ rules:
   - subresources.kubevirt.io
   resources:
   - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/userlist
   verbs:
   - get
 - apiGroups:

@@ -659,6 +659,8 @@ spec:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
           - virtualmachineinstances/guestosinfo
+          - virtualmachineinstances/filesystemlist
+          - virtualmachineinstances/userlist
           verbs:
           - get
         - apiGroups:
@@ -717,6 +719,8 @@ spec:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
           - virtualmachineinstances/guestosinfo
+          - virtualmachineinstances/filesystemlist
+          - virtualmachineinstances/userlist
           verbs:
           - get
         - apiGroups:
@@ -778,6 +782,8 @@ spec:
           - subresources.kubevirt.io
           resources:
           - virtualmachineinstances/guestosinfo
+          - virtualmachineinstances/filesystemlist
+          - virtualmachineinstances/userlist
           verbs:
           - get
         - apiGroups:

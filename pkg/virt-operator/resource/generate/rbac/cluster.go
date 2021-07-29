@@ -125,6 +125,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
 					"virtualmachineinstances/guestosinfo",
+					"virtualmachineinstances/filesystemlist",
+					"virtualmachineinstances/userlist",
 				},
 				Verbs: []string{
 					"get",
@@ -212,6 +214,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
 					"virtualmachineinstances/guestosinfo",
+					"virtualmachineinstances/filesystemlist",
+					"virtualmachineinstances/userlist",
 				},
 				Verbs: []string{
 					"get",
@@ -308,6 +312,8 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachineinstances/guestosinfo",
+					"virtualmachineinstances/filesystemlist",
+					"virtualmachineinstances/userlist",
 				},
 				Verbs: []string{
 					"get",
