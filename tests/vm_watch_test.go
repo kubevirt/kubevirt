@@ -28,7 +28,8 @@ const (
 
 	// Define a timeout for read operations in order to prevent test hanging
 	statusChangeTimeout = 10 * time.Minute
-	vmCreationTimeout   = 1 * time.Minute
+	vmCreationTimeout   = 2 * time.Minute
+	vmRecreationTimeout = 5 * time.Minute
 	vmMigrationTimeout  = 5 * time.Minute
 
 	vmAgeRegex   = "^[0-9]+[sm]$"
@@ -420,7 +421,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 			}
 
 			return false
-		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
+		}, vmRecreationTimeout, 1*time.Second).Should(BeTrue())
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
