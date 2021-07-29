@@ -761,6 +761,8 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
+				Expect(1).To(Equal(2))
+
 				By("Checking ping (IPv4)")
 				Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
 				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
