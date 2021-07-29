@@ -210,7 +210,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		util.PanicOnError(err)
 	})
 
-	It("[QUARANTINE][test_id:3468]Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
+	It("[test_id:3468]Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
 		By("Waiting for a VM to be created")
 		Eventually(func() bool {
 			_, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
