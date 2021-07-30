@@ -457,10 +457,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedVM.Finalizers = []string{}
 				updatedVM.ResourceVersion = "1"
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(updatedVM).Return(updatedVM, nil)
+				vmInterface.EXPECT().Update(updatedVM).Return(updatedVM, nil).Times(1)
 				statusUpdate := updatedVM.DeepCopy()
 				statusUpdate.Status.SnapshotInProgress = nil
-				vmInterface.EXPECT().UpdateStatus(statusUpdate).Return(statusUpdate, nil)
+				vmInterface.EXPECT().UpdateStatus(statusUpdate).Return(statusUpdate, nil).Times(1)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -473,7 +473,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				statusUpdate.ResourceVersion = "1"
 				statusUpdate.Status.SnapshotInProgress = nil
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(statusUpdate).Return(statusUpdate, nil)
+				vmInterface.EXPECT().UpdateStatus(statusUpdate).Return(statusUpdate, nil).Times(1)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -482,6 +482,14 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshot.DeletionTimestamp = timeFunc()
 				vm := createLockedVM()
+				updatedVM := vm.DeepCopy()
+				updatedVM.ResourceVersion = "2"
+				updatedVM.Finalizers = []string{}
+				vmInterface.EXPECT().Update(updatedVM).Return(updatedVM, nil).Times(1)
+				statusUpdate := updatedVM.DeepCopy()
+				statusUpdate.Status.SnapshotInProgress = nil
+				vmInterface.EXPECT().UpdateStatus(statusUpdate).Return(statusUpdate, nil).Times(1)
+				vmSource.Add(vm)
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Finalizers = []string{}
@@ -551,7 +559,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -574,7 +582,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -604,7 +612,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				vmSnapshotSource.Add(vmSnapshot)
-				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil).Times(1)
 				addVM(vm)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -618,7 +626,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -646,7 +654,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -673,7 +681,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmiSource.Add(createVMI(vm))
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -701,7 +709,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmiSource.Add(createVMI(vm))
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -753,8 +761,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				pods := createPodsUsingPVCs(vm)
 				podSource.Add(&pods[0])
 				vmSnapshotSource.Add(vmSnapshot)
-				vmInterface.EXPECT().UpdateStatus(vmStatusUpdate).Return(vmStatusUpdate, nil)
-				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().UpdateStatus(vmStatusUpdate).Return(vmStatusUpdate, nil).Times(1)
+				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil).Times(1)
 				vmSource.Add(vm)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()

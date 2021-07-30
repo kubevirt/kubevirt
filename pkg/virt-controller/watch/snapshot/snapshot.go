@@ -109,24 +109,34 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 
 	// Make sure status is initialized before doing anything
 	if vmSnapshot.Status != nil {
-		if source != nil && vmSnapshotProgressing(vmSnapshot) {
-			// attempt to lock source
-			// if fails will attempt again when source is updated
-			if !source.Locked() {
-				locked, err := source.Lock()
-				if err != nil {
+		if source != nil {
+			if vmSnapshotProgressing(vmSnapshot) && vmSnapshot.DeletionTimestamp == nil {
+				// attempt to lock source
+				// if fails will attempt again when source is updated
+				if !source.Locked() {
+					locked, err := source.Lock()
+					if err != nil {
+						return 0, err
+					}
+
+					log.Log.V(3).Infof("Attempt to lock source returned: %t", locked)
+
+					retry = snapshotRetryInterval
+				} else {
+					// create content if does not exist
+					if content == nil {
+						if err := ctrl.createContent(vmSnapshot); err != nil {
+							return 0, err
+						}
+					}
+				}
+			} else {
+				if err := source.Unfreeze(); err != nil {
 					return 0, err
 				}
 
-				log.Log.V(3).Infof("Attempt to lock source returned: %t", locked)
-
-				retry = snapshotRetryInterval
-			} else {
-				// create content if does not exist
-				if content == nil {
-					if err := ctrl.createContent(vmSnapshot); err != nil {
-						return 0, err
-					}
+				if _, err := source.Unlock(); err != nil {
+					return 0, err
 				}
 			}
 		}
