@@ -1150,6 +1150,56 @@ spec:
 		})
 	})
 
+	Describe("[test_id:6987]should apply component configuration", func() {
+
+		It("test VirtualMachineInstancesPerNode", func() {
+			newVirtualMachineInstancesPerNode := 10
+
+			By("Updating KubeVirt Object")
+			kv, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Spec.Configuration.VirtualMachineInstancesPerNode).ToNot(Equal(newVirtualMachineInstancesPerNode))
+			kv.Spec.Configuration.VirtualMachineInstancesPerNode = &newVirtualMachineInstancesPerNode
+
+			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Test that patch was applied to DaemonSet")
+			Eventually(func() string {
+				vc, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				containers := vc.Spec.Template.Spec.Containers
+				Expect(containers).ToNot(BeEmpty())
+
+				container := containers[0]
+
+				return strings.Join(container.Command, " ")
+			}, 60*time.Second, 5*time.Second).Should(ContainSubstring(fmt.Sprintf("--maxDevices %d", newVirtualMachineInstancesPerNode)))
+
+			By("Deleting patch from KubeVirt object")
+			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			kv.Spec.Configuration.VirtualMachineInstancesPerNode = nil
+			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Test that patch was removed from DaemonSet")
+			Eventually(func() string {
+				vc, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				containers := vc.Spec.Template.Spec.Containers
+				Expect(containers).ToNot(BeEmpty())
+
+				container := containers[0]
+
+				return strings.Join(container.Command, " ")
+			}, 60*time.Second, 5*time.Second).ShouldNot(ContainSubstring(fmt.Sprintf("--maxDevices %d", newVirtualMachineInstancesPerNode)))
+		})
+	})
+
 	Describe("[test_id:4744]should apply component customization", func() {
 
 		It("test applying and removing a patch", func() {
