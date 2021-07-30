@@ -230,6 +230,18 @@ rules:
   verbs:
   - put
 - apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/pause
+  - virtualmachineinstances/unpause
+  - virtualmachineinstances/addvolume
+  - virtualmachineinstances/removevolume
+  - virtualmachineinstances/freeze
+  - virtualmachineinstances/unfreeze
+  verbs:
+  - update
+  - get
+- apiGroups:
   - ""
   resources:
   - namespaces
