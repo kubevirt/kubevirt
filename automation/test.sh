@@ -387,7 +387,7 @@ spec:
 EOF
 fi
 
-
+export KUBEVIRT_E2E_FOCUS="[debug:3]"
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest
 

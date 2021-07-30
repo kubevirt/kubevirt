@@ -162,7 +162,7 @@ var _ = SIGDescribe("Storage", func() {
 				tests.RemoveErrorDisk(nodeName, address)
 			})
 
-			It("[QUARANTINE] should pause VMI on IO error", func() {
+			FIt("[debug:3] should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.AddPVCDisk(vmi, "pvc-disk", "virtio", pvc.Name)
@@ -250,7 +250,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[QUARANTINE] should pause VMI on IO error", func() {
+			FIt("[debug:3] should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := tests.NewRandomVMIWithPVC(pvc.Name)
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -260,8 +260,10 @@ var _ = SIGDescribe("Storage", func() {
 
 				refresh := ThisVMI(vmi)
 				By("Expecting VMI to be paused")
+				attempt := 0
 				Eventually(
 					func() bool {
+						attempt += 1
 						vmi, err = refresh()
 						Expect(err).NotTo(HaveOccurred())
 
@@ -271,8 +273,9 @@ var _ = SIGDescribe("Storage", func() {
 							}
 						}
 						return false
-					}, 60*time.Second, time.Second).Should(BeTrue())
+					}, 60*time.Second, time.Second).Should(BeTrue(), fmt.Sprintf("Expected to find %s paused.", vmi.Name))
 
+				fmt.Println("attempt ", attempt)
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil(), "Failed to delete VMI")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
