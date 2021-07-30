@@ -438,8 +438,8 @@ func (m *migrationProxy) Stop() {
 func (m *migrationProxy) handleConnection(fd net.Conn) {
 	defer fd.Close()
 
-	outBoundErr := make(chan error)
-	inBoundErr := make(chan error)
+	outBoundErr := make(chan error, 1)
+	inBoundErr := make(chan error, 1)
 
 	var conn net.Conn
 	var err error
