@@ -95,67 +95,64 @@ func translateError(e *vsv1beta1.VolumeSnapshotError) *snapshotv1.Error {
 
 func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (time.Duration, error) {
 	log.Log.V(3).Infof("Updating VirtualMachineSnapshot %s/%s", vmSnapshot.Namespace, vmSnapshot.Name)
+	var retry time.Duration
 
 	source, err := ctrl.getSnapshotSource(vmSnapshot)
 	if err != nil {
 		return 0, err
 	}
 
-	// Make sure status is initialized
-	if vmSnapshot.Status == nil {
-		return 0, ctrl.updateSnapshotStatus(vmSnapshot, source)
+	content, err := ctrl.getContent(vmSnapshot)
+	if err != nil {
+		return 0, err
 	}
 
-	var retry time.Duration = 0
-
-	if !vmSnapshotProgressing(vmSnapshot) {
-		if source != nil {
-			if err := source.Unfreeze(); err != nil {
-				return 0, err
-			}
-
-			// unlock the source if done/error
-			if _, err := source.Unlock(); err != nil {
-				return 0, err
-			}
-		}
-
-		if vmSnapshot.DeletionTimestamp != nil {
-			if err := ctrl.cleanupVMSnapshot(vmSnapshot); err != nil {
-				return 0, err
-			}
-		}
-	} else if source != nil {
-		// add source finalizer and maybe other stuff
-		// since updating metadata, don't attempt to update status
-		updated, err := ctrl.initVMSnapshot(vmSnapshot)
-		if updated || err != nil {
-			return 0, err
-		}
-
-		// attempt to lock source
-		// if fails will attempt again when source is updated
-		if !source.Locked() {
-			locked, err := source.Lock()
-			if err != nil {
-				return 0, err
-			}
-
-			log.Log.V(3).Infof("Attempt to lock source returned: %t", locked)
-
-			retry = snapshotRetryInterval
-		} else {
-			content, err := ctrl.getContent(vmSnapshot)
-			if err != nil {
-				return 0, err
-			}
-
-			// create content if does not exist
-			if content == nil {
-				if err := ctrl.createContent(vmSnapshot); err != nil {
+	// Make sure status is initialized before doing anything
+	if vmSnapshot.Status != nil {
+		if source != nil && vmSnapshotProgressing(vmSnapshot) {
+			// attempt to lock source
+			// if fails will attempt again when source is updated
+			if !source.Locked() {
+				locked, err := source.Lock()
+				if err != nil {
 					return 0, err
 				}
+
+				log.Log.V(3).Infof("Attempt to lock source returned: %t", locked)
+
+				retry = snapshotRetryInterval
+			} else {
+				// create content if does not exist
+				if content == nil {
+					if err := ctrl.createContent(vmSnapshot); err != nil {
+						return 0, err
+					}
+				}
 			}
+		}
+	}
+
+	if vmSnapshot.DeletionTimestamp != nil && content != nil {
+		if controller.HasFinalizer(content, vmSnapshotContentFinalizer) {
+			cpy := content.DeepCopy()
+			controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
+
+			_, err := ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
+			if err != nil {
+				return 0, err
+			}
+		}
+
+		if vmSnapshot.Spec.DeletionPolicy == nil ||
+			*vmSnapshot.Spec.DeletionPolicy == snapshotv1.VirtualMachineSnapshotContentDelete {
+			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
+
+			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
+			if err != nil && !errors.IsNotFound(err) {
+				return 0, err
+			}
+		} else {
+			log.Log.V(2).Infof("NOT deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 		}
 	}
 
@@ -402,66 +399,6 @@ func (ctrl *VMSnapshotController) getSnapshotSource(vmSnapshot *snapshotv1.Virtu
 	return nil, fmt.Errorf("unknown source %+v", vmSnapshot.Spec.Source)
 }
 
-func (ctrl *VMSnapshotController) initVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (bool, error) {
-	if controller.HasFinalizer(vmSnapshot, vmSnapshotFinalizer) {
-		return false, nil
-	}
-
-	vmSnapshotCpy := vmSnapshot.DeepCopy()
-	controller.AddFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
-
-	if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshot.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
-func (ctrl *VMSnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
-	// TODO check restore in progress
-
-	content, err := ctrl.getContent(vmSnapshot)
-	if err != nil {
-		return err
-	}
-
-	if content != nil {
-		if controller.HasFinalizer(content, vmSnapshotContentFinalizer) {
-			cpy := content.DeepCopy()
-			controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
-
-			_, err := ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		if vmSnapshot.Spec.DeletionPolicy == nil ||
-			*vmSnapshot.Spec.DeletionPolicy == snapshotv1.VirtualMachineSnapshotContentDelete {
-			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
-
-			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
-			if err != nil && !errors.IsNotFound(err) {
-				return err
-			}
-		} else {
-			log.Log.V(2).Infof("NOT deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
-		}
-	}
-
-	if controller.HasFinalizer(vmSnapshot, vmSnapshotFinalizer) {
-		vmSnapshotCpy := vmSnapshot.DeepCopy()
-		controller.RemoveFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
-
-		_, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
 	source, err := ctrl.getSnapshotSource(vmSnapshot)
 	if err != nil {
@@ -607,14 +544,11 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	if vmSnapshotCpy.DeletionTimestamp != nil {
-		// go into error state
-		if vmSnapshotProgressing(vmSnapshotCpy) {
-			reason := "Snapshot cancelled"
-			vmSnapshotCpy.Status.Error = newError(reason)
-			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, reason))
-			updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, reason))
-		}
+		controller.RemoveFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
 	} else {
+		// since no status subresource can update metadata and status
+		controller.AddFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
+
 		content, err := ctrl.getContent(vmSnapshot)
 		if err != nil {
 			return err

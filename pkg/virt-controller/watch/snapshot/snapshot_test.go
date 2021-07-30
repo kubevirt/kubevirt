@@ -398,6 +398,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm := createVM()
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
 				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					SourceUID:  &vmUID,
 					ReadyToUse: &f,
@@ -416,6 +417,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot := createVMSnapshot()
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
 				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					ReadyToUse: &f,
 					Conditions: []snapshotv1.Condition{
@@ -433,6 +435,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm := createLockedVM()
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
 				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					SourceUID:  &vmUID,
 					ReadyToUse: &f,
@@ -478,17 +481,24 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should be status error when VM snapshot deleted while in progress", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshot.DeletionTimestamp = timeFunc()
+				vm := createLockedVM()
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Finalizers = []string{}
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Snapshot cancelled"),
-					newReadyCondition(corev1.ConditionFalse, "Snapshot cancelled"),
+					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
-				updatedSnapshot.Status.Error = &snapshotv1.Error{
-					Time:    timeFunc(),
-					Message: &[]string{"Snapshot cancelled"}[0],
-				}
+				content := createVMSnapshotContent()
+				updatedContent := content.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+				updatedContent.Finalizers = []string{}
+
+				vmSnapshotContentSource.Add(content)
+				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
+				expectVMSnapshotContentDelete(vmSnapshotClient, updatedContent.Name)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+				vmSource.Add(vm)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -778,20 +788,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-			})
-
-			It("should init VirtualMachineSnapshot", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vmSnapshot.Finalizers = nil
-				updatedSnapshot := vmSnapshot.DeepCopy()
-				updatedSnapshot.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
-				updatedSnapshot.ResourceVersion = "1"
-				vm := createLockedVM()
-
-				vmSource.Add(vm)
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})

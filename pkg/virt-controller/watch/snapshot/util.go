@@ -49,13 +49,6 @@ func cacheKeyFunc(namespace, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
-func newError(message string) *snapshotv1.Error {
-	return &snapshotv1.Error{
-		Message: &message,
-		Time:    currentTime(),
-	}
-}
-
 func newReadyCondition(status corev1.ConditionStatus, reason string) snapshotv1.Condition {
 	return snapshotv1.Condition{
 		Type:               snapshotv1.ConditionReady,
