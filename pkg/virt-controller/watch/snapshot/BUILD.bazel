@@ -7,6 +7,7 @@ go_library(
         "restore_base.go",
         "snapshot.go",
         "snapshot_base.go",
+        "source.go",
         "util.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot",
@@ -14,6 +15,7 @@ go_library(
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/util/status:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",

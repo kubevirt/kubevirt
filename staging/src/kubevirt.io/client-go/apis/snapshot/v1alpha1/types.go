@@ -115,9 +115,6 @@ const (
 
 	// ConditionProgressing is the "progressing" condition type
 	ConditionProgressing ConditionType = "Progressing"
-
-	// ConditionFreezing is the "freezing" condition type
-	ConditionFreezing ConditionType = "Freezing"
 )
 
 // Condition defines conditions
