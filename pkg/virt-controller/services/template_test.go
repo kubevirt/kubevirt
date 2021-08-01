@@ -2126,7 +2126,7 @@ var _ = Describe("Template", func() {
 
 				_, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).To(HaveOccurred(), "Render manifest results in an error")
-				Expect(err).To(BeAssignableToTypeOf(PvcNotFoundError(errors.New(""))), "Render manifest results in an PvsNotFoundError")
+				Expect(err).To(BeAssignableToTypeOf(PvcNotFoundError{Err: errors.New("")}), "Render manifest results in an PvsNotFoundError")
 			})
 		})
 

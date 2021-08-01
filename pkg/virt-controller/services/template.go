@@ -134,7 +134,27 @@ type templateService struct {
 	launcherSubGid             int64
 }
 
-type PvcNotFoundError error
+type PvcNotFoundError struct {
+	Err error
+}
+
+func (e PvcNotFoundError) Error() string {
+	if e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
+type DataVolumeNotFoundError struct {
+	Err error
+}
+
+func (e DataVolumeNotFoundError) Error() string {
+	if e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
@@ -514,7 +534,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 				return nil, err
 			} else if !exists {
 				logger.Errorf("didn't find PVC %v", claimName)
-				return nil, PvcNotFoundError(fmt.Errorf("didn't find PVC %v", claimName))
+				return nil, PvcNotFoundError{Err: fmt.Errorf("didn't find PVC %v", claimName)}
 			} else if isBlock {
 				devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
 				device := k8sv1.VolumeDevice{
@@ -582,7 +602,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 				return nil, err
 			} else if !exists {
 				logger.Errorf("didn't find PVC associated with DataVolume: %v", claimName)
-				return nil, PvcNotFoundError(fmt.Errorf("didn't find PVC associated with DataVolume: %v", claimName))
+				return nil, PvcNotFoundError{Err: fmt.Errorf("didn't find PVC associated with DataVolume: %v", claimName)}
 			} else if isBlock {
 				devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
 				device := k8sv1.VolumeDevice{

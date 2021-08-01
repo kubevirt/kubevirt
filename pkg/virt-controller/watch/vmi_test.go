@@ -873,69 +873,82 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
-		It("should create PodScheduled and Synchronized conditions exactly once each for repeated FailedPvcNotFoundReason sync error", func() {
+		table.DescribeTable("should create PodScheduled and Synchronized conditions exactly once each for repeated FailedPvcNotFoundReason/FailedDataVolumeNotFoundReason sync errors",
+			func(syncReason string, volumeSource v1.VolumeSource) {
 
-			expectConditions := func(vmi *v1.VirtualMachineInstance) {
-				// PodScheduled and Synchronized (as well as Ready)
-				Expect(len(vmi.Status.Conditions)).To(Equal(3), "there should be exactly 3 conditions")
+				expectConditions := func(vmi *v1.VirtualMachineInstance) {
+					// PodScheduled and Synchronized (as well as Ready)
+					Expect(len(vmi.Status.Conditions)).To(Equal(3), "there should be exactly 3 conditions")
 
-				getType := func(c v1.VirtualMachineInstanceCondition) string { return string(c.Type) }
-				getReason := func(c v1.VirtualMachineInstanceCondition) string { return c.Reason }
-				Expect(vmi.Status.Conditions).To(
-					And(
-						ContainElement(
-							WithTransform(getType, Equal(string(v1.VirtualMachineInstanceSynchronized))),
-						),
-						ContainElement(
-							And(
-								WithTransform(getType, Equal(string(k8sv1.PodScheduled))),
-								WithTransform(getReason, Equal(k8sv1.PodReasonUnschedulable)),
+					getType := func(c v1.VirtualMachineInstanceCondition) string { return string(c.Type) }
+					getReason := func(c v1.VirtualMachineInstanceCondition) string { return c.Reason }
+					Expect(vmi.Status.Conditions).To(
+						And(
+							ContainElement(
+								And(
+									WithTransform(getType, Equal(string(v1.VirtualMachineInstanceSynchronized))),
+									WithTransform(getReason, Equal(syncReason)),
+								),
+							),
+							ContainElement(
+								And(
+									WithTransform(getType, Equal(string(k8sv1.PodScheduled))),
+									WithTransform(getReason, Equal(k8sv1.PodReasonUnschedulable)),
+								),
 							),
 						),
-					),
-				)
+					)
 
-				testutils.ExpectEvent(recorder, FailedPvcNotFoundReason)
-			}
+					testutils.ExpectEvent(recorder, syncReason)
+				}
 
-			vmi := NewPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodNotExistsReason)
+				vmi := NewPendingVirtualMachine("testvmi")
+				setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodNotExistsReason)
 
-			vmi.Spec.Volumes = []v1.Volume{
-				{
-					Name: "test",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "something",
-							},
+				vmi.Spec.Volumes = []v1.Volume{
+					{
+						Name:         "test",
+						VolumeSource: volumeSource,
+					},
+				}
+				addVirtualMachine(vmi)
+				update := vmiInterface.EXPECT().Update(gomock.Any())
+				update.Do(func(vmi *v1.VirtualMachineInstance) {
+					expectConditions(vmi)
+					vmiInformer.GetStore().Update(vmi)
+					key := kvcontroller.VirtualMachineInstanceKey(vmi)
+					controller.vmiExpectations.LowerExpectations(key, 1, 0)
+					update.Return(vmi, nil)
+				})
+
+				controller.Execute()
+				Expect(controller.Queue.Len()).To(Equal(0))
+				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+
+				// make sure that during next iteration we do not add the same condition again
+				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+					expectConditions(vmi)
+				}).Return(vmi, nil)
+
+				controller.Execute()
+				Expect(controller.Queue.Len()).To(Equal(0))
+				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(2))
+			},
+			table.Entry("when PVC does not exist", FailedPvcNotFoundReason,
+				v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "something",
 						},
 					},
-				},
-			}
-			addVirtualMachine(vmi)
-			update := vmiInterface.EXPECT().Update(gomock.Any())
-			update.Do(func(vmi *v1.VirtualMachineInstance) {
-				expectConditions(vmi)
-				vmiInformer.GetStore().Update(vmi)
-				key := kvcontroller.VirtualMachineInstanceKey(vmi)
-				controller.vmiExpectations.LowerExpectations(key, 1, 0)
-				update.Return(vmi, nil)
-			})
-
-			controller.Execute()
-			Expect(controller.Queue.Len()).To(Equal(0))
-			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
-
-			// make sure that during next iteration we do not add the same condition again
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
-				expectConditions(vmi)
-			}).Return(vmi, nil)
-
-			controller.Execute()
-			Expect(controller.Queue.Len()).To(Equal(0))
-			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(2))
-		})
+				}),
+			table.Entry("when DataVolume does not exist", FailedDataVolumeNotFoundReason,
+				v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "something",
+					},
+				}),
+		)
 
 		table.DescribeTable("should move the vmi to scheduling state if a pod exists", func(phase k8sv1.PodPhase, isReady bool) {
 			vmi := NewPendingVirtualMachine("testvmi")
