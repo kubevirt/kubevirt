@@ -2085,25 +2085,46 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			})
 
-			It("should set a FailedUnschedulable status when VMI has a PodScheduled=False condition with Unschedulable reason", func() {
-				vm, vmi := DefaultVirtualMachine(true)
-				vmi.Status.Phase = virtv1.Scheduling
-				vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
-					Type:   virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
-					Status: k8sv1.ConditionFalse,
-					Reason: k8sv1.PodReasonUnschedulable,
-				})
+			table.DescribeTable("should set a failure status in accordance to VMI condition",
+				func(status virtv1.VirtualMachinePrintableStatus, cond v1.VirtualMachineInstanceCondition) {
 
-				addVirtualMachine(vm)
-				vmiFeeder.Add(vmi)
+					vm, vmi := DefaultVirtualMachine(true)
+					vmi.Status.Phase = virtv1.Scheduling
+					vmi.Status.Conditions = append(vmi.Status.Conditions, cond)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusUnschedulable))
-				})
+					addVirtualMachine(vm)
+					vmiFeeder.Add(vmi)
 
-				controller.Execute()
-			})
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*v1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(status))
+					})
+
+					controller.Execute()
+				},
+
+				table.Entry("FailedUnschedulable", v1.VirtualMachineStatusUnschedulable,
+					virtv1.VirtualMachineInstanceCondition{
+						Type:   virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
+						Status: k8sv1.ConditionFalse,
+						Reason: k8sv1.PodReasonUnschedulable,
+					},
+				),
+				table.Entry("FailedPvcNotFound", v1.VirtualMachineStatusPvcNotFound,
+					virtv1.VirtualMachineInstanceCondition{
+						Type:   virtv1.VirtualMachineInstanceSynchronized,
+						Status: k8sv1.ConditionFalse,
+						Reason: FailedPvcNotFoundReason,
+					},
+				),
+				table.Entry("FailedDataVolumeNotFound", v1.VirtualMachineStatusDataVolumeNotFound,
+					virtv1.VirtualMachineInstanceCondition{
+						Type:   virtv1.VirtualMachineInstanceSynchronized,
+						Status: k8sv1.ConditionFalse,
+						Reason: FailedDataVolumeNotFoundReason,
+					},
+				),
+			)
 
 			table.DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string) {
 				vm, vmi := DefaultVirtualMachine(true)

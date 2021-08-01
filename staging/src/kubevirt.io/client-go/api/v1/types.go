@@ -1258,7 +1258,7 @@ const (
 	// VirtualMachineStatusTerminating indicates that the virtual machine is in the process of deletion,
 	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
 	VirtualMachineStatusTerminating VirtualMachinePrintableStatus = "Terminating"
-	// VirtualMachineStatusCrashLoopBackOff indicates that the virtual machine is currently in a crash loop waiting to be retried
+	// VirtualMachineStatusCrashLoopBackOff indicates that the virtual machine is currently in a crash loop waiting to be retried.
 	VirtualMachineStatusCrashLoopBackOff VirtualMachinePrintableStatus = "CrashLoopBackOff"
 	// VirtualMachineStatusMigrating indicates that the virtual machine is in the process of being migrated
 	// to another host.
@@ -1275,6 +1275,10 @@ const (
 	// VirtualMachineStatusImagePullBackOff indicates that an error has occured while pulling an image for
 	// a containerDisk VM volume, and that kubelet is backing off before retrying.
 	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
+	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
+	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "FailedPvcNotFound"
+	// VirtualMachineStatusDataVolumeNotFound indicates that the virtual machine references a DataVolume volume which doesn't exist.
+	VirtualMachineStatusDataVolumeNotFound VirtualMachinePrintableStatus = "FailedDataVolumeNotFound"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
