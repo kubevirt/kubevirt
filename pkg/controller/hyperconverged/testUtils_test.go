@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	consolev1 "github.com/openshift/api/console/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"os"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
@@ -83,6 +84,7 @@ type BasicExpected struct {
 	serviceMonitor       *monitoringv1.ServiceMonitor
 	promRule             *monitoringv1.PrometheusRule
 	cliDownload          *consolev1.ConsoleCLIDownload
+	hcoCRD               *apiextensionsv1.CustomResourceDefinition
 }
 
 func (be BasicExpected) toArray() []runtime.Object {
@@ -102,6 +104,7 @@ func (be BasicExpected) toArray() []runtime.Object {
 		be.serviceMonitor,
 		be.promRule,
 		be.cliDownload,
+		be.hcoCRD,
 	}
 }
 
@@ -202,6 +205,13 @@ func getBasicDeployment() *BasicExpected {
 	expectedCliDownload := operands.NewConsoleCLIDownload(hco)
 	expectedCliDownload.SelfLink = fmt.Sprintf("/apis/console.openshift.io/v1/consoleclidownloads/%s", expectedCliDownload.Name)
 	res.cliDownload = expectedCliDownload
+
+	hcoCrd := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hyperconvergeds.hco.kubevirt.io",
+		},
+	}
+	res.hcoCRD = hcoCrd
 
 	return res
 }

@@ -416,6 +416,13 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			Resources: stringListToSilce("customresourcedefinitions"),
 			Verbs:     stringListToSilce("get", "list", "watch"),
 		},
+		{
+			APIGroups: []string{
+				"apiextensions.k8s.io",
+			},
+			Resources: stringListToSilce("customresourcedefinitions/status"),
+			Verbs:     stringListToSilce("get", "list", "watch", "patch", "update"),
+		},
 		roleWithAllPermissions("monitoring.coreos.com", stringListToSilce("servicemonitors", "prometheusrules")),
 		{
 			APIGroups: []string{

@@ -6,6 +6,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"os"
 	"reflect"
 	"strings"
@@ -311,6 +312,15 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 	req.SetUpgradeMode(r.upgradeMode)
 
 	if r.upgradeMode {
+		crdStatusUpdated, err := r.updateCrdStoredVersions(req)
+		if err != nil {
+			return reconcile.Result{Requeue: true}, err
+		} else {
+			if crdStatusUpdated {
+				return reconcile.Result{Requeue: true}, nil
+			}
+		}
+
 		modified, err := r.migrateBeforeUpgrade(req)
 		if err != nil {
 			return reconcile.Result{Requeue: init}, err
@@ -895,7 +905,44 @@ const (
 	imsCmName        = "v2v-vmware"
 	liveMigrationKey = "migrations"
 	vddkInitImakeKey = "vddk-init-image"
+	crdName          = "hyperconvergeds.hco.kubevirt.io"
 )
+
+func (r *ReconcileHyperConverged) updateCrdStoredVersions(req *common.HcoRequest) (bool, error) {
+	versionsToBeRemoved := []string{"v1alpha1"}
+
+	found := &apiextensionsv1.CustomResourceDefinition{}
+	key := client.ObjectKey{Namespace: hcoutil.UndefinedNamespace, Name: crdName}
+	err := r.client.Get(req.Ctx, key, found)
+	if err != nil {
+		req.Logger.Error(err, fmt.Sprintf("failed to read the %s CRD; %s", crdName, err.Error()))
+		return false, err
+	}
+
+	needsUpdate := false
+	newStoredVersions := []string{}
+	for _, vToBeRemoved := range versionsToBeRemoved {
+		for _, sVersion := range found.Status.StoredVersions {
+			if vToBeRemoved != sVersion {
+				newStoredVersions = append(newStoredVersions, sVersion)
+			} else {
+				needsUpdate = true
+			}
+		}
+	}
+	if needsUpdate {
+		found.Status.StoredVersions = newStoredVersions
+		err = r.client.Status().Update(req.Ctx, found)
+		if err != nil {
+			req.Logger.Error(err, fmt.Sprintf("failed updating the %s CRD status: %s", crdName, err.Error()))
+			return false, err
+		}
+		req.Logger.Info("successfully updated status.storedVersions on HCO CRD", "CRD Name", crdName)
+		return true, nil
+	}
+
+	return false, nil
+}
 
 func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (bool, error) {
 	kvConfigModified, err := r.migrateKvConfigurations(req)

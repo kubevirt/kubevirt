@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"os"
 	"time"
 
@@ -1675,6 +1676,66 @@ progressTimeout: 150`,
 
 			})
 
+			Context("Remove deprecated versions from .status.storedVersions on the CRD", func() {
+
+				It("should update .status.storedVersions on the HCO CRD during upgrades", func() {
+					// Simulate ongoing upgrade
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+
+					expected.hcoCRD.Status.StoredVersions = []string{"v1alpha1", "v1beta1", "v1"}
+
+					cl := expected.initClient()
+
+					foundHC, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+
+					foundCrd := &apiextensionsv1.CustomResourceDefinition{}
+					Expect(
+						cl.Get(context.TODO(),
+							client.ObjectKeyFromObject(expected.hcoCRD),
+							foundCrd),
+					).To(BeNil())
+					Expect(foundCrd.Status.StoredVersions).ShouldNot(ContainElement("v1alpha1"))
+					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1beta1"))
+					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1"))
+
+					By("Run reconcile again")
+					foundHC, reconciler, requeue = doReconcile(cl, foundHC, reconciler)
+					Expect(requeue).To(BeTrue())
+
+					// call again, make sure this time the requeue is false and the upgrade successfully completes
+					foundHC, _, requeue = doReconcile(cl, foundHC, reconciler)
+					Expect(requeue).To(BeFalse())
+
+					checkAvailability(foundHC, metav1.ConditionTrue)
+					ver, ok := foundHC.Status.GetVersion(hcoVersionName)
+					Expect(ok).To(BeTrue())
+					Expect(ver).Should(Equal(newVersion))
+				})
+
+				It("should not update .status.storedVersions on the HCO CRD if not in upgrade mode", func() {
+					expected.hcoCRD.Status.StoredVersions = []string{"v1alpha1", "v1beta1", "v1"}
+
+					cl := expected.initClient()
+
+					foundHC, _, requeue := doReconcile(cl, expected.hco, nil)
+					checkAvailability(foundHC, metav1.ConditionTrue)
+					Expect(requeue).To(BeFalse())
+
+					foundCrd := &apiextensionsv1.CustomResourceDefinition{}
+					Expect(
+						cl.Get(context.TODO(),
+							client.ObjectKeyFromObject(expected.hcoCRD),
+							foundCrd),
+					).To(BeNil())
+					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1alpha1"))
+					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1beta1"))
+					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1"))
+
+				})
+
+			})
+
 		})
 
 		Context("Aggregate Negative Conditions", func() {
@@ -2024,10 +2085,18 @@ progressTimeout: 150`,
 		})
 
 		Context("Detection of a tainted configuration", func() {
+			var (
+				hco *hcov1beta1.HyperConverged
+			)
+			BeforeEach(func() {
+				hco = commonTestUtils.NewHco()
+				hco.Status.UpdateVersion(hcoVersionName, version.Version)
+				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
+			})
+
 			Context("Detection of a tainted configuration for kubevirt", func() {
 
 				It("Raises a TaintedConfiguration condition upon detection of such configuration", func() {
-					hco := commonTestUtils.NewHco()
 					hco.ObjectMeta.Annotations = map[string]string{
 						common.JSONPatchKVAnnotationName: `
 						[
@@ -2084,7 +2153,6 @@ progressTimeout: 150`,
 				})
 
 				It("Removes the TaintedConfiguration condition upon removal of such configuration", func() {
-					hco := commonTestUtils.NewHco()
 					hco.Status.Conditions = append(hco.Status.Conditions, metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
@@ -2126,7 +2194,6 @@ progressTimeout: 150`,
 				})
 
 				It("Removes the TaintedConfiguration condition if the annotation is wrong", func() {
-					hco := commonTestUtils.NewHco()
 					hco.Status.Conditions = append(hco.Status.Conditions, metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
@@ -2182,7 +2249,6 @@ progressTimeout: 150`,
 			Context("Detection of a tainted configuration for cdi", func() {
 
 				It("Raises a TaintedConfiguration condition upon detection of such configuration", func() {
-					hco := commonTestUtils.NewHco()
 					hco.ObjectMeta.Annotations = map[string]string{
 						common.JSONPatchCDIAnnotationName: `[
 					{
@@ -2247,7 +2313,6 @@ progressTimeout: 150`,
 				})
 
 				It("Removes the TaintedConfiguration condition upon removal of such configuration", func() {
-					hco := commonTestUtils.NewHco()
 					hco.Status.Conditions = append(hco.Status.Conditions, metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
@@ -2289,8 +2354,6 @@ progressTimeout: 150`,
 				})
 
 				It("Removes the TaintedConfiguration condition if the annotation is wrong", func() {
-					hco := commonTestUtils.NewHco()
-
 					hco.Status.Conditions = append(hco.Status.Conditions, metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
@@ -2338,7 +2401,6 @@ progressTimeout: 150`,
 			Context("Detection of a tainted configuration for cna", func() {
 
 				It("Raises a TaintedConfiguration condition upon detection of such configuration", func() {
-					hco := commonTestUtils.NewHco()
 					hco.ObjectMeta.Annotations = map[string]string{
 						common.JSONPatchCNAOAnnotationName: `[
 							{
@@ -2401,7 +2463,6 @@ progressTimeout: 150`,
 				})
 
 				It("Removes the TaintedConfiguration condition upon removal of such configuration", func() {
-					hco := commonTestUtils.NewHco()
 					hco.Status.Conditions = append(hco.Status.Conditions, metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
@@ -2442,7 +2503,6 @@ progressTimeout: 150`,
 				})
 
 				It("Removes the TaintedConfiguration condition if the annotation is wrong", func() {
-					hco := commonTestUtils.NewHco()
 					hco.ObjectMeta.Annotations = map[string]string{
 						// Set bad json
 						common.JSONPatchKVAnnotationName: `[{`,
@@ -2481,7 +2541,6 @@ progressTimeout: 150`,
 
 			Context("Detection of a tainted configuration for all the annotations", func() {
 				It("Raises a TaintedConfiguration condition upon detection of such configuration", func() {
-					hco := commonTestUtils.NewHco()
 					hco.ObjectMeta.Annotations = map[string]string{
 						common.JSONPatchKVAnnotationName: `
 						[
