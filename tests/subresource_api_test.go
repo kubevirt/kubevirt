@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/util"
@@ -231,6 +232,119 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				return string(spec)
 				// The first item in the SubresourceGroupVersions array is the preferred version
 			}, 60*time.Second, 1*time.Second).Should(ContainSubstring("subresources.kubevirt.io/" + v1.SubresourceGroupVersions[0].Version))
+		})
+	})
+
+	Describe("VirtualMachineInstance subresource", func() {
+		Context("Freeze Unfreeze should fail", func() {
+			var vm *v1.VirtualMachine
+
+			BeforeEach(func() {
+				var err error
+				vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
+				vm = tests.NewRandomVirtualMachine(vmi, true)
+				vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return false
+					}
+					Expect(err).ToNot(HaveOccurred())
+					return vmi.Status.Phase == v1.Running
+				}, 180*time.Second, time.Second).Should(BeTrue())
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+			})
+
+			It("Freeze without guest agent", func() {
+				expectedErr := "Internal error occurred"
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring(expectedErr))
+			})
+
+			It("Unfreeze without guest agent", func() {
+				expectedErr := "Internal error occurred"
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Unfreeze(vm.Name)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring(expectedErr))
+			})
+		})
+
+		Context("Freeze Unfreeze commands", func() {
+			var vm *v1.VirtualMachine
+
+			BeforeEach(func() {
+				var err error
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Namespace = util.NamespaceTestDefault
+				vm = tests.NewRandomVirtualMachine(vmi, true)
+				vm, err = virtCli.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return false
+					}
+					Expect(err).ToNot(HaveOccurred())
+					return vmi.Status.Phase == v1.Running
+				}, 180*time.Second, time.Second).Should(BeTrue())
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				tests.WaitAgentConnected(virtCli, vmi)
+			})
+
+			waitVMIFSFreezeStatus := func(expectedStatus string) {
+				Eventually(func() bool {
+					updatedVMI, err := virtCli.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return updatedVMI.Status.FSFreezeStatus == expectedStatus
+				}, 30*time.Second, 2*time.Second).Should(BeTrue())
+			}
+
+			It("Freeze Unfreeze should succeed", func() {
+				By("Freezing VMI")
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus("frozen")
+
+				By("Unfreezing VMI")
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Unfreeze(vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus("")
+			})
+
+			It("Multi Freeze Unfreeze calls should succeed", func() {
+				for i := 0; i < 5; i++ {
+					By("Freezing VMI")
+					err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
+					Expect(err).ToNot(HaveOccurred())
+
+					waitVMIFSFreezeStatus("frozen")
+				}
+
+				By("Unfreezing VMI")
+				for i := 0; i < 5; i++ {
+					err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Unfreeze(vm.Name)
+					Expect(err).ToNot(HaveOccurred())
+
+					waitVMIFSFreezeStatus("")
+				}
+			})
+
+			It("Freeze without Unfreeze should trigger unfreeze after timeout", func() {
+				By("Freezing VMI")
+				unfreezeTimeout := 10 * time.Second
+				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, unfreezeTimeout)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus("frozen")
+
+				By("Wait Unfreeze VMI to be triggered")
+				waitVMIFSFreezeStatus("")
+			})
 		})
 	})
 })
