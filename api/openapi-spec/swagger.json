@@ -7655,6 +7655,16 @@
     "put": {
      "description": "Freeze a VirtualMachineInstance object.",
      "operationId": "v1Freeze",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.FreezeUnfreezeTimeout"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -8740,6 +8750,16 @@
     "put": {
      "description": "Freeze a VirtualMachineInstance object.",
      "operationId": "v1alpha3Freeze",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.FreezeUnfreezeTimeout"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -11910,6 +11930,18 @@
      },
      "tray": {
       "description": "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\". Defaults to closed.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.FreezeUnfreezeTimeout": {
+    "description": "FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command",
+    "type": "object",
+    "required": [
+     "unfreezeTimeout"
+    ],
+    "properties": {
+     "unfreezeTimeout": {
       "type": "string"
      }
     }

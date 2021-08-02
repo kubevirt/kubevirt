@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -56,7 +57,7 @@ type VirtHandlerConn interface {
 	FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
-	Put(url string, tlsConfig *tls.Config) error
+	Put(url string, tlsConfig *tls.Config, body io.ReadCloser) error
 	Get(url string, tlsConfig *tls.Config) (string, error)
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -219,7 +220,7 @@ func (v *virtHandlerConn) Pod() (pod *v1.Pod, err error) {
 	return v.pod, err
 }
 
-func (v *virtHandlerConn) Put(url string, tlsConfig *tls.Config) error {
+func (v *virtHandlerConn) Put(url string, tlsConfig *tls.Config, body io.ReadCloser) error {
 
 	client := http.Client{
 		Transport: &http.Transport{
@@ -228,7 +229,7 @@ func (v *virtHandlerConn) Put(url string, tlsConfig *tls.Config) error {
 		Timeout: 10 * time.Second,
 	}
 
-	req, err := http.NewRequest(http.MethodPut, url, nil)
+	req, err := http.NewRequest(http.MethodPut, url, body)
 	if err != nil {
 		return err
 	}

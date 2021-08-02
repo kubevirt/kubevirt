@@ -114,7 +114,7 @@ func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, respon
 		return
 	}
 
-	err := conn.Put(url, app.handlerTLSConfiguration)
+	err := conn.Put(url, app.handlerTLSConfiguration, request.Request.Body)
 	if err != nil {
 		writeError(errors.NewInternalError(err), response)
 		return
@@ -648,7 +648,6 @@ func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request,
 
 func (app *SubresourceAPIApp) FreezeVMIRequestHandler(request *restful.Request, response *restful.Response) {
 
-	log.Log.Info("FreezeVMIRequestHandler")
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VM is not running"))

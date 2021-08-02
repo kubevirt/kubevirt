@@ -108,8 +108,8 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should freeze a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
-			domainManager.EXPECT().FreezeVMI(vmi)
-			err := client.FreezeVirtualMachine(vmi)
+			domainManager.EXPECT().FreezeVMI(vmi, "0s")
+			err := client.FreezeVirtualMachine(vmi, "0s")
 			Expect(err).ToNot(HaveOccurred())
 		})
 
