@@ -65,14 +65,14 @@ func (_mr *_MockDomainManagerRecorder) UnpauseVMI(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVMI", arg0)
 }
 
-func (_m *MockDomainManager) FreezeVMI(_param0 *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "FreezeVMI", _param0)
+func (_m *MockDomainManager) FreezeVMI(_param0 *v1.VirtualMachineInstance, _param1 string) error {
+	ret := _m.ctrl.Call(_m, "FreezeVMI", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockDomainManagerRecorder) FreezeVMI(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FreezeVMI", arg0)
+func (_mr *_MockDomainManagerRecorder) FreezeVMI(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FreezeVMI", arg0, arg1)
 }
 
 func (_m *MockDomainManager) UnfreezeVMI(_param0 *v1.VirtualMachineInstance) error {

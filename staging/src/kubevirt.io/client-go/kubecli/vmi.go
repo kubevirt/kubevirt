@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	v12 "kubevirt.io/client-go/apis/core/v1"
 
 	"kubevirt.io/client-go/log"
@@ -233,14 +234,24 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 	}
 }
 
-func (v *vmis) Freeze(name string) error {
-	log.Log.Infof("Freeze VMI")
+func (v *vmis) Freeze(name string, unfreezeTimeout time.Duration) error {
+	log.Log.Infof("Freeze VMI %s", name)
 	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "freeze")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+
+	freezeUnfreezeTimeout := &v1.FreezeUnfreezeTimeout{
+		UnfreezeTimeout: unfreezeTimeout.String(),
+	}
+
+	JSON, err := json.Marshal(freezeUnfreezeTimeout)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
 }
 
 func (v *vmis) Unfreeze(name string) error {
-	log.Log.Infof("Unfreeze VMI")
+	log.Log.Infof("Unfreeze VMI %s", name)
 	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "unfreeze")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }

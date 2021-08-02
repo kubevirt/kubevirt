@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
@@ -246,7 +247,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("PUT", subVMPath+"/freeze"),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Freeze("testvm")
+		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Freeze("testvm", 0*time.Second)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

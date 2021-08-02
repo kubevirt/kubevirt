@@ -19,12 +19,16 @@
 package rest
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/emicklei/go-restful"
 
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
@@ -105,6 +109,24 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 		return
 	}
 
+	unfreezeTimeout := &v1.FreezeUnfreezeTimeout{}
+	if request.Request.Body == nil {
+		log.Log.Object(vmi).Reason(err).Error("No unfreeze timeout in freeze request")
+		response.WriteError(code, fmt.Errorf("failed to retrieve unfreeze timeout"))
+		return
+	}
+
+	defer request.Request.Body.Close()
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(unfreezeTimeout)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		log.Log.Object(vmi).Reason(err).Error("Failed to unmarshal unfreeze timeout in freeze request")
+		response.WriteError(code, fmt.Errorf("failed to unmarshal unfreeze timeout"))
+		return
+	}
+
 	sockFile, err := cmdclient.FindSocketOnHost(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
@@ -116,7 +138,7 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 		response.WriteError(http.StatusInternalServerError, err)
 	}
 
-	err = client.FreezeVirtualMachine(vmi)
+	err = client.FreezeVirtualMachine(vmi, unfreezeTimeout.UnfreezeTimeout)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to freeze VMI")
 		response.WriteError(http.StatusBadRequest, err)
