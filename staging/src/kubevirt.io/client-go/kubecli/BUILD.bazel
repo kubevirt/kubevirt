@@ -23,6 +23,7 @@ go_library(
     importpath = "kubevirt.io/client-go/kubecli",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/monitoring/client/prometheus:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned:go_default_library",

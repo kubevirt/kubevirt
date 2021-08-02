@@ -44,6 +44,7 @@ import (
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
+	client_metrics "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"
 )
 
 var (
@@ -235,6 +236,8 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 	if config.UserAgent == "" {
 		config.UserAgent = restclient.DefaultKubernetesUserAgent()
 	}
+
+	client_metrics.AddHTTPRoundTripClientMonitoring(&shallowCopy)
 
 	restClient, err := rest.RESTClientFor(&shallowCopy)
 	if err != nil {
