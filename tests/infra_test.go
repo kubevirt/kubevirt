@@ -105,6 +105,23 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			tests.BeforeTestCleanup()
 		})
 
+		scheduledToRunning := func(vmis []v1.VirtualMachineInstance) time.Duration {
+			var duration time.Duration
+			for _, vmi := range vmis {
+				start := metav1.Time{}
+				stop := metav1.Time{}
+				for _, timestamp := range vmi.Status.PhaseTransitionTimestamps {
+					if timestamp.Phase == v1.Scheduled {
+						start = timestamp.PhaseTransitionTimestamp
+					} else if timestamp.Phase == v1.Running {
+						stop = timestamp.PhaseTransitionTimestamp
+					}
+				}
+				duration += stop.Sub(start.Time)
+			}
+			return duration
+		}
+
 		It("on the controller rate limiter should lead to delayed VMI starts", func() {
 			By("first getting the basetime for a replicaset")
 			replicaset := tests.NewRandomReplicaSetFromVMI(libvmi.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
@@ -145,10 +162,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			replicaset := tests.NewRandomReplicaSetFromVMI(vmi, 0)
 			replicaset, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(replicaset)
 			Expect(err).ToNot(HaveOccurred())
-			start := time.Now()
 			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
 			Eventually(matcher.AllVMIs(replicaset.Namespace), 90*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))
-			fastDuration := time.Now().Sub(start)
+			vmis, err := matcher.AllVMIs(replicaset.Namespace)()
+			Expect(err).ToNot(HaveOccurred())
+			fastDuration := scheduledToRunning(vmis)
 
 			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 0)
 			Eventually(matcher.AllVMIs(replicaset.Namespace), 90*time.Second, 1*time.Second).Should(matcher.BeGone())
@@ -168,10 +186,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 
 			By("starting a replicaset with reduced throughput")
-			start = time.Now()
 			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
 			Eventually(matcher.AllVMIs(replicaset.Namespace), 180*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))
-			slowDuration := time.Now().Sub(start)
+			vmis, err = matcher.AllVMIs(replicaset.Namespace)()
+			Expect(err).ToNot(HaveOccurred())
+			slowDuration := scheduledToRunning(vmis)
 			Expect(slowDuration.Seconds()).To(BeNumerically(">", 1.5*fastDuration.Seconds()))
 		})
 	})
