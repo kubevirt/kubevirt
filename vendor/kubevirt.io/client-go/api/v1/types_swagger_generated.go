@@ -147,6 +147,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"targetDirectMigrationNodePorts": "The list of ports opened for live migration on the destination node",
 		"targetNode":                     "The target node that the VMI is moving to",
 		"targetPod":                      "The target pod that the VMI is moving to",
+		"targetAttachmentPodUID":         "The UID of the target attachment pod for hotplug volumes",
 		"sourceNode":                     "The source node that the VMI originated on",
 		"completed":                      "Indicates the migration completed",
 		"failed":                         "Indicates that the migration failed",
@@ -296,6 +297,12 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineStartFailure) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineStartFailure tracks VMIs which failed to transition successfully\nto running using the VM status\n\n+k8s:openapi-gen=true",
+	}
+}
+
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                       "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing\n\n+k8s:openapi-gen=true",
@@ -307,6 +314,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
 		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
 		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
+		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
 	}
 }
 
@@ -346,10 +354,11 @@ func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 
 func (Handler) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "Handler defines a specific action that should be taken",
-		"exec":      "One and only one of the following should be specified.\nExec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.\nIf the guest agent is not available, this probe will fail.\n+optional",
-		"httpGet":   "HTTPGet specifies the http request to perform.\n+optional",
-		"tcpSocket": "TCPSocket specifies an action involving a TCP port.\nTCP hooks not yet supported\n+optional",
+		"":               "Handler defines a specific action that should be taken",
+		"exec":           "One and only one of the following should be specified.\nExec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.\nIf the guest agent is not available, this probe will fail.\n+optional",
+		"guestAgentPing": "GuestAgentPing contacts the qemu-guest-agent for availability checks.\n+optional",
+		"httpGet":        "HTTPGet specifies the http request to perform.\n+optional",
+		"tcpSocket":      "TCPSocket specifies an action involving a TCP port.\nTCP hooks not yet supported\n+optional",
 	}
 }
 
@@ -629,5 +638,11 @@ func (MediatedHostDevice) SwaggerDoc() map[string]string {
 func (NetworkConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "NetworkConfiguration holds network options\n+k8s:openapi-gen=true",
+	}
+}
+
+func (GuestAgentPing) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "GuestAgentPing configures the guest-agent based ping probe\n+k8s:openapi-gen=true",
 	}
 }

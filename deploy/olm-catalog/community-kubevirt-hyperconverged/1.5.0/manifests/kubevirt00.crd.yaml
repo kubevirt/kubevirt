@@ -72,6 +72,8 @@ spec:
                     - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
+                  defaultRuntimeClass:
+                    type: string
                   developerConfiguration:
                     properties:
                       cpuAllocationRatio:
@@ -236,6 +238,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  virtualMachineInstancesPerNode:
+                    type: integer
                 type: object
               customizeComponents:
                 properties:
@@ -1041,6 +1045,8 @@ spec:
                     - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
+                  defaultRuntimeClass:
+                    type: string
                   developerConfiguration:
                     description: DeveloperConfiguration holds developer options
                     properties:
@@ -1236,6 +1242,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  virtualMachineInstancesPerNode:
+                    type: integer
                 type: object
               customizeComponents:
                 properties:

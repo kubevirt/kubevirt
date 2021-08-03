@@ -726,6 +726,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - datasources
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - configmaps
@@ -822,6 +830,8 @@ rules:
   resources:
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/freeze
+  - virtualmachineinstances/unfreeze
   verbs:
   - get
   - update

@@ -33,7 +33,7 @@ require (
 	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
-	kubevirt.io/client-go v0.43.1-rc.2
+	kubevirt.io/client-go v0.44.0-rc.0
 	kubevirt.io/containerized-data-importer v1.37.0
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.0
 	kubevirt.io/ssp-operator v0.11.2
@@ -119,7 +119,7 @@ replace (
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.5.1 // indirect
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
-	kubevirt.io/client-go => kubevirt.io/client-go v0.43.1-rc.2
+	kubevirt.io/client-go => kubevirt.io/client-go v0.44.0-rc.0
 )
 
 // Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.37.0

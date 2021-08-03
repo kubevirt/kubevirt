@@ -337,6 +337,11 @@ func (v *VirtualMachineInstance) IsCPUDedicated() bool {
 	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.DedicatedCPUPlacement
 }
 
+func (v *VirtualMachineInstance) IsBootloaderEFI() bool {
+	return v.Spec.Domain.Firmware != nil && v.Spec.Domain.Firmware.Bootloader != nil &&
+		v.Spec.Domain.Firmware.Bootloader.EFI != nil
+}
+
 // WantsToHaveQOSGuaranteed checks if cpu and memoyr limits and requests are identical on the VMI.
 // This is the indicator that people want a VMI with QOS of guaranteed
 func (v *VirtualMachineInstance) WantsToHaveQOSGuaranteed() bool {
@@ -360,7 +365,7 @@ const (
 	// and some actions are taken to provision the PVCs for the DataVolumes
 	VirtualMachineInstanceProvisioning VirtualMachineInstanceConditionType = "Provisioning"
 
-	// VMIReady means the pod is able to service requests and should be added to the
+	// Ready means the VMI is able to service requests and should be added to the
 	// load balancing pools of all matching services.
 	VirtualMachineInstanceReady VirtualMachineInstanceConditionType = "Ready"
 
@@ -395,8 +400,17 @@ const (
 )
 
 const (
-	// PodTerminatingReason indicates on the PodReady condition on the VMI if the underlying pod is terminating
+	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
 	PodTerminatingReason = "PodTerminating"
+
+	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist
+	PodNotExistsReason = "PodNotExists"
+
+	// PodConditionMissingReason indicates on the Ready condition on the VMI if the underlying pod does not report a Ready condition
+	PodConditionMissingReason = "PodConditionMissing"
+
+	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
+	GuestNotRunningReason = "GuestNotRunning"
 )
 
 // +k8s:openapi-gen=true
@@ -516,6 +530,8 @@ type VirtualMachineInstanceMigrationState struct {
 	TargetNode string `json:"targetNode,omitempty"`
 	// The target pod that the VMI is moving to
 	TargetPod string `json:"targetPod,omitempty"`
+	// The UID of the target attachment pod for hotplug volumes
+	TargetAttachmentPodUID types.UID `json:"targetAttachmentPodUID,omitempty"`
 	// The source node that the VMI originated on
 	SourceNode string `json:"sourceNode,omitempty"`
 	// Indicates the migration completed
@@ -611,6 +627,8 @@ const (
 	FuncTestForceLauncherMigrationFailureAnnotation string = "kubevirt.io/func-test-force-launcher-migration-failure"
 	// Used by functional tests to prevent virt launcher from finishing the target pod preparation.
 	FuncTestBlockLauncherPrepareMigrationTargetAnnotation string = "kubevirt.io/func-test-block-migration-target-preparation"
+	// Used by functional tests to simulate virt-launcher crash looping
+	FuncTestLauncherFailFastAnnotation string = "kubevirt.io/func-test-virt-launcher-fail-fast"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	// Internal use only.
@@ -681,7 +699,10 @@ const (
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
 
-	VirtualMachineInstanceFinalizer          string = "foregroundDeleteVirtualMachine"
+	// Set by VMI controller to ensure VMIs are processed during deletion
+	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
+	// Set By VM controller on VMIs to ensure VMIs are processed by VM controller during deletion
+	VirtualMachineControllerFinalizer        string = "kubevirt.io/virtualMachineControllerFinalize"
 	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
 	CPUManager                               string = "cpumanager"
 	// This annotation is used to inject ignition data
@@ -709,6 +730,12 @@ const (
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
+
+	// This annotation represents vmi running nonroot implementation
+	NonRootVMIAnnotation = "kubevirt.io/nonroot"
+
+	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
+	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1187,13 +1214,28 @@ const (
 	// VirtualMachineStatusTerminating indicates that the virtual machine is in the process of deletion,
 	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
 	VirtualMachineStatusTerminating VirtualMachinePrintableStatus = "Terminating"
+	// VirtualMachineStatusCrashLoopBackOff indicates that the virtual machine is currently in a crash loop waiting to be retried
+	VirtualMachineStatusCrashLoopBackOff VirtualMachinePrintableStatus = "CrashLoopBackOff"
 	// VirtualMachineStatusMigrating indicates that the virtual machine is in the process of being migrated
 	// to another host.
 	VirtualMachineStatusMigrating VirtualMachinePrintableStatus = "Migrating"
 	// VirtualMachineStatusUnknown indicates that the state of the virtual machine could not be obtained,
 	// typically due to an error in communicating with the host on which it's running.
 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
+	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machime,
+	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
+	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "FailedUnschedulable"
 )
+
+// VirtualMachineStartFailure tracks VMIs which failed to transition successfully
+// to running using the VM status
+//
+// +k8s:openapi-gen=true
+type VirtualMachineStartFailure struct {
+	ConsecutiveFailCount int          `json:"consecutiveFailCount,omitempty"`
+	LastFailedVMIUID     types.UID    `json:"lastFailedVMIUID,omitempty"`
+	RetryAfterTimestamp  *metav1.Time `json:"retryAfterTimestamp,omitempty"`
+}
 
 // VirtualMachineStatus represents the status returned by the
 // controller to describe how the VirtualMachine is doing
@@ -1221,6 +1263,12 @@ type VirtualMachineStatus struct {
 	// VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is
 	// supported by each volume.
 	VolumeSnapshotStatuses []VolumeSnapshotStatus `json:"volumeSnapshotStatuses,omitempty" optional:"true"`
+
+	// StartFailure tracks consecutive VMI startup failures for the purposes of
+	// crash loop backoffs
+	// +nullable
+	// +optional
+	StartFailure *VirtualMachineStartFailure `json:"startFailure,omitempty" optional:"true"`
 }
 
 // +k8s:openapi-gen=true
@@ -1343,6 +1391,9 @@ type Handler struct {
 	// If the guest agent is not available, this probe will fail.
 	// +optional
 	Exec *k8sv1.ExecAction `json:"exec,omitempty" protobuf:"bytes,1,opt,name=exec"`
+	// GuestAgentPing contacts the qemu-guest-agent for availability checks.
+	// +optional
+	GuestAgentPing *GuestAgentPing `json:"guestAgentPing,omitempty"`
 	// HTTPGet specifies the http request to perform.
 	// +optional
 	HTTPGet *k8sv1.HTTPGetAction `json:"httpGet,omitempty"`
@@ -1848,13 +1899,15 @@ type KubeVirtConfiguration struct {
 	NetworkConfiguration   *NetworkConfiguration   `json:"network,omitempty"`
 	OVMFPath               string                  `json:"ovmfPath,omitempty"`
 	SELinuxLauncherType    string                  `json:"selinuxLauncherType,omitempty"`
+	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
 	// deprecated
-	SupportedGuestAgentVersions []string              `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod       *uint32               `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices        *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
-	MinCPUModel                 string                `json:"minCPUModel,omitempty"`
-	ObsoleteCPUModels           map[string]bool       `json:"obsoleteCPUModels,omitempty"`
+	SupportedGuestAgentVersions    []string              `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod          *uint32               `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices           *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
+	MinCPUModel                    string                `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels              map[string]bool       `json:"obsoleteCPUModels,omitempty"`
+	VirtualMachineInstancesPerNode *int                  `json:"virtualMachineInstancesPerNode,omitempty"`
 }
 
 //
@@ -1956,4 +2009,9 @@ type NetworkConfiguration struct {
 	NetworkInterface                  string `json:"defaultNetworkInterface,omitempty"`
 	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,omitempty"`
 	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,omitempty"`
+}
+
+// GuestAgentPing configures the guest-agent based ping probe
+// +k8s:openapi-gen=true
+type GuestAgentPing struct {
 }
