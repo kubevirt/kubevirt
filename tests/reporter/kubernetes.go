@@ -240,13 +240,27 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 				fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v\n", node, err)
 				return
 			}
+
+			commands := []string{
+				virt_chroot.GetChrootBinaryPath(),
+				"--mount",
+				virt_chroot.GetChrootMountNamespace(),
+				"exec",
+				"--",
+				"/proc/1/root/bin/dmesg",
+				"--kernel",
+				"--ctime",
+				"--userspace",
+				"--decode",
+			}
+
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
-			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", []string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "--decode"})
+			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", commands)
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
 					"failed to execute command %s on node %s, stdout: %s, error: %v\n",
-					[]string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "--decode"},
+					commands,
 					node, stdout, err,
 				)
 				return

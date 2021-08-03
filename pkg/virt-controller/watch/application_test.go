@@ -105,6 +105,7 @@ var _ = Describe("Application", func() {
 		app.nodeController = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
 		app.vmiController = NewVMIController(services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
+			vmInformer,
 			podInformer,
 			pvcInformer,
 			recorder,

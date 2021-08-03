@@ -27,8 +27,6 @@ import (
 	"runtime"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/network/consts"
-
 	"github.com/coreos/go-iptables/iptables"
 
 	"github.com/golang/mock/gomock"
@@ -42,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -488,7 +487,7 @@ var _ = Describe("Pod Network", func() {
 
 					for _, chain := range []string{"output", "KUBEVIRT_POSTINBOUND"} {
 						mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
-							chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(infraconfigurators.PortsUsedByIstio(), ", ")),
+							chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(istio.ReservedPorts(), ", ")),
 							GetNFTIPString(proto), "saddr", infraconfigurators.GetLoopbackAdrress(proto), "counter", "return").Return(nil)
 					}
 
@@ -498,7 +497,7 @@ var _ = Describe("Pod Network", func() {
 					srcAddressesToSnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
 					dstAddressesToDnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
 					if proto == iptables.ProtocolIPv4 {
-						srcAddressesToSnat = append(srcAddressesToSnat, infraconfigurators.GetEnvoyLoopbackAddress())
+						srcAddressesToSnat = append(srcAddressesToSnat, istio.GetLoopbackAddress())
 						dstAddressesToDnat = append(dstAddressesToDnat, fakeAddr.IP.String())
 					}
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
@@ -515,7 +514,7 @@ var _ = Describe("Pod Network", func() {
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 				vm.Annotations = map[string]string{
-					consts.ISTIO_INJECT_ANNOTATION: "true",
+					istio.ISTIO_INJECT_ANNOTATION: "true",
 				}
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -534,7 +533,7 @@ var _ = Describe("Pod Network", func() {
 					srcAddressesToSnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
 					dstAddressesToDnat := []string{infraconfigurators.GetLoopbackAdrress(proto)}
 					if proto == iptables.ProtocolIPv4 {
-						srcAddressesToSnat = append(srcAddressesToSnat, infraconfigurators.GetEnvoyLoopbackAddress())
+						srcAddressesToSnat = append(srcAddressesToSnat, istio.GetLoopbackAddress())
 						dstAddressesToDnat = append(dstAddressesToDnat, fakeAddr.IP.String())
 					}
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
@@ -557,7 +556,7 @@ var _ = Describe("Pod Network", func() {
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName", masqueradeCidr, masqueradeIpv6Cidr)
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 				vm.Annotations = map[string]string{
-					consts.ISTIO_INJECT_ANNOTATION: "true",
+					istio.ISTIO_INJECT_ANNOTATION: "true",
 				}
 
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)

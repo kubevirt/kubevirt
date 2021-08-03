@@ -22,6 +22,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -48,7 +49,7 @@ import (
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	networkconsts "kubevirt.io/kubevirt/pkg/network/consts"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -337,8 +338,9 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					v1.NodeSchedulable: "true",
 				}))
+
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher",
-					"--qemu-timeout", "5m",
+					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
 					"--name", "testvmi",
 					"--uid", "1234",
 					"--namespace", "testns",
@@ -999,7 +1001,7 @@ var _ = Describe("Template", func() {
 						Namespace: "default",
 						UID:       "1234",
 						Annotations: map[string]string{
-							networkconsts.ISTIO_INJECT_ANNOTATION: "true",
+							istio.ISTIO_INJECT_ANNOTATION: "true",
 						},
 					},
 				}
@@ -1044,7 +1046,7 @@ var _ = Describe("Template", func() {
 					v1.NodeSchedulable:       "true",
 				}))
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher",
-					"--qemu-timeout", "5m",
+					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
 					"--name", "testvmi",
 					"--uid", "1234",
 					"--namespace", "default",
@@ -3226,4 +3228,30 @@ func False() *bool {
 
 func TestTemplate(t *testing.T) {
 	testutils2.KubeVirtTestSuiteSetup(t)
+}
+
+func validateAndExtractQemuTimeoutArg(args []string) string {
+	timeoutString := ""
+	for i, arg := range args {
+		if arg == "--qemu-timeout" {
+			timeoutString = args[i+1]
+			break
+		}
+	}
+
+	Expect(timeoutString).ToNot(Equal(""))
+
+	timeoutInt, err := strconv.Atoi(strings.TrimSuffix(timeoutString, "s"))
+	Expect(err).To(BeNil())
+
+	failMsg := ""
+	if timeoutInt < qemuTimeoutBaseSeconds {
+		failMsg = fmt.Sprintf("randomized qemu timeout [%d] is less that base range [%d]", timeoutInt, qemuTimeoutBaseSeconds)
+	} else if timeoutInt > qemuTimeoutBaseSeconds+qemuTimeoutJitterRange {
+		failMsg = fmt.Sprintf("randomized qemu timeout [%d] is greater than max range [%d]", timeoutInt, qemuTimeoutBaseSeconds+qemuTimeoutJitterRange)
+
+	}
+	Expect(failMsg).To(Equal(""))
+
+	return timeoutString
 }

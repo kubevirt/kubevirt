@@ -40,15 +40,13 @@ var currentTime = func() *metav1.Time {
 	return &t
 }
 
-func cacheKeyFunc(namespace, name string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Log.Infof("%s took %s", name, elapsed)
 }
 
-func newError(message string) *snapshotv1.Error {
-	return &snapshotv1.Error{
-		Message: &message,
-		Time:    currentTime(),
-	}
+func cacheKeyFunc(namespace, name string) string {
+	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
 func newReadyCondition(status corev1.ConditionStatus, reason string) snapshotv1.Condition {
@@ -67,25 +65,6 @@ func newProgressingCondition(status corev1.ConditionStatus, reason string) snaps
 		Reason:             reason,
 		LastTransitionTime: *currentTime(),
 	}
-}
-
-func newFreezingCondition(status corev1.ConditionStatus, reason string) snapshotv1.Condition {
-	return snapshotv1.Condition{
-		Type:               snapshotv1.ConditionFreezing,
-		Status:             status,
-		Reason:             reason,
-		LastTransitionTime: *currentTime(),
-	}
-}
-
-func findCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition) bool {
-	for i := range conditions {
-		if conditions[i].Type == c.Type && conditions[i].Status == c.Status && conditions[i].Reason == c.Reason {
-			return true
-		}
-	}
-
-	return false
 }
 
 func updateCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition, includeReason bool) []snapshotv1.Condition {

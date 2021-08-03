@@ -79,7 +79,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 		Eventually(func() bool {
 			s, err = virtClient.VirtualMachineSnapshot(s.Namespace).Get(context.Background(), s.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			return s.Status != nil && s.Status.ReadyToUse != nil && *s.Status.ReadyToUse
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return s.Status != nil && s.Status.ReadyToUse != nil && *s.Status.ReadyToUse && vm.Status.SnapshotInProgress == nil
 		}, 180*time.Second, time.Second).Should(BeTrue())
 
 		return s
@@ -228,6 +230,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					var updatedVM *v1.VirtualMachine
 					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
+
+					if vm.Status.SnapshotInProgress != nil {
+						return false
+					}
 
 					origSpec = vm.Spec.DeepCopy()
 					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("128Mi")))
@@ -746,7 +752,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			})
 
-			It("should restore a vm from an online snapshot with guest agent", func() {
+			It("[test_id:6766]should restore a vm from an online snapshot with guest agent", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
@@ -799,7 +805,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			})
 
-			It("should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func() {
+			It("[test_id:6836]should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImportInStorageClass(
 					tests.GetUrl(tests.FedoraHttpUrl),
 					util.NamespaceTestDefault,

@@ -627,6 +627,8 @@ const (
 	FuncTestForceLauncherMigrationFailureAnnotation string = "kubevirt.io/func-test-force-launcher-migration-failure"
 	// Used by functional tests to prevent virt launcher from finishing the target pod preparation.
 	FuncTestBlockLauncherPrepareMigrationTargetAnnotation string = "kubevirt.io/func-test-block-migration-target-preparation"
+	// Used by functional tests to simulate virt-launcher crash looping
+	FuncTestLauncherFailFastAnnotation string = "kubevirt.io/func-test-virt-launcher-fail-fast"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	// Internal use only.
@@ -697,7 +699,10 @@ const (
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
 
-	VirtualMachineInstanceFinalizer          string = "foregroundDeleteVirtualMachine"
+	// Set by VMI controller to ensure VMIs are processed during deletion
+	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
+	// Set By VM controller on VMIs to ensure VMIs are processed by VM controller during deletion
+	VirtualMachineControllerFinalizer        string = "kubevirt.io/virtualMachineControllerFinalize"
 	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
 	CPUManager                               string = "cpumanager"
 	// This annotation is used to inject ignition data
@@ -1209,13 +1214,28 @@ const (
 	// VirtualMachineStatusTerminating indicates that the virtual machine is in the process of deletion,
 	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
 	VirtualMachineStatusTerminating VirtualMachinePrintableStatus = "Terminating"
+	// VirtualMachineStatusCrashLoopBackOff indicates that the virtual machine is currently in a crash loop waiting to be retried
+	VirtualMachineStatusCrashLoopBackOff VirtualMachinePrintableStatus = "CrashLoopBackOff"
 	// VirtualMachineStatusMigrating indicates that the virtual machine is in the process of being migrated
 	// to another host.
 	VirtualMachineStatusMigrating VirtualMachinePrintableStatus = "Migrating"
 	// VirtualMachineStatusUnknown indicates that the state of the virtual machine could not be obtained,
 	// typically due to an error in communicating with the host on which it's running.
 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
+	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machime,
+	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
+	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "FailedUnschedulable"
 )
+
+// VirtualMachineStartFailure tracks VMIs which failed to transition successfully
+// to running using the VM status
+//
+// +k8s:openapi-gen=true
+type VirtualMachineStartFailure struct {
+	ConsecutiveFailCount int          `json:"consecutiveFailCount,omitempty"`
+	LastFailedVMIUID     types.UID    `json:"lastFailedVMIUID,omitempty"`
+	RetryAfterTimestamp  *metav1.Time `json:"retryAfterTimestamp,omitempty"`
+}
 
 // VirtualMachineStatus represents the status returned by the
 // controller to describe how the VirtualMachine is doing
@@ -1243,6 +1263,12 @@ type VirtualMachineStatus struct {
 	// VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is
 	// supported by each volume.
 	VolumeSnapshotStatuses []VolumeSnapshotStatus `json:"volumeSnapshotStatuses,omitempty" optional:"true"`
+
+	// StartFailure tracks consecutive VMI startup failures for the purposes of
+	// crash loop backoffs
+	// +nullable
+	// +optional
+	StartFailure *VirtualMachineStartFailure `json:"startFailure,omitempty" optional:"true"`
 }
 
 // +k8s:openapi-gen=true
@@ -1876,11 +1902,12 @@ type KubeVirtConfiguration struct {
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
 	// deprecated
-	SupportedGuestAgentVersions []string              `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod       *uint32               `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices        *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
-	MinCPUModel                 string                `json:"minCPUModel,omitempty"`
-	ObsoleteCPUModels           map[string]bool       `json:"obsoleteCPUModels,omitempty"`
+	SupportedGuestAgentVersions    []string              `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod          *uint32               `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices           *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
+	MinCPUModel                    string                `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels              map[string]bool       `json:"obsoleteCPUModels,omitempty"`
+	VirtualMachineInstancesPerNode *int                  `json:"virtualMachineInstancesPerNode,omitempty"`
 }
 
 //

@@ -24,8 +24,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"net"
-	"strconv"
 	"strings"
 	"time"
 
@@ -745,10 +743,7 @@ func isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
 func (l *LibvirtDomainManager) generateMigrationProxies(vmi *v1.VirtualMachineInstance) []migrationproxy.MigrationProxyListener {
 	// create local migration proxies.
 	//
-	// Right now Libvirt won't let us perform a migration using a unix socket, so
-	// we have to create a local host tcp server (on port 22222) that forwards the traffic
-	// to libvirt in order to trick libvirt into doing what we want.
-	// This also creates a tcp server for each additional direct migration connections
+	// This creates a tcp server for each additional direct migration connections
 	// that will be proxied to the destination pod
 	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
 
@@ -765,23 +760,10 @@ func (l *LibvirtDomainManager) generateMigrationProxies(vmi *v1.VirtualMachineIn
 		newProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key), string(vmi.UID))
 		proxies = append(proxies, newProxy)
 	}
-
-	//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
-	tcpBindPort := LibvirtLocalConnectionPort
-	if osChosenMigrationProxyPort {
-		// this is only set to 0 during unit tests
-		tcpBindPort = 0
-	}
-	libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, tcpBindPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)), string(vmi.UID))
-	proxies = append(proxies, libvirtConnectionProxy)
-
 	return proxies
 }
 
 func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) (*libvirt.DomainMigrateParameters, error) {
-
-	migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(ip.GetLoopbackAddress()))
-
 	bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
 	if err != nil {
 		return nil, err
@@ -792,11 +774,12 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		return nil, err
 	}
 
+	migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(ip.GetLoopbackAddress()))
 	params := &libvirt.DomainMigrateParameters{
-		Bandwidth:    bandwidth, // MiB/s
-		BandwidthSet: bandwidth > 0,
 		URI:          migrURI,
 		URISet:       true,
+		Bandwidth:    bandwidth, // MiB/s
+		BandwidthSet: bandwidth > 0,
 		DestXML:      xmlstr,
 		DestXMLSet:   true,
 	}
@@ -863,10 +846,13 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	}
 
 	// initiate the live migration
-	dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(ip.GetLoopbackAddress(), strconv.Itoa(LibvirtLocalConnectionPort)))
+	var dstURI string
 	if virtutil.IsNonRootVMI(vmi) {
-		dstURI = fmt.Sprintf("qemu+tcp://%s/session", net.JoinHostPort(ip.GetLoopbackAddress(), strconv.Itoa(LibvirtLocalConnectionPort)))
+		dstURI = fmt.Sprintf("qemu+unix:///session?socket=%s", migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+	} else {
+		dstURI = fmt.Sprintf("qemu+unix:///system?socket=%s", migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
 	}
+
 	err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 	if err != nil {
 		return fmt.Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)

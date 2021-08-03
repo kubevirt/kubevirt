@@ -693,6 +693,36 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Should(Equal(k8sv1.ConditionFalse))
 		})
 
+		table.DescribeTable("[test_id:todo]should report an error status when VM scheduling error occurs", func(unschedulableFunc func(vmi *v1.VirtualMachineInstance)) {
+			vmi := tests.NewRandomVMIWithEphemeralDisk("no-such-image")
+			unschedulableFunc(vmi)
+
+			vm := createVirtualMachine(true, vmi)
+
+			vmPrintableStatus := func() v1.VirtualMachinePrintableStatus {
+				updatedVm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return updatedVm.Status.PrintableStatus
+			}
+
+			By("Verifying that the VM status eventually gets set to FailedUnschedulable")
+			Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).
+				Should(Equal(v1.VirtualMachineStatusUnschedulable))
+		},
+			table.Entry("unsatisfiable resource requirements", func(vmi *v1.VirtualMachineInstance) {
+				vmi.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					// This may stop working sometime around 2040
+					corev1.ResourceMemory: resource.MustParse("1Ei"),
+					corev1.ResourceCPU:    resource.MustParse("1M"),
+				}
+			}),
+			table.Entry("unsatisfiable scheduling constraints", func(vmi *v1.VirtualMachineInstance) {
+				vmi.Spec.NodeSelector = map[string]string{
+					"node-label": "that-doesnt-exist",
+				}
+			}),
+		)
+
 		Context("Using virtctl interface", func() {
 			It("[test_id:1529]should start a VirtualMachineInstance once", func() {
 				By("getting a VM")
@@ -754,7 +784,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Ensuring a second invocation should fail")
 				err = stopCommand()
 				Expect(err).ToNot(Succeed())
-				Expect(err.Error()).To(Equal(fmt.Sprintf(`Error stopping VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM has no associated VMI running`, newVM.Name)))
+				Expect(err.Error()).To(Equal(fmt.Sprintf(`Error stopping VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is not running`, newVM.Name)))
 			})
 
 			It("[test_id:6310]should start a VirtualMachineInstance in paused state", func() {
@@ -1713,6 +1743,118 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 		})
 
+	})
+
+	Context("crash loop backoff", func() {
+		It("should backoff attempting to create a new VMI when 'runStrategy: Always' during crash loop.", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo Hi\n")
+
+			By("Creating VirtualMachine")
+			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+				v1.FuncTestLauncherFailFastAnnotation: "",
+			}
+			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for crash loop state")
+			Eventually(func() error {
+				vm, err := virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if vm.Status.PrintableStatus != v1.VirtualMachineStatusCrashLoopBackOff {
+					return fmt.Errorf("Still waiting on crash loop printable status")
+				}
+
+				if vm.Status.StartFailure != nil && vm.Status.StartFailure.ConsecutiveFailCount > 0 {
+					return nil
+				}
+
+				return fmt.Errorf("Still waiting on crash loop to be detected")
+			}, 1*time.Minute, 5*time.Second).Should(BeNil())
+
+			By("Testing that the failure count is within the expected range over a period of time")
+			maxExpectedFailCount := 3
+			Consistently(func() error {
+				// get the VM and verify the failure count is less than 4 over a minute,
+				// indicating that backoff is occuring
+				vm, err := virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if vm.Status.StartFailure == nil {
+					return fmt.Errorf("start failure count not detected")
+				} else if vm.Status.StartFailure.ConsecutiveFailCount > maxExpectedFailCount {
+					return fmt.Errorf("consecutive fail count is higher than %d", maxExpectedFailCount)
+				}
+
+				return nil
+			}, 1*time.Minute, 5*time.Second).Should(BeNil())
+
+			By("Updating the VMI template to correct the crash loop")
+			Eventually(func() error {
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				delete(updatedVM.Spec.Template.ObjectMeta.Annotations, v1.FuncTestLauncherFailFastAnnotation)
+				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				return err
+			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+			By("Waiting on crash loop status to be removed.")
+			Eventually(func() error {
+				vm, err := virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if vm.Status.StartFailure == nil {
+					return nil
+				}
+
+				return fmt.Errorf("Still waiting on crash loop status to be re-initialized")
+			}, 5*time.Minute, 5*time.Second).Should(BeNil())
+		})
+
+		It("should be able to stop a VM during crashloop backoff when when 'runStrategy: Always' is set", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo Hi\n")
+
+			By("Creating VirtualMachine")
+			curVM := tests.NewRandomVirtualMachine(vmi, true)
+			curVM.Spec.Template.ObjectMeta.Annotations = map[string]string{
+				v1.FuncTestLauncherFailFastAnnotation: "",
+			}
+			newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(curVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for crash loop state")
+			Eventually(func() error {
+				newVM, err := virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if newVM.Status.PrintableStatus != v1.VirtualMachineStatusCrashLoopBackOff {
+					return fmt.Errorf("Still waiting on crash loop printable status")
+				}
+
+				if newVM.Status.StartFailure != nil && newVM.Status.StartFailure.ConsecutiveFailCount > 0 {
+					return nil
+				}
+
+				return fmt.Errorf("Still waiting on crash loop to be detected")
+			}, 1*time.Minute, 5*time.Second).Should(BeNil())
+
+			By("Invoking virtctl stop while in a crash loop")
+			stopCmd := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, newVM.Name, "--namespace", newVM.Namespace)
+			Expect(stopCmd()).ToNot(HaveOccurred())
+
+			By("Waiting on crash loop status to be removed.")
+			Eventually(func() error {
+				newVM, err := virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if newVM.Status.StartFailure == nil {
+					return nil
+				}
+
+				return fmt.Errorf("Still waiting on crash loop status to be re-initialized")
+			}, 2*time.Minute, 5*time.Second).Should(BeNil())
+		})
 	})
 })
 

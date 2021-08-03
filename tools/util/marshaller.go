@@ -82,6 +82,7 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 					unstructured.RemoveNestedField(object, "spec", "dataSource")
 				}
 			}
+			unstructured.RemoveNestedField(object, "status", "startFailure")
 		}
 		unstructured.SetNestedSlice(r.Object, objects, "objects")
 	}

@@ -715,6 +715,8 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+            virtualMachineInstancesPerNode:
+              type: integer
           type: object
         customizeComponents:
           properties:
@@ -5238,6 +5240,23 @@ var CRDsValidation map[string]string = map[string]string{
           description: SnapshotInProgress is the name of the VirtualMachineSnapshot
             currently executing
           type: string
+        startFailure:
+          description: StartFailure tracks consecutive VMI startup failures for the
+            purposes of crash loop backoffs
+          nullable: true
+          properties:
+            consecutiveFailCount:
+              type: integer
+            lastFailedVMIUID:
+              description: UID is a type that holds unique ID values, including UUIDs.  Because
+                we don't ONLY use UUIDs, this is an alias to string.  Being a type
+                captures intent and helps make sure that UIDs and names do not get
+                conflated.
+              type: string
+            retryAfterTimestamp:
+              format: date-time
+              type: string
+          type: object
         stateChangeRequests:
           description: StateChangeRequests indicates a list of actions that should
             be taken on a VMI e.g. stop a specific VMI then start a new one.
@@ -15190,6 +15209,23 @@ var CRDsValidation map[string]string = map[string]string{
                       description: SnapshotInProgress is the name of the VirtualMachineSnapshot
                         currently executing
                       type: string
+                    startFailure:
+                      description: StartFailure tracks consecutive VMI startup failures
+                        for the purposes of crash loop backoffs
+                      nullable: true
+                      properties:
+                        consecutiveFailCount:
+                          type: integer
+                        lastFailedVMIUID:
+                          description: UID is a type that holds unique ID values,
+                            including UUIDs.  Because we don't ONLY use UUIDs, this
+                            is an alias to string.  Being a type captures intent and
+                            helps make sure that UIDs and names do not get conflated.
+                          type: string
+                        retryAfterTimestamp:
+                          format: date-time
+                          type: string
+                      type: object
                     stateChangeRequests:
                       description: StateChangeRequests indicates a list of actions
                         that should be taken on a VMI e.g. stop a specific VMI then

@@ -13,24 +13,16 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/network/consts"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
-	LibvirtLocalConnectionPort         = 22222
-	LibvirtDirectMigrationPort         = 49152
-	LibvirtBlockMigrationPort          = 49153
-	EnvoyAdminPort                     = 15000
-	EnvoyOutboundPort                  = 15001
-	EnvoyInboundPort                   = 15006
-	EnvoyTunnelPort                    = 15008
-	EnvoyMergedPrometheusTelemetryPort = 15020
-	EnvoyHealthCheckPort               = 15021
-	EnvoyPrometheusTelemetryPort       = 15090
+	LibvirtDirectMigrationPort = 49152
+	LibvirtBlockMigrationPort  = 49153
 )
 
 type MasqueradePodNetworkConfigurator struct {
@@ -198,17 +190,6 @@ func (b *MasqueradePodNetworkConfigurator) createBridge() error {
 	return nil
 }
 
-func hasIstioSidecarInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {
-	if val, ok := vmi.GetAnnotations()[consts.ISTIO_INJECT_ANNOTATION]; ok {
-		return strings.ToLower(val) == "true"
-	}
-	return false
-}
-
-func GetEnvoyLoopbackAddress() string {
-	return "127.0.0.6"
-}
-
 func GetLoopbackAdrress(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv4 {
 		return "127.0.0.1"
@@ -219,7 +200,6 @@ func GetLoopbackAdrress(proto iptables.Protocol) string {
 
 func PortsUsedByLiveMigration() []string {
 	return []string{
-		fmt.Sprint(LibvirtLocalConnectionPort),
 		fmt.Sprint(LibvirtDirectMigrationPort),
 		fmt.Sprint(LibvirtBlockMigrationPort),
 	}
@@ -401,8 +381,8 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 	}
 
 	if len(b.vmiSpecIface.Ports) == 0 {
-		if hasIstioSidecarInjectionEnabled(b.vmi) {
-			err = b.skipForwardingForPortsUsingNftables(proto, PortsUsedByIstio())
+		if istio.ProxyInjectionEnabled(b.vmi) {
+			err = b.skipForwardingForPortsUsingNftables(proto, istio.ReservedPorts())
 			if err != nil {
 				return err
 			}
@@ -415,7 +395,7 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 			return err
 		}
 
-		if !hasIstioSidecarInjectionEnabled(b.vmi) {
+		if !istio.ProxyInjectionEnabled(b.vmi) {
 			err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
 				"counter", "dnat", "to", b.geVmIfaceIpByProtocol(proto))
 			if err != nil {
@@ -448,7 +428,7 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 			return err
 		}
 
-		if !hasIstioSidecarInjectionEnabled(b.vmi) {
+		if !istio.ProxyInjectionEnabled(b.vmi) {
 			err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
 				strings.ToLower(port.Protocol),
 				"dport",
@@ -506,15 +486,15 @@ func (b *MasqueradePodNetworkConfigurator) geVmIfaceIpByProtocol(proto iptables.
 
 func (b *MasqueradePodNetworkConfigurator) getSrcAddressesToSnat(proto iptables.Protocol) string {
 	addresses := []string{getLoopbackAdrress(proto)}
-	if hasIstioSidecarInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
-		addresses = append(addresses, GetEnvoyLoopbackAddress())
+	if istio.ProxyInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
+		addresses = append(addresses, istio.GetLoopbackAddress())
 	}
 	return fmt.Sprintf("{ %s }", strings.Join(addresses, ", "))
 }
 
 func (b *MasqueradePodNetworkConfigurator) getDstAddressesToDnat(proto iptables.Protocol) (string, error) {
 	addresses := []string{getLoopbackAdrress(proto)}
-	if hasIstioSidecarInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
+	if istio.ProxyInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
 		ipv4, _, err := b.handler.ReadIPAddressesFromLink(b.podNicLink.Attrs().Name)
 		if err != nil {
 			return "", err
@@ -534,20 +514,7 @@ func getLoopbackAdrress(proto iptables.Protocol) string {
 
 func portsUsedByLiveMigration() []string {
 	return []string{
-		fmt.Sprint(LibvirtLocalConnectionPort),
 		fmt.Sprint(LibvirtDirectMigrationPort),
 		fmt.Sprint(LibvirtBlockMigrationPort),
-	}
-}
-
-func PortsUsedByIstio() []string {
-	return []string{
-		fmt.Sprint(EnvoyAdminPort),
-		fmt.Sprint(EnvoyOutboundPort),
-		fmt.Sprint(EnvoyInboundPort),
-		fmt.Sprint(EnvoyTunnelPort),
-		fmt.Sprint(EnvoyMergedPrometheusTelemetryPort),
-		fmt.Sprint(EnvoyHealthCheckPort),
-		fmt.Sprint(EnvoyPrometheusTelemetryPort),
 	}
 }
