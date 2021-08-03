@@ -2,6 +2,18 @@ load("@bazeldnf//:deps.bzl", "rpm", "rpmtree", "tar2files")
 load("@bazeldnf//:def.bzl", "bazeldnf")
 
 bazeldnf(
+    name = "sandbox_x86_64",
+    command = "sandbox",
+    tar = ":sandboxroot_x86_64",
+)
+
+bazeldnf(
+    name = "sandbox_aarch64",
+    command = "sandbox",
+    tar = ":sandboxroot_aarch64",
+)
+
+bazeldnf(
     name = "ldd_x86_64",
     command = "ldd",
     libs = [

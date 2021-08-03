@@ -11,6 +11,7 @@ KUBEVIRT_DIR="$(
     pwd
 )"
 OUT_DIR=$KUBEVIRT_DIR/_out
+SANDBOX_DIR=${KUBEVIRT_DIR}/.bazeldnf/sandbox
 VENDOR_DIR=$KUBEVIRT_DIR/vendor
 CMD_OUT_DIR=$OUT_DIR/cmd
 TESTS_OUT_DIR=$OUT_DIR/tests
@@ -73,3 +74,5 @@ function go_build() {
 
 DOCKER_CA_CERT_FILE="${DOCKER_CA_CERT_FILE:-}"
 DOCKERIZED_CUSTOM_CA_PATH="/etc/pki/ca-trust/source/anchors/custom-ca.crt"
+
+source ${KUBEVIRT_DIR}/hack/bootstrap.sh

@@ -99,6 +99,36 @@ bazel run \
     $libvirtdevel_base \
     $libvirtdevel_extra
 
+# TODO: Remove the sssd-client and use a better sssd config
+# This requires a way to inject files into the sandbox via bazeldnf
+sandbox_base="
+  findutils
+  gcc
+  glibc-static
+  python36
+  sssd-client
+"
+
+bazel run \
+    --config=${ARCHITECTURE} \
+    //:bazeldnf -- rpmtree \
+    --public --nobest \
+    --name sandboxroot_x86_64 \
+    --basesystem centos-stream-release \
+    $centos_base \
+    $centos_extra \
+    $sandbox_base
+
+bazel run \
+    --config=${ARCHITECTURE} \
+    //:bazeldnf -- rpmtree \
+    --public --nobest \
+    --name sandboxroot_aarch64 --arch aarch64 \
+    --basesystem centos-stream-release \
+    $centos_base \
+    $centos_extra \
+    $sandbox_base
+
 # create a rpmtree for virt-launcher and virt-handler. This is the OS for our node-components.
 launcherbase_base="
   libvirt-client-${LIBVIRT_VERSION}
@@ -217,15 +247,6 @@ bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- prune
 
-# FIXME: For an unknown reason the run target afterwards can get
-# out dated tar files, build them explicitly first.
-bazel build \
-    --config=${ARCHITECTURE} \
-    //rpm:libvirt-devel_x86_64
-
-bazel build \
-    --config=${ARCHITECTURE} \
-    //rpm:libvirt-devel_aarch64
 # update tar2files targets which act as an adapter between rpms
 # and cc_library which we need for virt-launcher and virt-handler
 bazel run \
@@ -235,3 +256,9 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     //rpm:ldd_aarch64
+
+# regenerate sandboxes
+rm ${SANDBOX_DIR} -rf
+kubevirt::bootstrap::regenerate aarch64
+rm ${SANDBOX_DIR} -rf
+kubevirt::bootstrap::regenerate x86_64
