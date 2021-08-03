@@ -99,6 +99,7 @@ var _ = Describe("Template", func() {
 			config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
 
 			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
 				"/var/run/kubevirt",
 				"/var/lib/kubevirt",
 				"/var/run/kubevirt-ephemeral-disks",
@@ -3243,6 +3244,8 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 
 	timeoutInt, err := strconv.Atoi(strings.TrimSuffix(timeoutString, "s"))
 	Expect(err).To(BeNil())
+
+	qemuTimeoutBaseSeconds := 240
 
 	failMsg := ""
 	if timeoutInt < qemuTimeoutBaseSeconds {
