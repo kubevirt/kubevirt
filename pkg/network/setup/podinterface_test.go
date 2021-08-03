@@ -36,11 +36,11 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -123,7 +123,7 @@ var _ = Describe("Pod Network", func() {
 			},
 		}
 
-		masqueradeBridgeMAC, _ := net.ParseMAC(network.StaticMasqueradeBridgeMAC)
+		masqueradeBridgeMAC, _ := net.ParseMAC(link.StaticMasqueradeBridgeMAC)
 		masqueradeBridgeTest = &netlink.Bridge{
 			LinkAttrs: netlink.LinkAttrs{
 				Name:         api.DefaultBridgeName,

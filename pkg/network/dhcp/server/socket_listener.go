@@ -16,7 +16,7 @@
  * Copyright 2020 Red Hat, Inc.
  *
  */
-package dhcp
+package server
 
 import (
 	"context"

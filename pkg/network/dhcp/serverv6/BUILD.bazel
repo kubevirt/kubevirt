@@ -4,9 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "conn.go",
-        "dhcpv6.go",
+        "serverv6.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6",
+    importpath = "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
@@ -20,8 +20,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "dhcpv6_suite_test.go",
-        "dhcpv6_test.go",
+        "serverv6_suite_test.go",
+        "serverv6_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

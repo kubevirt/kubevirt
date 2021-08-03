@@ -1,4 +1,4 @@
-package dhcp
+package server
 
 import (
 	"testing"
