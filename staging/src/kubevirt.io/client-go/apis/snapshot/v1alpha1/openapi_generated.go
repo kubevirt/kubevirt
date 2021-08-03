@@ -17488,7 +17488,7 @@ func schema_kubevirtio_client_go_api_v1_PciHostDevice(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"pciVendorSelector": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The vendor_id:product_id tupple of the PCI device",
+							Description: "The vendor_id:product_id tuple of the PCI device",
 							Type:        []string{"string"},
 							Format:      "",
 						},
