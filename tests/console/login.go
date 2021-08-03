@@ -77,7 +77,22 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer expecter.Close()
 
+	err = expecter.Send("\n")
+	if err != nil {
+		return err
+	}
+
+	// Do not login, if we already logged in
 	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "localhost:~\\# "},
+	})
+	_, err = expecter.ExpectBatch(b, 5*time.Second)
+	if err == nil {
+		return nil
+	}
+
+	b = append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "localhost login:"},
 		&expect.BSnd{S: "root\n"},
