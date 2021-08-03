@@ -28,7 +28,7 @@ const (
 	alertRuleGroup          = "kubevirt.hyperconverged.rules"
 	outOfBandUpdateAlert    = "KubevirtHyperconvergedClusterOperatorCRModification"
 	unsafeModificationAlert = "KubevirtHyperconvergedClusterOperatorUSModification"
-	runbookUrlTemplate      = "https://github.com/kubevirt/monitoring/blob/main/runbooks/%s.md"
+	runbookUrlTemplate      = "https://kubevirt.io/monitoring/runbooks/%s"
 )
 
 var (
