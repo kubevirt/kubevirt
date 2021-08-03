@@ -126,6 +126,7 @@ function create_virt_csv() {
     --controllerSha=${controllerSha} \
     --handlerSha=${handlerSha} \
     --launcherSha=${launcherSha} \
+    --gsSha=${KUBEVIRT_LIBGUESTFS_TOOLS_IMAGE/*@/} \
   "
 
   gen_csv "${DEFAULT_CSV_GENERATOR}" "${operatorName}" "${KUBEVIRT_OPERATOR_IMAGE}" "${dumpCRDsArg}" "${operatorArgs}"

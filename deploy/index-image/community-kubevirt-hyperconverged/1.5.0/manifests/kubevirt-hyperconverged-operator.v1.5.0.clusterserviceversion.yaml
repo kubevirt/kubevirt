@@ -2134,6 +2134,8 @@ spec:
                   value: sha256:793619954d1bbc43fd6f1d7cc10faeb4e7728a6d01c5fa1523dd78f4617aee9d
                 - name: VIRT_LAUNCHER_SHASUM
                   value: sha256:7a5ef28cddb50f80fe96c1b768a6c4341be66634f5c90ebad74c419119d53675
+                - name: GS_SHASUM
+                  value: sha256:e87d654fd1687da4eb6b8a5b1089cce188a4f8c5a0d85f128003eeb4c11643ce
                 image: quay.io/kubevirt/virt-operator@sha256:113c3a36468dbfbeaba25375137dcc703c1ecdc23ea3a40c4792f726a5906272
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
@@ -2639,6 +2641,8 @@ spec:
     name: kubevirt-v2v-conversion
   - image: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
     name: kubevirt-vmware
+  - image: quay.io/kubevirt/libguestfs-tools@sha256:e87d654fd1687da4eb6b8a5b1089cce188a4f8c5a0d85f128003eeb4c11643ce
+    name: libguestfs-tools
   - image: quay.io/kubevirt/macvtap-cni@sha256:375af0a38e07281d6018ad92a63d115f3e78f2b30d53f728891073ac0510cee9
     name: macvtap-cni
   - image: quay.io/kubevirt/node-maintenance-operator@sha256:8a406e215a002dd80a6c44ab8c136b0fa6efc04842901af55d53ef4d48856055
