@@ -35,7 +35,20 @@ cat <<EOF
 =================================
      Start of HCO state dump         
 =================================
+EOF
 
+if [ -n "${ARTIFACT_DIR}" ]; then
+    cat <<EOF
+==============================
+executing kubevirt-must-gather
+==============================
+
+EOF
+    mkdir -p ${ARTIFACT_DIR}/kubevirt-must-gather
+    RunCmd "${CMD} adm must-gather --image=quay.io/kubevirt/must-gather:latest --dest-dir=${ARTIFACT_DIR}/kubevirt-must-gather --timeout='20m'"
+fi
+
+cat <<EOF
 ==========================
 summary of operator status
 ==========================
