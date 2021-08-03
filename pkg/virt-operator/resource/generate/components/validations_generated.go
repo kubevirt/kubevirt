@@ -11768,6 +11768,11 @@ var CRDsValidation map[string]string = map[string]string{
           description: DeletionPolicy defines that to do with VirtualMachineSnapshot
             when VirtualMachineSnapshot is deleted
           type: string
+        failureDeadline:
+          description: This time represents the number of seconds we permit the vm
+            snapshot to take. In case we pass this deadline we mark this snapshot
+            as failed. Defaults to DefaultFailureDeadline - 5min
+          type: string
         source:
           description: TypedLocalObjectReference contains enough information to let
             you locate the typed referenced object inside the same namespace.
@@ -11840,6 +11845,9 @@ var CRDsValidation map[string]string = map[string]string{
             type: string
           type: array
           x-kubernetes-list-type: set
+        phase:
+          description: VirtualMachineSnapshotPhase is the current phase of the VirtualMachineSnapshot
+          type: string
         readyToUse:
           type: boolean
         sourceUID:

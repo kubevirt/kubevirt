@@ -230,6 +230,15 @@ func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namesp
 
 	var causes []metav1.StatusCause
 
+	if snapshot.Status != nil && snapshot.Status.Phase == snapshotv1.Failed {
+		cause := metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("VirtualMachineSnapshot %q has failed and is invalid to use", name),
+			Field:   field.String(),
+		}
+		causes = append(causes, cause)
+	}
+
 	if snapshot.Status == nil || snapshot.Status.ReadyToUse == nil || !*snapshot.Status.ReadyToUse {
 		cause := metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,

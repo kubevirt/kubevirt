@@ -52,6 +52,8 @@ const (
 
 	volumeSnapshotMissingEvent = "VolumeSnapshotMissing"
 
+	vmSnapshotDeadlineExceededError = "snapshot deadline exceeded"
+
 	snapshotRetryInterval = 5 * time.Second
 )
 
@@ -70,8 +72,24 @@ func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.
 	return nil
 }
 
+func vmSnapshotFailed(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	return vmSnapshot.Status != nil && vmSnapshot.Status.Phase == snapshotv1.Failed
+}
+
+func vmSnapshotSucceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	return vmSnapshot.Status != nil && vmSnapshot.Status.Phase == snapshotv1.Succeeded
+}
+
 func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
-	return vmSnapshotError(vmSnapshot) == nil && !vmSnapshotReady(vmSnapshot)
+	return vmSnapshotError(vmSnapshot) == nil && !vmSnapshotReady(vmSnapshot) &&
+		!vmSnapshotFailed(vmSnapshot) && !vmSnapshotSucceeded(vmSnapshot)
+}
+
+func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	if vmSnapshotSucceeded(vmSnapshot) {
+		return false
+	}
+	return timeUntilDeadline(vmSnapshot) < 0
 }
 
 func getVMSnapshotContentName(vmSnapshot *snapshotv1.VirtualMachineSnapshot) string {
@@ -110,7 +128,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 	// Make sure status is initialized before doing anything
 	if vmSnapshot.Status != nil {
 		if source != nil {
-			if vmSnapshotProgressing(vmSnapshot) && vmSnapshot.DeletionTimestamp == nil {
+			if vmSnapshotProgressing(vmSnapshot) && vmSnapshot.DeletionTimestamp == nil && !vmSnapshotDeadlineExceeded(vmSnapshot) {
 				// attempt to lock source
 				// if fails will attempt again when source is updated
 				if !source.Locked() {
@@ -142,7 +160,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		}
 	}
 
-	if vmSnapshot.DeletionTimestamp != nil && content != nil {
+	if (vmSnapshot.DeletionTimestamp != nil || vmSnapshotDeadlineExceeded(vmSnapshot)) && content != nil {
 		if controller.HasFinalizer(content, vmSnapshotContentFinalizer) {
 			cpy := content.DeepCopy()
 			controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
@@ -170,6 +188,10 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		return 0, err
 	}
 
+	if retry == 0 {
+		return timeUntilDeadline(vmSnapshot), nil
+	}
+
 	return retry, nil
 }
 
@@ -184,6 +206,10 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	if err != nil || vmSnapshot == nil {
 		return 0, err
 	}
+	if vmSnapshotDeadlineExceeded(vmSnapshot) {
+		return 0, nil
+	}
+
 	currentlyReady := vmSnapshotContentReady(content)
 	currentlyError := (content.Status != nil && content.Status.Error != nil) || vmSnapshotError(vmSnapshot) != nil
 
@@ -573,7 +599,12 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		}
 	}
 
-	if vmSnapshotProgressing(vmSnapshotCpy) {
+	if vmSnapshotDeadlineExceeded(vmSnapshotCpy) {
+		vmSnapshotCpy.Status.Phase = snapshotv1.Failed
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, vmSnapshotDeadlineExceededError))
+		updateSnapshotCondition(vmSnapshotCpy, newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError))
+	} else if vmSnapshotProgressing(vmSnapshotCpy) {
+		vmSnapshotCpy.Status.Phase = snapshotv1.InProgress
 		if source != nil {
 			if source.Locked() {
 				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"))
@@ -611,9 +642,11 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Error"))
 	} else if vmSnapshotReady(vmSnapshotCpy) {
+		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 	} else {
+		vmSnapshotCpy.Status.Phase = snapshotv1.Unknown
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionUnknown, "Unknown state"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionUnknown, "Unknown state"))
 	}
