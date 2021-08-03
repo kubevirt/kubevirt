@@ -73,7 +73,8 @@ const (
 
 	defaultHost = "0.0.0.0"
 
-	launcherImage = "virt-launcher"
+	launcherImage       = "virt-launcher"
+	launcherQemuTimeout = 240
 
 	imagePullSecret = ""
 
@@ -164,6 +165,7 @@ type VirtControllerApp struct {
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage              string
+	launcherQemuTimeout        int
 	imagePullSecret            string
 	virtShareDir               string
 	virtLibDir                 string
@@ -453,6 +455,7 @@ func (vca *VirtControllerApp) initCommon() {
 
 	containerdisk.SetLocalDirectory(vca.ephemeralDiskDir + "/container-disk-data")
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
+		vca.launcherQemuTimeout,
 		vca.virtShareDir,
 		vca.virtLibDir,
 		vca.ephemeralDiskDir,
@@ -615,6 +618,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.launcherImage, "launcher-image", launcherImage,
 		"Shim container for containerized VMIs")
+
+	flag.IntVar(&vca.launcherQemuTimeout, "launcher-qemu-timeout", launcherQemuTimeout,
+		"Amount of time to wait for qemu")
 
 	flag.StringVar(&vca.imagePullSecret, "image-pull-secret", imagePullSecret,
 		"Secret to use for pulling virt-launcher and/or registry disks")

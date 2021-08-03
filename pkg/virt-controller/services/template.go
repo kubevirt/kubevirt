@@ -67,7 +67,6 @@ const virtiofsDebugLogs = "virtiofsdDebugLogs"
 
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
-const qemuTimeoutBaseSeconds = 240
 const qemuTimeoutJitterRange = 120
 
 const (
@@ -117,6 +116,7 @@ type TemplateService interface {
 
 type templateService struct {
 	launcherImage              string
+	launcherQemuTimeout        int
 	virtShareDir               string
 	virtLibDir                 string
 	ephemeralDiskDir           string
@@ -384,7 +384,7 @@ func (t *templateService) IsARM64() bool {
 	return t.clusterConfig.GetClusterCPUArch() == "arm64"
 }
 
-func generateQemuTimeoutWithJitter() string {
+func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 	timeout := rand.Intn(qemuTimeoutJitterRange) + qemuTimeoutBaseSeconds
 
 	return fmt.Sprintf("%ds", timeout)
@@ -1004,7 +1004,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"echo", "bound PVCs"}
 	} else {
 		command = []string{"/usr/bin/virt-launcher",
-			"--qemu-timeout", generateQemuTimeoutWithJitter(),
+			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
 			"--name", domain,
 			"--uid", string(vmi.UID),
 			"--namespace", namespace,
@@ -1955,6 +1955,7 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 }
 
 func NewTemplateService(launcherImage string,
+	launcherQemuTimeout int,
 	virtShareDir string,
 	virtLibDir string,
 	ephemeralDiskDir string,
@@ -1969,6 +1970,7 @@ func NewTemplateService(launcherImage string,
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
 		launcherImage:              launcherImage,
+		launcherQemuTimeout:        launcherQemuTimeout,
 		virtShareDir:               virtShareDir,
 		virtLibDir:                 virtLibDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
