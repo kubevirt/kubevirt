@@ -20,6 +20,7 @@
 set -e
 
 source hack/common.sh
+source hack/bootstrap.sh
 source hack/config.sh
 
 manifest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}

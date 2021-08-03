@@ -23,6 +23,7 @@ MANIFEST_TEMPLATES_OUT_DIR=$OUT_DIR/templates/manifests
 PYTHON_CLIENT_OUT_DIR=$OUT_DIR/client-python
 ARCHITECTURE="${BUILD_ARCH:-$(uname -m)}"
 HOST_ARCHITECTURE="$(uname -m)"
+KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
 
 function build_func_tests() {
     mkdir -p "${TESTS_OUT_DIR}/"
@@ -74,5 +75,3 @@ function go_build() {
 
 DOCKER_CA_CERT_FILE="${DOCKER_CA_CERT_FILE:-}"
 DOCKERIZED_CUSTOM_CA_PATH="/etc/pki/ca-trust/source/anchors/custom-ca.crt"
-
-source ${KUBEVIRT_DIR}/hack/bootstrap.sh

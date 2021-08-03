@@ -18,6 +18,13 @@
 #
 set -e
 
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    source hack/common.sh
+    source hack/config.sh
+fi
+KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
+HOST_ARCHITECTURE="$(uname -m)"
+
 sandbox_root=${SANDBOX_DIR}/default/root
 sandbox_hash="c435f4256302f2dca6a1613ec6816c20f75cee20"
 
@@ -33,6 +40,7 @@ function kubevirt::bootstrap::regenerate() {
         rm ${SANDBOX_DIR} -rf
         rm .bazeldnf/sandbox.bazelrc -f
         bazel run --config ${HOST_ARCHITECTURE} //rpm:sandbox_${1}
+        bazel clean
 
         local sha=$(kubevirt::bootstrap::sha256)
         sed -i "/^[[:blank:]]*sandbox_hash[[:blank:]]*=/s/=.*/=\"${sha}\"/" hack/bootstrap.sh
@@ -48,6 +56,8 @@ build --sandbox_add_mount_pair=${sandbox_root}/usr/:/usr/
 build --sandbox_add_mount_pair=${sandbox_root}/lib64:/lib64
 build --sandbox_add_mount_pair=${sandbox_root}/lib:/lib
 build --sandbox_add_mount_pair=${sandbox_root}/bin:/bin
+
+build --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:x86_64-none-linux-gnu
 EOT
 }
 
@@ -58,4 +68,6 @@ function kubevirt::bootstrap::sha256() {
     )
 }
 
-kubevirt::bootstrap::regenerate ${HOST_ARCHITECTURE}
+if [ "${KUBEVIRT_NO_BAZEL}" != "true" ]; then
+    kubevirt::bootstrap::regenerate ${HOST_ARCHITECTURE}
+fi

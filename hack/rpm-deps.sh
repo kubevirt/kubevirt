@@ -3,6 +3,7 @@
 set -ex
 
 source hack/common.sh
+source hack/bootstrap.sh
 source hack/config.sh
 
 LIBVIRT_VERSION=0:7.0.0-14.el8s

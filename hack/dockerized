@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+# Source common without doing any bootstrap work at this stage
+# Bootstrapping should be done inside the build container
 source $(dirname "$0")/common.sh
 
 if [ "${KUBEVIRT_RUN_UNNESTED}" == "true" ]; then

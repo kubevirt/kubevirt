@@ -20,6 +20,7 @@
 set -e
 
 source hack/common.sh
+source hack/bootstrap.sh
 source hack/config.sh
 
 # vars are uninteresting for the build step, they are interesting for the push step only

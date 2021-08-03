@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 source hack/common.sh
+source hack/bootstrap.sh
 source hack/config.sh
 
 # remove libvirt BUILD file to regenerate it each time
