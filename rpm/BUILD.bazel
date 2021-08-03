@@ -1422,6 +1422,8 @@ tar2files(
             "virterror.h",
         ],
         "/usr/lib64": [
+            "ld-2.31.so",
+            "ld-linux-aarch64.so.1",
             "libacl.so.1",
             "libacl.so.1.1.2253",
             "libattr.so.1",
@@ -1571,6 +1573,8 @@ tar2files(
             "virterror.h",
         ],
         "/usr/lib64": [
+            "ld-2.31.so",
+            "ld-linux-x86-64.so.2",
             "libacl.so.1",
             "libacl.so.1.1.2253",
             "libattr.so.1",
