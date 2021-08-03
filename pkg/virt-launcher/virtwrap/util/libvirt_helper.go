@@ -32,9 +32,10 @@ import (
 
 const QEMUSeaBiosDebugPipe = converter.QEMUSeaBiosDebugPipe
 const (
-	qemuConfPath       = "/etc/libvirt/qemu.conf"
-	libvirdConfPath    = "/etc/libvirt/libvirtd.conf"
-	libvirtRuntimePath = "/var/run/libvirt"
+	qemuConfPath        = "/etc/libvirt/qemu.conf"
+	libvirdConfPath     = "/etc/libvirt/libvirtd.conf"
+	libvirtRuntimePath  = "/var/run/libvirt"
+	qemuNonRootConfPath = libvirtRuntimePath + "/qemu.conf"
 )
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]api.LifeCycle{
@@ -485,9 +486,13 @@ func copyFile(from, to string) error {
 }
 
 func (l LibvirtWrapper) SetupLibvirt() (err error) {
-	runtimeQemuConfPath := path.Join(libvirtRuntimePath, "qemu.conf")
-	if err := copyFile(qemuConfPath, runtimeQemuConfPath); err != nil {
-		return err
+	runtimeQemuConfPath := qemuConfPath
+	if !l.root() {
+		runtimeQemuConfPath = qemuNonRootConfPath
+
+		if err := copyFile(qemuConfPath, runtimeQemuConfPath); err != nil {
+			return err
+		}
 	}
 
 	if err := configureQemuConf(runtimeQemuConfPath); err != nil {
