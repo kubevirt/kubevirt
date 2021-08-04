@@ -141,7 +141,7 @@ func (h *DeviceUtilsHandler) CreateMDEVType(mdevType string, parentID string) er
 		log.Log.Reason(err).Errorf("failed to create mdev type %s, can't open path %s", mdevType, path)
 		return err
 	}
-	fmt.Printf("Successfully created mdev %s - %s\n", mdevType, uid)
+	log.Log.Infof("Successfully created mdev %s - %s", mdevType, uid)
 	return nil
 }
 

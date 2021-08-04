@@ -1908,13 +1908,13 @@ type KubeVirtConfiguration struct {
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
 	// deprecated
-	SupportedGuestAgentVersions  []string                      `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod        *uint32                       `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices         *PermittedHostDevices         `json:"permittedHostDevices,omitempty"`
-	MediatedDevicesConfiguration *MediatedDevicesConfiguration `json:"mediatedDevicesConfiguration,omitempty"`
-	MinCPUModel                  string                        `json:"minCPUModel,omitempty"`
-	ObsoleteCPUModels            map[string]bool               `json:"obsoleteCPUModels,omitempty"`
-	VirtualMachineInstancesPerNode *int                  `json:"virtualMachineInstancesPerNode,omitempty"`
+	SupportedGuestAgentVersions    []string                      `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod          *uint32                       `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices           *PermittedHostDevices         `json:"permittedHostDevices,omitempty"`
+	MediatedDevicesConfiguration   *MediatedDevicesConfiguration `json:"mediatedDevicesConfiguration,omitempty"`
+	MinCPUModel                    string                        `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels              map[string]bool               `json:"obsoleteCPUModels,omitempty"`
+	VirtualMachineInstancesPerNode *int                          `json:"virtualMachineInstancesPerNode,omitempty"`
 }
 
 //
