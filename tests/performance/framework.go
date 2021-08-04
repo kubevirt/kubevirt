@@ -21,10 +21,21 @@ package performance
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kvv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/tests/util"
+	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
+	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
 )
 
 var RunPerfTests = false
@@ -42,4 +53,43 @@ func SIGDescribe(text string, body func()) bool {
 
 func FSIGDescribe(text string, body func()) bool {
 	return FDescribe("[sig-performance][Serial] "+text, body)
+}
+
+// createBatchVMIWithRateControl creates a batch of vms concurrently, uses one goroutine for each creation.
+// between creations there is an interval for throughput control
+func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount int) {
+	for i := 1; i <= vmCount; i++ {
+		vmi := createVMISpecWithResources(virtClient)
+		By(fmt.Sprintf("Creating VMI %s", vmi.ObjectMeta.Name))
+		_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		// interval for throughput control
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout time.Duration) {
+	Eventually(func() int {
+		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		running := 0
+		for _, vmi := range vmis.Items {
+			if vmi.Status.Phase == kvv1.Running {
+				running++
+			}
+		}
+		return running
+	}, timeout, 10*time.Second).Should(Equal(vmiCount))
+}
+
+func perfScaleAudit(inputConfig *audit_api.InputConfig) {
+	metricClient, err := metric_client.NewMetricClient(inputConfig)
+	Expect(err).ToNot(HaveOccurred())
+
+	result, err := metricClient.GenerateResults()
+	Expect(err).ToNot(HaveOccurred())
+
+	err = result.DumpToStdout()
+	Expect(err).ToNot(HaveOccurred())
 }

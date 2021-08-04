@@ -1,6 +1,8 @@
 package thresholds
 
 // Create timestamp minus Running timestamp
-const VMI_CREATE_TO_RUNNING_99 = "70s"
-const VMI_CREATE_TO_RUNNING_90 = "60s"
-const VMI_CREATE_TO_RUNNING_50 = "50s"
+const (
+	VMI_CREATE_TO_RUNNING_SECONDS_99 = 70
+	VMI_CREATE_TO_RUNNING_SECONDS_90 = 60
+	VMI_CREATE_TO_RUNNING_SECONDS_50 = 50
+)

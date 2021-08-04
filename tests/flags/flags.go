@@ -48,6 +48,7 @@ var IPV6ConnectivityCheckAddress = ""
 var ConnectivityCheckDNS = ""
 var ArtifactsDir string
 var ApplyDefaulte2eConfiguration bool
+var MonitoringNamespace = "monitoring"
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""

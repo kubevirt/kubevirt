@@ -20,29 +20,45 @@
 package performance
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	kvv1 "kubevirt.io/client-go/api/v1"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
-
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/util"
+	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
+	"kubevirt.io/kubevirt/tools/perfscale-audit/thresholds"
 )
 
 var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
+
+		PrometheusPort       = "9090"
+		PrometheusEndpoint   = fmt.Sprintf("http://127.0.0.1:%s", PrometheusPort)
+		thresholdExpecations = map[audit_api.ResultType]audit_api.InputThreshold{
+			"vmiCreationToRunningSecondsP99": audit_api.InputThreshold{
+				Value: thresholds.VMI_CREATE_TO_RUNNING_SECONDS_99,
+			},
+			"vmiCreationToRunningSecondsP95": audit_api.InputThreshold{
+				Value: thresholds.VMI_CREATE_TO_RUNNING_SECONDS_90,
+			},
+			"vmiCreationToRunningSecondsP50": audit_api.InputThreshold{
+				Value: thresholds.VMI_CREATE_TO_RUNNING_SECONDS_50,
+			},
+		}
+		auditInput = &audit_api.InputConfig{
+			PrometheusURL:         PrometheusEndpoint,
+			ThresholdExpectations: thresholdExpecations,
+		}
 	)
 
 	BeforeEach(func() {
@@ -52,11 +68,27 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		tests.BeforeTestCleanup()
+		start := time.Now()
+		auditInput.StartTime = &start
 	})
 
 	AfterEach(func() {
+		end := time.Now()
+		auditInput.EndTime = &end
 		// ensure the metrics get scraped by Prometheus till the end, since the default Prometheus scrape interval is 30s
 		time.Sleep(30 * time.Second)
+
+		By("Getting Prometheus server")
+		pods, err := virtClient.CoreV1().Pods(flags.MonitoringNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app=prometheus"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pods.Items).ToNot(BeEmpty())
+
+		stopChan := make(chan struct{})
+		err = tests.ForwardPorts(&pods.Items[0], []string{"9090:PrometheusPort"}, stopChan, 10*time.Second)
+		Expect(err).ToNot(HaveOccurred())
+
+		perfScaleAudit(auditInput)
+		close(stopChan)
 	})
 
 	Describe("Density test", func() {
@@ -74,48 +106,3 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 		})
 	})
 })
-
-// createBatchVMIWithRateControl creates a batch of vms concurrently, uses one goroutine for each creation.
-// between creations there is an interval for throughput control
-func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount int) {
-	for i := 1; i <= vmCount; i++ {
-		vmi := createVMISpecWithResources(virtClient)
-		By(fmt.Sprintf("Creating VMI %s", vmi.ObjectMeta.Name))
-		_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-		Expect(err).ToNot(HaveOccurred())
-
-		// interval for throughput control
-		time.Sleep(100 * time.Millisecond)
-	}
-}
-
-func createVMISpecWithResources(virtClient kubecli.KubevirtClient) *kvv1.VirtualMachineInstance {
-	vmImage := cd.ContainerDiskFor("cirros")
-	cpuLimit := "100m"
-	memLimit := "90Mi"
-	cloudInitUserData := "#!/bin/bash\necho 'hello'\n"
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmImage, cloudInitUserData)
-	vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-		k8sv1.ResourceMemory: resource.MustParse(memLimit),
-		k8sv1.ResourceCPU:    resource.MustParse(cpuLimit),
-	}
-	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-		k8sv1.ResourceMemory: resource.MustParse(memLimit),
-		k8sv1.ResourceCPU:    resource.MustParse(cpuLimit),
-	}
-	return vmi
-}
-
-func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout time.Duration) {
-	Eventually(func() int {
-		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		running := 0
-		for _, vmi := range vmis.Items {
-			if vmi.Status.Phase == kvv1.Running {
-				running++
-			}
-		}
-		return running
-	}, timeout, 10*time.Second).Should(Equal(vmiCount))
-}
