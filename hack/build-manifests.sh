@@ -378,19 +378,6 @@ rendered_keywords="$(echo "$rendered_csv" |grep 'keywords' -A 3)"
 # assert that --csv-overrides work
 [ "$keywords" == "$rendered_keywords" ]
 
-# TODO: remove this once https://github.com/operator-framework/enhancements/pull/40 got fixed
-# Pre-process all CRDs to drop description on older versions to keep the bundle small
-for FILE in ${TEMPDIR}/*.${CRD_EXT}
-do
-    hack/strip_old_descriptions.py -i ${FILE} > ${FILE}.filtered
-    if [[ -s "${FILE}.filtered" ]]
-    then
-        mv ${FILE}.filtered ${FILE}
-    else
-        rm ${FILE}.filtered
-    fi
-done
-
 # Copy all CRDs into the CRD and CSV directories
 rm -f ${CRD_DIR}/*
 cp -f ${TEMPDIR}/*.${CRD_EXT} ${CRD_DIR}
@@ -419,10 +406,6 @@ CSV_FILE="${CSV_DIR}/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}
 if git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh ${CSV_FILE}; then
   git checkout ${CSV_FILE}
 fi
-
-# TODO: remove this once https://github.com/operator-framework/enhancements/pull/40 got fixed
-# Check bundle size
-[[ $(find ${CSV_DIR} -type d -size -1048576c 2>/dev/null) ]] && echo "Acceptable bundle size" || (echo "The bundle is too big" && exit 1)
 
 # Prepare files for index-image files that will be used for testing in openshift CI
 rm -rf "${INDEX_IMAGE_DIR:?}"
