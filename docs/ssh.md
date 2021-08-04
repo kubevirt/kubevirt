@@ -8,9 +8,9 @@ or a web-UI.
 
 ## Usage
 
-### virtcli
+### virtctl
 
-To connect to a VMI from your local machine, `virtcli` provides the `ssh` command as a lightweight
+To connect to a VMI from your local machine, `virtctl` provides the `ssh` command as a lightweight
 SSH client. Refer to the commands help for more details.
 
 ```sh

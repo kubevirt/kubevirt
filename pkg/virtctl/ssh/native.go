@@ -19,16 +19,26 @@ func (o *SSH) prepareSSHClient(kind, namespace, name string) (*ssh.Client, error
 	}
 
 	conn := streamer.AsConn()
-	addr := fmt.Sprintf("%s/%s.%s", kind, name, namespace)
+	addr := fmt.Sprintf("%s/%s.%s:%d", kind, name, namespace, sshPort)
 	authMethods, err := o.getAuthMethods(kind, namespace, name)
 	if err != nil {
 		return nil, err
 	}
 
+	hostKeyCallback := ssh.InsecureIgnoreHostKey()
+	if len(knownHostsFilePath) > 0 {
+		hostKeyCallback, err = InteractiveHostKeyCallback(knownHostsFilePath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fmt.Println("WARNING: skipping hostkey check, provide --known-hosts to fix this")
+	}
+
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn,
 		addr,
 		&ssh.ClientConfig{
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			HostKeyCallback: hostKeyCallback,
 			Auth:            authMethods,
 			User:            sshUsername,
 		},
@@ -80,19 +90,23 @@ func trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMethod {
 }
 
 func usePrivateKey(methods []ssh.AuthMethod) ([]ssh.AuthMethod, error) {
-	key, err := ioutil.ReadFile(identityFilePath)
-	if err != nil {
-		return methods, err
-	}
-
-	signer, err := ssh.ParsePrivateKey(key)
-	if _, isPassErr := err.(*ssh.PassphraseMissingError); isPassErr {
-		signer, err = parsePrivateKeyWithPassphrase(key)
+	callback := ssh.PublicKeysCallback(func() (signers []ssh.Signer, err error) {
+		key, err := ioutil.ReadFile(identityFilePath)
 		if err != nil {
-			return methods, err
+			return nil, err
 		}
-	}
-	return append(methods, ssh.PublicKeys(signer)), nil
+
+		signer, err := ssh.ParsePrivateKey(key)
+		if _, isPassErr := err.(*ssh.PassphraseMissingError); isPassErr {
+			signer, err = parsePrivateKeyWithPassphrase(key)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return []ssh.Signer{signer}, nil
+	})
+
+	return append(methods, callback), nil
 }
 
 func parsePrivateKeyWithPassphrase(key []byte) (ssh.Signer, error) {

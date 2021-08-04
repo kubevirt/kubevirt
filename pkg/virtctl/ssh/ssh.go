@@ -21,7 +21,10 @@ package ssh
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -34,13 +37,16 @@ const (
 	wrapLocalSSHFlag                                = "local-ssh"
 	usernameFlag, usernameFlagShort                 = "username", "l"
 	identityFilePathFlag, identityFilePathFlagShort = "identity-file", "i"
+	knownHostsFilePathFlag                          = "known-hosts"
 )
 
 var (
-	wrapLocalSSH     bool = false
-	sshPort          int
-	sshUsername      string
-	identityFilePath string
+	wrapLocalSSH              bool = false
+	sshPort                   int
+	sshUsername               string
+	identityFilePath          string
+	knownHostsFilePath        string
+	knownHostsFilePathDefault string
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -55,10 +61,20 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		glog.Warningf("failed to determine user home directory: %v", err)
+	}
+	if len(homeDir) > 0 {
+		knownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "known_hosts")
+	}
+
 	cmd.Flags().StringVar(&sshUsername, usernameFlag, "",
 		fmt.Sprintf("--%s=jdoe: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag))
 	cmd.Flags().StringVarP(&identityFilePath, identityFilePathFlag, identityFilePathFlagShort, "",
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", identityFilePathFlag))
+	cmd.Flags().StringVar(&knownHostsFilePath, knownHostsFilePathFlag, knownHostsFilePathDefault,
+		fmt.Sprintf("--%s=/home/jdoe/.ssh/known_hosts: Set the path to the known_hosts file; If not provided, the client will skip host checks", knownHostsFilePathFlag))
 	cmd.Flags().IntVarP(&sshPort, portFlag, portFlagShort, 22,
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
 	cmd.Flags().BoolVar(&wrapLocalSSH, wrapLocalSSHFlag, wrapLocalSSH,
@@ -147,7 +163,7 @@ func usage() string {
   # Specify a username and namespace:
   {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe testvmi
  
-  # Connecto to 'testvmi' using your local OpenSSH:
+  # Connect to 'testvmi' using the local ssh binary found in $PATH:
   {{ProgramName}} ssh --%s=true jdoe@testvmi`,
 		identityFilePathFlag,
 		identityFilePathFlag,

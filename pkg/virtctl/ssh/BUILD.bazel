@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "knownhosts.go",
         "native.go",
         "resize_unix.go",
         "resize_windows.go",
@@ -18,6 +19,7 @@ go_library(
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/golang.org/x/crypto/ssh:go_default_library",
         "//vendor/golang.org/x/crypto/ssh/agent:go_default_library",
+        "//vendor/golang.org/x/crypto/ssh/knownhosts:go_default_library",
         "//vendor/golang.org/x/term:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
     ],

@@ -57,9 +57,9 @@ require (
 	github.com/subgraph/libmacouflage v0.0.1
 	github.com/vishvananda/netlink v1.1.1-0.20200914145417-7484f55b2263
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
-	golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
-	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4
+	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
+	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/grpc v1.30.0
