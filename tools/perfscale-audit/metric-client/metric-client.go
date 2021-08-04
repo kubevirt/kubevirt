@@ -36,7 +36,8 @@ import (
 )
 
 const (
-	vmiCreationTimePercentileQuery = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds]))`
+	vmiCreationTimePercentileQuery   = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds]))`
+	resourceRequestCountsByOperation = `increase(rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[%ds])`
 )
 
 type transport struct {
@@ -132,30 +133,7 @@ func parseVector(value model.Value) ([]metric, error) {
 	return metrics, nil
 }
 
-func (m *MetricClient) getCreationToRunningTimePercentile(percentile int) (float64, error) {
-	query := fmt.Sprintf(vmiCreationTimePercentileQuery, percentile, int(m.cfg.GetDuration().Seconds()))
-
-	val, err := m.query(query)
-	if err != nil {
-		return 0, err
-	}
-
-	results, err := parseVector(val)
-	if err != nil {
-		return 0, err
-	}
-
-	if len(results) == 0 {
-		return 0.0, nil
-	}
-
-	return results[0].value, nil
-}
-
-func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
-	r := &audit_api.Result{
-		Values: make(map[audit_api.ResultType]audit_api.ResultValue),
-	}
+func (m *MetricClient) getCreationToRunningTimePercentiles(r *audit_api.Result) error {
 
 	type percentile struct {
 		p int
@@ -177,13 +155,91 @@ func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
 	}
 
 	for _, percentile := range percentiles {
-		val, err := m.getCreationToRunningTimePercentile(percentile.p)
+		query := fmt.Sprintf(vmiCreationTimePercentileQuery, percentile.p, int(m.cfg.GetDuration().Seconds()))
+
+		val, err := m.query(query)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		r.Values[percentile.t] = audit_api.ResultValue{
-			Value: val,
+
+		results, err := parseVector(val)
+		if err != nil {
+			return err
 		}
+
+		if len(results) == 0 {
+			r.Values[percentile.t] = audit_api.ResultValue{
+				Value: 0.0,
+			}
+		} else {
+			r.Values[percentile.t] = audit_api.ResultValue{
+				Value: results[0].value,
+			}
+		}
+
+	}
+	return nil
+}
+
+func (m *MetricClient) getResourceRequestCountsByOperation(r *audit_api.Result) error {
+	query := fmt.Sprintf(resourceRequestCountsByOperation, int(m.cfg.GetDuration().Seconds()))
+
+	val, err := m.query(query)
+	if err != nil {
+		return err
+	}
+
+	results, err := parseVector(val)
+	if err != nil {
+		return err
+	}
+
+	type ops struct {
+		verbCounts map[string]float64
+	}
+
+	for _, result := range results {
+		if result.value < 1 {
+			continue
+		}
+		resource, ok := result.labels["resource"]
+		if !ok {
+			continue
+		}
+		verb, ok := result.labels["verb"]
+		if !ok {
+			continue
+		}
+
+		key := audit_api.ResultType(fmt.Sprintf(audit_api.ResultTypeResourceOperationCountFormat, verb, resource))
+
+		val, ok := r.Values[key]
+		if ok {
+			val.Value = val.Value + result.value
+			r.Values[key] = val
+		} else {
+			r.Values[key] = audit_api.ResultValue{
+				Value: result.value,
+			}
+		}
+	}
+
+	return nil
+}
+
+func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
+	r := &audit_api.Result{
+		Values: make(map[audit_api.ResultType]audit_api.ResultValue),
+	}
+
+	err := m.getCreationToRunningTimePercentiles(r)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.getResourceRequestCountsByOperation(r)
+	if err != nil {
+		return nil, err
 	}
 
 	return r, nil
@@ -200,7 +256,8 @@ func (m *MetricClient) calculateThresholds(r *audit_api.Result) error {
 	for key, v := range inputCfg.ThresholdExpectations {
 		result, ok := r.Values[key]
 		if !ok {
-			return fmt.Errorf("Unknown threshold type [%s]", key)
+			log.Printf("Encountered input threshold [%s] with no matching results. Double check threshold key is accurate. If accurate, then results are likely 0.", key)
+			continue
 		}
 
 		thresholdResult := audit_api.ThresholdResult{
