@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -513,6 +514,77 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 					return updatedVMI.Status.FSFreezeStatus == ""
 				}, time.Minute, 2*time.Second).Should(BeTrue())
 			})
+
+			It("should unfreeze vm if snapshot fails when deadline exceeded", func() {
+				dataVolume := tests.NewRandomDataVolumeWithHttpImportInStorageClass(
+					tests.GetUrl(tests.FedoraHttpUrl),
+					util.NamespaceTestDefault,
+					snapshotStorageClass,
+					corev1.ReadWriteOnce)
+				dataVolume.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("6Gi")
+				var vmi *v1.VirtualMachineInstance
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserData(
+					dataVolume,
+					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }\npackages:\n qemu-guest-agent",
+				))
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Eventually(func() error {
+					var batch []expect.Batcher
+					batch = append(batch, []expect.Batcher{
+						&expect.BSnd{S: "\n"},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: "sudo systemctl start qemu-guest-agent\n"},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("0")},
+						&expect.BSnd{S: "sudo systemctl enable qemu-guest-agent\n"},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("0")},
+					}...)
+
+					return console.SafeExpectBatch(vmi, batch, 120)
+				}, 720*time.Second, 1*time.Second).Should(Succeed())
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				createDenyVolumeSnapshotCreateWebhook()
+				snapshot = newSnapshot()
+				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: 40 * time.Second}
+
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return snapshot.Status != nil &&
+						snapshot.Status.Phase == snapshotv1.InProgress &&
+						updatedVMI.Status.FSFreezeStatus == "frozen"
+				}, 30*time.Second, 2*time.Second).Should(BeTrue())
+
+				contentName := fmt.Sprintf("%s-%s", "vmsnapshot-content", snapshot.UID)
+				Eventually(func() bool {
+					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					_, contentErr := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
+					return snapshot.Status != nil &&
+						len(snapshot.Status.Conditions) == 3 &&
+						snapshot.Status.Conditions[0].Status == corev1.ConditionFalse &&
+						strings.Contains(snapshot.Status.Conditions[0].Reason, "snapshot deadline exceeded") &&
+						snapshot.Status.Conditions[1].Status == corev1.ConditionFalse &&
+						strings.Contains(snapshot.Status.Conditions[1].Reason, "Not ready") &&
+						snapshot.Status.Conditions[2].Status == corev1.ConditionTrue &&
+						snapshot.Status.Conditions[2].Type == snapshotv1.ConditionFailure &&
+						strings.Contains(snapshot.Status.Conditions[2].Reason, "snapshot deadline exceeded") &&
+						snapshot.Status.Phase == snapshotv1.Failed &&
+						updatedVMI.Status.FSFreezeStatus == "" &&
+						errors.IsNotFound(contentErr)
+				}, time.Minute, 2*time.Second).Should(BeTrue())
+			})
 		})
 
 		Context("With more complicated VM", func() {
@@ -706,6 +778,99 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(snapshot.Status.Error).To(BeNil())
 				Expect(*snapshot.Status.ReadyToUse).To(BeTrue())
+			})
+
+			It("snapshot change phase to in progress and succeeded and then should not fail", func() {
+				createDenyVolumeSnapshotCreateWebhook()
+				snapshot = newSnapshot()
+				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: time.Minute}
+
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return snapshot.Status != nil &&
+						len(snapshot.Status.Conditions) == 2 &&
+						snapshot.Status.Conditions[0].Status == corev1.ConditionTrue &&
+						strings.Contains(snapshot.Status.Conditions[0].Reason, "Source locked and operation in progress") &&
+						snapshot.Status.Conditions[1].Status == corev1.ConditionFalse &&
+						strings.Contains(snapshot.Status.Conditions[1].Reason, "Not ready") &&
+						snapshot.Status.Phase == snapshotv1.InProgress
+				}, 30*time.Second, 2*time.Second).Should(BeTrue())
+
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*updatedVM.Status.SnapshotInProgress).To(Equal(snapshot.Name))
+
+				Expect(snapshot.Status.CreationTime).To(BeNil())
+
+				contentName := fmt.Sprintf("%s-%s", "vmsnapshot-content", snapshot.UID)
+				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(content.Status).To(BeNil())
+
+				deleteWebhook()
+
+				Eventually(func() bool {
+					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return snapshot.Status != nil &&
+						len(snapshot.Status.Conditions) == 2 &&
+						snapshot.Status.Conditions[0].Status == corev1.ConditionFalse &&
+						strings.Contains(snapshot.Status.Conditions[0].Reason, "Operation complete") &&
+						snapshot.Status.Conditions[1].Status == corev1.ConditionTrue &&
+						strings.Contains(snapshot.Status.Conditions[1].Reason, "Operation complete") &&
+						snapshot.Status.Phase == snapshotv1.Succeeded
+				}, 30*time.Second, 2*time.Second).Should(BeTrue())
+
+				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
+				content, err = virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
+				Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
+				Expect(content.Spec.VolumeBackups).Should(HaveLen(len(vm.Spec.DataVolumeTemplates)))
+
+				// Sleep to pass the time of the deadline
+				time.Sleep(time.Second)
+				// If snapshot succeeded it should not change to failure when deadline exceeded
+				Expect(snapshot.Status.Phase).To(Equal(snapshotv1.Succeeded))
+			})
+
+			It("snapshot should fail when deadline exceeded due to volume snapshots failure", func() {
+				createDenyVolumeSnapshotCreateWebhook()
+				snapshot = newSnapshot()
+				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: 40 * time.Second}
+
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				contentName := fmt.Sprintf("%s-%s", "vmsnapshot-content", snapshot.UID)
+				Eventually(func() bool {
+					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					_, contentErr := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
+					return snapshot.Status != nil &&
+						len(snapshot.Status.Conditions) == 3 &&
+						snapshot.Status.Conditions[0].Status == corev1.ConditionFalse &&
+						strings.Contains(snapshot.Status.Conditions[0].Reason, "snapshot deadline exceeded") &&
+						snapshot.Status.Conditions[1].Status == corev1.ConditionFalse &&
+						strings.Contains(snapshot.Status.Conditions[1].Reason, "Not ready") &&
+						snapshot.Status.Conditions[2].Status == corev1.ConditionTrue &&
+						snapshot.Status.Conditions[2].Type == snapshotv1.ConditionFailure &&
+						strings.Contains(snapshot.Status.Conditions[2].Reason, "snapshot deadline exceeded") &&
+						snapshot.Status.Phase == snapshotv1.Failed &&
+						errors.IsNotFound(contentErr)
+				}, time.Minute, 2*time.Second).Should(BeTrue())
+
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVM.Status.SnapshotInProgress).To(BeNil())
+				Expect(updatedVM.Finalizers).To(BeEmpty())
+
+				Expect(snapshot.Status.CreationTime).To(BeNil())
 			})
 		})
 	})

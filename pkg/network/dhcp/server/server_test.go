@@ -17,7 +17,7 @@
  *
  */
 
-package dhcp
+package server
 
 import (
 	"net"
@@ -30,7 +30,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
-var _ = Describe("DHCP", func() {
+var _ = Describe("DHCP Server", func() {
 
 	Context("check routes", func() {
 		It("verify should form correctly", func() {

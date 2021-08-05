@@ -5,7 +5,7 @@
 We aim to run e2e tests in parallel by default. As such the following rules should be followed:
  * Use cirros and alpine VMs for testing wherever possible. If you have to use
    use another OS, discuss on the PR why it is needed.
- * Stay within the boundary of the testnamespaces which we prove. If you have
+ * Stay within the boundary of the Testnamespaces which we prove. If you have
    to create resources outside of the test namespaces, discuss potential
    solutions on such a PR.
  * If you really have to run tests serial (destructive tests, infra-tests,

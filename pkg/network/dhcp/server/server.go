@@ -17,7 +17,7 @@
  *
  */
 
-package dhcp
+package server
 
 import (
 	"bytes"

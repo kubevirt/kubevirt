@@ -228,7 +228,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 
 	log.Log.Object(vmi).Infof("Connected to %s", unixSocketPath)
 
-	errCh := make(chan error)
+	errCh := make(chan error, 2)
 	go func() {
 		_, err := kubecli.CopyTo(clientSocket, fd)
 		log.Log.Object(vmi).Reason(err).Error("error encountered reading from unix socket")

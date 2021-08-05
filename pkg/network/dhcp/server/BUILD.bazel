@@ -3,11 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "dhcp.go",
-        "ethtool.go",
+        "server.go",
         "socket_listener.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp",
+    importpath = "kubevirt.io/kubevirt/pkg/network/dhcp/server",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
@@ -22,8 +21,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "dhcp_suite_test.go",
-        "dhcp_test.go",
+        "server_suite_test.go",
+        "server_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

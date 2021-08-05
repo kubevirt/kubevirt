@@ -20,7 +20,7 @@ go_library(
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/hooks:go_default_library",
-        "//pkg/network:go_default_library",
+        "//pkg/network/link:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/types:go_default_library",

@@ -35,7 +35,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/network"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -260,7 +260,7 @@ func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, id
 		causes = appendStatusCauseForSlirpNotEnabled(field, causes, idx)
 	} else if iface.Masquerade != nil && networkData.Pod == nil {
 		causes = appendStatusCauseForMasqueradeWithourPodNetwork(field, causes, idx)
-	} else if iface.Masquerade != nil && network.IsReserved(iface.MacAddress) {
+	} else if iface.Masquerade != nil && link.IsReserved(iface.MacAddress) {
 		causes = appendStatusCauseForInvalidMasqueradeMacAddress(field, causes, idx)
 	} else if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
 		causes = appendStatusCauseForBridgeNotEnabled(field, causes, idx)

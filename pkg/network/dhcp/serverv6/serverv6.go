@@ -17,7 +17,7 @@
  *
  */
 
-package dhcpv6
+package serverv6
 
 import (
 	"fmt"
