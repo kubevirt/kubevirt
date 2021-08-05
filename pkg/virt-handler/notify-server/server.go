@@ -20,6 +20,7 @@
 package eventsserver
 
 import (
+	gojson "encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,6 +81,10 @@ func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEv
 	case string(watch.Added):
 		n.EventChan <- watch.Event{Type: watch.Added, Object: domain}
 	case string(watch.Modified):
+		log.Log.Infof("DEBUG: virt-handler/notify-server: got domain modified event")
+		if bytes, err := gojson.MarshalIndent(&domain.Spec.Metadata.KubeVirt.Migration, "", "  "); err == nil {
+			log.Log.Info(string(bytes))
+		}
 		n.EventChan <- watch.Event{Type: watch.Modified, Object: domain}
 	case string(watch.Deleted):
 		n.EventChan <- watch.Event{Type: watch.Deleted, Object: domain}

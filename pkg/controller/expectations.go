@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -183,6 +185,7 @@ func panicWithKeyFuncMsg(err error) {
 
 // SetExpectations registers new expectations for the given controller. Forgets existing expectations.
 func (r *ControllerExpectations) SetExpectations(controllerKey string, add, del int) {
+	log.Log.Infof("DEBUG: SetExpectation been called for controller-key: %s add: %d del: %d", controllerKey, add, del)
 	exp := &ControlleeExpectations{add: int64(add), del: int64(del), key: controllerKey, timestamp: clock.RealClock{}.Now()}
 	glog.V(4).Infof("Setting expectations %#v", exp)
 	if err := r.Add(exp); err != nil {

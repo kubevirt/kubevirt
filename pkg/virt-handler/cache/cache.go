@@ -401,9 +401,14 @@ func (d *DomainWatcher) handleResync() {
 			continue
 		} else if !exists {
 			// nothing to sync if it doesn't exist
+			log.Log.Infof("DEBUG: domain is not exists %s", socket)
 			continue
 		}
 
+		log.Log.Infof("DEBUG: sent modified event to event channel: obj %s", domain.ObjectMeta.Name)
+		if migrationMetadatabytes, err := json.MarshalIndent(domain.Spec.Metadata.KubeVirt.Migration, "", "  "); err == nil {
+			log.Log.Info(string(migrationMetadatabytes))
+		}
 		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
 	}
 }

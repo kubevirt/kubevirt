@@ -266,10 +266,24 @@ func (c *VMIController) execute(key string) error {
 		vmi := vmi.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(vmi)
 		key := controller.VirtualMachineInstanceKey(vmi)
+		log.Log.Info("DEBUG: updateStatus: before SetExpectations: current exp")
+		currentExpectations, _, _ := c.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
+		log.Log.Info("DEBUG: updateStatus: aster SetExpectations: current exp")
+		currentExpectations, _, _ = c.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
 		if err != nil {
+			log.Log.Infof("DEBUG: execute: failed to update VMI: %v", err)
+			log.Log.Infof("DEBUG: execute: lower controller expectations by 1")
+			log.Log.Infof("DEBUG: execute: current expectations:")
+			currentExpectations, _, _ := c.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			c.vmiExpectations.LowerExpectations(key, 1, 0)
+			log.Log.Infof("DEBUG: execute: After lowering expectations:")
+			currentExpectations, _, _ = c.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			return err
 		}
 		return nil
@@ -279,8 +293,10 @@ func (c *VMIController) execute(key string) error {
 	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.vmiExpectations.SatisfiedExpectations(key)
 
 	if !needsSync {
+		log.Log.Infof("DEBUG: execute: pod&vmi exp. are satisfied no sync needed")
 		return nil
 	}
+	log.Log.Infof("DEBUG: execute: sync. pod&vmi exp. are NOT satisfied")
 
 	// Only consider pods which belong to this vmi
 	// excluding unfinalized migration targets from this list.
@@ -581,11 +597,33 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	// If we detect a change on the vmi we update the vmi
 	vmiChanged := !reflect.DeepEqual(vmi.Status, vmiCopy.Status) || !reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels)
 	if vmiChanged {
+		log.Log.Info("DEBUG: updateStatus: old VMI status")
+		if oldStatusbytes, err := json.MarshalIndent(vmi.Status, "", "  "); err == nil {
+			log.Log.Info(string(oldStatusbytes))
+		}
+		log.Log.Info("DEBUG: updateStatus: new VMI status")
+		if statusbytes, err := json.MarshalIndent(vmiCopy.Status, "", "  "); err == nil {
+			log.Log.Info(string(statusbytes))
+		}
 		key := controller.VirtualMachineInstanceKey(vmi)
+		log.Log.Info("DEBUG: updateStatus: before SetExpectations: current exp")
+		currentExpectations, _, _ := c.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
+		log.Log.Info("DEBUG: updateStatus: aster SetExpectations: current exp")
+		currentExpectations, _, _ = c.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
 		if err != nil {
+			log.Log.Infof("DEBUG: updateStatus: failed to update VMI: %v", err)
+			log.Log.Infof("DEBUG: updateStatus: lower controller expectations by 1")
+			log.Log.Infof("DEBUG: updateStatus: current expectations:")
+			currentExpectations, _, _ := c.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			c.vmiExpectations.LowerExpectations(key, 1, 0)
+			log.Log.Infof("DEBUG: updateStatus: After lowering expectations:")
+			currentExpectations, _, _ = c.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			return err
 		}
 	}

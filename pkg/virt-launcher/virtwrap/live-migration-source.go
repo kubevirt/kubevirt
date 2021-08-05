@@ -21,6 +21,7 @@ package virtwrap
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -366,6 +367,10 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 		// nothing to report if migration metadata is empty
 		return nil
 	}
+
+	migrationMetadatabytes, _ := json.MarshalIndent(domainSpec.Metadata.KubeVirt.Migration, "", "  ")
+	log.Log.Info("DEBUG: migrationSource/setMigrationResultHelper: migration metadata right after getDomainFromCache:")
+	log.Log.Info(string(migrationMetadatabytes))
 
 	now := metav1.Now()
 	if abortStatus != "" {

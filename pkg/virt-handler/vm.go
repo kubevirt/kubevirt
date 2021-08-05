@@ -21,6 +21,7 @@ package virthandler
 
 import (
 	"context"
+	"encoding/json"
 	goerror "errors"
 	"fmt"
 	"io"
@@ -674,11 +675,40 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 	}
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
+		log.Log.Info("DEBUG: sourceUpdateVMIStatus: old VMI status:")
+		//if oldStatusbytes, err := json.MarshalIndent(oldStatus, "", "  "); err == nil {
+		//	log.Log.Info(string(oldStatusbytes))
+		//}
+		if oldStatusbytes, err := json.MarshalIndent(oldStatus.MigrationState, "", "  "); err == nil {
+			log.Log.Info(string(oldStatusbytes))
+		}
+		log.Log.Info("DEBUG: sourceUpdateVMIStatus: new VMI status:")
+		//if vmiStatusbytes, err := json.MarshalIndent(vmi.Status, "", "  "); err == nil {
+		//	log.Log.Info(string(vmiStatusbytes))
+		//}
+		if vmiStatusbytes, err := json.MarshalIndent(vmi.Status.MigrationState, "", "  "); err == nil {
+			log.Log.Info(string(vmiStatusbytes))
+		}
 		key := controller.VirtualMachineInstanceKey(vmi)
+		log.Log.Info("DEBUG: sourceUpdateVMIStatus call SetExpectation")
+		log.Log.Infof("DEBUG: %sUpdateVMIStatus: before vmi update, before setExp: current expectations", "target")
+		currentExpectations, _, _ := d.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
+		log.Log.Infof("DEBUG: %sUpdateVMIStatus: before vmi update, after setExp: current expectations", "target")
+		currentExpectations, _, _ = d.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
 		if err != nil {
+			log.Log.Infof("DEBUG: sourceUpdateVMIStatus: failed to update VMI: %v", err)
+			log.Log.Infof("DEBUG: sourceUpdateVMIStatus: lower controller expectations by 1")
+			log.Log.Infof("DEBUG: sourceUpdateVMIStatus: current expectations:")
+			currentExpectations, _, _ := d.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			d.vmiExpectations.LowerExpectations(key, 1, 0)
+			log.Log.Infof("DEBUG: sourceUpdateVMIStatus: After lowering expectations:")
+			currentExpectations, _, _ = d.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			return err
 		}
 	}
@@ -731,11 +761,40 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 
 	// update the VMI if necessary
 	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
+		log.Log.Info("DEBUG: targetUpdateVMIStatus: old VMI status:")
+		//if oldStatusbytes, err := json.MarshalIndent(vmi.Status, "", "  "); err == nil {
+		//	log.Log.Info(string(oldStatusbytes))
+		//}
+		if oldStatusbytes, err := json.MarshalIndent(vmi.Status.MigrationState, "", "  "); err == nil {
+			log.Log.Info(string(oldStatusbytes))
+		}
+		log.Log.Info("DEBUG: targetUpdateVMIStatus: new VMI status:")
+		//if vmiStatusbytes, err := json.MarshalIndent(vmiCopy.Status, "", "  "); err == nil {
+		//	log.Log.Info(string(vmiStatusbytes))
+		//}
+		if vmiStatusbytes, err := json.MarshalIndent(vmiCopy.Status.MigrationState, "", "  "); err == nil {
+			log.Log.Info(string(vmiStatusbytes))
+		}
 		key := controller.VirtualMachineInstanceKey(vmi)
+		log.Log.Info("DEBUG: sourceTargetVMIStatus call SetExpectation")
+		log.Log.Infof("DEBUG: %sUpdateVMIStatus: before vmi update, before setExp: current expectations", "target")
+		currentExpectations, _, _ := d.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
+		log.Log.Infof("DEBUG: %sUpdateVMIStatus: before vmi update, after setExp: current expectations", "target")
+		currentExpectations, _, _ = d.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
 		if err != nil {
+			log.Log.Infof("DEBUG: targetUpdateVMIStatus: failed to update VMI: %v", err)
+			log.Log.Infof("DEBUG: targetUpdateVMIStatus: lower controller expectations by 1")
+			log.Log.Infof("DEBUG: targetUpdateVMIStatus: current expectations:")
+			currentExpectations, _, _ := d.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			d.vmiExpectations.LowerExpectations(key, 1, 0)
+			log.Log.Infof("DEBUG: targetUpdateVMIStatus: After lowering expectations:")
+			currentExpectations, _, _ = d.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			return err
 		}
 	}
@@ -1155,11 +1214,40 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	controller.SetVMIPhaseTransitionTimestamp(origVMI, vmi)
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
+		log.Log.Info("DEBUG: UpdateVMIStatus: old VMI status")
+		//if bytes, err := json.MarshalIndent(oldStatus, "", "  "); err == nil {
+		//	log.Log.Info(string(bytes))
+		//}
+		if bytes, err := json.MarshalIndent(oldStatus.MigrationState, "", "  "); err == nil {
+			log.Log.Info(string(bytes))
+		}
+		log.Log.Info("DEBUG: UpdateVMIStatus: new VMI status")
+		//if bytes, err := json.MarshalIndent(vmi.Status, "", "  "); err == nil {
+		//	log.Log.Info(string(bytes))
+		//}
+		if bytes, err := json.MarshalIndent(vmi.Status.MigrationState, "", "  "); err == nil {
+			log.Log.Info(string(bytes))
+		}
 		key := controller.VirtualMachineInstanceKey(vmi)
+		log.Log.Info("DEBUG: updateVMIStatus call SetExpectation")
+		log.Log.Infof("DEBUG: %sUpdateVMIStatus: before vmi update, before setExp: current expectations", "target")
+		currentExpectations, _, _ := d.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
+		log.Log.Infof("DEBUG: %sUpdateVMIStatus: before vmi update, after setExp: current expectations", "target")
+		currentExpectations, _, _ = d.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
 		if err != nil {
+			log.Log.Infof("DEBUG: UpdateVMIStatus: failed to update VMI: %v", err)
+			log.Log.Infof("DEBUG: UpdateVMIStatus: lower controller expectations by 1")
+			log.Log.Infof("DEBUG: UpdateVMIStatus: current expectations:")
+			currentExpectations, _, _ := d.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			d.vmiExpectations.LowerExpectations(key, 1, 0)
+			log.Log.Infof("DEBUG: UpdateVMIStatus: After lowering expectations:")
+			currentExpectations, _, _ = d.vmiExpectations.GetExpectations(key)
+			log.Log.Infof("DEBUG: %+v", currentExpectations)
 			return err
 		}
 	}
@@ -1713,22 +1801,48 @@ func (d *VirtualMachineController) defaultExecute(key string,
 }
 
 func (d *VirtualMachineController) execute(key string) error {
+	log.Log.Info("DEBUG: execute: before get vmi from cache")
 	vmi, vmiExists, err := d.getVMIFromCache(key)
 	if err != nil {
 		return err
 	}
 
+	log.Log.Info("DEBUG: execute: check vmi exists")
 	if !vmiExists {
+		log.Log.Info("DEBUG: execute: vmi not exists, delete expectation")
+		log.Log.Infof("DEBUG: execute: before deleteExpectations: current expectations")
+		currentExpectations, _, _ := d.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 		d.vmiExpectations.DeleteExpectations(key)
+		log.Log.Infof("DEBUG: execute: after deleteExpectations: current expectations")
+		currentExpectations, _, _ = d.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
 	} else if !d.vmiExpectations.SatisfiedExpectations(key) {
+		log.Log.Infof("DEBUG: execute: satisfiedExpectations == false: current expectations")
+		currentExpectations, _, _ := d.vmiExpectations.GetExpectations(key)
+		log.Log.Infof("DEBUG: %+v", currentExpectations)
+		log.Log.Info("DEBUG: execute: vmi exists, expectation satisfied return nil")
 		return nil
 	}
+	log.Log.Infof("DEBUG: execute: current expectations")
+	currentExpectations, _, _ := d.vmiExpectations.GetExpectations(key)
+	log.Log.Infof("DEBUG: %+v", currentExpectations)
 
+	log.Log.Info("DEBUG: execute: get domain from cache")
 	domain, domainExists, domainCachedUID, err := d.getDomainFromCache(key)
 	if err != nil {
 		return err
 	}
 
+	log.Log.Info("DEBUG: check doamin not nil")
+	if domain != nil {
+		log.Log.Info("DEBUG: execute")
+		if migrationMetadatabytes, err := json.MarshalIndent(&domain.Spec.Metadata.KubeVirt.Migration, "", "  "); err == nil {
+			log.Log.Info(string(migrationMetadatabytes))
+		}
+	}
+
+	log.Log.Info("DEBUG: execute: use chached domain UID")
 	if !vmiExists && string(domainCachedUID) != "" {
 		// it's possible to discover the UID from cache even if the domain
 		// doesn't technically exist anymore
@@ -1736,6 +1850,7 @@ func (d *VirtualMachineController) execute(key string) error {
 		log.Log.Object(vmi).Infof("Using cached UID for vmi found in domain cache")
 	}
 
+	log.Log.Info("DEBUG: execute: get domain uid from ghost record")
 	// As a last effort, if the UID still can't be determined attempt
 	// to retrieve it from the ghost record
 	if string(vmi.UID) == "" {
@@ -1753,6 +1868,7 @@ func (d *VirtualMachineController) execute(key string) error {
 		}
 	}
 
+	log.Log.Info("DEBUG: execute: check when vmi&domain exists but domain uid != vmi uid")
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
@@ -1780,7 +1896,6 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	// Take different execution paths depending on the state of the migration and the
 	// node this is executed on.
-
 	if vmiExists && d.isPreMigrationTarget(vmi) {
 		// 1. PRE-MIGRATION TARGET PREPARATION PATH
 		//
@@ -1788,6 +1903,7 @@ func (d *VirtualMachineController) execute(key string) error {
 		// a different execute path. The target execute path prepares
 		// the local environment for the migration, but does not
 		// start the VMI
+		log.Log.Info("DEBUG: execute: call migrationTargetExecute")
 		return d.migrationTargetExecute(vmi, vmiExists, domainExists)
 	} else if vmiExists && d.isOrphanedMigrationSource(vmi) {
 		// 3. POST-MIGRATION SOURCE CLEANUP
@@ -1795,8 +1911,10 @@ func (d *VirtualMachineController) execute(key string) error {
 		// After a migration, the migrated domain still exists in the old
 		// source's domain cache. Ensure that any node that isn't currently
 		// the target or owner of the VMI handles deleting the domain locally.
+		log.Log.Info("DEBUG: execute: call migrationOrphanedSourceNodeExecute")
 		return d.migrationOrphanedSourceNodeExecute(vmi, domainExists)
 	}
+	log.Log.Info("DEBUG: execute: call defaultExecute")
 	return d.defaultExecute(key,
 		vmi,
 		vmiExists,
@@ -2266,6 +2384,7 @@ func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMac
 func (d *VirtualMachineController) handlePostMigrationProxyCleanup(vmi *v1.VirtualMachineInstance) error {
 
 	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.Completed || vmi.Status.MigrationState.Failed {
+		log.Log.Info("DEBUG: cleaning up migration proxy")
 		d.migrationProxy.StopTargetListener(string(vmi.UID))
 		d.migrationProxy.StopSourceListener(string(vmi.UID))
 	}
@@ -2326,7 +2445,9 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 	}
 
 	if vmi.Status.MigrationState.AbortRequested {
+		log.Log.Info("DEBUG: vmUpdateHelperMigrationSource: abort requested")
 		if vmi.Status.MigrationState.AbortStatus != v1.MigrationAbortInProgress {
+			log.Log.Info("DEBUG: vmUpdateHelperMigrationSource: first time abort requested")
 			err = client.CancelVirtualMachineMigration(vmi)
 			if err != nil {
 				return err
@@ -2344,7 +2465,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
 			AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
 		}
-
+		log.Log.Info("DEBUG: vmUpdateHelperMigrationSource: migrate vm")
 		err = client.MigrateVirtualMachine(vmi, options)
 		if err != nil {
 			return err
@@ -2539,6 +2660,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities)
 
+	log.Log.Info("DEBUG: vmUpdateHelperDefault: sync vm")
 	err = client.SyncVirtualMachine(vmi, options)
 	if err != nil {
 		isSecbootError := strings.Contains(err.Error(), "EFI OVMF rom missing")
@@ -2573,10 +2695,13 @@ func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 	d.handlePostMigrationProxyCleanup(vmi)
 
 	if d.isPreMigrationTarget(vmi) {
+		log.Log.Info("DEBUG: processVMUpdate: migration target")
 		return d.vmUpdateHelperMigrationTarget(vmi)
 	} else if d.isMigrationSource(vmi) {
+		log.Log.Info("DEBUG: processVMUpdate: migration source")
 		return d.vmUpdateHelperMigrationSource(vmi)
 	} else {
+		log.Log.Info("DEBUG: processVMUpdate: regular")
 		return d.vmUpdateHelperDefault(vmi)
 	}
 }
