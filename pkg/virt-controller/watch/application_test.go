@@ -123,6 +123,7 @@ var _ = Describe("Application", func() {
 			migrationInformer,
 			nodeInformer,
 			pvcInformer,
+			pdbInformer,
 			recorder,
 			virtClient,
 			config,
