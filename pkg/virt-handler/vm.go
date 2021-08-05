@@ -283,24 +283,29 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, v
 
 	fdChan := make(chan net.Conn, 100)
 
-	// Listen for new connections,
 	// Close listener and exit when stop encountered
+	go func() {
+		<-domainPipeStopChan
+		log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
+		if err := ln.Close(); err != nil {
+			log.Log.Object(vmi).Infof("failed closing notify pipe listener for vmi: %v", err)
+		}
+	}()
+
+	// Listen for new connections,
 	go func(vmi *v1.VirtualMachineInstance, ln net.Listener, domainPipeStopChan chan struct{}) {
 		for {
-			select {
-			case <-domainPipeStopChan:
-				log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
-				ln.Close()
-				return
-			default:
-				fd, err := ln.Accept()
-				if err != nil {
-					log.Log.Reason(err).Error("Domain pipe accept error encountered.")
-					// keep listening until stop invoked
-					time.Sleep(1)
-				} else {
-					fdChan <- fd
+			fd, err := ln.Accept()
+			if err != nil {
+				if goerror.Is(err, net.ErrClosed) {
+					// As Accept blocks, closing it is our mechanism to exit this loop
+					return
 				}
+				log.Log.Reason(err).Error("Domain pipe accept error encountered.")
+				// keep listening until stop invoked
+				time.Sleep(1 * time.Second)
+			} else {
+				fdChan <- fd
 			}
 		}
 	}(vmi, ln, domainPipeStopChan)
