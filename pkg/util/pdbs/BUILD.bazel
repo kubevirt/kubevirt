@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["pdbs.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/util/pdbs",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/k8s.io/api/policy/v1beta1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+    ],
+)
