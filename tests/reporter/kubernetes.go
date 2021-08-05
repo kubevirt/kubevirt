@@ -87,10 +87,18 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	if r.artifactsDir == "" {
 		return
 	}
-	r.Dump(specSummary.RunTime, false)
+	r.DumpTestNamespaces(specSummary.RunTime)
 }
 
-func (r *KubernetesReporter) Dump(duration time.Duration, isExternal bool) {
+func (r *KubernetesReporter) DumpTestNamespaces(duration time.Duration) {
+	r.dumpNamespaces(duration, tests.TestNamespaces)
+}
+
+func (r *KubernetesReporter) DumpAllNamespaces(duration time.Duration) {
+	r.dumpNamespaces(duration, []string{v1.NamespaceAll})
+}
+
+func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespaces []string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to get client: %v\n", err)
@@ -146,7 +154,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration, isExternal bool) {
 	r.logNodeCommands(virtCli, virtHandlerPods)
 	r.logVirtLauncherCommands(virtCli, networkPodsDir)
 	r.logVirtLauncherPrivilegedCommands(virtCli, networkPodsDir, virtHandlerPods)
-	r.logVMICommands(virtCli, isExternal)
+	r.logVMICommands(virtCli, vmiNamespaces)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -364,17 +372,12 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 	}
 }
 
-func (r *KubernetesReporter) logVMICommands(virtCli kubecli.KubevirtClient, isExternal bool) {
+func (r *KubernetesReporter) logVMICommands(virtCli kubecli.KubevirtClient, vmiNamespaces []string) {
 
 	logsdir := filepath.Join(r.artifactsDir, "network", "vmis")
 	if err := os.MkdirAll(logsdir, 0777); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create directory: %v\n", err)
 		return
-	}
-
-	vmiNamespaces := tests.TestNamespaces
-	if isExternal {
-		vmiNamespaces = []string{v1.NamespaceAll}
 	}
 
 	for _, ns := range vmiNamespaces {
@@ -1034,7 +1037,7 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) {
 	if setupSummary.State.IsFailure() {
 		r.failureCount++
-		r.Dump(setupSummary.RunTime, false)
+		r.DumpTestNamespaces(setupSummary.RunTime)
 	}
 }
 
