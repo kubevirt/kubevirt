@@ -126,6 +126,8 @@ type VirtControllerApp struct {
 
 	clusterConfig *virtconfig.ClusterConfig
 
+	pdbInformer cache.SharedIndexInformer
+
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
 
@@ -271,7 +273,7 @@ func Execute() {
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
 
-	app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
+	app.pdbInformer = app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
@@ -449,7 +451,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.persistentVolumeClaimInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.migrationInformer, vca.pdbInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -473,7 +475,7 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
 	vca.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(
 		vca.vmiInformer,
-		vca.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer(),
+		vca.pdbInformer,
 		vca.allPodInformer,
 		vca.migrationInformer,
 		recorder,

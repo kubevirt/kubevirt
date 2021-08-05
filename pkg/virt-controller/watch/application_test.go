@@ -110,6 +110,7 @@ var _ = Describe("Application", func() {
 			vmiInformer,
 			podInformer,
 			migrationInformer,
+			pdbInformer,
 			recorder,
 			virtClient,
 			config,

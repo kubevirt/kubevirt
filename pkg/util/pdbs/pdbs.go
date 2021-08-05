@@ -1,6 +1,8 @@
 package pdbs
 
 import (
+	"strings"
+
 	"k8s.io/api/policy/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -23,4 +25,10 @@ func PDBsForVMI(vmi *virtv1.VirtualMachineInstance, pdbInformer cache.SharedInde
 		}
 	}
 	return pdbs, nil
+}
+
+func IsPDBFromOldMigrationController(pdb *v1beta1.PodDisruptionBudget) bool {
+	// The pdb might be from an old migration-controller that used to create 2-pdbs per migration
+	_, isOld := pdb.ObjectMeta.Labels[virtv1.MigrationNameLabel]
+	return isOld && strings.HasPrefix(pdb.Name, "kubevirt-migration-pdb-")
 }
