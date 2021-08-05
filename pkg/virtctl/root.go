@@ -10,6 +10,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
@@ -66,6 +67,7 @@ func NewVirtctlCommand() *cobra.Command {
 	AddGlogFlags(rootCmd.PersistentFlags())
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.AddCommand(
+		configuration.NewListPermittedDevices(clientConfig),
 		console.NewCommand(clientConfig),
 		vnc.NewCommand(clientConfig),
 		vm.NewStartCommand(clientConfig),
