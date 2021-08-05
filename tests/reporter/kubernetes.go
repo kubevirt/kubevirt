@@ -90,8 +90,6 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	r.Dump(specSummary.RunTime, false)
 }
 
-// Dump dumps the current state of the cluster. The relevant logs are collected starting
-// from the since parameter.
 func (r *KubernetesReporter) Dump(duration time.Duration, isExternal bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
