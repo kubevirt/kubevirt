@@ -149,7 +149,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return newVM
 		}
 
-		It("[QUARANTINE][test_id:3312]should set the default MachineType when created without explicit value", func() {
+		It("[test_id:3312]should set the default MachineType when created without explicit value", func() {
 			By("Creating VirtualMachine")
 			template, _ := newVirtualMachineInstanceWithContainerDisk()
 			template.Spec.Domain.Machine = nil
