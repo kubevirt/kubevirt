@@ -73,7 +73,7 @@ dockerized environment, clone the KubeVirt repository, `cd` into it, and:
 
 ```bash
 # Build and deploy KubeVirt on Kubernetes in our vms inside containers
-export KUBEVIRT_PROVIDER=k8s-1.18 # this is also the default if no KUBEVIRT_PROVIDER is set
+# export KUBEVIRT_PROVIDER=k8s-1.20 #  uncomment to use a non-default KUBEVIRT_PROVIDER
 make cluster-up
 make cluster-sync
 ```
