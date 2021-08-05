@@ -1066,6 +1066,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		}
 	}
 
+	err = validatePermittedHostDevices(&vmi.Spec, t.clusterConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	if util.IsGPUVMI(vmi) {
 		for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
 			requestResource(&resources, gpu.DeviceName)
@@ -1427,6 +1432,37 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	}
 
 	return &pod, nil
+}
+
+func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) error {
+	errors := make([]string, 0)
+
+	if hostDevs := config.GetPermittedHostDevices(); hostDevs != nil {
+		// build a map of all permitted host devices
+		supportedHostDevicesMap := make(map[string]bool)
+		for _, dev := range hostDevs.PciHostDevices {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		for _, dev := range hostDevs.MediatedDevices {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		for _, hostDev := range spec.Domain.Devices.GPUs {
+			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+				errors = append(errors, fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+			}
+		}
+		for _, hostDev := range spec.Domain.Devices.HostDevices {
+			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+				errors = append(errors, fmt.Sprintf("HostDevice %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+			}
+		}
+	}
+
+	if len(errors) != 0 {
+		return fmt.Errorf(strings.Join(errors, " "))
+	}
+
+	return nil
 }
 
 func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error) {
