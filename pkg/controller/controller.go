@@ -190,10 +190,13 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 			}
 
 			if request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim != nil {
-				newVolume.VolumeSource.PersistentVolumeClaim = request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim
+				pvcSource := request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim.DeepCopy()
+				pvcSource.Hotpluggable = true
+				newVolume.VolumeSource.PersistentVolumeClaim = pvcSource
 			} else if request.AddVolumeOptions.VolumeSource.DataVolume != nil {
-
-				newVolume.VolumeSource.DataVolume = request.AddVolumeOptions.VolumeSource.DataVolume
+				dvSource := request.AddVolumeOptions.VolumeSource.DataVolume.DeepCopy()
+				dvSource.Hotpluggable = true
+				newVolume.VolumeSource.DataVolume = dvSource
 			}
 
 			vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)

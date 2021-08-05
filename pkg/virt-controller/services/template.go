@@ -522,7 +522,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: volume.PersistentVolumeClaim,
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: volume.PersistentVolumeClaim.ClaimName,
+						ReadOnly:  volume.PersistentVolumeClaim.ReadOnly,
+					},
 				},
 			})
 		}
