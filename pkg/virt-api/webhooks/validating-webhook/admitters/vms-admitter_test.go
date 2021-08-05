@@ -206,9 +206,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "madeup",
-						},
+						}},
 					},
 				},
 			},
@@ -239,9 +239,9 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testpvcdisk",
 			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "testpvcdiskclaim",
-				},
+				}},
 			},
 		})
 
@@ -251,9 +251,9 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "a-pvcdisk",
 			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "a-pvcdiskclaim",
-				},
+				}},
 			},
 		})
 
@@ -263,9 +263,9 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "t-pvcdisk",
 			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "t-pvcdiskclaim",
-				},
+				}},
 			},
 		})
 
@@ -291,8 +291,9 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testpvcdisk-extra",
 			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "testpvcdiskclaim-extra",
+				},
 				},
 			},
 		})
@@ -323,8 +324,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "madeup",
+						},
 						},
 					},
 				},
@@ -344,9 +346,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "NOT-IDENTICAL-TO-WHAT-IS-IN-VMI",
-						},
+						}},
 					},
 				},
 			},
@@ -365,9 +367,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "a-pvcdiskclaim",
-						},
+						}},
 					},
 				},
 			},
@@ -383,9 +385,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testpvcdiskclaim-extra1",
-						},
+						}},
 					},
 				},
 			},
@@ -401,9 +403,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testpvcdiskclaim-extra",
-						},
+						}},
 					},
 				},
 			},
@@ -419,9 +421,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testpvcdiskclaim-extra2",
-						},
+						}},
 					},
 				},
 			},
@@ -437,9 +439,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "t-pvcdiskclaim",
-						},
+						}},
 					},
 				},
 			},
@@ -464,9 +466,9 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testpvcdisk",
 			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "testpvcdiskclaim",
-				},
+				}},
 			},
 		})
 
@@ -508,9 +510,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "madeup",
-						},
+						}},
 					},
 				},
 			},
@@ -530,9 +532,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "madeup",
-						},
+						}},
 					},
 				},
 			},
@@ -548,9 +550,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "madeup",
-						},
+						}},
 					},
 				},
 			},
@@ -569,9 +571,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "madeup",
-						},
+						}},
 					},
 				},
 			},
@@ -591,9 +593,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testpvcdiskclaim",
-						},
+						}},
 					},
 				},
 			},
@@ -637,9 +639,9 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "madeup",
-						},
+						}},
 					},
 				},
 				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
@@ -771,7 +773,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 				Expect(len(causes)).To(Equal(0))
 			},
-			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
+			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{}}),
 			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake", NetworkData: "fake"}}),
 			table.Entry("with containerDisk volume source", v1.VolumeSource{ContainerDisk: testutils.NewFakeContainerDiskSource()}),
 			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
@@ -828,7 +830,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
 					ContainerDisk:         testutils.NewFakeContainerDiskSource(),
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
 				},
 			})
 

@@ -1982,7 +1982,7 @@ var _ = Describe("Template", func() {
 					{
 						Name: volumeName,
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
 						},
 					},
 				}
@@ -2033,7 +2033,7 @@ var _ = Describe("Template", func() {
 					{
 						Name: volumeName,
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
 						},
 					},
 				}
@@ -2075,7 +2075,7 @@ var _ = Describe("Template", func() {
 					{
 						Name: volumeName,
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
 						},
 					},
 				}

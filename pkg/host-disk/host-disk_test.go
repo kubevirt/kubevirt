@@ -408,9 +408,8 @@ var _ = Describe("HostDisk", func() {
 				{
 					Name: volumeName,
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
-					},
-				},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
+					}},
 			}
 
 			volumeStatus := []v1.VolumeStatus{

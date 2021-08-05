@@ -951,7 +951,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				&v1.Volume{
 					Name: "testdisk",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
 					},
 				}, 0),
 		)

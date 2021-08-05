@@ -2262,9 +2262,9 @@ func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus string, claimNa
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
-			},
+			}},
 		},
 	})
 
@@ -2334,9 +2334,9 @@ func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
-			},
+			}},
 		},
 	})
 
@@ -2602,9 +2602,9 @@ func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: "disk0",
 		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
-			},
+			}},
 		},
 	})
 	return vmi

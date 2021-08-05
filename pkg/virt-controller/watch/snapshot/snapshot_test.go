@@ -1238,9 +1238,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "disk2",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "test-pvc",
-						},
+						}},
 					},
 				})
 
@@ -1271,9 +1271,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "disk2",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "test-pvc",
-						},
+						}},
 					},
 				})
 
@@ -1335,9 +1335,9 @@ var _ = Describe("Snapshot controlleer", func() {
 					{
 						Name: "disk1",
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "test-pvc-unsnapshottable-storage-class",
-							},
+							}},
 						},
 					},
 					{
@@ -1379,17 +1379,17 @@ var _ = Describe("Snapshot controlleer", func() {
 					{
 						Name: "disk6",
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "non-existent-pvc",
-							},
+							}},
 						},
 					},
 					{
 						Name: "disk7",
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "pvc-without-storage-class",
-							},
+							}},
 						},
 					},
 					{
@@ -1643,9 +1643,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "disk2",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "test-pvc",
-						},
+						}},
 					},
 				})
 

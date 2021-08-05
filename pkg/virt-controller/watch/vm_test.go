@@ -235,9 +235,9 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "vol1",
 				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "testpvcdiskclaim",
-					},
+					}},
 				},
 			})
 
@@ -286,9 +286,9 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "vol1",
 				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "testpvcdiskclaim",
-					},
+					}},
 				},
 			})
 
@@ -1730,9 +1730,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "test1",
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "pvc1",
-							},
+							}},
 						},
 					})
 

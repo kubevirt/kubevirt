@@ -341,8 +341,10 @@ var _ = Describe("Schema", func() {
 			{
 				Name: "floppy0",
 				VolumeSource: VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "testclaim",
+					PersistentVolumeClaim: &PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
+						},
 					},
 				},
 			},

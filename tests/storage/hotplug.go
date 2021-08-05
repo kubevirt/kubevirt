@@ -123,9 +123,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	addPVCVolumeVMI := func(name, namespace, volumeName, claimName, bus string) {
 		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &kubevirtv1.HotplugVolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+			PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
-			},
+			}},
 		}))
 	}
 
@@ -145,9 +145,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	addPVCVolumeVM := func(name, namespace, volumeName, claimName, bus string) {
 		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &kubevirtv1.HotplugVolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+			PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
-			},
+			}},
 		}))
 	}
 

@@ -498,9 +498,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	Context("On valid VirtualMachineInstance given with PVC source, ownedRef of DataVolume", func() {
 
 		pvcVolumeSource := v1.VolumeSource{
-			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: "test1",
-			},
+			}},
 		}
 		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -905,8 +905,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				{
 					Name: "test",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "something",
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "something",
+							},
 						},
 					},
 				},
@@ -1722,8 +1724,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			nopvcVolume := &v1.Volume{
 				Name: "nopvc",
 				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "noclaim",
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "noclaim",
+						},
 					},
 				},
 			}
@@ -1750,8 +1754,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					DataVolume: &v1.DataVolumeSource{
 						Name: "test-dv",
 					},
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-dv",
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-dv",
+						},
 					},
 				},
 			}
@@ -1783,8 +1789,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					DataVolume: &v1.DataVolumeSource{
 						Name: "test-dv",
 					},
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-dv",
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-dv",
+						},
 					},
 				},
 			}
@@ -1823,8 +1831,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					DataVolume: &v1.DataVolumeSource{
 						Name: "test-dv",
 					},
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-dv",
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-dv",
+						},
 					},
 				},
 			}
@@ -1856,8 +1866,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					DataVolume: &v1.DataVolumeSource{
 						Name: "test-dv",
 					},
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-dv",
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-dv",
+						},
 					},
 				},
 			}
@@ -1920,8 +1932,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				res = append(res, &v1.Volume{
 					Name: fmt.Sprintf("volume%d", index),
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: fmt.Sprintf("claim%d", index),
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: fmt.Sprintf("claim%d", index),
+							},
 						},
 					},
 				})
@@ -2258,16 +2272,20 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			volumes = append(volumes, v1.Volume{
 				Name: "existing",
 				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "existing",
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "existing",
+						},
 					},
 				},
 			})
 			volumes = append(volumes, v1.Volume{
 				Name: "hotplug",
 				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "hotplug",
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "hotplug",
+						},
 					},
 				},
 			})
@@ -2348,9 +2366,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			volumes = append(volumes, v1.Volume{
 				Name: "existing",
 				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "existing",
-					},
+					}},
 				},
 			})
 			vmi.Spec.Volumes = volumes
