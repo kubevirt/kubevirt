@@ -8,6 +8,12 @@ The addition of NetworkVolume in combination with disk-service, fulfills the fol
 * As a VM owner, I want to eject/insert the CD-ROM device so that I can switch from one ISO image to another.
 * As a CNV administrator, I want to easily package ISO images and make them available in the cluster so that users can access them easily.
 
+## Example Use Case
+When installing Windows onto a Virtual Machine, a user with need to swap to a virtio iso image to provide the Windows installer with proper drivers. This usually requires the user to shut the VM down. With this addition, a user will simply have to modify the URI allowing for the VM to access the virtio image. This reduces downtime and increases the efficiency and simplicity of the installation process.
+
+## Note
+Currently, certain parts of validation are disabled to allow for the modification of the VMI. 
+
 # Original README Below This Line
 
 # KubeVirt
