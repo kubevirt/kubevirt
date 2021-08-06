@@ -370,17 +370,6 @@ var _ = SIGDescribe("Hotplug", func() {
 		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 	}
 
-	verifyVolumePermanent := func(vmi *kubevirtv1.VirtualMachineInstance, volumeName string) {
-		updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
-			if volumeStatus.Name == volumeName {
-				Expect(volumeStatus.HotplugVolume).To(BeNil())
-			}
-		}
-	}
-
 	verifyVolumeAccessible := func(vmi *kubevirtv1.VirtualMachineInstance, volumeName string) {
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -813,7 +802,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				table.Entry("[Serial] with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
-			It("should hotplug and permanently add volume when added to VM", func() {
+			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -830,6 +819,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
 				verifySingleAttachmentPod(vmi)
 
+				By("Verifying the volume is attached and usable")
+				getVmiConsoleAndLogin(vmi)
+				targets := verifyHotplugAttachedAndUseable(vmi, []string{"testvolume"})
+				Expect(len(targets)).To(Equal(1))
+
 				By("stopping VM")
 				vm = tests.StopVirtualMachine(vm)
 
@@ -838,8 +832,21 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Verifying that the hotplugged volume is now permanent")
-				verifyVolumePermanent(vmi, "testvolume")
+				By("Verifying that the hotplugged volume is hotpluggable after a restart")
+				verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
+				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+
+				By("Verifying the hotplug device is auto-mounted during booting")
+				getVmiConsoleAndLogin(vmi)
+				verifyVolumeAccessible(vmi, targets[0])
+
+				By("Remove volume from a running VM")
+				removeVolumeVM(vm.Name, vm.Namespace, "testvolume")
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying that the hotplugged volume can be unplugged after a restart")
+				verifyVolumeNolongerAccessible(vmi, targets[0])
 			})
 
 			It("should reject hotplugging a volume with the same name as an existing volume", func() {
