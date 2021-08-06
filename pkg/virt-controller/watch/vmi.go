@@ -492,6 +492,16 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					break
 				}
 
+				hotplugPodsReady := false
+				hotplugPodsReady, syncErr = c.hotplugPodsReady(vmi, pod)
+				if syncErr != nil {
+					break
+				}
+				if !hotplugPodsReady {
+					log.Log.V(3).Object(vmi).Infof("Postpone the pod hand-over and await the attachment pod ready")
+					break
+				}
+
 				// Initialize the volume status field with information
 				// about the PVCs that the VMI is consuming. This prevents
 				// virt-handler from needing to make API calls to GET the pvc
@@ -835,6 +845,22 @@ func podExists(pod *k8sv1.Pod) bool {
 	return false
 }
 
+func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) (bool, syncError) {
+	if controller.VMIHasHotplugVolumes(vmi) {
+		hotplugAttachmentPods, err := controller.AttachmentPods(virtLauncherPod, c.podInformer)
+		if err != nil {
+			return false, &syncErrorImpl{fmt.Errorf("failed to get attachment pods: %v", err), FailedHotplugSyncReason}
+		}
+		for _, attachmentPod := range hotplugAttachmentPods {
+			if isPodReady(attachmentPod) && attachmentPod.DeletionTimestamp == nil && attachmentPod.Spec.NodeName == virtLauncherPod.Spec.NodeName {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	return true, nil
+}
+
 func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) syncError {
 	if vmi.DeletionTimestamp != nil {
 		err := c.deleteAllMatchingPods(vmi)
@@ -912,7 +938,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 	}
 
-	if !isTempPod(pod) {
+	if !isTempPod(pod) && isPodReady(pod) {
 		hotplugVolumes := getHotplugVolumes(vmi, pod)
 		hotplugAttachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
 		if err != nil {
