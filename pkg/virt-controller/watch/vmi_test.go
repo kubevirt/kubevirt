@@ -1107,6 +1107,76 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			),
 		)
 
+		table.DescribeTable("With a virt-launcher pod and an attachment pod, it", func(attachmentPodPhase k8sv1.PodPhase, expectedPhase v1.VirtualMachineInstancePhase) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
+			pvcInformer.GetIndexer().Add(pvc)
+			dv := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dv",
+					Namespace: vmi.Namespace,
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.Pending,
+				},
+			}
+			dataVolumeInformer.GetIndexer().Add(dv)
+			pvcInformer.GetIndexer().Add(pvc)
+			volume := virtv1.Volume{
+				Name: "test-dv",
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
+						Name:         "test-dv",
+						Hotpluggable: true,
+					},
+				},
+			}
+			vmi.Spec.Volumes = []virtv1.Volume{volume}
+			vmi.Status.Phase = v1.Scheduling
+			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.GuestNotRunningReason)
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+			}}
+			attachmentPod := NewPodForVirtlauncher(pod, "hp-test", "abcd", attachmentPodPhase)
+			attachmentPod.Spec.Volumes = append(attachmentPod.Spec.Volumes, k8sv1.Volume{
+				Name: "test-dv",
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-dv",
+						ReadOnly:  false,
+					},
+				},
+			})
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			podFeeder.Add(attachmentPod)
+
+			switch expectedPhase {
+			case v1.Scheduled:
+				shouldExpectVirtualMachineScheduledState(vmi)
+			case v1.Scheduling:
+				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduling))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
+						Fields{"Type": Equal(v1.VirtualMachineInstanceReady)})))
+					Expect(len(arg.(*v1.VirtualMachineInstance).Status.PhaseTransitionTimestamps)).To(Equal(0))
+				}).Return(vmi, nil)
+			}
+
+			controller.Execute()
+
+			switch expectedPhase {
+			case v1.Scheduled:
+				testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			case v1.Scheduling:
+				break
+			}
+		},
+			table.Entry("should hand over pods if both are ready and running", k8sv1.PodRunning, v1.Scheduled),
+			table.Entry("should not hand over pods if the attachment pod is not ready and running", k8sv1.PodPending, v1.Scheduling),
+		)
+
 		It("should ignore migration target pods", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, v1.PodConditionMissingReason)
@@ -2581,6 +2651,23 @@ func NewPodForVirtlauncher(virtlauncher *k8sv1.Pod, name, uid string, phase k8sv
 		},
 		Status: k8sv1.PodStatus{
 			Phase: phase,
+		},
+		Spec: k8sv1.PodSpec{
+			// +2 for empty dir and token
+			Volumes: []k8sv1.Volume{
+				{
+					Name: "hotplug-disks",
+					VolumeSource: k8sv1.VolumeSource{
+						EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+					},
+				},
+				{
+					Name: "default-token",
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{},
+					},
+				},
+			},
 		},
 	}
 }
