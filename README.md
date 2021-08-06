@@ -1,3 +1,15 @@
+# NetworkVolume Addition
+
+This is a modification that adds a NetworkVolume volume type to KubeVirt. This addition provides a user with the ability to eject/insert CD-ROMs while a VM is running so a user can switch from one ISO to another without restarting a VM. In combination with disk-service, multiple VMs can acces the same ISO image. This means a user will only have to upload an ISO image to their cluster once.
+
+## User Stories
+The addition of NetworkVolume in combination with disk-service, fulfills the following user stories:
+* As a VM owner, I want to multiple VMs to have access to the same images. I want to import images into my cluster only once.
+* As a VM owner, I want to eject/insert the CD-ROM device so that I can switch from one ISO image to another.
+* As a CNV administrator, I want to easily package ISO images and make them available in the cluster so that users can access them easily.
+
+# Original README Below This Line
+
 # KubeVirt
 
 [![Build Status](https://prow.ci.kubevirt.io/badge.svg?jobs=push-kubevirt-main)](https://prow.ci.kubevirt.io/?job=push-kubevirt-main)
