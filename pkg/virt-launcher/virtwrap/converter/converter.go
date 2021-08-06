@@ -1137,7 +1137,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	kvmPath := "/dev/kvm"
-	if softwareEmulation, _ := util.UseSoftwareEmulationForDevice(kvmPath, c.UseEmulation); softwareEmulation {
+	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, c.UseEmulation); err != nil {
+		return err
+	} else if softwareEmulation {
 		logger := log.DefaultLogger()
 		logger.Infof("Hardware emulation device '%s' not present. Using software emulation.", kvmPath)
 		domain.Spec.Type = "qemu"
@@ -1149,7 +1151,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	virtioNetProhibited := false
 	vhostNetPath := "/dev/vhost-net"
-	if softwareEmulation, _ := util.UseSoftwareEmulationForDevice(vhostNetPath, c.UseEmulation); softwareEmulation {
+	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(vhostNetPath, c.UseEmulation); err != nil {
+		return err
+	} else if softwareEmulation {
 		logger := log.DefaultLogger()
 		logger.Infof("In-kernel virtio-net device emulation '%s' not present. Falling back to QEMU userland emulation.", vhostNetPath)
 	} else if _, err := os.Stat(vhostNetPath); os.IsNotExist(err) {
