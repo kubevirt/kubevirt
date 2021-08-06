@@ -323,6 +323,14 @@ func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 			return true
 		}
 	}
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+			return true
+		}
+		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
+			return true
+		}
+	}
 	return false
 }
 
