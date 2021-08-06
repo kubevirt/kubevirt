@@ -431,7 +431,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "10Mi", 3)
 				durationHighBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "128Mi", 3)
-				Expect(durationHighBandwidth.Seconds() * 3).To(BeNumerically("<=", durationLowBandwidth.Seconds()))
+				Expect(durationHighBandwidth.Seconds() * 2.5).To(BeNumerically("<=", durationLowBandwidth.Seconds()))
 			})
 		})
 		Context("with a Cirros disk", func() {
