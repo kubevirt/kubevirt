@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -79,6 +80,23 @@ func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, useEmulation bool) bool
 		}
 	}
 	return false
+}
+
+// UseSoftwareEmulationForDevice determines whether to fallback to software emulation for the given device.
+// This happens when the given device doesn't exist, and software emulation is enabled.
+func UseSoftwareEmulationForDevice(devicePath string, useEmulation bool) (bool, error) {
+	if !useEmulation {
+		return false, nil
+	}
+
+	_, err := os.Stat(devicePath)
+	if err == nil {
+		return false, nil
+	}
+	if os.IsNotExist(err) {
+		return true, nil
+	}
+	return false, err
 }
 
 func ResourceNameToEnvVar(prefix string, resourceName string) string {

@@ -2772,16 +2772,10 @@ func (d *VirtualMachineController) claimKVMDeviceOwnership(vmi *v1.VirtualMachin
 	}
 
 	kvmPath := path.Join(isolation.MountRoot(), "dev", "kvm")
-	hasKVM, err := diskutils.FileExists(kvmPath)
-	if err != nil {
-		return err
-	}
 
-	// This is the logic applied by virt-launcher (see virtwrap/converter/converter.go)
-	// to determine whether to start the VM via KVM or QEMU.
-	needsKVM := hasKVM || !d.clusterConfig.IsUseEmulation()
-	if !needsKVM {
-		return nil
+	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.IsUseEmulation())
+	if err != nil || softwareEmulation {
+		return err
 	}
 
 	return diskutils.DefaultOwnershipManager.SetFileOwnership(kvmPath)
