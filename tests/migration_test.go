@@ -1232,6 +1232,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("create a new NFS PV and PVC")
 				os := string(cd.ContainerDiskFedora)
 				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
+
+				cfg := getCurrentKv()
+				cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
+				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 
 			AfterEach(func() {
