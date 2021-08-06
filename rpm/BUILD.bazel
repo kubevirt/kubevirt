@@ -521,6 +521,8 @@ rpmtree(
         "/var/run": "../run",
         "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
         "/usr/bin/nc": "/usr/bin/ncat",
+        "/usr/bin/python": "/usr/bin/python3.6",
+        "/usr/bin/python3": "/usr/bin/python3.6",
     },
     visibility = ["//visibility:public"],
 )
@@ -762,6 +764,8 @@ rpmtree(
         "/var/run": "../run",
         "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
         "/usr/bin/nc": "/usr/bin/ncat",
+        "/usr/bin/python": "/usr/bin/python3.6",
+        "/usr/bin/python3": "/usr/bin/python3.6",
     },
     visibility = ["//visibility:public"],
 )

@@ -136,6 +136,7 @@ launcherbase_base="
   libvirt-client-${LIBVIRT_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
   qemu-kvm-core-${QEMU_VERSION}
+  python36
 "
 launcherbase_x86_64="
   edk2-ovmf-${EDK2_VERSION}
