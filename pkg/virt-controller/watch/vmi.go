@@ -112,6 +112,11 @@ const (
 	PVCNotReadyReason = "PVCNotReady"
 	// FailedHotplugSyncReason is set when a hotplug specific failure occurs during sync
 	FailedHotplugSyncReason = "FailedHotplugSync"
+	// ErrImagePullReason is set when an error has occured while pulling an image for a containerDisk VM volume.
+	ErrImagePullReason = "ErrImagePull"
+	// ImagePullBackOffReason is set when an error has occured while pulling an image for a containerDisk VM volume,
+	// and that kubelet is backing off before retrying.
+	ImagePullBackOffReason = "ImagePullBackOff"
 )
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
@@ -473,6 +478,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 			}
 
+			if imageErr := checkForContainerImageError(pod); imageErr != nil {
+				// only overwrite syncErr if imageErr != nil
+				syncErr = imageErr
+			}
+
 			if isPodReady(pod) && vmi.DeletionTimestamp == nil {
 				// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
 				podQosClass := pod.Status.QOSClass
@@ -727,6 +737,30 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 			LastTransitionTime: now,
 		})
 	}
+}
+
+// checkForContainerImageError checks if an error has occured while handling the image of any of the pod's containers
+// (including init containers), and returns a syncErr with the details of the error, or nil otherwise.
+func checkForContainerImageError(pod *k8sv1.Pod) syncError {
+	containerStatuses := append(append([]k8sv1.ContainerStatus{},
+		pod.Status.InitContainerStatuses...),
+		pod.Status.ContainerStatuses...)
+
+	for _, containerStatus := range containerStatuses {
+		if containerStatus.State.Waiting == nil {
+			continue
+		}
+
+		reason := containerStatus.State.Waiting.Reason
+		if reason == ErrImagePullReason || reason == ImagePullBackOffReason {
+			return &syncErrorImpl{
+				reason: reason,
+				err:    fmt.Errorf(containerStatus.State.Waiting.Message),
+			}
+		}
+	}
+
+	return nil
 }
 
 // isPodReady treats the pod as ready to be handed over to virt-handler, as soon as all pods except

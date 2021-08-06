@@ -1222,9 +1222,15 @@ const (
 	// VirtualMachineStatusUnknown indicates that the state of the virtual machine could not be obtained,
 	// typically due to an error in communicating with the host on which it's running.
 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
-	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machime,
+	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machine,
 	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
 	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "FailedUnschedulable"
+	// VirtualMachineStatusErrImagePull indicates that an error has occured while pulling an image for
+	// a containerDisk VM volume.
+	VirtualMachineStatusErrImagePull VirtualMachinePrintableStatus = "ErrImagePull"
+	// VirtualMachineStatusImagePullBackOff indicates that an error has occured while pulling an image for
+	// a containerDisk VM volume, and that kubelet is backing off before retrying.
+	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully

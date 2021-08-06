@@ -1960,6 +1960,30 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			})
 
+			table.DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string) {
+				vm, vmi := DefaultVirtualMachine(true)
+				vmi.Status.Phase = v1.Scheduling
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+					{
+						Type:   v1.VirtualMachineInstanceSynchronized,
+						Status: k8sv1.ConditionFalse,
+						Reason: reason,
+					},
+				}
+
+				addVirtualMachine(vm)
+				vmiFeeder.Add(vmi)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					objVM := obj.(*v1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachinePrintableStatus(reason)))
+				})
+
+				controller.Execute()
+			},
+				table.Entry("Reason: ErrImagePull", ErrImagePullReason),
+				table.Entry("Reason: ImagePullBackOff", ImagePullBackOffReason),
+			)
 		})
 	})
 })

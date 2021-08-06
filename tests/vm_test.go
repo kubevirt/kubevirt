@@ -723,6 +723,28 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}),
 		)
 
+		It("[test_id:6869]should report an error status when image pull error occurs", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk("no-such-image")
+
+			vm := createVirtualMachine(true, vmi)
+
+			vmPrintableStatus := func() v1.VirtualMachinePrintableStatus {
+				updatedVm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return updatedVm.Status.PrintableStatus
+			}
+
+			By("Verifying that the status toggles between ErrImagePull and ImagePullBackOff")
+			const times = 2
+			for i := 0; i < times; i++ {
+				Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).
+					Should(Equal(v1.VirtualMachineStatusErrImagePull))
+
+				Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).
+					Should(Equal(v1.VirtualMachineStatusImagePullBackOff))
+			}
+		})
+
 		Context("Using virtctl interface", func() {
 			It("[test_id:1529]should start a VirtualMachineInstance once", func() {
 				By("getting a VM")
