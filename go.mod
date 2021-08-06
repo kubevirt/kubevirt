@@ -120,6 +120,8 @@ replace (
 
 	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.36.0
 
+	libvirt.org/go/libvirt => gitlab.com/victortoso/libvirt-go-module v1.7005.1-0.20210730075330-b43ba4f623f1
+
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )
 

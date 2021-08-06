@@ -32,8 +32,9 @@ import (
 )
 
 /*
-#cgo pkg-config: libvirt
-#include "storage_pool_events_wrapper.h"
+#cgo LDFLAGS: -ldl
+#include "module-generated.h"
+#include "module-helper.h"
 */
 import "C"
 
@@ -96,7 +97,7 @@ func (c *Connect) StoragePoolEventLifecycleRegister(pool *StoragePool, callback 
 		cpool = pool.ptr
 	}
 	var err C.virError
-	ret := C.virConnectStoragePoolEventRegisterAnyWrapper(c.ptr, cpool,
+	ret := C.virConnectStoragePoolEventRegisterAnyHelper(c.ptr, cpool,
 		C.VIR_STORAGE_POOL_EVENT_ID_LIFECYCLE,
 		C.virConnectStoragePoolEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
@@ -120,7 +121,7 @@ func (c *Connect) StoragePoolEventRefreshRegister(pool *StoragePool, callback St
 		cpool = pool.ptr
 	}
 	var err C.virError
-	ret := C.virConnectStoragePoolEventRegisterAnyWrapper(c.ptr, cpool,
+	ret := C.virConnectStoragePoolEventRegisterAnyHelper(c.ptr, cpool,
 		C.VIR_STORAGE_POOL_EVENT_ID_REFRESH,
 		C.virConnectStoragePoolEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)

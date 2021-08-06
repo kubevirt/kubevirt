@@ -29,12 +29,10 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
-// Can't rely on pkg-config for libvirt-qemu since it was not
-// installed until 2.6.0 onwards
-#cgo LDFLAGS: -lvirt-qemu
+#cgo LDFLAGS: -ldl
 #include <stdlib.h>
-#include "qemu_wrapper.h"
+#include "module-generated.h"
+#include "module-helper.h"
 */
 import "C"
 
@@ -167,7 +165,7 @@ func (c *Connect) DomainQemuMonitorEventRegister(dom *Domain, event string, call
 		cdom = dom.ptr
 	}
 	var err C.virError
-	ret := C.virConnectDomainQemuMonitorEventRegisterWrapper(c.ptr, cdom,
+	ret := C.virConnectDomainQemuMonitorEventRegisterHelper(c.ptr, cdom,
 		cEvent,
 		C.long(goCallBackId),
 		C.uint(flags), &err)

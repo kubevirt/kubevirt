@@ -74,14 +74,14 @@ var nextGoCallbackId int = firstGoCallbackId
 //export freeCallbackId
 func freeCallbackId(goCallbackId int) {
 	goCallbackLock.Lock()
+	defer goCallbackLock.Unlock()
 	delete(goCallbacks, goCallbackId)
-	goCallbackLock.Unlock()
 }
 
 func getCallbackId(goCallbackId int) interface{} {
 	goCallbackLock.RLock()
+	defer goCallbackLock.RUnlock()
 	ctx := goCallbacks[goCallbackId]
-	goCallbackLock.RUnlock()
 	if ctx == nil {
 		// If this happens there must be a bug in libvirt
 		panic("Callback arrived after freeCallbackId was called")
@@ -91,12 +91,12 @@ func getCallbackId(goCallbackId int) interface{} {
 
 func registerCallbackId(ctx interface{}) int {
 	goCallbackLock.Lock()
+	defer goCallbackLock.Unlock()
 	goCallBackId := nextGoCallbackId
 	nextGoCallbackId++
 	for goCallbacks[nextGoCallbackId] != nil {
 		nextGoCallbackId++
 	}
 	goCallbacks[goCallBackId] = ctx
-	goCallbackLock.Unlock()
 	return goCallBackId
 }

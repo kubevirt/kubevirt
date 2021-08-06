@@ -27,12 +27,10 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
-#include <libvirt/libvirt.h>
-#include <libvirt/virterror.h>
+#cgo LDFLAGS: -ldl
 #include <stdlib.h>
 #include <string.h>
-#include "typedparams_wrapper.h"
+#include "module-generated.h"
 */
 import "C"
 
@@ -147,7 +145,7 @@ func typedParamsPackNew(infomap map[string]typedParamsFieldInfo) (*C.virTypedPar
 	var nparams C.int
 	var maxparams C.int
 
-	defer C.virTypedParamsFree(cparams, nparams)
+	defer C.virTypedParamsFreeWrapper(cparams, nparams)
 
 	for name, value := range infomap {
 		if !*value.set {

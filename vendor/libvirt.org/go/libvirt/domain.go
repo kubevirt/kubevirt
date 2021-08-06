@@ -27,10 +27,9 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo LDFLAGS: -ldl
 #include <stdlib.h>
-#include "domain_wrapper.h"
-#include "connect_wrapper.h"
+#include "module-generated.h"
 */
 import "C"
 
@@ -1296,7 +1295,7 @@ func (d *Domain) GetCPUStats(startCpu int, nCpus uint, flags uint32) ([]DomainCP
 		cnallocparams = cnparams * C.int(nCpus)
 	}
 	cparams := typedParamsNew(cnallocparams)
-	defer C.virTypedParamsFree(cparams, cnallocparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnallocparams)
 	ret = C.virDomainGetCPUStatsWrapper(d.ptr, cparams, C.uint(cnparams), C.int(startCpu), C.uint(nCpus), C.uint(flags), &err)
 	if ret == -1 {
 		return []DomainCPUStats{}, makeError(&err)
@@ -1383,7 +1382,7 @@ func (d *Domain) GetInterfaceParameters(device string, flags DomainModificationI
 	}
 
 	cparams := typedParamsNew(cnparams)
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 	ret = C.virDomainGetInterfaceParametersWrapper(d.ptr, cdevice, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
@@ -1409,7 +1408,7 @@ func (d *Domain) SetInterfaceParameters(device string, params *DomainInterfacePa
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainSetInterfaceParametersWrapper(d.ptr, cdevice, cparams, cnparams, C.uint(flags), &err)
@@ -1773,7 +1772,7 @@ func (d *Domain) BlockStatsFlags(disk string, flags uint32) (*DomainBlockStats, 
 	}
 
 	cparams := typedParamsNew(cnparams)
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 	ret = C.virDomainBlockStatsFlagsWrapper(d.ptr, cdisk, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
@@ -1917,7 +1916,11 @@ func (d *Domain) DomainGetConnect() (*Connect, error) {
 func (d *Domain) GetVcpus() ([]DomainVcpuInfo, error) {
 	var cnodeinfo C.virNodeInfo
 	var err C.virError
-	ret := C.virNodeGetInfoWrapper(C.virDomainGetConnect(d.ptr), &cnodeinfo, &err)
+	ptr := C.virDomainGetConnectWrapper(d.ptr, &err)
+	if ptr == nil {
+		return []DomainVcpuInfo{}, makeError(&err)
+	}
+	ret := C.virNodeGetInfoWrapper(ptr, &cnodeinfo, &err)
 	if ret == -1 {
 		return []DomainVcpuInfo{}, makeError(&err)
 	}
@@ -2251,7 +2254,7 @@ func (d *Domain) BlockCopy(disk string, destxml string, params *DomainBlockCopyP
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainBlockCopyWrapper(d.ptr, cdisk, cdestxml, cparams, cnparams, C.uint(flags), &err)
@@ -2543,7 +2546,7 @@ func (d *Domain) Migrate3(dconn *Connect, params *DomainMigrateParameters, flags
 		return nil, gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainMigrate3Wrapper(d.ptr, dconn.ptr, cparams, C.uint(cnparams), C.uint(flags), &err)
@@ -2622,7 +2625,7 @@ func (d *Domain) MigrateToURI3(dconnuri string, params *DomainMigrateParameters,
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainMigrateToURI3Wrapper(d.ptr, cdconnuri, cparams, C.uint(cnparams), C.uint(flags), &err)
@@ -2781,7 +2784,7 @@ func (d *Domain) GetBlkioParameters(flags DomainModificationImpact) (*DomainBlki
 	}
 
 	cparams := typedParamsNew(cnparams)
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 	ret = C.virDomainGetBlkioParametersWrapper(d.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
@@ -2804,7 +2807,7 @@ func (d *Domain) SetBlkioParameters(params *DomainBlkioParameters, flags DomainM
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainSetBlkioParametersWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
@@ -2959,7 +2962,7 @@ func (d *Domain) GetBlockIoTune(disk string, flags DomainModificationImpact) (*D
 	}
 
 	cparams := typedParamsNew(cnparams)
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 	ret = C.virDomainGetBlockIoTuneWrapper(d.ptr, cdisk, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
@@ -2985,7 +2988,7 @@ func (d *Domain) SetBlockIoTune(disk string, params *DomainBlockIoTuneParameters
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainSetBlockIoTuneWrapper(d.ptr, cdisk, cparams, cnparams, C.uint(flags), &err)
@@ -3362,7 +3365,7 @@ func (d *Domain) GetJobStats(flags DomainGetJobStatsFlags) (*DomainJobInfo, erro
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	params := DomainJobInfo{
 		Type: DomainJobType(jobtype),
@@ -3457,7 +3460,7 @@ func (d *Domain) GetMemoryParameters(flags DomainModificationImpact) (*DomainMem
 	}
 
 	cparams := typedParamsNew(cnparams)
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 	ret = C.virDomainGetMemoryParametersWrapper(d.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
@@ -3480,7 +3483,7 @@ func (d *Domain) SetMemoryParameters(params *DomainMemoryParameters, flags Domai
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainSetMemoryParametersWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
@@ -3524,7 +3527,7 @@ func (d *Domain) GetNumaParameters(flags DomainModificationImpact) (*DomainNumaP
 	}
 
 	cparams := typedParamsNew(cnparams)
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 	ret = C.virDomainGetNumaParametersWrapper(d.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
@@ -3547,7 +3550,7 @@ func (d *Domain) SetNumaParameters(params *DomainNumaParameters, flags DomainMod
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainSetNumaParametersWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
@@ -3717,7 +3720,7 @@ func (d *Domain) GetPerfEvents(flags DomainModificationImpact) (*DomainPerfEvent
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
@@ -3739,7 +3742,7 @@ func (d *Domain) SetPerfEvents(params *DomainPerfEvents, flags DomainModificatio
 	if gerr != nil {
 		return gerr
 	}
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainSetPerfEventsWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
@@ -3863,7 +3866,7 @@ func (d *Domain) GetSchedulerParameters() (*DomainSchedulerParameters, error) {
 	}
 
 	cparams := typedParamsNew(cnparams)
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 	ret := C.virDomainGetSchedulerParametersWrapper(d.ptr, cparams, &cnparams, &err)
 	if ret == -1 {
 		return nil, makeError(&err)
@@ -3897,7 +3900,7 @@ func (d *Domain) GetSchedulerParametersFlags(flags DomainModificationImpact) (*D
 	}
 
 	cparams := typedParamsNew(cnparams)
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 	ret := C.virDomainGetSchedulerParametersFlagsWrapper(d.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
@@ -3920,7 +3923,7 @@ func (d *Domain) SetSchedulerParameters(params *DomainSchedulerParameters) error
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainSetSchedulerParametersWrapper(d.ptr, cparams, cnparams, &err)
@@ -3940,7 +3943,7 @@ func (d *Domain) SetSchedulerParametersFlags(params *DomainSchedulerParameters, 
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainSetSchedulerParametersFlagsWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
@@ -4368,7 +4371,7 @@ func (d *Domain) SetIOThreadParams(iothreadid uint, params *DomainSetIOThreadPar
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virDomainSetIOThreadParamsWrapper(d.ptr, C.uint(iothreadid), cparams, cnparams, C.uint(flags), &err)
@@ -4383,7 +4386,11 @@ func (d *Domain) SetIOThreadParams(iothreadid uint, params *DomainSetIOThreadPar
 func (d *Domain) GetEmulatorPinInfo(flags DomainModificationImpact) ([]bool, error) {
 	var cnodeinfo C.virNodeInfo
 	var err C.virError
-	ret := C.virNodeGetInfoWrapper(C.virDomainGetConnect(d.ptr), &cnodeinfo, &err)
+	ptr := C.virDomainGetConnectWrapper(d.ptr, &err)
+	if ptr == nil {
+		return []bool{}, makeError(&err)
+	}
+	ret := C.virNodeGetInfoWrapper(ptr, &cnodeinfo, &err)
 	if ret == -1 {
 		return []bool{}, makeError(&err)
 	}
@@ -4455,7 +4462,11 @@ func (d *Domain) GetIOThreadInfo(flags DomainModificationImpact) ([]DomainIOThre
 func (d *Domain) GetVcpuPinInfo(flags DomainModificationImpact) ([][]bool, error) {
 	var cnodeinfo C.virNodeInfo
 	var err C.virError
-	ret := C.virNodeGetInfoWrapper(C.virDomainGetConnect(d.ptr), &cnodeinfo, &err)
+	ptr := C.virDomainGetConnectWrapper(d.ptr, &err)
+	if ptr == nil {
+		return [][]bool{}, makeError(&err)
+	}
+	ret := C.virNodeGetInfoWrapper(ptr, &cnodeinfo, &err)
 	if ret == -1 {
 		return [][]bool{}, makeError(&err)
 	}
@@ -4752,7 +4763,7 @@ func (d *Domain) GetGuestVcpus(flags uint32) (*DomainGuestVcpus, error) {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, C.int(cnparams))
+	defer C.virTypedParamsFreeWrapper(cparams, C.int(cnparams))
 
 	_, gerr := typedParamsUnpack(cparams, C.int(cnparams), info)
 	if gerr != nil {
@@ -4969,7 +4980,7 @@ func (d *Domain) GetLaunchSecurityInfo(flags uint32) (*DomainLaunchSecurityParam
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
@@ -5293,7 +5304,7 @@ func (d *Domain) GetGuestInfo(types DomainGuestInfoTypes, flags uint32) (*Domain
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	info := DomainGuestInfo{}
 	infoInfo := getDomainGuestInfoFieldInfo(&info)
@@ -5323,16 +5334,16 @@ func (d *Domain) GetGuestInfo(types DomainGuestInfoTypes, flags uint32) (*Domain
 		}
 	}
 
-	os := DomainGuestInfoOS{}
-	osInfo := getDomainGuestInfoOSFieldInfo(&os)
+	info.OS = &DomainGuestInfoOS{}
+	osInfo := getDomainGuestInfoOSFieldInfo(info.OS)
 
 	_, gerr = typedParamsUnpack(cparams, cnparams, osInfo)
 	if gerr != nil {
 		return nil, gerr
 	}
 
-	timezone := DomainGuestInfoTimeZone{}
-	timezoneInfo := getDomainGuestInfoTimeZoneFieldInfo(&timezone)
+	info.TimeZone = &DomainGuestInfoTimeZone{}
+	timezoneInfo := getDomainGuestInfoTimeZoneFieldInfo(info.TimeZone)
 
 	_, gerr = typedParamsUnpack(cparams, cnparams, timezoneInfo)
 	if gerr != nil {
