@@ -11298,15 +11298,6 @@
        "type": "string"
       },
       "x-kubernetes-list-type": "atomic"
-     },
-     "nodeMediatedDevices": {
-      "type": "object",
-      "additionalProperties": {
-       "type": "array",
-       "items": {
-        "type": "string"
-       }
-      }
      }
     }
    },

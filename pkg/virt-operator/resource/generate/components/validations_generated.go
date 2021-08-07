@@ -603,12 +603,6 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                   type: array
                   x-kubernetes-list-type: atomic
-                nodeMediatedDevices:
-                  additionalProperties:
-                    items:
-                      type: string
-                    type: array
-                  type: object
               type: object
             memBalloonStatsPeriod:
               format: int32

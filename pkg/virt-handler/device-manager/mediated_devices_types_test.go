@@ -64,9 +64,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	createTempMDEVSysfsStructure := func(pciMdevTypesMap map[string][]string) {
 		// create an alternative mdev_supported_types dir instead of /sys/bus/mdev/devices/
 		var err error
-		//mdevTmpPath, err = ioutil.TempDir("/tmp", "mdev")
 		fakeMdevDevicesPath, err = ioutil.TempDir("/tmp", "mdev")
-		//fakeMdevDevicesPath = mdevTmpPath
 		Expect(err).ToNot(HaveOccurred())
 		mdevBasePath = fakeMdevDevicesPath
 		// create an alternative mdev_supported_types dir instead of /sys/class/mdev_bus/[pciAddress]/

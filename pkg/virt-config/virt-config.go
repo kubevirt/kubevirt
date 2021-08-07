@@ -204,9 +204,6 @@ func (c *ClusterConfig) GetDesiredMDEVTypes(nodeName string) []string {
 	if mdevTypesConf == nil {
 		return []string{}
 	}
-	if nodeMdevTypes, exist := mdevTypesConf.NodeMediatedDevices[nodeName]; exist {
-		return nodeMdevTypes
-	}
 	return mdevTypesConf.MediatedDevicesTypes
 }
 

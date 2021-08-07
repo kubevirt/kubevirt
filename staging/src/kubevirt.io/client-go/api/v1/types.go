@@ -2014,8 +2014,7 @@ type MediatedHostDevice struct {
 // +k8s:openapi-gen=true
 type MediatedDevicesConfiguration struct {
 	// +listType=atomic
-	MediatedDevicesTypes []string            `json:"mediatedDevicesTypes,omitempty"`
-	NodeMediatedDevices  map[string][]string `json:"nodeMediatedDevices,omitempty"`
+	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
 }
 
 // NetworkConfiguration holds network options
