@@ -514,8 +514,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	var command []string
 	if tempPod {
-		logger := log.DefaultLogger()
-		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
+		log.Log.Infof("RUNNING pod to pre bind pvc for %s", vmi.Name)
 		command = []string{"/bin/bash",
 			"-c",
 			"echo", "bound PVCs"}
