@@ -9,6 +9,7 @@ IMAGE_TAG          ?= latest
 OPERATOR_IMAGE     ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-operator
 WEBHOOK_IMAGE      ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-webhook
 FUNC_TEST_IMAGE    ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-functest
+VIRT_ARTIFACTS_SERVER ?= $(REGISTRY_NAMESPACE)/virt-artifacts-server
 
 
 
@@ -75,7 +76,7 @@ bundle-push: container-build-operator-courier
 hack-clean: ## Run ./hack/clean.sh
 	./hack/clean.sh
 
-container-build: container-build-operator container-build-webhook container-build-operator-courier container-build-functest
+container-build: container-build-operator container-build-webhook container-build-operator-courier container-build-functest container-build-artifacts-server
 
 container-build-operator:
 	docker build -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
@@ -92,7 +93,10 @@ container-build-validate-bundles:
 container-build-functest:
 	docker build -f build/Dockerfile.functest -t $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
-container-push: quay-login container-push-operator container-push-webhook container-push-functest
+container-build-artifacts-server:
+	docker build -f build/Dockerfile.artifacts -t $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
+
+container-push: quay-login container-push-operator container-push-webhook container-push-functest container-push-artifacts-server
 
 quay-login:
 	docker login $(IMAGE_REGISTRY) -u $(QUAY_USERNAME) -p $(QUAY_PASSWORD)
@@ -105,6 +109,9 @@ container-push-webhook:
 
 container-push-functest:
 	docker push $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG)
+
+container-push-artifacts-server:
+	docker push $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG)
 
 cluster-up:
 	./cluster/up.sh
@@ -209,10 +216,15 @@ validate-no-offensive-lang:
 		container-build \
 		container-build-operator \
 		container-build-webhook \
+		container-build-operator-courier \
+		container-build-validate-bundles \
+		container-build-functest \
+		container-build-artifacts-server \
 		container-push \
 		container-push-operator \
 		container-push-webhook \
-		container-build-operator-courier \
+		container-push-functest \
+		container-push-artifacts-server \
 		cluster-up \
 		cluster-down \
 		cluster-sync \
