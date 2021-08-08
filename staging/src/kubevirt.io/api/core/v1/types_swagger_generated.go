@@ -166,6 +166,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
 		"migrationPolicyName":            "Name of the migration policy. If string is empty, no policy is matched",
 		"migrationConfiguration":         "Migration configurations to apply",
+		"targetNodeCPUSet":               "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",
 	}
 }
 
