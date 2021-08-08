@@ -74,6 +74,12 @@ To focus on specific tests pass KUBEVIRT_E2E_FOCUS argument:
 KUBEVIRT_E2E_FOCUS=sig-network make conformance
 ```
 
+To use on specific images tag on test suite override DOCKER_TAG argument:
+
+```bash
+DOCKER_TAG=mybuild make conformance
+```
+
 ## Generate manifests
 
 Conformance tests plugin manifest template under

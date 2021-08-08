@@ -89,7 +89,7 @@ functest-image-push: functest-image-build
 	hack/func-tests-image.sh push
 
 conformance:
-	hack/dockerized "export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} SKIP_OUTSIDE_CONN_TESTS=${SKIP_OUTSIDE_CONN_TESTS} KUBEVIRT_E2E_FOCUS=${KUBEVIRT_E2E_FOCUS} && hack/conformance.sh"
+	hack/dockerized "export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} SKIP_OUTSIDE_CONN_TESTS=${SKIP_OUTSIDE_CONN_TESTS} KUBEVIRT_E2E_FOCUS=${KUBEVIRT_E2E_FOCUS} DOCKER_TAG=${DOCKER_TAG} && hack/conformance.sh"
 
 perftest: build-functests
 	hack/perftests.sh

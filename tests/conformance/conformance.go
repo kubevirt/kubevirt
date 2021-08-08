@@ -42,6 +42,9 @@ func execute() error {
 	} else {
 		args = append(args, "--ginkgo.focus", "\\[Conformance\\]")
 	}
+	if value, exists := os.LookupEnv("CONTAINER_TAG"); exists {
+		args = append(args, "--container-tag", value)
+	}
 	args = append(args, "--config", "/conformance-config.json")
 
 	cmd := exec.Command("/usr/bin/go_default_test", args...)
