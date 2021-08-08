@@ -61,7 +61,7 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			Alias: api.NewUserDefinedAlias(iface.Name),
 		}
 
-		// if UseEmulation unset and at least one NIC model is virtio,
+		// if AllowEmulation unset and at least one NIC model is virtio,
 		// /dev/vhost-net must be present as we should have asked for it.
 		var virtioNetMQRequested bool
 		if mq := vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue; mq != nil {

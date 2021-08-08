@@ -509,7 +509,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		return false, nil
 	}
 
-	if virtutil.IsNonRootVMI(vmi) && virtutil.NeedVirtioNetDevice(vmi, d.clusterConfig.IsUseEmulation()) {
+	if virtutil.IsNonRootVMI(vmi) && virtutil.NeedVirtioNetDevice(vmi, d.clusterConfig.AllowEmulation()) {
 		vhostNet := path.Join(res.MountRoot(), "dev", "vhost-net")
 		err := diskutils.DefaultOwnershipManager.SetFileOwnership(vhostNet)
 		if err != nil {
@@ -2772,7 +2772,7 @@ func (d *VirtualMachineController) claimKVMDeviceOwnership(vmi *v1.VirtualMachin
 
 	kvmPath := path.Join(isolation.MountRoot(), "dev", "kvm")
 
-	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.IsUseEmulation())
+	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.AllowEmulation())
 	if err != nil || softwareEmulation {
 		return err
 	}

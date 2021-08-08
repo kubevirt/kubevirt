@@ -814,24 +814,24 @@ func deleteStorageClass(name string) {
 	util2.PanicOnError(err)
 }
 
-func ShouldUseEmulation(virtClient kubecli.KubevirtClient) bool {
-	useEmulation := false
+func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
+	allowEmulation := false
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
 	kv := util2.GetCurrentKv(virtClient)
 	if kv.Spec.Configuration.DeveloperConfiguration != nil {
-		useEmulation = kv.Spec.Configuration.DeveloperConfiguration.UseEmulation
+		allowEmulation = kv.Spec.Configuration.DeveloperConfiguration.UseEmulation
 	}
 
-	return useEmulation
+	return allowEmulation
 }
 
 func EnsureKVMPresent() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	if !ShouldUseEmulation(virtClient) {
+	if !ShouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 		virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())

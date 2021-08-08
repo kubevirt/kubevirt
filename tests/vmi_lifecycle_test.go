@@ -86,7 +86,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	var vmi *v1.VirtualMachineInstance
 
-	var useEmulation *bool
+	var allowEmulation *bool
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -1209,12 +1209,12 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("VirtualMachineInstance Emulation Mode", func() {
 			BeforeEach(func() {
-				// useEmulation won't change in a test suite run, so cache it
-				if useEmulation == nil {
-					emulation := tests.ShouldUseEmulation(virtClient)
-					useEmulation = &emulation
+				// allowEmulation won't change in a test suite run, so cache it
+				if allowEmulation == nil {
+					emulation := tests.ShouldAllowEmulation(virtClient)
+					allowEmulation = &emulation
 				}
-				if !(*useEmulation) {
+				if !(*allowEmulation) {
 					Skip("Software emulation is not enabled on this cluster")
 				}
 			})
@@ -1235,7 +1235,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						computeContainerFound = true
 						for _, cmd := range container.Command {
 							By(cmd)
-							if cmd == "--use-emulation" {
+							if cmd == "--allow-emulation" {
 								emulationFlagFound = true
 							}
 						}
@@ -1243,7 +1243,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
-				Expect(emulationFlagFound).To(BeTrue(), "Expected VirtualMachineInstance pod to have '--use-emulation' flag")
+				Expect(emulationFlagFound).To(BeTrue(), "Expected VirtualMachineInstance pod to have '--allow-emulation' flag")
 			})
 
 			It("[test_id:1644]should be reflected in domain XML", func() {
@@ -1278,7 +1278,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				domain := &api.Domain{}
 				context := &converter.ConverterContext{
 					VirtualMachine: newVMI,
-					UseEmulation:   true,
+					AllowEmulation: true,
 				}
 				converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
 
@@ -1318,12 +1318,12 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("VM Accelerated Mode", func() {
 			BeforeEach(func() {
-				// useEmulation won't change in a test suite run, so cache it
-				if useEmulation == nil {
-					emulation := tests.ShouldUseEmulation(virtClient)
-					useEmulation = &emulation
+				// allowEmulation won't change in a test suite run, so cache it
+				if allowEmulation == nil {
+					emulation := tests.ShouldAllowEmulation(virtClient)
+					allowEmulation = &emulation
 				}
-				if *useEmulation {
+				if *allowEmulation {
 					Skip("Software emulation is enabled on this cluster")
 				}
 			})
@@ -1369,7 +1369,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						computeContainerFound = true
 						for _, cmd := range container.Command {
 							By(cmd)
-							if cmd == "--use-emulation" {
+							if cmd == "--allow-emulation" {
 								emulationFlagFound = true
 							}
 						}
@@ -1377,7 +1377,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
-				Expect(emulationFlagFound).To(BeFalse(), "Expected VM pod not to have '--use-emulation' flag")
+				Expect(emulationFlagFound).To(BeFalse(), "Expected VM pod not to have '--allow-emulation' flag")
 			})
 
 			It("[test_id:1648]Should provide KVM via plugin framework", func() {

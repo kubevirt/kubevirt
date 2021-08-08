@@ -296,8 +296,8 @@ func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
 }
 
 // PrepareMigrationTarget the target pod environment before the migration is initiated
-func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
-	return l.prepareMigrationTarget(vmi, useEmulation)
+func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, allowEmulation bool) error {
+	return l.prepareMigrationTarget(vmi, allowEmulation)
 }
 
 // FinalizeVirtualMachineMigration finalized the migration after the migration has completed and vmi is running on target pod.
@@ -625,7 +625,7 @@ func parseDeviceAddress(addrString string) []string {
 	return addrs
 }
 
-func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {
+func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {
 
 	logger := log.Log.Object(vmi)
 
@@ -707,7 +707,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	c := &converter.ConverterContext{
 		Architecture:          runtime.GOARCH,
 		VirtualMachine:        vmi,
-		UseEmulation:          useEmulation,
+		AllowEmulation:        allowEmulation,
 		CPUSet:                podCPUSet,
 		IsBlockPVC:            isBlockPVCMap,
 		IsBlockDV:             isBlockDVMap,
@@ -767,7 +767,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	return c, nil
 }
 
-func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -775,7 +775,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	domain := &api.Domain{}
 
-	c, err := l.generateConverterContext(vmi, useEmulation, options, false)
+	c, err := l.generateConverterContext(vmi, allowEmulation, options, false)
 	if err != nil {
 		logger.Reason(err).Error("failed to generate libvirt domain from VMI spec")
 		return nil, err

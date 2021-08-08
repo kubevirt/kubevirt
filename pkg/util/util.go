@@ -73,9 +73,9 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, useEmulation bool) bool {
+func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if !useEmulation && (iface.Model == "" || iface.Model == "virtio") {
+		if !allowEmulation && (iface.Model == "" || iface.Model == "virtio") {
 			return true
 		}
 	}
@@ -84,8 +84,8 @@ func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, useEmulation bool) bool
 
 // UseSoftwareEmulationForDevice determines whether to fallback to software emulation for the given device.
 // This happens when the given device doesn't exist, and software emulation is enabled.
-func UseSoftwareEmulationForDevice(devicePath string, useEmulation bool) (bool, error) {
-	if !useEmulation {
+func UseSoftwareEmulationForDevice(devicePath string, allowEmulation bool) (bool, error) {
+	if !allowEmulation {
 		return false, nil
 	}
 

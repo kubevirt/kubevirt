@@ -43,7 +43,7 @@ const (
 	FeatureGatesKey                   = "feature-gates"
 	EmulatedMachinesKey               = "emulated-machines"
 	MachineTypeKey                    = "machine-type"
-	UseEmulationKey                   = "debug.useEmulation"
+	AllowEmulationKey                 = "debug.useEmulation"
 	ImagePullPolicyKey                = "dev.imagePullPolicy"
 	MigrationsConfigKey               = "migrations"
 	CPUModelKey                       = "default-cpu-model"
@@ -202,7 +202,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	return &v1.KubeVirtConfiguration{
 		ImagePullPolicy: DefaultImagePullPolicy,
 		DeveloperConfiguration: &v1.DeveloperConfiguration{
-			UseEmulation:           DefaultUseEmulation,
+			UseEmulation:           DefaultAllowEmulation,
 			MemoryOvercommit:       DefaultMemoryOvercommit,
 			LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 			MinimumReservePVCBytes: DefaultMinimumReservePVCBytes,
@@ -359,8 +359,8 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 	}
 
 	// set if emulation is used
-	useEmulation := strings.TrimSpace(configMap.Data[UseEmulationKey])
-	switch useEmulation {
+	allowEmulation := strings.TrimSpace(configMap.Data[AllowEmulationKey])
+	switch allowEmulation {
 	case "":
 		// keep the default
 	case "true":
@@ -368,7 +368,7 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 	case "false":
 		config.DeveloperConfiguration.UseEmulation = false
 	default:
-		return fmt.Errorf("invalid debug.useEmulation in config: %v", useEmulation)
+		return fmt.Errorf("invalid %s in config: %v", AllowEmulationKey, allowEmulation)
 	}
 
 	// set machine type

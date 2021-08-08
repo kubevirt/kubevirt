@@ -1410,7 +1410,7 @@ var _ = Describe("Converter", func() {
 						},
 					},
 				},
-				UseEmulation:          true,
+				AllowEmulation:        true,
 				IsBlockPVC:            isBlockPVCMap,
 				IsBlockDV:             isBlockDVMap,
 				SMBios:                TestSmbios,
@@ -1958,8 +1958,8 @@ var _ = Describe("Converter", func() {
 						},
 					},
 				},
-				UseEmulation: true,
-				SMBios:       TestSmbios,
+				AllowEmulation: true,
+				SMBios:         TestSmbios,
 			}
 		})
 
@@ -2318,7 +2318,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices = v1.Devices{
 				AutoattachGraphicsDevice: autoAttach,
 			}
-			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true})
 			Expect(domain.Spec.Devices.Video).To(HaveLen(devices))
 			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
 
@@ -2346,7 +2346,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 
-			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true})
 			Expect(domain.Spec.Features.Hyperv).To(Equal(result))
 
 		},
@@ -2408,7 +2408,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices = v1.Devices{
 				AutoattachSerialConsole: autoAttach,
 			}
-			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true})
 			Expect(domain.Spec.Devices.Serials).To(HaveLen(devices))
 			Expect(domain.Spec.Devices.Consoles).To(HaveLen(devices))
 
@@ -2574,7 +2574,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 
-			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator})
+			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator})
 			Expect(domain.Spec.IOThreads).ToNot(BeNil())
 			Expect(int(domain.Spec.IOThreads.IOThreads)).To(Equal(threadCount))
 			for idx, disk := range domain.Spec.Devices.Disks {
@@ -2673,7 +2673,7 @@ var _ = Describe("Converter", func() {
 				Cores: 2,
 			}
 
-			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true, SMBios: &cmdv1.SMBios{}})
+			domain := vmiToDomain(vmi, &ConverterContext{AllowEmulation: true, SMBios: &cmdv1.SMBios{}})
 			Expect(*(domain.Spec.Devices.Disks[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested vCPUs")
 		})
@@ -2705,8 +2705,8 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("16")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c := &ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
-				UseEmulation: true,
-				SMBios:       &cmdv1.SMBios{},
+				AllowEmulation: true,
+				SMBios:         &cmdv1.SMBios{},
 			}
 			domain := vmiToDomain(vmi, c)
 			domain.Spec.IOThreads = &api.IOThreads{}
@@ -2729,7 +2729,7 @@ var _ = Describe("Converter", func() {
 		It("should pack iothreads equally on available vcpus, if there are more iothreads than vcpus", func() {
 			vmi.Spec.Domain.CPU.Cores = 2
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			c := &ConverterContext{CPUSet: []int{5, 6}, UseEmulation: true}
+			c := &ConverterContext{CPUSet: []int{5, 6}, AllowEmulation: true}
 			domain := vmiToDomain(vmi, c)
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
@@ -2775,7 +2775,7 @@ var _ = Describe("Converter", func() {
 				Cores: 2,
 			}
 
-			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			domain := vmiToDomain(vmi, &ConverterContext{AllowEmulation: true})
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested vCPUs")
 		})
@@ -2787,14 +2787,14 @@ var _ = Describe("Converter", func() {
 				Sockets: 1,
 				Threads: 2,
 			}
-			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			domain := vmiToDomain(vmi, &ConverterContext{AllowEmulation: true})
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested vCPUs")
 		})
 
 		It("should not assign queues to a non-virtio devices", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
-			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			domain := vmiToDomain(vmi, &ConverterContext{AllowEmulation: true})
 			Expect(domain.Spec.Devices.Interfaces[0].Driver).To(BeNil(),
 				"queues should not be set for models other than virtio")
 		})
@@ -2805,7 +2805,7 @@ var _ = Describe("Converter", func() {
 				Sockets: 1,
 				Threads: 2,
 			}
-			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			domain := vmiToDomain(vmi, &ConverterContext{AllowEmulation: true})
 			expectedNumberQueues := uint(multiQueueMaxQueues)
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedNumberQueues),
 				"should be capped to the maximum number of queues on tap devices")
@@ -2828,7 +2828,7 @@ var _ = Describe("Converter", func() {
 
 			c = &ConverterContext{
 				VirtualMachine: vmi,
-				UseEmulation:   true,
+				AllowEmulation: true,
 			}
 		})
 
@@ -2908,7 +2908,7 @@ var _ = Describe("Converter", func() {
 
 			c = &ConverterContext{
 				VirtualMachine: vmi,
-				UseEmulation:   true,
+				AllowEmulation: true,
 			}
 		})
 
@@ -2968,7 +2968,7 @@ var _ = Describe("Converter", func() {
 
 			c = &ConverterContext{
 				VirtualMachine: vmi,
-				UseEmulation:   true,
+				AllowEmulation: true,
 				IsBlockPVC: map[string]bool{
 					"test-block-pvc": true,
 				},

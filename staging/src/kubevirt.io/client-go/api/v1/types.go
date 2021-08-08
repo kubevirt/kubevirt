@@ -2016,8 +2016,10 @@ type DeveloperConfiguration struct {
 	MinimumReservePVCBytes uint64            `json:"minimumReservePVCBytes,omitempty"`
 	MemoryOvercommit       int               `json:"memoryOvercommit,omitempty"`
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
-	UseEmulation           bool              `json:"useEmulation,omitempty"`
-	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
+	// UseEmulation can be set to true to allow fallback to software emulation
+	// in case hardware-assisted emulation is not available.
+	UseEmulation       bool `json:"useEmulation,omitempty"`
+	CPUAllocationRatio int  `json:"cpuAllocationRatio,omitempty"`
 	// Allow overriding the automatically determined minimum TSC frequency of the cluster
 	// and fixate the minimum to this frequency.
 	MinimumClusterTSCFrequency *int64            `json:"minimumClusterTSCFrequency,omitempty"`
