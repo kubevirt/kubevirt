@@ -24,6 +24,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -132,6 +133,35 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 
 	var location = make([]string, 0)
 	var newLocation []string = nil
+
+	// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
+	// assigned in the source node with the new CPUs assigned in the target node
+	var (
+		targetNodeCPUSet []int
+		cpuPinFields     []string
+		cpuSetMapping    map[int]int
+	)
+
+	if vmi.IsCPUDedicated() {
+		targetNodeCPUSet = vmi.Status.MigrationState.TargetNodeCPUSet
+		cpuPinFields = []string{"vcpupin", "emulatorpin", "iothreadpin"}
+		cpuSetMapping = map[int]int{}
+
+		if targetNodeCPUSet == nil || len(targetNodeCPUSet) == 0 {
+			return "", fmt.Errorf("target node CPU set is missing for migrating VMI %s/%s", vmi.GetNamespace(), vmi.GetName())
+		}
+
+		sourceNodeCPUSet, err := util.GetPodCPUSet()
+		if err != nil {
+			return "", err
+		}
+
+		// sourceCPUSet and tagetCPUSet are of the same length
+		for i := range sourceNodeCPUSet {
+			cpuSetMapping[sourceNodeCPUSet[i]] = targetNodeCPUSet[i]
+		}
+	}
+
 	for {
 		if newLocation != nil {
 			// Postpone popping end elements from `location` to ensure their removal
@@ -150,6 +180,19 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 		switch v := token.(type) {
 		case xml.StartElement:
 			location = append(location, v.Name.Local)
+
+			// If the VMI requires dedicated CPUs, we need to patch the domain with
+			// the new CPU set in the target node prior to migration
+			if vmi.IsCPUDedicated() {
+				for _, field := range cpuPinFields {
+					if v.Name.Local == field {
+						err = updateCPUSetAttributeForXMLElement(&v, cpuSetMapping)
+						if err != nil {
+							return "", err
+						}
+					}
+				}
+			}
 		case xml.EndElement:
 			newLocation = location[:len(location)-1]
 		}
@@ -173,6 +216,41 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 	}
 
 	return string(buf.Bytes()), nil
+}
+
+func updateCPUSetAttributeForXMLElement(v *xml.StartElement, cpuSetMapping map[int]int) error {
+	for i := 0; i < len(v.Attr); i++ {
+		if v.Attr[i].Name.Local == "cpuset" {
+			currentCPUsStr := v.Attr[i].Value
+
+			// if a collection of CPUs is defined, replace all CPUs
+			if strings.Contains(currentCPUsStr, ",") {
+				strCPUs := strings.Split(currentCPUsStr, ",")
+				var newCPUs []int
+
+				for _, strCPU := range strCPUs {
+					cpu, err := strconv.Atoi(strCPU)
+					if err != nil {
+						return err
+					}
+
+					newCPUs = append(newCPUs, cpuSetMapping[cpu])
+				}
+
+				v.Attr[i].Value = strings.Trim(strings.Join(strings.Fields(fmt.Sprint(newCPUs)), ","), "[]")
+			} else {
+				// a single CPU is defined
+				currentCPU, err := strconv.Atoi(v.Attr[i].Value)
+				if err != nil {
+					return err
+				}
+
+				v.Attr[i].Value = strconv.Itoa(cpuSetMapping[currentCPU])
+			}
+		}
+	}
+
+	return nil
 }
 
 func (d *migrationDisks) isSharedVolume(name string) bool {
