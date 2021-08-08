@@ -19,6 +19,7 @@ go_library(
         "//pkg/network/errors:go_default_library",
         "//pkg/network/setup:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/hardware:go_default_library",
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/types:go_default_library",
         "//pkg/virt-config:go_default_library",

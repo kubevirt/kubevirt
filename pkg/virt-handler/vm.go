@@ -24,6 +24,7 @@ import (
 	goerror "errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -52,6 +53,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
 
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
@@ -2447,6 +2449,15 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return err
 	}
 
+	// If the migrated VMI requires dedicated CPUs, report the new pod CPU set to the source node
+	// via the VMI migration status in order to patch the domain pre migration
+	if vmi.IsCPUDedicated() {
+		err = reportDedicatedCPUSetForMigration(d, vmi)
+		if err != nil {
+			return err
+		}
+	}
+
 	// give containerDisks some time to become ready before throwing errors on retries
 	info := d.getLauncherClientInfo(vmi)
 	if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
@@ -2880,4 +2891,32 @@ func nodeHasHostModelLabel(node *k8sv1.Node) bool {
 		}
 	}
 	return false
+}
+
+func reportDedicatedCPUSetForMigration(vmc *VirtualMachineController, vmi *v1.VirtualMachineInstance) error {
+	baseCPUSetPath := "/proc/1/root/sys/fs/cgroup/cpuset"
+	isoRes, err := vmc.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+
+	cpusetFilePath := filepath.Join(baseCPUSetPath, isoRes.Slice(), "cpuset.cpus")
+	cpuSetStr, err := ioutil.ReadFile(cpusetFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read target VMI cpuset: %v", err)
+	}
+
+	cpuSet, err := hardware.ParseCPUSetLine(strings.TrimSpace(string(cpuSetStr)))
+	if err != nil {
+		return fmt.Errorf("failed to parse target VMI cpuset: %v", err)
+	}
+
+	vmi.Status.MigrationState.TargetNodeCPUSet = cpuSet
+
+	_, err = vmc.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmi)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
