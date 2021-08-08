@@ -77,6 +77,11 @@ func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *v1.Prom
 
 // NewPrometheusRuleSpec makes a prometheus rule spec for kubevirt
 func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.PrometheusRuleSpec {
+	getRestCallsFailedWarning := func(failingCallsPercentage int, component, duration string) string {
+		const restCallsFailWarningTemplate = "More than %d%% of the rest calls failed in %s for the last %s"
+		return fmt.Sprintf(restCallsFailWarningTemplate, failingCallsPercentage, component, duration)
+	}
+
 	ruleSpec := &v1.PrometheusRuleSpec{
 		Groups: []v1.RuleGroup{
 			{
@@ -222,7 +227,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_hour / vec_by_virt_controllers_all_client_rest_requests_in_last_hour) >= 0.05"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     "More than 5% of the rest calls failed in virt-controller for the last hour",
+							"summary":     getRestCallsFailedWarning(5, "virt-controller", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsHigh",
 						},
 						Labels: map[string]string{
@@ -234,7 +239,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_5m / vec_by_virt_controllers_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     "More than 80% of the rest calls failed in virt-controller for the last 5 minutes",
+							"summary":     getRestCallsFailedWarning(80, "virt-controller", "5 minutes"),
 							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
@@ -300,7 +305,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_hour / vec_by_virt_operators_all_client_rest_requests_in_last_hour) >= 0.05"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     "More than 5% of the rest calls failed in virt-operator for the last hour",
+							"summary":     getRestCallsFailedWarning(5, "virt-operator", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsHigh",
 						},
 						Labels: map[string]string{
@@ -312,7 +317,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_5m / vec_by_virt_operators_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     "More than 80% of the rest calls failed in virt-operator for the last 5 minutes",
+							"summary":     getRestCallsFailedWarning(80, "virt-operator", "5 minutes"),
 							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsBurst",
 						},
 						Labels: map[string]string{
@@ -415,7 +420,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_hour / vec_by_virt_handlers_all_client_rest_requests_in_last_hour) >= 0.05"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     "More than 5% of the rest calls failed in virt-handler for the last hour",
+							"summary":     getRestCallsFailedWarning(5, "virt-handler", "hour"),
 							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsHigh",
 						},
 						Labels: map[string]string{
@@ -427,7 +432,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_5m / vec_by_virt_handlers_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary":     "More than 80% of the rest calls failed in virt-handler for the last 5 minutes",
+							"summary":     getRestCallsFailedWarning(80, "virt-handler", "5 minutes"),
 							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
@@ -463,7 +468,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_apis_failed_client_rest_requests_in_last_hour / vec_by_virt_apis_all_client_rest_requests_in_last_hour) >= 0.05"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than 5% of the rest calls failed in virt-api for the last hour",
+							"summary": getRestCallsFailedWarning(5, "virt-api", "hour"),
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -474,7 +479,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 						Expr:  intstr.FromString("(vec_by_virt_apis_failed_client_rest_requests_in_last_5m / vec_by_virt_apis_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than 80% of the rest calls failed in virt-api for the last 5 minutes",
+							"summary": getRestCallsFailedWarning(80, "virt-api", "5 minutes"),
 						},
 						Labels: map[string]string{
 							"severity": "critical",
