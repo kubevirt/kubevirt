@@ -3703,6 +3703,11 @@ func (in *VirtualMachineInstanceMigrationState) DeepCopyInto(out *VirtualMachine
 			(*out)[key] = val
 		}
 	}
+	if in.TargetNodeCPUSet != nil {
+		in, out := &in.TargetNodeCPUSet, &out.TargetNodeCPUSet
+		*out = make([]int, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

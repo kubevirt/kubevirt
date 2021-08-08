@@ -167,6 +167,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
+		"targetNodeCPUSet":               "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",
 	}
 }
 

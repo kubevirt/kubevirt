@@ -576,6 +576,10 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the dedicated CPU set on the target node
+	// +listType=atomic
+	TargetNodeCPUSet []int `json:"targetNodeCPUSet,omitempty"`
 }
 
 //

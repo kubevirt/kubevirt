@@ -12518,6 +12518,15 @@
       "description": "The address of the target node to use for the migration",
       "type": "string"
      },
+     "targetNodeCPUSet": {
+      "description": "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node",
+      "type": "array",
+      "items": {
+       "type": "integer",
+       "format": "int32"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "targetNodeDomainDetected": {
       "description": "The Target Node has seen the Domain Start Event",
       "type": "boolean"
