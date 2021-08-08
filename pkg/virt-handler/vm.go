@@ -726,6 +726,15 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 			vmiCopy.Status.MigrationState.TargetNodeAddress = d.ipAddress
 			vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
 		}
+
+		// If the migrated VMI requires dedicated CPUs, report the new pod CPU set to the source node
+		// via the VMI migration status in order to patch the domain pre migration
+		if vmi.IsCPUDedicated() {
+			err := d.reportDedicatedCPUSetForMigratingVMI(vmiCopy)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	// update the VMI if necessary
@@ -2449,15 +2458,6 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return err
 	}
 
-	// If the migrated VMI requires dedicated CPUs, report the new pod CPU set to the source node
-	// via the VMI migration status in order to patch the domain pre migration
-	if vmi.IsCPUDedicated() {
-		err = reportDedicatedCPUSetForMigration(d, vmi)
-		if err != nil {
-			return err
-		}
-	}
-
 	// give containerDisks some time to become ready before throwing errors on retries
 	info := d.getLauncherClientInfo(vmi)
 	if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
@@ -2893,9 +2893,9 @@ func nodeHasHostModelLabel(node *k8sv1.Node) bool {
 	return false
 }
 
-func reportDedicatedCPUSetForMigration(vmc *VirtualMachineController, vmi *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
 	baseCPUSetPath := "/proc/1/root/sys/fs/cgroup/cpuset"
-	isoRes, err := vmc.podIsolationDetector.Detect(vmi)
+	isoRes, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return err
 	}
@@ -2912,11 +2912,6 @@ func reportDedicatedCPUSetForMigration(vmc *VirtualMachineController, vmi *v1.Vi
 	}
 
 	vmi.Status.MigrationState.TargetNodeCPUSet = cpuSet
-
-	_, err = vmc.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmi)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
