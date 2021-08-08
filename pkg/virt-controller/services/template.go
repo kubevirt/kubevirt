@@ -510,8 +510,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	var nodeSelector map[string]string
 	nodeSelector, resources = renderLaunchManifestCPUDedicated(vmi, resources)
 
-	ovmfPath := t.clusterConfig.GetOVMFPath()
-
 	var command []string
 	if tempPod {
 		log.Log.Infof("RUNNING pod to pre bind pvc for %s", vmi.Name)
@@ -529,7 +527,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"--container-disk-dir", t.containerDiskDir,
 			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
-			"--ovmf-path", ovmfPath,
+			"--ovmf-path", t.clusterConfig.GetOVMFPath(),
 		}
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
