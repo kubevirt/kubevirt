@@ -13,6 +13,10 @@ export KUBECONFIG=$(./cluster-up/kubeconfig.sh)
 
 sonobuoy_args="--wait --plugin _out/manifests/release/conformance.yaml"
 
+if [[ ! -z "DOCKER_TAG" ]]; then
+    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.CONTAINER_TAG=${DOCKER_TAG}"
+fi
+
 if [[ ! -z "$KUBEVIRT_E2E_FOCUS" ]]; then
     sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_FOCUS=${KUBEVIRT_E2E_FOCUS}"
 fi
