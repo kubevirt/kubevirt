@@ -65,7 +65,13 @@ make conformance
 To run without outside connectivity tests add the argument:
 
 ```bash
-make conformance SKIP_OUTSIDE_CONN_TESTS=true
+SKIP_OUTSIDE_CONN_TESTS=true make conformance
+```
+
+To focus on specific tests pass KUBEVIRT_E2E_FOCUS argument:
+
+```bash
+KUBEVIRT_E2E_FOCUS=sig-network make conformance
 ```
 
 ## Generate manifests
