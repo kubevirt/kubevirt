@@ -14,8 +14,8 @@ anything outside of the explicitly created test namespaces by the binary.
 To execute the conformance tests for a released conformance test suite, run:
 
 ```bash
-VERSION=v0.33.0
-sonobuoy run --plugin https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/conformance.yaml
+KUBEVIRT_VERSION=v0.41.0
+sonobuoy run --plugin https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/conformance.yaml
 ```
 
 The execution can be monitored using the `status` command:
