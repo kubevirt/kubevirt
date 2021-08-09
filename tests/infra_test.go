@@ -1546,6 +1546,38 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		})
 	})
 
+	Describe("cluster profiler for pprof data aggregation", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		Context("when ClusterProfiler feature gate", func() {
+			It("is disabled it should prevent subresource access", func() {
+				tests.DisableFeatureGate("ClusterProfiler")
+
+				err := virtClient.ClusterProfiler().Start()
+				Expect(err).ToNot(BeNil())
+
+				err = virtClient.ClusterProfiler().Stop()
+				Expect(err).ToNot(BeNil())
+
+				_, err = virtClient.ClusterProfiler().Dump()
+				Expect(err).ToNot(BeNil())
+			})
+			It("is enabled it should allow subresource access", func() {
+				tests.EnableFeatureGate("ClusterProfiler")
+
+				err := virtClient.ClusterProfiler().Start()
+				Expect(err).To(BeNil())
+
+				err = virtClient.ClusterProfiler().Stop()
+				Expect(err).To(BeNil())
+
+				_, err = virtClient.ClusterProfiler().Dump()
+				Expect(err).To(BeNil())
+			})
+		})
+	})
 })
 
 func getLeader() string {
