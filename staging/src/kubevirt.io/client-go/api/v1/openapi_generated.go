@@ -19702,8 +19702,9 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 					},
 					"useEmulation": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "UseEmulation can be set to true to allow fallback to software emulation in case hardware-assisted emulation is not available.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"cpuAllocationRatio": {

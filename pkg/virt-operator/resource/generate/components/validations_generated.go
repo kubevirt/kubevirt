@@ -644,6 +644,9 @@ var CRDsValidation map[string]string = map[string]string{
                 pvcTolerateLessSpaceUpToPercent:
                   type: integer
                 useEmulation:
+                  description: UseEmulation can be set to true to allow fallback to
+                    software emulation in case hardware-assisted emulation is not
+                    available.
                   type: boolean
               type: object
             emulatedMachines:
