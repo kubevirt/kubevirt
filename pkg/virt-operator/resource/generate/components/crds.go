@@ -41,6 +41,7 @@ const (
 	creationTimestampJSONPath = ".metadata.creationTimestamp"
 	errorMessageJSONPath      = ".status.error.message"
 	prometheusLabelKey        = "prometheus.kubevirt.io"
+	runbookUrlBasePath        = "https://kubevirt.io/monitoring/runbooks/"
 )
 
 var (
@@ -566,7 +567,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("kubevirt_virt_api_up_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "All virt-api servers are down.",
+							"summary":     "All virt-api servers are down.",
+							"runbook_url": runbookUrlBasePath + "VirtAPIDown",
 						},
 						Labels: map[string]string{
 							"severity": "critical",
@@ -581,7 +583,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_api_up_total < 2)"),
 						For:   "60m",
 						Annotations: map[string]string{
-							"summary": "More than one virt-api should be running if more than one worker nodes exist.",
+							"summary":     "More than one virt-api should be running if more than one worker nodes exist.",
+							"runbook_url": runbookUrlBasePath + "LowVirtAPICount",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -598,6 +601,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"description": "Low number of nodes with KVM resource available.",
 							"summary":     "At least two nodes with kvm resource required for VM life migration.",
+							"runbook_url": runbookUrlBasePath + "LowKVMNodesCount",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -620,7 +624,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total <  kubevirt_virt_controller_up_total"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "Some virt controllers are running but not ready.",
+							"summary":     "Some virt controllers are running but not ready.",
+							"runbook_url": runbookUrlBasePath + "LowReadyVirtControllersCount",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -631,7 +636,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "No ready virt-controller was detected for the last 5 min.",
+							"summary":     "No ready virt-controller was detected for the last 5 min.",
+							"runbook_url": runbookUrlBasePath + "NoReadyVirtController",
 						},
 						Labels: map[string]string{
 							"severity": "critical",
@@ -642,7 +648,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("kubevirt_virt_controller_up_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "No running virt-controller was detected for the last 5 min.",
+							"summary":     "No running virt-controller was detected for the last 5 min.",
+							"runbook_url": runbookUrlBasePath + "VirtControllerDown",
 						},
 						Labels: map[string]string{
 							"severity": "critical",
@@ -653,7 +660,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_controller_ready_total < 2)"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than one virt-controller should be ready if more than one worker node.",
+							"summary":     "More than one virt-controller should be ready if more than one worker node.",
+							"runbook_url": runbookUrlBasePath + "LowVirtControllersCount",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -688,7 +696,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_hour / vec_by_virt_controllers_all_client_rest_requests_in_last_hour) >= 0.05"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than 5% of the rest calls failed in virt-controller for the last hour",
+							"summary":     "More than 5% of the rest calls failed in virt-controller for the last hour",
+							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsHigh",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -699,7 +708,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_5m / vec_by_virt_controllers_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than 80% of the rest calls failed in virt-controller for the last 5 minutes",
+							"summary":     "More than 80% of the rest calls failed in virt-controller for the last 5 minutes",
+							"runbook_url": runbookUrlBasePath + "VirtControllerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
 							"severity": "critical",
@@ -716,7 +726,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "All virt-operator servers are down.",
+							"summary":     "All virt-operator servers are down.",
+							"runbook_url": runbookUrlBasePath + "VirtOperatorDown",
 						},
 						Labels: map[string]string{
 							"severity": "critical",
@@ -727,7 +738,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_operator_up_total < 2)"),
 						For:   "60m",
 						Annotations: map[string]string{
-							"summary": "More than one virt-operator should be running if more than one worker nodes exist.",
+							"summary":     "More than one virt-operator should be running if more than one worker nodes exist.",
+							"runbook_url": runbookUrlBasePath + "LowVirtOperatorCount",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -762,7 +774,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_hour / vec_by_virt_operators_all_client_rest_requests_in_last_hour) >= 0.05"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than 5% of the rest calls failed in virt-operator for the last hour",
+							"summary":     "More than 5% of the rest calls failed in virt-operator for the last hour",
+							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsHigh",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -773,7 +786,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(vec_by_virt_operators_failed_client_rest_requests_in_last_5m / vec_by_virt_operators_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than 80% of the rest calls failed in virt-operator for the last 5 minutes",
+							"summary":     "More than 80% of the rest calls failed in virt-operator for the last 5 minutes",
+							"runbook_url": runbookUrlBasePath + "VirtOperatorRESTErrorsBurst",
 						},
 						Labels: map[string]string{
 							"severity": "critical",
@@ -796,7 +810,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("kubevirt_virt_operator_ready_total <  kubevirt_virt_operator_up_total"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "Some virt-operators are running but not ready.",
+							"summary":     "Some virt-operators are running but not ready.",
+							"runbook_url": runbookUrlBasePath + "LowReadyVirtOperatorsCount",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -807,7 +822,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "No ready virt-operator was detected for the last 5 min.",
+							"summary":     "No ready virt-operator was detected for the last 5 min.",
+							"runbook_url": runbookUrlBasePath + "NoReadyVirtOperator",
 						},
 						Labels: map[string]string{
 							"severity": "critical",
@@ -818,7 +834,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("kubevirt_virt_operator_leading_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "No leading virt-operator was detected for the last 5 min.",
+							"summary":     "No leading virt-operator was detected for the last 5 min.",
+							"runbook_url": runbookUrlBasePath + "NoLeadingVirtOperator",
 						},
 						Labels: map[string]string{
 							"severity": "critical",
@@ -836,7 +853,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 								fmt.Sprintf("kube_daemonset_status_desired_number_scheduled{namespace='%s', daemonset='virt-handler'}", ns))),
 						For: "15m",
 						Annotations: map[string]string{
-							"summary": "Some virt-handlers failed to roll out",
+							"summary":     "Some virt-handlers failed to roll out",
+							"runbook_url": runbookUrlBasePath + "VirtHandlerDaemonSetRolloutFailing",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -871,7 +889,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_hour / vec_by_virt_handlers_all_client_rest_requests_in_last_hour) >= 0.05"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than 5% of the rest calls failed in virt-handler for the last hour",
+							"summary":     "More than 5% of the rest calls failed in virt-handler for the last hour",
+							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsHigh",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -882,7 +901,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_5m / vec_by_virt_handlers_all_client_rest_requests_in_last_5m) >= 0.8"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than 80% of the rest calls failed in virt-handler for the last 5 minutes",
+							"summary":     "More than 80% of the rest calls failed in virt-handler for the last 5 minutes",
+							"runbook_url": runbookUrlBasePath + "VirtHandlerRESTErrorsBurst",
 						},
 						Labels: map[string]string{
 							"severity": "critical",
@@ -899,6 +919,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} free memory is less than 20 MB and it is close to memory limit",
 							"summary":     "VM is at risk of being terminated by the runtime.",
+							"runbook_url": runbookUrlBasePath + "KubevirtVmHighMemoryUsage",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -913,7 +934,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("(kubevirt_num_virt_handlers_by_node_running_virt_launcher) == 0"),
 						For:   "60m",
 						Annotations: map[string]string{
-							"summary": "No virt-handler pod detected on node {{ $labels.node }} with running vmis for more than an hour",
+							"summary":     "No virt-handler pod detected on node {{ $labels.node }} with running vmis for more than an hour",
+							"runbook_url": runbookUrlBasePath + "OrphanedVirtualMachineImages",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -926,6 +948,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"description": "Eviction policy for {{ $labels.name }} (on node {{ $labels.node }}) is set to Live Migration but the VM is not migratable",
 							"summary":     "The VM's eviction strategy is set to Live Migration but the VM is not migratable",
+							"runbook_url": runbookUrlBasePath + "VMCannotBeEvicted",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -938,6 +961,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory usage exceeds the memory requested",
 							"summary":     "The container is using more memory than what is defined in the containers resource requests",
+							"runbook_url": runbookUrlBasePath + "KubeVirtComponentExceedsRequestedMemory",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -952,6 +976,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Annotations: map[string]string{
 							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} cpu usage exceeds the CPU requested",
 							"summary":     "The container is using more CPU than what is defined in the containers resource requests",
+							"runbook_url": runbookUrlBasePath + "KubeVirtComponentExceedsRequestedCPU",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
@@ -969,7 +994,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 			Expr:  intstr.FromString("kubevirt_vmi_outdated_count != 0"),
 			For:   "1440m",
 			Annotations: map[string]string{
-				"summary": "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
+				"summary":     "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
+				"runbook_url": runbookUrlBasePath + "OutdatedVirtualMachineInstanceWorkloads",
 			},
 		})
 	}

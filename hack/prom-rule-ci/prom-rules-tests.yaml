@@ -21,6 +21,7 @@ tests:
           - exp_annotations:
               description: "Container virt-controller in pod virt-controller-8546c99968-x9jgg cpu usage exceeds the CPU requested"
               summary: "The container is using more CPU than what is defined in the containers resource requests"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedCPU"
             exp_labels:
               severity: "warning"
               pod: "virt-controller-8546c99968-x9jgg"
@@ -44,6 +45,7 @@ tests:
           - exp_annotations:
               description: "Container virt-controller in pod virt-controller-8546c99968-x9jgg memory usage exceeds the memory requested"
               summary: "The container is using more memory than what is defined in the containers resource requests"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedMemory"
             exp_labels:
               severity: "warning"
               namespace: ci
@@ -68,6 +70,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "All virt-api servers are down."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
               severity: "critical"
       - eval_time: 5m
@@ -75,6 +78,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "No running virt-controller was detected for the last 5 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
       - eval_time: 5m
@@ -82,6 +86,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "All virt-operator servers are down."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
               severity: "critical"
 
@@ -105,6 +110,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "No virt-handler pod detected on node node01 with running vmis for more than an hour"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/OrphanedVirtualMachineImages"
             exp_labels:
               node: "node01"
               pod: "virt-handler-asdf"
@@ -128,6 +134,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "Some virt controllers are running but not ready."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowReadyVirtControllersCount"
             exp_labels:
               severity: "warning"
 
@@ -143,6 +150,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "No ready virt-controller was detected for the last 5 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtController"
             exp_labels:
               severity: "critical"
 
@@ -157,6 +165,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "No ready virt-controller was detected for the last 5 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtController"
             exp_labels:
               severity: "critical"
 
@@ -182,6 +191,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "More than 5% of the rest calls failed in virt-controller for the last hour"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerRESTErrorsHigh"
             exp_labels:
               pod: "virt-controller-1"
               severity: "warning"
@@ -190,6 +200,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "More than 80% of the rest calls failed in virt-controller for the last 5 minutes"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerRESTErrorsBurst"
             exp_labels:
               pod: "virt-controller-1"
               severity: "critical"
@@ -198,6 +209,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "More than 5% of the rest calls failed in virt-operator for the last hour"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorRESTErrorsHigh"
             exp_labels:
               pod: "virt-operator-1"
               severity: "warning"
@@ -206,6 +218,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "More than 80% of the rest calls failed in virt-operator for the last 5 minutes"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorRESTErrorsBurst"
             exp_labels:
               pod: "virt-operator-1"
               severity: "critical"
@@ -214,6 +227,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "More than 5% of the rest calls failed in virt-handler for the last hour"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerRESTErrorsHigh"
             exp_labels:
               pod: "virt-handler-1"
               severity: "warning"
@@ -222,6 +236,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "More than 80% of the rest calls failed in virt-handler for the last 5 minutes"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerRESTErrorsBurst"
             exp_labels:
               pod: "virt-handler-1"
               severity: "critical"
@@ -241,6 +256,7 @@ tests:
           - exp_annotations:
               description: "Low number of nodes with KVM resource available."
               summary: "At least two nodes with kvm resource required for VM life migration."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
             exp_labels:
               severity: "warning"
 
@@ -259,6 +275,7 @@ tests:
           - exp_annotations:
               description: "Low number of nodes with KVM resource available."
               summary: "At least two nodes with kvm resource required for VM life migration."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
             exp_labels:
               severity: "warning"
 
@@ -290,6 +307,7 @@ tests:
           - exp_annotations:
               description: "Container compute in pod virt-launcher-testvm-123 free memory is less than 20 MB and it is close to memory limit"
               summary: "VM is at risk of being terminated by the runtime."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
             exp_labels:
               severity: "warning"
               pod: "virt-launcher-testvm-123"
@@ -321,6 +339,7 @@ tests:
           - exp_annotations:
               description: "Eviction policy for vm-evict-nonmigratable (on node node1) is set to Live Migration but the VM is not migratable"
               summary: "The VM's eviction strategy is set to Live Migration but the VM is not migratable"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VMCannotBeEvicted"
             exp_labels:
               severity: "warning"
               name: "vm-evict-nonmigratable"
