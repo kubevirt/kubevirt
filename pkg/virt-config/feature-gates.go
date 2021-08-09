@@ -42,6 +42,7 @@ const (
 	MacvtapGate                = "Macvtap"
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	NonRoot                    = "NonRootExperimental"
+	ClusterProfiler            = "ClusterProfiler"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -120,4 +121,8 @@ func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 
 func (config *ClusterConfig) NonRootEnabled() bool {
 	return config.isFeatureGateEnabled(NonRoot)
+}
+
+func (config *ClusterConfig) ClusterProfilerEnabled() bool {
+	return config.isFeatureGateEnabled(ClusterProfiler)
 }

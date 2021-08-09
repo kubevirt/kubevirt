@@ -36,77 +36,81 @@ type pprofData struct {
 	lock        sync.Mutex
 }
 
-var globalProcessProfiler pprofData
 var ProcessProfileBaseDir = "/profile-data"
 var cpuProfileFilePath = filepath.Join(ProcessProfileBaseDir, "cpu.pprof")
 
-func startProcessProfiler() error {
+func (p *pprofData) startProcessProfiler() error {
 	var err error
 
-	globalProcessProfiler.lock.Lock()
-	defer globalProcessProfiler.lock.Unlock()
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
-	globalProcessProfiler.hasResults = false
-	globalProcessProfiler.isProfiling = true
+	p.hasResults = false
+	p.isProfiling = true
 
-	globalProcessProfiler.cpuf, err = os.Create(cpuProfileFilePath)
+	p.cpuf, err = os.Create(cpuProfileFilePath)
 	if err != nil {
 		return err
 	}
 
-	if err := pprof.StartCPUProfile(globalProcessProfiler.cpuf); err != nil {
+	if err := pprof.StartCPUProfile(p.cpuf); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func stopProcessProfiler(clearResults bool) {
-	globalProcessProfiler.lock.Lock()
-	defer globalProcessProfiler.lock.Unlock()
+func (p *pprofData) stopProcessProfiler(clearResults bool) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
 	pprof.StopCPUProfile()
 
-	globalProcessProfiler.cpuf.Close()
-	globalProcessProfiler.hasResults = true
-	globalProcessProfiler.isProfiling = false
+	p.cpuf.Close()
+	p.hasResults = true
+	p.isProfiling = false
 	if clearResults {
-		globalProcessProfiler.hasResults = false
+		p.hasResults = false
 	}
 
 }
 
-func dumpProcessProfilerResults() (map[string][]byte, error) {
+func (p *pprofData) dumpProcessProfilerResults() (map[string][]byte, error) {
 	var err error
 	res := make(map[string][]byte)
 
 	dumpTypes := []string{
-		"goroutine",
 		"heap",
+		"goroutine",
 		"allocs",
 		"threadcreate",
 		"block",
 		"mutex",
+		"cpu",
 	}
 
+	// Run garbage collector in order to clean up the "heap" dump so it's more useful
+	runtime.GC()
 	for _, dump := range dumpTypes {
-		runtime.GC()
-		var buf bytes.Buffer
-		if err := pprof.Lookup(dump).WriteTo(&buf, 2); err != nil {
-			return res, err
+		var b []byte
+		if dump == "cpu" {
+			p.lock.Lock()
+			defer p.lock.Unlock()
+			if !p.hasResults {
+				continue
+			}
+			b, err = ioutil.ReadFile(cpuProfileFilePath)
+			if err != nil {
+				return res, err
+			}
+		} else {
+			var buf bytes.Buffer
+			if err := pprof.Lookup(dump).WriteTo(&buf, 2); err != nil {
+				return res, err
+			}
+			b = buf.Bytes()
 		}
-		res[dump+".pprof"] = buf.Bytes()
-	}
-
-	globalProcessProfiler.lock.Lock()
-	defer globalProcessProfiler.lock.Unlock()
-	if !globalProcessProfiler.hasResults {
-		return res, nil
-	}
-
-	res["cpu.pprof"], err = ioutil.ReadFile(cpuProfileFilePath)
-	if err != nil {
-		return res, err
+		res[dump+".pprof"] = b
 	}
 
 	return res, nil

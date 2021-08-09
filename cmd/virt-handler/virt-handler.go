@@ -464,9 +464,12 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
 	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
-	webService.Route(webService.GET("/start-profiler").To(profiler.HandleStartProfiler).Doc("start profiler endpoint"))
-	webService.Route(webService.GET("/stop-profiler").To(profiler.HandleStopProfiler).Doc("stop profiler endpoint"))
-	webService.Route(webService.GET("/dump-profiler").To(profiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
+
+	componentProfiler := profiler.NewProfileManager(app.clusterConfig)
+	webService.Route(webService.GET("/start-profiler").To(componentProfiler.HandleStartProfiler).Doc("start profiler endpoint"))
+	webService.Route(webService.GET("/stop-profiler").To(componentProfiler.HandleStopProfiler).Doc("stop profiler endpoint"))
+	webService.Route(webService.GET("/dump-profiler").To(componentProfiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
+
 	mux.Add(webService)
 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	mux.Handle("/metrics", promdomain.Handler(app.MaxRequestsInFlight))

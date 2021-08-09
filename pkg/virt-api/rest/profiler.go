@@ -164,17 +164,29 @@ func (app *SubresourceAPIApp) stopStartHandler(command string, request *restful.
 
 func (app *SubresourceAPIApp) StartClusterProfilerHandler() restful.RouteFunction {
 	return func(request *restful.Request, response *restful.Response) {
+		if !app.clusterConfig.ClusterProfilerEnabled() {
+			response.WriteErrorString(http.StatusForbidden, "Unable to start profiler. \"ClusterProfiler\" feature gate must be enabled")
+			return
+		}
 		app.stopStartHandler("start", request, response)
 	}
 }
 
 func (app *SubresourceAPIApp) StopClusterProfilerHandler() restful.RouteFunction {
 	return func(request *restful.Request, response *restful.Response) {
+		if !app.clusterConfig.ClusterProfilerEnabled() {
+			response.WriteErrorString(http.StatusForbidden, "Unable to stop profiler. \"ClusterProfiler\" feature gate must be enabled")
+			return
+		}
 		app.stopStartHandler("stop", request, response)
 	}
 }
 func (app *SubresourceAPIApp) DumpClusterProfilerHandler() restful.RouteFunction {
 	return func(request *restful.Request, response *restful.Response) {
+		if !app.clusterConfig.ClusterProfilerEnabled() {
+			response.WriteErrorString(http.StatusForbidden, "Unable to dump profiler results. \"ClusterProfiler\" feature gate must be enabled")
+			return
+		}
 		pods, err := app.getAllComponentPods()
 		if err != nil {
 			response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error while looking up component pods for profiling: %v", err))

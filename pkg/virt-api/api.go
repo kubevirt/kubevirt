@@ -552,9 +552,12 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
 		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
 	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
-	ws.Route(ws.GET("/start-profiler").To(profiler.HandleStartProfiler).Doc("start profiler endpoint"))
-	ws.Route(ws.GET("/stop-profiler").To(profiler.HandleStopProfiler).Doc("stop profiler endpoint"))
-	ws.Route(ws.GET("/dump-profiler").To(profiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
+
+	componentProfiler := profiler.NewProfileManager(app.clusterConfig)
+
+	ws.Route(ws.GET("/start-profiler").To(componentProfiler.HandleStartProfiler).Doc("start profiler endpoint"))
+	ws.Route(ws.GET("/stop-profiler").To(componentProfiler.HandleStopProfiler).Doc("stop profiler endpoint"))
+	ws.Route(ws.GET("/dump-profiler").To(componentProfiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
 
 	for _, version := range v1.SubresourceGroupVersions {
 		// K8s needs the ability to query info about a specific API group

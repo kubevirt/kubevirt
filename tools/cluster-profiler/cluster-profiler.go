@@ -20,8 +20,6 @@
 package main
 
 import (
-	goflag "flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -40,7 +38,6 @@ const (
 )
 
 const (
-	defaultCmd       = PROFILER_DUMP
 	defaultOutputDir = "cluster-profiler-results"
 )
 
@@ -68,7 +65,7 @@ func writeResultsToDisk(dir string, results *v1.ClusterProfilerResults) error {
 		}
 	}
 
-	fmt.Printf("SUCCESS: PProf results written to [%s]\n", dir)
+	log.Printf("SUCCESS: Dumped PProf results for KubeVirt control plane to [%s]\n", dir)
 
 	return nil
 }
@@ -78,17 +75,15 @@ func main() {
 	var cmd string
 	var outputDir string
 
-	kubecli.Init()
+	clientConfig := kubecli.DefaultClientConfig(flag.CommandLine)
 
-	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("kubeconfig"))
-	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("master"))
-	flag.StringVar(&cmd, "cmd", defaultCmd, "The profiler command, start|stop|dump")
+	flag.StringVar(&cmd, "cmd", "", "The profiler command, start|stop|dump")
 	flag.StringVar(&outputDir, "output-dir", defaultOutputDir, "The directory to store the profiler results in.")
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
+	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Cannot obtain KubeVirt client: %v", err)
 	}
 
 	switch cmd {
@@ -97,11 +92,13 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error cluster profiler %s: %v", cmd, err)
 		}
+		log.Print("SUCCESS: started cpu profiling KubeVirt control plane")
 	case PROFILER_STOP:
 		err := virtClient.ClusterProfiler().Stop()
 		if err != nil {
 			log.Fatalf("Error cluster profiler %s: %v", cmd, err)
 		}
+		log.Print("SUCCESS: stopped cpu profiling KubeVirt control plane")
 	case PROFILER_DUMP:
 		results, err := virtClient.ClusterProfiler().Dump()
 		if err != nil {
@@ -113,7 +110,11 @@ func main() {
 			panic(err)
 		}
 	default:
-		log.Fatalf("unknown profiler command %s. must be of time start|stop|dump", cmd)
+		if cmd == "" {
+			log.Fatalf("--cmd must be set. Valid values are [start|stop|dump]")
+		} else {
+			log.Fatalf("unknown profiler --cmd value, [%s]. must be of type start|stop|dump", cmd)
+		}
 
 	}
 

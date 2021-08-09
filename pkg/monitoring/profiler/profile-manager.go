@@ -20,69 +20,58 @@
 package profiler
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	restful "github.com/emicklei/go-restful"
 )
 
-type profileManager struct {
-	lock sync.Mutex
+type ProfileManager struct {
+	clusterConfig   *virtconfig.ClusterConfig
+	processProfiler *pprofData
 }
 
 type ProfilerResults struct {
 	ProcessProfilerResults map[string][]byte `json:"processProfilerResults,omitempty"`
 }
 
-var globalManager profileManager
+func NewProfileManager(clusterConfig *virtconfig.ClusterConfig) *ProfileManager {
 
-func startProfiler() error {
+	return &ProfileManager{
+		clusterConfig:   clusterConfig,
+		processProfiler: &pprofData{},
+	}
+}
+
+func (m *ProfileManager) startProfiler() error {
 
 	// make sure all profilers are stopped before
 	// we attempt to start again
-	err := stopProfiler(true)
+	err := m.stopProfiler(true)
 	if err != nil {
 		return err
 	}
 
-	err = startProcessProfiler()
+	err = m.processProfiler.startProcessProfiler()
 	if err != nil {
-		stopProfiler(true)
+		m.stopProfiler(true)
 		return err
 	}
 
 	return nil
 }
 
-func stopProfiler(clearResults bool) error {
-	stopProcessProfiler(clearResults)
+func (m *ProfileManager) stopProfiler(clearResults bool) error {
+	m.processProfiler.stopProcessProfiler(clearResults)
 
 	return nil
 }
 
-func dumpProfilerResultString() (string, error) {
-	pprofResults, err := dumpProcessProfilerResults()
-	if err != nil {
-		return "", err
-	}
-	profilerResult := &v1.ProfilerResult{
-		PprofData: pprofResults,
-	}
-
-	b, err := json.MarshalIndent(profilerResult, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-
-}
-
-func dumpProfilerResult() (*v1.ProfilerResult, error) {
-	pprofResults, err := dumpProcessProfilerResults()
+func (m *ProfileManager) dumpProfilerResult() (*v1.ProfilerResult, error) {
+	pprofResults, err := m.processProfiler.dumpProcessProfilerResults()
 	if err != nil {
 		return nil, err
 	}
@@ -94,9 +83,14 @@ func dumpProfilerResult() (*v1.ProfilerResult, error) {
 
 }
 
-func HandleStartProfiler(_ *restful.Request, response *restful.Response) {
+func (m *ProfileManager) HandleStartProfiler(_ *restful.Request, response *restful.Response) {
 
-	err := startProfiler()
+	if !m.clusterConfig.ClusterProfilerEnabled() {
+		response.WriteErrorString(http.StatusForbidden, "Unable to start profiler. \"ClusterProfiler\" feature gate must be enabled")
+		return
+	}
+
+	err := m.startProfiler()
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("could not start internal profiling: %v", err))
 		return
@@ -104,8 +98,12 @@ func HandleStartProfiler(_ *restful.Request, response *restful.Response) {
 	response.WriteHeader(http.StatusOK)
 }
 
-func HandleStopProfiler(_ *restful.Request, response *restful.Response) {
-	err := stopProfiler(false)
+func (m *ProfileManager) HandleStopProfiler(_ *restful.Request, response *restful.Response) {
+	if !m.clusterConfig.ClusterProfilerEnabled() {
+		response.WriteErrorString(http.StatusForbidden, "Unable to stop profiler. \"ClusterProfiler\" feature gate must be enabled")
+		return
+	}
+	err := m.stopProfiler(false)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("could not stop internal profiling: %v", err))
 		return
@@ -114,9 +112,13 @@ func HandleStopProfiler(_ *restful.Request, response *restful.Response) {
 	response.WriteHeader(http.StatusOK)
 }
 
-func HandleDumpProfiler(_ *restful.Request, response *restful.Response) {
+func (m *ProfileManager) HandleDumpProfiler(_ *restful.Request, response *restful.Response) {
 
-	res, err := dumpProfilerResult()
+	if !m.clusterConfig.ClusterProfilerEnabled() {
+		response.WriteErrorString(http.StatusForbidden, "Unable to retrieve profiler data. \"ClusterProfiler\" feature gate must be enabled")
+		return
+	}
+	res, err := m.dumpProfilerResult()
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("could not dump internal profiling: %v", err))
 		return
