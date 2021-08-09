@@ -20,6 +20,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
+// #nosec 101, false positives were caused by variables not holding any secret value.
 const (
 	KubeVirtCASecretName            = "kubevirt-ca"
 	VirtHandlerCertSecretName       = "kubevirt-virt-handler-certs"
