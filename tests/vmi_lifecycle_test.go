@@ -510,7 +510,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("[Serial]when virt-handler is responsive", func() {
-			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
+			It("[QUARANTINE][test_id:1633]should indicate that a node is ready for vmis", func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
 				nodes := util.GetAllSchedulableNodes(virtClient)
