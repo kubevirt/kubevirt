@@ -39,7 +39,6 @@ import (
 	nodelabellerapi "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -67,7 +66,6 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
-	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -2185,6 +2183,13 @@ func (d *VirtualMachineController) validateSRIOVInterfacesForMigration(vmi *v1.V
 }
 
 func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, err error) {
+
+	volumeStatusMap := make(map[string]v1.VolumeStatus)
+
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		volumeStatusMap[volumeStatus.Name] = volumeStatus
+	}
+
 	// Check if all VMI volumes can be shared between the source and the destination
 	// of a live migration. blockMigrate will be returned as false, only if all volumes
 	// are shared and the VMI has no local disks
@@ -2193,21 +2198,32 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
 		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil {
+
 			var volName string
 			if volSrc.PersistentVolumeClaim != nil {
 				volName = volSrc.PersistentVolumeClaim.ClaimName
 			} else {
 				volName = volSrc.DataVolume.Name
 			}
-			_, shared, err := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volName)
-			if errors.IsNotFound(err) {
-				return blockMigrate, fmt.Errorf("persistentvolumeclaim %v not found", volName)
-			} else if err != nil {
-				return blockMigrate, err
+
+			volumeStatus, ok := volumeStatusMap[volName]
+
+			if !ok || volumeStatus.PersistentVolumeClaimInfo == nil {
+				return true, fmt.Errorf("cannot migrate VMI: Unable to determine if PVC %v is shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", volName)
 			}
-			if !shared {
+
+			isShared := false
+			for _, accessMode := range volumeStatus.PersistentVolumeClaimInfo.AccessModes {
+				if accessMode == k8sv1.ReadWriteMany {
+					isShared = true
+					break
+				}
+			}
+
+			if !isShared {
 				return true, fmt.Errorf("cannot migrate VMI: PVC %v is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", volName)
 			}
+
 		} else if volSrc.HostDisk != nil {
 			shared := volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared
 			if !shared {
