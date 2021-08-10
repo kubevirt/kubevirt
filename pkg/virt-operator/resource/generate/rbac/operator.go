@@ -311,6 +311,23 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"put",
 				},
 			},
+			// Until v0.43 a `get` verb was granted to these resources, but there is no get endpoint.
+			// The get permission needs to be kept on the operator level so that updates work.
+			{
+				APIGroups: []string{
+					"subresources.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachineinstances/pause",
+					"virtualmachineinstances/unpause",
+					"virtualmachineinstances/addvolume",
+					"virtualmachineinstances/removevolume",
+				},
+				Verbs: []string{
+					"update",
+					"get",
+				},
+			},
 			{
 				APIGroups: []string{
 					"",
