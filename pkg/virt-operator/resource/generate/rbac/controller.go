@@ -187,7 +187,6 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/unfreeze",
 				},
 				Verbs: []string{
-					"get",
 					"update",
 				},
 			},
