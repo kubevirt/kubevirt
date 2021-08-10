@@ -140,6 +140,16 @@ pkg_tar(
     package_dir = "/etc",
 )
 
+pkg_tar(
+    name = "nftables-tar",
+    srcs = [
+        ":ipv4-nat.nft",
+        ":ipv6-nat.nft",
+    ],
+    mode = "0644",
+    package_dir = "/etc/nftables",
+)
+
 container_image(
     name = "version-container",
     directory = "/",
@@ -151,11 +161,13 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             ":passwd-tar",
             ":nsswitch-tar",
+            ":nftables-tar",
             "//rpm:handlerbase_aarch64",
         ],
         "//conditions:default": [
             ":passwd-tar",
             ":nsswitch-tar",
+            ":nftables-tar",
             "//rpm:handlerbase_x86_64",
         ],
     }),

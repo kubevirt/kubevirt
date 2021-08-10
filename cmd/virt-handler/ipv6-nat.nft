@@ -1,0 +1,6 @@
+table ip6 nat {
+    chain prerouting     { type nat hook prerouting priority -100; }
+    chain input          { type nat hook input priority 100; }
+    chain output         { type nat hook output priority -100; }
+    chain postrouting    { type nat hook postrouting priority 100; }
+}
