@@ -2199,17 +2199,17 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 		volSrc := volume.VolumeSource
 		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil {
 
-			var volName string
+			var claimName string
 			if volSrc.PersistentVolumeClaim != nil {
-				volName = volSrc.PersistentVolumeClaim.ClaimName
+				claimName = volSrc.PersistentVolumeClaim.ClaimName
 			} else {
-				volName = volSrc.DataVolume.Name
+				claimName = volSrc.DataVolume.Name
 			}
 
-			volumeStatus, ok := volumeStatusMap[volName]
+			volumeStatus, ok := volumeStatusMap[volume.Name]
 
 			if !ok || volumeStatus.PersistentVolumeClaimInfo == nil {
-				return true, fmt.Errorf("cannot migrate VMI: Unable to determine if PVC %v is shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", volName)
+				return true, fmt.Errorf("cannot migrate VMI: Unable to determine if PVC %v is shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", claimName)
 			}
 
 			isShared := false
@@ -2221,7 +2221,7 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 			}
 
 			if !isShared {
-				return true, fmt.Errorf("cannot migrate VMI: PVC %v is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", volName)
+				return true, fmt.Errorf("cannot migrate VMI: PVC %v is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", claimName)
 			}
 
 		} else if volSrc.HostDisk != nil {
