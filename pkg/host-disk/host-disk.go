@@ -99,11 +99,6 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 			}
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.PersistentVolumeClaim = nil
-			// Set ownership of the disk.img to qemu
-			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(file); err != nil && !os.IsNotExist(err) {
-				log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", file, err)
-				return err
-			}
 		}
 	}
 	return nil
