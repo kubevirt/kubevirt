@@ -1460,6 +1460,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				config := getCurrentKv()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
 				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
+				bandwidth := resource.MustParse("256Mi")
+				config.MigrationConfiguration.BandwidthPerMigration = &bandwidth
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
