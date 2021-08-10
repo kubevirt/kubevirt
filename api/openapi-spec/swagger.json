@@ -11514,10 +11514,15 @@
       "x-kubernetes-list-type": "atomic"
      },
      "capacity": {
+      "description": "Capacity represents the capacity set on the corresponding PVC spec",
       "type": "object",
       "additionalProperties": {
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
+     },
+     "preallocated": {
+      "description": "Preallocated indicates if the PVC's storage is preallocated or not",
+      "type": "boolean"
      },
      "volumeMode": {
       "description": "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.",

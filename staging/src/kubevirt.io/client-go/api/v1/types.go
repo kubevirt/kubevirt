@@ -254,8 +254,13 @@ type PersistentVolumeClaimInfoStatus struct {
 	// +optional
 	VolumeMode *k8sv1.PersistentVolumeMode `json:"volumeMode,omitempty"`
 
+	// Capacity represents the capacity set on the corresponding PVC spec
 	// +optional
-	Capacity k8sv1.ResourceList `json:"capacity,omitempty" `
+	Capacity k8sv1.ResourceList `json:"capacity,omitempty"`
+
+	// Preallocated indicates if the PVC's storage is preallocated or not
+	// +optional
+	Preallocated bool `json:"preallocated,omitempty"`
 }
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.

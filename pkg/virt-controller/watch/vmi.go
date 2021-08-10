@@ -1850,9 +1850,10 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 			if pvcExists {
 				pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
 				status.PersistentVolumeClaimInfo = &virtv1.PersistentVolumeClaimInfoStatus{
-					AccessModes: pvc.Spec.AccessModes,
-					VolumeMode:  pvc.Spec.VolumeMode,
-					Capacity:    pvc.Status.Capacity,
+					AccessModes:  pvc.Spec.AccessModes,
+					VolumeMode:   pvc.Spec.VolumeMode,
+					Capacity:     pvc.Status.Capacity,
+					Preallocated: kubevirttypes.IsPreallocated(pvc.ObjectMeta.Annotations),
 				}
 			}
 		}

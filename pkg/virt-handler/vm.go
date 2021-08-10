@@ -2455,22 +2455,9 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	vmi := origVMI.DeepCopy()
 	// Find preallocated volumes
 	var preallocatedVolumes []string
-	for _, v := range vmi.Spec.Volumes {
-		var name string
-		source := v.VolumeSource
-		if source.PersistentVolumeClaim != nil || source.DataVolume != nil {
-			if source.PersistentVolumeClaim != nil {
-				name = source.PersistentVolumeClaim.ClaimName
-			} else {
-				name = source.DataVolume.Name
-			}
-			pvc, err := d.clientset.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), name, metav1.GetOptions{})
-			if err != nil {
-				continue
-			}
-			if pvcutils.IsPreallocated(pvc.ObjectMeta.Annotations) {
-				preallocatedVolumes = append(preallocatedVolumes, v.Name)
-			}
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
+			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)
 		}
 	}
 

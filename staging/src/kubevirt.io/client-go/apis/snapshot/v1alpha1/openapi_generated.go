@@ -17599,7 +17599,8 @@ func schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimInfoStatus(ref comm
 					},
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
+							Description: "Capacity represents the capacity set on the corresponding PVC spec",
+							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
 								Schema: &spec.Schema{
@@ -17608,6 +17609,13 @@ func schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimInfoStatus(ref comm
 									},
 								},
 							},
+						},
+					},
+					"preallocated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Preallocated indicates if the PVC's storage is preallocated or not",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},

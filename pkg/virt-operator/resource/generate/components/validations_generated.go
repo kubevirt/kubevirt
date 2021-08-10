@@ -8059,9 +8059,13 @@ var CRDsValidation map[string]string = map[string]string{
                       - type: string
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
-                    description: ResourceList is a set of (resource name, quantity)
-                      pairs.
+                    description: Capacity represents the capacity set on the corresponding
+                      PVC spec
                     type: object
+                  preallocated:
+                    description: Preallocated indicates if the PVC's storage is preallocated
+                      or not
+                    type: boolean
                   volumeMode:
                     description: VolumeMode defines what type of volume is required
                       by the claim. Value of Filesystem is implied when not included
