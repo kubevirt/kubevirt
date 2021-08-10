@@ -492,6 +492,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					break
 				}
 
+				// Initialize the volume status field with information
+				// about the PVCs that the VMI is consuming. This prevents
+				// virt-handler from needing to make API calls to GET the pvc
+				// during reconcile
+				c.updateVolumeStatus(vmiCopy, pod)
 				// vmi is still owned by the controller but pod is already ready,
 				// so let's hand over the vmi too
 				vmiCopy.Status.Phase = virtv1.Scheduled
@@ -1831,6 +1836,27 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				}
 			}
 		}
+
+		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil {
+
+			var pvcName string
+			if volume.VolumeSource.PersistentVolumeClaim != nil {
+				pvcName = volume.VolumeSource.PersistentVolumeClaim.ClaimName
+			} else if volume.VolumeSource.DataVolume != nil {
+				pvcName = volume.VolumeSource.DataVolume.Name
+			}
+
+			pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, pvcName))
+			if pvcExists {
+				pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
+				status.PersistentVolumeClaimInfo = &virtv1.PersistentVolumeClaimInfoStatus{
+					AccessModes: pvc.Spec.AccessModes,
+					VolumeMode:  pvc.Spec.VolumeMode,
+					Capacity:    pvc.Status.Capacity,
+				}
+			}
+		}
+
 		newStatus = append(newStatus, status)
 	}
 

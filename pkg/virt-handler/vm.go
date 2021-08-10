@@ -2315,7 +2315,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 
 	vmi := origVMI.DeepCopy()
 
-	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
+	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
 		return err
 	}
@@ -2377,7 +2377,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return nil
 	}
 
-	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
+	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
 		return err
 	}
@@ -2474,7 +2474,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 	}
 
-	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
+	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
 		return err
 	}

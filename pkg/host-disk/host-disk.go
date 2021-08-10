@@ -32,9 +32,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
 var pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
@@ -50,7 +48,7 @@ func setDiskDirectory(dir string) error {
 	return os.MkdirAll(dir, 0750)
 }
 
-func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
+func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
 	// Filesystem PersistenVolumeClaim is mounted into pod as directory from node filesystem
 	passthoughFSVolumes := make(map[string]struct{})
@@ -58,10 +56,15 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 		passthoughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
 	}
 
+	pvcVolume := make(map[string]v1.VolumeStatus)
 	hotplugVolumes := make(map[string]bool)
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume != nil {
 			hotplugVolumes[volumeStatus.Name] = true
+		}
+
+		if volumeStatus.PersistentVolumeClaimInfo != nil {
+			pvcVolume[volumeStatus.Name] = volumeStatus
 		}
 	}
 
@@ -80,22 +83,29 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 				continue
 			}
 
-			pvc, exists, isBlockVolumePVC, err := types.IsPVCBlockFromClient(clientset, vmi.Namespace, volumeSource.PersistentVolumeClaim.ClaimName)
-			if err != nil {
-				return err
-			} else if !exists {
-				return fmt.Errorf("persistentvolumeclaim %v not found", volumeSource.PersistentVolumeClaim.ClaimName)
-			} else if isBlockVolumePVC {
+			volumeStatus, ok := pvcVolume[volume.Name]
+			if !ok ||
+				volumeStatus.PersistentVolumeClaimInfo.VolumeMode == nil ||
+				*volumeStatus.PersistentVolumeClaimInfo.VolumeMode == k8sv1.PersistentVolumeBlock {
+
+				// This is not a disk on a file system, so skip it.
 				continue
 			}
-			isSharedPvc := types.IsPVCShared(pvc)
+
+			isShared := false
+			for _, accessMode := range volumeStatus.PersistentVolumeClaimInfo.AccessModes {
+				if accessMode == k8sv1.ReadWriteMany {
+					isShared = true
+					break
+				}
+			}
 
 			file := getPVCDiskImgPath(vmi.Spec.Volumes[i].Name, "disk.img")
 			volumeSource.HostDisk = &v1.HostDisk{
 				Path:     file,
 				Type:     v1.HostDiskExistsOrCreate,
-				Capacity: pvc.Status.Capacity[k8sv1.ResourceStorage],
-				Shared:   &isSharedPvc,
+				Capacity: volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage],
+				Shared:   &isShared,
 			}
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.PersistentVolumeClaim = nil
