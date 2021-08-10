@@ -1,5 +1,7 @@
 FROM registry.access.redhat.com/ubi8/nginx-118
 
+WORKDIR /opt/app-root/src
+
 COPY hack/config /tmp/config
 
 USER 0
