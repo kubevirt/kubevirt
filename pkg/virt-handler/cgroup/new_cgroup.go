@@ -16,22 +16,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
-// ihol3 make private?
-const (
-	ProcMountPoint   = "/proc"
-	CgroupMountPoint = "/sys/fs/cgroup"
-)
-
-// DEFINE INTERFACE HERE
-
 var (
 	isolationDetector *isolation.PodIsolationDetector
-)
-
-const (
-	HostRootPath       = "/proc/1/root" // ihol3
-	cgroupBasePath     = "/sys/fs/cgroup"
-	HostCgroupBasePath = HostRootPath + cgroupBasePath
 )
 
 // ihol3 Change name?

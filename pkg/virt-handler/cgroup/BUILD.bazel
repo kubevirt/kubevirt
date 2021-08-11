@@ -9,6 +9,7 @@ go_library(
         "generated_mock_cgroup.go",
         "generated_mock_new_cgroup.go",
         "new_cgroup.go",
+        "utils.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/cgroup",
     visibility = ["//visibility:public"],

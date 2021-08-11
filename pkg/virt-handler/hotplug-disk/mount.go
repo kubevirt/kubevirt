@@ -498,9 +498,9 @@ func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, manager cgroup
 	//chrootPath := path[:idx] // ihol3 rename me
 	//newPath := path[idx:]
 
-	return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
-		return m.updateBlockMajorMinor(major, minor, false, manager, -1)
-	})
+	//return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
+	return m.updateBlockMajorMinor(major, minor, false, manager, -1)
+	//})
 }
 
 // DELETE ME!!!!!!! ihol3
@@ -551,10 +551,10 @@ func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, manager cgroup.
 	log.Log.Infof("hotplug [allowBlockMajorMinor]. CHROOTING TO: %s", cgroup.HostRootPath)
 
 	//return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
-	//	return m.updateBlockMajorMinor(major, minor, true, manager, pid)
+	return m.updateBlockMajorMinor(major, minor, true, manager, pid)
 	//})
 
-	return m.updateBlockMajorMinor(major, minor, true, manager, pid)
+	//return m.updateBlockMajorMinor(major, minor, true, manager, pid)
 }
 
 func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, manager cgroup.Manager, pid int) error {

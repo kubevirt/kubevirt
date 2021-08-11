@@ -676,8 +676,8 @@ var _ = FDescribe("Hotplug", func() {
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
 				fmt.Printf("\n\n\n VOLUME READYYYYY!! woohoooo :D :D :D \n\n\n")
 
-				//fmt.Printf("\n\nSLEEPING.....\n\n")
-				//time.Sleep(3 * time.Hour)
+				fmt.Printf("\n\nSLEEPING.....\n\n")
+				time.Sleep(3 * time.Hour)
 
 				getVmiConsoleAndLogin(vmi)
 				fmt.Printf("\n1")
