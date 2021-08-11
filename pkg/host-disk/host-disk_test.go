@@ -417,7 +417,7 @@ var _ = Describe("HostDisk", func() {
 			volumeStatus := []v1.VolumeStatus{
 				{
 					Name: volumeName,
-					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfoStatus{
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						VolumeMode: &mode,
 					},
 				},

@@ -11501,8 +11501,8 @@
      }
     }
    },
-   "v1.PersistentVolumeClaimInfoStatus": {
-    "description": "PersistentVolumeClaimInfoStatus contains the relavant information virt-handler needs cached about a PVC",
+   "v1.PersistentVolumeClaimInfo": {
+    "description": "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
     "type": "object",
     "properties": {
      "accessModes": {
@@ -13158,7 +13158,7 @@
      },
      "persistentVolumeClaimInfo": {
       "description": "PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow",
-      "$ref": "#/definitions/v1.PersistentVolumeClaimInfoStatus"
+      "$ref": "#/definitions/v1.PersistentVolumeClaimInfo"
      },
      "phase": {
       "description": "Phase is the phase",

@@ -240,9 +240,9 @@ type VirtualMachineInstanceStatus struct {
 	TopologyHints *TopologyHints `json:"topologyHints,omitempty"`
 }
 
-// PersistentVolumeClaimInfoStatus contains the relavant information virt-handler needs cached about a PVC
+// PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
 // +k8s:openapi-gen=true
-type PersistentVolumeClaimInfoStatus struct {
+type PersistentVolumeClaimInfo struct {
 	// AccessModes contains the desired access modes the volume should have.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
 	// +listType=atomic
@@ -277,7 +277,7 @@ type VolumeStatus struct {
 	// Message is a detailed message about the current hotplug volume phase
 	Message string `json:"message,omitempty"`
 	// PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow
-	PersistentVolumeClaimInfo *PersistentVolumeClaimInfoStatus `json:"persistentVolumeClaimInfo,omitempty"`
+	PersistentVolumeClaimInfo *PersistentVolumeClaimInfo `json:"persistentVolumeClaimInfo,omitempty"`
 	// If the volume is hotplug, this will contain the hotplug status.
 	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
 }

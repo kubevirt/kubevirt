@@ -2157,7 +2157,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase:   phase,
 					Message: truncateSprintf(message, index, index),
 					Reason:  reason,
-					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfoStatus{
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{
 							k8sv1.ReadOnlyMany,
 						},
@@ -2191,7 +2191,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pvcInformer.GetIndexer().Add(pvc)
 				for i, stat := range expectedStatus {
 					if stat.Name == pvc.Name {
-						stat.PersistentVolumeClaimInfo = &v1.PersistentVolumeClaimInfoStatus{
+						stat.PersistentVolumeClaimInfo = &v1.PersistentVolumeClaimInfo{
 							AccessModes: []k8sv1.PersistentVolumeAccessMode{
 								k8sv1.ReadOnlyMany,
 							},

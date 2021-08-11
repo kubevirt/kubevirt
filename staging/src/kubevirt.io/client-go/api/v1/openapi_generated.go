@@ -489,7 +489,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.PITTimer":                                                  schema_kubevirtio_client_go_api_v1_PITTimer(ref),
 		"kubevirt.io/client-go/api/v1.PciHostDevice":                                             schema_kubevirtio_client_go_api_v1_PciHostDevice(ref),
 		"kubevirt.io/client-go/api/v1.PermittedHostDevices":                                      schema_kubevirtio_client_go_api_v1_PermittedHostDevices(ref),
-		"kubevirt.io/client-go/api/v1.PersistentVolumeClaimInfoStatus":                           schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimInfoStatus(ref),
+		"kubevirt.io/client-go/api/v1.PersistentVolumeClaimInfo":                                 schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimInfo(ref),
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                                schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                      schema_kubevirtio_client_go_api_v1_Port(ref),
 		"kubevirt.io/client-go/api/v1.Probe":                                                     schema_kubevirtio_client_go_api_v1_Probe(ref),
@@ -22506,11 +22506,11 @@ func schema_kubevirtio_client_go_api_v1_PermittedHostDevices(ref common.Referenc
 	}
 }
 
-func schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimInfoStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PersistentVolumeClaimInfoStatus contains the relavant information virt-handler needs cached about a PVC",
+				Description: "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"accessModes": {
@@ -25621,7 +25621,7 @@ func schema_kubevirtio_client_go_api_v1_VolumeStatus(ref common.ReferenceCallbac
 					"persistentVolumeClaimInfo": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow",
-							Ref:         ref("kubevirt.io/client-go/api/v1.PersistentVolumeClaimInfoStatus"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.PersistentVolumeClaimInfo"),
 						},
 					},
 					"hotplugVolume": {
@@ -25635,7 +25635,7 @@ func schema_kubevirtio_client_go_api_v1_VolumeStatus(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.HotplugVolumeStatus", "kubevirt.io/client-go/api/v1.PersistentVolumeClaimInfoStatus"},
+			"kubevirt.io/client-go/api/v1.HotplugVolumeStatus", "kubevirt.io/client-go/api/v1.PersistentVolumeClaimInfo"},
 	}
 }
 

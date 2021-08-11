@@ -1896,7 +1896,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{
 				{
 					Name: "myvolume",
-					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfoStatus{
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						AccessModes: testBlockPvc.Spec.AccessModes,
 						VolumeMode:  testBlockPvc.Spec.VolumeMode,
 					},
@@ -1935,7 +1935,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{
 				{
 					Name: "myvolume",
-					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfoStatus{
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						AccessModes: testBlockPvc.Spec.AccessModes,
 						VolumeMode:  testBlockPvc.Spec.VolumeMode,
 					},
@@ -1974,7 +1974,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{
 				{
 					Name: "myvolume",
-					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfoStatus{
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						AccessModes: testBlockPvc.Spec.AccessModes,
 						VolumeMode:  testBlockPvc.Spec.VolumeMode,
 					},
@@ -2030,7 +2030,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{
 				{
 					Name: "myvolume",
-					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfoStatus{
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						AccessModes: testBlockPvc.Spec.AccessModes,
 						VolumeMode:  testBlockPvc.Spec.VolumeMode,
 					},
@@ -2084,7 +2084,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{
 				{
 					Name: "myvolume",
-					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfoStatus{
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 						AccessModes: testBlockPvc.Spec.AccessModes,
 						VolumeMode:  testBlockPvc.Spec.VolumeMode,
 					},
