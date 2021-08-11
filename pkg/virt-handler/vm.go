@@ -2419,13 +2419,9 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	}
 
-	res, err := d.podIsolationDetector.Detect(vmi)
+	err = d.claimKVMDeviceOwnership(vmi)
 	if err != nil {
-		return err
-	}
-
-	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(path.Join(res.MountRoot(), "dev", "kvm")); err != nil {
-		return err
+		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
 	}
 
 	if virtutil.IsNonRootVMI(vmi) {
@@ -2509,12 +2505,9 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 		}
 
-		res, err := d.podIsolationDetector.Detect(vmi)
+		err = d.claimKVMDeviceOwnership(vmi)
 		if err != nil {
-			return err
-		}
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(path.Join(res.MountRoot(), "dev", "kvm")); err != nil {
-			return err
+			return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
 		}
 
 		if virtutil.IsNonRootVMI(vmi) {
@@ -2775,6 +2768,22 @@ func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 	}
 
 	return nil
+}
+
+func (d *VirtualMachineController) claimKVMDeviceOwnership(vmi *v1.VirtualMachineInstance) error {
+	isolation, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+
+	kvmPath := path.Join(isolation.MountRoot(), "dev", "kvm")
+
+	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.IsUseEmulation())
+	if err != nil || softwareEmulation {
+		return err
+	}
+
+	return diskutils.DefaultOwnershipManager.SetFileOwnership(kvmPath)
 }
 
 func nodeHasHostModelLabel(node *k8sv1.Node) bool {
