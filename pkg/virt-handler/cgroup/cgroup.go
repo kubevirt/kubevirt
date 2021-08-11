@@ -1,174 +1,197 @@
-///*
-// * This file is part of the KubeVirt project
-// *
-// * Licensed under the Apache License, Version 2.0 (the "License");
-// * you may not use this file except in compliance with the License.
-// * You may obtain a copy of the License at
-// *
-// *     http://www.apache.org/licenses/LICENSE-2.0
-// *
-// * Unless required by applicable law or agreed to in writing, software
-// * distributed under the License is distributed on an "AS IS" BASIS,
-// * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// * See the License for the specific language governing permissions and
-// * limitations under the License.
-// *
-// * Copyright 2021
-// *
-// */
-//
 package cgroup
 
-//
-////go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-//
-//import (
-//	"fmt"
-//	"io/ioutil"
-//	"os"
-//	"path/filepath"
-//	"strconv"
-//	"strings"
-//	"syscall"
-//
-//	"kubevirt.io/client-go/log"
-//
-//	"github.com/opencontainers/runc/libcontainer/cgroups"
-//)
-//
-//const (
-//	procMountPoint   = "/proc"
-//	cgroupMountPoint = "/sys/fs/cgroup"
-//)
-//
-//func ControllerPath(controller string) string {
-//	return controllerPath(cgroups.IsCgroup2UnifiedMode(), cgroupMountPoint, controller)
-//}
-//
-//func controllerPath(isCgroup2UnifiedMode bool, cgroupMount, controller string) string {
-//	if isCgroup2UnifiedMode {
-//		return cgroupMount
-//	}
-//	return filepath.Join(cgroupMount, controller)
-//}
-//
-//func CPUSetPath() string {
-//	return cpuSetPath(cgroups.IsCgroup2UnifiedMode(), cgroupMountPoint)
-//}
-//
-//func cpuSetPath(isCgroup2UnifiedMode bool, cgroupMount string) string {
-//	if isCgroup2UnifiedMode {
-//		return filepath.Join(cgroupMount, "cpuset.cpus.effective")
-//	}
-//	return filepath.Join(cgroupMount, "cpuset", "cpuset.cpus")
-//}
-//
-//type Parser interface {
-//	// Parse retrieves the cgroup data for the given process id and returns a
-//	// map of controllers to slice paths.
-//	Parse(pid int) (map[string]string, error)
-//}
-//
-//type v1Parser struct {
-//	procMount string
-//}
-//
-//func (v1 *v1Parser) Parse(pid int) (map[string]string, error) {
-//	return cgroups.ParseCgroupFile(filepath.Join(v1.procMount, strconv.Itoa(pid), "cgroup"))
-//}
-//
-//type v2Parser struct {
-//	procMount   string
-//	cgroupMount string
-//}
-//
-//func (v2 *v2Parser) Parse(pid int) (map[string]string, error) {
-//	slices, err := cgroups.ParseCgroupFile(filepath.Join(v2.procMount, strconv.Itoa(pid), "cgroup"))
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	slice, ok := slices[""]
-//	if !ok {
-//		return nil, fmt.Errorf("Slice not found for PID %d", pid)
-//	}
-//
-//	availableControllers, err := v2.getAvailableControllers(slice)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	// For cgroup v2 there are no per-controller paths.
-//	slices = make(map[string]string)
-//	for _, c := range availableControllers {
-//		slices[c] = slice
-//	}
-//
-//	return slices, nil
-//}
-//
-//// getAvailableControllers returns all controllers available for the cgroup.
-//// Based on GetAllSubsystems from
-////  https://github.com/opencontainers/runc/blob/ff819c7e9184c13b7c2607fe6c30ae19403a7aff/libcontainer/cgroups/utils.go#L80
-//func (v2 *v2Parser) getAvailableControllers(slice string) ([]string, error) {
-//	// "pseudo" controllers do not appear in /sys/fs/cgroup/.../cgroup.controllers.
-//	// - devices: implemented in kernel 4.15
-//	// - freezer: implemented in kernel 5.2
-//	// We assume these are always available, as it is hard to detect availability.
-//	pseudo := []string{"devices", "freezer"}
-//	data, err := ioutil.ReadFile(filepath.Join(v2.cgroupMount, slice, "cgroup.controllers"))
-//	if err != nil {
-//		return nil, err
-//	}
-//	subsystems := append(pseudo, strings.Fields(string(data))...)
-//	return subsystems, nil
-//}
-//
-//func NewParser() Parser {
-//	return newParser(cgroups.IsCgroup2UnifiedMode(), procMountPoint, cgroupMountPoint)
-//}
-//
-//func newParser(isCgroup2UnifiedMode bool, procMount, cgroupMount string) Parser {
-//	if isCgroup2UnifiedMode {
-//		return &v2Parser{
-//			procMount:   procMount,
-//			cgroupMount: cgroupMount,
-//		}
-//	}
-//	return &v1Parser{
-//		procMount: procMount,
-//	}
-//}
-//
-//// runWithChroot changes the root directory (via "chroot") into newPath, then
-//// runs toRun function. When the function finishes, changes back the root directory
-//// to the original one that
-//func RunWithChroot(newPath string, toRun func() error) error {
-//	originalRoot, err := os.Open("/")
-//	if err != nil {
-//		return fmt.Errorf("failed to run with chroot - failed to open root directory. error: %v", err)
-//	}
-//
-//	err = syscall.Chroot(newPath)
-//	if err != nil {
-//		return fmt.Errorf("failed to chroot into \"%s\". error: %v", newPath, err)
-//	}
-//
-//	changeRootToOriginal := func() {
-//		const errFormat = "cannot change root to original path. %s error: %+v"
-//
-//		err = originalRoot.Chdir()
-//		if err != nil {
-//			log.Log.Errorf(errFormat, "chdir", err)
-//		}
-//
-//		err = syscall.Chroot(".")
-//		if err != nil {
-//			log.Log.Errorf(errFormat, "chroot", err)
-//		}
-//	}
-//	defer changeRootToOriginal()
-//
-//	err = toRun()
-//	return err
-//}
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"syscall"
+
+	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"github.com/opencontainers/runc/libcontainer/configs"
+
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+)
+
+var (
+	isolationDetector *isolation.PodIsolationDetector
+)
+
+// ihol3 Change name?
+type Manager interface {
+	//DeviceManager
+	//cpuManager
+
+	Set(r *configs.Resources) error
+	cgroups.Manager
+
+	// ihol3 doc!
+	// ihol3 add validation for controller name (save Paths() keys once?)
+	GetBasePathToHostController(controller string) (string, error)
+
+	// GetControllersAndPaths ... returns key: controller, value: path.
+	//GetControllersAndPaths(pid int) (map[string]string, error)
+
+	// GetControllerPath ...
+	//GetControllerPath(controller string) string
+}
+
+// ihol3 maybe rename to vmiPidFromHostView or something similar
+func NewManagerFromPid(pid int) (Manager, error) {
+	const errorFormat = "error creating new manager err: ...." //ihol3
+	const isRootless = false
+
+	//controllerPath, err := getBasePathToHostController("devices")
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	procCgroupBasePath := getCgroupBasePath(pid)
+	controllerPaths, err := cgroups.ParseCgroupFile(procCgroupBasePath)
+	if err != nil {
+		return nil, err
+	}
+
+	config := &configs.Cgroup{
+		Path:      HostCgroupBasePath,
+		Paths:     controllerPaths,
+		Resources: &configs.Resources{},
+	}
+
+	if cgroups.IsCgroup2UnifiedMode() {
+		slicePath := controllerPaths[""] // ihol3 is it different than procCgroupBasePath?...
+		slicePath = filepath.Join(cgroupBasePath, slicePath)
+
+		log.Log.Infof("hotplug procCgroupBasePath: %s", procCgroupBasePath)
+		log.Log.Infof("hotplug slicePath: %s", slicePath)
+
+		return newV2Manager(config, slicePath, isRootless, pid)
+	} else {
+
+		return newV1Manager(config, controllerPaths, isRootless)
+	}
+}
+
+func NewManagerFromVM(vmi *v1.VirtualMachineInstance) (Manager, error) {
+	isolationRes, err := detectVMIsolation(vmi, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return NewManagerFromPid(isolationRes.Pid())
+}
+
+// NewManagerFromVMAndSocket is similar to NewManagerFromVM but is faster since there is no need
+// to search for the socket.
+func NewManagerFromVMAndSocket(vmi *v1.VirtualMachineInstance, socket string) (Manager, error) {
+	if socket == "" {
+		return nil, fmt.Errorf("socket has to be a non-empty string")
+	}
+
+	isolationRes, err := detectVMIsolation(vmi, socket)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewManagerFromPid(isolationRes.Pid())
+}
+
+func getCgroupBasePath(pid int) string {
+	return filepath.Join(ProcMountPoint, strconv.Itoa(pid), "cgroup")
+}
+
+func initIsolationDetectorIfNil() {
+	if isolationDetector != nil {
+		return
+	}
+
+	detector := isolation.NewSocketBasedIsolationDetector(virtutil.VirtShareDir)
+	isolationDetector = &detector
+}
+
+// detectVMIsolation detects VM's isolation. Socket is optional and makes the execution faster
+func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationRes isolation.IsolationResult, err error) {
+	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
+	initIsolationDetectorIfNil()
+
+	if socket == "" {
+		isolationRes, err = (*isolationDetector).Detect(vm)
+	} else {
+		isolationRes, err = (*isolationDetector).DetectForSocket(vm, socket)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf(detectionErrFormat, vm.Name, err)
+	}
+
+	return isolationRes, nil
+}
+
+func getBasePathToHostController(controller string) (string, error) {
+	// ihol3
+	// if controller not supported -> error?
+
+	if cgroups.IsCgroup2UnifiedMode() {
+		return HostCgroupBasePath, nil
+	}
+	return filepath.Join(HostCgroupBasePath, controller), nil
+}
+
+// ihol3 Clean those up properly..
+func CPUSetPath() string {
+	return cpuSetPath(cgroups.IsCgroup2UnifiedMode(), cgroupBasePath)
+}
+
+func cpuSetPath(isCgroup2UnifiedMode bool, cgroupMount string) string {
+	if isCgroup2UnifiedMode {
+		return filepath.Join(cgroupMount, "cpuset.cpus.effective")
+	}
+	return filepath.Join(cgroupMount, "cpuset", "cpuset.cpus")
+}
+
+func ControllerPath(controller string) string {
+	return controllerPath(cgroups.IsCgroup2UnifiedMode(), cgroupBasePath, controller)
+}
+
+func controllerPath(isCgroup2UnifiedMode bool, cgroupMount, controller string) string {
+	if isCgroup2UnifiedMode {
+		return cgroupMount
+	}
+	return filepath.Join(cgroupMount, controller)
+}
+
+// runWithChroot changes the root directory (via "chroot") into newPath, then
+// runs toRun function. When the function finishes, changes back the root directory
+// to the original one that
+func RunWithChroot(newPath string, toRun func() error) error {
+	originalRoot, err := os.Open("/")
+	if err != nil {
+		return fmt.Errorf("failed to run with chroot - failed to open root directory. error: %v", err)
+	}
+
+	err = syscall.Chroot(newPath)
+	if err != nil {
+		return fmt.Errorf("failed to chroot into \"%s\". error: %v", newPath, err)
+	}
+
+	changeRootToOriginal := func() {
+		const errFormat = "cannot change root to original path. %s error: %+v"
+
+		err = originalRoot.Chdir()
+		if err != nil {
+			log.Log.Errorf(errFormat, "chdir", err)
+		}
+
+		err = syscall.Chroot(".")
+		if err != nil {
+			log.Log.Errorf(errFormat, "chroot", err)
+		}
+	}
+	defer changeRootToOriginal()
+
+	err = toRun()
+	return err
+}

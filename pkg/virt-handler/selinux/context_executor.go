@@ -21,9 +21,10 @@ package selinux
 
 import (
 	"fmt"
-	"kubevirt.io/client-go/log"
 	"os"
 	"os/exec"
+
+	"kubevirt.io/client-go/log"
 )
 
 const (
