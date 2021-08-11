@@ -25,9 +25,7 @@ source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
-function main() {
-    echo "Cleaning up ..."
-
+function delete_kubevirt_cr() {
     # Delete KubeVirt CR, timeout after 10 seconds
     set +e
     (
@@ -42,7 +40,9 @@ function main() {
     _kubectl patch cdi cdi --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 
     set -e
+}
 
+function remove_finalizers() {
     kubectl get vmsnapshots --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshot-protection | while read p; do
         arr=($p)
         name="${arr[0]}"
@@ -71,9 +71,10 @@ function main() {
         ns="${arr[1]}"
         _kubectl patch vm $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
     done
+}
 
-    # Delete Namespaces created by us.
-    managed_namespaces=(${namespace} ${cdi_namespace})
+function delete_resources() {
+    managed_namespaces=("$@")
 
     # Delete all traces of kubevirt
     namespaces=(default ${managed_namespaces[@]})
@@ -114,6 +115,10 @@ function main() {
             _kubectl -n ${i} patch apiservices $name --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
         done
     done
+}
+
+function delete_namespaces() {
+    managed_namespaces=("$@")
 
     for i in ${managed_namespaces[@]}; do
         if [ -n "$(_kubectl get ns | grep "${i} ")" ]; then
@@ -133,6 +138,17 @@ function main() {
             done
         fi
     done
+}
+
+function main() {
+    echo "Cleaning up ..."
+
+    kubevirt_managed_namespaces=(${namespace} ${cdi_namespace})
+
+    delete_kubevirt_cr
+    remove_finalizers
+    delete_resources "${kubevirt_managed_namespaces[@]}"
+    delete_namespaces "${kubevirt_managed_namespaces[@]}"
 
     sleep 2
 
