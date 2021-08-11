@@ -49,7 +49,7 @@ var _ = Describe("SELinux context executor", func() {
 		})
 
 		It("should successfully execute a command", func() {
-			ce, err := newContextExecutor(&exec.Cmd{}, pid, executor)
+			ce, err := newContextExecutor(pid, &exec.Cmd{}, executor)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ce.desiredLabel).To(BeEmpty())
 			Expect(ce.originalLabel).To(BeEmpty())
@@ -96,7 +96,7 @@ var _ = Describe("SELinux context executor", func() {
 		})
 
 		It("should successfully execute a command", func() {
-			ce, err := newContextExecutor(&exec.Cmd{}, pid, executor)
+			ce, err := newContextExecutor(pid, &exec.Cmd{}, executor)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ce.desiredLabel).To(Equal(desiredLabel))
 			Expect(ce.originalLabel).To(Equal(originalLabel))

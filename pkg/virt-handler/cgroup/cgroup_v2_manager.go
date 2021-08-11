@@ -101,7 +101,7 @@ func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
 	curLabel, err := realselinux.CurrentLabel()
 	log.Log.Infof("hotplug [SETv2] - curLabel label: %v, err: %v", curLabel, err)
 	//finalCmd, err := selinux.NewContextExecutorWithType(cmd, 12345, containerRuntimeLabel)
-	finalCmd, err := selinux.NewContextExecutorFromPid(cmd, v.pid, true)
+	finalCmd, err := selinux.NewContextExecutor(v.pid, cmd)
 	//output, err := cmd.CombinedOutput()
 	//if err != nil {
 	//	return fmt.Errorf("failed running ><> command %s, err: %v, output: %s", cmd.String(), err, output)
@@ -109,7 +109,7 @@ func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
 	//	log.Log.Infof("hotplug [Run] ><> - err: %v, output: %s", cmd.String(), err, output)
 	//}
 
-	//finalCmd, err := selinux.NewContextExecutorFromPid(cmd, os.Getpid())
+	//finalCmd, err := selinux.NewContextExecutor(cmd, os.Getpid())
 	if err != nil {
 		// ihol3
 		log.Log.Infof("hotplug [SETv2] - NewContextExecutorWithType err - %v", err)
@@ -121,7 +121,7 @@ func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
 
 	//// #nosec
 	//cmd2 := exec.Command("ls", "-l", "/usr/bin/")
-	//finalCmd, err = selinux.NewContextExecutorFromPid(cmd2, v.pid)
+	//finalCmd, err = selinux.NewContextExecutor(cmd2, v.pid)
 	//if err != nil {
 	//	log.Log.Infof("hotplug [SETv2] - NewContextExecutorWithType 2 err - %v", err)
 	//}

@@ -21,11 +21,9 @@ package selinux
 
 import (
 	"fmt"
+	"kubevirt.io/client-go/log"
 	"os"
 	"os/exec"
-	"strings"
-
-	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -41,19 +39,13 @@ type ContextExecutor struct {
 	executor      Executor
 }
 
-func NewContextExecutorFromPid(cmd *exec.Cmd, pid int, dismissMCS bool) (*ContextExecutor, error) {
-	const emptyLabel = ""
-	return newContextExecutor(cmd, pid, emptyLabel, SELinuxExecutor{}, dismissMCS)
+func NewContextExecutor(pid int, cmd *exec.Cmd) (*ContextExecutor, error) {
+	return newContextExecutor(pid, cmd, SELinuxExecutor{})
 }
 
-//
-func NewContextExecutorWithType(cmd *exec.Cmd, pid int, seLinuxType string) (*ContextExecutor, error) {
-	return newContextExecutor(cmd, pid, seLinuxType, SELinuxExecutor{}, false)
-}
-
-func newContextExecutor(cmd *exec.Cmd, pid int, desiredType string, executor Executor, dismissMCS bool) (*ContextExecutor, error) {
-	if pid == -1 && desiredType == "" {
-		return nil, fmt.Errorf("either pid or label arguments must not be empty")
+func newContextExecutor(pid int, cmd *exec.Cmd, executor Executor) (*ContextExecutor, error) {
+	if pid <= 0 {
+		return nil, fmt.Errorf("pid must be positive")
 	}
 
 	ce := &ContextExecutor{
@@ -63,32 +55,25 @@ func newContextExecutor(cmd *exec.Cmd, pid int, desiredType string, executor Exe
 	}
 
 	if ce.isSELinuxEnabled() {
-		originalLabel, err := ce.getLabelForPID(os.Getpid(), dismissMCS)
+		desiredLabel, err := ce.getLabelForPID(pid)
 		if err != nil {
 			return nil, err
 		}
-
-		if desiredType == "" {
-			if desiredType, err = ce.getLabelForPID(pid, dismissMCS); err != nil {
-				return nil, err
-			}
-		} else {
-			const labelSeparator = ":"
-			const labelTypeIdx = 2
-			splittedCurrentLabel := strings.Split(originalLabel, labelSeparator)
-			splittedCurrentLabel[labelTypeIdx] = desiredType
-			desiredType = strings.Join(splittedCurrentLabel, labelSeparator)
+		originalLabel, err := ce.getLabelForPID(os.Getpid())
+		if err != nil {
+			return nil, err
 		}
-
-		ce.desiredLabel = desiredType
+		ce.desiredLabel = desiredLabel
 		ce.originalLabel = originalLabel
-		log.Log.Infof("hotplug [newContextExecutor] setting original (%s) & desired (%s) labels", originalLabel, desiredType)
 	}
 
 	return ce, nil
 }
 
 func (ce *ContextExecutor) Execute() error {
+	log.Log.Infof("[ContextExecutor]: Executing... Switching from original (%s) to desired (%s) context",
+		ce.originalLabel, ce.desiredLabel)
+
 	if ce.isSELinuxEnabled() {
 		if err := ce.setDesiredContext(); err != nil {
 			return err
@@ -100,6 +85,8 @@ func (ce *ContextExecutor) Execute() error {
 	if err := ce.executor.Run(ce.cmdToExecute); err != nil {
 		return fmt.Errorf("failed to execute command in launcher namespace %d: %v", ce.pid, err)
 	}
+
+	log.Log.Infof("[ContextExecutor]: Execution ended successfully")
 	return nil
 }
 
@@ -121,21 +108,11 @@ func (ce *ContextExecutor) isSELinuxEnabled() bool {
 	return err == nil && selinuxEnabled
 }
 
-func (ce *ContextExecutor) getLabelForPID(pid int, dismissMCS bool) (string, error) {
+func (ce *ContextExecutor) getLabelForPID(pid int) (string, error) {
 	fileLabel, err := ce.executor.FileLabel(fmt.Sprintf("/proc/%d/attr/current", pid))
 	if err != nil {
 		return "", fmt.Errorf("could not retrieve pid %d selinux label: %v", pid, err)
 	}
-
-	const labelSeparator = ":"
-	if dismissMCS && strings.Count(fileLabel, labelSeparator) > 3 {
-
-		splittedCurrentLabel := strings.Split(fileLabel, labelSeparator)
-		fileLabel = strings.Join(splittedCurrentLabel[:len(splittedCurrentLabel)-1], labelSeparator)
-
-		log.Log.Infof("hotplug [getLabelForPID] NEW LABEL: %s", fileLabel)
-	}
-
 	return fileLabel, nil
 }
 
