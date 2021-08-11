@@ -25,6 +25,8 @@ source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
+kubevirt_managed_namespaces=(${namespace} ${cdi_namespace})
+
 function delete_kubevirt_cr() {
     # Delete KubeVirt CR, timeout after 10 seconds
     set +e
@@ -124,7 +126,14 @@ function delete_namespaces() {
         if [ -n "$(_kubectl get ns | grep "${i} ")" ]; then
             echo "Clean ${i} namespace"
             _kubectl delete ns ${i}
+        fi
+    done
+}
 
+function wait_for_namespaces_deletion() {
+    echo "Waiting for namespaces to disappear ..."
+    for i in ${kubevirt_managed_namespaces[@]}; do
+        if [ -n "$(_kubectl get ns | grep "${i} ")" ]; then
             local start_time=0
             local sample=10
             local timeout=120
@@ -138,21 +147,24 @@ function delete_namespaces() {
             done
         fi
     done
+
+    sleep 2
+    echo "Namespaces deleted"
 }
 
-function main() {
+function cluster_clean() {
     echo "Cleaning up ..."
-
-    local kubevirt_managed_namespaces=(${namespace} ${cdi_namespace})
-
     delete_kubevirt_cr
     remove_finalizers
     delete_resources "${kubevirt_managed_namespaces[@]}"
     delete_namespaces "${kubevirt_managed_namespaces[@]}"
-
-    sleep 2
-
-    echo "Done $0"
 }
 
-main "$@"
+function main() {
+    cluster_clean
+    wait_for_namespaces_deletion
+}
+
+if [ "${1}" != "--source-only" ]; then
+    main "${@}"
+fi
