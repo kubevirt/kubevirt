@@ -13486,6 +13486,10 @@
      "deletionPolicy": {
       "type": "string"
      },
+     "failureDeadline": {
+      "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+     },
      "source": {
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
      }
@@ -13514,6 +13518,9 @@
        "type": "string"
       },
       "x-kubernetes-list-type": "set"
+     },
+     "phase": {
+      "type": "string"
      },
      "readyToUse": {
       "type": "boolean"
