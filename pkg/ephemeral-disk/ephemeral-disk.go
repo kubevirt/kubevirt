@@ -37,7 +37,7 @@ const (
 
 type EphemeralDiskCreatorInterface interface {
 	CreateBackedImageForVolume(volume v1.Volume, backingFile string, backingFormat string) error
-	CreateEphemeralImages(vmi *v1.VirtualMachineInstance) error
+	CreateEphemeralImages(vmi *v1.VirtualMachineInstance, isBlockVolume map[string]bool) error
 	GetFilePath(volumeName string) string
 	Init() error
 }
@@ -64,7 +64,10 @@ func (c *ephemeralDiskCreator) generateVolumeMountDir(volumeName string) string 
 	return filepath.Join(c.mountBaseDir, volumeName)
 }
 
-func (c *ephemeralDiskCreator) getBackingFilePath(volumeName string) string {
+func (c *ephemeralDiskCreator) getBackingFilePath(volumeName string, isBlockVolume bool) string {
+	if isBlockVolume {
+		return filepath.Join(string(filepath.Separator), "dev", volumeName)
+	}
 	return filepath.Join(c.pvcBaseDir, volumeName, "disk.img")
 }
 
@@ -115,13 +118,13 @@ func (c *ephemeralDiskCreator) CreateBackedImageForVolume(volume v1.Volume, back
 	return err
 }
 
-func (c *ephemeralDiskCreator) CreateEphemeralImages(vmi *v1.VirtualMachineInstance) error {
+func (c *ephemeralDiskCreator) CreateEphemeralImages(vmi *v1.VirtualMachineInstance, isBlockVolume map[string]bool) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetFilePath)
 	// for each disk that requires it.
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.Ephemeral != nil {
-			if err := c.CreateBackedImageForVolume(volume, c.getBackingFilePath(volume.Name), ephemeralDiskFormat); err != nil {
+			if err := c.CreateBackedImageForVolume(volume, c.getBackingFilePath(volume.Name, isBlockVolume[volume.Name]), ephemeralDiskFormat); err != nil {
 				return err
 			}
 		}

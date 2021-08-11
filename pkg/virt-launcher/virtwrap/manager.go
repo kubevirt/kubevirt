@@ -511,7 +511,15 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
 	// Create images for volumes that are marked ephemeral.
-	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi)
+	isDevEphemeralBackingSource := make(map[string]bool)
+	for _, disk := range domain.Spec.Devices.Disks {
+		if disk.BackingStore != nil && disk.BackingStore.Source != nil {
+			if disk.BackingStore.Source.Dev != "" && disk.BackingStore.Source.Name != "" {
+				isDevEphemeralBackingSource[disk.BackingStore.Source.Name] = true
+			}
+		}
+	}
+	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi, isDevEphemeralBackingSource)
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral images failed: %v", err)
 	}
@@ -671,7 +679,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
 	for _, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.PersistentVolumeClaim != nil {
+		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.Ephemeral != nil {
 			isBlockPVC := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
 				isBlockPVC = isHotplugBlockDeviceVolume(volume.Name)
