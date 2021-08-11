@@ -161,7 +161,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(createdVM.Spec.Template.Spec.Domain.Machine.Type).To(Equal(testingMachineType))
 		})
 
-		It("[QUARANTINE][test_id:3311]should keep the supplied MachineType when created", func() {
+		It("[test_id:3311]should keep the supplied MachineType when created", func() {
 			By("Creating VirtualMachine")
 			explicitMachineType := "pc-q35-3.0"
 			template, _ := newVirtualMachineInstanceWithContainerDisk()
