@@ -33,6 +33,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
 var pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
@@ -92,14 +93,7 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 				continue
 			}
 
-			isShared := false
-			for _, accessMode := range volumeStatus.PersistentVolumeClaimInfo.AccessModes {
-				if accessMode == k8sv1.ReadWriteMany {
-					isShared = true
-					break
-				}
-			}
-
+			isShared := types.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes)
 			file := getPVCDiskImgPath(vmi.Spec.Volumes[i].Name, "disk.img")
 			volumeSource.HostDisk = &v1.HostDisk{
 				Path:     file,
