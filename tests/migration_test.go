@@ -490,7 +490,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			It("should migrate with a downwardMetrics disk", func() {
 				vmi := libvmi.NewTestToolingFedora(
-					libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentUserData(), false),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
@@ -1230,7 +1229,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(nfsIP).NotTo(BeEmpty())
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
-				os := string(cd.ContainerDiskFedora)
+				os := string(cd.ContainerDiskFedoraTestTooling)
 				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
 
 				cfg := getCurrentKv()
@@ -1272,12 +1271,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				// add userdata for guest agent and service account mount
-				mountSvcAccCommands := fmt.Sprintf(`
+				mountSvcAccCommands := fmt.Sprintf(`#!/bin/bash
 					mkdir /mnt/servacc
 					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
 				`, secretDiskSerial)
-				userData := fmt.Sprintf("%s\n%s", tests.GetFedoraToolsGuestAgentUserData(), mountSvcAccCommands)
-				tests.AddUserData(vmi, "cloud-init", userData)
+				tests.AddUserData(vmi, "cloud-init", mountSvcAccCommands)
 
 				tests.AddServiceAccountDisk(vmi, "default")
 				disks := vmi.Spec.Domain.Devices.Disks
@@ -1336,7 +1334,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
-				tests.AddUserData(vmi, "cloud-init", tests.GetFedoraToolsGuestAgentUserData())
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\n echo hello\n")
 				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Checking guest agent")
@@ -1906,7 +1904,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			}
 
 			newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-				// It could have been cleaner to import cd.ContainerDiskFedora from cdi-http-server but that does
+				// It could have been cleaner to import cd.ContainerDiskFedoraTestTooling from cdi-http-server but that does
 				// not work so as a temporary workaround the following imports the image from an ISCSI target pod
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
@@ -1930,7 +1928,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
-				tests.AddUserData(vmi, "disk1", tests.GetFedoraToolsGuestAgentUserData())
+				tests.AddUserData(vmi, "disk1", "#!/bin/bash\n echo hello\n")
 				return vmi, dv
 			}
 
@@ -2149,9 +2147,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			tests.CreateConfigMap(configMapName, config_data)
 			tests.CreateSecret(secretName, secret_data)
 
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora))
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-			tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
+			vmi := libvmi.NewTestToolingFedora(
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			)
+			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tests.AddConfigMapDisk(vmi, configMapName, configMapName)
 			tests.AddSecretDisk(vmi, secretName, secretName)
 			tests.AddServiceAccountDisk(vmi, "default")
@@ -2162,10 +2162,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
 			}
 			tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
-
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Tag: "testnic",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Masquerade: &v1.InterfaceMasquerade{}}}}
 
 			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(6))
 			Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))

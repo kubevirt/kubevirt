@@ -97,9 +97,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 
 	Describe("downwardMetrics", func() {
 		It("should be published to a vmi and periodically updated", func() {
-			vmi := libvmi.NewTestToolingFedora(
-				libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentUserData(), false),
-			)
+			vmi := libvmi.NewTestToolingFedora()
 			tests.AddDownwardMetricsVolume(vmi, "vhostmd")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())

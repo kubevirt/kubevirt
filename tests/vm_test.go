@@ -837,7 +837,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
 
 				By("getting a VM with high TerminationGracePeriod")
-				newVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora))
+				newVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 				gracePeriod := int64(600)
 				newVMI.Spec.TerminationGracePeriodSeconds = &gracePeriod
 				newVM := tests.NewRandomVirtualMachine(newVMI, true)

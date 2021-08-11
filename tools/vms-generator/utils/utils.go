@@ -89,7 +89,7 @@ const (
 const (
 	imageAlpine      = "alpine-container-disk-demo"
 	imageCirros      = "cirros-container-disk-demo"
-	imageFedora      = "fedora-cloud-container-disk-demo"
+	imageFedora      = "fedora-with-test-tooling-container-disk"
 	imageMicroLiveCD = "microlivecd-container-disk-demo"
 	imageKernelBoot  = "alpine-ext-kernel-boot-demo"
 )

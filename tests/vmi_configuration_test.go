@@ -2551,13 +2551,9 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 				node = nodes.Items[1].Name
 
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
-					cd.ContainerDiskFor(
-						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+				vmi = libvmi.NewTestToolingFedora()
 
-				cpuvmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
-					cd.ContainerDiskFor(
-						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+				cpuvmi = libvmi.NewTestToolingFedora()
 				cpuvmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,

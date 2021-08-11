@@ -7,11 +7,10 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
+	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-
-	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -483,9 +482,9 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(content.Spec.VolumeBackups).Should(BeEmpty())
 			})
 
-			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", func() {
-				dataVolume := tests.NewRandomDataVolumeWithHttpImportInStorageClass(
-					tests.GetUrl(tests.FedoraHttpUrl),
+			It("[test_id:6837]delete snapshot after freeze, excpect vm unfreeze", func() {
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce)
@@ -493,27 +492,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				var vmi *v1.VirtualMachineInstance
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserData(
 					dataVolume,
-					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }\npackages:\n qemu-guest-agent",
+					"#!/bin/bash\necho 'I don't need a cloud-init payload, refactor me'\n",
 				))
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
-				Eventually(func() error {
-					var batch []expect.Batcher
-					batch = append(batch, []expect.Batcher{
-						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "sudo systemctl start qemu-guest-agent\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-						&expect.BSnd{S: "sudo systemctl enable qemu-guest-agent\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-					}...)
-
-					return console.SafeExpectBatch(vmi, batch, 120)
-				}, 720*time.Second, 1*time.Second).Should(Succeed())
 				tests.WaitAgentConnected(virtClient, vmi)
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
 				createDenyVolumeSnapshotCreateWebhook()
 				defer deleteWebhook()
@@ -537,8 +519,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("should unfreeze vm if snapshot fails when deadline exceeded", func() {
-				dataVolume := tests.NewRandomDataVolumeWithHttpImportInStorageClass(
-					tests.GetUrl(tests.FedoraHttpUrl),
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce)
@@ -546,27 +528,10 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				var vmi *v1.VirtualMachineInstance
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserData(
 					dataVolume,
-					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }\npackages:\n qemu-guest-agent",
+					"#!/bin/bash\necho 'I don't need a cloud-init payload, refactor me'\n",
 				))
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
-				Eventually(func() error {
-					var batch []expect.Batcher
-					batch = append(batch, []expect.Batcher{
-						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "sudo systemctl start qemu-guest-agent\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-						&expect.BSnd{S: "sudo systemctl enable qemu-guest-agent\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-					}...)
-
-					return console.SafeExpectBatch(vmi, batch, 120)
-				}, 720*time.Second, 1*time.Second).Should(Succeed())
 				tests.WaitAgentConnected(virtClient, vmi)
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
 				createDenyVolumeSnapshotCreateWebhook()
 				snapshot = newSnapshot()

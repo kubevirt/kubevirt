@@ -66,27 +66,6 @@ container_image(
 )
 
 pkg_tar(
-    name = "fedora-cloud-image-tar",
-    srcs = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": ["@fedora_image_aarch64//file"],
-        "//conditions:default": ["@fedora_image//file"],
-    }),
-    mode = "440",
-    owner = "107.107",
-    package_dir = "/disk",
-)
-
-container_image(
-    name = "fedora-cloud-container-disk-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
-    tars = [":fedora-cloud-image-tar"],
-    visibility = ["//visibility:public"],
-)
-
-pkg_tar(
     name = "microlivecd-image-tar",
     srcs = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": ["@microlivecd_image_aarch64//file"],
@@ -122,20 +101,6 @@ container_image(
         "//conditions:default": "amd64",
     }),
     tars = [":virtio-image-tar"],
-    visibility = ["//visibility:public"],
-)
-
-container_image(
-    name = "fedora-sriov-lane-container-disk-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
-    base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_sriov_lane_aarch64//image",
-        "//conditions:default": "@fedora_sriov_lane//image",
-    }),
-    mode = "444",
     visibility = ["//visibility:public"],
 )
 

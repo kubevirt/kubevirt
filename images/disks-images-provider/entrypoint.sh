@@ -39,10 +39,6 @@ echo LOOP_DEVICE=${LOOP_DEVICE} >>/etc/bashrc
 rm -f /local-storage/cirros-block-device
 ln -s $LOOP_DEVICE /local-storage/cirros-block-device
 
-echo "converting fedora image from qcow2 to raw"
-qemu-img convert -f qcow2 -O raw /images/fedora-cloud/disk.qcow2 /images/fedora-cloud/disk.img
-rm /images/fedora-cloud/disk.qcow2
-
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
 echo "make the alpine image ready for parallel use"
