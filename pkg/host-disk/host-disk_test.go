@@ -270,16 +270,11 @@ var _ = Describe("HostDisk", func() {
 					By("Executing CreateHostDisks func which should NOT create disk.img minus reserve")
 					err := hostDiskCreatorWithReserve.Create(vmi)
 					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("unable to create"))
 
 					_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
 					Expect(true).To(Equal(os.IsNotExist(err)))
 
-					event := <-notifier.Events
-					Expect(event.InvolvedObject.Namespace).To(Equal(vmi.Namespace))
-					Expect(event.InvolvedObject.Name).To(Equal(vmi.Name))
-					Expect(event.Type).To(Equal(EventTypeToleratedSmallPV))
-					Expect(event.Reason).To(Equal(EventReasonToleratedSmallPV))
-					Expect(event.Message).To(ContainSubstring("PV size too small"))
 					close(done)
 				}, 5)
 
