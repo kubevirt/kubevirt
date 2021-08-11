@@ -543,7 +543,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					tests.GetUrl(tests.CirrosHttpUrl),
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,
@@ -572,7 +572,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			It("[test_id:5260]should restore a vm that boots from a datavolumetemplate", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					tests.GetUrl(tests.CirrosHttpUrl),
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,
@@ -590,7 +590,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			It("[test_id:5261]should restore a vm that boots from a datavolume (not template)", func() {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					tests.GetUrl(tests.CirrosHttpUrl),
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,
@@ -643,8 +643,8 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 						Name:      "restore-pvc-" + rand.String(12),
 						Namespace: util.NamespaceTestDefault,
 						Annotations: map[string]string{
-							"cdi.kubevirt.io/storage.import.source":   "http",
-							"cdi.kubevirt.io/storage.import.endpoint": tests.GetUrl(tests.CirrosHttpUrl),
+							"cdi.kubevirt.io/storage.import.source":   "registry",
+							"cdi.kubevirt.io/storage.import.endpoint": cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 						},
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
@@ -747,7 +747,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			It("should reject vm start if restore in progress", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					tests.GetUrl(tests.CirrosHttpUrl),
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,
@@ -842,7 +842,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 
 			It("[test_id:6053]should restore a vm from an online snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					tests.GetUrl(tests.CirrosHttpUrl),
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					"#!/bin/bash\necho 'hello'\n",
 					snapshotStorageClass,

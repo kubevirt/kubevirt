@@ -62,7 +62,7 @@ EOF
         echo "waiting for cdi-insecure-registries configmap to be created"
         sleep 1
     done
-    _kubectl patch configmap cdi-insecure-registries -n $cdi_namespace --type merge -p '{"data":{"dev-registry": "registry:5000"}}'
+    _kubectl patch configmap cdi-insecure-registries -n $cdi_namespace --type merge -p '{"data":{"dev-registry": "registry:5000", "fake-registry": "fakeregistry:5000"}}'
 
     # Configure uploadproxy override for virtctl imageupload
     host_port=$(${KUBEVIRT_PATH}cluster-up/cli.sh ports uploadproxy | xargs)
