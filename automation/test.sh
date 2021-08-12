@@ -68,6 +68,8 @@ fi
 
 if [[ $TARGET =~ sriov.* ]]; then
   export KUBEVIRT_NUM_NODES=3
+elif [[ $TARGET =~ vgpu.* ]]; then
+  export KUBEVIRT_NUM_NODES=1
 else
   export KUBEVIRT_NUM_NODES=2
 fi
@@ -333,17 +335,19 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
   elif [[ $TARGET =~ sig-storage ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]|\\[rook-ceph\\]"
+  elif [[ $TARGET =~ vgpu.* ]]; then
+    export KUBEVIRT_E2E_FOCUS=MediatedDevices
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
-    export KUBEVIRT_E2E_SKIP="GPU"
+    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
   elif [[ $TARGET =~ sriov.* ]]; then
     export KUBEVIRT_E2E_FOCUS=SRIOV
   elif [[ $TARGET =~ gpu.* ]]; then
     export KUBEVIRT_E2E_FOCUS=GPU
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
-    export KUBEVIRT_E2E_SKIP="SRIOV|GPU"
+    export KUBEVIRT_E2E_SKIP="SRIOV|GPU|MediatedDevices"
   else
-    export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|Macvtap"
+    export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|Macvtap|MediatedDevices"
   fi
 
   if ! [[ $TARGET =~ sig-storage ]]; then

@@ -9,6 +9,8 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -34,7 +36,12 @@ var _ = Describe("[Serial][sig-compute]HostDevices", func() {
 
 			By("Adding the emulated sound card to the permitted host devices")
 			config := kv.Spec.Configuration
-			config.DeveloperConfiguration.FeatureGates = []string{virtconfig.HostDevicesGate}
+			config.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{virtconfig.HostDevicesGate},
+				DiskVerification: &v1.DiskVerification{
+					MemoryLimit: resource.NewScaledQuantity(2, resource.Giga),
+				},
+			}
 			config.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{

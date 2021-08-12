@@ -476,6 +476,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.LogVerbosity":                                              schema_kubevirtio_client_go_api_v1_LogVerbosity(ref),
 		"kubevirt.io/client-go/api/v1.LunTarget":                                                 schema_kubevirtio_client_go_api_v1_LunTarget(ref),
 		"kubevirt.io/client-go/api/v1.Machine":                                                   schema_kubevirtio_client_go_api_v1_Machine(ref),
+		"kubevirt.io/client-go/api/v1.MediatedDevicesConfiguration":                              schema_kubevirtio_client_go_api_v1_MediatedDevicesConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.MediatedHostDevice":                                        schema_kubevirtio_client_go_api_v1_MediatedHostDevice(ref),
 		"kubevirt.io/client-go/api/v1.Memory":                                                    schema_kubevirtio_client_go_api_v1_Memory(ref),
 		"kubevirt.io/client-go/api/v1.MigrationConfiguration":                                    schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref),
@@ -21576,6 +21577,11 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 							Ref: ref("kubevirt.io/client-go/api/v1.PermittedHostDevices"),
 						},
 					},
+					"mediatedDevicesConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.MediatedDevicesConfiguration"),
+						},
+					},
 					"minCPUModel": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -21606,7 +21612,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.PermittedHostDevices", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MediatedDevicesConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.PermittedHostDevices", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
 	}
 }
 
@@ -22057,6 +22063,37 @@ func schema_kubevirtio_client_go_api_v1_Machine(ref common.ReferenceCallback) co
 							Description: "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_MediatedDevicesConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mediatedDevicesTypes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},

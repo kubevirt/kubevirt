@@ -635,6 +635,13 @@ func (MediatedHostDevice) SwaggerDoc() map[string]string {
 	}
 }
 
+func (MediatedDevicesConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                     "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available\n+k8s:openapi-gen=true",
+		"mediatedDevicesTypes": "+listType=atomic",
+	}
+}
+
 func (NetworkConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "NetworkConfiguration holds network options\n+k8s:openapi-gen=true",

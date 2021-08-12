@@ -10998,6 +10998,9 @@
      "machineType": {
       "type": "string"
      },
+     "mediatedDevicesConfiguration": {
+      "$ref": "#/definitions/v1.MediatedDevicesConfiguration"
+     },
      "memBalloonStatsPeriod": {
       "type": "integer",
       "format": "int64"
@@ -11282,6 +11285,19 @@
      "type": {
       "description": "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
       "type": "string"
+     }
+    }
+   },
+   "v1.MediatedDevicesConfiguration": {
+    "description": "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+    "type": "object",
+    "properties": {
+     "mediatedDevicesTypes": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },

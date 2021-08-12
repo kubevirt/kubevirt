@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "main.go",
+        "mdev-handler.go",
         "selinux.go",
         "tap-device-maker.go",
     ],
@@ -14,6 +15,7 @@ go_library(
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
     ],
 )
 
