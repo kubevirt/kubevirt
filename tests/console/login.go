@@ -36,7 +36,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		return err
 	}
-	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 10*time.Second)
+	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 5*time.Second)
 	if err == nil {
 		return nil
 	}
