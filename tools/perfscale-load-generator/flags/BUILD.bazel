@@ -5,5 +5,4 @@ go_library(
     srcs = ["flags.go"],
     importpath = "kubevirt.io/kubevirt/tools/perfscale-load-generator/flags",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/google/uuid:go_default_library"],
 )

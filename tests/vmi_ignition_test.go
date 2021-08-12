@@ -69,7 +69,7 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 		Context("with IgnitionData annotation", func() {
 			Context("with injected data", func() {
 				It("[test_id:1616]should have injected data under firmware directory", func() {
-					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), "#!/bin/sh\n\necho fedora| passwd --stdin fedora\n")
+					vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 
 					ignitionData := "ignition injected"
 					vmi.Annotations = map[string]string{v1.IgnitionAnnotation: ignitionData}

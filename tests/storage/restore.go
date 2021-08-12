@@ -806,35 +806,18 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:6836]should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func() {
-				dataVolume := tests.NewRandomDataVolumeWithHttpImportInStorageClass(
-					tests.GetUrl(tests.FedoraHttpUrl),
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
 					corev1.ReadWriteOnce)
 				dataVolume.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("6Gi")
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserData(
 					dataVolume,
-					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }\npackages:\n qemu-guest-agent",
+					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }",
 				))
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
-				Eventually(func() error {
-					var batch []expect.Batcher
-					batch = append(batch, []expect.Batcher{
-						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "sudo systemctl start qemu-guest-agent\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-						&expect.BSnd{S: "sudo systemctl enable qemu-guest-agent\n"},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: console.RetValue("0")},
-					}...)
-
-					return console.SafeExpectBatch(vmi, batch, 120)
-				}, 720*time.Second, 1*time.Second).Should(Succeed())
 				tests.WaitAgentConnected(virtClient, vmi)
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 

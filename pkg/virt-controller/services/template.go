@@ -93,6 +93,11 @@ const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
 // Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
 const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
 
+const VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION = "pre.hook.backup.velero.io/container"
+const VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION = "pre.hook.backup.velero.io/command"
+const VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION = "post.hook.backup.velero.io/container"
+const VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION = "post.hook.backup.velero.io/command"
+
 const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
 const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
 const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
@@ -1066,6 +1071,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		}
 	}
 
+	err = validatePermittedHostDevices(&vmi.Spec, t.clusterConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	if util.IsGPUVMI(vmi) {
 		for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
 			requestResource(&resources, gpu.DeviceName)
@@ -1427,6 +1437,37 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	}
 
 	return &pod, nil
+}
+
+func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) error {
+	errors := make([]string, 0)
+
+	if hostDevs := config.GetPermittedHostDevices(); hostDevs != nil {
+		// build a map of all permitted host devices
+		supportedHostDevicesMap := make(map[string]bool)
+		for _, dev := range hostDevs.PciHostDevices {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		for _, dev := range hostDevs.MediatedDevices {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		for _, hostDev := range spec.Domain.Devices.GPUs {
+			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+				errors = append(errors, fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+			}
+		}
+		for _, hostDev := range spec.Domain.Devices.HostDevices {
+			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+				errors = append(errors, fmt.Sprintf("HostDevice %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+			}
+		}
+	}
+
+	if len(errors) != 0 {
+		return fmt.Errorf(strings.Join(errors, " "))
+	}
+
+	return nil
 }
 
 func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error) {
@@ -2088,6 +2129,17 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
 		annotationsSet[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
+	annotationsSet[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+	annotationsSet[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
+		vmi.GetObjectMeta().GetName(),
+		vmi.GetObjectMeta().GetNamespace())
+	annotationsSet[VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+	annotationsSet[VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+		"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
+		vmi.GetObjectMeta().GetName(),
+		vmi.GetObjectMeta().GetNamespace())
+
 	return annotationsSet, nil
 }
 

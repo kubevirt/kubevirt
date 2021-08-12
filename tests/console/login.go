@@ -36,7 +36,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		return err
 	}
-	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 10*time.Second)
+	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 5*time.Second)
 	if err == nil {
 		return nil
 	}
@@ -131,11 +131,9 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	// Do not login, if we already logged in
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
+		&expect.BExp{R: fmt.Sprintf(`(\[fedora@(localhost|%s) ~\]\$ |\[root@(localhost|%s) fedora\]\# )`, vmi.Name, vmi.Name)},
 	})
-	_, err = expecter.ExpectBatch(b, 30*time.Second)
+	_, err = expecter.ExpectBatch(b, 5*time.Second)
 	if err == nil {
 		return nil
 	}
@@ -164,7 +162,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 				Rt: 10,
 			},
 			&expect.Case{
-				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@%s ~\]\$ `, vmi.Name)),
+				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@(localhost|%s) ~\]\$ `, vmi.Name)),
 				T: expect.OK(),
 			},
 		}},

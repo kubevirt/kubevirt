@@ -1,65 +1,82 @@
 # Perscale Load Generator
 
-The load generator is a tool aimed at stressing kubernetes and kubevirt control plane by creating several VMIs in parallel. The main functionallity it provides can be summarized as follows:
-- Create/delete the VMIs declared in a scenario.
-- Create VMIs in one namespaces, or one VMI per namespace.
+The load generator is a tool aimed at stressing the Kubernetes and KubeVirt control plane by creating several objects (e.g., VM, VMI, and VMIReplicaSet). The main functionality it provides can be summarized as follows:
+- Create the objects declared in a workload description.
+- Create VMIs in one namespace or one VMI per namespace.
 - Wait VMIs be created in each iteration.
-- Wait VMIs be deleted in each iteration.
+- Wait for VMIs to be deleted, after deleting the namespaces in each iteration (i.e., clean up the iteration).
 
 This tool introduces load into the system and the relevant metrics and results can be collected using the [perfscale-audit tool](https://github.com/kubevirt/kubevirt/tree/main/tools/perfscale-audit).
 
 ## CLI
+When running the benchmark, you must configure `KUBECONFIG` environment variable of providing the absolute path to the kubeconfig file in the parameter `-kubeconfig`.
+
+The tool runs the default workload example, but you should provide them to the file containing the workload configuration in the parameter `-workload`.
+
+## Workload
+There is an example of the workload configuration in [kubevirt-density.yaml](tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-density.yaml)
+
+The workload configuration parameters are defined as follows:
 ```
-Usage of perfscale-load-generator:
-  -burst int
-    	maximum burst for throttle the VMI creation (default 20)
-  -img-prefix string
-    	Set the repository prefix for all images (default "quay.io/kubevirt")
-  -img-tag string
-    	Set the image tag or digest to use (default "latest")
-  -iteration-cleanup
-    	clean up old tests, delete all created VMIs and namespaces before moving forward to the next iteration (default true)
-  -iteration-count int
-    	how many times to execute the scenario (default 1)
-  -iteration-interval duration
-    	how much time to wait between each scenario iteration
-  -iteration-vmi-wait
-    	wait for all vmis to be running before moving forward to the next iteration (default true)
-  -iteration-wait-for-deletion
-    	wait for VMIs to be deleted and all objects disapear in each iteration (default true)
-  -kubeconfig string
-    	absolute path to the kubeconfig file
-  -master string
-    	kubernetes master url
-  -max-wait-timeout duration
-    	maximum wait period (default 5m0s)
-  -name string
-    	scenario name (default "kubevirt-test-default")
-  -namespace string
-    	namespace base name to use (default "kubevirt-test-default")
-  -namespaced-iterations
-    	create a namespace per scenario iteration
-  -qps float
-    	number of queries per second for VMI creation (default 20)
-  -uuid string
-    	scenario uuid (default "26a02ef8-f5d8-11eb-ac46-061526969e47")
-  -v int
-    	log level for V logs (default 2)
-  -vmi-count int
-    	total number of VMs to be created (default 100)
-  -vmi-cpu-limit string
-    	vmi CPU request and limit (1 CPU = 1000m) (default "100m")
-  -vmi-img string
-    	vmi image name (cirros, alpine, fedora-cloud) (default "cirros")
-  -vmi-mem-limit string
-    	vmi memory request and limit (MEM overhead ~ +170Mi) (default "90Mi")
-  -wait-when-finished duration
-    	delays the termination of the scenario (default 30s)
+globalConfig:
+    // qps and bust are used to configure the kubernetes API client set, which is used to List, Watch, Create and Delete objects
+    // it is needed to tweak QPS/Burst and maxWaitTimeout parameters according to the cluster size and number of created objects
+    qps: 0
+    burst: 0
+// workloads defines a list of workload to be executed
+workloads:
+  - name: kubevirt-density-10
+    // iterationCount defined how many times to execute the workload
+    iterationCount: 1
+    // iterationInterval defines how much time to wait between each workload iteration
+    iterationInterval: 0
+    // iterationCreationWait wait for all objects to be running before moving forward to the next iteration
+    iterationCreationWait: true
+    // iterationCleanup clean up old tests, e.g., namespaces, nodes, configurations, before moving forward to the next iteration
+    iterationCleanup: true
+    // iterationDeletionWait wait for objects to be deleted in each iteration
+    iterationDeletionWait: true
+    // create a namespace per workload iteratio
+    namespacedIterations: false   
+    // maximum wait period for all iterations
+    maxWaitTimeout: 30m
+    // qps is the max number of queries per second to control the job creation rate
+    qps: 20
+    // burst is the maximum burst for throttle to control the job creation rate
+    burst: 20
+    // waitWhenFinished delays the termination of the workloa
+    waitWhenFinished: 30s
+    // objects defines a list of object spec to be created
+    objects:
+        // templateFile is the relative path to a valid YAML definition of a kubevirt resource
+      - templateFile: templates/vmi-ephemeral.yaml
+        // replicas is the number of replicas to create of the given object
+        replicas: 1
+        // InputVars contains a map of arbitrary user-define input variables that can be introduced in the template by users
+        // All the variables in the inputVars depend on the dynamic user-define variables in the templateFile
+        inputVars:
+          // containerPrefix defines the repository prefix for all images
+          // if the value is empty (i.e., "") the default value defined in the cmd flag will be used
+          containerPrefix: registry:5000/kubevirt/
+          // containerImg defines the VMI image in the 
+          containerImg: cirros-container-disk-demo
+          // containerTag defines the image tag
+          // if the value is empty (i.e., "") the default value defined in the cmd flag will be used
+          containerTag: devel
+          // namespace defines the prefix of the namespace to create the object
+          namespace: kubevirt-density
 ```
+
+## Workflow
+- The load generator ranges the list of workloads and sequentially executes each workload.
+- Each workload might run one or more times in different iterations
+- Each workload iteration might create a list of different objects
+- Each workload iteration might wait for all objects to be created
+- Each workload iteration might clean up the iteration, deleting all created namespaces and consequently deleting all created objects
+- Each workload iteration might sleep X times before each iteration to avoid being affected by a previous execution
 
 ## Comments
+The Objects are not directly deleted, they are indirectly deleted when the namespaces are deleted.
+This is to minimize the number of API calls.
 
-It is needed to tweak QPS/Burst and maxWaitTimeout parameters according to the cluster size and VMICount.
-> If you set QPS/Burst=0 the kubeAPI and virtAPI get too overloaded and quay.io pull requests exceedes the max QPS
-
-All VMIs are created with the Kubernetes emphemeral disk [emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir).
+Note that the containerPrefix can also be defined via command line to make it easier to run the workload in different environments. For example, when creating a cluster using the kubevirtci, the containerPrefix = `registry:5000/kubevirt/`, but then creating the cluster using kubespray the containerPrefix = `localhost:5000/kubevirt/`.

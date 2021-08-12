@@ -122,21 +122,6 @@ http_file(
 )
 
 http_file(
-    name = "fedora_image",
-    sha256 = "423a4ce32fa32c50c11e3d3ff392db97a762533b81bef9d00599de518a7469c8",
-    urls = ["https://storage.googleapis.com/builddeps/423a4ce32fa32c50c11e3d3ff392db97a762533b81bef9d00599de518a7469c8"],
-)
-
-http_file(
-    name = "fedora_image_aarch64",
-    sha256 = "b367755c664a2d7a26955bbfff985855adfa2ca15e908baf15b4b176d68d3967",
-    urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/releases/32/Cloud/aarch64/images/Fedora-Cloud-Base-32-1.6.aarch64.qcow2",
-        "https://storage.googleapis.com/builddeps/b367755c664a2d7a26955bbfff985855adfa2ca15e908baf15b4b176d68d3967",
-    ],
-)
-
-http_file(
     name = "microlivecd_image",
     sha256 = "ae449ae8c0f73b1a7e2c394bc5385e7ab01d8fc000f5b074bc8b2aaabf931eac",
     urls = [
@@ -334,24 +319,6 @@ container_pull(
     tag = "32",
 )
 
-# Pull fedora 32 customize container-disk
-# WARNING: please update any automated process to push this image to quay.io
-# instead of index.docker.io
-# TODO build fedora_sriov_lane for multi-arch
-container_pull(
-    name = "fedora_sriov_lane",
-    digest = "sha256:6f66ee747d62c354c0d36e640f8c97d6be0b6ad88a9e8c0180496ac55cba31bf",
-    registry = "quay.io",
-    repository = "kubevirtci/fedora-sriov-testing",
-)
-
-container_pull(
-    name = "fedora_sriov_lane_aarch64",
-    digest = "sha256:6f66ee747d62c354c0d36e640f8c97d6be0b6ad88a9e8c0180496ac55cba31bf",
-    registry = "quay.io",
-    repository = "kubevirtci/fedora-sriov-testing",
-)
-
 # Pull go_image_base
 container_pull(
     name = "go_image_base",
@@ -390,7 +357,7 @@ container_pull(
 # TODO build fedora_with_test_tooling for multi-arch
 container_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:ce36d2b4f81b038fba0b61b1bb1ac7f671d47687fb1f9d7ddedd22742cc79dd9",
+    digest = "sha256:14193941e1fe74f2189536263c71479abbd296dc93b75e8a7f97f0b31e78b71e",
     registry = "quay.io",
     repository = "kubevirtci/fedora-with-test-tooling",
 )
@@ -1376,6 +1343,7 @@ rpm(
         "https://mirrors.n-ix.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
         "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/e/ebtables-legacy-2.0.11-5.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/2eca40e72fdd3ea19d22f00c127c4d166eaf7687cc0a8c1056ae3a6264cda56d",
     ],
 )
 

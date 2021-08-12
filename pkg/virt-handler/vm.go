@@ -283,24 +283,29 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, v
 
 	fdChan := make(chan net.Conn, 100)
 
-	// Listen for new connections,
 	// Close listener and exit when stop encountered
+	go func() {
+		<-domainPipeStopChan
+		log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
+		if err := ln.Close(); err != nil {
+			log.Log.Object(vmi).Infof("failed closing notify pipe listener for vmi: %v", err)
+		}
+	}()
+
+	// Listen for new connections,
 	go func(vmi *v1.VirtualMachineInstance, ln net.Listener, domainPipeStopChan chan struct{}) {
 		for {
-			select {
-			case <-domainPipeStopChan:
-				log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
-				ln.Close()
-				return
-			default:
-				fd, err := ln.Accept()
-				if err != nil {
-					log.Log.Reason(err).Error("Domain pipe accept error encountered.")
-					// keep listening until stop invoked
-					time.Sleep(1)
-				} else {
-					fdChan <- fd
+			fd, err := ln.Accept()
+			if err != nil {
+				if goerror.Is(err, net.ErrClosed) {
+					// As Accept blocks, closing it is our mechanism to exit this loop
+					return
 				}
+				log.Log.Reason(err).Error("Domain pipe accept error encountered.")
+				// keep listening until stop invoked
+				time.Sleep(1 * time.Second)
+			} else {
+				fdChan <- fd
 			}
 		}
 	}(vmi, ln, domainPipeStopChan)
@@ -2414,13 +2419,9 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	}
 
-	res, err := d.podIsolationDetector.Detect(vmi)
+	err = d.claimKVMDeviceOwnership(vmi)
 	if err != nil {
-		return err
-	}
-
-	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(path.Join(res.MountRoot(), "dev", "kvm")); err != nil {
-		return err
+		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
 	}
 
 	if virtutil.IsNonRootVMI(vmi) {
@@ -2504,12 +2505,9 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 		}
 
-		res, err := d.podIsolationDetector.Detect(vmi)
+		err = d.claimKVMDeviceOwnership(vmi)
 		if err != nil {
-			return err
-		}
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(path.Join(res.MountRoot(), "dev", "kvm")); err != nil {
-			return err
+			return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
 		}
 
 		if virtutil.IsNonRootVMI(vmi) {
@@ -2770,6 +2768,22 @@ func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 	}
 
 	return nil
+}
+
+func (d *VirtualMachineController) claimKVMDeviceOwnership(vmi *v1.VirtualMachineInstance) error {
+	isolation, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+
+	kvmPath := path.Join(isolation.MountRoot(), "dev", "kvm")
+
+	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.IsUseEmulation())
+	if err != nil || softwareEmulation {
+		return err
+	}
+
+	return diskutils.DefaultOwnershipManager.SetFileOwnership(kvmPath)
 }
 
 func nodeHasHostModelLabel(node *k8sv1.Node) bool {

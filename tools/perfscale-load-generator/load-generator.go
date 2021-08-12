@@ -26,12 +26,11 @@ import (
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
 )
 
-// executes the test
 func main() {
 	log.Log.SetVerbosityLevel(flags.Verbosity)
-	configSpec := config.NewConfigSpec()
-	ex := executor.NewExecutorList(*configSpec)
-	log.Log.V(2).Infof("Running benchmark scenario %s (%s), creating %d VMIs",
-		configSpec.Scenario.Name, configSpec.Scenario.UUID, configSpec.Scenario.VMICount)
+
+	log.Log.V(1).Infof("Running Load Generator Banchmark")
+	conf := config.NewConfig()
+	ex := executor.NewExecutor(*conf)
 	ex.Run()
 }

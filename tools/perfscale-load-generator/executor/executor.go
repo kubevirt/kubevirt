@@ -22,94 +22,172 @@ package executor
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"golang.org/x/time/rate"
 
+	"github.com/google/uuid"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"kubevirt.io/client-go/log"
-
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
+	objUtil "kubevirt.io/kubevirt/tools/perfscale-load-generator/object"
+	"kubevirt.io/kubevirt/tools/perfscale-load-generator/watcher"
 )
-
-const scenarioLabel = "virt-load-generator-scenario"
 
 // Executor contains the information required to execute a job
 type Executor struct {
 	Start  time.Time
 	End    time.Time
-	Config config.ConfigSpec
-	// Limits the number of workers to QPS and Burst
-	limiter *rate.Limiter
+	Config config.TestConfig
+	UUID   string
 }
 
-// NewExecutorList Returns a executor
-func NewExecutorList(conf config.ConfigSpec) *Executor {
-	return &Executor{
-		Config:  conf,
-		limiter: rate.NewLimiter(rate.Limit(conf.Scenario.QPS), conf.Scenario.Burst),
+// NewExecutor Returns a executor
+func NewExecutor(conf config.TestConfig) *Executor {
+	uid, _ := uuid.NewUUID()
+	ex := &Executor{
+		Config: conf,
+		UUID:   uid.String(),
 	}
+	ex.safeExit()
+	return ex
 }
 
 func (e Executor) Run() {
 	e.Start = time.Now().UTC()
-	var namespace string
+	for _, workload := range e.Config.Workloads {
+		// limits the number of object creationg throughput
+		workloadLimiter := rate.NewLimiter(rate.Limit(workload.QPS), workload.Burst)
 
-	for i := 1; i <= e.Config.Scenario.IterationCount; i++ {
-		log.Log.V(2).Infof("Creating %d VMIs from iteration %d", e.Config.Scenario.VMICount, i)
+		for iteration := 1; iteration <= workload.IterationCount; iteration++ {
+			log.Log.V(2).Infof("Starting iteration %d", iteration)
+			objWatchers := []*watcher.ObjListWatcher{}
+			objTypes := []string{}
 
-		if e.Config.Scenario.NamespacedIterations || i == 1 {
-			namespace = fmt.Sprintf("%s-%d", e.Config.Scenario.Namespace, i)
-			if err := CreateNamespaces(e.Config.ClientSet, namespace, e.Config.Scenario.UUID); err != nil {
-				log.Log.V(2).Error(err.Error())
-				continue
+			for _, obj := range workload.Objects {
+				var err error
+				var replicas []*unstructured.Unstructured
+				if replicas, err = e.createObjectReplicaSpec(obj, iteration, workload.NamespacedIterations); err != nil {
+					panic(fmt.Errorf("unexpected error creating replicas: %v", err))
+				}
+
+				objType := objUtil.GetObjectResource(replicas[0])
+				objTypes = append(objTypes, objType)
+				objWatcher := watcher.NewObjListWatcher(
+					e.Config.Global.Client,
+					objType,
+					obj.Replicas,
+					*e.getListOpts())
+				objWatcher.Run()
+				objWatchers = append(objWatchers, objWatcher)
+
+				if err := e.createObjectReplicas(replicas, workloadLimiter); err != nil {
+					panic(fmt.Errorf("%s", err))
+				}
+				log.Log.V(2).Infof("Iteration %d, created %d %s", iteration, len(replicas), objType)
 			}
-			log.Log.V(2).Infof("Created namespace %s", namespace)
-		}
 
-		e.createVMI(namespace, i)
-
-		if e.Config.Scenario.IterationVMIWait {
-			log.Log.V(2).Infof("Waiting %s for VMIs in namespace %v to be in the Running phase", e.Config.Scenario.MaxWaitTimeout, namespace)
-			if err := WaitForRunningVMIs(e.Config.ClientSet, namespace, e.Config.Scenario.UUID, e.Config.Scenario.VMICount, e.Config.Scenario.MaxWaitTimeout); err != nil {
-				log.Log.V(2).Errorf("Failed to create VMIs: %v", err)
-			} else {
-				log.Log.V(2).Infof("%d VMIs were sucessfully created in namespace %v in %v", e.Config.Scenario.VMICount, namespace, time.Since(e.Start))
+			if workload.IterationCreationWait {
+				for _, objWatcher := range objWatchers {
+					log.Log.V(2).Infof("Iteration %d, waiting all %s be running", iteration, objWatcher.ResourceKind)
+					if err := objWatcher.WaitRunning(workload.MaxWaitTimeout.Duration); err != nil {
+						panic(fmt.Errorf("unexpected error when waiting %s: %v", objWatcher.ResourceKind, err))
+					}
+				}
 			}
-		}
 
-		DeleteVMIs(e.Config.ClientSet, namespace, e.Config.Scenario.UUID, e.limiter)
+			if workload.IterationCleanup {
+				log.Log.V(2).Infof("Iteration %d, clean up, deleting all created namespaces", iteration)
+				objUtil.CleanupNamespaces(e.Config.Global.Client, workload.MaxWaitTimeout.Duration, e.getListOpts())
 
-		if e.Config.Scenario.IterationWaitForDeletion {
-			log.Log.V(2).Infof("Waiting %s for VMIs in namespace %v to be deleted", e.Config.Scenario.MaxWaitTimeout, namespace)
-			if err := WaitForDeleteVMIs(e.Config.ClientSet, namespace, e.Config.Scenario.UUID); err != nil {
-				log.Log.V(2).Errorf("Failed to delete VMIs: %v", err)
-			} else {
-				log.Log.V(2).Infof("All VMIs were deleted")
+				if workload.IterationDeletionWait {
+					for _, objType := range objTypes {
+						log.Log.V(2).Infof("Iteration %d, waiting all %s be deleted", iteration, objType)
+						deletionWait(objWatchers, workload.MaxWaitTimeout.Duration)
+					}
+					log.Log.V(2).Infof("Iteration %d, waiting all namespaces be deleted", iteration)
+					objUtil.WaitForDeleteNamespaces(e.Config.Global.Client, workload.MaxWaitTimeout.Duration, *e.getListOpts())
+				}
 			}
-		}
 
-		if e.Config.Scenario.IterationInterval > 0 {
-			log.Log.V(2).Infof("Sleeping for %v between interations", e.Config.Scenario.IterationInterval)
-			time.Sleep(e.Config.Scenario.IterationInterval)
-		}
+			stopAllWatchers(objWatchers)
 
-		if e.Config.Scenario.IterationCleanup {
-			log.Log.V(2).Infof("Clean up all created namespaces")
-			WaitForDeleteVMIs(e.Config.ClientSet, namespace, e.Config.Scenario.UUID)
-			if err := CleanupNamespaces(e.Config.ClientSet, e.Config.Scenario.UUID); err != nil {
-				log.Log.V(2).Errorf("Error cleaning up namespaces: %v", err)
+			if workload.IterationInterval.Duration > 0 {
+				log.Log.V(2).Infof("Sleeping for %s between interations", workload.IterationInterval.Duration)
+				time.Sleep(workload.IterationInterval.Duration)
 			}
 		}
 	}
 	e.End = time.Now().UTC()
-	log.Log.V(2).Infof("Scenario Startup Time: %v", e.Start)
-	log.Log.V(2).Infof("Scenario End Time: %v", e.End)
+	log.Log.V(2).Infof("Benchmark Startup Time: %v", e.Start)
+	log.Log.V(2).Infof("Benchmark End Time: %v", e.End)
 }
 
-func (e Executor) createVMI(ns string, i int) {
-	for j := 1; j <= e.Config.Scenario.VMICount; j++ {
-		name := fmt.Sprintf("%s-%d-%d", e.Config.Scenario.Name, i, j)
-		CreateVMI(e.Config.ClientSet, name, ns, e.Config.Scenario.UUID, e.Config.Scenario.VMISpec)
-		e.limiter.Wait(context.TODO())
+// createObjectReplicas returns the last created object to provies information for wait and delete the objects
+func (e Executor) createObjectReplicaSpec(obj *config.ObjectSpec, iteration int, namespacedIterations bool) ([]*unstructured.Unstructured, error) {
+	var objects []*unstructured.Unstructured
+	for r := 1; r <= obj.Replicas; r++ {
+		var newObject *unstructured.Unstructured
+		var err error
+
+		templateData := objUtil.GenerateObjectTemplateData(obj, iteration, r, namespacedIterations)
+		if newObject, err = objUtil.RendereObject(templateData, obj.ObjectTemplate); err != nil {
+			return nil, fmt.Errorf("error rendering obj: %v", err)
+		}
+		objUtil.AddLabels(newObject, e.UUID)
+		objects = append(objects, newObject)
 	}
+	return objects, nil
+}
+
+func (e Executor) createObjectReplicas(objects []*unstructured.Unstructured, limiter *rate.Limiter) error {
+	for _, obj := range objects {
+		objUtil.CreateNamespace(e.Config.Global.Client, obj.GetNamespace(), config.WorkloadLabel, e.UUID)
+
+		if _, err := objUtil.CreateObject(e.Config.Global.Client, obj); err != nil {
+			return fmt.Errorf("error creating obj %s: %v", obj.GroupVersionKind().Kind, err)
+		}
+
+		// throttle the obj creation throughput
+		limiter.Wait(context.TODO())
+	}
+	return nil
+}
+
+func (e Executor) getListOpts() *metav1.ListOptions {
+	listOpts := metav1.ListOptions{}
+	listOpts.LabelSelector = fmt.Sprintf("%s=%s", config.WorkloadLabel, e.UUID)
+	return &listOpts
+}
+
+func deletionWait(objWatchers []*watcher.ObjListWatcher, timeout time.Duration) {
+	for _, objWatcher := range objWatchers {
+		if err := objWatcher.WaitDeletion(timeout); err != nil {
+			panic(fmt.Errorf("unexpected error when waiting obj: %v", err))
+		}
+	}
+}
+
+func stopAllWatchers(objWatchers []*watcher.ObjListWatcher) {
+	log.Log.V(2).Infof("Stopping all watchers")
+	for _, objWatcher := range objWatchers {
+		objWatcher.Stop()
+	}
+}
+
+func (e Executor) safeExit() {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		log.Log.V(2).Errorf("unexpected crtl-c exit")
+		objUtil.CleanupNamespaces(e.Config.Global.Client, 30*time.Minute, e.getListOpts())
+		os.Exit(1)
+	}()
 }

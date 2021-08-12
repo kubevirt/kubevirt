@@ -17,11 +17,10 @@
  *
  */
 
-package executor
+package object
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -31,11 +30,9 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-
-	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
 )
 
-func CreateNamespaces(virtCli kubecli.KubevirtClient, name string, uuid string) error {
+func CreateNamespace(virtCli kubecli.KubevirtClient, name, scenarioLabel, uuid string) error {
 	ns := &k8sv1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -54,12 +51,10 @@ func CreateNamespaces(virtCli kubecli.KubevirtClient, name string, uuid string) 
 	return nil
 }
 
-// CleanupNamespaces deletes namespaces with the given selector
-func CleanupNamespaces(virtCli kubecli.KubevirtClient, uuid string) error {
-	listOptions := metav1.ListOptions{}
-	listOptions.LabelSelector = fmt.Sprintf("%s=%s", scenarioLabel, uuid)
-	log.Log.V(2).Infof("Deleting namespaces with label %s", listOptions.LabelSelector)
-	ns, _ := virtCli.CoreV1().Namespaces().List(context.TODO(), listOptions)
+// CleanupNamespaces deletes a collection of namespaces with the given selector
+func CleanupNamespaces(virtCli kubecli.KubevirtClient, timeout time.Duration, listOpts *metav1.ListOptions) error {
+	log.Log.V(2).Infof("Deleting namespaces with label %s", listOpts.LabelSelector)
+	ns, _ := virtCli.CoreV1().Namespaces().List(context.TODO(), *listOpts)
 	if len(ns.Items) > 0 {
 		for _, ns := range ns.Items {
 			err := virtCli.CoreV1().Namespaces().Delete(context.TODO(), ns.Name, metav1.DeleteOptions{})
@@ -72,22 +67,20 @@ func CleanupNamespaces(virtCli kubecli.KubevirtClient, uuid string) error {
 			}
 		}
 	}
-	if len(ns.Items) > 0 {
-		return waitForDeleteNamespaces(virtCli, listOptions)
-	}
 	return nil
 }
 
-func waitForDeleteNamespaces(virtCli kubecli.KubevirtClient, listOptions metav1.ListOptions) error {
-	return wait.PollImmediate(10*time.Second, flags.MaxWaitTimeout, func() (bool, error) {
-		ns, err := virtCli.CoreV1().Namespaces().List(context.TODO(), listOptions)
+// WaitForDeleteNamespaces waits to all namespaces with the given selector be deleted
+func WaitForDeleteNamespaces(virtCli kubecli.KubevirtClient, timeout time.Duration, listOpts metav1.ListOptions) error {
+	return wait.PollImmediate(10*time.Second, timeout, func() (bool, error) {
+		ns, err := virtCli.CoreV1().Namespaces().List(context.TODO(), listOpts)
 		if err != nil {
 			return false, err
 		}
 		if len(ns.Items) == 0 {
 			return true, nil
 		}
-		log.Log.V(4).Infof("Waiting for %d namespaces labeled with %s to be removed", len(ns.Items), listOptions.LabelSelector)
+		log.Log.V(4).Infof("Waiting for %d namespaces labeled with %s to be removed", len(ns.Items), listOpts.LabelSelector)
 		return false, nil
 	})
 }

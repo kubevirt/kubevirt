@@ -23,61 +23,27 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-	"time"
-
-	"github.com/google/uuid"
+	"strings"
 )
 
-var UUID string
-var Name string
-var Namespace string
-var NamespacedIterations bool
-var VMImage string
-var VMIImgTag string
-var VMIImgRepo string
-var CPULimit string
-var MEMLimit string
-var VMICount int
-var IterationCount int
-var IterationInterval time.Duration
-var IterationWaitForDeletion bool
-var IterationVMIWait bool
-var IterationCleanup bool
-var MaxWaitTimeout time.Duration
-var QPS float64
-var Burst int
-var WaitWhenFinished time.Duration
-var Kubeconfig string
-var Kubemaster string
-var Verbosity int
+var (
+	Kubeconfig         string
+	Kubemaster         string
+	Verbosity          int
+	WorkloadConfigFile string
+	ContainerPrefix    string
+	ContainerTag       string
+)
 
 func init() {
-	uid, _ := uuid.NewUUID()
-
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
-	flag.StringVar(&UUID, "uuid", uid.String(), "scenario uuid")
-	flag.StringVar(&Name, "name", "kubevirt-test-default", "scenario name")
-	flag.StringVar(&Namespace, "namespace", "kubevirt-test-default", "namespace base name to use")
-	flag.BoolVar(&NamespacedIterations, "namespaced-iterations", false, "create a namespace per scenario iteration")
-	flag.IntVar(&VMICount, "vmi-count", 100, "total number of VMs to be created")
-	flag.StringVar(&VMImage, "vmi-img", "cirros", "vmi image name (cirros, alpine, fedora-cloud)")
-	flag.StringVar(&VMIImgTag, "img-tag", "latest", "Set the image tag or digest to use")
-	flag.StringVar(&VMIImgRepo, "img-prefix", "quay.io/kubevirt", "Set the repository prefix for all images")
-	flag.StringVar(&MEMLimit, "vmi-mem-limit", "90Mi", "vmi memory request and limit (MEM overhead ~ +170Mi)")
-	flag.StringVar(&CPULimit, "vmi-cpu-limit", "100m", "vmi CPU request and limit (1 CPU = 1000m)")
-	flag.IntVar(&IterationCount, "iteration-count", 1, "how many times to execute the scenario")
-	flag.DurationVar(&IterationInterval, "iteration-interval", 0, "how much time to wait between each scenario iteration")
-	flag.BoolVar(&IterationWaitForDeletion, "iteration-wait-for-deletion", true, "wait for VMIs to be deleted and all objects disapear in each iteration")
-	flag.BoolVar(&IterationVMIWait, "iteration-vmi-wait", true, "wait for all vmis to be running before moving forward to the next iteration")
-	flag.BoolVar(&IterationCleanup, "iteration-cleanup", true, "clean up old tests, delete all created VMIs and namespaces before moving forward to the next iteration")
-	flag.DurationVar(&MaxWaitTimeout, "max-wait-timeout", 30*time.Minute, "maximum wait period")
-	flag.Float64Var(&QPS, "qps", 20, "number of queries per second for VMI creation")
-	flag.IntVar(&Burst, "burst", 20, "maximum burst for throttle the VMI creation")
-	flag.DurationVar(&WaitWhenFinished, "wait-when-finished", 30*time.Second, "delays the termination of the scenario")
 	flag.StringVar(&Kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
 	flag.StringVar(&Kubemaster, "master", "", "kubernetes master url")
 	flag.IntVar(&Verbosity, "v", 2, "log level for V logs")
+	flag.StringVar(&WorkloadConfigFile, "workload", "tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-density.yaml", "path to the file containing the worload configuration")
+	flag.StringVar(&ContainerPrefix, "container-prefix", "registry:5000/kubevirt/", "Set the repository prefix for all images")
+	flag.StringVar(&ContainerTag, "container-tag", "devel", "Set the image tag or digest to use")
 
 	if Kubeconfig == "" {
 		if os.Getenv("KUBECONFIG") != "" {
@@ -91,4 +57,10 @@ func init() {
 	}
 
 	flag.Parse()
+}
+
+// GetRootConfigDir returns the path of the directory of the config file
+func GetRootConfigDir() string {
+	parts := strings.Split(WorkloadConfigFile, "/")
+	return strings.Join(parts[0:len(parts)-1], "/")
 }

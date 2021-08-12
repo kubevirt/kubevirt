@@ -134,7 +134,7 @@ type KubeInformerFactory interface {
 	// CRD
 	CRD() cache.SharedIndexInformer
 
-	// Wachtes for KubeVirt objects
+	// Watches for KubeVirt objects
 	KubeVirt() cache.SharedIndexInformer
 
 	// Service Accounts

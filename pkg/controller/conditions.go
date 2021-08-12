@@ -80,7 +80,13 @@ func (d *VirtualMachineConditionManager) UpdateCondition(vm *v1.VirtualMachine, 
 }
 
 func (d *VirtualMachineInstanceConditionManager) CheckFailure(vmi *v1.VirtualMachineInstance, syncErr error, reason string) (changed bool) {
-	if syncErr != nil && !d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
+	if syncErr != nil {
+		if d.HasConditionWithStatusAndReason(vmi, v1.VirtualMachineInstanceSynchronized, k8sv1.ConditionFalse, reason) {
+			return false
+		}
+		if d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
+			d.RemoveCondition(vmi, v1.VirtualMachineInstanceSynchronized)
+		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstanceSynchronized,
 			Reason:             reason,
@@ -89,7 +95,7 @@ func (d *VirtualMachineInstanceConditionManager) CheckFailure(vmi *v1.VirtualMac
 			Status:             k8sv1.ConditionFalse,
 		})
 		return true
-	} else if syncErr == nil && d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
+	} else if d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
 		d.RemoveCondition(vmi, v1.VirtualMachineInstanceSynchronized)
 		return true
 	}

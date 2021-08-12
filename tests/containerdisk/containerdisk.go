@@ -31,8 +31,6 @@ const (
 	ContainerDiskCirrosCustomLocation ContainerDisk = "cirros-custom"
 	ContainerDiskCirros               ContainerDisk = "cirros"
 	ContainerDiskAlpine               ContainerDisk = "alpine"
-	ContainerDiskFedora               ContainerDisk = "fedora-cloud"
-	ContainerDiskFedoraSRIOVLane      ContainerDisk = "fedora-sriov-lane"
 	ContainerDiskFedoraTestTooling    ContainerDisk = "fedora-with-test-tooling"
 	ContainerDiskMicroLiveCD          ContainerDisk = "microlivecd"
 	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
@@ -44,12 +42,16 @@ const (
 // Use the ContainerDisk* constants as input values.
 func ContainerDiskFor(name ContainerDisk) string {
 	switch name {
-	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora, ContainerDiskMicroLiveCD, ContainerDiskCirrosCustomLocation:
+	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskMicroLiveCD, ContainerDiskCirrosCustomLocation:
 		return fmt.Sprintf("%s/%s-container-disk-demo:%s", flags.KubeVirtUtilityRepoPrefix, name, flags.KubeVirtUtilityVersionTag)
 	case ContainerDiskVirtio:
 		return fmt.Sprintf("%s/virtio-container-disk:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag)
-	case ContainerDiskFedoraSRIOVLane, ContainerDiskFedoraTestTooling:
+	case ContainerDiskFedoraTestTooling:
 		return fmt.Sprintf("%s/%s-container-disk:%s", flags.KubeVirtUtilityRepoPrefix, name, flags.KubeVirtUtilityVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
+}
+
+func DataVolumeImportUrlForContainerDisk(name ContainerDisk) string {
+	return fmt.Sprintf("docker://%s", ContainerDiskFor(name))
 }

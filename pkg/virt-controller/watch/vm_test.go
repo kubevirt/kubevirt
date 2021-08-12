@@ -842,46 +842,48 @@ var _ = Describe("VirtualMachine", func() {
 				table.Entry("failCount 6", 6, 300, 300),
 			)
 
-			table.DescribeTable("has start failure backoff expired", func(vm *v1.VirtualMachine, expected int64) {
+			table.DescribeTable("has start failure backoff expired", func(vmFunc func() *v1.VirtualMachine, expected int64) {
+				vm := vmFunc()
 				seconds := startFailureBackoffTimeLeft(vm)
 
-				if expected > 0 {
-					// since the tests all run in parallel, it's difficult to
-					// do precise timing. We set the `retryAfter` time but the test
-					// execution may happen seconds later. We use big numbers and
-					// account for some jitter to make sure the calculation falls within
-					// the ballpark of what we expect.
-					parallelTestJitter := expected / 10
-					if (expected - seconds) > parallelTestJitter {
-						Expect(seconds).To(Equal(expected))
-					}
-				}
-
+				// since the tests all run in parallel, it's difficult to
+				// do precise timing. We use a tolerance of 2 seconds to account
+				// for some delays in test execution and make sure the calculation
+				// falls within the ballpark of what we expect.
+				const tolerance = 2
+				Expect(seconds).To(BeNumerically("~", expected, tolerance))
+				Expect(seconds).To(BeNumerically(">=", 0))
 			},
 
 				table.Entry("no vm start failures",
-					&v1.VirtualMachine{},
+					func() *v1.VirtualMachine {
+						return &v1.VirtualMachine{}
+					},
 					int64(0)),
 				table.Entry("vm failure waiting 300 seconds",
-					&v1.VirtualMachine{
-						Status: v1.VirtualMachineStatus{
-							StartFailure: &v1.VirtualMachineStartFailure{
-								RetryAfterTimestamp: &metav1.Time{
-									Time: time.Now().Add(300 * time.Second),
+					func() *v1.VirtualMachine {
+						return &v1.VirtualMachine{
+							Status: v1.VirtualMachineStatus{
+								StartFailure: &v1.VirtualMachineStartFailure{
+									RetryAfterTimestamp: &metav1.Time{
+										Time: time.Now().Add(300 * time.Second),
+									},
 								},
 							},
-						},
+						}
 					},
 					int64(300)),
 				table.Entry("vm failure 300 seconds past retry time",
-					&v1.VirtualMachine{
-						Status: v1.VirtualMachineStatus{
-							StartFailure: &v1.VirtualMachineStartFailure{
-								RetryAfterTimestamp: &metav1.Time{
-									Time: time.Now().Add(-300 * time.Second),
+					func() *v1.VirtualMachine {
+						return &v1.VirtualMachine{
+							Status: v1.VirtualMachineStatus{
+								StartFailure: &v1.VirtualMachineStartFailure{
+									RetryAfterTimestamp: &metav1.Time{
+										Time: time.Now().Add(-300 * time.Second),
+									},
 								},
 							},
-						},
+						}
 					},
 					int64(0)),
 			)
@@ -1960,6 +1962,30 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			})
 
+			table.DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string) {
+				vm, vmi := DefaultVirtualMachine(true)
+				vmi.Status.Phase = v1.Scheduling
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+					{
+						Type:   v1.VirtualMachineInstanceSynchronized,
+						Status: k8sv1.ConditionFalse,
+						Reason: reason,
+					},
+				}
+
+				addVirtualMachine(vm)
+				vmiFeeder.Add(vmi)
+
+				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					objVM := obj.(*v1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachinePrintableStatus(reason)))
+				})
+
+				controller.Execute()
+			},
+				table.Entry("Reason: ErrImagePull", ErrImagePullReason),
+				table.Entry("Reason: ImagePullBackOff", ImagePullBackOffReason),
+			)
 		})
 	})
 })

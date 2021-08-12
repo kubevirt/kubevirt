@@ -45,30 +45,30 @@ set -e
 kubectl get vmsnapshots --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshot-protection | while read p; do
     arr=($p)
     name="${arr[0]}"
-    namespace="${arr[1]}"
-    _kubectl patch vmsnapshots $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+    ns="${arr[1]}"
+    _kubectl patch vmsnapshots $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 
 kubectl get vmsnapshotcontents --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshotcontent-protection | while read p; do
     arr=($p)
     name="${arr[0]}"
-    namespace="${arr[1]}"
-    _kubectl patch vmsnapshotcontents $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+    ns="${arr[1]}"
+    _kubectl patch vmsnapshotcontents $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 
 # Remove finalizers from all running vmis, to not block the cleanup
 _kubectl get vmis --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeleteVirtualMachine | while read p; do
     arr=($p)
     name="${arr[0]}"
-    namespace="${arr[1]}"
-    _kubectl patch vmi $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+    ns="${arr[1]}"
+    _kubectl patch vmi $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 
 _kubectl get vms --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep -e foregroundDeleteVirtualMachine -e orphan -e snapshot-source-protection | while read p; do
     arr=($p)
     name="${arr[0]}"
-    namespace="${arr[1]}"
-    _kubectl patch vm $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+    ns="${arr[1]}"
+    _kubectl patch vm $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 
 # Delete Namespaces created by us.

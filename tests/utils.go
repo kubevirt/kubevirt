@@ -132,7 +132,6 @@ const (
 	AlpineHttpUrl = iota
 	DummyFileHttpUrl
 	CirrosHttpUrl
-	FedoraHttpUrl
 	VirtWhatCpuidHelperHttpUrl
 )
 
@@ -192,7 +191,6 @@ const (
 var (
 	HostPathAlpine string
 	HostPathCustom string
-	HostPathFedora string
 )
 
 const (
@@ -683,7 +681,6 @@ func BeforeTestSuitSetup(_ []byte) {
 	worker := config.GinkgoConfig.ParallelNode
 	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
-	HostPathFedora = filepath.Join(HostPathBase, "fedora-cloud")
 
 	BlockDiskForTest = fmt.Sprintf("block-disk-for-tests%v", worker)
 
@@ -1845,7 +1842,7 @@ func createNamespaces() {
 }
 
 func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	return newRandomDataVolumeWithRegistryImport(imageUrl, namespace, Config.StorageClassLocal, accessMode)
+	return NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, Config.StorageClassLocal, accessMode)
 }
 
 func NewRandomDataVolumeWithHttpImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
@@ -1879,7 +1876,7 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 
-func newRandomDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+func NewRandomDataVolumeWithRegistryImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	name := "test-datavolume-" + rand.String(12)
 	quantity, err := resource.ParseQuantity("1Gi")
 	util2.PanicOnError(err)
@@ -2123,13 +2120,6 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 	return vm
 }
 
-func NewRandomVMWithBlockDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
-	volumeMode := k8sv1.PersistentVolumeBlock
-	dataVolume.Spec.PVC.VolumeMode = &volumeMode
-	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
-}
-
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
@@ -2223,7 +2213,7 @@ func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInst
 	vmi := NewRandomVMI()
 
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
-	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedora) {
+	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
 		vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
 	}
 	return vmi
@@ -2320,7 +2310,6 @@ func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 	return libvmi.NewTestToolingFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentUserData(), false),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
 }
@@ -2383,41 +2372,18 @@ func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
-	userData := `#!/bin/bash
-	    echo "fedora" |passwd fedora --stdin
-	`
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 	return vmi
 }
 
 func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
-	userData := `#!/bin/bash
-	    echo "fedora" |passwd fedora --stdin
-	`
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 	return vmi
-}
-
-func GetFedoraToolsGuestAgentUserData() string {
-	return `#!/bin/bash
-            echo "fedora" |passwd fedora --stdin
-            sudo setenforce Permissive
-	    sudo cp /home/fedora/qemu-guest-agent.service /lib/systemd/system/
-	    sudo systemctl daemon-reload
-            sudo systemctl start qemu-guest-agent
-            sudo systemctl enable qemu-guest-agent
-`
 }
 
 func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
 	return fmt.Sprintf(`#!/bin/bash
-            echo "fedora" |passwd fedora --stdin
-            sudo setenforce Permissive
-            sudo cp /home/fedora/qemu-guest-agent.service /lib/systemd/system/
             echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
-            sudo systemctl daemon-reload
-            sudo systemctl start qemu-guest-agent
-            sudo systemctl enable qemu-guest-agent
 `, commands)
 }
 
@@ -4790,8 +4756,6 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", flags.KubeVirtInstallNamespace)
 	case CirrosHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/cirros.img", flags.KubeVirtInstallNamespace)
-	case FedoraHttpUrl:
-		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/fedora.img", flags.KubeVirtInstallNamespace)
 	case VirtWhatCpuidHelperHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/virt-what-cpuid-helper", flags.KubeVirtInstallNamespace)
 	default:
