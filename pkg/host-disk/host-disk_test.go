@@ -59,8 +59,12 @@ func (m MockNotifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity stri
 }
 
 var _ = Describe("HostDisk", func() {
-	var tempDir string
-
+	var (
+		notifier                   MockNotifier
+		tempDir                    string
+		hostDiskCreator            DiskImgCreator
+		hostDiskCreatorWithReserve DiskImgCreator
+	)
 	addHostDisk := func(vmi *v1.VirtualMachineInstance, volumeName string, hostDiskType v1.HostDiskType, capacity string) {
 		var quantity resource.Quantity
 
@@ -106,17 +110,17 @@ var _ = Describe("HostDisk", func() {
 		tempDir, err = ioutil.TempDir("", "host-disk-images")
 		setDiskDirectory(tempDir)
 		Expect(err).NotTo(HaveOccurred())
+		notifier = MockNotifier{
+			Events: make(chan k8sv1.Event, 10),
+		}
+
+		hostDiskCreator = NewHostDiskCreator(notifier, 0, 0)
+		hostDiskCreatorWithReserve = NewHostDiskCreator(notifier, 10, 1048576)
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(tempDir)
 	})
-
-	notifier := MockNotifier{
-		Events: make(chan k8sv1.Event, 10),
-	}
-	hostDiskCreator := NewHostDiskCreator(notifier, 0, 0)
-	hostDiskCreatorWithReserve := NewHostDiskCreator(notifier, 10, 1048576)
 
 	Describe("HostDisk with 'Disk' type", func() {
 		It("Should not create a disk.img when it exists", func() {
@@ -266,16 +270,11 @@ var _ = Describe("HostDisk", func() {
 					By("Executing CreateHostDisks func which should NOT create disk.img minus reserve")
 					err := hostDiskCreatorWithReserve.Create(vmi)
 					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("unable to create"))
 
 					_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
 					Expect(true).To(Equal(os.IsNotExist(err)))
 
-					event := <-notifier.Events
-					Expect(event.InvolvedObject.Namespace).To(Equal(vmi.Namespace))
-					Expect(event.InvolvedObject.Name).To(Equal(vmi.Name))
-					Expect(event.Type).To(Equal(EventTypeToleratedSmallPV))
-					Expect(event.Reason).To(Equal(EventReasonToleratedSmallPV))
-					Expect(event.Message).To(ContainSubstring("PV size too small"))
 					close(done)
 				}, 5)
 
