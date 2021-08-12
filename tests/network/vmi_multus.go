@@ -667,7 +667,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
-		tests.SkipIfNonRoot(virtClient, "SRIOV")
 
 		tests.BeforeTestCleanup()
 		// Check if the hardware supports SRIOV
