@@ -2424,6 +2424,21 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
 	}
 
+	res, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+
+	lessPVCSpaceToleration := d.clusterConfig.GetLessPVCSpaceToleration()
+	minimumPVCReserveBytes := d.clusterConfig.GetMinimumReservePVCBytes()
+
+	// initialize disks images for empty PVC
+	hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, res.MountRoot())
+	err = hostDiskCreator.Create(vmi)
+	if err != nil {
+		return fmt.Errorf("preparing host-disks failed: %v", err)
+	}
+
 	if virtutil.IsNonRootVMI(vmi) {
 		if err := d.nonRootSetup(origVMI, vmi); err != nil {
 			return err
@@ -2508,6 +2523,21 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		err = d.claimKVMDeviceOwnership(vmi)
 		if err != nil {
 			return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
+		}
+
+		res, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			return err
+		}
+
+		lessPVCSpaceToleration := d.clusterConfig.GetLessPVCSpaceToleration()
+		minimumPVCReserveBytes := d.clusterConfig.GetMinimumReservePVCBytes()
+
+		// initialize disks images for empty PVC
+		hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, res.MountRoot())
+		err = hostDiskCreator.Create(vmi)
+		if err != nil {
+			return fmt.Errorf("preparing host-disks failed: %v", err)
 		}
 
 		if virtutil.IsNonRootVMI(vmi) {
