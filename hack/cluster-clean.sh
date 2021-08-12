@@ -29,7 +29,7 @@ function delete_kubevirt_cr() {
     # Delete KubeVirt CR, timeout after 10 seconds
     set +e
     (
-        cmdpid=$BASHPID
+        local cmdpid=$BASHPID
         (
             sleep 10
             kill $cmdpid
@@ -44,41 +44,41 @@ function delete_kubevirt_cr() {
 
 function remove_finalizers() {
     kubectl get vmsnapshots --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshot-protection | while read p; do
-        arr=($p)
-        name="${arr[0]}"
-        ns="${arr[1]}"
+        local arr=($p)
+        local name="${arr[0]}"
+        local ns="${arr[1]}"
         _kubectl patch vmsnapshots $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
     done
 
     kubectl get vmsnapshotcontents --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshotcontent-protection | while read p; do
-        arr=($p)
-        name="${arr[0]}"
-        ns="${arr[1]}"
+        local arr=($p)
+        local name="${arr[0]}"
+        local ns="${arr[1]}"
         _kubectl patch vmsnapshotcontents $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
     done
 
     # Remove finalizers from all running vmis, to not block the cleanup
     _kubectl get vmis --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeleteVirtualMachine | while read p; do
-        arr=($p)
-        name="${arr[0]}"
-        ns="${arr[1]}"
+        local arr=($p)
+        local name="${arr[0]}"
+        local ns="${arr[1]}"
         _kubectl patch vmi $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
     done
 
     _kubectl get vms --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep -e foregroundDeleteVirtualMachine -e orphan -e snapshot-source-protection | while read p; do
-        arr=($p)
-        name="${arr[0]}"
-        ns="${arr[1]}"
+        local arr=($p)
+        local name="${arr[0]}"
+        local ns="${arr[1]}"
         _kubectl patch vm $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
     done
 }
 
 function delete_resources() {
-    managed_namespaces=("$@")
+    local managed_namespaces=("$@")
 
     # Delete all traces of kubevirt
-    namespaces=(default ${managed_namespaces[@]})
-    labels=("operator.kubevirt.io" "operator.cdi.kubevirt.io" "kubevirt.io" "cdi.kubevirt.io")
+    local namespaces=(default ${managed_namespaces[@]})
+    local labels=("operator.kubevirt.io" "operator.cdi.kubevirt.io" "kubevirt.io" "cdi.kubevirt.io")
 
     # Namespaced resources
     for i in ${namespaces[@]}; do
@@ -110,24 +110,24 @@ function delete_resources() {
         _kubectl delete apiservices -l ${label} --wait=false
 
         _kubectl get apiservices -l ${label} -o=custom-columns=NAME:.metadata.name,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeletion | while read p; do
-            arr=($p)
-            name="${arr[0]}"
+            local arr=($p)
+            local name="${arr[0]}"
             _kubectl -n ${i} patch apiservices $name --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
         done
     done
 }
 
 function delete_namespaces() {
-    managed_namespaces=("$@")
+    local managed_namespaces=("$@")
 
     for i in ${managed_namespaces[@]}; do
         if [ -n "$(_kubectl get ns | grep "${i} ")" ]; then
             echo "Clean ${i} namespace"
             _kubectl delete ns ${i}
 
-            start_time=0
-            sample=10
-            timeout=120
+            local start_time=0
+            local sample=10
+            local timeout=120
             echo "Waiting for ${i} namespace to disappear ..."
             while [ -n "$(_kubectl get ns | grep "${i} ")" ]; do
                 sleep $sample
@@ -143,7 +143,7 @@ function delete_namespaces() {
 function main() {
     echo "Cleaning up ..."
 
-    kubevirt_managed_namespaces=(${namespace} ${cdi_namespace})
+    local kubevirt_managed_namespaces=(${namespace} ${cdi_namespace})
 
     delete_kubevirt_cr
     remove_finalizers
