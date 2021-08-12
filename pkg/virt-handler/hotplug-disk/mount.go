@@ -43,9 +43,9 @@ var (
 		return fmt.Sprintf("pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks/hp.sock", string(podUID))
 	}
 
-	cgroupsBasePath = func() string {
-		return filepath.Join("/proc/1/root", cgroup.ControllerPath("devices"))
-	}
+	//cgroupsBasePath = func() string {
+	//	return filepath.Join("/proc/1/root", cgroup.ControllerPath("devices"))
+	//}
 
 	statCommand = func(fileName string) ([]byte, error) {
 		return exec.Command("/usr/bin/stat", fileName, "-L", "-c%t,%T,%a,%F").CombinedOutput()
@@ -521,7 +521,7 @@ func logRootFiles(name string, path string) {
 
 func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, manager cgroup.Manager, pid int) error {
 	//const cgroupBase = "/sys/fs/cgroup/devices/"
-	//cgroupBase, err := manager.GetBasePathToHostController("devices")
+	//cgroupBase, err := manager.GetBasePathToHostSubsystem("devices")
 	//if err != nil {
 	//	// ihol3 maybe expand error
 	//	return err

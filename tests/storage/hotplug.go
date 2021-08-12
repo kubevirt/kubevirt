@@ -331,7 +331,7 @@ var _ = FDescribe("Hotplug", func() {
 
 			fmt.Printf("\n ======== VOLUME READY ======= \n")
 			return nil
-		}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 360*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	verifyCreateData := func(vmi *kubevirtv1.VirtualMachineInstance, device string) {
@@ -676,8 +676,8 @@ var _ = FDescribe("Hotplug", func() {
 				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
 				fmt.Printf("\n\n\n VOLUME READYYYYY!! woohoooo :D :D :D \n\n\n")
 
-				fmt.Printf("\n\nSLEEPING.....\n\n")
-				time.Sleep(3 * time.Hour)
+				//fmt.Printf("\n\nSLEEPING.....\n\n")
+				//time.Sleep(3 * time.Hour)
 
 				getVmiConsoleAndLogin(vmi)
 				fmt.Printf("\n1")
@@ -696,12 +696,12 @@ var _ = FDescribe("Hotplug", func() {
 				verifyVolumeNolongerAccessible(vmi, targets[0])
 				fmt.Printf(" 5\n")
 			},
-				table.Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
-				table.Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
+				table.FEntry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
+				table.FEntry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
 				table.Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
 				table.Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
-				table.Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
-				table.Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
+				table.FEntry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
+				table.FEntry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
 				table.FEntry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
 			)
 

@@ -1,0 +1,62 @@
+package cgroup
+
+import (
+	"fmt"
+	"os"
+	"syscall"
+
+	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
+
+	"kubevirt.io/client-go/log"
+)
+
+const (
+	cgroupStr = "cgroup"
+
+	procMountPoint = "/proc"
+
+	HostRootPath       = "/proc/1/root"
+	cgroupBasePath     = "/sys/fs/" + cgroupStr
+	HostCgroupBasePath = HostRootPath + cgroupBasePath
+)
+
+// getNewResourcesWithoutDevices returns a new Resources struct with Devices attributes dropped
+func getNewResourcesWithoutDevices(r *runc_configs.Resources) runc_configs.Resources {
+	resourcesWithoutDevices := *r
+	resourcesWithoutDevices.Devices = nil
+
+	return resourcesWithoutDevices
+}
+
+// RunWithChroot changes the root directory (via "chroot") into newPath, then
+// runs toRun function. When the function finishes, changes back the root directory
+// to the original one that
+func RunWithChroot(newPath string, toRun func() error) error { // ihol3 bad place to define func
+	originalRoot, err := os.Open("/")
+	if err != nil {
+		return fmt.Errorf("failed to run with chroot - failed to open root directory. error: %v", err)
+	}
+
+	err = syscall.Chroot(newPath)
+	if err != nil {
+		return fmt.Errorf("failed to chroot into \"%s\". error: %v", newPath, err)
+	}
+
+	changeRootToOriginal := func() {
+		const errFormat = "cannot change root to original path. %s error: %+v"
+
+		err = originalRoot.Chdir()
+		if err != nil {
+			log.Log.Errorf(errFormat, "chdir", err)
+		}
+
+		err = syscall.Chroot(".")
+		if err != nil {
+			log.Log.Errorf(errFormat, "chroot", err)
+		}
+	}
+	defer changeRootToOriginal()
+
+	err = toRun()
+	return err
+}

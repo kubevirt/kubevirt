@@ -28,23 +28,25 @@ func newV1Manager(config *runc_configs.Cgroup, paths map[string]string, rootless
 	return &manager, nil
 }
 
-func (v *v1Manager) GetBasePathToHostController(controller string) (string, error) {
-	return getBasePathToHostController(controller)
+func (v *v1Manager) GetBasePathToHostSubsystem(subsystem string) (string, error) {
+	if v.Path(subsystem) == "" {
+		return "", fmt.Errorf("controller %s does not exist", subsystem)
+	}
+	return filepath.Join(HostCgroupBasePath, subsystem), nil
 }
 
 func (v *v1Manager) Set(r *runc_configs.Resources) error {
 	// handle devices separately
 	for _, deviceRule := range r.Devices {
 		applyDeviceRule := func() error { return v.SetDeviceRule(deviceRule) }
-		if err := RunWithChroot(HostRootPath, applyDeviceRule); err != nil {
+		err := RunWithChroot(HostRootPath, applyDeviceRule)
+		if err != nil {
 			return fmt.Errorf("error occured while applying device rule: %v", err)
-		} else {
-			log.Log.Infof("hotplug [SET] - setting device rule: %v", deviceRule)
 		}
+		log.Log.Infof("hotplug [SET] - setting device rule: %v", deviceRule)
 	}
 
-	resourcesWithoutDevices := *r
-	resourcesWithoutDevices.Devices = nil
+	resourcesWithoutDevices := getNewResourcesWithoutDevices(r)
 
 	log.Log.Infof("hotplug [SET] - setting though libcontainer...")
 	err := v.Manager.Set(&resourcesWithoutDevices)
@@ -52,8 +54,23 @@ func (v *v1Manager) Set(r *runc_configs.Resources) error {
 	return err
 }
 
-// ihol3 doc that this will be deprecated once libcontainer's "transition" is not broken...
+// SetDeviceRule sets a new cgroup device rule.
+//
+// This function overrides runc's logic as their code is currently broken. In their code, they use a "transition"
+// function which supposed to calculate the minimum delta of rules to apply in order to support the given rule.
+// This function however always returns an empty delta.
+//
+// The following issue has been opened to rnuc: https://github.com/opencontainers/runc/issues/3141
+// TODO: when this issue is resolved, this function needs to be entirely deleted and we should use runc's logic instead
 func (v *v1Manager) SetDeviceRule(rule *devices.Rule) error {
+	loadEmulator := func(path string) (*cgroupdevices.Emulator, error) {
+		list, err := runc_cgroups.ReadFile(path, "devices.list")
+		if err != nil {
+			return nil, err
+		}
+		return cgroupdevices.EmulatorFromList(bytes.NewBufferString(list))
+	}
+
 	devicesPath, ok := v.GetPaths()["devices"]
 	if !ok {
 		return fmt.Errorf("devices subsystem's path is not defined for this manager")
@@ -68,6 +85,7 @@ func (v *v1Manager) SetDeviceRule(rule *devices.Rule) error {
 	if err != nil {
 		return err
 	}
+	_ = target.Apply(*rule)
 
 	log.Log.Infof("hotplug [SetDeviceRule]: new rule == %v", *rule)
 	file := "devices.deny"
@@ -102,13 +120,4 @@ func (v *v1Manager) SetDeviceRule(rule *devices.Rule) error {
 	}
 
 	return nil
-
-}
-
-func loadEmulator(path string) (*cgroupdevices.Emulator, error) {
-	list, err := runc_cgroups.ReadFile(path, "devices.list")
-	if err != nil {
-		return nil, err
-	}
-	return cgroupdevices.EmulatorFromList(bytes.NewBufferString(list))
 }

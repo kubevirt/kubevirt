@@ -45,11 +45,11 @@ const (
 )
 
 var (
-	tempDir              string
-	orgIsoDetector       = isolationDetector
-	orgDeviceBasePath    = deviceBasePath
-	orgStatCommand       = statCommand
-	orgCgroupsBasePath   = cgroupsBasePath
+	tempDir           string
+	orgIsoDetector    = isolationDetector
+	orgDeviceBasePath = deviceBasePath
+	orgStatCommand    = statCommand
+	//orgCgroupsBasePath   = cgroupsBasePath
 	orgMknodCommand      = mknodCommand
 	orgSourcePodBasePath = sourcePodBasePath
 	orgMountCommand      = mountCommand
@@ -153,9 +153,9 @@ var _ = FDescribe("HotplugVolume block devices", func() {
 		statCommand = func(fileName string) ([]byte, error) {
 			return []byte("6,6,0777,block special file"), nil
 		}
-		cgroupsBasePath = func() string {
-			return filepath.Join(tempDir, orgCgroupsBasePath())
-		}
+		//cgroupsBasePath = func() string {
+		//	return filepath.Join(tempDir, orgCgroupsBasePath())
+		//}
 
 		targetPodPath = filepath.Join(tempDir, "abcd/volumes/kubernetes.io~empty-dir/hotplug-disks")
 		err = os.MkdirAll(targetPodPath, 0755)
@@ -166,7 +166,7 @@ var _ = FDescribe("HotplugVolume block devices", func() {
 		os.RemoveAll(tempDir)
 		deviceBasePath = orgDeviceBasePath
 		statCommand = orgStatCommand
-		cgroupsBasePath = orgCgroupsBasePath
+		//cgroupsBasePath = orgCgroupsBasePath
 		mknodCommand = orgMknodCommand
 		isBlockDevice = orgIsBlockDevice
 	})
@@ -810,9 +810,9 @@ var _ = Describe("HotplugVolume volumes", func() {
 		statCommand = func(fileName string) ([]byte, error) {
 			return []byte("6,6,0777,block special file"), nil
 		}
-		cgroupsBasePath = func() string {
-			return tempDir
-		}
+		//cgroupsBasePath = func() string {
+		//	return tempDir
+		//}
 		//isolationDetector = func(path string) isolation.PodIsolationDetector {
 		//	return &mockIsolationDetector{
 		//		pid: 1,
@@ -831,7 +831,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 		unmountCommand = orgUnMountCommand
 		isMounted = orgIsMounted
 		statCommand = orgStatCommand
-		cgroupsBasePath = orgCgroupsBasePath
+		//cgroupsBasePath = orgCgroupsBasePath
 		mknodCommand = orgMknodCommand
 		isBlockDevice = orgIsBlockDevice
 		findMntByVolume = orgFindMntByVolume

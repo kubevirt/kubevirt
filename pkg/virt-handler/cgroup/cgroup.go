@@ -2,16 +2,13 @@ package cgroup
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
-	"syscall"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups"
+	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
@@ -20,39 +17,29 @@ var (
 	isolationDetector *isolation.PodIsolationDetector
 )
 
-// ihol3 Change name?
+// Manager is the only interface to use in order to inspect, update or define cgroup properties.
+// This interface is agnostic to cgroups version (supports v1 and v2) and is completely transparent from the
+// users perspective. To achieve this "runc"'s cgroup manager is being levitated. This package's implementation
+// guide-line is to have the thinnest glue layer possible in order to have all runc's capabilities without extra effort.
+// This interface can, of course, extend runc and introduce new functionalities that are specific to Kubevirt's use.
 type Manager interface {
-	//DeviceManager
-	//cpuManager
-
 	Set(r *configs.Resources) error
-	cgroups.Manager
+	runc_cgroups.Manager
 
-	// ihol3 doc!
-	// ihol3 add validation for controller name (save Paths() keys once?)
-	GetBasePathToHostController(controller string) (string, error)
-
-	// GetControllersAndPaths ... returns key: controller, value: path.
-	//GetControllersAndPaths(pid int) (map[string]string, error)
-
-	// GetControllerPath ...
-	//GetControllerPath(controller string) string
+	// GetBasePathToHostSubsystem returns the path to the specified subsystem
+	// from the host's viewpoint.
+	GetBasePathToHostSubsystem(subsystem string) (string, error)
 }
 
-// ihol3 maybe rename to vmiPidFromHostView or something similar
+// NewManagerFromPid initializes a new cgroup manager from VMI's pid.
+// The pid is expected to VMI's pid from the host's viewpoint.
 func NewManagerFromPid(pid int) (Manager, error) {
-	const errorFormat = "error creating new manager err: ...." //ihol3
 	const isRootless = false
 
-	//controllerPath, err := getBasePathToHostController("devices")
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	procCgroupBasePath := getCgroupBasePath(pid)
-	controllerPaths, err := cgroups.ParseCgroupFile(procCgroupBasePath)
+	procCgroupBasePath := filepath.Join(procMountPoint, strconv.Itoa(pid), cgroupStr)
+	controllerPaths, err := runc_cgroups.ParseCgroupFile(procCgroupBasePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
 	}
 
 	config := &configs.Cgroup{
@@ -61,16 +48,10 @@ func NewManagerFromPid(pid int) (Manager, error) {
 		Resources: &configs.Resources{},
 	}
 
-	if cgroups.IsCgroup2UnifiedMode() {
-		slicePath := controllerPaths[""] // ihol3 is it different than procCgroupBasePath?...
-		slicePath = filepath.Join(cgroupBasePath, slicePath)
-
-		log.Log.Infof("hotplug procCgroupBasePath: %s", procCgroupBasePath)
-		log.Log.Infof("hotplug slicePath: %s", slicePath)
-
+	if runc_cgroups.IsCgroup2UnifiedMode() {
+		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
 		return newV2Manager(config, slicePath, isRootless, pid)
 	} else {
-
 		return newV1Manager(config, controllerPaths, isRootless)
 	}
 }
@@ -99,8 +80,11 @@ func NewManagerFromVMAndSocket(vmi *v1.VirtualMachineInstance, socket string) (M
 	return NewManagerFromPid(isolationRes.Pid())
 }
 
-func getCgroupBasePath(pid int) string {
-	return filepath.Join(ProcMountPoint, strconv.Itoa(pid), "cgroup")
+func GetCpuSetPath() string {
+	if runc_cgroups.IsCgroup2UnifiedMode() {
+		return filepath.Join(cgroupBasePath, "cpuset.cpus.effective")
+	}
+	return filepath.Join(cgroupBasePath, "cpuset", "cpuset.cpus")
 }
 
 func initIsolationDetectorIfNil() {
@@ -128,70 +112,4 @@ func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationR
 	}
 
 	return isolationRes, nil
-}
-
-func getBasePathToHostController(controller string) (string, error) {
-	// ihol3
-	// if controller not supported -> error?
-
-	if cgroups.IsCgroup2UnifiedMode() {
-		return HostCgroupBasePath, nil
-	}
-	return filepath.Join(HostCgroupBasePath, controller), nil
-}
-
-// ihol3 Clean those up properly..
-func CPUSetPath() string {
-	return cpuSetPath(cgroups.IsCgroup2UnifiedMode(), cgroupBasePath)
-}
-
-func cpuSetPath(isCgroup2UnifiedMode bool, cgroupMount string) string {
-	if isCgroup2UnifiedMode {
-		return filepath.Join(cgroupMount, "cpuset.cpus.effective")
-	}
-	return filepath.Join(cgroupMount, "cpuset", "cpuset.cpus")
-}
-
-func ControllerPath(controller string) string {
-	return controllerPath(cgroups.IsCgroup2UnifiedMode(), cgroupBasePath, controller)
-}
-
-func controllerPath(isCgroup2UnifiedMode bool, cgroupMount, controller string) string {
-	if isCgroup2UnifiedMode {
-		return cgroupMount
-	}
-	return filepath.Join(cgroupMount, controller)
-}
-
-// runWithChroot changes the root directory (via "chroot") into newPath, then
-// runs toRun function. When the function finishes, changes back the root directory
-// to the original one that
-func RunWithChroot(newPath string, toRun func() error) error {
-	originalRoot, err := os.Open("/")
-	if err != nil {
-		return fmt.Errorf("failed to run with chroot - failed to open root directory. error: %v", err)
-	}
-
-	err = syscall.Chroot(newPath)
-	if err != nil {
-		return fmt.Errorf("failed to chroot into \"%s\". error: %v", newPath, err)
-	}
-
-	changeRootToOriginal := func() {
-		const errFormat = "cannot change root to original path. %s error: %+v"
-
-		err = originalRoot.Chdir()
-		if err != nil {
-			log.Log.Errorf(errFormat, "chdir", err)
-		}
-
-		err = syscall.Chroot(".")
-		if err != nil {
-			log.Log.Errorf(errFormat, "chroot", err)
-		}
-	}
-	defer changeRootToOriginal()
-
-	err = toRun()
-	return err
 }
