@@ -1237,7 +1237,7 @@ data:
               "unit": "short"
             },
             {
-              "alias": "Name",
+              "alias": "Pod",
               "align": "auto",
               "colorMode": null,
               "colors": [],
@@ -1246,7 +1246,7 @@ data:
               "link": false,
               "linkTooltip": "Drill down",
               "linkUrl": "",
-              "pattern": "name",
+              "pattern": "pod",
               "thresholds": [],
               "type": "string",
               "unit": "short"
@@ -1281,7 +1281,7 @@ data:
           ],
           "targets": [
             {
-              "expr": "sort_desc(topk(5, sum(rate(kubevirt_vmi_memory_resident_bytes[$period])) by (namespace, name)))>0",
+              "expr": "sort_desc(topk(5, sum(rate(container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}[$period])) by (namespace, pod)))>0",
               "format": "table",
               "instant": true,
               "interval": "",
@@ -1294,7 +1294,7 @@ data:
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Top Memory (RSS) Used Consumers",
+          "title": "Top Memory Used Consumers",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -2033,11 +2033,11 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sort_desc(sum(irate(kubevirt_vmi_memory_resident_bytes[$__rate_interval])) by (namespace, name))>0",
+              "expr": "sort_desc(sum(irate(container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}[$__rate_interval])) by (namespace, pod))>0",
               "format": "time_series",
               "instant": false,
               "interval": "",
-              "legendFormat": "{{name}} / {{namespace}}",
+              "legendFormat": "{{pod}} / {{namespace}}",
               "refId": "A"
             }
           ],
@@ -2045,7 +2045,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Memory (RSS) Usage Consumers (over time)",
+          "title": "Memory Usage Consumers (over time)",
           "tooltip": {
             "shared": false,
             "sort": 0,
