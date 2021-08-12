@@ -126,7 +126,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	})
 
 	Context("when requesting virtio-transitional models", func() {
-		It("should start and run the guest", func() {
+		It("[test_id:6957]should start and run the guest", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
@@ -1291,7 +1291,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 				})
 
-				It("VMI condition should not signal unsupported agent presence for optional commands", func() {
+				It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
 					agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec,guest-set-password")
 					By("Starting a VirtualMachineInstance")
 					agentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(agentVMI)
@@ -1474,7 +1474,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		Context("with TSC timer", func() {
-			It("should set a TSC fequency and have the CPU flag avaliable in the guest", func() {
+			It("[test_id:6843]should set a TSC fequency and have the CPU flag avaliable in the guest", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
@@ -1563,7 +1563,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				vmi = tests.NewRandomVMI()
 			})
 
-			It("should reject disk with missing volume", func() {
+			It("[test_id:6960]should reject disk with missing volume", func() {
 				const diskName = "testdisk"
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name: diskName,
@@ -1574,7 +1574,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
 			})
 
-			It("should reject volume with missing disk / file system", func() {
+			It("[test_id:6961]should reject volume with missing disk / file system", func() {
 				const volumeName = "testvolume"
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: volumeName,
@@ -1797,7 +1797,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 		})
 
-		It("should allow creating VM defined with Machine with an empty Type", func() {
+		It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", func() {
 			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: ""}
@@ -1994,7 +1994,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 
 	Context("Block size configuration set", func() {
 
-		It("Should set BlockIO when using custom block sizes", func() {
+		It("[test_id:6965]Should set BlockIO when using custom block sizes", func() {
 			By("creating a block volume")
 			tests.CreateBlockVolumePvAndPvc("1Gi")
 
@@ -2026,7 +2026,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("Should set BlockIO when set to match volume block sizes on block devices", func() {
+		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", func() {
 			By("creating a block volume")
 			tests.CreateBlockVolumePvAndPvc("1Gi")
 
@@ -2055,7 +2055,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(expectedDiskSizes)
 		})
 
-		It("Should set BlockIO when set to match volume block sizes on files", func() {
+		It("[test_id:6967]Should set BlockIO when set to match volume block sizes on files", func() {
 			if !checks.HasFeature(virtconfig.HostDiskGate) {
 				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 			}
