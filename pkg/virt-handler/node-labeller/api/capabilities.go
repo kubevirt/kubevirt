@@ -3,9 +3,13 @@ package api
 import (
 	"encoding/xml"
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 type yesnobool bool
+
+type CPUSiblings []uint32
 
 type Capabilities struct {
 	XMLName xml.Name `xml:"capabilities"`
@@ -32,11 +36,11 @@ type Counter struct {
 }
 
 type CPU struct {
-	ID       uint32 `xml:"id,attr"`
-	SocketID uint32 `xml:"socket_id,attr"`
-	DieID    uint32 `xml:"die_id,attr"`
-	CoreID   uint32 `xml:"core_id,attr"`
-	Siblings string `xml:"siblings,attr"`
+	ID       uint32      `xml:"id,attr"`
+	SocketID uint32      `xml:"socket_id,attr"`
+	DieID    uint32      `xml:"die_id,attr"`
+	CoreID   uint32      `xml:"core_id,attr"`
+	Siblings CPUSiblings `xml:"siblings,attr"`
 }
 
 type CPUs struct {
@@ -99,4 +103,17 @@ func (b *yesnobool) UnmarshalXMLAttr(attr xml.Attr) error {
 		return nil
 	}
 	return fmt.Errorf("value %v of %v is not (yes|no)", attr.Value, attr.Name)
+}
+
+func (b *CPUSiblings) UnmarshalXMLAttr(attr xml.Attr) error {
+	if attr.Value != "" {
+		for _, cpuStr := range strings.Split(attr.Value, ",") {
+			val, err := strconv.ParseInt(cpuStr, 10, 32)
+			if err != nil {
+				return fmt.Errorf("failed to parse %v to int from %v: %v", cpuStr, attr.Value, err)
+			}
+			*b = append(*b, uint32(val))
+		}
+	}
+	return nil
 }
