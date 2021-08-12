@@ -20,17 +20,13 @@
 package types
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
 )
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
@@ -44,16 +40,6 @@ func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) 
 	return nil, false, false, fmt.Errorf("this is not a PVC! %v", obj)
 }
 
-func IsPVCBlockFromClient(client kubecli.KubevirtClient, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
-	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, v1.GetOptions{})
-	if errors.IsNotFound(err) {
-		return nil, false, false, nil
-	} else if err != nil {
-		return nil, false, false, err
-	}
-	return pvc, true, isPVCBlock(pvc), nil
-}
-
 func isPVCBlock(pvc *k8sv1.PersistentVolumeClaim) bool {
 	// We do not need to consider the data in a PersistentVolume (as of Kubernetes 1.9)
 	// If a PVC does not specify VolumeMode and the PV specifies VolumeMode = Block
@@ -62,21 +48,13 @@ func isPVCBlock(pvc *k8sv1.PersistentVolumeClaim) bool {
 	return pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock
 }
 
-func IsPVCShared(pvc *k8sv1.PersistentVolumeClaim) bool {
-	for _, accessMode := range pvc.Spec.AccessModes {
+func HasSharedAccessMode(accessModes []k8sv1.PersistentVolumeAccessMode) bool {
+	for _, accessMode := range accessModes {
 		if accessMode == k8sv1.ReadWriteMany {
 			return true
 		}
 	}
 	return false
-}
-
-func IsSharedPVCFromClient(client kubecli.KubevirtClient, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, isShared bool, err error) {
-	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, v1.GetOptions{})
-	if err == nil {
-		isShared = IsPVCShared(pvc)
-	}
-	return
 }
 
 func IsPreallocated(annotations map[string]string) bool {
