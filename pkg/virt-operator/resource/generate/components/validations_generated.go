@@ -4943,6 +4943,8 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   type: array
+                virtualMachineRevisionName:
+                  type: string
                 volumes:
                   description: List of volumes that can be mounted by disks belonging
                     to the vmi.
@@ -7592,6 +7594,8 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
             type: object
           type: array
+        virtualMachineRevisionName:
+          type: string
         volumes:
           description: List of volumes that can be mounted by disks belonging to the
             vmi.
@@ -11397,6 +11401,8 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   type: array
+                virtualMachineRevisionName:
+                  type: string
                 volumes:
                   description: List of volumes that can be mounted by disks belonging
                     to the vmi.
@@ -14935,6 +14941,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: string
                                 type: object
                               type: array
+                            virtualMachineRevisionName:
+                              type: string
                             volumes:
                               description: List of volumes that can be mounted by
                                 disks belonging to the vmi.

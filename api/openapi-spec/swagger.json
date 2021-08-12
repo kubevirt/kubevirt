@@ -12876,6 +12876,9 @@
        "$ref": "#/definitions/k8s.io.api.core.v1.Toleration"
       }
      },
+     "virtualMachineRevisionName": {
+      "type": "string"
+     },
      "volumes": {
       "description": "List of volumes that can be mounted by disks belonging to the vmi.",
       "type": "array",

@@ -165,6 +165,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"deployments",
 					"daemonsets",
+					"controllerrevisions",
 				},
 				Verbs: []string{
 					"get",

@@ -666,6 +666,92 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 		})
 
+		It("should create vm revision when starting vm", func() {
+			newVM := newVirtualMachine(true)
+			vmCpy := newVM.DeepCopy()
+			vmCpy.Status = v1.VirtualMachineStatus{}
+
+			var vmi *v1.VirtualMachineInstance
+			Eventually(func() bool {
+				vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return false
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.Phase == v1.Running
+			}, 240*time.Second, 1*time.Second).Should(BeTrue())
+
+			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", newVM.UID, newVM.Generation)
+			Expect(vmi.Spec.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
+
+			cr, err := virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), vmi.Spec.VirtualMachineRevisionName, k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cr.Revision).To(Equal(int64(1)))
+			vmRevision := &v1.VirtualMachine{}
+			err = json.Unmarshal(cr.Data.Raw, vmRevision)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmRevision.Spec).To(Equal(vmCpy.Spec))
+		})
+
+		It("should delete old vm revision and create new one when restarting vm", func() {
+			By("Starting the VM")
+			newVM := newVirtualMachine(true)
+
+			var vmi *v1.VirtualMachineInstance
+			Eventually(func() bool {
+				vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return false
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.Phase == v1.Running
+			}, 240*time.Second, 1*time.Second).Should(BeTrue())
+
+			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", newVM.UID, newVM.Generation)
+			Expect(vmi.Spec.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
+			oldVMRevisionName := expectedVMRevisionName
+
+			By("Stoping the VM")
+			newVM = stopVM(newVM)
+
+			By("Updating the VM template spec")
+			newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			updatedVM := newVM.DeepCopy()
+			updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("4096Ki"),
+			}
+			updatedVM, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting the VM after update")
+			newVM = startVM(updatedVM)
+			vmCpy := newVM.DeepCopy()
+			vmCpy.Status = v1.VirtualMachineStatus{}
+			Eventually(func() bool {
+				vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.Phase == v1.Running
+			}, 240*time.Second, 1*time.Second).Should(BeTrue())
+
+			expectedVMRevisionName = fmt.Sprintf("revision-start-vm-%s-%d", newVM.UID, newVM.Generation)
+			Expect(vmi.Spec.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
+
+			cr, err := virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), oldVMRevisionName, k8smetav1.GetOptions{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+
+			cr, err = virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), vmi.Spec.VirtualMachineRevisionName, k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cr.Revision).To(Equal(int64(4)))
+			vmRevision := &v1.VirtualMachine{}
+			err = json.Unmarshal(cr.Data.Raw, vmRevision)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmRevision.Spec).To(Equal(vmCpy.Spec))
+		})
+
 		It("[test_id:4645]should set the Ready condition on VM", func() {
 			vm := newVirtualMachine(false)
 

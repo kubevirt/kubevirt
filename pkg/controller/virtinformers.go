@@ -122,6 +122,9 @@ type KubeInformerFactory interface {
 	// Watches for PersistentVolumeClaim objects
 	PersistentVolumeClaim() cache.SharedIndexInformer
 
+	// Watches for ControllerRevision objects
+	ControllerRevision() cache.SharedIndexInformer
+
 	// Watches for LimitRange objects
 	LimitRanges() cache.SharedIndexInformer
 
@@ -525,6 +528,29 @@ func (f *kubeInformerFactory) LimitRanges() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "limitranges", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.LimitRange{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) ControllerRevision() cache.SharedIndexInformer {
+	return f.getInformer("controllerRevisionInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.AppsV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "controllerrevisions", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &appsv1.ControllerRevision{}, f.defaultResync, cache.Indexers{
+			"vm": func(obj interface{}) ([]string, error) {
+				cr, ok := obj.(*appsv1.ControllerRevision)
+				if !ok {
+					return nil, unexpectedObjectError
+				}
+
+				for _, ref := range cr.OwnerReferences {
+					if ref.Kind == "VirtualMachine" {
+						return []string{string(ref.UID)}, nil
+					}
+				}
+
+				return nil, nil
+			},
+		})
 	})
 }
 

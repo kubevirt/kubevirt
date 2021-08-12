@@ -165,6 +165,8 @@ type VirtualMachineInstanceSpec struct {
 	// +listType=atomic
 	// +optional
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
+	// +optional
+	VirtualMachineRevisionName string `json:"virtualMachineRevisionName,omitempty"`
 }
 
 // VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi

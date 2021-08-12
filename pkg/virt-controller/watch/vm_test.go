@@ -1,7 +1,9 @@
 package watch
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -9,10 +11,12 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
@@ -25,6 +29,11 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
+)
+
+var (
+	vmUID types.UID = "vm-uid"
+	t               = true
 )
 
 var _ = Describe("VirtualMachine", func() {
@@ -41,6 +50,7 @@ var _ = Describe("VirtualMachine", func() {
 		var dataVolumeInformer cache.SharedIndexInformer
 		var dataVolumeSource *framework.FakeControllerSource
 		var pvcInformer cache.SharedIndexInformer
+		var crInformer cache.SharedIndexInformer
 		var stop chan struct{}
 		var controller *VMController
 		var recorder *record.FakeRecorder
@@ -48,6 +58,7 @@ var _ = Describe("VirtualMachine", func() {
 		var vmiFeeder *testutils.VirtualMachineFeeder
 		var dataVolumeFeeder *testutils.DataVolumeFeeder
 		var cdiClient *cdifake.Clientset
+		var k8sClient *k8sfake.Clientset
 
 		syncCaches := func(stop chan struct{}) {
 			go vmiInformer.Run(stop)
@@ -67,10 +78,21 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
+				"vm": func(obj interface{}) ([]string, error) {
+					cr := obj.(*appsv1.ControllerRevision)
+					for _, ref := range cr.OwnerReferences {
+						if ref.Kind == "VirtualMachine" {
+							return []string{string(ref.UID)}, nil
+						}
+					}
+					return nil, nil
+				},
+			})
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			controller = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, pvcInformer, recorder, virtClient)
+			controller = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, pvcInformer, crInformer, recorder, virtClient)
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
@@ -89,6 +111,8 @@ var _ = Describe("VirtualMachine", func() {
 				return true, nil, nil
 			})
 
+			k8sClient = k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 		})
 
 		shouldExpectVMIFinalizerRemoval := func(vmi *v1.VirtualMachineInstance) {
@@ -123,6 +147,73 @@ var _ = Describe("VirtualMachine", func() {
 				*idx++
 				return true, nil, nil
 			})
+		}
+
+		expectControllerRevisionList := func(vmRevision *appsv1.ControllerRevision) {
+			k8sClient.Fake.PrependReactor("list", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				list, _ := action.(testing.ListAction)
+				if strings.Contains(list.GetListRestrictions().Labels.String(), string(vmUID)) {
+					return true, &appsv1.ControllerRevisionList{Items: []appsv1.ControllerRevision{*vmRevision}}, nil
+				}
+				return true, &appsv1.ControllerRevisionList{}, nil
+			})
+		}
+
+		expectControllerRevisionDelete := func(vmRevision *appsv1.ControllerRevision) {
+			k8sClient.Fake.PrependReactor("delete", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				deleted, ok := action.(testing.DeleteAction)
+				Expect(ok).To(BeTrue())
+				Expect(deleted.GetNamespace()).To(Equal(vmRevision.Namespace))
+				Expect(deleted.GetName()).To(Equal(vmRevision.Name))
+				return true, nil, nil
+			})
+		}
+
+		expectControllerRevisionCreation := func(vmRevision *appsv1.ControllerRevision) {
+			k8sClient.Fake.PrependReactor("create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				created, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+
+				createObj := created.GetObject().(*appsv1.ControllerRevision)
+				Expect(createObj).To(Equal(vmRevision))
+
+				return true, created.GetObject(), nil
+			})
+		}
+
+		patchVMRevision := func(vm *v1.VirtualMachine) runtime.RawExtension {
+			vmBytes, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			var raw map[string]interface{}
+			err = json.Unmarshal(vmBytes, &raw)
+			Expect(err).ToNot(HaveOccurred())
+
+			objCopy := make(map[string]interface{})
+			spec := raw["spec"].(map[string]interface{})
+			objCopy["spec"] = spec
+			patch, err := json.Marshal(objCopy)
+			Expect(err).ToNot(HaveOccurred())
+			return runtime.RawExtension{Raw: patch}
+		}
+
+		createVMRevision := func(vm *v1.VirtualMachine) *appsv1.ControllerRevision {
+			return &appsv1.ControllerRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      getVMRevisionName(vm.UID, vm.Generation),
+					Namespace: vm.Namespace,
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+						Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+						Name:               vm.ObjectMeta.Name,
+						UID:                vm.ObjectMeta.UID,
+						Controller:         &t,
+						BlockOwnerDeletion: &t,
+					}},
+				},
+				Data:     patchVMRevision(vm),
+				Revision: vm.Generation,
+			}
 		}
 
 		addVirtualMachine := func(vm *v1.VirtualMachine) {
@@ -172,7 +263,7 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume)
 
 			createCount := 0
-			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": "", "my": "label"}, map[string]string{"my": "annotation"}, &createCount)
+			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID), "my": "label"}, map[string]string{"my": "annotation"}, &createCount)
 
 			controller.Execute()
 			Expect(createCount).To(Equal(1))
@@ -636,7 +727,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 
 			createCount := 0
-			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
+			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 
 			controller.Execute()
 			Expect(createCount).To(Equal(2))
@@ -667,7 +758,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 
 			createCount := 0
-			shouldExpectDataVolumeCreationPriorityClass(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, expectedPriorityClass, &createCount)
+			shouldExpectDataVolumeCreationPriorityClass(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, expectedPriorityClass, &createCount)
 
 			controller.Execute()
 			Expect(createCount).To(Equal(1))
@@ -977,7 +1068,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 
 				createCount := 0
-				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
+				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 				if fail {
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 				}
@@ -1034,6 +1125,58 @@ var _ = Describe("VirtualMachine", func() {
 				table.Entry("with no auth and source namespace defined", dv1, serviceAccountVol, nil, true),
 				table.Entry("with auth, datasource and source namespace defined", dv3, serviceAccountVol, ds, false),
 			)
+		})
+
+		It("should create VMI with vmRevision", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Generation = 1
+
+			addVirtualMachine(vm)
+
+			vmRevision := createVMRevision(vm)
+			expectControllerRevisionCreation(vmRevision)
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+				Expect(arg.(*v1.VirtualMachineInstance).Spec.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
+			}).Return(vmi, nil)
+
+			// expect update status is called
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should delete older vmRevision and create VMI with new one", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Generation = 1
+			oldVMRevision := createVMRevision(vm)
+
+			vm.Generation = 2
+			addVirtualMachine(vm)
+			vmRevision := createVMRevision(vm)
+
+			expectControllerRevisionList(oldVMRevision)
+			expectControllerRevisionDelete(oldVMRevision)
+			expectControllerRevisionCreation(vmRevision)
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+				Expect(arg.(*v1.VirtualMachineInstance).Spec.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
+			}).Return(vmi, nil)
+
+			// expect update status is called
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should create missing VirtualMachineInstance", func() {
@@ -1645,7 +1788,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					createCount := 0
-					shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
+					shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 						objVM := obj.(*v1.VirtualMachine)
@@ -1992,7 +2135,7 @@ var _ = Describe("VirtualMachine", func() {
 
 func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started bool) *v1.VirtualMachine {
 	vm := &v1.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1"},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: vmUID},
 		Spec: v1.VirtualMachineSpec{
 			Running: &started,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -2022,7 +2165,6 @@ func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string)
 	vmi.Status.Phase = v1.Running
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 	vm := VirtualMachineFromVMI(vmName, vmi, started)
-	t := true
 	vmi.OwnerReferences = []metav1.OwnerReference{{
 		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
 		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
