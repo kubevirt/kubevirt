@@ -2687,6 +2687,10 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return fmt.Errorf("failed to adjust resources: %v", err)
 		}
 	} else if vmi.IsRunning() {
+		if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi); err != nil {
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), err.Error())
+		}
+
 		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
 			return err
 		}
@@ -2873,10 +2877,6 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 	client, err := d.getVerifiedLauncherClient(vmi)
 	if err != nil {
 		return err
-	}
-
-	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi); err != nil {
-		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), errorMessage)
 	}
 
 	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {

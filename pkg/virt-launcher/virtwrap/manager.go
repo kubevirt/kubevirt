@@ -299,17 +299,7 @@ func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMa
 
 // hotPlugHostDevices attach host-devices to running domain
 // Currently only SRIOV host-devices are supported
-func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance) error {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domainName := api.VMINamespaceKeyFunc(vmi)
-	domain, err := l.virConn.LookupDomainByName(domainName)
-	if err != nil {
-		return err
-	}
-	defer domain.Free()
-
+func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance, domain cli.VirDomain) error {
 	domainSpec, err := util.GetDomainSpecWithFlags(domain, 0)
 	if err != nil {
 		return err
@@ -759,6 +749,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		logger.Info("Domain unpaused.")
 	} else {
 		// Nothing to do
+	}
+
+	if err := l.hotPlugHostDevices(vmi, dom); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to hot-plug host-devices")
 	}
 
 	xmlstr, err := dom.GetXMLDesc(0)
