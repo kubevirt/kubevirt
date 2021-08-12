@@ -76,15 +76,26 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 	}
 }
 
+func (PersistentVolumeClaimInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC\n+k8s:openapi-gen=true",
+		"accessModes":  "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+listType=atomic\n+optional",
+		"volumeMode":   "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
+		"capacity":     "Capacity represents the capacity set on the corresponding PVC spec\n+optional",
+		"preallocated": "Preallocated indicates if the PVC's storage is preallocated or not\n+optional",
+	}
+}
+
 func (VolumeStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.\n+k8s:openapi-gen=true",
-		"name":          "Name is the name of the volume",
-		"target":        "Target is the target name used when adding the volume to the VM, eg: vda",
-		"phase":         "Phase is the phase",
-		"reason":        "Reason is a brief description of why we are in the current hotplug volume phase",
-		"message":       "Message is a detailed message about the current hotplug volume phase",
-		"hotplugVolume": "If the volume is hotplug, this will contain the hotplug status.",
+		"":                          "VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.\n+k8s:openapi-gen=true",
+		"name":                      "Name is the name of the volume",
+		"target":                    "Target is the target name used when adding the volume to the VM, eg: vda",
+		"phase":                     "Phase is the phase",
+		"reason":                    "Reason is a brief description of why we are in the current hotplug volume phase",
+		"message":                   "Message is a detailed message about the current hotplug volume phase",
+		"persistentVolumeClaimInfo": "PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow",
+		"hotplugVolume":             "If the volume is hotplug, this will contain the hotplug status.",
 	}
 }
 

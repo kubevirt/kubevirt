@@ -20,7 +20,6 @@
 package hostdisk
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -398,18 +397,10 @@ var _ = Describe("HostDisk", func() {
 
 		table.DescribeTable("PVC in", func(mode k8sv1.PersistentVolumeMode, pvcReferenceObj string) {
 
+			pvcName := "madeup"
+
 			By("Creating the PVC")
 			namespace := "testns"
-			pvcName := "pvcDevice"
-			pvc := &k8sv1.PersistentVolumeClaim{
-				TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
-				Spec: k8sv1.PersistentVolumeClaimSpec{
-					VolumeMode: &mode,
-				},
-			}
-
-			virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 
 			By("Creating a VMI with PVC volume")
 			volumeName := "pvc-volume"
@@ -421,12 +412,25 @@ var _ = Describe("HostDisk", func() {
 					},
 				},
 			}
+
+			volumeStatus := []v1.VolumeStatus{
+				{
+					Name: volumeName,
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeMode: &mode,
+					},
+				},
+			}
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testvmi", Namespace: namespace, UID: "1234",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				Status: v1.VirtualMachineInstanceStatus{
+					VolumeStatus: volumeStatus,
+				},
 			}
+
 			// Add a filesystem to vmi spec to test fs passthrough
 			if pvcReferenceObj == "filesystem" {
 				vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
@@ -436,9 +440,10 @@ var _ = Describe("HostDisk", func() {
 			}
 
 			By("Replacing PVCs with hostdisks")
-			ReplacePVCByHostDisk(vmi, virtClient)
+			ReplacePVCByHostDisk(vmi)
 
 			Expect(len(vmi.Spec.Volumes)).To(Equal(1), "There should still be 1 volume")
+
 			if mode == k8sv1.PersistentVolumeFilesystem && pvcReferenceObj == "disk" {
 				Expect(vmi.Spec.Volumes[0].HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
 				Expect(vmi.Spec.Volumes[0].HostDisk.Type).To(Equal(v1.HostDiskExistsOrCreate), "Correct hostdisk type")
@@ -459,6 +464,7 @@ var _ = Describe("HostDisk", func() {
 			}
 
 		},
+
 			table.Entry("filemode", k8sv1.PersistentVolumeFilesystem, "disk"),
 			table.Entry("blockmode", k8sv1.PersistentVolumeBlock, "disk"),
 			table.Entry("filesystem passthrough", k8sv1.PersistentVolumeFilesystem, "filesystem"),

@@ -2157,6 +2157,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Phase:   phase,
 					Message: truncateSprintf(message, index, index),
 					Reason:  reason,
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{
+							k8sv1.ReadOnlyMany,
+						},
+					},
 				})
 			}
 			return res
@@ -2184,7 +2189,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			for _, pvcIndex := range pvcIndexes {
 				pvc := NewHotplugPVC(fmt.Sprintf("claim%d", pvcIndex), k8sv1.NamespaceDefault, k8sv1.ClaimBound)
 				pvcInformer.GetIndexer().Add(pvc)
+				for i, stat := range expectedStatus {
+					if stat.Name == pvc.Name {
+						stat.PersistentVolumeClaimInfo = &v1.PersistentVolumeClaimInfo{
+							AccessModes: []k8sv1.PersistentVolumeAccessMode{
+								k8sv1.ReadOnlyMany,
+							},
+						}
+						expectedStatus[i] = stat
+						break
+					}
+				}
 			}
+
 			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
 			testutils.ExpectEvents(recorder, expectedEvents...)
 			Expect(err).ToNot(HaveOccurred())
@@ -2201,7 +2218,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				makeVolumeStatusesForUpdate(),
 				makeVolumes(0),
 				[]int{0},
-				[]int{},
+				[]int{0},
 				makeVolumeStatusesForUpdate(0),
 				[]string{SuccessfulCreatePodReason}),
 			table.Entry("should update volume status, if a new volume is added, and pod does not exist",
@@ -2317,7 +2334,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","hotplugVolume":{}}] }]`
+			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{},"hotplugVolume":{}}] }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -2407,7 +2424,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
+			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)

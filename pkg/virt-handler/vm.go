@@ -39,7 +39,6 @@ import (
 	nodelabellerapi "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -67,7 +66,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
-	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
+	pvctypes "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -2185,6 +2184,13 @@ func (d *VirtualMachineController) validateSRIOVInterfacesForMigration(vmi *v1.V
 }
 
 func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, err error) {
+
+	volumeStatusMap := make(map[string]v1.VolumeStatus)
+
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		volumeStatusMap[volumeStatus.Name] = volumeStatus
+	}
+
 	// Check if all VMI volumes can be shared between the source and the destination
 	// of a live migration. blockMigrate will be returned as false, only if all volumes
 	// are shared and the VMI has no local disks
@@ -2193,21 +2199,22 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
 		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil {
-			var volName string
+
+			var claimName string
 			if volSrc.PersistentVolumeClaim != nil {
-				volName = volSrc.PersistentVolumeClaim.ClaimName
+				claimName = volSrc.PersistentVolumeClaim.ClaimName
 			} else {
-				volName = volSrc.DataVolume.Name
+				claimName = volSrc.DataVolume.Name
 			}
-			_, shared, err := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volName)
-			if errors.IsNotFound(err) {
-				return blockMigrate, fmt.Errorf("persistentvolumeclaim %v not found", volName)
-			} else if err != nil {
-				return blockMigrate, err
+
+			volumeStatus, ok := volumeStatusMap[volume.Name]
+
+			if !ok || volumeStatus.PersistentVolumeClaimInfo == nil {
+				return true, fmt.Errorf("cannot migrate VMI: Unable to determine if PVC %v is shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", claimName)
+			} else if !pvctypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) {
+				return true, fmt.Errorf("cannot migrate VMI: PVC %v is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", claimName)
 			}
-			if !shared {
-				return true, fmt.Errorf("cannot migrate VMI: PVC %v is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", volName)
-			}
+
 		} else if volSrc.HostDisk != nil {
 			shared := volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared
 			if !shared {
@@ -2315,7 +2322,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 
 	vmi := origVMI.DeepCopy()
 
-	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
+	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
 		return err
 	}
@@ -2377,7 +2384,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return nil
 	}
 
-	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
+	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
 		return err
 	}
@@ -2451,26 +2458,13 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	vmi := origVMI.DeepCopy()
 	// Find preallocated volumes
 	var preallocatedVolumes []string
-	for _, v := range vmi.Spec.Volumes {
-		var name string
-		source := v.VolumeSource
-		if source.PersistentVolumeClaim != nil || source.DataVolume != nil {
-			if source.PersistentVolumeClaim != nil {
-				name = source.PersistentVolumeClaim.ClaimName
-			} else {
-				name = source.DataVolume.Name
-			}
-			pvc, err := d.clientset.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), name, metav1.GetOptions{})
-			if err != nil {
-				continue
-			}
-			if pvcutils.IsPreallocated(pvc.ObjectMeta.Annotations) {
-				preallocatedVolumes = append(preallocatedVolumes, v.Name)
-			}
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
+			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)
 		}
 	}
 
-	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
+	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
 		return err
 	}

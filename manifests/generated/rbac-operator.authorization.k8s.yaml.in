@@ -508,12 +508,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - persistentvolumeclaims
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
   - nodes
   verbs:
   - patch
