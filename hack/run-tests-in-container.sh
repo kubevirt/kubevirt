@@ -24,6 +24,18 @@ else
     computed_test_image="${operator_image//hyperconverged-cluster-operator/hyperconverged-cluster-functest}"
 fi
 
+function cleanup() {
+    rv=$?
+    if [ "x$rv" != "x0" ]; then
+        echo "Error during upgrade: exit status: $rv"
+        CMD=${KUBECTL_BINARY} make dump-state
+        echo "*** Upgrade test failed ***"
+    fi
+    exit $rv
+}
+
+trap "cleanup" INT TERM EXIT
+
 # the test image can be overwritten by the caller
 FUNC_TEST_IMAGE=${FUNC_TEST_IMAGE:-${computed_test_image}}
 
