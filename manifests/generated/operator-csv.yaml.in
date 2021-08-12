@@ -216,6 +216,7 @@ spec:
           resources:
           - deployments
           - daemonsets
+          - controllerrevisions
           verbs:
           - get
           - list
@@ -507,6 +508,16 @@ spec:
           - daemonsets
           verbs:
           - list
+        - apiGroups:
+          - apps
+          resources:
+          - controllerrevisions
+          verbs:
+          - watch
+          - list
+          - create
+          - get
+          - delete
         - apiGroups:
           - ""
           resources:

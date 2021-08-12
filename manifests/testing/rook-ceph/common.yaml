@@ -602,6 +602,7 @@ rules:
   resources:
   - deployments
   - daemonsets
+  - controllerrevisions
   verbs:
   - get
   - list
@@ -640,6 +641,7 @@ rules:
   - daemonsets
   - statefulsets
   - deployments
+  - controllerrevisions
   verbs:
   - get
   - list
