@@ -2096,6 +2096,65 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("with hotplug volumes", func() {
+			It("should render without any hotplug volumes listed in volumeStatus or having `Hotpluggable` flag", func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+				permanentVolumeName := "permanent-vol"
+				hotplugFromSpecName := "hotplug-from-spec"
+				hotplugFromStatusName := "hotplug-from-status"
+				namespace := "testns"
+				volumeNames := []string{hotplugFromSpecName, hotplugFromStatusName, permanentVolumeName}
+				volumes := make([]v1.Volume, len(volumeNames))
+				for _, name := range volumeNames {
+					pvc := kubev1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+					}
+					err := pvcCache.Add(&pvc)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					volumes = append(volumes, v1.Volume{
+						Name: name,
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: name,
+								},
+								Hotpluggable: name == hotplugFromSpecName,
+							},
+						},
+					})
+				}
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: namespace, UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: volumes,
+					},
+					Status: v1.VirtualMachineInstanceStatus{
+						VolumeStatus: []v1.VolumeStatus{
+							{
+								Name:          hotplugFromStatusName,
+								HotplugVolume: &v1.HotplugVolumeStatus{},
+							},
+						},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				volumeMountNames := make([]string, len(pod.Spec.Containers[0].VolumeMounts))
+				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
+					volumeMountNames = append(volumeMountNames, volumeMount.Name)
+				}
+				Expect(volumeMountNames).To(ContainElement(permanentVolumeName))
+				Expect(volumeMountNames).ToNot(ContainElements(hotplugFromSpecName, hotplugFromStatusName))
+			})
+		})
+
 		Context("with launcher's pull secret", func() {
 			It("should contain launcher's secret in pod spec", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
