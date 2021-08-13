@@ -378,8 +378,6 @@ var _ = Describe("Template", func() {
 					"--container-disk-dir", "/var/run/kubevirt/container-disks",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
-					"--less-pvc-space-toleration", "10",
-					"--minimum-pvc-reserve-bytes", "131072",
 					"--ovmf-path", ovmfPath}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
@@ -1084,8 +1082,6 @@ var _ = Describe("Template", func() {
 					"--container-disk-dir", "/var/run/kubevirt/container-disks",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
-					"--less-pvc-space-toleration", "10",
-					"--minimum-pvc-reserve-bytes", "131072",
 					"--ovmf-path", ovmfPath}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
@@ -2858,52 +2854,6 @@ var _ = Describe("Template", func() {
 				Expect(ok).To(Equal(true))
 				Expect(val).To(Equal(*resource.NewQuantity(1, resource.DecimalSI)))
 			})
-		})
-
-		It("should add the lessPVCSpaceToleration argument to the template", func() {
-			config, kvInformer, svc = configFactory(defaultArch)
-			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.LessPVCSpaceToleration = 42
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
-
-			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: "default", UID: "1234",
-				},
-				Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
-					},
-				}},
-			}
-			pod, err := svc.RenderLaunchManifest(&vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--less-pvc-space-toleration"), "command arg key should be correct")
-			Expect(pod.Spec.Containers[0].Command).To(ContainElement("42"), "command arg value should be correct")
-		})
-
-		It("should add the minimum PVC reserve argument to the template", func() {
-			config, kvInformer, svc = configFactory(defaultArch)
-			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{MinimumReservePVCBytes: 1048576}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
-
-			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: "default", UID: "1234",
-				},
-				Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
-					},
-				}},
-			}
-			pod, err := svc.RenderLaunchManifest(&vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--minimum-pvc-reserve-bytes"), "command arg key should be correct")
-			Expect(pod.Spec.Containers[0].Command).To(ContainElement("1048576"), "command arg value should be correct")
 		})
 
 		Context("with specified priorityClass", func() {
