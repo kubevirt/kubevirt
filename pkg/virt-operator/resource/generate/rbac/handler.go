@@ -85,17 +85,6 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
-					"persistentvolumeclaims",
-				},
-				Verbs: []string{
-					"get",
-				},
-			},
-			{
-				APIGroups: []string{
-					"",
-				},
-				Resources: []string{
 					"nodes",
 				},
 				Verbs: []string{

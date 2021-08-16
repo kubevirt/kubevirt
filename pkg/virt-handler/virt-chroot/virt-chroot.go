@@ -55,6 +55,18 @@ func UmountChroot(path string) *exec.Cmd {
 	return exec.Command(binaryPath, args...)
 }
 
+func CreateMDEVType(mdevType string, parentID string, uuid string) *exec.Cmd {
+	args := append(getBaseArgs(), "create-mdev")
+	args = append(args, "--type", mdevType, "--parent", parentID, "--uuid", uuid)
+	return exec.Command(binaryPath, args...)
+}
+
+func RemoveMDEVType(mdevUUID string) *exec.Cmd {
+	args := append(getBaseArgs(), "remove-mdev")
+	args = append(args, "--uuid", mdevUUID)
+	return exec.Command(binaryPath, args...)
+}
+
 // For general purposes
 func ExecChroot(args ...string) *exec.Cmd {
 	return exec.Command(binaryPath, args...)

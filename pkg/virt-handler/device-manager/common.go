@@ -26,11 +26,15 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/uuid"
+
 	"kubevirt.io/client-go/log"
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
 
 type DeviceHandler interface {
@@ -39,6 +43,9 @@ type DeviceHandler interface {
 	GetDeviceNumaNode(basepath string, pciAddress string) (numaNode int)
 	GetDevicePCIID(basepath string, pciAddress string) (string, error)
 	GetMdevParentPCIAddr(mdevUUID string) (string, error)
+	CreateMDEVType(mdevType string, parentID string) error
+	RemoveMDEVType(mdevUUID string) error
+	ReadMDEVAvailableInstances(mdevType string, parentID string) (int, error)
 }
 
 type DeviceUtilsHandler struct{}
@@ -116,6 +123,72 @@ func (h *DeviceUtilsHandler) GetMdevParentPCIAddr(mdevUUID string) (string, erro
 	}
 	linkParts := strings.Split(mdevLink, "/")
 	return linkParts[len(linkParts)-2], nil
+}
+
+func (h *DeviceUtilsHandler) CreateMDEVType(mdevType string, parentID string) error {
+	uid := uuid.NewUUID()
+	path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "create")
+	_, err := virt_chroot.CreateMDEVType(mdevType, parentID, string(uid)).Output()
+	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			if len(e.Stderr) > 0 {
+				msg := fmt.Sprintf("failed to create mdev type %s, err: %v", mdevType, string(e.Stderr))
+				errMsg := fmt.Errorf(msg)
+				log.Log.Reason(err).Errorf(msg)
+				return errMsg
+			}
+		}
+		log.Log.Reason(err).Errorf("failed to create mdev type %s, can't open path %s", mdevType, path)
+		return err
+	}
+	log.Log.Infof("Successfully created mdev %s - %s", mdevType, uid)
+	return nil
+}
+
+func (h *DeviceUtilsHandler) RemoveMDEVType(mdevUUID string) error {
+	removePath := filepath.Join(mdevBasePath, mdevUUID, "remove")
+	_, err := virt_chroot.RemoveMDEVType(mdevUUID).Output()
+	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			if len(e.Stderr) > 0 {
+				msg := fmt.Sprintf("failed to remove mdev %s, can't write to %s, err: %v", mdevUUID, removePath, string(e.Stderr))
+				errMsg := fmt.Errorf(msg)
+				log.Log.Reason(err).Errorf(msg)
+				return errMsg
+			}
+		}
+		log.Log.Reason(err).Errorf("failed to remove mdev %s, can't write to %s", mdevUUID, removePath)
+		return err
+	}
+	log.Log.Infof("Successfully removed mdev %s", mdevUUID)
+	return nil
+}
+
+func (h *DeviceUtilsHandler) ReadMDEVAvailableInstances(mdevType string, parentID string) (int, error) {
+	var lines []string
+	path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "available_instances")
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	err = scanner.Err()
+	if err != nil {
+		return 0, err
+	}
+
+	i, err := strconv.Atoi(string(lines[0]))
+	if err != nil {
+		return 0, err
+	}
+
+	return i, nil
 }
 
 func initHandler() {

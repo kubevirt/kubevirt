@@ -240,6 +240,29 @@ type VirtualMachineInstanceStatus struct {
 	TopologyHints *TopologyHints `json:"topologyHints,omitempty"`
 }
 
+// PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
+// +k8s:openapi-gen=true
+type PersistentVolumeClaimInfo struct {
+	// AccessModes contains the desired access modes the volume should have.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+	// +listType=atomic
+	// +optional
+	AccessModes []k8sv1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+
+	// VolumeMode defines what type of volume is required by the claim.
+	// Value of Filesystem is implied when not included in claim spec.
+	// +optional
+	VolumeMode *k8sv1.PersistentVolumeMode `json:"volumeMode,omitempty"`
+
+	// Capacity represents the capacity set on the corresponding PVC spec
+	// +optional
+	Capacity k8sv1.ResourceList `json:"capacity,omitempty"`
+
+	// Preallocated indicates if the PVC's storage is preallocated or not
+	// +optional
+	Preallocated bool `json:"preallocated,omitempty"`
+}
+
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
 // +k8s:openapi-gen=true
 type VolumeStatus struct {
@@ -253,6 +276,8 @@ type VolumeStatus struct {
 	Reason string `json:"reason,omitempty"`
 	// Message is a detailed message about the current hotplug volume phase
 	Message string `json:"message,omitempty"`
+	// PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow
+	PersistentVolumeClaimInfo *PersistentVolumeClaimInfo `json:"persistentVolumeClaimInfo,omitempty"`
 	// If the volume is hotplug, this will contain the hotplug status.
 	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
 }
@@ -1908,12 +1933,13 @@ type KubeVirtConfiguration struct {
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
 	// deprecated
-	SupportedGuestAgentVersions    []string              `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod          *uint32               `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices           *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
-	MinCPUModel                    string                `json:"minCPUModel,omitempty"`
-	ObsoleteCPUModels              map[string]bool       `json:"obsoleteCPUModels,omitempty"`
-	VirtualMachineInstancesPerNode *int                  `json:"virtualMachineInstancesPerNode,omitempty"`
+	SupportedGuestAgentVersions    []string                      `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod          *uint32                       `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices           *PermittedHostDevices         `json:"permittedHostDevices,omitempty"`
+	MediatedDevicesConfiguration   *MediatedDevicesConfiguration `json:"mediatedDevicesConfiguration,omitempty"`
+	MinCPUModel                    string                        `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels              map[string]bool               `json:"obsoleteCPUModels,omitempty"`
+	VirtualMachineInstancesPerNode *int                          `json:"virtualMachineInstancesPerNode,omitempty"`
 }
 
 //
@@ -2007,6 +2033,13 @@ type MediatedHostDevice struct {
 	MDEVNameSelector         string `json:"mdevNameSelector"`
 	ResourceName             string `json:"resourceName"`
 	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
+}
+
+// MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+// +k8s:openapi-gen=true
+type MediatedDevicesConfiguration struct {
+	// +listType=atomic
+	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
 }
 
 // NetworkConfiguration holds network options

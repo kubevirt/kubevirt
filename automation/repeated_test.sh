@@ -120,7 +120,7 @@ if [[ -z ${NEW_TESTS-} ]]; then
     set -e
 
     # skip certain tests for now, as we don't have a strategy currently
-    NEW_TESTS=$(echo "$NEW_TESTS" | sed -E 's/\|?[^\|]*(sriov|multus|windows|gpu)[^\|]*//g' | sed 's/^|//')
+    NEW_TESTS=$(echo "$NEW_TESTS" | sed -E 's/\|?[^\|]*(sriov|multus|windows|gpu|mdev)[^\|]*//g' | sed 's/^|//')
 fi
 if [[ -z "${NEW_TESTS}" ]]; then
     echo "Nothing to test"
