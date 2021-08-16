@@ -30,8 +30,6 @@ import (
 	"strconv"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -39,6 +37,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -2707,12 +2707,34 @@ var _ = Describe("Converter", func() {
 			c := &ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 				AllowEmulation: true,
 				SMBios:         &cmdv1.SMBios{},
+				Topology: &cmdv1.Topology{
+					NumaCells: []*cmdv1.Cell{{
+						Cpus: []*cmdv1.CPU{
+							{Id: 5},
+							{Id: 6},
+							{Id: 7},
+							{Id: 8},
+							{Id: 9},
+							{Id: 10},
+							{Id: 11},
+							{Id: 12},
+							{Id: 13},
+							{Id: 14},
+							{Id: 15},
+							{Id: 16},
+							{Id: 17},
+							{Id: 18},
+							{Id: 19},
+							{Id: 20},
+						},
+					}},
+				},
 			}
 			domain := vmiToDomain(vmi, c)
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			err := formatDomainIOThreadPin(vmi, domain, c)
+			err := formatDomainIOThreadPin(vmi, domain, 0, c)
 			Expect(err).ToNot(HaveOccurred())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "5,6,7"},
@@ -2729,12 +2751,23 @@ var _ = Describe("Converter", func() {
 		It("should pack iothreads equally on available vcpus, if there are more iothreads than vcpus", func() {
 			vmi.Spec.Domain.CPU.Cores = 2
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			c := &ConverterContext{CPUSet: []int{5, 6}, AllowEmulation: true}
+			c := &ConverterContext{
+				CPUSet:         []int{5, 6},
+				AllowEmulation: true,
+				Topology: &cmdv1.Topology{
+					NumaCells: []*cmdv1.Cell{{
+						Cpus: []*cmdv1.CPU{
+							{Id: 5},
+							{Id: 6},
+						},
+					}},
+				},
+			}
 			domain := vmiToDomain(vmi, c)
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			err := formatDomainIOThreadPin(vmi, domain, c)
+			err := formatDomainIOThreadPin(vmi, domain, 0, c)
 			Expect(err).ToNot(HaveOccurred())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "6"},
@@ -3213,7 +3246,7 @@ func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *ConverterContext) string 
 
 func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *api.Domain {
 	domain := &api.Domain{}
-	Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+	ExpectWithOffset(1, Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
 	return domain
 }
