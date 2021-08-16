@@ -103,6 +103,11 @@ func (e Executor) Run() {
 			}
 
 			if workload.IterationCleanup {
+				for _, objType := range objTypes {
+					log.Log.V(2).Infof("Iteration %d, clean up, deleting all created %s", iteration, objType)
+					objUtil.DeleteAllObjects(e.Config.Global.Client, objType, e.getListOpts())
+				}
+
 				log.Log.V(2).Infof("Iteration %d, clean up, deleting all created namespaces", iteration)
 				objUtil.CleanupNamespaces(e.Config.Global.Client, workload.MaxWaitTimeout.Duration, e.getListOpts())
 
@@ -122,6 +127,11 @@ func (e Executor) Run() {
 				log.Log.V(2).Infof("Sleeping for %s between interations", workload.IterationInterval.Duration)
 				time.Sleep(workload.IterationInterval.Duration)
 			}
+		}
+
+		if workload.WaitWhenFinished.Duration > 0 {
+			log.Log.V(2).Infof("Sleeping for %s after the workload execution", workload.WaitWhenFinished.Duration)
+			time.Sleep(workload.WaitWhenFinished.Duration)
 		}
 	}
 	e.End = time.Now().UTC()

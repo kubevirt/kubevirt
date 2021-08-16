@@ -187,6 +187,7 @@ func (w *ObjListWatcher) WaitRunning(timeout time.Duration) error {
 			if w.getRunningCount() == w.desiredObjRunningCount {
 				return nil
 			}
+			log.Log.V(6).Infof("%d Running %v of %d", w.getRunningCount(), w.ResourceKind, w.desiredObjRunningCount)
 		}
 	}
 }
