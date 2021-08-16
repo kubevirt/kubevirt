@@ -231,6 +231,8 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 	} else {
 		defer d.Free()
 
+		prevStatus := domain.Status.DeepCopy() // Remember current status before it will be changed.
+
 		// No matter which event, try to fetch the domain xml
 		// and the state. If we get a IsNotFound error, that
 		// means that the VirtualMachineInstance was removed.
@@ -259,7 +261,12 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			domain.Spec = *spec
 		}
 
-		log.Log.Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
+		if domain.Status.Status == prevStatus.Status && domain.Status.Reason == prevStatus.Reason {
+			// Status hasn't changed so log only in higher verbosity.
+			log.Log.V(3).Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
+		} else {
+			log.Log.Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
+		}
 	}
 
 	switch domain.Status.Reason {

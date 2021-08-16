@@ -244,6 +244,24 @@ func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 	return &l
 }
 
+func (l FilteredLogger) ObjectWithPrefix(prefix string, obj LoggableObject) *FilteredLogger {
+	name := obj.GetObjectMeta().GetName()
+	namespace := obj.GetObjectMeta().GetNamespace()
+	uid := obj.GetObjectMeta().GetUID()
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
+
+	logParams := make([]interface{}, 0)
+	if namespace != "" {
+		logParams = append(logParams, prefix+".namespace", namespace)
+	}
+	logParams = append(logParams, prefix+".name", name)
+	logParams = append(logParams, prefix+".kind", kind)
+	logParams = append(logParams, prefix+".uid", uid)
+
+	l.With(logParams...)
+	return &l
+}
+
 func (l FilteredLogger) ObjectRef(obj *v1.ObjectReference) *FilteredLogger {
 
 	if obj == nil {

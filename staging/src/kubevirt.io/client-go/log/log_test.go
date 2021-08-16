@@ -308,6 +308,34 @@ func TestObject(t *testing.T) {
 	tearDown()
 }
 
+func TestObjectWithPrefix(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(INFO)
+	vmi1 := v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{Name: "test1", Namespace: "test1"}}
+	vmi2 := v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{Name: "test2", Namespace: "test2"}}
+	log.
+		ObjectWithPrefix("vmi1", &vmi1).
+		ObjectWithPrefix("vmi2", &vmi2).
+		Log("test", "message")
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == LogLevelNames[INFO], "Logged line was not of level infoLevel")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
+	assert(t, logEntry[8].(string) == "vmi1.namespace", "Logged line did not contain vmi1 namespace")
+	assert(t, logEntry[10].(string) == "vmi1.name", "Logged line did not contain vmi1 name")
+	assert(t, logEntry[12].(string) == "vmi1.kind", "Logged line did not contain vmi1 kind")
+	assert(t, logEntry[14].(string) == "vmi1.uid", "Logged line did not contain vmi1 UUID")
+	assert(t, logEntry[16].(string) == "vmi2.namespace", "Logged line did not contain vmi2 namespace")
+	assert(t, logEntry[18].(string) == "vmi2.name", "Logged line did not contain vmi2 name")
+	assert(t, logEntry[20].(string) == "vmi2.kind", "Logged line did not contain vmi2 kind")
+	assert(t, logEntry[22].(string) == "vmi2.uid", "Logged line did not contain vmi2 UUID")
+	tearDown()
+}
+
 func TestObjectRef(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
