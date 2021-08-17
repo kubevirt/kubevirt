@@ -75,15 +75,13 @@ func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEv
 		}
 	}
 
+	log.Log.Object(domain).V(3).Infof("Received Domain Event of type %s", request.EventType)
 	switch request.EventType {
 	case string(watch.Added):
-		log.Log.Object(domain).Infof("Received Domain Event of type %s", request.EventType)
 		n.EventChan <- watch.Event{Type: watch.Added, Object: domain}
 	case string(watch.Modified):
-		log.Log.Object(domain).V(3).Infof("Received Domain Event of type %s", request.EventType)
 		n.EventChan <- watch.Event{Type: watch.Modified, Object: domain}
 	case string(watch.Deleted):
-		log.Log.Object(domain).Infof("Received Domain Event of type %s", request.EventType)
 		n.EventChan <- watch.Event{Type: watch.Deleted, Object: domain}
 	case string(watch.Error):
 		log.Log.Object(domain).Errorf("Domain error event with message: %s", status.Message)

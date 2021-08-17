@@ -1553,14 +1553,12 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	log.Log.V(3).Infof("Processing event %v", key)
 
 	if vmiExists && domainExists {
-		log.Log.
-			ObjectWithPrefix("vmi", vmi).
-			ObjectWithPrefix("domain", domain).
-			Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
+		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
 	} else if vmiExists {
 		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain does not exist", vmi.Status.Phase)
 	} else if domainExists {
-		log.Log.Object(domain).Infof("VMI does not exist | Domain status: %v, reason: %v", domain.Status.Status, domain.Status.Reason)
+		vmiRef := v1.NewVMIReferenceWithUUID(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name, domain.Spec.Metadata.KubeVirt.UID)
+		log.Log.Object(vmiRef).Infof("VMI does not exist | Domain status: %v, reason: %v", domain.Status.Status, domain.Status.Reason)
 	} else {
 		log.Log.Info("VMI does not exist | Domain does not exist")
 	}
