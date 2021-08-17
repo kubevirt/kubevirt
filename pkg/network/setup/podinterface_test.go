@@ -40,8 +40,6 @@ var _ = Describe("Pod Network", func() {
 	var mockNetwork *netdriver.MockNetworkHandler
 	var ctrl *gomock.Controller
 	var fakeMac net.HardwareAddr
-	var fakeAddr netlink.Addr
-	var testNic *cache.DHCPConfig
 	var tmpDir string
 	var pid int
 	var mtu int
@@ -56,20 +54,9 @@ var _ = Describe("Pod Network", func() {
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
-		testMac := "12:34:56:78:9A:BC"
 		mtu = 1410
-		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
-		gw := net.IPv4(10, 35, 0, 1)
-		fakeMac, _ = net.ParseMAC(testMac)
-		fakeAddr = netlink.Addr{IPNet: address}
+		fakeMac, _ = net.ParseMAC("12:34:56:78:9A:BC")
 		pid = os.Getpid()
-
-		testNic = &cache.DHCPConfig{Name: primaryPodInterfaceName,
-			IP:                fakeAddr,
-			MAC:               fakeMac,
-			Mtu:               uint16(mtu),
-			AdvertisingIPAddr: gw,
-		}
 	})
 
 	AfterEach(func() {
@@ -77,26 +64,6 @@ var _ = Describe("Pod Network", func() {
 	})
 
 	Context("on successful setup", func() {
-		Context("func filterPodNetworkRoutes()", func() {
-			defRoute := netlink.Route{
-				Gw: net.IPv4(10, 35, 0, 1),
-			}
-			staticRoute := netlink.Route{
-				Dst: &net.IPNet{IP: net.IPv4(10, 45, 0, 10), Mask: net.CIDRMask(32, 32)},
-				Gw:  net.IPv4(10, 25, 0, 1),
-			}
-			gwRoute := netlink.Route{
-				Dst: &net.IPNet{IP: net.IPv4(10, 35, 0, 1), Mask: net.CIDRMask(32, 32)},
-			}
-			nicRoute := netlink.Route{Src: net.IPv4(10, 35, 0, 6)}
-			emptyRoute := netlink.Route{}
-			staticRouteList := []netlink.Route{defRoute, gwRoute, nicRoute, emptyRoute, staticRoute}
-
-			It("should remove empty routes, and routes matching nic, leaving others intact", func() {
-				expectedRouteList := []netlink.Route{defRoute, gwRoute, staticRoute}
-				Expect(netdriver.FilterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
-			})
-		})
 		Context("Slirp Plug", func() {
 			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
 				domain := NewDomainWithSlirpInterface()
