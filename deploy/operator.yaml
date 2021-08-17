@@ -582,7 +582,7 @@ spec:
         - name: OPERATOR_NAME
           value: hostpath-provisioner-operator
         - name: PROVISIONER_IMAGE
-          value: quay.io/kubevirt/hostpath-provisioner@sha256:8cf5c2186a0357a70b835f2ef76430306e91da5743f375f87693f61a470ac75f
+          value: quay.io/kubevirt/hostpath-provisioner@sha256:32f7585b61644c5860bbf415af7fab3c51e65d031ec151a284459af931676c99
         - name: PULL_POLICY
           value: IfNotPresent
         image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:3d3f1b5b940fd1576f6ecf386ed4e985b368387435d203f991b9736a270c38c7

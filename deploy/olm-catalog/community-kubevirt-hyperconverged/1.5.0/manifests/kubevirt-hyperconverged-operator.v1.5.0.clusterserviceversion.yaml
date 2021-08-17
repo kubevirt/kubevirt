@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
-    createdAt: "2021-08-13 05:12:09"
+    createdAt: "2021-08-17 11:33:19"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -2362,7 +2362,7 @@ spec:
                 - name: OPERATOR_NAME
                   value: hostpath-provisioner-operator
                 - name: PROVISIONER_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner@sha256:8cf5c2186a0357a70b835f2ef76430306e91da5743f375f87693f61a470ac75f
+                  value: quay.io/kubevirt/hostpath-provisioner@sha256:32f7585b61644c5860bbf415af7fab3c51e65d031ec151a284459af931676c99
                 - name: PULL_POLICY
                   value: IfNotPresent
                 image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:3d3f1b5b940fd1576f6ecf386ed4e985b368387435d203f991b9736a270c38c7
@@ -2625,7 +2625,7 @@ spec:
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:a90902cf3e5154424148bf3ba3c1bf90316cc77a54042cf6584fe8aedbe6daec
     name: cni-default-plugins
-  - image: quay.io/kubevirt/hostpath-provisioner@sha256:8cf5c2186a0357a70b835f2ef76430306e91da5743f375f87693f61a470ac75f
+  - image: quay.io/kubevirt/hostpath-provisioner@sha256:32f7585b61644c5860bbf415af7fab3c51e65d031ec151a284459af931676c99
     name: hostpath-provisioner
   - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:3d3f1b5b940fd1576f6ecf386ed4e985b368387435d203f991b9736a270c38c7
     name: hostpath-provisioner-operator
