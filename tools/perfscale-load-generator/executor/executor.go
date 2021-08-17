@@ -40,6 +40,9 @@ import (
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/watcher"
 )
 
+// objTypes is used to clean up the experiment to delete the objects
+var objTypes []string
+
 // Executor contains the information required to execute a job
 type Executor struct {
 	Start  time.Time
@@ -68,12 +71,13 @@ func (e Executor) Run() {
 		for iteration := 1; iteration <= workload.IterationCount; iteration++ {
 			log.Log.V(2).Infof("Starting iteration %d", iteration)
 			objWatchers := []*watcher.ObjListWatcher{}
-			objTypes := []string{}
+			objTypes = []string{}
 
 			for _, obj := range workload.Objects {
 				var err error
 				var replicas []*unstructured.Unstructured
 				if replicas, err = e.createObjectReplicaSpec(obj, iteration, workload.NamespacedIterations); err != nil {
+					e.cleanUp()
 					panic(fmt.Errorf("unexpected error creating replicas: %v", err))
 				}
 
@@ -97,20 +101,14 @@ func (e Executor) Run() {
 				for _, objWatcher := range objWatchers {
 					log.Log.V(2).Infof("Iteration %d, waiting all %s be running", iteration, objWatcher.ResourceKind)
 					if err := objWatcher.WaitRunning(workload.MaxWaitTimeout.Duration); err != nil {
+						e.cleanUp()
 						panic(fmt.Errorf("unexpected error when waiting %s: %v", objWatcher.ResourceKind, err))
 					}
 				}
 			}
 
 			if workload.IterationCleanup {
-				for _, objType := range objTypes {
-					log.Log.V(2).Infof("Iteration %d, clean up, deleting all created %s", iteration, objType)
-					objUtil.DeleteAllObjects(e.Config.Global.Client, objType, e.getListOpts())
-				}
-
-				log.Log.V(2).Infof("Iteration %d, clean up, deleting all created namespaces", iteration)
-				objUtil.CleanupNamespaces(e.Config.Global.Client, workload.MaxWaitTimeout.Duration, e.getListOpts())
-
+				e.cleanUp()
 				if workload.IterationDeletionWait {
 					for _, objType := range objTypes {
 						log.Log.V(2).Infof("Iteration %d, waiting all %s be deleted", iteration, objType)
@@ -191,13 +189,22 @@ func stopAllWatchers(objWatchers []*watcher.ObjListWatcher) {
 	}
 }
 
+func (e Executor) cleanUp() {
+	for _, objType := range objTypes {
+		log.Log.V(2).Infof("Clean up, deleting all created %s", objType)
+		objUtil.DeleteAllObjects(e.Config.Global.Client, objType, e.getListOpts())
+	}
+	log.Log.V(2).Infof("Clean up, deleting all created namespaces")
+	objUtil.CleanupNamespaces(e.Config.Global.Client, 30*time.Minute, e.getListOpts())
+}
+
 func (e Executor) safeExit() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
 		log.Log.V(2).Errorf("unexpected crtl-c exit")
-		objUtil.CleanupNamespaces(e.Config.Global.Client, 30*time.Minute, e.getListOpts())
+		e.cleanUp()
 		os.Exit(1)
 	}()
 }

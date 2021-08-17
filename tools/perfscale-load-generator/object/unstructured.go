@@ -65,12 +65,13 @@ func DeleteAllObjects(virtCli kubecli.KubevirtClient, resourceKind string, listO
 	if err != nil {
 		return err
 	}
+	gracePeriod := int64(0)
 	for _, obj := range list.Items {
 		err := virtCli.RestClient().Delete().
 			Namespace(obj.GetNamespace()).
 			Resource(resourceKind).
 			Name(obj.GetName()).
-			Body(&metav1.DeleteOptions{}).
+			Body(&metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}).
 			Do(context.Background()).
 			Error()
 		if !errors.IsNotFound(err) {
