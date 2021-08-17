@@ -561,7 +561,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# kubevirt.io/client-go v0.44.0 => kubevirt.io/client-go v0.44.0
+# kubevirt.io/client-go v0.44.1 => kubevirt.io/client-go v0.44.1
 ## explicit
 kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/precond
@@ -662,7 +662,7 @@ sigs.k8s.io/yaml
 # github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 # github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.5.1
 # github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
-# kubevirt.io/client-go => kubevirt.io/client-go v0.44.0
+# kubevirt.io/client-go => kubevirt.io/client-go v0.44.1
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20201120165435-072a4cd8ca42
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
 # github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20200804184258-4fc3a5379c7a
