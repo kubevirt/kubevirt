@@ -169,7 +169,7 @@ var _ = SIGDescribe("Storage", func() {
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil(), "Failed to create vmi")
 
-				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 120)
+				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 
 				By("Reading from disk")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -188,10 +188,7 @@ var _ = SIGDescribe("Storage", func() {
 
 					for _, condition := range vmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstancePaused {
-							if condition.Status == k8sv1.ConditionTrue {
-								return true
-							}
-							return false
+							return condition.Status == k8sv1.ConditionTrue && condition.Reason == "PausedIOError"
 						}
 					}
 					return false
@@ -208,10 +205,7 @@ var _ = SIGDescribe("Storage", func() {
 
 					for _, condition := range vmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstancePaused {
-							if condition.Status == k8sv1.ConditionTrue {
-								return true
-							}
-							return false
+							return condition.Status == k8sv1.ConditionFalse
 						}
 					}
 					return false
@@ -221,7 +215,7 @@ var _ = SIGDescribe("Storage", func() {
 				By("Cleaning up")
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil(), "Failed to delete VMI")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 
 		})
@@ -256,26 +250,25 @@ var _ = SIGDescribe("Storage", func() {
 				_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil(), "Failed to create vmi")
 
-				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 120)
+				tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
 
 				refresh := ThisVMI(vmi)
 				By("Expecting VMI to be paused")
 				Eventually(
 					func() bool {
-						vmi, err = refresh()
+						vmi, err := refresh()
 						Expect(err).NotTo(HaveOccurred())
 
 						for _, condition := range vmi.Status.Conditions {
 							if condition.Type == v1.VirtualMachineInstancePaused {
-								return true
+								return condition.Status == k8sv1.ConditionTrue && condition.Reason == "PausedIOError"
 							}
 						}
 						return false
-					}, 60*time.Second, time.Second).Should(BeTrue())
-
+					}, 100*time.Second, time.Second).Should(BeTrue())
 				err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil(), "Failed to delete VMI")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 		})
 
