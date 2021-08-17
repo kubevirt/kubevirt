@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
-    createdAt: "2021-08-17 11:33:19"
+    createdAt: "2021-08-17 15:27:23"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -1906,7 +1906,7 @@ spec:
                 - name: NMO_VERSION
                   value: v0.9.0
                 - name: HPPO_VERSION
-                  value: v0.8.2
+                  value: v0.9.0
                 - name: VM_IMPORT_VERSION
                   value: v0.3.7
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
@@ -2365,7 +2365,15 @@ spec:
                   value: quay.io/kubevirt/hostpath-provisioner@sha256:32f7585b61644c5860bbf415af7fab3c51e65d031ec151a284459af931676c99
                 - name: PULL_POLICY
                   value: IfNotPresent
-                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:3d3f1b5b940fd1576f6ecf386ed4e985b368387435d203f991b9736a270c38c7
+                - name: INSTALLER_PART_OF_LABEL
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['app.kubernetes.io/part-of']
+                - name: INSTALLER_VERSION_LABEL
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['app.kubernetes.io/version']
+                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:14e92a179bd52e5f1edbdb400410828c3259605468781b3a0e169523d8006f05
                 imagePullPolicy: IfNotPresent
                 name: hostpath-provisioner-operator
                 resources: {}
@@ -2627,7 +2635,7 @@ spec:
     name: cni-default-plugins
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:32f7585b61644c5860bbf415af7fab3c51e65d031ec151a284459af931676c99
     name: hostpath-provisioner
-  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:3d3f1b5b940fd1576f6ecf386ed4e985b368387435d203f991b9736a270c38c7
+  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:14e92a179bd52e5f1edbdb400410828c3259605468781b3a0e169523d8006f05
     name: hostpath-provisioner-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
     name: hyperconverged-cluster-operator
