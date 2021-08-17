@@ -21,7 +21,6 @@ package object
 
 import (
 	"context"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,40 +41,20 @@ func CreateObject(virtCli kubecli.KubevirtClient, obj *unstructured.Unstructured
 	return result, err
 }
 
-// DeleteAllObjects deletes a collection with the given selector
-func DeleteAllObjects(virtCli kubecli.KubevirtClient, resourceKind string, listOpts *metav1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-
-	// get all objects with the benchmark label
-	result := &unstructured.Unstructured{}
-	err := virtCli.RestClient().Get().
-		Resource(resourceKind).
-		VersionedParams(listOpts, metav1.ParameterCodec).
-		Timeout(timeout).
-		Do(context.Background()).
-		Into(result)
-	if err != nil {
-		return err
-	}
-
-	list, err := result.ToList()
-	if err != nil {
-		return err
-	}
+// DeleteAllObjectsInNamespaces deletes a collection of objects in a set of namespace with a given selector
+func DeleteAllObjectsInNamespaces(virtCli kubecli.KubevirtClient, resourceKind string, listOpts *metav1.ListOptions) error {
 	gracePeriod := int64(0)
-	for _, obj := range list.Items {
-		err := virtCli.RestClient().Delete().
-			Namespace(obj.GetNamespace()).
-			Resource(resourceKind).
-			Name(obj.GetName()).
-			Body(&metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}).
-			Do(context.Background()).
-			Error()
-		if !errors.IsNotFound(err) {
-			return err
+	ns, _ := virtCli.CoreV1().Namespaces().List(context.TODO(), *listOpts)
+	if len(ns.Items) > 0 {
+		for _, ns := range ns.Items {
+			err := virtCli.RestClient().Delete().
+				Namespace(ns.Name).
+				Resource(resourceKind).
+				Body(&metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}).
+				Do(context.Background()).Error()
+			if !errors.IsNotFound(err) {
+				return err
+			}
 		}
 	}
 	return nil

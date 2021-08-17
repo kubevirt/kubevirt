@@ -3,7 +3,7 @@
 The load generator is a tool aimed at stressing the Kubernetes and KubeVirt control plane by creating several objects (e.g., VM, VMI, and VMIReplicaSet). The main functionality it provides can be summarized as follows:
 - Create the objects declared in a workload description.
 - Create VMIs in one namespace or one VMI per namespace.
-- Wait VMIs be created in each iteration.
+- Wait for VMIs to be created in each iteration.
 - Wait for VMIs to be deleted, after deleting the namespaces in each iteration (i.e., clean up the iteration).
 
 This tool introduces load into the system and the relevant metrics and results can be collected using the [perfscale-audit tool](https://github.com/kubevirt/kubevirt/tree/main/tools/perfscale-audit).
@@ -44,7 +44,7 @@ workloads:
     qps: 20
     // burst is the maximum burst for throttle to control the job creation rate
     burst: 20
-    // waitWhenFinished delays the termination of the workloa
+    // waitWhenFinished delays the termination of the workload
     waitWhenFinished: 30s
     // objects defines a list of object spec to be created
     objects:
@@ -76,7 +76,4 @@ workloads:
 - Each workload iteration might sleep X times before each iteration to avoid being affected by a previous execution
 
 ## Comments
-The Objects are not directly deleted, they are indirectly deleted when the namespaces are deleted.
-This is to minimize the number of API calls.
-
 Note that the containerPrefix can also be defined via command line to make it easier to run the workload in different environments. For example, when creating a cluster using the kubevirtci, the containerPrefix = `registry:5000/kubevirt/`, but then creating the cluster using kubespray the containerPrefix = `localhost:5000/kubevirt/`.

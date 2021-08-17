@@ -2,7 +2,7 @@ globalConfig:
     qps: 0
     burst: 0
 workloads:
-  - name: kubevirt-density-10
+  - name: kubevirt-density-100
     iterationCount: 1
     iterationInterval: 0
     iterationCreationWait: true
@@ -13,7 +13,7 @@ workloads:
     qps: 20
     burst: 20
     waitWhenFinished: 30s
-    objects:
+    objects:          
       - templateFile: templates/vmi-ephemeral.yaml
         replicas: 100
         inputVars:

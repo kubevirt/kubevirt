@@ -192,7 +192,7 @@ func stopAllWatchers(objWatchers []*watcher.ObjListWatcher) {
 func (e Executor) cleanUp() {
 	for _, objType := range objTypes {
 		log.Log.V(2).Infof("Clean up, deleting all created %s", objType)
-		objUtil.DeleteAllObjects(e.Config.Global.Client, objType, e.getListOpts())
+		objUtil.DeleteAllObjectsInNamespaces(e.Config.Global.Client, objType, e.getListOpts())
 	}
 	log.Log.V(2).Infof("Clean up, deleting all created namespaces")
 	objUtil.CleanupNamespaces(e.Config.Global.Client, 30*time.Minute, e.getListOpts())

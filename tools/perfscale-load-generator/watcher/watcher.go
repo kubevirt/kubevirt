@@ -184,10 +184,11 @@ func (w *ObjListWatcher) WaitRunning(timeout time.Duration) error {
 			return fmt.Errorf("timeout after %s waiting for objects be running", timeout)
 
 		case <-w.updateChannel:
-			if w.getRunningCount() == w.desiredObjRunningCount {
+			count := w.getRunningCount()
+			if count == w.desiredObjRunningCount {
 				return nil
 			}
-			log.Log.V(6).Infof("%d Running %v of %d", w.getRunningCount(), w.ResourceKind, w.desiredObjRunningCount)
+			log.Log.V(6).Infof("Waiting %d %v to be Running", (w.desiredObjRunningCount - count), w.ResourceKind)
 		}
 	}
 }
@@ -202,9 +203,11 @@ func (w *ObjListWatcher) WaitDeletion(timeout time.Duration) error {
 			return fmt.Errorf("timeout after %s waiting for objects be deleted", timeout)
 
 		case <-w.updateChannel:
-			if w.getRunningCount() == 0 {
+			count := w.getRunningCount()
+			if count == 0 {
 				return nil
 			}
+			log.Log.V(6).Infof("Still %d Running %v", count, w.ResourceKind)
 		}
 	}
 }
