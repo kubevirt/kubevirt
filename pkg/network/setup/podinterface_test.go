@@ -32,7 +32,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -42,22 +41,18 @@ var _ = Describe("Pod Network", func() {
 	var ctrl *gomock.Controller
 	var fakeMac net.HardwareAddr
 	var tmpDir string
-	var pid int
 	var mtu int
-	var cacheFactory cache.InterfaceCacheFactory
 
 	BeforeEach(func() {
 		dutils.MockDefaultOwnershipManager()
 		var err error
 		tmpDir, err = ioutil.TempDir("/tmp", "interface-cache")
 		Expect(err).ToNot(HaveOccurred())
-		cacheFactory = cache.NewInterfaceCacheFactoryWithBasePath(tmpDir)
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
 		mtu = 1410
 		fakeMac, _ = net.ParseMAC("12:34:56:78:9A:BC")
-		pid = os.Getpid()
 	})
 
 	AfterEach(func() {
@@ -118,27 +113,28 @@ var _ = Describe("Pod Network", func() {
 			})
 		})
 		Context("Macvtap plug", func() {
-			var podnic *podNIC
+			const primaryPodIfaceName = "eth0"
+
+			var (
+				domain        *api.Domain
+				specGenerator *MacvtapLibvirtSpecGenerator
+			)
 
 			BeforeEach(func() {
+				domain = NewDomainWithMacvtapInterface("default")
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				vmi := newVMIMacvtapInterface("testnamespace", "testVmName", "default")
-				var err error
-				podnic, err = newPhase1PodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &pid)
-				Expect(err).ToNot(HaveOccurred())
-				macvtapInterface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: podnic.podInterfaceName, MTU: mtu, HardwareAddr: fakeMac}}
-				mockNetwork.EXPECT().LinkByName(podnic.podInterfaceName).Return(macvtapInterface, nil)
+				macvtapInterface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtu, HardwareAddr: fakeMac}}
+				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(macvtapInterface, nil)
+				specGenerator = newMacvtapLibvirtSpecGenerator(
+					&vmi.Spec.Domain.Devices.Interfaces[0], domain, primaryPodIfaceName, mockNetwork)
 			})
 
 			It("Should pass a non-privileged macvtap interface to qemu", func() {
-				domain := NewDomainWithMacvtapInterface("default")
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				specGenerator := podnic.newLibvirtSpecGenerator(domain)
-
 				Expect(specGenerator.generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1), "should have a single interface")
-				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: podnic.podInterfaceName, Managed: "no"}), "should have an unmanaged interface")
+				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: primaryPodIfaceName, Managed: "no"}), "should have an unmanaged interface")
 				Expect(domain.Spec.Devices.Interfaces[0].MAC).To(Equal(&api.MAC{MAC: fakeMac.String()}), "should have the expected MAC address")
 				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
 			})
