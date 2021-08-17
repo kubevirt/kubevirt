@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -65,31 +66,31 @@ var _ = Describe("Pod Network", func() {
 
 	Context("on successful setup", func() {
 		Context("Slirp Plug", func() {
-			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
-				domain := NewDomainWithSlirpInterface()
-				vmi := newVMISlirpInterface("testnamespace", "testVmName")
+			var (
+				domain *api.Domain
+				vmi    *v1.VirtualMachineInstance
+			)
 
+			BeforeEach(func() {
+				domain = NewDomainWithSlirpInterface()
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				podnic, err := newPhase2PodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, domain)
-				Expect(err).ToNot(HaveOccurred())
-				driver := podnic.newLibvirtSpecGenerator(domain)
-				Expect(driver.generate()).To(Succeed())
+				vmi = newVMISlirpInterface("testnamespace", "testVmName")
+			})
+
+			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
+				specGenerator := newSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+				Expect(specGenerator.generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
 				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
 				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
 				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
 			})
-			It("Should append MAC address to qemu arguments if set", func() {
-				domain := NewDomainWithSlirpInterface()
-				vmi := newVMISlirpInterface("testnamespace", "testVmName")
 
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+			It("Should append MAC address to qemu arguments if set", func() {
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-				podnic, err := newPhase2PodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, domain)
-				Expect(err).ToNot(HaveOccurred())
-				driver := podnic.newLibvirtSpecGenerator(domain)
-				Expect(driver.generate()).To(Succeed())
+				specGenerator := newSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+				Expect(specGenerator.generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
 				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
@@ -97,11 +98,6 @@ var _ = Describe("Pod Network", func() {
 				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default,mac=de-ad-00-00-be-af"}))
 			})
 			It("Should create an interface in the qemu command line, remove it from the interfaces and leave the other interfaces inplace", func() {
-				domain := NewDomainWithSlirpInterface()
-				vmi := newVMISlirpInterface("testnamespace", "testVmName")
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
 				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, api.Interface{
 					Model: &api.Model{
 						Type: "virtio",
@@ -112,10 +108,8 @@ var _ = Describe("Pod Network", func() {
 					},
 					Alias: api.NewUserDefinedAlias("default"),
 				})
-				podnic, err := newPhase1PodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, cacheFactory, &pid)
-				Expect(err).ToNot(HaveOccurred())
-				driver := podnic.newLibvirtSpecGenerator(domain)
-				Expect(driver.generate()).To(Succeed())
+				specGenerator := newSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+				Expect(specGenerator.generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
 				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
