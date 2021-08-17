@@ -1860,49 +1860,6 @@ var _ = Describe("Manager", func() {
 	})
 })
 
-var _ = Describe("getEnvAddressListByPrefix with gpu prefix", func() {
-	It("returns empty if PCI address is not set", func() {
-		Expect(len(getEnvAddressListByPrefix(gpuEnvPrefix))).To(Equal(0))
-	})
-
-	It("returns single PCI address ", func() {
-		os.Setenv("GPU_PASSTHROUGH_DEVICES_SOME_VENDOR", "2609:19:90.0,")
-		addrs := getEnvAddressListByPrefix(gpuEnvPrefix)
-		Expect(len(addrs)).To(Equal(1))
-		Expect(addrs[0]).To(Equal("2609:19:90.0"))
-	})
-
-	It("returns multiple PCI addresses", func() {
-		os.Setenv("GPU_PASSTHROUGH_DEVICES_SOME_VENDOR", "2609:19:90.0,2609:19:90.1")
-		addrs := getEnvAddressListByPrefix(gpuEnvPrefix)
-		Expect(len(addrs)).To(Equal(2))
-		Expect(addrs[0]).To(Equal("2609:19:90.0"))
-		Expect(addrs[1]).To(Equal("2609:19:90.1"))
-	})
-})
-
-var _ = Describe("getEnvAddressListByPrefix with vgpu prefix", func() {
-	It("returns empty if Mdev Uuid is not set", func() {
-		Expect(len(getEnvAddressListByPrefix(vgpuEnvPrefix))).To(Equal(0))
-	})
-
-	It("returns single  Mdev Uuid ", func() {
-		os.Setenv("VGPU_PASSTHROUGH_DEVICES_SOME_VENDOR", "aa618089-8b16-4d01-a136-25a0f3c73123,")
-		addrs := getEnvAddressListByPrefix(vgpuEnvPrefix)
-		Expect(len(addrs)).To(Equal(1))
-		Expect(addrs[0]).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73123"))
-	})
-
-	It("returns multiple  Mdev Uuid", func() {
-		os.Setenv("VGPU_PASSTHROUGH_DEVICES_SOME_VENDOR", "aa618089-8b16-4d01-a136-25a0f3c73123,aa618089-8b16-4d01-a136-25a0f3c73124")
-		addrs := getEnvAddressListByPrefix(vgpuEnvPrefix)
-		Expect(len(addrs)).To(Equal(2))
-		Expect(addrs[0]).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73123"))
-		Expect(addrs[1]).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73124"))
-	})
-
-})
-
 var _ = Describe("getAttachedDisks", func() {
 	table.DescribeTable("should return the correct values", func(oldDisks, newDisks, expected []api.Disk) {
 		res := getAttachedDisks(oldDisks, newDisks)

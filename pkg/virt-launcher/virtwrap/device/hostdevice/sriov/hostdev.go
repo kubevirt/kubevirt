@@ -31,11 +31,8 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
-
-type pool interface {
-	Pop(key string) (value string, err error)
-}
 
 const (
 	AliasPrefix = "sriov-"
@@ -50,51 +47,35 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, NewPCIAddressPool(SRIOVInterfaces))
 }
 
-func CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces []v1.Interface, pciAddrPool pool) ([]api.HostDevice, error) {
-	var hostDevices []api.HostDevice
-
-	for _, iface := range SRIOVInterfaces {
-		pciAddress, err := pciAddrPool.Pop(iface.Name)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create SRIOV hostdevice for %s: %v", iface.Name, err)
-		}
-
-		hostDevice, err := createHostDevice(iface, pciAddress)
-		if err != nil {
-			return nil, err
-		}
-		hostDevices = append(hostDevices, *hostDevice)
-		log.Log.Infof("SR-IOV PCI device created: %s", pciAddress)
-	}
-	return hostDevices, nil
+func CreateHostDevicesFromIfacesAndPool(ifaces []v1.Interface, pool hostdevice.AddressPooler) ([]api.HostDevice, error) {
+	hostDevicesMetaData := createHostDevicesMetadata(ifaces)
+	return hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
 }
 
-func createHostDevice(iface v1.Interface, hostPCIAddress string) (*api.HostDevice, error) {
-	hostAddr, err := device.NewPciAddressField(hostPCIAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SRIOV device for %s, host PCI: %v", iface.Name, err)
-	}
-	hostDev := &api.HostDevice{
-		Alias:   api.NewUserDefinedAlias(AliasPrefix + iface.Name),
-		Source:  api.HostDeviceSource{Address: hostAddr},
-		Type:    "pci",
-		Managed: "no",
-	}
+func createHostDevicesMetadata(ifaces []v1.Interface) []hostdevice.HostDeviceMetaData {
+	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
+	for _, iface := range ifaces {
+		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
+			AliasPrefix:  AliasPrefix,
+			Name:         iface.Name,
+			ResourceName: iface.Name,
+			DecorateHook: func(hostDevice *api.HostDevice) error {
+				if guestPCIAddress := iface.PciAddress; guestPCIAddress != "" {
+					addr, err := device.NewPciAddressField(guestPCIAddress)
+					if err != nil {
+						return fmt.Errorf("failed to interpret the guest PCI address: %v", err)
+					}
+					hostDevice.Address = addr
+				}
 
-	guestPCIAddress := iface.PciAddress
-	if guestPCIAddress != "" {
-		addr, err := device.NewPciAddressField(guestPCIAddress)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create SRIOV device for %s, guest PCI: %v", iface.Name, err)
-		}
-		hostDev.Address = addr
+				if iface.BootOrder != nil {
+					hostDevice.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+				}
+				return nil
+			},
+		})
 	}
-
-	if iface.BootOrder != nil {
-		hostDev.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-	}
-
-	return hostDev, nil
+	return hostDevicesMetaData
 }
 
 type deviceDetacher interface {

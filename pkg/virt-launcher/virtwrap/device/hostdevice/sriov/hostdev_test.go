@@ -31,7 +31,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/sriov"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 )
 
 const (
