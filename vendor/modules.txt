@@ -1000,7 +1000,7 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 ## explicit
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# libvirt.org/go/libvirt v1.7005.0
+# libvirt.org/go/libvirt v1.7005.0 => gitlab.com/victortoso/libvirt-go-module v1.7005.1-0.20210817141601-ddad2d8f81b2
 ## explicit
 libvirt.org/go/libvirt
 # mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157
@@ -1053,4 +1053,5 @@ sigs.k8s.io/yaml
 # k8s.io/sample-controller => k8s.io/sample-controller v0.20.2
 # kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
 # kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.36.0
+# libvirt.org/go/libvirt => gitlab.com/victortoso/libvirt-go-module v1.7005.1-0.20210817141601-ddad2d8f81b2
 # sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
