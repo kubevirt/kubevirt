@@ -16,8 +16,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const bridgeFakeIP = "169.254.75.1%d/32"
-
 type BridgePodNetworkConfigurator struct {
 	bridgeInterfaceName string
 	vmiSpecIface        *v1.Interface
