@@ -198,6 +198,8 @@ replace (
 	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.42.0
 	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.42.0
 
+	libvirt.org/go/libvirt => gitlab.com/victortoso/libvirt-go-module v0.0.0-20220507082358-9c9c8506837a
+
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )
 
