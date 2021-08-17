@@ -511,15 +511,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
 	// Create images for volumes that are marked ephemeral.
-	isDevEphemeralBackingSource := make(map[string]bool)
-	for _, disk := range domain.Spec.Devices.Disks {
-		if disk.BackingStore != nil && disk.BackingStore.Source != nil {
-			if disk.BackingStore.Source.Dev != "" && disk.BackingStore.Source.Name != "" {
-				isDevEphemeralBackingSource[disk.BackingStore.Source.Name] = true
-			}
-		}
-	}
-	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi, isDevEphemeralBackingSource)
+	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi, domain)
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral images failed: %v", err)
 	}

@@ -25,6 +25,8 @@ import (
 	"os/user"
 	"strconv"
 	"syscall"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // TODO this should be part of structs, instead of a global
@@ -101,4 +103,16 @@ func FileExists(path string) (bool, error) {
 
 type OwnershipManagerInterface interface {
 	SetFileOwnership(file string) error
+}
+
+func GetEphemeralBackingSourceBlockDevices(domain api.Domain) map[string]bool {
+	isDevEphemeralBackingSource := make(map[string]bool)
+	for _, disk := range domain.Spec.Devices.Disks {
+		if disk.BackingStore != nil && disk.BackingStore.Source != nil {
+			if disk.BackingStore.Source.Dev != "" && disk.BackingStore.Source.Name != "" {
+				isDevEphemeralBackingSource[disk.BackingStore.Source.Name] = true
+			}
+		}
+	}
+	return isDevEphemeralBackingSource
 }
