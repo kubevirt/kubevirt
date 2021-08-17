@@ -26,10 +26,9 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo LDFLAGS: -ldl
 #include <stdlib.h>
-#include "network_wrapper.h"
-#include "network_port_wrapper.h"
+#include "module-generated.h"
 */
 import "C"
 
@@ -224,7 +223,7 @@ func (d *NetworkPort) GetParameters(flags uint32) (*NetworkPortParameters, error
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
@@ -246,7 +245,7 @@ func (d *NetworkPort) SetParameters(params *NetworkPortParameters, flags uint32)
 	if gerr != nil {
 		return gerr
 	}
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virNetworkPortSetParametersWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)

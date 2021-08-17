@@ -27,9 +27,10 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo LDFLAGS: -ldl
 #include <stdlib.h>
-#include "stream_wrapper.h"
+#include "module-generated.h"
+#include "module-helper.h"
 */
 import "C"
 import (
@@ -230,7 +231,7 @@ func (v *Stream) RecvAll(handler StreamSinkFunc) error {
 	callbackID := registerCallbackId(handler)
 
 	var err C.virError
-	ret := C.virStreamRecvAllWrapper(v.ptr, (C.int)(callbackID), &err)
+	ret := C.virStreamRecvAllHelper(v.ptr, (C.int)(callbackID), &err)
 	freeCallbackId(callbackID)
 	if ret == -1 {
 		return makeError(&err)
@@ -249,7 +250,7 @@ func (v *Stream) SparseRecvAll(handler StreamSinkFunc, holeHandler StreamSinkHol
 	holeCallbackID := registerCallbackId(holeHandler)
 
 	var err C.virError
-	ret := C.virStreamSparseRecvAllWrapper(v.ptr, (C.int)(callbackID), (C.int)(holeCallbackID), &err)
+	ret := C.virStreamSparseRecvAllHelper(v.ptr, (C.int)(callbackID), (C.int)(holeCallbackID), &err)
 	freeCallbackId(callbackID)
 	freeCallbackId(holeCallbackID)
 	if ret == -1 {
@@ -337,7 +338,7 @@ func (v *Stream) SendAll(handler StreamSourceFunc) error {
 	callbackID := registerCallbackId(handler)
 
 	var err C.virError
-	ret := C.virStreamSendAllWrapper(v.ptr, (C.int)(callbackID), &err)
+	ret := C.virStreamSendAllHelper(v.ptr, (C.int)(callbackID), &err)
 	freeCallbackId(callbackID)
 	if ret == -1 {
 		return makeError(&err)
@@ -357,7 +358,7 @@ func (v *Stream) SparseSendAll(handler StreamSourceFunc, holeHandler StreamSourc
 	skipCallbackID := registerCallbackId(skipHandler)
 
 	var err C.virError
-	ret := C.virStreamSparseSendAllWrapper(v.ptr, (C.int)(callbackID), (C.int)(holeCallbackID), (C.int)(skipCallbackID), &err)
+	ret := C.virStreamSparseSendAllHelper(v.ptr, (C.int)(callbackID), (C.int)(holeCallbackID), (C.int)(skipCallbackID), &err)
 	freeCallbackId(callbackID)
 	freeCallbackId(holeCallbackID)
 	freeCallbackId(skipCallbackID)
@@ -375,7 +376,7 @@ func (v *Stream) EventAddCallback(events StreamEventType, callback StreamEventCa
 	callbackID := registerCallbackId(callback)
 
 	var err C.virError
-	ret := C.virStreamEventAddCallbackWrapper(v.ptr, (C.int)(events), (C.int)(callbackID), &err)
+	ret := C.virStreamEventAddCallbackHelper(v.ptr, (C.int)(events), (C.int)(callbackID), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}

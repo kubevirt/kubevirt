@@ -32,8 +32,9 @@ import (
 )
 
 /*
-#cgo pkg-config: libvirt
-#include "secret_events_wrapper.h"
+#cgo LDFLAGS: -ldl
+#include "module-generated.h"
+#include "module-helper.h"
 */
 import "C"
 
@@ -95,7 +96,7 @@ func (c *Connect) SecretEventLifecycleRegister(secret *Secret, callback SecretEv
 		csecret = secret.ptr
 	}
 	var err C.virError
-	ret := C.virConnectSecretEventRegisterAnyWrapper(c.ptr, csecret,
+	ret := C.virConnectSecretEventRegisterAnyHelper(c.ptr, csecret,
 		C.VIR_SECRET_EVENT_ID_LIFECYCLE,
 		C.virConnectSecretEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
@@ -118,7 +119,7 @@ func (c *Connect) SecretEventValueChangedRegister(secret *Secret, callback Secre
 		csecret = secret.ptr
 	}
 	var err C.virError
-	ret := C.virConnectSecretEventRegisterAnyWrapper(c.ptr, csecret,
+	ret := C.virConnectSecretEventRegisterAnyHelper(c.ptr, csecret,
 		C.VIR_SECRET_EVENT_ID_VALUE_CHANGED,
 		C.virConnectSecretEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)

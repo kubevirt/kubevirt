@@ -27,9 +27,9 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo LDFLAGS: -ldl
 #include <stdlib.h>
-#include "interface_wrapper.h"
+#include "module-generated.h"
 */
 import "C"
 

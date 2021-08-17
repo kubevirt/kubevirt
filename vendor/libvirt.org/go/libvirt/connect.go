@@ -35,14 +35,19 @@ import (
 )
 
 /*
-#cgo pkg-config: libvirt
+#cgo LDFLAGS: -ldl
 #include <stdlib.h>
-#include "connect_wrapper.h"
+#include "module-generated.h"
+#include "module-helper.h"
 */
 import "C"
 
 func init() {
-	C.virInitialize()
+	var err C.virError
+	ret := C.virInitializeWrapper(&err)
+	if ret < 0 {
+		println(fmt.Sprintf("Failed to initialized: %s", makeError(&err).Message))
+	}
 }
 
 const (
@@ -410,7 +415,7 @@ func NewConnectWithAuth(uri string, auth *ConnectAuth, flags ConnectFlags) (*Con
 	callbackID := registerCallbackId(auth.Callback)
 
 	var err C.virError
-	ptr := C.virConnectOpenAuthWrapper(cUri, &ccredtype[0], C.uint(len(auth.CredType)), C.int(callbackID), C.uint(flags), &err)
+	ptr := C.virConnectOpenAuthHelper(cUri, &ccredtype[0], C.uint(len(auth.CredType)), C.int(callbackID), C.uint(flags), &err)
 	freeCallbackId(callbackID)
 	if ptr == nil {
 		return nil, makeError(&err)
@@ -428,7 +433,7 @@ func NewConnectWithAuthDefault(uri string, flags ConnectFlags) (*Connect, error)
 	}
 
 	var err C.virError
-	ptr := C.virConnectOpenAuthDefaultWrapper(cUri, C.uint(flags), &err)
+	ptr := C.virConnectOpenAuthDefaultHelper(cUri, C.uint(flags), &err)
 	if ptr == nil {
 		return nil, makeError(&err)
 	}
@@ -485,7 +490,7 @@ func (c *Connect) RegisterCloseCallback(callback CloseCallback) error {
 	c.UnregisterCloseCallback()
 	goCallbackId := registerCallbackId(callback)
 	var err C.virError
-	res := C.virConnectRegisterCloseCallbackWrapper(c.ptr, C.long(goCallbackId), &err)
+	res := C.virConnectRegisterCloseCallbackHelper(c.ptr, C.long(goCallbackId), &err)
 	if res != 0 {
 		freeCallbackId(goCallbackId)
 		return makeError(&err)
@@ -502,7 +507,7 @@ func (c *Connect) UnregisterCloseCallback() error {
 		return nil
 	}
 	var err C.virError
-	res := C.virConnectUnregisterCloseCallbackWrapper(c.ptr, &err)
+	res := C.virConnectUnregisterCloseCallbackHelper(c.ptr, &err)
 	if res != 0 {
 		return makeError(&err)
 	}
@@ -594,7 +599,7 @@ func (c *Connect) SetIdentity(ident *ConnectIdentity, flags uint32) error {
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virConnectSetIdentityWrapper(c.ptr, cparams, cnparams, C.uint(flags), &err)
@@ -2034,7 +2039,7 @@ func (c *Connect) GetMemoryParameters(flags uint32) (*NodeMemoryParameters, erro
 	}
 
 	cparams := typedParamsNew(cnparams)
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 	ret = C.virNodeGetMemoryParametersWrapper(c.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
@@ -2127,7 +2132,7 @@ func (c *Connect) SetMemoryParameters(params *NodeMemoryParameters, flags uint32
 		return gerr
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	var err C.virError
 	ret := C.virNodeSetMemoryParametersWrapper(c.ptr, cparams, cnparams, C.uint(flags), &err)
@@ -3284,7 +3289,10 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 	}
 
 	for i := 0; i < len(stats); i++ {
-		C.virDomainRef(stats[i].Domain.ptr)
+		ret := C.virDomainRefWrapper(stats[i].Domain.ptr, &err)
+		if ret < 0 {
+			return []DomainStats{}, makeError(&err)
+		}
 	}
 
 	return stats, nil
@@ -3340,7 +3348,7 @@ func (c *Connect) GetSEVInfo(flags uint32) (*NodeSEVParameters, error) {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, cnparams)
+	defer C.virTypedParamsFreeWrapper(cparams, cnparams)
 
 	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {

@@ -1,3 +1,3 @@
 module libvirt.org/go/libvirt
 
-go 1.11
+go 1.16
