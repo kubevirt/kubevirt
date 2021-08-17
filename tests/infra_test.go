@@ -96,7 +96,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 	})
 
 	Describe("downwardMetrics", func() {
-		It("should be published to a vmi and periodically updated", func() {
+		It("[test_id:6535]should be published to a vmi and periodically updated", func() {
 			vmi := libvmi.NewTestToolingFedora()
 			tests.AddDownwardMetricsVolume(vmi, "vhostmd")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
@@ -1233,7 +1233,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				}
 			})
 
-			It("should expose tsc frequency and tsc scalability", func() {
+			It("[test_id:6995]should expose tsc frequency and tsc scalability", func() {
 				node := nodesWithKVM[0]
 				Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-frequency"))
 				Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-scalable"))
