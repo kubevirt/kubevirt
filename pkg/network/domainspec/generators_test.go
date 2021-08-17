@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package domainspec
 
 import (
 	"io/ioutil"
@@ -56,6 +56,7 @@ var _ = Describe("Pod Network", func() {
 	})
 
 	AfterEach(func() {
+		ctrl.Finish()
 		os.RemoveAll(tmpDir)
 	})
 
@@ -73,8 +74,8 @@ var _ = Describe("Pod Network", func() {
 			})
 
 			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
-				specGenerator := newSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
-				Expect(specGenerator.generate()).To(Succeed())
+				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+				Expect(specGenerator.Generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
 				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
@@ -84,8 +85,8 @@ var _ = Describe("Pod Network", func() {
 
 			It("Should append MAC address to qemu arguments if set", func() {
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-				specGenerator := newSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
-				Expect(specGenerator.generate()).To(Succeed())
+				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+				Expect(specGenerator.Generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
 				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
@@ -103,8 +104,8 @@ var _ = Describe("Pod Network", func() {
 					},
 					Alias: api.NewUserDefinedAlias("default"),
 				})
-				specGenerator := newSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
-				Expect(specGenerator.generate()).To(Succeed())
+				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+				Expect(specGenerator.Generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
 				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
@@ -126,12 +127,12 @@ var _ = Describe("Pod Network", func() {
 				vmi := newVMIMacvtapInterface("testnamespace", "testVmName", "default")
 				macvtapInterface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtu, HardwareAddr: fakeMac}}
 				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(macvtapInterface, nil)
-				specGenerator = newMacvtapLibvirtSpecGenerator(
+				specGenerator = NewMacvtapLibvirtSpecGenerator(
 					&vmi.Spec.Domain.Devices.Interfaces[0], domain, primaryPodIfaceName, mockNetwork)
 			})
 
 			It("Should pass a non-privileged macvtap interface to qemu", func() {
-				Expect(specGenerator.generate()).To(Succeed())
+				Expect(specGenerator.Generate()).To(Succeed())
 
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1), "should have a single interface")
 				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: primaryPodIfaceName, Managed: "no"}), "should have an unmanaged interface")

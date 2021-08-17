@@ -315,7 +315,7 @@ type fakeLibvirtSpecGenerator struct {
 	shouldGenerateFail bool
 }
 
-func (b *fakeLibvirtSpecGenerator) generate() error {
+func (b *fakeLibvirtSpecGenerator) Generate() error {
 	if b.shouldGenerateFail {
 		return fmt.Errorf("Fake LibvirtSpecGenerator.Generate failure")
 	}
