@@ -37,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
+	"kubevirt.io/kubevirt/tests/libreplicaset"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -73,33 +75,6 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
-	}
-
-	doScaleWithScaleSubresource := func(name string, scale int32) {
-
-		// Status updates can conflict with our desire to change the spec
-		By(fmt.Sprintf("Scaling to %d", scale))
-		var s *autov1.Scale
-		err = tests.RetryIfModified(func() error {
-			s, err = virtClient.ReplicaSet(util.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			s.Spec.Replicas = scale
-			s, err = virtClient.ReplicaSet(util.NamespaceTestDefault).UpdateScale(name, s)
-			return err
-		})
-
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		By("Checking the number of replicas")
-		EventuallyWithOffset(1, func() int32 {
-			s, err = virtClient.ReplicaSet(util.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return s.Status.Replicas
-		}, 90*time.Second, time.Second).Should(Equal(int32(scale)))
-
-		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v12.ListOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
 	}
 
 	doScaleWithHPA := func(name string, min int32, max int32, expected int32) {
@@ -164,10 +139,9 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 
 	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with scale subresource", func(startScale int, stopScale int) {
 		newRS := newReplicaSet()
-		doScaleWithScaleSubresource(newRS.ObjectMeta.Name, int32(startScale))
-		doScaleWithScaleSubresource(newRS.ObjectMeta.Name, int32(stopScale))
-		doScaleWithScaleSubresource(newRS.ObjectMeta.Name, int32(0))
-
+		libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(startScale))
+		libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(stopScale))
+		libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(0))
 	},
 		table.Entry("[test_id:1407]to three, to two and then to zero replicas", 3, 2),
 		table.Entry("[test_id:1408]to five, to six and then to zero replicas", 5, 6),
