@@ -565,11 +565,11 @@ k8s.io/utils/trace
 ## explicit
 kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/precond
-# kubevirt.io/containerized-data-importer v1.37.1
+# kubevirt.io/containerized-data-importer v1.38.0
 ## explicit
 kubevirt.io/containerized-data-importer/pkg/apis/core
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1
-# kubevirt.io/controller-lifecycle-operator-sdk v0.2.0
+# kubevirt.io/controller-lifecycle-operator-sdk v0.2.1-0.20210723143736-64585ea1d1bd
 ## explicit
 kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/ssp-operator v0.11.2

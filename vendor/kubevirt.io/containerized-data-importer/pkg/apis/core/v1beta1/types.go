@@ -280,6 +280,9 @@ const (
 	// SmartClonePVCInProgress represents a data volume with a current phase of SmartClonePVCInProgress
 	SmartClonePVCInProgress DataVolumePhase = "SmartClonePVCInProgress"
 
+	// CSICloneInProgress represents a data volume with a current phase of CSICloneInProgress
+	CSICloneInProgress DataVolumePhase = "CSICloneInProgress"
+
 	// ExpansionInProgress is the state when a PVC is expanded
 	ExpansionInProgress DataVolumePhase = "ExpansionInProgress"
 

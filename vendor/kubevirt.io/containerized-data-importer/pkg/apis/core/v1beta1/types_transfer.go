@@ -30,7 +30,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
-// +kubebuilder:resource:shortName=ot;ots,categories=all,scope=Cluster
+// +kubebuilder:resource:shortName=ot;ots,scope=Cluster
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The phase of the ObjectTransfer"
 // +kubebuilder:subresource:status
