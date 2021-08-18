@@ -41,6 +41,9 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/flowcontrol"
+
+	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
@@ -203,6 +206,7 @@ type VirtControllerApp struct {
 	promKeyFilePath          string
 	nodeTopologyUpdater      topology.NodeTopologyUpdater
 	nodeTopologyUpdatePeriod time.Duration
+	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -227,8 +231,13 @@ func Execute() {
 
 	log.InitializeLogging("virt-controller")
 
-	app.clientSet, err = kubecli.GetKubevirtClient()
-
+	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtControllerQPS, virtconfig.DefaultVirtControllerBurst))
+	clientConfig, err := kubecli.GetKubevirtClientConfig()
+	if err != nil {
+		panic(err)
+	}
+	clientConfig.RateLimiter = app.reloadableRateLimiter
+	app.clientSet, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -271,6 +280,7 @@ func Execute() {
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
@@ -339,6 +349,15 @@ func (vca *VirtControllerApp) configModificationCallback() {
 		}
 		vca.reInitChan <- "reinit"
 	}
+}
+
+// Update virt-controller rate limiter
+func (app *VirtControllerApp) shouldChangeRateLimiter() {
+	config := app.clusterConfig.GetConfig()
+	qps := config.ControllerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
+	burst := config.ControllerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
+	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
+	log.Log.V(2).Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
 }
 
 // Update virt-controller log verbosity on relevant config changes

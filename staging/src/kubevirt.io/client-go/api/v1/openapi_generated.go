@@ -496,7 +496,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Probe":                                                     schema_kubevirtio_client_go_api_v1_Probe(ref),
 		"kubevirt.io/client-go/api/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation":     schema_kubevirtio_client_go_api_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.QemuGuestAgentUserPasswordAccessCredentialPropagation":     schema_kubevirtio_client_go_api_v1_QemuGuestAgentUserPasswordAccessCredentialPropagation(ref),
+		"kubevirt.io/client-go/api/v1.RESTClientConfiguration":                                   schema_kubevirtio_client_go_api_v1_RESTClientConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.RTCTimer":                                                  schema_kubevirtio_client_go_api_v1_RTCTimer(ref),
+		"kubevirt.io/client-go/api/v1.RateLimiter":                                               schema_kubevirtio_client_go_api_v1_RateLimiter(ref),
+		"kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration":                          schema_kubevirtio_client_go_api_v1_ReloadableComponentConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.RemoveVolumeOptions":                                       schema_kubevirtio_client_go_api_v1_RemoveVolumeOptions(ref),
 		"kubevirt.io/client-go/api/v1.ResourceRequirements":                                      schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref),
 		"kubevirt.io/client-go/api/v1.RestartOptions":                                            schema_kubevirtio_client_go_api_v1_RestartOptions(ref),
@@ -512,6 +515,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.SyNICTimer":                                                schema_kubevirtio_client_go_api_v1_SyNICTimer(ref),
 		"kubevirt.io/client-go/api/v1.SysprepSource":                                             schema_kubevirtio_client_go_api_v1_SysprepSource(ref),
 		"kubevirt.io/client-go/api/v1.Timer":                                                     schema_kubevirtio_client_go_api_v1_Timer(ref),
+		"kubevirt.io/client-go/api/v1.TokenBucketRateLimiter":                                    schema_kubevirtio_client_go_api_v1_TokenBucketRateLimiter(ref),
 		"kubevirt.io/client-go/api/v1.TopologyHints":                                             schema_kubevirtio_client_go_api_v1_TopologyHints(ref),
 		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredential":                              schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredential(ref),
 		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialPropagationMethod":             schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredentialPropagationMethod(ref),
@@ -21609,11 +21613,31 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 							Format: "int32",
 						},
 					},
+					"apiConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration"),
+						},
+					},
+					"webhookConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration"),
+						},
+					},
+					"controllerConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration"),
+						},
+					},
+					"handlerConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MediatedDevicesConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.PermittedHostDevices", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MediatedDevicesConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.PermittedHostDevices", "kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
 	}
 }
 
@@ -22783,6 +22807,27 @@ func schema_kubevirtio_client_go_api_v1_QemuGuestAgentUserPasswordAccessCredenti
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_RESTClientConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RESTClientConfiguration allows configuring certain aspects of the k8s rest client.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"rateLimiter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RateLimiter allows selecting and configuring different rate limiters for the k8s client.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.RateLimiter"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.RateLimiter"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_RTCTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22813,6 +22858,46 @@ func schema_kubevirtio_client_go_api_v1_RTCTimer(ref common.ReferenceCallback) c
 				},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_RateLimiter(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"tokenBucketRateLimiter": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.TokenBucketRateLimiter"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.TokenBucketRateLimiter"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_ReloadableComponentConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReloadableComponentConfiguration holds all generic k8s configuration options which can be reloaded by components without requiring a restart.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"restClient": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestClient can be used to tune certain aspects of the k8s client in use.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.RESTClientConfiguration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.RESTClientConfiguration"},
 	}
 }
 
@@ -23265,6 +23350,33 @@ func schema_kubevirtio_client_go_api_v1_Timer(ref common.ReferenceCallback) comm
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.HPETTimer", "kubevirt.io/client-go/api/v1.HypervTimer", "kubevirt.io/client-go/api/v1.KVMTimer", "kubevirt.io/client-go/api/v1.PITTimer", "kubevirt.io/client-go/api/v1.RTCTimer"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_TokenBucketRateLimiter(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"qps": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QPS indicates the maximum QPS to the apiserver from this client. If it's zero, the component default will be used",
+							Type:        []string{"number"},
+							Format:      "float",
+						},
+					},
+					"burst": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum burst for throttle. If it's zero, the component default will be used",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"qps", "burst"},
+			},
+		},
 	}
 }
 

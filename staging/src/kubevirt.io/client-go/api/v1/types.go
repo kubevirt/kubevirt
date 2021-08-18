@@ -1917,6 +1917,37 @@ type RemoveVolumeOptions struct {
 	Name string `json:"name"`
 }
 
+// +k8s:openapi-gen=true
+type TokenBucketRateLimiter struct {
+	// QPS indicates the maximum QPS to the apiserver from this client.
+	// If it's zero, the component default will be used
+	QPS float32 `json:"qps"`
+
+	// Maximum burst for throttle.
+	// If it's zero, the component default will be used
+	Burst int `json:"burst"`
+}
+
+// +k8s:openapi-gen=true
+type RateLimiter struct {
+	TokenBucketRateLimiter *TokenBucketRateLimiter `json:"tokenBucketRateLimiter,omitempty"`
+}
+
+// RESTClientConfiguration allows configuring certain aspects of the k8s rest client.
+// +k8s:openapi-gen=true
+type RESTClientConfiguration struct {
+	//RateLimiter allows selecting and configuring different rate limiters for the k8s client.
+	RateLimiter *RateLimiter `json:"rateLimiter,omitempty"`
+}
+
+// ReloadableComponentConfiguration holds all generic k8s configuration options which can
+// be reloaded by components without requiring a restart.
+// +k8s:openapi-gen=true
+type ReloadableComponentConfiguration struct {
+	//RestClient can be used to tune certain aspects of the k8s client in use.
+	RestClient *RESTClientConfiguration `json:"restClient,omitempty"`
+}
+
 // KubeVirtConfiguration holds all kubevirt configurations
 // +k8s:openapi-gen=true
 type KubeVirtConfiguration struct {
@@ -1933,13 +1964,17 @@ type KubeVirtConfiguration struct {
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
 	// deprecated
-	SupportedGuestAgentVersions    []string                      `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod          *uint32                       `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices           *PermittedHostDevices         `json:"permittedHostDevices,omitempty"`
-	MediatedDevicesConfiguration   *MediatedDevicesConfiguration `json:"mediatedDevicesConfiguration,omitempty"`
-	MinCPUModel                    string                        `json:"minCPUModel,omitempty"`
-	ObsoleteCPUModels              map[string]bool               `json:"obsoleteCPUModels,omitempty"`
-	VirtualMachineInstancesPerNode *int                          `json:"virtualMachineInstancesPerNode,omitempty"`
+	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices           *PermittedHostDevices             `json:"permittedHostDevices,omitempty"`
+	MediatedDevicesConfiguration   *MediatedDevicesConfiguration     `json:"mediatedDevicesConfiguration,omitempty"`
+	MinCPUModel                    string                            `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels              map[string]bool                   `json:"obsoleteCPUModels,omitempty"`
+	VirtualMachineInstancesPerNode *int                              `json:"virtualMachineInstancesPerNode,omitempty"`
+	APIConfiguration               *ReloadableComponentConfiguration `json:"apiConfiguration,omitempty"`
+	WebhookConfiguration           *ReloadableComponentConfiguration `json:"webhookConfiguration,omitempty"`
+	ControllerConfiguration        *ReloadableComponentConfiguration `json:"controllerConfiguration,omitempty"`
+	HandlerConfiguration           *ReloadableComponentConfiguration `json:"handlerConfiguration,omitempty"`
 }
 
 //

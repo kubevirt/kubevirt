@@ -513,6 +513,68 @@ var CRDsValidation map[string]string = map[string]string{
         configuration:
           description: holds kubevirt configurations. same as the virt-configMap
           properties:
+            apiConfiguration:
+              description: ReloadableComponentConfiguration holds all generic k8s
+                configuration options which can be reloaded by components without
+                requiring a restart.
+              properties:
+                restClient:
+                  description: RestClient can be used to tune certain aspects of the
+                    k8s client in use.
+                  properties:
+                    rateLimiter:
+                      description: RateLimiter allows selecting and configuring different
+                        rate limiters for the k8s client.
+                      properties:
+                        tokenBucketRateLimiter:
+                          properties:
+                            burst:
+                              description: Maximum burst for throttle. If it's zero,
+                                the component default will be used
+                              type: integer
+                            qps:
+                              description: QPS indicates the maximum QPS to the apiserver
+                                from this client. If it's zero, the component default
+                                will be used
+                              type: number
+                          required:
+                          - burst
+                          - qps
+                          type: object
+                      type: object
+                  type: object
+              type: object
+            controllerConfiguration:
+              description: ReloadableComponentConfiguration holds all generic k8s
+                configuration options which can be reloaded by components without
+                requiring a restart.
+              properties:
+                restClient:
+                  description: RestClient can be used to tune certain aspects of the
+                    k8s client in use.
+                  properties:
+                    rateLimiter:
+                      description: RateLimiter allows selecting and configuring different
+                        rate limiters for the k8s client.
+                      properties:
+                        tokenBucketRateLimiter:
+                          properties:
+                            burst:
+                              description: Maximum burst for throttle. If it's zero,
+                                the component default will be used
+                              type: integer
+                            qps:
+                              description: QPS indicates the maximum QPS to the apiserver
+                                from this client. If it's zero, the component default
+                                will be used
+                              type: number
+                          required:
+                          - burst
+                          - qps
+                          type: object
+                      type: object
+                  type: object
+              type: object
             cpuModel:
               type: string
             cpuRequest:
@@ -588,6 +650,37 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+            handlerConfiguration:
+              description: ReloadableComponentConfiguration holds all generic k8s
+                configuration options which can be reloaded by components without
+                requiring a restart.
+              properties:
+                restClient:
+                  description: RestClient can be used to tune certain aspects of the
+                    k8s client in use.
+                  properties:
+                    rateLimiter:
+                      description: RateLimiter allows selecting and configuring different
+                        rate limiters for the k8s client.
+                      properties:
+                        tokenBucketRateLimiter:
+                          properties:
+                            burst:
+                              description: Maximum burst for throttle. If it's zero,
+                                the component default will be used
+                              type: integer
+                            qps:
+                              description: QPS indicates the maximum QPS to the apiserver
+                                from this client. If it's zero, the component default
+                                will be used
+                              type: number
+                          required:
+                          - burst
+                          - qps
+                          type: object
+                      type: object
+                  type: object
+              type: object
             imagePullPolicy:
               description: PullPolicy describes a policy for if/when to pull a container
                 image
@@ -727,6 +820,37 @@ var CRDsValidation map[string]string = map[string]string{
               type: array
             virtualMachineInstancesPerNode:
               type: integer
+            webhookConfiguration:
+              description: ReloadableComponentConfiguration holds all generic k8s
+                configuration options which can be reloaded by components without
+                requiring a restart.
+              properties:
+                restClient:
+                  description: RestClient can be used to tune certain aspects of the
+                    k8s client in use.
+                  properties:
+                    rateLimiter:
+                      description: RateLimiter allows selecting and configuring different
+                        rate limiters for the k8s client.
+                      properties:
+                        tokenBucketRateLimiter:
+                          properties:
+                            burst:
+                              description: Maximum burst for throttle. If it's zero,
+                                the component default will be used
+                              type: integer
+                            qps:
+                              description: QPS indicates the maximum QPS to the apiserver
+                                from this client. If it's zero, the component default
+                                will be used
+                              type: number
+                          required:
+                          - burst
+                          - qps
+                          type: object
+                      type: object
+                  type: object
+              type: object
           type: object
         customizeComponents:
           properties:
