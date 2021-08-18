@@ -118,6 +118,7 @@ fi
 
 # if defined, append the ARTIFACTS directory
 if [ -n "$ARTIFACTS" ]; then
+    mkdir -p "$ARTIFACTS"
     if [[ "$ARTIFACTS" = /* ]]; then
         volumes="$volumes -v ${ARTIFACTS}:${ARTIFACTS}:rw,z"
     else
