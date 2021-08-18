@@ -13,6 +13,8 @@ const APPLIED_PREFIX = "cluster-networks-addons-operator-applied-"
 // garbage collection deletion upon NetworkAddonsConfig removal.
 const REJECT_OWNER_ANNOTATION = "networkaddonsoperator.network.kubevirt.io/rejectOwner"
 
+const PROMETHEUS_LABEL_KEY = "prometheus.cnao.io"
+
 // Relationship labels
 const COMPONENT_LABEL_KEY = "app.kubernetes.io/component"
 const PART_OF_LABEL_KEY = "app.kubernetes.io/part-of"
