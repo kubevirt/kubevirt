@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/emicklei/go-restful"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/util/certificate"
@@ -54,8 +55,10 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/service"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -92,6 +95,8 @@ type VirtOperatorApp struct {
 	LeaderElection      leaderelectionconfig.Configuration
 	aggregatorClient    aggregatorclient.Interface
 	operatorCertManager certificate.Manager
+
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 var (
@@ -273,6 +278,11 @@ func Execute() {
 	}
 	log.Log.Infof("Operator image: %s", image)
 
+	app.clusterConfig = virtconfig.NewClusterConfig(app.informerFactory.ConfigMap(),
+		app.informerFactory.CRD(),
+		app.informerFactory.KubeVirt(),
+		app.operatorNamespace)
+
 	app.Run()
 }
 
@@ -280,8 +290,22 @@ func (app *VirtOperatorApp) Run() {
 	promTLSConfig := webhooks.SetupPromTLS(app.operatorCertManager)
 
 	go func() {
+
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
+
+		webService := new(restful.WebService)
+		webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+
+		componentProfiler := profiler.NewProfileManager(app.clusterConfig)
+		webService.Route(webService.GET("/start-profiler").To(componentProfiler.HandleStartProfiler).Doc("start profiler endpoint"))
+		webService.Route(webService.GET("/stop-profiler").To(componentProfiler.HandleStopProfiler).Doc("stop profiler endpoint"))
+		webService.Route(webService.GET("/dump-profiler").To(componentProfiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
+
+		restfulContainer := restful.NewContainer()
+		restfulContainer.ServeMux = mux
+		restfulContainer.Add(webService)
+
 		server := http.Server{
 			Addr:      app.ServiceListen.Address(),
 			Handler:   mux,

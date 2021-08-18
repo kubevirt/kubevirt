@@ -155,6 +155,9 @@ var _ = Describe("Authorizer", func() {
 				table.Entry("group", "/apis/subresources.kubevirt.io"),
 				table.Entry("version", "/apis/subresources.kubevirt.io/version"),
 				table.Entry("healthz", "/apis/subresources.kubevirt.io/healthz"),
+				table.Entry("start profiler", "/apis/subresources.kubevirt.io/start-cluster-profiler"),
+				table.Entry("stop profiler", "/apis/subresources.kubevirt.io/stop-cluster-profiler"),
+				table.Entry("dump profiler", "/apis/subresources.kubevirt.io/dump-cluster-profiler"),
 			)
 
 			table.DescribeTable("should reject all users for unknown endpoint paths", func(path string) {

@@ -64,7 +64,7 @@ func (app *SubresourceAPIApp) getAllComponentPods() ([]*k8sv1.Pod, error) {
 }
 
 func podIsReadyComponent(pod *k8sv1.Pod) bool {
-	componentPrefixes := []string{"virt-controller", "virt-handler", "virt-api"}
+	componentPrefixes := []string{"virt-controller", "virt-handler", "virt-api", "virt-operator"}
 
 	found := false
 	// filter out any kubevirt related pod that doesn't have profiling capabilities
@@ -244,25 +244,25 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler() restful.RouteFunction
 						errorChan <- fmt.Errorf("Encountered [%d] status code while contacting url [%s] for pod [%s]", resp.StatusCode, url, name)
 						return
 
-					} else {
-						data, err := ioutil.ReadAll(resp.Body)
-						if err != nil {
-							errorChan <- err
-							return
-						}
-
-						componentResult := v1.ProfilerResult{}
-						err = json.Unmarshal(data, &componentResult)
-						if err != nil {
-							errorChan <- fmt.Errorf("Failure to unmarshal json body: %s\nerr: %v", string(data), err)
-							return
-						}
-
-						resultsLock.Lock()
-						defer resultsLock.Unlock()
-						results.ComponentResults[name] = componentResult
-
 					}
+
+					data, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						errorChan <- err
+						return
+					}
+
+					componentResult := v1.ProfilerResult{}
+					err = json.Unmarshal(data, &componentResult)
+					if err != nil {
+						errorChan <- fmt.Errorf("Failure to unmarshal json body: %s\nerr: %v", string(data), err)
+						return
+					}
+
+					resultsLock.Lock()
+					defer resultsLock.Unlock()
+					results.ComponentResults[name] = componentResult
+
 				}(ip, name)
 			}
 		}()
