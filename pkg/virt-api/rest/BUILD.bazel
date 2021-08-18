@@ -52,6 +52,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "authorizer_test.go",
+        "profiler_test.go",
         "rest_suite_test.go",
         "streamer_test.go",
         "subresource_test.go",

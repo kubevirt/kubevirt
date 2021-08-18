@@ -350,15 +350,15 @@ func (app *virtAPIApp) composeSubresources() {
 			}).Operation(version.Version + "Version"))
 
 		subws.Route(subws.GET(rest.SubResourcePath("start-cluster-profiler")).Produces(restful.MIME_JSON).
-			To(subresourceApp.StartClusterProfilerHandler()).
+			To(subresourceApp.StartClusterProfilerHandler).
 			Operation(version.Version + "start-cluster-profiler"))
 
 		subws.Route(subws.GET(rest.SubResourcePath("stop-cluster-profiler")).Produces(restful.MIME_JSON).
-			To(subresourceApp.StopClusterProfilerHandler()).
+			To(subresourceApp.StopClusterProfilerHandler).
 			Operation(version.Version + "stop-cluster-profiler"))
 
 		subws.Route(subws.GET(rest.SubResourcePath("dump-cluster-profiler")).Produces(restful.MIME_JSON).
-			To(subresourceApp.DumpClusterProfilerHandler()).
+			To(subresourceApp.DumpClusterProfilerHandler).
 			Operation(version.Version + "dump-cluster-profiler"))
 
 		subws.Route(subws.GET(rest.SubResourcePath("guestfs")).Produces(restful.MIME_JSON).

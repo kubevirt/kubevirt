@@ -130,7 +130,7 @@ func (app *SubresourceAPIApp) stopStartHandler(command string, request *restful.
 			log.Log.Infof("Executing Cluster Profiler %s on Pod %s", command, name)
 			go func(ip string, name string) {
 				defer wg.Done()
-				url := fmt.Sprintf("https://%s:8443/%s-profiler", ip, command)
+				url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, app.profilerComponentPort, command)
 				req, _ := http.NewRequest("GET", url, nil)
 				resp, err := client.Do(req)
 				if err != nil {
@@ -162,120 +162,115 @@ func (app *SubresourceAPIApp) stopStartHandler(command string, request *restful.
 	response.WriteHeader(http.StatusOK)
 }
 
-func (app *SubresourceAPIApp) StartClusterProfilerHandler() restful.RouteFunction {
-	return func(request *restful.Request, response *restful.Response) {
-		if !app.clusterConfig.ClusterProfilerEnabled() {
-			response.WriteErrorString(http.StatusForbidden, "Unable to start profiler. \"ClusterProfiler\" feature gate must be enabled")
-			return
-		}
-		app.stopStartHandler("start", request, response)
+func (app *SubresourceAPIApp) StartClusterProfilerHandler(request *restful.Request, response *restful.Response) {
+	if !app.clusterConfig.ClusterProfilerEnabled() {
+		response.WriteErrorString(http.StatusForbidden, "Unable to start profiler. \"ClusterProfiler\" feature gate must be enabled")
+		return
 	}
+	app.stopStartHandler("start", request, response)
 }
 
-func (app *SubresourceAPIApp) StopClusterProfilerHandler() restful.RouteFunction {
-	return func(request *restful.Request, response *restful.Response) {
-		if !app.clusterConfig.ClusterProfilerEnabled() {
-			response.WriteErrorString(http.StatusForbidden, "Unable to stop profiler. \"ClusterProfiler\" feature gate must be enabled")
-			return
-		}
-		app.stopStartHandler("stop", request, response)
+func (app *SubresourceAPIApp) StopClusterProfilerHandler(request *restful.Request, response *restful.Response) {
+	if !app.clusterConfig.ClusterProfilerEnabled() {
+		response.WriteErrorString(http.StatusForbidden, "Unable to stop profiler. \"ClusterProfiler\" feature gate must be enabled")
+		return
 	}
+	app.stopStartHandler("stop", request, response)
 }
-func (app *SubresourceAPIApp) DumpClusterProfilerHandler() restful.RouteFunction {
-	return func(request *restful.Request, response *restful.Response) {
-		if !app.clusterConfig.ClusterProfilerEnabled() {
-			response.WriteErrorString(http.StatusForbidden, "Unable to dump profiler results. \"ClusterProfiler\" feature gate must be enabled")
-			return
-		}
-		pods, err := app.getAllComponentPods()
-		if err != nil {
-			response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error while looking up component pods for profiling: %v", err))
-			return
-		}
 
-		if len(pods) == 0 {
-			response.WriteErrorString(http.StatusInternalServerError, "Internal error, no component pods found")
-			return
-		}
-
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-
-		client := http.Client{
-			Timeout:   time.Duration(5 * time.Second),
-			Transport: tr,
-		}
-
-		command := "dump"
-
-		wg := sync.WaitGroup{}
-		wg.Add(len(pods))
-
-		errorChan := make(chan error, len(pods))
-		defer close(errorChan)
-
-		results := v1.ClusterProfilerResults{
-			ComponentResults: make(map[string]v1.ProfilerResult),
-		}
-		resultsLock := sync.Mutex{}
-
-		go func() {
-			for _, pod := range pods {
-				ip := pod.Status.PodIP
-				name := pod.Name
-				log.Log.Infof("Executing Cluster Profiler %s on Pod %s", command, name)
-				go func(ip string, name string) {
-					defer wg.Done()
-					url := fmt.Sprintf("https://%s:8443/%s-profiler", ip, command)
-					req, _ := http.NewRequest("GET", url, nil)
-					resp, err := client.Do(req)
-					if err != nil {
-						log.Log.Infof("Encountered error during ClusterProfiler %s on Pod %s: %v", command, name, err)
-						errorChan <- err
-						return
-					}
-					defer resp.Body.Close()
-
-					if resp.StatusCode != http.StatusOK {
-
-						errorChan <- fmt.Errorf("Encountered [%d] status code while contacting url [%s] for pod [%s]", resp.StatusCode, url, name)
-						return
-
-					}
-
-					data, err := ioutil.ReadAll(resp.Body)
-					if err != nil {
-						errorChan <- err
-						return
-					}
-
-					componentResult := v1.ProfilerResult{}
-					err = json.Unmarshal(data, &componentResult)
-					if err != nil {
-						errorChan <- fmt.Errorf("Failure to unmarshal json body: %s\nerr: %v", string(data), err)
-						return
-					}
-
-					resultsLock.Lock()
-					defer resultsLock.Unlock()
-					results.ComponentResults[name] = componentResult
-
-				}(ip, name)
-			}
-		}()
-
-		wg.Wait()
-		select {
-		case err := <-errorChan:
-			response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", err))
-			return
-		default:
-			//no error
-		}
-
-		response.WriteAsJson(results)
+func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Request, response *restful.Response) {
+	if !app.clusterConfig.ClusterProfilerEnabled() {
+		response.WriteErrorString(http.StatusForbidden, "Unable to dump profiler results. \"ClusterProfiler\" feature gate must be enabled")
+		return
 	}
+	pods, err := app.getAllComponentPods()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error while looking up component pods for profiling: %v", err))
+		return
+	}
+
+	if len(pods) == 0 {
+		response.WriteErrorString(http.StatusInternalServerError, "Internal error, no component pods found")
+		return
+	}
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+
+	client := http.Client{
+		Timeout:   time.Duration(5 * time.Second),
+		Transport: tr,
+	}
+
+	command := "dump"
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(pods))
+
+	errorChan := make(chan error, len(pods))
+	defer close(errorChan)
+
+	results := v1.ClusterProfilerResults{
+		ComponentResults: make(map[string]v1.ProfilerResult),
+	}
+	resultsLock := sync.Mutex{}
+
+	go func() {
+		for _, pod := range pods {
+			ip := pod.Status.PodIP
+			name := pod.Name
+			log.Log.Infof("Executing Cluster Profiler %s on Pod %s", command, name)
+			go func(ip string, name string) {
+				defer wg.Done()
+				url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, app.profilerComponentPort, command)
+				req, _ := http.NewRequest("GET", url, nil)
+				resp, err := client.Do(req)
+				if err != nil {
+					log.Log.Infof("Encountered error during ClusterProfiler %s on Pod %s: %v", command, name, err)
+					errorChan <- err
+					return
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+
+					errorChan <- fmt.Errorf("Encountered [%d] status code while contacting url [%s] for pod [%s]", resp.StatusCode, url, name)
+					return
+
+				}
+
+				data, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					errorChan <- err
+					return
+				}
+
+				componentResult := v1.ProfilerResult{}
+				err = json.Unmarshal(data, &componentResult)
+				if err != nil {
+					errorChan <- fmt.Errorf("Failure to unmarshal json body: %s\nerr: %v", string(data), err)
+					return
+				}
+
+				resultsLock.Lock()
+				defer resultsLock.Unlock()
+				results.ComponentResults[name] = componentResult
+
+			}(ip, name)
+		}
+	}()
+
+	wg.Wait()
+	select {
+	case err := <-errorChan:
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", err))
+		return
+	default:
+		//no error
+	}
+
+	response.WriteAsJson(results)
 }
