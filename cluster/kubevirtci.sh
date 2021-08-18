@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-'k8s-1.19'}
-
-KUBEVIRTCI_VERSION="8f48705333a7b9c4c91cf8a0b96b40bb54ef6c8d"
-export KUBEVIRTCI_TAG=2103111738-8f48705
+export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-'k8s-1.20'}
+export KUBEVIRTCI_TAG=$(curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest)
 KUBEVIRTCI_PATH="${PWD}/_kubevirtci"
 
 function kubevirtci::install() {
@@ -23,7 +21,7 @@ function kubevirtci::install() {
         git clone https://github.com/kubevirt/kubevirtci.git ${KUBEVIRTCI_PATH}
         (
             cd ${KUBEVIRTCI_PATH}
-            git checkout ${KUBEVIRTCI_VERSION}
+            git checkout tags/${KUBEVIRTCI_TAG} -b ${KUBEVIRTCI_TAG}
         )
     fi
 }
