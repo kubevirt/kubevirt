@@ -62,7 +62,9 @@ Enforcement
 -----------
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by contacting Fabian Deutsch at fabiand-at-fedoraproject-dot-org. All
+reported by contacting [the KubeVirt Maintainers](mailto:cncf-kubevirt-conduct@lists.cncf.io). 
+If you wish to report an incident that involves
+a KubeVirt Maintainer, contact the [CNCF Staff](mailto: conduct@cncf.io). All
 complaints will be reviewed and investigated and will result in a response that
 is deemed necessary and appropriate to the circumstances. The project team is
 obligated to maintain confidentiality with regard to the reporter of an
