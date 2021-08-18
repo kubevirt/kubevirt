@@ -231,7 +231,11 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 	} else {
 		defer d.Free()
 
-		prevStatus := domain.Status.DeepCopy() // Remember current status before it will be changed.
+		// Remember current status before it will be changed.
+		var (
+			prevStatus = domain.Status.Status
+			prevReason = domain.Status.Reason
+		)
 
 		// No matter which event, try to fetch the domain xml
 		// and the state. If we get a IsNotFound error, that
@@ -261,7 +265,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			domain.Spec = *spec
 		}
 
-		if domain.Status.Status == prevStatus.Status && domain.Status.Reason == prevStatus.Reason {
+		if domain.Status.Status == prevStatus && domain.Status.Reason == prevReason {
 			// Status hasn't changed so log only in higher verbosity.
 			log.Log.V(3).Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
 		} else {
