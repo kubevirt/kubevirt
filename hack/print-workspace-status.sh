@@ -21,8 +21,10 @@ set -o nounset
 set -o pipefail
 
 export KUBEVIRT_DIR=$(dirname "${BASH_SOURCE}")/..
+export SANDBOX_DIR=${KUBEVIRT_DIR}/.bazeldnf/sandbox
 
 source "${KUBEVIRT_DIR}/hack/version.sh"
+KUBEVIRT_NO_BAZEL=true source "${KUBEVIRT_DIR}/hack/bootstrap.sh"
 kubevirt::version::get_version_vars
 
 # Prefix with STABLE_ so that these values are saved to stable-status.txt
@@ -43,3 +45,12 @@ buildDate $(date \
     ${SOURCE_DATE_EPOCH:+"--date=@${SOURCE_DATE_EPOCH}"} \
     -u +'%Y-%m-%dT%H:%M:%SZ')
 EOF
+
+if [ "${KUBEVIRT_BOOTSTRAPPING:-false}" == "true" ]; then
+    exit 0
+fi
+
+if ! kubevirt::bootstrap::sandbox_exists; then
+    echo -e "\e[31m\e[1mERROR: \e[39mSandbox is not up to date, please run 'hack/bootstrap.sh'" >&2
+    exit 1
+fi

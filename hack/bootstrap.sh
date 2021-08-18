@@ -30,7 +30,7 @@ sandbox_hash="c435f4256302f2dca6a1613ec6816c20f75cee20"
 
 function kubevirt::bootstrap::regenerate() {
     (
-        if [ -f "${SANDBOX_DIR}/${sandbox_hash}" ]; then
+        if kubevirt::bootstrap::sandbox_exists; then
             kubevirt::bootstrap::sandbox_config
             echo "Sandbox is up to date"
             return
@@ -39,7 +39,7 @@ function kubevirt::bootstrap::regenerate() {
         cd ${KUBEVIRT_DIR}
         rm ${SANDBOX_DIR} -rf
         rm .bazeldnf/sandbox.bazelrc -f
-        bazel run --config ${HOST_ARCHITECTURE} //rpm:sandbox_${1}
+        KUBEVIRT_BOOTSTRAPPING=true bazel run --config ${HOST_ARCHITECTURE} //rpm:sandbox_${1}
         bazel clean
 
         local sha=$(kubevirt::bootstrap::sha256)
@@ -48,6 +48,10 @@ function kubevirt::bootstrap::regenerate() {
 
         kubevirt::bootstrap::sandbox_config
     )
+}
+
+function kubevirt::bootstrap::sandbox_exists() {
+    ls ${SANDBOX_DIR}/${sandbox_hash} >/dev/null 2>&1
 }
 
 function kubevirt::bootstrap::sandbox_config() {
