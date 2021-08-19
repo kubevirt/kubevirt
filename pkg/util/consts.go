@@ -53,6 +53,8 @@ const (
 	HCONSWebhookPath            = "/mutate-ns-hco-kubevirt-io"
 	DefaulterWebhookPath        = "/mutate-hco-kubevirt-io-v1beta1-hyperconverged"
 	WebhookPort                 = 4343
+
+	CliDownloadsServerPort = 8080
 )
 
 type AppComponent string

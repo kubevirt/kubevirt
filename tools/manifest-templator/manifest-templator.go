@@ -59,6 +59,7 @@ var (
 	operatorNamespace  = flag.String("operator-namespace", "kubevirt-hyperconverged", "Name of the Operator")
 	operatorImage      = flag.String("operator-image", "", "HyperConverged Cluster Operator image")
 	webhookImage       = flag.String("webhook-image", "", "HyperConverged Cluster Webhook image")
+	cliDownloadsImage  = flag.String("cli-downloads-image", "", "Downloads Server image")
 	imsConversionImage = flag.String("ims-conversion-image-name", "", "IMS conversion image")
 	imsVMWareImage     = flag.String("ims-vmware-image-name", "", "IMS VMWare image")
 	kvVirtIOWinImage   = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
@@ -120,6 +121,7 @@ func main() {
 			*hcoKvIoVersion,
 			[]corev1.EnvVar{},
 		),
+		components.GetDeploymentCliDownloads(operatorParams),
 	}
 	// hco-operator and hco-webhook
 	for i := range deployments {
@@ -423,6 +425,8 @@ func getOperatorParameters() *components.DeploymentOperatorParams {
 	params := &components.DeploymentOperatorParams{
 		Namespace:           *operatorNamespace,
 		Image:               *operatorImage,
+		WebhookImage:        *webhookImage,
+		CliDownloadsImage:   *cliDownloadsImage,
 		ImagePullPolicy:     "IfNotPresent",
 		ConversionContainer: *imsConversionImage,
 		VmwareContainer:     *imsVMWareImage,

@@ -403,6 +403,7 @@ rules:
   - config.openshift.io
   resources:
   - clusterversions
+  - ingresses
   verbs:
   - get
   - list
@@ -410,6 +411,17 @@ rules:
   - coordination.k8s.io
   resources:
   - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
   verbs:
   - get
   - list

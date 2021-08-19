@@ -7,6 +7,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	consolev1 "github.com/openshift/api/console/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
@@ -142,6 +143,7 @@ func GetScheme() *runtime.Scheme {
 		consolev1.AddToScheme,
 		monitoringv1.AddToScheme,
 		apiextensionsv1.AddToScheme,
+		routev1.Install,
 	} {
 		Expect(f(testScheme)).To(BeNil())
 	}

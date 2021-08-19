@@ -14,11 +14,13 @@ type ClusterInfo interface {
 	CheckRunningInOpenshift(creader client.Reader, ctx context.Context, logger logr.Logger, runningLocally bool) error
 	IsOpenshift() bool
 	IsRunningLocally() bool
+	GetDomain() string
 }
 
 type ClusterInfoImp struct {
 	runningInOpenshift bool
 	runningLocally     bool
+	domain             string
 }
 
 var clusterInfo ClusterInfo
@@ -53,6 +55,12 @@ func (c *ClusterInfoImp) CheckRunningInOpenshift(creader client.Reader, ctx cont
 	c.runningInOpenshift = isOpenShift
 	if isOpenShift {
 		logger.Info("Cluster type = openshift", "version", version)
+		domain, err := getClusterDomain(creader, ctx)
+		if err != nil {
+			return err
+		} else {
+			c.domain = domain
+		}
 	} else {
 		logger.Info("Cluster type = kubernetes")
 	}
@@ -66,6 +74,23 @@ func (c ClusterInfoImp) IsOpenshift() bool {
 
 func (c ClusterInfoImp) IsRunningLocally() bool {
 	return c.runningLocally
+}
+
+func (c ClusterInfoImp) GetDomain() string {
+	return c.domain
+}
+
+func getClusterDomain(creader client.Reader, ctx context.Context) (string, error) {
+	clusterIngress := &openshiftconfigv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+	}
+	if err := creader.Get(ctx, client.ObjectKeyFromObject(clusterIngress), clusterIngress); err != nil {
+		return "", err
+	}
+	return clusterIngress.Spec.Domain, nil
+
 }
 
 func init() {

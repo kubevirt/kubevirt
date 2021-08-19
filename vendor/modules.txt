@@ -150,6 +150,7 @@ github.com/onsi/gomega/types
 ## explicit
 github.com/openshift/api/config/v1
 github.com/openshift/api/console/v1
+github.com/openshift/api/route/v1
 # github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
 ## explicit
 github.com/openshift/custom-resource-status/conditions/v1

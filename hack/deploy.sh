@@ -28,7 +28,11 @@ HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
 HCO_CRD_NAME="hyperconvergeds.hco.kubevirt.io"
-ENABLE_SSP=${ENABLE_SSP:-false}
+IS_OPENSHIFT=${IS_OPENSHIFT:-false}
+
+if ${CMD}  api-resources |grep clusterversions |grep config.openshift.io; then
+  IS_OPENSHIFT="true"
+fi
 
 CI=""
 if [ "$1" == "CI" ]; then
@@ -118,10 +122,10 @@ function debug(){
     exit 1
 }
 
-# In case SSP is disabled, apply with a label selector to filter out its resources.
+# Exclude Openshift specific resources
 LABEL_SELECTOR_ARG=""
-if [ "$ENABLE_SSP" != "true" ]; then
-    LABEL_SELECTOR_ARG="-l name!=ssp-operator"
+if [ "$IS_OPENSHIFT" != "true" ]; then
+    LABEL_SELECTOR_ARG="-l name!=ssp-operator,name!=hyperconverged-cluster-cli-download"
 fi
 
 # Deploy cert-manager for webhooks
@@ -173,8 +177,9 @@ OPERATORS=(
     "vm-import-operator"
 )
 
-if [ "$ENABLE_SSP" = "true" ]; then
+if [ "$IS_OPENSHIFT" = "true" ]; then
     OPERATORS+=("ssp-operator")
+    OPERATORS+=("hyperconverged-cluster-cli-download")
 fi
 
 for op in "${OPERATORS[@]}"; do

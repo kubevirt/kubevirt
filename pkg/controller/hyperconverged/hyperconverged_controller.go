@@ -5,6 +5,8 @@ import (
 	"fmt"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
+	consolev1 "github.com/openshift/api/console/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"os"
@@ -138,6 +140,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		&schedulingv1.PriorityClass{},
 		&vmimportv1beta1.VMImportConfig{},
 		&corev1.ConfigMap{},
+		&corev1.Service{},
 		&rbacv1.Role{},
 		&rbacv1.RoleBinding{},
 	}
@@ -146,6 +149,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 			&corev1.Service{},
 			&monitoringv1.ServiceMonitor{},
 			&monitoringv1.PrometheusRule{},
+			&routev1.Route{},
+			&consolev1.ConsoleCLIDownload{},
 		}...)
 	}
 

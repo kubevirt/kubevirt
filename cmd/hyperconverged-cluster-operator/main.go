@@ -7,6 +7,7 @@ import (
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
+	openshiftroutev1 "github.com/openshift/api/route/v1"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -63,6 +64,7 @@ var (
 		admissionregistrationv1.AddToScheme,
 		consolev1.Install,
 		openshiftconfigv1.Install,
+		openshiftroutev1.Install,
 		monitoringv1.AddToScheme,
 		apiextensionsv1.AddToScheme,
 		kubevirtv1.AddToScheme,
@@ -173,6 +175,9 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 				},
 				&rbacv1.RoleBinding{}: {
 					Label: labelSelector,
+					Field: namespaceSelector,
+				},
+				&openshiftroutev1.Route{}: {
 					Field: namespaceSelector,
 				},
 			},

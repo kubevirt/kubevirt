@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	consolev1 "github.com/openshift/api/console/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"os"
 
@@ -84,6 +85,8 @@ type BasicExpected struct {
 	serviceMonitor       *monitoringv1.ServiceMonitor
 	promRule             *monitoringv1.PrometheusRule
 	cliDownload          *consolev1.ConsoleCLIDownload
+	cliDownloadsRoute    *routev1.Route
+	cliDownloadsService  *corev1.Service
 	hcoCRD               *apiextensionsv1.CustomResourceDefinition
 }
 
@@ -104,6 +107,8 @@ func (be BasicExpected) toArray() []runtime.Object {
 		be.serviceMonitor,
 		be.promRule,
 		be.cliDownload,
+		be.cliDownloadsRoute,
+		be.cliDownloadsService,
 		be.hcoCRD,
 	}
 }
@@ -205,6 +210,14 @@ func getBasicDeployment() *BasicExpected {
 	expectedCliDownload := operands.NewConsoleCLIDownload(hco)
 	expectedCliDownload.SelfLink = fmt.Sprintf("/apis/console.openshift.io/v1/consoleclidownloads/%s", expectedCliDownload.Name)
 	res.cliDownload = expectedCliDownload
+
+	expectedCliDownloadsRoute := operands.NewCliDownloadsRoute(hco)
+	expectedCliDownloadsRoute.SelfLink = fmt.Sprintf("/apis/route.openshift.io/v1/namespaces/%s/routes/%s", expectedCliDownloadsRoute.Namespace, expectedCliDownloadsRoute.Name)
+	res.cliDownloadsRoute = expectedCliDownloadsRoute
+
+	expectedCliDownloadsService := operands.NewCliDownloadsService(hco)
+	expectedCliDownloadsService.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/services/%s", expectedCliDownloadsService.Namespace, expectedCliDownloadsService.Name)
+	res.cliDownloadsService = expectedCliDownloadsService
 
 	hcoCrd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{

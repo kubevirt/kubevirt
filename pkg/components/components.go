@@ -40,13 +40,21 @@ const (
 	hcoWhDeploymentName = "hco-webhook"
 	certVolume          = "apiservice-cert"
 
+	cliDownloadsName = "hyperconverged-cluster-cli-download"
+
 	kubevirtProjectName = "KubeVirt project"
 )
+
+var deploymentType = metav1.TypeMeta{
+	APIVersion: "apps/v1",
+	Kind:       "Deployment",
+}
 
 type DeploymentOperatorParams struct {
 	Namespace           string
 	Image               string
 	WebhookImage        string
+	CliDownloadsImage   string
 	ImagePullPolicy     string
 	ConversionContainer string
 	VmwareContainer     string
@@ -66,10 +74,7 @@ type DeploymentOperatorParams struct {
 
 func GetDeploymentOperator(params *DeploymentOperatorParams) appsv1.Deployment {
 	return appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "Deployment",
-		},
+		TypeMeta: deploymentType,
 		ObjectMeta: metav1.ObjectMeta{
 			Name: hcoName,
 			Labels: map[string]string{
@@ -82,10 +87,7 @@ func GetDeploymentOperator(params *DeploymentOperatorParams) appsv1.Deployment {
 
 func GetDeploymentWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion string, env []corev1.EnvVar) appsv1.Deployment {
 	deploy := appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "Deployment",
-		},
+		TypeMeta: deploymentType,
 		ObjectMeta: metav1.ObjectMeta{
 			Name: hcoNameWebhook,
 			Labels: map[string]string{
@@ -97,6 +99,19 @@ func GetDeploymentWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion stri
 
 	InjectVolumesForWebHookCerts(&deploy)
 	return deploy
+}
+
+func GetDeploymentCliDownloads(params *DeploymentOperatorParams) appsv1.Deployment {
+	return appsv1.Deployment{
+		TypeMeta: deploymentType,
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cliDownloadsName,
+			Labels: map[string]string{
+				"name": cliDownloadsName,
+			},
+		},
+		Spec: GetDeploymentSpecCliDownloads(params),
+	}
 }
 
 func GetServiceWebhook() v1.Service {
@@ -251,6 +266,46 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 					},
 				},
 				PriorityClassName: "system-cluster-critical",
+			},
+		},
+	}
+}
+
+func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.DeploymentSpec {
+	return appsv1.DeploymentSpec{
+		Replicas: int32Ptr(1),
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"name": cliDownloadsName,
+			},
+		},
+		Strategy: appsv1.DeploymentStrategy{
+			Type: appsv1.RollingUpdateDeploymentStrategyType,
+		},
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: getLabels(cliDownloadsName, params.HcoKvIoVersion),
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            "server",
+						Image:           params.CliDownloadsImage,
+						ImagePullPolicy: corev1.PullPolicy(params.ImagePullPolicy),
+						Resources: v1.ResourceRequirements{
+							Requests: map[v1.ResourceName]resource.Quantity{
+								v1.ResourceCPU:    resource.MustParse("10m"),
+								v1.ResourceMemory: resource.MustParse("96Mi"),
+							},
+						},
+						Ports: []v1.ContainerPort{
+							{
+								Protocol:      v1.ProtocolTCP,
+								ContainerPort: int32(8080),
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -448,10 +503,11 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			APIGroups: []string{
 				"config.openshift.io",
 			},
-			Resources: stringListToSilce("clusterversions"),
+			Resources: stringListToSilce("clusterversions", "ingresses"),
 			Verbs:     stringListToSilce("get", "list"),
 		},
 		roleWithAllPermissions("coordination.k8s.io", stringListToSilce("leases")),
+		roleWithAllPermissions("route.openshift.io", stringListToSilce("routes")),
 	}
 }
 
@@ -799,6 +855,11 @@ func GetInstallStrategyBase(params *DeploymentOperatorParams) *csvv1alpha1.Strat
 				Name:  hcoWhDeploymentName,
 				Spec:  GetDeploymentSpecWebhook(params.Namespace, params.WebhookImage, params.ImagePullPolicy, params.HcoKvIoVersion, params.Env),
 				Label: getLabels(hcoNameWebhook, params.HcoKvIoVersion),
+			},
+			{
+				Name:  cliDownloadsName,
+				Spec:  GetDeploymentSpecCliDownloads(params),
+				Label: getLabels(cliDownloadsName, params.HcoKvIoVersion),
 			},
 		},
 		Permissions: []csvv1alpha1.StrategyDeploymentPermissions{},

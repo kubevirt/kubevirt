@@ -49,6 +49,7 @@ source "${PROJECT_ROOT}"/deploy/images.env
 
 HCO_OPERATOR_IMAGE=${HCO_OPERATOR_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:${CSV_VERSION}-unstable}
 HCO_WEBHOOK_IMAGE=${HCO_WEBHOOK_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-webhook:${CSV_VERSION}-unstable}
+HCO_DOWNLOADS_IMAGE=${HCO_DOWNLOADS_IMAGE:-quay.io/kubevirt/virt-artifacts-server:${CSV_VERSION}-unstable}
 DIGEST_LIST="${DIGEST_LIST},${HCO_OPERATOR_IMAGE}|hyperconverged-cluster-operator,${HCO_WEBHOOK_IMAGE}|hyperconverged-cluster-webhook"
 
 DEPLOY_DIR="${PROJECT_ROOT}/deploy"
@@ -328,7 +329,9 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --hppo-version="${HPPO_VERSION}" \
   --vm-import-version="${VM_IMPORT_VERSION}" \
   --operator-image="${HCO_OPERATOR_IMAGE}" \
-  --webhook-image="${HCO_WEBHOOK_IMAGE}"
+  --webhook-image="${HCO_WEBHOOK_IMAGE}" \
+  --cli-downloads-image="${HCO_DOWNLOADS_IMAGE}"
+
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go clean)
 
 if [[ "$1" == "UNIQUE"  ]]; then
@@ -371,7 +374,8 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --vm-import-version="${VM_IMPORT_VERSION}" \
   --related-images-list="${DIGEST_LIST}" \
   --operator-image-name="${HCO_OPERATOR_IMAGE}" \
-  --webhook-image-name="${HCO_WEBHOOK_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
+  --webhook-image-name="${HCO_WEBHOOK_IMAGE}" \
+  --cli-downloads-image-name="${HCO_DOWNLOADS_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
 
 rendered_csv="$(cat "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}")"
 rendered_keywords="$(echo "$rendered_csv" |grep 'keywords' -A 3)"
@@ -415,4 +419,7 @@ cp "${OLM_DIR}/bundle.Dockerfile" "${INDEX_IMAGE_DIR:?}/"
 cp "${OLM_DIR}/Dockerfile.bundle.ci-index-image-upgrade" "${INDEX_IMAGE_DIR:?}/"
 
 INDEX_IMAGE_CSV="${INDEX_IMAGE_DIR}/${PACKAGE_NAME}/${CSV_VERSION}/manifests/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
-sed -r -i "s|createdAt: \".*\$|createdAt: \"2020-10-23 08:58:25\"|; s|quay.io/kubevirt/hyperconverged-cluster-operator.*$|+IMAGE_TO_REPLACE+|; s|quay.io/kubevirt/hyperconverged-cluster-webhook.*$|+WEBHOOK_IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}
+sed -r -i "s|createdAt: \".*\$|createdAt: \"2020-10-23 08:58:25\"|;" ${INDEX_IMAGE_CSV}
+sed -r -i "s|quay.io/kubevirt/hyperconverged-cluster-operator.*$|+IMAGE_TO_REPLACE+|;" ${INDEX_IMAGE_CSV}
+sed -r -i "s|quay.io/kubevirt/hyperconverged-cluster-webhook.*$|+WEBHOOK_IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}
+sed -r -i "s|quay.io/kubevirt/virt-artifacts-server.*$|+ARTIFACTS_SERVER_IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}

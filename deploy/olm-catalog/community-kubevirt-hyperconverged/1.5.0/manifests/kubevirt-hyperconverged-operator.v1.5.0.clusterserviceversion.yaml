@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.5.0-unstable
-    createdAt: "2021-08-18 10:07:57"
+    createdAt: "2021-08-19 09:23:44"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -403,6 +403,7 @@ spec:
           - config.openshift.io
           resources:
           - clusterversions
+          - ingresses
           verbs:
           - get
           - list
@@ -410,6 +411,17 @@ spec:
           - coordination.k8s.io
           resources:
           - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
           verbs:
           - get
           - list
@@ -2001,6 +2013,40 @@ spec:
                     memory: 48Mi
               priorityClassName: system-node-critical
               serviceAccountName: hyperconverged-cluster-operator
+      - label:
+          app.kubernetes.io/component: deployment
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.5.0
+          name: hyperconverged-cluster-cli-download
+        name: hyperconverged-cluster-cli-download
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: hyperconverged-cluster-cli-download
+          strategy:
+            type: RollingUpdate
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/component: deployment
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.5.0
+                name: hyperconverged-cluster-cli-download
+            spec:
+              containers:
+              - image: quay.io/kubevirt/virt-artifacts-server:1.5.0-unstable
+                imagePullPolicy: IfNotPresent
+                name: server
+                ports:
+                - containerPort: 8080
+                  protocol: TCP
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 96Mi
       - label:
           app.kubernetes.io/component: network
           app.kubernetes.io/managed-by: olm
