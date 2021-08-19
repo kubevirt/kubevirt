@@ -411,6 +411,10 @@ func SetIsoCreationFunction(isoFunc IsoCreationFunc) {
 	cloudInitIsoFunc = isoFunc
 }
 
+func SetLocalDirectoryNoCreate(dir string) {
+	cloudInitLocalDir = dir
+}
+
 func SetLocalDirectory(dir string) error {
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
