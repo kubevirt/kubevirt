@@ -625,8 +625,9 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 				return err
 			}
 
+			indications := []snapshotv1.Indication{}
 			if online {
-				indications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication}
+				indications = append(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
 				ga, err := source.GuestAgent()
 				if err != nil {
@@ -639,9 +640,8 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 				} else {
 					indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
 				}
-
-				vmSnapshotCpy.Status.Indications = indications
 			}
+			vmSnapshotCpy.Status.Indications = indications
 		} else {
 			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 		}
