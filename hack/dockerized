@@ -130,8 +130,8 @@ fi
 # Ensure that a bazel server which is running is the correct one
 if [ -n "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
     # check if the image is correct
-    builder_id=$($KUBEVIRT_CRI inspect ${KUBEVIRT_BUILDER_IMAGE} | $KUBEVIRT_CRI run --security-opt "label=disable" --rm -i imega/jq:1.6 ".[0].Id")
-    bazel_server_id=$($KUBEVIRT_CRI inspect ${BUILDER}-bazel-server | $KUBEVIRT_CRI run --security-opt "label=disable" --rm -i imega/jq:1.6 ".[0].Image")
+    builder_id=$($KUBEVIRT_CRI inspect --format='{{.Id}}' ${KUBEVIRT_BUILDER_IMAGE})
+    bazel_server_id=$($KUBEVIRT_CRI inspect --format='{{.Image}}' ${BUILDER}-bazel-server)
     if [ "${builder_id}" != "${bazel_server_id}" ]; then
         echo "Bazel server is outdated, restarting ..."
         $KUBEVIRT_CRI stop ${BUILDER}-bazel-server
