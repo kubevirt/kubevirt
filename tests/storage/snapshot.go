@@ -482,18 +482,13 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(content.Spec.VolumeBackups).Should(BeEmpty())
 			})
 
-			It("[test_id:6837]delete snapshot after freeze, excpect vm unfreeze", func() {
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", func() {
+				var vmi *v1.VirtualMachineInstance
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
-					corev1.ReadWriteOnce)
-				dataVolume.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("6Gi")
-				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserData(
-					dataVolume,
-					"#!/bin/bash\necho 'I don't need a cloud-init payload, refactor me'\n",
-				))
+					corev1.ReadWriteOnce))
 				tests.WaitAgentConnected(virtClient, vmi)
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
@@ -519,17 +514,12 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("should unfreeze vm if snapshot fails when deadline exceeded", func() {
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+				var vmi *v1.VirtualMachineInstance
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
-					corev1.ReadWriteOnce)
-				dataVolume.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("6Gi")
-				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserData(
-					dataVolume,
-					"#!/bin/bash\necho 'I don't need a cloud-init payload, refactor me'\n",
-				))
+					corev1.ReadWriteOnce))
 				tests.WaitAgentConnected(virtClient, vmi)
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 

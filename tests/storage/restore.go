@@ -806,16 +806,11 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:6836]should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func() {
-				dataVolume := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
 					util.NamespaceTestDefault,
 					snapshotStorageClass,
-					corev1.ReadWriteOnce)
-				dataVolume.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("6Gi")
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserData(
-					dataVolume,
-					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }",
-				))
+					corev1.ReadWriteOnce))
 				tests.WaitAgentConnected(virtClient, vmi)
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
