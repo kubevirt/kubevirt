@@ -58,7 +58,7 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		Expect(err.Error()).To(And(ContainSubstring(feature), ContainSubstring("nonroot")))
 
 	},
-		table.Entry("SRIOV", sriovVM, "", "SRIOV"),
-		table.Entry("VirtioFS", virtioFsVM, virtconfig.VirtIOFSGate, "VirtioFS"),
+		table.Entry("[test_id:7126]SRIOV", sriovVM, "", "SRIOV"),
+		table.Entry("[test_id:7127]VirtioFS", virtioFsVM, virtconfig.VirtIOFSGate, "VirtioFS"),
 	)
 })
