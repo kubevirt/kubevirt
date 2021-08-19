@@ -1,13 +1,11 @@
-package prometheus_test
+package prometheus
 
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestPrometheus(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Prometheus Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
