@@ -933,7 +933,6 @@ kubevirt.io/containerized-data-importer v1.36.0 h1:DRhM9D4jHwhjc8KJECoj7bS1NagDL
 kubevirt.io/containerized-data-importer v1.36.0/go.mod h1:4TbKL1HJekxbv2DtuaCu2BlQxwU9YkYxgb1qU3HTF4s=
 kubevirt.io/controller-lifecycle-operator-sdk v0.2.0 h1:/6baCbfeFl3z09nCPNAeCgTR2704yqj/HV+sv7ZhHNI=
 kubevirt.io/controller-lifecycle-operator-sdk v0.2.0/go.mod h1:ZJhLceiY2Gl5CXFGSp5eMGt/sksOiJP0289nAZFCQf0=
-kubevirt.io/kubevirt v0.43.0 h1:fNTmGOJTaNDnJdqTUC1cOWj+zeB61qkEe12OE7sv1n8=
 kubevirt.io/qe-tools v0.1.6/go.mod h1:PJyH/YXC4W0AmxfheDmXWMbLNsMSboVGXKpMAwfKzVE=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
