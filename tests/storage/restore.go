@@ -824,6 +824,54 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
+			It("should restore vm spec at startup without new changes", func() {
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+					util.NamespaceTestDefault,
+					snapshotStorageClass,
+					corev1.ReadWriteOnce))
+				tests.WaitAgentConnected(virtClient, vmi)
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+
+				By("Updating the VM template spec")
+				initialMemory := vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
+				newMemory := resource.MustParse("2Gi")
+				Expect(newMemory).ToNot(Equal(initialMemory))
+
+				newVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				updatedVM := newVM.DeepCopy()
+				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceMemory: newMemory,
+				}
+				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("creating snapshot")
+				snapshot = createSnapshot(vm)
+
+				newVM = tests.StopVirtualMachine(updatedVM)
+				newVM = tests.StartVirtualMachine(newVM)
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(newMemory))
+
+				newVM = tests.StopVirtualMachine(newVM)
+
+				By("Restoring VM")
+				restore = createRestoreDef(newVM, snapshot.Name)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				restore = waitRestoreComplete(restore, newVM)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+
+				newVM = tests.StartVirtualMachine(newVM)
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
+			})
+
 		})
 	})
 })
