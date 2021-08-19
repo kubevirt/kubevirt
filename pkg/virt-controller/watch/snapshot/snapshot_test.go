@@ -444,6 +444,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
+					Indications: []snapshotv1.Indication{},
 				}
 				vmSource.Add(vm)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
@@ -483,6 +484,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
+					Indications: []snapshotv1.Indication{},
 				}
 				vmSource.Add(vm)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
@@ -537,6 +539,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{}
 				content := createVMSnapshotContent()
 				updatedContent := content.DeepCopy()
 				updatedContent.ResourceVersion = "1"
@@ -607,6 +610,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -630,6 +634,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -649,6 +654,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				vmSnapshotSource.Add(vmSnapshot)
@@ -789,6 +795,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -878,6 +885,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -911,6 +919,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
+					Indications: []snapshotv1.Indication{},
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
