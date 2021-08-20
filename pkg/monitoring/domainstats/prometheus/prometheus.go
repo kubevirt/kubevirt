@@ -29,8 +29,6 @@ import (
 
 	vms "kubevirt.io/kubevirt/pkg/monitoring/domainstats"
 
-	"libvirt.org/go/libvirt"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -482,6 +480,10 @@ func (co *DomainStatsCollector) Collect(ch chan<- prometheus.Metric) {
 	return
 }
 
+func NewPrometheusScraper(ch chan<- prometheus.Metric) *prometheusScraper {
+	return &prometheusScraper{ch: ch}
+}
+
 type prometheusScraper struct {
 	ch chan<- prometheus.Metric
 }
@@ -617,11 +619,11 @@ func newVmiMetrics(vmi *k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metri
 
 func humanReadableState(state int) string {
 	switch state {
-	case int(libvirt.VCPU_OFFLINE):
+	case stats.VCPUOffline:
 		return "offline"
-	case int(libvirt.VCPU_BLOCKED):
+	case stats.VCPUBlocked:
 		return "blocked"
-	case int(libvirt.VCPU_RUNNING):
+	case stats.VCPURunning:
 		return "running"
 	default:
 		return "unknown"
