@@ -66,10 +66,11 @@ bazel run \
     libmount \
     lz4-libs
 
-# create a rpmtree for virt-launcher and virt-handler. This is the OS for our node-components.
+# create a rpmtree for virt-launcher.
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --name launcherbase_x86_64 \
+    --force-ignore-with-dependencies '^mozjs60' \
     $basesystem \
     libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
     libvirt-client-${LIBVIRT_VERSION} \
@@ -86,6 +87,7 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --arch=aarch64 --name launcherbase_aarch64 \
+    --force-ignore-with-dependencies '^mozjs60' \
     $basesystem \
     libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
     libvirt-client-${LIBVIRT_VERSION} \
@@ -96,6 +98,35 @@ bazel run \
     findutils \
     procps-ng \
     iptables \
+    tar
+
+# create a rpmtree for virt-handler
+bazel run \
+    --config=${ARCHITECTURE} \
+    //:bazeldnf -- rpmtree --public --arch=aarch64 --name handlerbase_aarch64 \
+    $basesystem \
+    qemu-img-${QEMU_VERSION} \
+    xorriso \
+    nftables \
+    findutils \
+    procps-ng \
+    iptables \
+    iproute \
+    util-linux \
+    tar
+
+bazel run \
+    --config=${ARCHITECTURE} \
+    //:bazeldnf -- rpmtree --public --name handlerbase_x86_64 \
+    $basesystem \
+    qemu-img-${QEMU_VERSION} \
+    xorriso \
+    nftables \
+    findutils \
+    procps-ng \
+    iptables \
+    iproute \
+    util-linux \
     tar
 
 bazel run \

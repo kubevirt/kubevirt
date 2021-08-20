@@ -140,11 +140,11 @@ container_image(
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             ":passwd-tar",
-            "//rpm:launcherbase_aarch64",
+            "//rpm:handlerbase_aarch64",
         ],
         "//conditions:default": [
             ":passwd-tar",
-            "//rpm:launcherbase_x86_64",
+            "//rpm:handlerbase_x86_64",
         ],
     }),
 )
