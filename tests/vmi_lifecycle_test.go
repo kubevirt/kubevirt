@@ -510,7 +510,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("[Serial]when virt-handler is responsive", func() {
-			It("[QUARANTINE][test_id:1633]should indicate that a node is ready for vmis", func() {
+			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
 				nodes := util.GetAllSchedulableNodes(virtClient)
@@ -524,13 +524,18 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 				timestamp := node.Annotations[v1.VirtHandlerHeartbeat]
 
-				By("setting the schedulable label back to true")
+				By("waiting for the schedulable label to be set back to true")
+				// At the time of writing, the virt-handler heartbeat is set to:
+				// 1 minute with a 1.2 jitter + the time it takes for the heartbeat function to run (sliding == true).
+				// So the amount of time between heartbeats randomly varies between 1min and 2min12sec + the heartbeat fonction execution time.
+				// Assuming the heartbeat fonction won't take more than 48 seconds, so expecting the heartbeat to happen within 3 minutes.
 				Eventually(func() string {
 					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
 					return n.Labels[v1.NodeSchedulable]
-				}, 2*time.Minute, 2*time.Second).Should(Equal("true"), "Nodes should be schedulable")
-				By("updating the heartbeat roughly every minute")
+				}, 3*time.Minute, 2*time.Second).Should(Equal("true"), "Nodes should be schedulable")
+
+				By("ensuring the heartbeat timestamp got updated")
 				Expect(func() string {
 					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
