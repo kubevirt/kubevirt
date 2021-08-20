@@ -9977,6 +9977,10 @@
      "name"
     ],
     "properties": {
+     "hotpluggable": {
+      "description": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
+      "type": "boolean"
+     },
      "name": {
       "description": "Name represents the name of the DataVolume in the same namespace",
       "type": "string"
@@ -10708,7 +10712,7 @@
      },
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimVolumeSource"
+      "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
      }
     }
    },
@@ -11555,6 +11559,27 @@
      "volumeMode": {
       "description": "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.",
       "type": "string"
+     }
+    }
+   },
+   "v1.PersistentVolumeClaimVolumeSource": {
+    "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+    "type": "object",
+    "required": [
+     "claimName"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "ClaimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "type": "string"
+     },
+     "hotpluggable": {
+      "description": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
+      "type": "boolean"
+     },
+     "readOnly": {
+      "description": "Will force the ReadOnly setting in VolumeMounts. Default false.",
+      "type": "boolean"
      }
     }
    },
@@ -13174,7 +13199,7 @@
      },
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimVolumeSource"
+      "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
      },
      "secret": {
       "description": "SecretVolumeSource represents a reference to a secret data in the same namespace. More info: https://kubernetes.io/docs/concepts/configuration/secret/",

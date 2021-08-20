@@ -580,6 +580,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIDefined)
@@ -657,6 +658,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIDefined)
 			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(1))
@@ -1133,6 +1135,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
 				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
 			})
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, "failed to configure vmi network:")
 			testutils.ExpectEvent(recorder, VMICrashed)
@@ -1169,6 +1172,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			vmiInterface.EXPECT().Update(updatedVMI)
 
 			controller.Execute()
@@ -1234,6 +1238,20 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Context("reacting to a VMI with hotplug", func() {
 			BeforeEach(func() {
 				controller.hotplugVolumeMounter = mockHotplugVolumeMounter
+			})
+
+			It("should call mount if VMI is scheduled to run", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Scheduled
+				vmiFeeder.Add(vmi)
+				vmiInterface.EXPECT().Update(gomock.Any())
+				mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).Times(1)
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
+				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+
+				controller.Execute()
+				testutils.ExpectEvent(recorder, VMIDefined)
 			})
 
 			It("should call mount and unmount if VMI is running", func() {
@@ -1887,9 +1905,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				{
 					Name: "myvolume",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
-						},
+						}},
 					},
 				},
 			}
@@ -1924,9 +1942,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				{
 					Name: "myvolume",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
-						},
+						}},
 					},
 				},
 			}
@@ -2010,9 +2028,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				{
 					Name: "myvolume",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
-						},
+						}},
 					},
 				},
 				{
@@ -2075,9 +2093,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				{
 					Name: "myvolume",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
-						},
+						}},
 					},
 				},
 			}

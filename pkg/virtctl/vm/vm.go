@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -216,7 +216,8 @@ func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.
 	if err == nil {
 		return &v1.HotplugVolumeSource{
 			DataVolume: &v1.DataVolumeSource{
-				Name: volumeName,
+				Name:         volumeName,
+				Hotpluggable: true,
 			},
 		}, nil
 	}
@@ -224,8 +225,11 @@ func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.
 	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
 	if err == nil {
 		return &v1.HotplugVolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: volumeName,
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: volumeName,
+				},
+				Hotpluggable: true,
 			},
 		}, nil
 	}

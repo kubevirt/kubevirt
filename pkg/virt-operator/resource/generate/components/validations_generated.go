@@ -5085,6 +5085,10 @@ var CRDsValidation map[string]string = map[string]string{
                           PVC for this volume as well as the process of populating
                           that PVC with a disk image.
                         properties:
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
                           name:
                             description: Name represents the name of the DataVolume
                               in the same namespace
@@ -5256,6 +5260,10 @@ var CRDsValidation map[string]string = map[string]string{
                               in the same namespace as the pod using this volume.
                               More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
                             type: string
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
                           readOnly:
                             description: Will force the ReadOnly setting in VolumeMounts.
                               Default false.
@@ -5555,6 +5563,10 @@ var CRDsValidation map[string]string = map[string]string{
                           PVC for this volume as well as the process of populating
                           that PVC with a disk image.
                         properties:
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
                           name:
                             description: Name represents the name of the DataVolume
                               in the same namespace
@@ -5572,6 +5584,10 @@ var CRDsValidation map[string]string = map[string]string{
                               in the same namespace as the pod using this volume.
                               More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
                             type: string
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
                           readOnly:
                             description: Will force the ReadOnly setting in VolumeMounts.
                               Default false.
@@ -7709,6 +7725,10 @@ var CRDsValidation map[string]string = map[string]string{
                   this volume as well as the process of populating that PVC with a
                   disk image.
                 properties:
+                  hotpluggable:
+                    description: Hotpluggable indicates whether the volume can be
+                      hotplugged and hotunplugged.
+                    type: boolean
                   name:
                     description: Name represents the name of the DataVolume in the
                       same namespace
@@ -7873,6 +7893,10 @@ var CRDsValidation map[string]string = map[string]string{
                       in the same namespace as the pod using this volume. More info:
                       https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
                     type: string
+                  hotpluggable:
+                    description: Hotpluggable indicates whether the volume can be
+                      hotplugged and hotunplugged.
+                    type: boolean
                   readOnly:
                     description: Will force the ReadOnly setting in VolumeMounts.
                       Default false.
@@ -11515,6 +11539,10 @@ var CRDsValidation map[string]string = map[string]string{
                           PVC for this volume as well as the process of populating
                           that PVC with a disk image.
                         properties:
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
                           name:
                             description: Name represents the name of the DataVolume
                               in the same namespace
@@ -11686,6 +11714,10 @@ var CRDsValidation map[string]string = map[string]string{
                               in the same namespace as the pod using this volume.
                               More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
                             type: string
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
                           readOnly:
                             description: Will force the ReadOnly setting in VolumeMounts.
                               Default false.
@@ -15064,6 +15096,10 @@ var CRDsValidation map[string]string = map[string]string{
                                       creation a PVC for this volume as well as the
                                       process of populating that PVC with a disk image.
                                     properties:
+                                      hotpluggable:
+                                        description: Hotpluggable indicates whether
+                                          the volume can be hotplugged and hotunplugged.
+                                        type: boolean
                                       name:
                                         description: Name represents the name of the
                                           DataVolume in the same namespace
@@ -15253,6 +15289,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           in the same namespace as the pod using this
                                           volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
                                         type: string
+                                      hotpluggable:
+                                        description: Hotpluggable indicates whether
+                                          the volume can be hotplugged and hotunplugged.
+                                        type: boolean
                                       readOnly:
                                         description: Will force the ReadOnly setting
                                           in VolumeMounts. Default false.
@@ -15583,6 +15623,10 @@ var CRDsValidation map[string]string = map[string]string{
                                       creation a PVC for this volume as well as the
                                       process of populating that PVC with a disk image.
                                     properties:
+                                      hotpluggable:
+                                        description: Hotpluggable indicates whether
+                                          the volume can be hotplugged and hotunplugged.
+                                        type: boolean
                                       name:
                                         description: Name represents the name of the
                                           DataVolume in the same namespace
@@ -15601,6 +15645,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           in the same namespace as the pod using this
                                           volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
                                         type: string
+                                      hotpluggable:
+                                        description: Hotpluggable indicates whether
+                                          the volume can be hotplugged and hotunplugged.
+                                        type: boolean
                                       readOnly:
                                         description: Will force the ReadOnly setting
                                           in VolumeMounts. Default false.

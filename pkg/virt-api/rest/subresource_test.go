@@ -895,9 +895,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: "existingvol",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testpvcdiskclaim",
-						},
+						}},
 					},
 				})
 				server.AppendHandlers(
@@ -970,9 +970,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "existingvol",
 				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "testpvcdiskclaim",
-					},
+					}},
 				},
 			})
 

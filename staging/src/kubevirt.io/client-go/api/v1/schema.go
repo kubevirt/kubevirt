@@ -708,7 +708,7 @@ type VolumeSource struct {
 	// Directly attached to the vmi via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
-	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	PersistentVolumeClaim *PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 	// CloudInitNoCloud represents a cloud-init NoCloud user-data source.
 	// The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
 	// More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
@@ -768,7 +768,7 @@ type HotplugVolumeSource struct {
 	// Directly attached to the vmi via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
-	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	PersistentVolumeClaim *PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 	// DataVolume represents the dynamic creation a PVC for this volume as well as
 	// the process of populating that PVC with a disk image.
 	// +optional
@@ -780,6 +780,21 @@ type HotplugVolumeSource struct {
 type DataVolumeSource struct {
 	// Name represents the name of the DataVolume in the same namespace
 	Name string `json:"name"`
+	// Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.
+	// +optional
+	Hotpluggable bool `json:"hotpluggable,omitempty"`
+}
+
+// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+// Directly attached to the vmi via qemu.
+// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+//
+// +k8s:openapi-gen=true
+type PersistentVolumeClaimVolumeSource struct {
+	v1.PersistentVolumeClaimVolumeSource `json:",inline"`
+	// Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.
+	// +optional
+	Hotpluggable bool `json:"hotpluggable,omitempty"`
 }
 
 //

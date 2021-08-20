@@ -418,8 +418,10 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 						nv := kubevirtv1.Volume{
 							Name: v.Name,
 							VolumeSource: kubevirtv1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: vr.PersistentVolumeClaimName,
+								PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: vr.PersistentVolumeClaimName,
+									},
 								},
 							},
 						}

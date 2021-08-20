@@ -190,10 +190,13 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 			}
 
 			if request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim != nil {
-				newVolume.VolumeSource.PersistentVolumeClaim = request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim
+				pvcSource := request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim.DeepCopy()
+				pvcSource.Hotpluggable = true
+				newVolume.VolumeSource.PersistentVolumeClaim = pvcSource
 			} else if request.AddVolumeOptions.VolumeSource.DataVolume != nil {
-
-				newVolume.VolumeSource.DataVolume = request.AddVolumeOptions.VolumeSource.DataVolume
+				dvSource := request.AddVolumeOptions.VolumeSource.DataVolume.DeepCopy()
+				dvSource.Hotpluggable = true
+				newVolume.VolumeSource.DataVolume = dvSource
 			}
 
 			vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)
@@ -317,6 +320,14 @@ func SetVMIPhaseTransitionTimestamp(oldVMI *v1.VirtualMachineInstance, newVMI *v
 func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume != nil {
+			return true
+		}
+	}
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+			return true
+		}
+		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
 			return true
 		}
 	}

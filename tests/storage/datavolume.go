@@ -232,9 +232,9 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: diskName,
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: dv.ObjectMeta.Name,
-						},
+						}},
 					},
 				})
 
@@ -278,9 +278,9 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: diskName,
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: dv.ObjectMeta.Name,
-						},
+						}},
 					},
 				})
 

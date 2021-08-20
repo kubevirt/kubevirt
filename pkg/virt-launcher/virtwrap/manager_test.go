@@ -1460,9 +1460,9 @@ var _ = Describe("Manager", func() {
 				{
 					Name: "myvolume",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
-						},
+						}},
 					},
 				},
 				{

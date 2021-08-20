@@ -2489,6 +2489,11 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return fmt.Errorf("failed to mount kernel artifacts: %v", err)
 		}
 
+		// Try to mount hotplug volume if there is any during startup.
+		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
+			return err
+		}
+
 		criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
 		if err != nil {
 			if criticalNetworkError {

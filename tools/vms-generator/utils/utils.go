@@ -309,8 +309,8 @@ func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus strin
 	spec.Volumes = append(spec.Volumes, v1.Volume{
 		Name: diskName,
 		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claimName},
 			},
 		},
 	})

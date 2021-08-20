@@ -471,9 +471,9 @@ var _ = Describe("Converter", func() {
 				{
 					Name: "pvc_block_test",
 					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
-						},
+						}},
 					},
 				},
 				{

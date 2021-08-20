@@ -1048,6 +1048,11 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 	volumeRequest := v1.VirtualMachineVolumeRequest{
 		AddVolumeOptions: opts,
 	}
+	if opts.VolumeSource.DataVolume != nil {
+		opts.VolumeSource.DataVolume.Hotpluggable = true
+	} else if opts.VolumeSource.PersistentVolumeClaim != nil {
+		opts.VolumeSource.PersistentVolumeClaim.Hotpluggable = true
+	}
 
 	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
 	if ephemeral {

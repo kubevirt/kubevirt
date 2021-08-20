@@ -442,6 +442,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			hotplugVolumes[volumeStatus.Name] = true
 		}
 	}
+	// This detects hotplug volumes for a started but not ready VMI
+	for _, volume := range vmi.Spec.Volumes {
+		if (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) {
+			hotplugVolumes[volume.Name] = true
+		}
+	}
 
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
 	if t.IsPPC64() {
@@ -522,7 +528,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: volume.PersistentVolumeClaim,
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: volume.PersistentVolumeClaim.ClaimName,
+						ReadOnly:  volume.PersistentVolumeClaim.ReadOnly,
+					},
 				},
 			})
 		}
