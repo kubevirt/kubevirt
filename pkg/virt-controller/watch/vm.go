@@ -755,12 +755,10 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(vmi)
 	if err != nil {
-		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.expectations.CreationObserved(vmKey)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
 		return err
 	}
-	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 
 	return nil
@@ -918,8 +916,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		return err
 	}
 
-	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
-	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s/%s with phase %s", vmi.Namespace, vmi.Name, vmi.Status.Phase)
+	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopping the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
 
 	return nil
 }

@@ -486,13 +486,11 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				},
 			})
 			if err != nil {
-				log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi as part of workload update")
 				c.migrationExpectations.CreationObserved(key)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration for automated workload update: %v", err)
 				errChan <- err
 				return
 			} else {
-				log.Log.Object(vmi).Infof("Initiated migration of vmi as part of workload update")
 				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreateVirtualMachineInstanceMigrationReason, "Created Migration %s for automated workload update", createdMigration.Name)
 			}
 		}(vmi)
@@ -505,7 +503,6 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 			pod, err := controller.CurrentVMIPod(vmi, c.podInformer)
 			if err != nil {
 
-				log.Log.Object(vmi).Reason(err).Errorf("Failed to detect active pod for vmi during workload update")
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedEvictVirtualMachineInstanceReason, "Error detecting active pod for VMI during workload update: %v", err)
 				errChan <- err
 			}
@@ -520,11 +517,9 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				})
 
 			if err != nil && !errors.IsNotFound(err) {
-				log.Log.Object(vmi).Reason(err).Errorf("Failed to evict vmi as part of workload update")
-				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedEvictVirtualMachineInstanceReason, "Error deleting VMI during automated workload update: %v", err)
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedEvictVirtualMachineInstanceReason, "Error evicting VMI during automated workload update: %v", err)
 				errChan <- err
 			} else {
-				log.Log.Object(vmi).Infof("Evicted vmi pod as part of workload update")
 				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulEvictVirtualMachineInstanceReason, "Initiated eviction of VMI as part of automated workload update: %v", err)
 			}
 		}(vmi)
