@@ -42,7 +42,7 @@ As of today KubeVirt can be used to declaratively
 
 Click the image below to see an example video:
 
-[![asciicast](https://asciinema.org/a/96275.png)](https://asciinema.org/a/96275)
+[<img src="https://asciinema.org/a/96275.svg" width="50%">](https://asciinema.org/a/96275)
 
 ## To start using KubeVirt
 
