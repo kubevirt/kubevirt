@@ -1523,8 +1523,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					launcherPod := libvmi.GetPodByVirtualMachineInstance(newVMI, newVM.Namespace)
 					Expect(launcherPod.Status.Phase).To(Equal(podPhase))
 				},
-					table.Entry("VMI launcher pod should fail", "false", k8sv1.PodFailed),
-					table.Entry("VMI launcher pod should keep running", "true", k8sv1.PodRunning),
+					table.Entry("[test_id:7164]VMI launcher pod should fail", "false", k8sv1.PodFailed),
+					table.Entry("[test_id:6993]VMI launcher pod should keep running", "true", k8sv1.PodRunning),
 				)
 			})
 		})
