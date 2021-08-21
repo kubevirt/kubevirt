@@ -32,13 +32,14 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func getTransitionTimeSeconds(fromCreation bool, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) (float64, error) {
-
+func getTransitionTimeSeconds(fromCreation bool, fromDeletion bool, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) (float64, error) {
 	var oldTime *metav1.Time
 	var newTime *metav1.Time
 
 	if fromCreation || oldVMI == nil || (oldVMI.Status.Phase == v1.VmPhaseUnset) {
 		oldTime = newVMI.CreationTimestamp.DeepCopy()
+	} else if fromDeletion {
+		oldTime = newVMI.DeletionTimestamp.DeepCopy()
 	}
 
 	for _, transitionTimestamp := range newVMI.Status.PhaseTransitionTimestamps {
@@ -90,7 +91,8 @@ func updateVMIPhaseTransitionTimeHistogramVec(histogramVec *prometheus.Histogram
 	if oldVMI == nil || oldVMI.Status.Phase == newVMI.Status.Phase {
 		return
 	}
-	diffSeconds, err := getTransitionTimeSeconds(false, oldVMI, newVMI)
+
+	diffSeconds, err := getTransitionTimeSeconds(false, false, oldVMI, newVMI)
 	if err != nil {
 		log.Log.V(4).Infof("Error encountered during vmi transition time histogram calculation: %v", err)
 		return
@@ -128,12 +130,19 @@ func newVMIPhaseTransitionTimeHistogramVec(informer cache.SharedIndexInformer) *
 	return histogramVec
 }
 
-func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
+func updateVMIPhaseTransitionTimeFromCreationDeletionTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
+	var deletion bool
+	creation := true
+	if newVMI.DeletionTimestamp != nil {
+		deletion = true
+		creation = false
+	}
+
 	if oldVMI == nil || oldVMI.Status.Phase == newVMI.Status.Phase {
 		return
 	}
 
-	diffSeconds, err := getTransitionTimeSeconds(true, oldVMI, newVMI)
+	diffSeconds, err := getTransitionTimeSeconds(creation, deletion, oldVMI, newVMI)
 	if err != nil {
 		log.Log.V(4).Infof("Error encountered during vmi transition time histogram calculation: %v", err)
 		return
@@ -147,7 +156,6 @@ func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prom
 	}
 
 	histogram.Observe(diffSeconds)
-
 }
 
 func newVMIPhaseTransitionTimeFromCreationHistogramVec(informer cache.SharedIndexInformer) *prometheus.HistogramVec {
@@ -164,7 +172,35 @@ func newVMIPhaseTransitionTimeFromCreationHistogramVec(informer cache.SharedInde
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldVMI, newVMI interface{}) {
-			updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), newVMI.(*v1.VirtualMachineInstance))
+			vmi := newVMI.(*v1.VirtualMachineInstance)
+			if vmi.DeletionTimestamp == nil {
+				updateVMIPhaseTransitionTimeFromCreationDeletionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
+			}
+		},
+	})
+	return histogramVec
+}
+
+func newVMIPhaseTransitionTimeFromDeletionHistogramVec(informer cache.SharedIndexInformer) *prometheus.HistogramVec {
+	histogramVec := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "kubevirt_vmi_phase_transition_time_from_deletion_seconds",
+			Buckets: phaseTransitionTimeBuckets(),
+		},
+		[]string{
+			// phase of the vmi
+			"phase",
+		},
+	)
+
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldVMI, newVMI interface{}) {
+			// User is deleting a VM. Record time to deletion.
+			// Stop recording when VMI finalizer is removed
+			vmi := newVMI.(*v1.VirtualMachineInstance)
+			if vmi.DeletionTimestamp != nil && vmi.GetFinalizers() != nil {
+				updateVMIPhaseTransitionTimeFromCreationDeletionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
+			}
 		},
 	})
 	return histogramVec
