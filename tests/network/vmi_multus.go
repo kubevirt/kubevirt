@@ -1232,8 +1232,11 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 
 					for _, iface := range vmi.Status.Interfaces {
 						if iface.MAC == macAddress {
-							vmiIP = iface.IP
-							return true, nil
+							if ip := iface.IP; ip != "" {
+								vmiIP = ip
+								return true, nil
+							}
+							return false, nil
 						}
 					}
 
