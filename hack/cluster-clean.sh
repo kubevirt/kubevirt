@@ -83,28 +83,13 @@ function delete_resources() {
     # Namespaced resources
     for i in ${namespaces[@]}; do
         for label in ${labels[@]}; do
-            _kubectl -n ${i} delete deployment -l ${label}
-            _kubectl -n ${i} delete ds -l ${label}
-            _kubectl -n ${i} delete rs -l ${label}
-            _kubectl -n ${i} delete pods -l ${label}
-            _kubectl -n ${i} delete services -l ${label}
-            _kubectl -n ${i} delete pvc -l ${label}
-            _kubectl -n ${i} delete rolebinding -l ${label}
-            _kubectl -n ${i} delete roles -l ${label}
-            _kubectl -n ${i} delete serviceaccounts -l ${label}
-            _kubectl -n ${i} delete configmaps -l ${label}
-            _kubectl -n ${i} delete secrets -l ${label}
-            _kubectl -n ${i} delete jobs -l ${label}
+            _kubectl -n ${i} delete deployment,ds,rs,pods,services,pvc,rolebinding,role,serviceaccounts,configmaps,secrets,jobs -l ${label}
         done
     done
 
     # Not namespaced resources
     for label in ${labels[@]}; do
-        _kubectl delete validatingwebhookconfiguration -l ${label}
-        _kubectl delete pv -l ${label}
-        _kubectl delete clusterrolebinding -l ${label}
-        _kubectl delete clusterroles -l ${label}
-        _kubectl delete customresourcedefinitions -l ${label}
+        _kubectl delete clusterroles,clusterrolebinding,customresourcedefinitions,pv,validatingwebhookconfiguration -l ${label}
 
         # W/A for https://github.com/kubernetes/kubernetes/issues/65818
         _kubectl delete apiservices -l ${label} --wait=false
