@@ -120,27 +120,7 @@ function delete_resources() {
 function delete_namespaces() {
     local managed_namespaces=("$@")
 
-    for ns in ${managed_namespaces[@]}; do
-        if [ -n "$(_kubectl get ns | grep "${ns} ")" ]; then
-            echo "Clean ${ns} namespace"
-            _kubectl delete ns ${ns}
-
-            local current_time=0
-            local sample=3
-            local timeout=180
-            echo "Waiting for ${ns} namespace to disappear ..."
-            set +x
-            while [ -n "$(_kubectl get ns | grep -w ${ns})" ]; do
-                sleep $sample
-                current_time=$((current_time + sample))
-                if [[ $current_time -gt $timeout ]]; then
-                    echo "Waiting for ${ns} namespace to disappear failed"
-                    exit 1
-                fi
-            done
-            set -x
-        fi
-    done
+    _kubectl delete ns ${managed_namespaces[@]} --timeout=180s --ignore-not-found
 }
 
 function main() {
