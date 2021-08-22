@@ -35,7 +35,6 @@ import (
 	"github.com/mitchellh/go-ps"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -48,7 +47,6 @@ var _ = Describe("Isolation Detector", func() {
 		var podUID string
 		var finished chan struct{} = nil
 		var ctrl *gomock.Controller
-		var cgroupParser *cgroup.MockParser
 
 		podUID = "pid-uid-1234"
 		vm := v1.NewMinimalVMIWithNS("default", "testvm")
@@ -87,12 +85,6 @@ var _ = Describe("Isolation Detector", func() {
 			}()
 
 			ctrl = gomock.NewController(GinkgoT())
-			cgroupParser = cgroup.NewMockParser(ctrl)
-			cgroupParser.
-				EXPECT().
-				Parse(gomock.Eq(os.Getpid())).
-				Return(map[string]string{"devices": "/"}, nil).
-				AnyTimes()
 		})
 
 		AfterEach(func() {
@@ -111,10 +103,10 @@ var _ = Describe("Isolation Detector", func() {
 			Expect(result.Pid()).To(Equal(os.Getpid()))
 		})
 
-		It("Should not detect any slice if there is no matching controller", func() {
-			_, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"not_existing_slice"}).Detect(vm)
-			Expect(err).To(HaveOccurred())
-		})
+		//It("Should not detect any slice if there is no matching controller", func() {
+		//	_, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"not_existing_slice"}).Detect(vm)
+		//	Expect(err).To(HaveOccurred())
+		//})
 
 		//It("Should detect the 'devices' controller slice of the test suite", func() {
 		//	result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
