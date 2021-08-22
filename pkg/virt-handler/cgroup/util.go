@@ -3,6 +3,7 @@ package cgroup
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"syscall"
 
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
@@ -20,12 +21,33 @@ const (
 	HostCgroupBasePath = HostRootPath + cgroupBasePath
 )
 
+// Templates for logging / error messages
+const (
+	errApplyingDeviceRule = "error occurred while applying device rule: %v"
+	errApplyingOtherRules = "error occurred while applying rules (that are not device rules): %v"
+	settingDeviceRule     = "setting device rule for cgroup %s: %v"
+)
+
 // getNewResourcesWithoutDevices returns a new Resources struct with Devices attributes dropped
 func getNewResourcesWithoutDevices(r *runc_configs.Resources) runc_configs.Resources {
 	resourcesWithoutDevices := *r
 	resourcesWithoutDevices.Devices = nil
 
 	return resourcesWithoutDevices
+}
+
+func logAndReturnErrorWithSprintfIfNotNil(err error, template string, args ...interface{}) error {
+	if err == nil {
+		return nil
+	}
+
+	newErr := fmt.Errorf(template, args...)
+	log.Log.Error(newErr.Error())
+	return newErr
+}
+
+func areResourcesEmpty(r *runc_configs.Resources) bool {
+	return reflect.DeepEqual(r, runc_configs.Resources{})
 }
 
 // RunWithChroot changes the root directory (via "chroot") into newPath, then

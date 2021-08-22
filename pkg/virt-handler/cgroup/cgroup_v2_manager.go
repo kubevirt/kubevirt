@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"reflect"
-
-	realselinux "github.com/opencontainers/selinux/go-selinux"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 
@@ -44,19 +41,21 @@ func (v *v2Manager) GetBasePathToHostSubsystem(_ string) (string, error) {
 
 func (v *v2Manager) Set(r *runc_configs.Resources) error {
 	if err := v.setDevices(r.Devices); err != nil {
-		log.Log.Infof("hotplug [SETv2] - setting device rules. err: %v", err)
-		return err
+		return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingDeviceRule, err)
 	}
 
 	resourcesWithoutDevices := getNewResourcesWithoutDevices(r)
-	if !reflect.DeepEqual(resourcesWithoutDevices, runc_configs.Resources{}) {
-		return v.Manager.Set(&resourcesWithoutDevices)
+	if areResourcesEmpty(&resourcesWithoutDevices) {
+		return nil
 	}
 
-	return nil
+	err := v.Manager.Set(&resourcesWithoutDevices)
+	return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingOtherRules, err)
 }
 
 func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
+	const loggingVerbosity = 3
+
 	marshalledRules, err := json.Marshal(deviceRules)
 	if err != nil {
 		return err
@@ -70,29 +69,29 @@ func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
 		fmt.Sprintf("--rootless=%t", v.isRootless),
 	}
 
-	// #nosec
 	cmd := exec.Command("virt-chroot", args...)
-	log.Log.Infof("hotplug [SETv2] - args: %v", args)
-	curLabel, err := realselinux.CurrentLabel()
-	log.Log.Infof("hotplug [SETv2] - curLabel label: %v, err: %v", curLabel, err)
-	//finalCmd, err := selinux.NewContextExecutorWithType(cmd, 12345, containerRuntimeLabel)
+	for _, rule := range deviceRules {
+		log.Log.V(loggingVerbosity).Infof(settingDeviceRule, v.GetCgroupVersion(), *rule)
+	}
+	log.Log.V(loggingVerbosity).Infof("applying device rules with virt-chroot. Full command: %s", cmd.String())
 	finalCmd, err := selinux.NewContextExecutor(v.pid, cmd)
-	//output, err := cmd.CombinedOutput()
-	//if err != nil {
-	//	return fmt.Errorf("failed running ><> command %s, err: %v, output: %s", cmd.String(), err, output)
-	//} else {
-	//	log.Log.Infof("hotplug [Run] ><> - err: %v, output: %s", cmd.String(), err, output)
-	//}
-
-	//finalCmd, err := selinux.NewContextExecutor(cmd, os.Getpid())
 	if err != nil {
-		// ihol3
-		log.Log.Infof("hotplug [SETv2] - NewContextExecutorWithType err - %v", err)
+		return logAndReturnErrorWithSprintfIfNotNil(err, "failed creating new context executor. err: %v, pid: %d, cmd: %s", err, v.pid, cmd.String())
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Log.V(loggingVerbosity).Errorf("cannot fetch output from command. err: %v", err)
 	}
 
 	if err = finalCmd.Execute(); err != nil {
-		log.Log.Infof("hotplug [SETv2] - finalCmd.Execute() err - %v", err)
+		return logAndReturnErrorWithSprintfIfNotNil(err, "failed setting device rule through virt-chroot. "+
+			"full command %s, err: %v, output: %s", cmd.String(), err, string(output))
 	}
 
 	return nil
+}
+
+func (v *v2Manager) GetCgroupVersion() string {
+	return "v2"
 }

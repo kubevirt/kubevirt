@@ -27,8 +27,6 @@ import (
 	"runtime"
 	"syscall"
 
-	"kubevirt.io/client-go/log"
-
 	"github.com/opencontainers/selinux/go-selinux"
 )
 
@@ -70,13 +68,9 @@ func (se SELinuxExecutor) CloseOnExec(fd int) {
 }
 
 func (se SELinuxExecutor) Run(cmd *exec.Cmd) error {
-	execLabel, err2 := selinux.ExecLabel()
-	log.Log.Infof("hotplug [Run] - exec label: %v, err: %v", execLabel, err2)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
-	} else {
-		log.Log.Infof("hotplug [Run] - command: %s, err: %v, output: %s", cmd.String(), err, output)
 	}
 	return nil
 }

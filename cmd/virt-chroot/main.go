@@ -11,8 +11,6 @@ import (
 	"strings"
 	"syscall"
 
-	"kubevirt.io/client-go/log"
-
 	runc_fs2 "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/devices"
@@ -207,27 +205,8 @@ func main() {
 		Short: "Set cgroups v2 device rules",
 		//Args:  cobra.MinimumNArgs(1), // ihol3 change to 4
 		RunE: func(cmd *cobra.Command, args []string) error {
-			//origLabel, err := selinux.CurrentLabel()
-			//fmt.Printf("virt-chroot's label: %s. err: %v\n", origLabel, err)
-			//const desiredType = "container_runtime_t"
-			//if !strings.Contains(origLabel, desiredType) {
-			//	const labelSeparator = ":"
-			//	const labelTypeIdx = 2
-			//	splittedCurrentLabel := strings.Split(origLabel, labelSeparator)
-			//	splittedCurrentLabel[labelTypeIdx] = desiredType
-			//	desiredLabel := strings.Join(splittedCurrentLabel, labelSeparator)
-			//
-			//	err := selinux.SetTaskLabel(desiredLabel)
-			//	if err != nil {
-			//		return fmt.Errorf("cannot set label. err: %v", err)
-			//	}
-			//}
-			//origLabel, err = selinux.FileLabel(fmt.Sprintf("/proc/%d/attr/current", os.Getpid()))
-			//fmt.Printf("virt-chroot's label: %s. err: %v\n", origLabel, err)
-
 			vmiPidFromHostView, err := strconv.ParseUint(cmd.Flag("pid").Value.String(), 10, 32)
 			if err != nil {
-				log.Log.Infof("hotplug [virt-chroot]: cannot convert PID into uint32. err: %v", err)
 				return fmt.Errorf("cannot convert PID into uint32. err: %v", err)
 			}
 			path := cmd.Flag("path").Value.String()
@@ -235,7 +214,6 @@ func main() {
 			fmt.Printf("Original marshalled: %s\n", marshalledRulesHash)
 			isRootless, err := strconv.ParseBool(cmd.Flag("rootless").Value.String())
 			if err != nil {
-				log.Log.Infof("hotplug [virt-chroot]: cannot convert rootless into bool. err: %v", err)
 				return fmt.Errorf("cannot convert rootless into bool. err: %v", err)
 			}
 
@@ -244,14 +222,12 @@ func main() {
 				return fmt.Errorf("Cannot decode rules. err: %v", err) // ihol3
 			}
 			if err = validateCgroupsArguments(vmiPidFromHostView, path, unmarshalledRules, isRootless); err != nil {
-				log.Log.Infof("hotplug [virt-chroot]: validateCgroupsArguments err: %v", err)
 				return err
 			}
 			if err = setCgroupDeviceRules(vmiPidFromHostView, path, unmarshalledRules, isRootless); err != nil {
-				log.Log.Infof("hotplug [virt-chroot]: setCgroupDeviceRules err: %v", err)
 				return err
 			}
-			log.Log.Infof("hotplug [virt-chroot]: no errors :)")
+
 			return nil
 		},
 	}

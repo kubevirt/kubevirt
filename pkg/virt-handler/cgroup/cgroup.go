@@ -29,6 +29,9 @@ type Manager interface {
 	// GetBasePathToHostSubsystem returns the path to the specified subsystem
 	// from the host's viewpoint.
 	GetBasePathToHostSubsystem(subsystem string) (string, error)
+
+	// GetCgroupVersion returns the current cgroup version (i.e. v1 or v2)
+	GetCgroupVersion() string
 }
 
 // NewManagerFromPid initializes a new cgroup manager from VMI's pid.

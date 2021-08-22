@@ -52,7 +52,9 @@ var (
 	}
 
 	mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
-		return exec.Command("/usr/bin/mknod", "--mode", fmt.Sprintf("0%s", blockDevicePermissions), deviceName, "b", strconv.FormatInt(major, 10), strconv.FormatInt(minor, 10)).CombinedOutput()
+		output, err := exec.Command("/usr/bin/mknod", "--mode", fmt.Sprintf("0%s", blockDevicePermissions), deviceName, "b", strconv.FormatInt(major, 10), strconv.FormatInt(minor, 10)).CombinedOutput()
+		log.Log.V(3).Infof("running mknod. err: %v, output: %s", err, string(output))
+		return output, err
 	}
 
 	mountCommand = func(sourcePath, targetPath string) ([]byte, error) {
@@ -330,7 +332,6 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 	}
 
 	if isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists {
-		log.Log.Infof("hotplug [mountBlockHotplugVolume]: isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists")
 		//computeCGroupPath, err := m.getTargetCgroupPath(vmi)
 		if err != nil {
 			return err
@@ -342,20 +343,16 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err := m.writePathToMountRecord(deviceName, vmi, record); err != nil {
 			return err
 		}
-		log.Log.Infof("hotplug [mountBlockHotplugVolume]: FINISHED writePathToMountRecord. err: %v", err)
 		// allow block devices
 		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, cgroupsManager, pid); err != nil {
 			return err
 		}
-		log.Log.Infof("hotplug [mountBlockHotplugVolume]: FINISHED allowBlockMajorMinor. err: %v", err)
 
 		if _, err = m.createBlockDeviceFile(deviceName, sourceMajor, sourceMinor, permissions); err != nil {
 			return err
 		}
-		log.Log.Infof("hotplug [mountBlockHotplugVolume]: FINISHED createBlockDeviceFile. err: %v", err)
 	} else if isBlockExists && (!m.volumeStatusReady(volume, vmi) || isMigrationInProgress) {
 
-		log.Log.Infof("hotplug [mountBlockHotplugVolume]: isBlockExists && !m.volumeStatusReady(volume, vmi)")
 		// Block device exists already, but the volume is not ready yet, ensure that the device is allowed.
 		//computeCGroupPath, err := m.getTargetCgroupPath(vmi)
 		if err != nil {
@@ -499,65 +496,15 @@ func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, manager cgroup
 	//newPath := path[idx:]
 
 	//return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
-	return m.updateBlockMajorMinor(major, minor, false, manager, -1)
+	return m.updateBlockMajorMinor(major, minor, false, manager)
 	//})
-}
-
-// DELETE ME!!!!!!! ihol3
-func logRootFiles(name string, path string) {
-	const filePattern = " (name: %s, is dir? %v) "
-	filesStr := ""
-	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		log.Log.Infof("hotplug [%s]. ERR READING FILES: %v", name, err)
-	}
-
-	for _, f := range files {
-		filesStr += fmt.Sprintf(filePattern, f.Name(), f.IsDir())
-	}
-
-	log.Log.Infof("hotplug [%s]. ls on %s: [%s]", name, path, filesStr)
 }
 
 func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, manager cgroup.Manager, pid int) error {
-	//const cgroupBase = "/sys/fs/cgroup/devices/"
-	//cgroupBase, err := manager.GetBasePathToHostSubsystem("devices")
-	//if err != nil {
-	//	// ihol3 maybe expand error
-	//	return err
-	//}
-
-	//idx := strings.Index(path, cgroupBase)
-	//var newPath string
-	//
-	//if idx > -1 {
-	//	newPath = path[idx:]
-	//} else {
-	//	//newPath := filepath.Join("/sys/fs/cgroup/", path)
-	//	//_, err := os.Stat(newPath)
-	//	//return m.updateBlockMajorMinor(major, minor, "", true, manager)
-	//	newPath = path
-	//}
-	log.Log.Infof("hotplug [allowBlockMajorMinor]. PATHS=%s", manager.GetPaths())
-	//logRootFiles("allowBlockMajorMinor", "/")
-	//logRootFiles("allowBlockMajorMinor", cgroup.HostRootPath)
-
-	//if pid > -1 {
-	//	err = manager.Apply(pid)
-	//	log.Log.Infof("hotplug [updateBlockMajorMinor]: APPLIED. err: %v", err)
-	//	log.Log.Infof("hotplug [allowBlockMajorMinor]. PATHS (after applying)=%s", manager.GetPaths())
-	//}
-
-	log.Log.Infof("hotplug [allowBlockMajorMinor]. CHROOTING TO: %s", cgroup.HostRootPath)
-
-	//return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
-	return m.updateBlockMajorMinor(major, minor, true, manager, pid)
-	//})
-
-	//return m.updateBlockMajorMinor(major, minor, true, manager, pid)
+	return m.updateBlockMajorMinor(major, minor, true, manager)
 }
 
-func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, manager cgroup.Manager, pid int) error {
+func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, manager cgroup.Manager) error {
 	var err error
 	deviceRule := &devices.Rule{
 		Type:        devices.BlockDevice,
@@ -566,26 +513,8 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 		Permissions: "rwm",
 		Allow:       allow,
 	}
-	log.Log.Infof("hotplug [updateBlockMajorMinor]: major == %v, minor == %v", major, minor)
 
-	//err := manager.Set(&configs.Resources{
-	//	Devices: []*devices.Rule{deviceRule},
-	//})
-	devicesPath, ok := manager.GetPaths()[""]
-	//devicesPath = filepath.Join("/sys/fs/cgroup/", devicesPath)
-	log.Log.Infof("hotplug [updateBlockMajorMinor]: devicesPath() == %s, ok == %v", devicesPath, ok)
-
-	if _, err := os.Stat(devicesPath); os.IsNotExist(err) {
-		log.Log.Infof("hotplug [updateBlockMajorMinor]: devicesPath does NOT exist!!!!!!!!!!!!!!!!")
-	}
-
-	logRootFiles("updateBlockMajorMinor", devicesPath)
-
-	log.Log.Infof("hotplug [updateBlockMajorMinor]: RULE -> %+v", deviceRule)
-	//err = set_del(devicesPath, &configs.Resources{
-	//	Devices: []*devices.Rule{deviceRule},
-	//})
-
+	// ihol3 this shouldn't be here - move to cgroup package
 	const permissions = "rwm"
 	const toAllow = true
 
@@ -617,61 +546,15 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 	err = manager.Set(&configs.Resources{
 		Devices: defaultRules,
 	})
-	logRootFiles("updateBlockMajorMinor", "/")
 
-	log.Log.Infof("setting rule. err: %v", err)
+	if err != nil {
+		log.Log.Infof("cgroup rule is set successfully. rule: %+v", *deviceRule)
+	}
 
 	return err
-
-	//var manager cgroups.Manager
-	//var err error
-	//var config *configs.Cgroup
-	//var dirPath string
-	//var rootless bool
-	//dirPath = path
-
-	//if !cgroups.IsCgroup2UnifiedMode() {
-	//	// ihol3
-	//	// key is cgroup. how do I get it?
-	//	//cgroups.cgrou
-	//	//manager = fs.NewManager(config, map[string]string{"devices": dirPath}, rootless)
-	//	//deviceManager := manager.(*fs.DevicesGroup)
-	//
-	//	//m.podIsolationDetector.De
-	//
-	//	if err := m.updateDevicesList(path, deviceRule); err != nil {
-	//		return err
-	//	} else {
-	//		return nil
-	//	}
-	//} else {
-	//	//manager, err = fs2.NewManager(config, dirPath, rootless)
-	//	resourceConfig := &configs.Resources{
-	//		Devices:     []*devices.Rule{deviceRule},
-	//		SkipDevices: false,
-	//	}
-	//	if err := m.setDevices(path, resourceConfig); err != nil {
-	//		return err
-	//	} else {
-	//		return nil
-	//	}
-	//}
-	//path_cgroups := manager.Path()
-	//
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//err = manager.Set(&configs.Resources{
-	//	Devices: []*devices.Rule{deviceRule},
-	//})
-	//if err != nil {
-	//	return err
-	//}
-
-	//return nil
 }
 
+// ihol3 clean
 //func (m *volumeMounter) loadEmulator(path string) (*cgroupdevices.Emulator, error) {
 //	list, err := fscommon.ReadFile(path, "devices.list")
 //	if err != nil {
@@ -715,15 +598,12 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 //}
 
 func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor int64, blockDevicePermissions string) (string, error) {
-	log.Log.Infof("hotplug [createBlockDeviceFile]: deviceName == %s", deviceName)
 	exists, err := diskutils.FileExists(deviceName)
-	log.Log.Infof("hotplug [createBlockDeviceFile]: exists == %v, err: %v", exists, err)
 	if err != nil {
 		return "", err
 	}
 	if !exists {
 		out, err := mknodCommand(deviceName, major, minor, blockDevicePermissions)
-		log.Log.Infof("hotplug [createBlockDeviceFile]: MKNOD! err: %v, out: %v", err, out)
 		if err != nil {
 			log.DefaultLogger().Errorf("Error creating block device file: %s, %v", out, err)
 			return "", err
@@ -1079,7 +959,7 @@ func getCgroupsManager(vmi *v1.VirtualMachineInstance, sourceUID types.UID) (man
 	return manager, err
 }
 
-// --------------- DELETE THOSE:
+// --------------- DELETE THOSE: ihol3
 
 //func set_del(path string, r *configs.Resources) error {
 //	log.Log.Infof("hotplug [set_del]: userns.RunningInUserNS() || r.SkipDevices == %v", userns.RunningInUserNS() || r.SkipDevices)

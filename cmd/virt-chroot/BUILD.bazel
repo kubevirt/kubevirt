@@ -12,7 +12,6 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/virt-handler/cgroup:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library",

@@ -21,12 +21,13 @@ const (
 func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVerification) (*containerdisk.DiskInfo, error) {
 	memoryLimit := fmt.Sprintf("%d", config.MemoryLimit.Value())
 
-	log.Log.Infof("[hotplug] GetImageInfo: --mount: %v, imagePath: %s, memoryLimit: %s", context.MountNamespace(), imagePath, memoryLimit)
 	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
-	out, err := virt_chroot.ExecChroot(
+	cmd := virt_chroot.ExecChroot(
 		"--user", "qemu", "--memory", memoryLimit, "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
 		QEMUIMGPath, "info", imagePath, "--output", "json",
-	).Output()
+	)
+	log.Log.V(3).Infof("fetching image info. running command: %s", cmd.String())
+	out, err := cmd.Output()
 	if err != nil {
 		if e, ok := err.(*exec.ExitError); ok {
 			if len(e.Stderr) > 0 {

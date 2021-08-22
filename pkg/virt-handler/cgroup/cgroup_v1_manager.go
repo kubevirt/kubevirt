@@ -39,19 +39,18 @@ func (v *v1Manager) Set(r *runc_configs.Resources) error {
 	// handle devices separately
 	for _, deviceRule := range r.Devices {
 		applyDeviceRule := func() error { return v.SetDeviceRule(deviceRule) }
+		log.Log.Infof(settingDeviceRule, v.GetCgroupVersion(), deviceRule)
 		err := RunWithChroot(HostRootPath, applyDeviceRule)
-		if err != nil {
-			return fmt.Errorf("error occured while applying device rule: %v", err)
-		}
-		log.Log.Infof("hotplug [SET] - setting device rule: %v", deviceRule)
+		return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingDeviceRule, err)
 	}
 
 	resourcesWithoutDevices := getNewResourcesWithoutDevices(r)
+	if areResourcesEmpty(&resourcesWithoutDevices) {
+		return nil
+	}
 
-	log.Log.Infof("hotplug [SET] - setting though libcontainer...")
 	err := v.Manager.Set(&resourcesWithoutDevices)
-	log.Log.Infof("hotplug [SET] - err: %v", err)
-	return err
+	return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingOtherRules, err)
 }
 
 // SetDeviceRule sets a new cgroup device rule.
@@ -63,6 +62,7 @@ func (v *v1Manager) Set(r *runc_configs.Resources) error {
 // The following issue has been opened to rnuc: https://github.com/opencontainers/runc/issues/3141
 // TODO: when this issue is resolved, this function needs to be entirely deleted and we should use runc's logic instead
 func (v *v1Manager) SetDeviceRule(rule *devices.Rule) error {
+	const loggingVerbosity = 3
 	loadEmulator := func(path string) (*cgroupdevices.Emulator, error) {
 		list, err := runc_cgroups.ReadFile(path, "devices.list")
 		if err != nil {
@@ -77,47 +77,47 @@ func (v *v1Manager) SetDeviceRule(rule *devices.Rule) error {
 	}
 
 	devicesPath = filepath.Join(cgroupBasePath, "devices", devicesPath)
-	log.Log.Infof("hotplug [SetDeviceRule]: path == %v", devicesPath)
+	log.Log.V(loggingVerbosity).Infof("setting device rule (%v) for path: %s", *rule, devicesPath)
 
 	// Generate two emulators, one for the target state of the cgroup and one
 	// for the requested state by the user.
-	target, err := loadEmulator(devicesPath)
+	expectedEmulator, err := loadEmulator(devicesPath)
 	if err != nil {
 		return err
 	}
-	_ = target.Apply(*rule)
+	_ = expectedEmulator.Apply(*rule)
 
-	log.Log.Infof("hotplug [SetDeviceRule]: new rule == %v", *rule)
 	file := "devices.deny"
 	if rule.Allow {
 		file = "devices.allow"
 	}
 
-	content, err := runc_cgroups.ReadFile(devicesPath, "devices.list")
-	log.Log.Infof("hotplug [SetDeviceRule]: ReadFile - err: %v, Content: %s", err, content)
-
+	// This is the main workaround here - we write the new rule directly into cgroup without calculating the
+	// shortest delta.
 	if err := runc_cgroups.WriteFile(devicesPath, file, rule.CgroupString()); err != nil {
 		return err
 	}
-	log.Log.Infof("hotplug [SetDeviceRule]: WriteFile - ERR: %v", err)
-	log.Log.Infof("hotplug [SetDeviceRule]: WriteFile - Rule: %s", rule.CgroupString())
-
-	content, err = runc_cgroups.ReadFile(devicesPath, "devices.list")
-	log.Log.Infof("hotplug [SetDeviceRule]: ReadFile - err: %v, Content: %s", err, content)
+	log.Log.V(loggingVerbosity).Infof("writing device rule into cgroup. rule: %s, err: %v", rule.CgroupString(), err)
 
 	//Final safety check -- ensure that the resulting state is what was
 	//requested. This is only really correct for white-lists, but for
 	//black-lists we can at least check that the cgroup is in the right mode.
-	currentAfter, err := loadEmulator(devicesPath)
-	log.Log.Infof("hotplug [SetDeviceRule]: target after == %v", currentAfter)
+	resultEmulator, err := loadEmulator(devicesPath)
 	if err != nil {
 		return err
 	}
-	if !target.IsBlacklist() && !reflect.DeepEqual(currentAfter, target) {
+
+	log.Log.V(loggingVerbosity).Errorf("error - expected the result cgroups state does not match."+
+		"expected: %v, result: %v", expectedEmulator, resultEmulator)
+	if !expectedEmulator.IsBlacklist() && !reflect.DeepEqual(resultEmulator, expectedEmulator) {
 		return fmt.Errorf("resulting devices cgroup doesn't precisely match target")
-	} else if target.IsBlacklist() != currentAfter.IsBlacklist() {
+	} else if expectedEmulator.IsBlacklist() != resultEmulator.IsBlacklist() {
 		return fmt.Errorf("resulting devices cgroup doesn't match target mode")
 	}
 
 	return nil
+}
+
+func (v *v1Manager) GetCgroupVersion() string {
+	return "v1"
 }

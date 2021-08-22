@@ -811,8 +811,7 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 	if domain == nil {
 		return hasHotplug
 	}
-	
-	log.Log.Infof("hotplug [updateVolumeStatusesFromDomain]: len(vmi.Status.VolumeStatus) == %d", len(vmi.Status.VolumeStatus))
+
 	if len(vmi.Status.VolumeStatus) > 0 {
 		diskDeviceMap := make(map[string]string)
 		for _, disk := range domain.Spec.Devices.Disks {
@@ -825,8 +824,6 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 		newStatusMap := make(map[string]v1.VolumeStatus)
 		newStatuses := make([]v1.VolumeStatus, 0)
 		needsRefresh := false
-		log.Log.Infof("hotplug [updateVolumeStatusesFromDomain]: vmi.Status.VolumeStatus == %v", vmi.Status.VolumeStatus)
-		log.Log.Infof("hotplug [updateVolumeStatusesFromDomain]: diskDeviceMap == %v", diskDeviceMap)
 		for _, volumeStatus := range vmi.Status.VolumeStatus {
 			if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
 				volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
