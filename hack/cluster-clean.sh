@@ -89,16 +89,7 @@ function delete_resources() {
 
     # Not namespaced resources
     for label in ${labels[@]}; do
-        _kubectl delete clusterroles,clusterrolebinding,customresourcedefinitions,pv,validatingwebhookconfiguration -l ${label}
-
-        # W/A for https://github.com/kubernetes/kubernetes/issues/65818
-        _kubectl delete apiservices -l ${label} --wait=false
-
-        _kubectl get apiservices -l ${label} -o=custom-columns=NAME:.metadata.name,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeletion | while read p; do
-            local arr=($p)
-            local name="${arr[0]}"
-            _kubectl -n ${i} patch apiservices $name --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
-        done
+        _kubectl delete apiservices,clusterroles,clusterrolebinding,customresourcedefinitions,pv,validatingwebhookconfiguration -l ${label}
     done
 }
 
