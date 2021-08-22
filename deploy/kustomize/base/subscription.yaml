@@ -6,5 +6,5 @@ spec:
   source: kubevirt-hyperconverged
   sourceNamespace: openshift-marketplace
   name: community-kubevirt-hyperconverged
-  #startingCSV: kubevirt-hyperconverged-operator.v1.5.0
-  channel: "1.5.0"
+  #startingCSV: kubevirt-hyperconverged-operator.v1.6.0
+  channel: "1.6.0"

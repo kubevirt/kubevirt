@@ -1,0 +1,75 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: v2vvmwares.v2v.kubevirt.io
+spec:
+  group: v2v.kubevirt.io
+  names:
+    kind: V2VVmware
+    listKind: V2VVmwareList
+    plural: v2vvmwares
+    singular: v2vvmware
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: V2VVmware is the Schema for the v2vvmwares API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation
+                                      of an object. Servers should convert recognized schemas to the latest
+                                      internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this
+                                      object represents. Servers may infer this from the endpoint the client
+                                      submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: V2VVmwareSpec defines the desired state of V2VVmware
+            properties:
+              connection:
+                type: string
+              thumbprint:
+                type: string
+              timeToLive:
+                type: string
+              vms:
+                items:
+                  properties:
+                    detail:
+                      properties:
+                        hostPath:
+                          type: string
+                        raw:
+                          description: 'TODO: list required details'
+                          type: string
+                      required:
+                      - hostPath
+                      type: object
+                    detailRequest:
+                      type: boolean
+                    name:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+            type: object
+          status:
+            description: V2VVmwareStatus defines the observed state of V2VVmware
+            properties:
+              phase:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
