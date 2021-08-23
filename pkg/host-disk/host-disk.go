@@ -30,6 +30,7 @@ import (
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -103,11 +104,6 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 			}
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.PersistentVolumeClaim = nil
-			// Set ownership of the disk.img to qemu
-			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(file); err != nil && !os.IsNotExist(err) {
-				log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", file, err)
-				return err
-			}
 		}
 	}
 	return nil
@@ -140,6 +136,14 @@ func getPVCDiskImgPath(volumeName string, diskName string) string {
 	return path.Join(pvcBaseDir, volumeName, diskName)
 }
 
+func GetMountedHostDiskPathFromHandler(mountRoot, volumeName, path string) string {
+	return filepath.Join(mountRoot, getPVCDiskImgPath(volumeName, filepath.Base(path)))
+}
+
+func GetMountedHostDiskDirFromHandler(mountRoot, volumeName string) string {
+	return filepath.Join(mountRoot, getPVCDiskImgPath(volumeName, ""))
+}
+
 func GetMountedHostDiskPath(volumeName string, path string) string {
 	return getPVCDiskImgPath(volumeName, filepath.Base(path))
 }
@@ -150,21 +154,19 @@ func GetMountedHostDiskDir(volumeName string) string {
 
 type DiskImgCreator struct {
 	dirBytesAvailableFunc  func(path string, reserve uint64) (uint64, error)
-	notifier               k8sNotifier
+	recorder               record.EventRecorder
 	lessPVCSpaceToleration int
 	minimumPVCReserveBytes uint64
+	mountRoot              string
 }
 
-type k8sNotifier interface {
-	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error
-}
-
-func NewHostDiskCreator(notifier k8sNotifier, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64) DiskImgCreator {
+func NewHostDiskCreator(recorder record.EventRecorder, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, mountRoot string) DiskImgCreator {
 	return DiskImgCreator{
 		dirBytesAvailableFunc:  dirBytesAvailable,
-		notifier:               notifier,
+		recorder:               recorder,
 		lessPVCSpaceToleration: lessPVCSpaceToleration,
 		minimumPVCReserveBytes: minimumPVCReserveBytes,
+		mountRoot:              mountRoot,
 	}
 }
 
@@ -188,8 +190,8 @@ func shouldMountHostDisk(hostDisk *v1.HostDisk) bool {
 }
 
 func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineInstance, volumeName string, hostDisk *v1.HostDisk) error {
-	diskPath := GetMountedHostDiskPath(volumeName, hostDisk.Path)
-	diskDir := GetMountedHostDiskDir(volumeName)
+	diskPath := GetMountedHostDiskPathFromHandler(hdc.mountRoot, volumeName, hostDisk.Path)
+	diskDir := GetMountedHostDiskDirFromHandler(hdc.mountRoot, volumeName)
 	fileExists, err := ephemeraldiskutils.FileExists(diskPath)
 	if err != nil {
 		return err
@@ -241,9 +243,6 @@ func (hdc *DiskImgCreator) shrinkRequestedSize(vmi *v1.VirtualMachineInstance, r
 
 	msg := fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", requestedSize, availableSize, hdc.lessPVCSpaceToleration)
 	log.Log.Info(msg)
-	err := hdc.notifier.SendK8sEvent(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
-	if err != nil {
-		log.Log.Reason(err).Warningf("Couldn't send k8s event for tolerated PV size: %v", err)
-	}
+	hdc.recorder.Event(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
 	return availableSize, nil
 }

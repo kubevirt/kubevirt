@@ -42,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
@@ -62,7 +61,6 @@ import (
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	kutil "kubevirt.io/kubevirt/pkg/util"
@@ -123,8 +121,6 @@ type LibvirtDomainManager struct {
 	credManager *accesscredentials.AccessCredentialManager
 
 	virtShareDir             string
-	notifier                 *eventsclient.Notifier
-	lessPVCSpaceToleration   int
 	paused                   pausedVMIs
 	agentData                *agentpoller.AsyncAgentStore
 	cloudInitDataStore       *cloudinit.CloudInitData
@@ -133,7 +129,6 @@ type LibvirtDomainManager struct {
 	ovmfPath                 string
 	networkCacheStoreFactory cache.InterfaceCacheFactory
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
-	minimumPVCReserveBytes   uint64
 	directIOChecker          converter.DirectIOChecker
 }
 
@@ -165,17 +160,15 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 	return ok
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, notifier, lessPVCSpaceToleration, minimumPVCReserveBytes, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
+	return newLibvirtDomainManager(connection, virtShareDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
 }
 
-func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
+func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
 	manager := LibvirtDomainManager{
-		virConn:                connection,
-		virtShareDir:           virtShareDir,
-		notifier:               notifier,
-		lessPVCSpaceToleration: lessPVCSpaceToleration,
+		virConn:      connection,
+		virtShareDir: virtShareDir,
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
@@ -183,7 +176,6 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		efiEnvironment:           efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
 		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
-		minimumPVCReserveBytes:   minimumPVCReserveBytes,
 		directIOChecker:          directIOChecker,
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
@@ -473,14 +465,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	err = netsetup.NewVMNetworkConfigurator(vmi, l.networkCacheStoreFactory).SetupPodNetworkPhase2(domain)
 	if err != nil {
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
-	}
-
-	// create disks images on the cluster lever
-	// or initialize disks images for empty PVC
-	hostDiskCreator := hostdisk.NewHostDiskCreator(l.notifier, l.lessPVCSpaceToleration, l.minimumPVCReserveBytes)
-	err = hostDiskCreator.Create(vmi)
-	if err != nil {
-		return domain, fmt.Errorf("preparing host-disks failed: %v", err)
 	}
 
 	// Create ephemeral disk for container disks
