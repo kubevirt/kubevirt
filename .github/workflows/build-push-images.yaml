@@ -58,6 +58,7 @@ jobs:
         run: |
           export HCO_OPERATOR_IMAGE=$(tools/digester/digester --image="quay.io/kubevirt/hyperconverged-cluster-operator:${IMAGE_TAG}")
           export HCO_WEBHOOK_IMAGE=$(tools/digester/digester --image="quay.io/kubevirt/hyperconverged-cluster-webhook:${IMAGE_TAG}")
+          export HCO_DOWNLOADS_IMAGE=$(tools/digester/digester --image="quay.io/kubevirt/virt-artifacts-server:${IMAGE_TAG}")
           ./hack/build-manifests.sh UNIQUE
           sed -i "/^ \+replaces:/d" ${PACKAGE_DIR}/${CSV_VERSION}/manifests/kubevirt-hyperconverged-operator.v${CSV_VERSION}.clusterserviceversion.yaml
       - name: Get opm client
