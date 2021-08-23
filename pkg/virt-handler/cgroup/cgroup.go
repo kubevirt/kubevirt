@@ -47,7 +47,6 @@ func NewManagerFromPid(pid int) (Manager, error) {
 
 	config := &configs.Cgroup{
 		Path:      HostCgroupBasePath,
-		Paths:     controllerPaths,
 		Resources: &configs.Resources{},
 	}
 
@@ -55,6 +54,13 @@ func NewManagerFromPid(pid int) (Manager, error) {
 		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
 		return newV2Manager(config, slicePath, isRootless, pid)
 	} else {
+		for subsystem, path := range controllerPaths {
+			if path == "" {
+				continue
+			}
+			controllerPaths[subsystem] = filepath.Join("/", subsystem, path)
+		}
+
 		return newV1Manager(config, controllerPaths, isRootless)
 	}
 }
