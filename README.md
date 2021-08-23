@@ -40,8 +40,6 @@ As of today KubeVirt can be used to declaratively
  * Stop a VM
  * Delete a VM
 
-Click the image below to see an example video:
-
 [<img src="https://asciinema.org/a/96275.svg" width="50%">](https://asciinema.org/a/96275)
 
 ## To start using KubeVirt
