@@ -277,8 +277,6 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 	})
 
 	It("[test_id:1416]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
-		// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
-		tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)
