@@ -83,10 +83,11 @@ var _ = SIGDescribe("Storage", func() {
 			targetImagePath = tests.HostPathAlpine
 		})
 
-		initNFS := func(targetImage string) *k8sv1.Pod {
+		initNFS := func(targetImage, nodeName string) *k8sv1.Pod {
 			// Prepare a NFS backed PV
 			By("Starting an NFS POD")
 			nfsPod := storageframework.RenderNFSServer("nfsserver", targetImage)
+			nfsPod.Spec.NodeName = nodeName
 			nfsPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), nfsPod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisPod(nfsPod), 180).Should(BeInPhase(k8sv1.PodRunning))
@@ -107,17 +108,19 @@ var _ = SIGDescribe("Storage", func() {
 			return pvName
 		}
 
-		runHostPathJobAndExpectCompletion := func(pod *k8sv1.Pod) {
+		runHostPathJobAndExpectCompletion := func(pod *k8sv1.Pod) *k8sv1.Pod {
 			pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+			podWithName := pod.DeepCopy()
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 			_, err = ThisPod(pod)()
 			Expect(err).ToNot(HaveOccurred())
+			return podWithName
 		}
 
-		copyAlpineWithNonQEMUPermissions := func() string {
+		copyAlpineWithNonQEMUPermissions := func() (dstPath, nodeName string) {
 
-			dstPath := tests.HostPathAlpine + "-nopriv"
+			dstPath = tests.HostPathAlpine + "-nopriv"
 
 			hostPathType := k8sv1.HostPathDirectoryOrCreate
 
@@ -126,8 +129,9 @@ var _ = SIGDescribe("Storage", func() {
 			By("creating an image with without qemu permissions")
 			pod := tests.RenderHostPathPod("tmp-image-create-job", tests.HostPathBase, hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
-			runHostPathJobAndExpectCompletion(pod)
-			return dstPath
+			pod = runHostPathJobAndExpectCompletion(pod)
+			nodeName = pod.Spec.NodeName
+			return
 		}
 
 		deleteAlpineWithNonQEMUPermissions := func() {
@@ -295,13 +299,14 @@ var _ = SIGDescribe("Storage", func() {
 					}
 
 					var ignoreWarnings bool
+					var nodeName string
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
 						targetImage := targetImagePath
 						if !imageOwnedByQEMU {
-							targetImage = copyAlpineWithNonQEMUPermissions()
+							targetImage, nodeName = copyAlpineWithNonQEMUPermissions()
 						}
-						nfsPod = initNFS(targetImage)
+						nfsPod = initNFS(targetImage, nodeName)
 						pvName = createNFSPvAndPvc(family, nfsPod)
 						ignoreWarnings = true
 					} else {
@@ -588,7 +593,7 @@ var _ = SIGDescribe("Storage", func() {
 					var ignoreWarnings bool
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
-						nfsPod = initNFS(tests.HostPathAlpine)
+						nfsPod = initNFS(tests.HostPathAlpine, "")
 						pvName = createNFSPvAndPvc(family, nfsPod)
 						ignoreWarnings = true
 					} else {
