@@ -16,8 +16,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const bridgeFakeIP = "169.254.75.1%d/32"
-
 type BridgePodNetworkConfigurator struct {
 	bridgeInterfaceName string
 	vmiSpecIface        *v1.Interface
@@ -181,7 +179,7 @@ func (b *BridgePodNetworkConfigurator) decorateDhcpConfigRoutes(dhcpConfig *cach
 	log.Log.V(4).Infof("the default route is: %s", b.podIfaceRoutes[0].String())
 	dhcpConfig.Gateway = b.podIfaceRoutes[0].Gw
 	if len(b.podIfaceRoutes) > 1 {
-		dhcpRoutes := netdriver.FilterPodNetworkRoutes(b.podIfaceRoutes, dhcpConfig)
+		dhcpRoutes := virtnetlink.FilterPodNetworkRoutes(b.podIfaceRoutes, dhcpConfig)
 		dhcpConfig.Routes = &dhcpRoutes
 	}
 }

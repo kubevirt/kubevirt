@@ -24,11 +24,13 @@ import (
 	"net"
 
 	"github.com/coreos/go-iptables/iptables"
+	"github.com/vishvananda/netlink"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/network/cache"
 )
 
 var _ = Describe("Common Methods", func() {
@@ -114,6 +116,42 @@ var _ = Describe("Common Methods", func() {
 		It("Should return the correct ip when the interface is not the first in the list", func() {
 			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: "aaaa"}, v1.Interface{Name: "abcd"}}, &v1.Interface{Name: "abcd"})
 			Expect(ip).To(Equal(fmt.Sprintf(bridgeFakeIP, 1)))
+		})
+	})
+
+	Context("FilterPodNetworkRoutes function", func() {
+		const (
+			mac                     = "12:34:56:78:9A:BC"
+			primaryPodInterfaceName = "eth0"
+		)
+
+		defRoute := netlink.Route{
+			Gw: net.IPv4(10, 35, 0, 1),
+		}
+		staticRoute := netlink.Route{
+			Dst: &net.IPNet{IP: net.IPv4(10, 45, 0, 10), Mask: net.CIDRMask(32, 32)},
+			Gw:  net.IPv4(10, 25, 0, 1),
+		}
+		gwRoute := netlink.Route{
+			Dst: &net.IPNet{IP: net.IPv4(10, 35, 0, 1), Mask: net.CIDRMask(32, 32)},
+		}
+		nicRoute := netlink.Route{Src: net.IPv4(10, 35, 0, 6)}
+		emptyRoute := netlink.Route{}
+		staticRouteList := []netlink.Route{defRoute, gwRoute, nicRoute, emptyRoute, staticRoute}
+
+		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
+		fakeMac, _ := net.ParseMAC(mac)
+		testDhcpConfig := &cache.DHCPConfig{
+			Name:              primaryPodInterfaceName,
+			IP:                netlink.Addr{IPNet: address},
+			MAC:               fakeMac,
+			Mtu:               uint16(1410),
+			AdvertisingIPAddr: net.IPv4(10, 35, 0, 1),
+		}
+
+		It("should remove empty routes, and routes matching nic, leaving others intact", func() {
+			expectedRouteList := []netlink.Route{defRoute, gwRoute, staticRoute}
+			Expect(FilterPodNetworkRoutes(staticRouteList, testDhcpConfig)).To(Equal(expectedRouteList))
 		})
 	})
 })

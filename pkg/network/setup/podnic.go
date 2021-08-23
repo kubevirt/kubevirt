@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 
+	"kubevirt.io/kubevirt/pkg/network/domainspec"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -46,7 +48,7 @@ type podNIC struct {
 	cacheFactory      cache.InterfaceCacheFactory
 	dhcpConfigurator  dhcpconfigurator.Configurator
 	infraConfigurator infraconfigurators.PodNetworkInfraConfigurator
-	domainGenerator   LibvirtSpecGenerator
+	domainGenerator   domainspec.LibvirtSpecGenerator
 }
 
 func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheFactory cache.InterfaceCacheFactory, launcherPID *int) (*podNIC, error) {
@@ -214,7 +216,7 @@ func (l *podNIC) PlugPhase1() error {
 		return fmt.Errorf("failed setting state to PodIfaceNetworkPreparationStarted: %w", err)
 	}
 
-	// preparePodNetworkInterface must be called *after* the generate
+	// preparePodNetworkInterface must be called *after* the Generate
 	// methods since it mutates the pod interface from which those
 	// generator methods get their info from.
 	if err := l.infraConfigurator.PreparePodNetworkInterface(); err != nil {
@@ -238,7 +240,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return nil
 	}
 
-	if err := l.domainGenerator.generate(); err != nil {
+	if err := l.domainGenerator.Generate(); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}
 
@@ -280,7 +282,7 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 	return dhcpConfigurator
 }
 
-func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) LibvirtSpecGenerator {
+func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtSpecGenerator {
 	if l.vmiSpecIface.Bridge != nil {
 		cachedDomainIface, err := l.cachedDomainInterface()
 		if err != nil {
@@ -289,16 +291,16 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) LibvirtSpecGenerato
 		if cachedDomainIface == nil {
 			cachedDomainIface = &api.Interface{}
 		}
-		return newBridgeLibvirtSpecGenerator(l.vmiSpecIface, domain, *cachedDomainIface, l.podInterfaceName, l.handler)
+		return domainspec.NewBridgeLibvirtSpecGenerator(l.vmiSpecIface, domain, *cachedDomainIface, l.podInterfaceName, l.handler)
 	}
 	if l.vmiSpecIface.Masquerade != nil {
-		return newMasqueradeLibvirtSpecGenerator(l.vmiSpecIface, l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
+		return domainspec.NewMasqueradeLibvirtSpecGenerator(l.vmiSpecIface, l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
 	}
 	if l.vmiSpecIface.Slirp != nil {
-		return newSlirpLibvirtSpecGenerator(l.vmiSpecIface, domain)
+		return domainspec.NewSlirpLibvirtSpecGenerator(l.vmiSpecIface, domain)
 	}
 	if l.vmiSpecIface.Macvtap != nil {
-		return newMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
+		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
 	}
 	return nil
 }
