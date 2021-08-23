@@ -3917,20 +3917,6 @@ func SkipIfOpenShift(message string) {
 	}
 }
 
-func SkipIfOpenShiftAndBelowOrEqualVersion(message string, version string) {
-	curVersion, err := cluster.GetKubernetesVersion()
-	Expect(err).NotTo(HaveOccurred())
-
-	// version is above
-	if curVersion > version {
-		return
-	}
-
-	if IsOpenShift() {
-		Skip(message)
-	}
-}
-
 func SkipIfOpenShift4(message string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)

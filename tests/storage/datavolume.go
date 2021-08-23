@@ -477,10 +477,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		})
 
 		It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
-
-			// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
-			tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
-
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
@@ -564,9 +560,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			)
 
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
-				// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
-				tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
-
 				vm := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
