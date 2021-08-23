@@ -52,10 +52,6 @@ go_library(
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
         "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
-        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
-        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
-        "//vendor/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/kubevirt.io/client-go/util:go_default_library",
     ],
 )
 
