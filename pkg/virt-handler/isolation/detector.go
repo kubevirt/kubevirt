@@ -62,12 +62,10 @@ const isolationDialTimeout = 5
 type socketBasedIsolationDetector struct {
 	socketDir  string
 	controller []string
-	//cgroupParser cgroup.Parser
 }
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
-// ihol3 - change the use of Slice here to Cgroup!
 func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
 	return &socketBasedIsolationDetector{
 		socketDir:  socketDir,
@@ -102,13 +100,6 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner PPid of socket %s", socket)
 		return nil, err
 	}
-
-	//// Look up the cgroup slice based on the whitelisted controller
-	//if controller, slice, err = s.getSlice(pid); err != nil {
-	//	log.Log.Object(vm).Reason(err).Errorf("Could not get cgroup slice for Pid %d", pid)
-	//	return nil, err
-	//}
-	// ihol3 remove
 
 	return NewIsolationResult(pid, ppid), nil
 }
@@ -297,4 +288,27 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, 
 	//}
 	//
 	//return
+}
+
+// consider reusing getMemoryOverhead()
+// This is not scientific, but neither what libvirtd does is. See details in:
+// https://www.redhat.com/archives/libvirt-users/2019-August/msg00051.html
+func getMemlockSize(vm *v1.VirtualMachineInstance) (int64, error) {
+	memlockSize := resource.NewQuantity(0, resource.DecimalSI)
+
+	// start with base memory requested for the VM
+	vmiMemoryReq := vm.Spec.Domain.Resources.Requests.Memory()
+	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
+
+	// allocate 1Gb for VFIO needs
+	memlockSize.Add(resource.MustParse("1G"))
+
+	// add some more memory for NUMA / CPU topology, platform memory alignment and other needs
+	memlockSize.Add(resource.MustParse("256M"))
+
+	bytes, ok := memlockSize.AsInt64()
+	if !ok {
+		return 0, fmt.Errorf("could not calculate memory lock size")
+	}
+	return bytes, nil
 }

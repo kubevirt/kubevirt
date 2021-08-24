@@ -209,9 +209,16 @@ func main() {
 			if err != nil {
 				return fmt.Errorf("cannot convert PID into uint32. err: %v", err)
 			}
-			path := cmd.Flag("path").Value.String()
+			if vmiPidFromHostView == 0 {
+				return fmt.Errorf("\"pid\" argument must be greater than zero")
+			}
+
+			cgroupDirPath := cmd.Flag("path").Value.String()
+			if cgroupDirPath == "" {
+				return fmt.Errorf("path argument cannot be empty")
+			}
+
 			marshalledRulesHash := cmd.Flag("rules").Value.String()
-			fmt.Printf("Original marshalled: %s\n", marshalledRulesHash)
 			isRootless, err := strconv.ParseBool(cmd.Flag("rootless").Value.String())
 			if err != nil {
 				return fmt.Errorf("cannot convert rootless into bool. err: %v", err)
@@ -219,12 +226,9 @@ func main() {
 
 			unmarshalledRules, err := decodeDeviceRules(marshalledRulesHash)
 			if err != nil {
-				return fmt.Errorf("Cannot decode rules. err: %v", err) // ihol3
-			}
-			if err = validateCgroupsArguments(vmiPidFromHostView, path, unmarshalledRules, isRootless); err != nil {
 				return err
 			}
-			if err = setCgroupDeviceRules(vmiPidFromHostView, path, unmarshalledRules, isRootless); err != nil {
+			if err = setCgroupDeviceRules(vmiPidFromHostView, cgroupDirPath, unmarshalledRules, isRootless); err != nil {
 				return err
 			}
 
@@ -234,7 +238,7 @@ func main() {
 
 	cgroupsV2DeviceCmd.Flags().Uint32("pid", 0, "VMI's PID from the host's viewpoint")
 	cgroupsV2DeviceCmd.Flags().String("path", "", "path to cgroups v2 directory") // ihol3 example
-	cgroupsV2DeviceCmd.Flags().String("rules", "", "marshalled []*Rule type (defined in github.com/opencontainers/runc/libcontainer/devices), encoded to hex format")
+	cgroupsV2DeviceCmd.Flags().String("rules", "", "marshalled []*Rule type (defined in github.com/opencontainers/runc/libcontainer/devices), encoded to base64 format")
 	cgroupsV2DeviceCmd.Flags().Bool("rootless", false, "true to run rootless")
 
 	rootCmd.AddCommand(
@@ -254,63 +258,26 @@ func main() {
 	}
 }
 
-func validateCgroupsArguments(vmiPidFromHostView uint64, cgroupDirPath string, marshalledDeviceRules []*devices.Rule, isRootless bool) error {
-	const cannotBeEmptyFormat = "\"%s\" argument cannot be empty"
-
-	if vmiPidFromHostView == 0 {
-		return fmt.Errorf("\"pid\" argument must be greater than zero")
-	}
-	if cgroupDirPath == "" {
-		return fmt.Errorf(cannotBeEmptyFormat, "path")
-	}
-	if marshalledDeviceRules == nil {
-		return fmt.Errorf(cannotBeEmptyFormat, "rules") // ihol3 maybe change
-	}
-
-	return nil
-}
-
 func decodeDeviceRules(marshalledRulesHash string) (unmarshalledRules []*devices.Rule, err error) {
-	// ihol3 doc
-	// workaround to decode (https://stackoverflow.com/a/50151862/12787266)
-
-	//type wrapper struct {
-	//	Data string
-	//}
-	//var wrapperObj wrapper
-	//
-	//fmt.Printf("marshalledRules: %s\n", marshalledRules)
-	//marshalledWrapper := []byte("{\"data\":\"" + marshalledRules + "\"}")
-	//err = json.Unmarshal(marshalledWrapper, &wrapperObj)
-	//if err != err {
-	//	return nil, err
-	//}
-	//
-	//fmt.Printf("wrapperObj.Data: %s\n", wrapperObj.Data)
-	//err = json.Unmarshal([]byte(wrapperObj.Data), &unmarshalledRules)
-	//if err != nil {
-	//	return nil, err
-	//}
-
 	marshalledRules, err := base64.StdEncoding.DecodeString(marshalledRulesHash)
 	if err != err {
-		return nil, err
+		return nil, fmt.Errorf("cannot decode marshalled cgroups v2 rules. "+
+			"encoded rules: %s. err: %v", marshalledRulesHash, err)
 	}
-	fmt.Printf("marshalledRules: %s\n", string(marshalledRules))
+
 	err = json.Unmarshal(marshalledRules, &unmarshalledRules)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot unmarshall cgroup v2 rules. "+
+			"marshalled rules: %s. err: %v", marshalledRules, err)
 	}
 
 	return unmarshalledRules, err
 }
 
-func setCgroupDeviceRules(vmiPidFromHostView uint64, cgroupDirPath string, marshalledDeviceRules []*devices.Rule, isRootless bool) error {
-	//deviceRules, err := decodeDeviceRules(marshalledDeviceRules)
-	//if err != nil {
-	//	return fmt.Errorf("cannot unmarshall deviceRules. err: %v", err)
-	//}
-	deviceRules := marshalledDeviceRules
+func setCgroupDeviceRules(vmiPidFromHostView uint64, cgroupDirPath string, deviceRules []*devices.Rule, isRootless bool) error {
+	if deviceRules == nil || len(deviceRules) == 0 {
+		return nil
+	}
 
 	config := &configs.Cgroup{
 		Path:      cgroup.HostCgroupBasePath,

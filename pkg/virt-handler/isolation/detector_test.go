@@ -103,18 +103,6 @@ var _ = Describe("Isolation Detector", func() {
 			Expect(result.Pid()).To(Equal(os.Getpid()))
 		})
 
-		//It("Should not detect any slice if there is no matching controller", func() {
-		//	_, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"not_existing_slice"}).Detect(vm)
-		//	Expect(err).To(HaveOccurred())
-		//})
-
-		//It("Should detect the 'devices' controller slice of the test suite", func() {
-		//	result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
-		//	Expect(err).ToNot(HaveOccurred())
-		//	Expect(result.Slice()).To(HavePrefix("/"))
-		//})
-		// ihol3 think about commented tests. might move to finctional.
-
 		It("Should detect the PID namespace of the test suite", func() {
 			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())

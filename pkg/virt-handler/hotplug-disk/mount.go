@@ -30,6 +30,12 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
+const (
+	failedToCreateCgroupManagerErrTemplate = "could not create cgroup manager. err: %v"
+)
+
 var (
 	deviceBasePath = func(podUID types.UID) string {
 		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID))
@@ -78,10 +84,7 @@ var (
 	}
 )
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-
 type volumeMounter struct {
-	//podIsolationDetector isolation.PodIsolationDetector // ihol3 remove
 	cgroupManager      cgroup.Manager
 	mountStateDir      string
 	mountRecords       map[types.UID]*vmiMountTargetRecord
@@ -112,9 +115,8 @@ type vmiMountTargetRecord struct {
 }
 
 // NewVolumeMounter creates a new VolumeMounter
-func NewVolumeMounter( /*isoDetector isolation.PodIsolationDetector,*/ mountStateDir string) VolumeMounter {
+func NewVolumeMounter(mountStateDir string) VolumeMounter {
 	return &volumeMounter{
-		//podIsolationDetector: isoDetector, // ihol3 remove
 		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
 		mountStateDir:      mountStateDir,
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(),
@@ -317,25 +319,15 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 	}
 
 	deviceName := filepath.Join(targetPath, volume)
-	isolationRes, err := detectVMIsolation(vmi)
-	if err != nil {
-		return err
-	}
-
-	pid := isolationRes.Pid()
 
 	isMigrationInProgress := vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.Completed
 
-	cgroupsManager, err := getCgroupsManager(vmi, sourceUID)
+	cgroupsManager, err := cgroup.NewManagerFromVM(vmi)
 	if err != nil {
-		return fmt.Errorf("could not create cgroup manager. err: %v", err)
+		return fmt.Errorf(failedToCreateCgroupManagerErrTemplate, err)
 	}
 
 	if isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists {
-		//computeCGroupPath, err := m.getTargetCgroupPath(vmi)
-		if err != nil {
-			return err
-		}
 		sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(sourceUID, volume)
 		if err != nil {
 			return err
@@ -344,25 +336,19 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 			return err
 		}
 		// allow block devices
-		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, cgroupsManager, pid); err != nil {
+		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, cgroupsManager); err != nil {
 			return err
 		}
-
 		if _, err = m.createBlockDeviceFile(deviceName, sourceMajor, sourceMinor, permissions); err != nil {
 			return err
 		}
 	} else if isBlockExists && (!m.volumeStatusReady(volume, vmi) || isMigrationInProgress) {
-
 		// Block device exists already, but the volume is not ready yet, ensure that the device is allowed.
-		//computeCGroupPath, err := m.getTargetCgroupPath(vmi)
-		if err != nil {
-			return err
-		}
 		sourceMajor, sourceMinor, _, err := m.getSourceMajorMinor(sourceUID, volume)
 		if err != nil {
 			return err
 		}
-		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, cgroupsManager, pid); err != nil {
+		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, cgroupsManager); err != nil {
 			return err
 		}
 	}
@@ -471,36 +457,11 @@ func (m *volumeMounter) getBlockFileMajorMinor(fileName string) (int64, int64, s
 	return int64(result[0]), int64(result[1]), split[2], nil
 }
 
-//// getTargetCgroupPath returns the container cgroup path of the compute container in the pod.
-//func (m *volumeMounter) getTargetCgroupPath(vmi *v1.VirtualMachineInstance) (string, error) {
-//	basePath := cgroupsBasePath()
-//	isoRes, err := m.podIsolationDetector.Detect(vmi)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	virtlauncherCgroupPath := filepath.Join(basePath, )//isoRes.Slice())
-//	fileInfo, err := os.Stat(virtlauncherCgroupPath)
-//	if err != nil {
-//		return "", err
-//	}
-//	if !fileInfo.IsDir() {
-//		return "", fmt.Errorf("detected path %s, but it is not a directory", virtlauncherCgroupPath)
-//	}
-//	return virtlauncherCgroupPath, nil
-//}
-
 func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, manager cgroup.Manager) error {
-	//idx := strings.Index(path, "/sys/fs/cgroup/")
-	//chrootPath := path[:idx] // ihol3 rename me
-	//newPath := path[idx:]
-
-	//return cgroup.RunWithChroot(cgroup.HostRootPath, func() error {
 	return m.updateBlockMajorMinor(major, minor, false, manager)
-	//})
 }
 
-func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, manager cgroup.Manager, pid int) error {
+func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, manager cgroup.Manager) error {
 	return m.updateBlockMajorMinor(major, minor, true, manager)
 }
 
@@ -553,49 +514,6 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 
 	return err
 }
-
-// ihol3 clean
-//func (m *volumeMounter) loadEmulator(path string) (*cgroupdevices.Emulator, error) {
-//	list, err := fscommon.ReadFile(path, "devices.list")
-//	if err != nil {
-//		return nil, err
-//	}
-//	return cgroupdevices.EmulatorFromList(bytes.NewBufferString(list))
-//}
-
-// ihol3 delete this and others that aren't in use here
-//func (m *volumeMounter) updateDevicesList(path string, rule *configs.DeviceRule) error {
-//	// Create the target emulator for comparison later.
-//	target, err := m.loadEmulator(path)
-//	if err != nil {
-//		return err
-//	}
-//	target.Apply(*rule)
-//
-//	file := "devices.deny"
-//	if rule.Allow {
-//		file = "devices.allow"
-//	}
-//	if err := fscommon.WriteFile(path, file, rule.CgroupString()); err != nil {
-//		return err
-//	}
-//
-//	// Final safety check -- ensure that the resulting state is what was
-//	// requested. This is only really correct for white-lists, but for
-//	// black-lists we can at least check that the cgroup is in the right mode.
-//	currentAfter, err := m.loadEmulator(path)
-//	if err != nil {
-//		return err
-//	}
-//	if !m.skipSafetyCheck {
-//		if !target.IsBlacklist() && !reflect.DeepEqual(currentAfter, target) {
-//			return errors.New("resulting devices cgroup doesn't precisely match target")
-//		} else if target.IsBlacklist() != currentAfter.IsBlacklist() {
-//			return errors.New("resulting devices cgroup doesn't match target mode")
-//		}
-//	}
-//	return nil
-//}
 
 func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor int64, blockDevicePermissions string) (string, error) {
 	exists, err := diskutils.FileExists(deviceName)
@@ -787,9 +705,9 @@ func (m *volumeMounter) unmountFileSystemHotplugVolumes(diskPath string) error {
 }
 
 func (m *volumeMounter) unmountBlockHotplugVolumes(diskPath string, vmi *v1.VirtualMachineInstance) error {
-	cgroupsManager, err := getCgroupsManager(vmi, "")
+	cgroupsManager, err := cgroup.NewManagerFromVM(vmi)
 	if err != nil {
-		return fmt.Errorf("could not create cgroup manager. err: %v", err)
+		return fmt.Errorf(failedToCreateCgroupManagerErrTemplate, err)
 	}
 
 	// Get major and minor so we can deny the container.
@@ -802,10 +720,6 @@ func (m *volumeMounter) unmountBlockHotplugVolumes(diskPath string, vmi *v1.Virt
 	if err != nil {
 		return err
 	}
-	//path, err := m.getTargetCgroupPath(vmi)
-	//if err != nil {
-	//	return err
-	//}
 	if err := m.removeBlockMajorMinor(major, minor, cgroupsManager); err != nil {
 		return err
 	}
@@ -864,110 +778,4 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		return isBlockExists, nil
 	}
 	return isMounted(filepath.Join(targetPath, fmt.Sprintf("%s.img", volume)))
-}
-
-//func (m *volumeMounter) setDevices(dirPath string, r *configs.Resources) error {
-//	if r.SkipDevices {
-//		return nil
-//	}
-//	// XXX: This is currently a white-list (but all callers pass a blacklist of
-//	//      devices). This is bad for a whole variety of reasons, but will need
-//	//      to be fixed with co-ordinated effort with downstreams.
-//	insts, license, err := devicefilter.DeviceFilter(r.Devices)
-//	if err != nil {
-//		return err
-//	}
-//	dirFD, err := unix.Open(dirPath, unix.O_DIRECTORY|unix.O_RDONLY, 0600)
-//	if err != nil {
-//		return fmt.Errorf("cannot get dir FD for %s", dirPath)
-//	}
-//	defer unix.Close(dirFD)
-//	// XXX: This code is currently incorrect when it comes to updating an
-//	//      existing cgroup with new rules (new rulesets are just appended to
-//	//      the program list because this uses BPF_F_ALLOW_MULTI). If we didn't
-//	//      use BPF_F_ALLOW_MULTI we could actually atomically swap the
-//	//      programs.
-//	//
-//	//      The real issue is that BPF_F_ALLOW_MULTI makes it hard to have a
-//	//      race-free blacklist because it acts as a whitelist by default, and
-//	//      having a deny-everything program cannot be overridden by other
-//	//      programs. You could temporarily insert a deny-everything program
-//	//      but that would result in spurrious failures during updates.
-//	if _, err := ebpf.LoadAttachCgroupDeviceFilter(insts, license, dirFD); err != nil {
-//		if !canSkipEBPFError(r) {
-//			return err
-//		}
-//	}
-//	return nil
-//}
-//
-//// This is similar to the logic applied in crun for handling errors from bpf(2)
-//// <https://github.com/containers/crun/blob/0.17/src/libcrun/cgroup.c#L2438-L2470>.
-//func canSkipEBPFError(r *configs.Resources) bool {
-//	// If we're running in a user namespace we can ignore eBPF rules because we
-//	// usually cannot use bpf(2), as well as rootless containers usually don't
-//	// have the necessary privileges to mknod(2) device inodes or access
-//	// host-level instances (though ideally we would be blocking device access
-//	// for rootless containers anyway).
-//	if userns.RunningInUserNS() {
-//		return true
-//	}
-//
-//	// We cannot ignore an eBPF load error if any rule if is a block rule or it
-//	// doesn't permit all access modes.
-//	//
-//	// NOTE: This will sometimes trigger in cases where access modes are split
-//	//       between different rules but to handle this correctly would require
-//	//       using ".../libcontainer/cgroup/devices".Emulator.
-//	for _, dev := range r.Devices {
-//		if !dev.Allow || !isRWM(dev.Permissions) {
-//			return false
-//		}
-//	}
-//	return true
-//}
-//
-//func isRWM(perms devices.Permissions) bool {
-//	var r, w, m bool
-//	for _, perm := range perms {
-//		switch perm {
-//		case 'r':
-//			r = true
-//		case 'w':
-//			w = true
-//		case 'm':
-//			m = true
-//		}
-//	}
-//	return r && w && m
-//}
-
-// ihol3 consider to delete
-func getCgroupsManager(vmi *v1.VirtualMachineInstance, sourceUID types.UID) (manager cgroup.Manager, err error) {
-	manager, err = cgroup.NewManagerFromVM(vmi)
-	log.Log.Object(vmi).Infof("creating new manager. err: %v", err)
-
-	//if sourceUID == "" {
-	//	manager, err = cgroup.NewManagerFromVM(vmi)
-	//	log.Log.Object(vmi).Infof("creating new manager. err: %v", err)
-	//} else {
-	//	socketPath := socketPath(sourceUID) // ihol3 refactor to getSocketPath
-	//	manager, err = cgroup.NewManagerFromVMAndSocket(vmi, socketPath)
-	//	log.Log.Object(vmi).Infof("creating new manager. socket: \"%s\", err: %v", socketPath, err)
-	//}
-
-	return manager, err
-}
-
-func detectVMIsolation(vm *v1.VirtualMachineInstance) (isolationRes isolation.IsolationResult, err error) {
-	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
-	detector := isolation.NewSocketBasedIsolationDetector(util.VirtShareDir)
-
-	isolationRes, err = detector.Detect(vm)
-
-	if err != nil {
-		return nil, fmt.Errorf(detectionErrFormat, vm.Name, err)
-	}
-
-	return isolationRes, nil
 }

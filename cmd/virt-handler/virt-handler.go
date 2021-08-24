@@ -161,9 +161,6 @@ var (
 	apiHealthVersion                 = new(healthz.KubeApiHealthzVersion)
 )
 
-// ihol3 rethink
-var GetHandlerLauncherSharedDir func() string
-
 func (app *virtHandlerApp) prepareCertManager() (err error) {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
 	app.servercertmanager = bootstrap.NewFileCertificateManager(app.serverCertFilePath, app.serverKeyFilePath)
@@ -299,7 +296,6 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
-	GetHandlerLauncherSharedDir = func() string { return app.VirtShareDir }
 	app.clusterConfig = virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), factory.KubeVirt(), app.namespace)
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)

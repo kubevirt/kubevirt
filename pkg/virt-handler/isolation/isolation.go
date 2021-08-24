@@ -41,9 +41,6 @@ import (
 
 // IsolationResult is the result of a successful PodIsolationDetector.Detect
 type IsolationResult interface {
-	//// cgroup slice
-	//Slice() string
-	// ihol3 remove above
 	// process ID
 	Pid() int
 	// parent process ID
@@ -62,12 +59,9 @@ type IsolationResult interface {
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
 }
 
-// ihol3 maybe change "isolation" name. too general.
 type RealIsolationResult struct {
 	pid  int
 	ppid int
-	//slice      string // ihol3 remove
-	//controller []string
 }
 
 func NewIsolationResult(pid, ppid int) IsolationResult {
@@ -87,11 +81,6 @@ func (r *RealIsolationResult) DoNetNS(f func() error) error {
 func (r *RealIsolationResult) PIDNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/pid", r.pid)
 }
-
-// ihol3 remove
-//func (r *RealIsolationResult) Slice() string {
-//	return r.slice
-//}
 
 func (r *RealIsolationResult) MountNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/mnt", r.pid)
@@ -153,11 +142,6 @@ func (r *RealIsolationResult) Pid() int {
 func (r *RealIsolationResult) PPid() int {
 	return r.ppid
 }
-
-// ihol3 remove
-//func (r *RealIsolationResult) Controller() []string {
-//	return r.controller
-//}
 
 func NodeIsolationResult() *RealIsolationResult {
 	return &RealIsolationResult{
