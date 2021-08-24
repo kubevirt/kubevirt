@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+var containerTag = ""
+
 func done(files []string) {
 	err := ioutil.WriteFile("/tmp/results/done", []byte(strings.Join(files, "\n")), 0666)
 	if err != nil {
@@ -27,6 +29,7 @@ func main() {
 
 func execute() error {
 	args := []string{}
+	args = append(args, "--container-tag", containerTag)
 	args = append(args, "--junit-output", "/tmp/results/junit.xml")
 	// additional conformance test overrides
 	if value, exists := os.LookupEnv("E2E_SKIP"); exists {
