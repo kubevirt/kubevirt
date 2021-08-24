@@ -365,6 +365,20 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   fi
 fi
 
+if [[ $KUBEVIRT_NONROOT =~ true ]]; then
+  if [[ -z $KUBEVIRT_E2E_FOCUS ]]; then
+    export KUBEVIRT_E2E_FOCUS="\\[verify-nonroot\\]"
+  else
+    export KUBEVIRT_E2E_FOCUS="$KUBEVIRT_E2E_FOCUS|\\[verify-nonroot\\]"
+  fi
+else
+  if [[ -z $KUBEVIRT_E2E_SKIP ]]; then
+    export KUBEVIRT_E2E_SKIP="\\[verify-nonroot\\]"
+  else
+    export KUBEVIRT_E2E_SKIP="$KUBEVIRT_E2E_SKIP|\\[verify-nonroot\\]"
+  fi
+fi
+
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
 # set the whole suite (quarantined and stable) will be run.
 if [ -z "$KUBEVIRT_QUARANTINE" ]; then

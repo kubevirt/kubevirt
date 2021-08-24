@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -61,4 +62,29 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 		table.Entry("[test_id:7126]SRIOV", sriovVM, "", "SRIOV"),
 		table.Entry("[test_id:7127]VirtioFS", virtioFsVM, virtconfig.VirtIOFSGate, "VirtioFS"),
 	)
+
+	Context("[verify-nonroot] NonRoot feature", func() {
+		It("Fails if can't be tested", func() {
+			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
+
+			vmi := tests.NewRandomVMI()
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			podOutput, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"id"},
+			)
+
+			groups := strings.Split(podOutput, "=")
+			uid := strings.Split(groups[1], "(")[0]
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(uid).To(Equal("107"))
+		})
+	})
 })
