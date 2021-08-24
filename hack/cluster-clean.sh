@@ -28,14 +28,7 @@ source hack/config.sh
 function delete_kubevirt_cr() {
     # Delete KubeVirt CR, timeout after 10 seconds
     set +e
-    (
-        local cmdpid=$BASHPID
-        (
-            sleep 10
-            kill $cmdpid
-        ) &
-        _kubectl -n ${namespace} delete kv kubevirt
-    )
+    _kubectl -n ${namespace} delete kv kubevirt --timeout=10s --ignore-not-found
     _kubectl -n ${namespace} patch kv kubevirt --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
     _kubectl patch cdi cdi --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 
