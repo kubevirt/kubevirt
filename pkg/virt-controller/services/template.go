@@ -1032,20 +1032,20 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		}
 	}
 
-	useEmulation := t.clusterConfig.IsUseEmulation()
+	allowEmulation := t.clusterConfig.AllowEmulation()
 	imagePullPolicy := t.clusterConfig.GetImagePullPolicy()
 
 	if resources.Limits == nil {
 		resources.Limits = make(k8sv1.ResourceList)
 	}
 
-	extraResources := getRequiredResources(vmi, useEmulation)
+	extraResources := getRequiredResources(vmi, allowEmulation)
 	for key, val := range extraResources {
 		resources.Limits[key] = val
 	}
 
-	if useEmulation {
-		command = append(command, "--use-emulation")
+	if allowEmulation {
+		command = append(command, "--allow-emulation")
 	} else {
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
@@ -1769,15 +1769,15 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 	return capabilities
 }
 
-func getRequiredResources(vmi *v1.VirtualMachineInstance, useEmulation bool) k8sv1.ResourceList {
+func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
 	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res[TunDevice] = resource.MustParse("1")
 	}
-	if util.NeedVirtioNetDevice(vmi, useEmulation) {
-		// Note that about network interface, useEmulation does not make
+	if util.NeedVirtioNetDevice(vmi, allowEmulation) {
+		// Note that about network interface, allowEmulation does not make
 		// any difference on eventual Domain xml, but uniformly making
 		// /dev/vhost-net unavailable and libvirt implicitly fallback
 		// to use QEMU userland NIC emulation.

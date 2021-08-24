@@ -420,7 +420,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
-				if tests.ShouldUseEmulation(virtClient) {
+				if tests.ShouldAllowEmulation(virtClient) {
 					Skip("Software emulation should not be enabled for this test to run")
 				}
 

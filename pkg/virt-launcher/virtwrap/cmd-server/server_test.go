@@ -51,7 +51,7 @@ var _ = Describe("Virt remote commands", func() {
 	var shareDir string
 	var stop chan struct{}
 	var stopped bool
-	var useEmulation bool
+	var allowEmulation bool
 	var options *ServerOptions
 
 	BeforeEach(func() {
@@ -65,8 +65,8 @@ var _ = Describe("Virt remote commands", func() {
 
 		socketPath := filepath.Join(shareDir, "server.sock")
 
-		useEmulation = true
-		options = NewServerOptions(useEmulation)
+		allowEmulation = true
+		options = NewServerOptions(allowEmulation)
 		RunServer(socketPath, domainManager, stop, options)
 		client, err = cmdclient.NewClient(socketPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -85,7 +85,7 @@ var _ = Describe("Virt remote commands", func() {
 		It("should start a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domain := api.NewMinimalDomain("testvmi")
-			domainManager.EXPECT().SyncVMI(vmi, useEmulation, &cmdv1.VirtualMachineOptions{}).Return(&domain.Spec, nil)
+			domainManager.EXPECT().SyncVMI(vmi, allowEmulation, &cmdv1.VirtualMachineOptions{}).Return(&domain.Spec, nil)
 
 			err := client.SyncVirtualMachine(vmi, &cmdv1.VirtualMachineOptions{})
 			Expect(err).ToNot(HaveOccurred())

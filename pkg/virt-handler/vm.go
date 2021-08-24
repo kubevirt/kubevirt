@@ -509,11 +509,10 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		return false, nil
 	}
 
-	if virtutil.IsNonRootVMI(vmi) && virtutil.NeedVirtioNetDevice(vmi, d.clusterConfig.IsUseEmulation()) {
-		vhostNet := path.Join(res.MountRoot(), "dev", "vhost-net")
-		err := diskutils.DefaultOwnershipManager.SetFileOwnership(vhostNet)
+	if virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi) {
+		err := d.claimDeviceOwnership(vmi, "vhost-net")
 		if err != nil {
-			return true, fmt.Errorf("Failed to set up vhost-net device, %s", err)
+			return true, fmt.Errorf("failed to set up vhost-net device, %s", err)
 		}
 	}
 
@@ -2426,7 +2425,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	}
 
-	err = d.claimKVMDeviceOwnership(vmi)
+	err = d.claimDeviceOwnership(vmi, "kvm")
 	if err != nil {
 		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
 	}
@@ -2519,7 +2518,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 		}
 
-		err = d.claimKVMDeviceOwnership(vmi)
+		err = d.claimDeviceOwnership(vmi, "kvm")
 		if err != nil {
 			return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
 		}
@@ -2799,15 +2798,15 @@ func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 	return nil
 }
 
-func (d *VirtualMachineController) claimKVMDeviceOwnership(vmi *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) claimDeviceOwnership(vmi *v1.VirtualMachineInstance, deviceName string) error {
 	isolation, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return err
 	}
 
-	kvmPath := path.Join(isolation.MountRoot(), "dev", "kvm")
+	kvmPath := path.Join(isolation.MountRoot(), "dev", deviceName)
 
-	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.IsUseEmulation())
+	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.AllowEmulation())
 	if err != nil || softwareEmulation {
 		return err
 	}

@@ -9,16 +9,24 @@ in case that at least one network interface model is virtio (note: if the NIC
 model is not explicitly specified, by default virtio is chosen).
 
 If `useEmulation` is enabled,
-- hardware emulation via `/dev/kvm` will not be attempted. `qemu` will be used
-  for software emulation instead.
-- in-kernel virtio-net backend emulation via `/dev/vhost-net` will not be
-  attempted. QEMU userland virtio NIC emulation will be used for virtio-net
-  interface instead.
+- `qemu` will be used for software emulation, in case that hardware emulation
+  via `/dev/kvm` is unavailable.
+- QEMU userland virtio NIC emulation will be used for virtio-net interfaces,
+  in case that in-kernel virtio-net backend emulation via `/dev/vhost-net` 
+  is unavailable.
+
+If `useEmulation` is disabled, and a required hardware emulation device is unavailable
+(`/dev/kvm`, or `/dev/vhost-net` for a VirtualMachine which uses virtio for at least one interface),
+the VirtualMachine will fail to start and an error will be reported.
+
+Note that software emulation, when enabled, is only used as a fallback when
+hardware emulation is not available. Hardware emulation is always attempted first,
+regardless of the value of the `useEmulation`.
 
 # Configuration
 
 Enabling software emulation is a cluster-wide setting, and is activated by
-editing the kubevirt-config as follows:
+editing the `KubeVirt` CR as follows:
 
 ```bash
 cluster-up/kubectl.sh --namespace kubevirt edit kubevirt kubevirt

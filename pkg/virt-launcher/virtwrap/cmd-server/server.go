@@ -45,16 +45,16 @@ const (
 )
 
 type ServerOptions struct {
-	useEmulation bool
+	allowEmulation bool
 }
 
-func NewServerOptions(useEmulation bool) *ServerOptions {
-	return &ServerOptions{useEmulation: useEmulation}
+func NewServerOptions(allowEmulation bool) *ServerOptions {
+	return &ServerOptions{allowEmulation: allowEmulation}
 }
 
 type Launcher struct {
-	domainManager virtwrap.DomainManager
-	useEmulation  bool
+	domainManager  virtwrap.DomainManager
+	allowEmulation bool
 }
 
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
@@ -161,7 +161,7 @@ func (l *Launcher) SyncMigrationTarget(_ context.Context, request *cmdv1.VMIRequ
 		return response, nil
 	}
 
-	if err := l.domainManager.PrepareMigrationTarget(vmi, l.useEmulation); err != nil {
+	if err := l.domainManager.PrepareMigrationTarget(vmi, l.allowEmulation); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to prepare migration target pod")
 		response.Success = false
 		response.Message = getErrorMessage(err)
@@ -180,7 +180,7 @@ func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIReque
 		return response, nil
 	}
 
-	if _, err := l.domainManager.SyncVMI(vmi, l.useEmulation, request.Options); err != nil {
+	if _, err := l.domainManager.SyncVMI(vmi, l.allowEmulation, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)
@@ -518,15 +518,15 @@ func RunServer(socketPath string,
 	stopChan chan struct{},
 	options *ServerOptions) (chan struct{}, error) {
 
-	useEmulation := false
+	allowEmulation := false
 	if options != nil {
-		useEmulation = options.useEmulation
+		allowEmulation = options.allowEmulation
 	}
 
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	server := &Launcher{
-		domainManager: domainManager,
-		useEmulation:  useEmulation,
+		domainManager:  domainManager,
+		allowEmulation: allowEmulation,
 	}
 	registerInfoServer(grpcServer)
 

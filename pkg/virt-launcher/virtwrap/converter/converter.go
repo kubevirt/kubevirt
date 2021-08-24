@@ -95,7 +95,7 @@ type EFIConfiguration struct {
 
 type ConverterContext struct {
 	Architecture          string
-	UseEmulation          bool
+	AllowEmulation        bool
 	Secrets               map[string]*k8sv1.Secret
 	VirtualMachine        *v1.VirtualMachineInstance
 	CPUSet                []int
@@ -1092,7 +1092,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	kvmPath := "/dev/kvm"
-	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, c.UseEmulation); err != nil {
+	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, c.AllowEmulation); err != nil {
 		return err
 	} else if softwareEmulation {
 		logger := log.DefaultLogger()
@@ -1106,7 +1106,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	virtioNetProhibited := false
 	vhostNetPath := "/dev/vhost-net"
-	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(vhostNetPath, c.UseEmulation); err != nil {
+	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(vhostNetPath, c.AllowEmulation); err != nil {
 		return err
 	} else if softwareEmulation {
 		logger := log.DefaultLogger()

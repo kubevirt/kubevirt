@@ -51,7 +51,7 @@ const (
 	DefaultNodeSelectors                            = ""
 	DefaultNetworkInterface                         = "bridge"
 	DefaultImagePullPolicy                          = k8sv1.PullIfNotPresent
-	DefaultUseEmulation                             = false
+	DefaultAllowEmulation                           = false
 	DefaultUnsafeMigrationOverride                  = false
 	DefaultPermitSlirpInterface                     = false
 	SmbiosConfigDefaultFamily                       = "KubeVirt"
@@ -107,7 +107,7 @@ func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
 	return *c.GetConfig().MemBalloonStatsPeriod
 }
 
-func (c *ClusterConfig) IsUseEmulation() bool {
+func (c *ClusterConfig) AllowEmulation() bool {
 	return c.GetConfig().DeveloperConfiguration.UseEmulation
 }
 
