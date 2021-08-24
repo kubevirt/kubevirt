@@ -32,14 +32,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
@@ -53,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -170,7 +167,6 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		nodes = util.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items) > 0).To(BeTrue())
 
-		configureNodeNetwork(virtClient)
 		const vlanId = 100
 		Expect(createBridgeNetworkAttachementDefinition(linuxBridgeVlan100Network, vlanId, "")).To(Succeed())
 
@@ -1400,110 +1396,6 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 	}
 
 	return ""
-}
-
-// Tests in Multus suite are expecting a Linux bridge to be available on each node, with iptables allowing
-// traffic to go through. This function creates a Daemon Set on the cluster (if not exists yet), this Daemon
-// Set creates a linux bridge and configures the firewall. We use iptables-compat in order to work with
-// both iptables and newer nftables.
-func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
-	const networkConfigName = "network-config"
-
-	// Fetching the kubevirt-operator image from the pod makes this independent from the installation method / image used
-	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(pods.Items).ToNot(BeEmpty())
-
-	virtHandlerImage := pods.Items[0].Spec.Containers[0].Image
-
-	// Privileged DaemonSet configuring host networking as needed
-	networkConfigDaemonSet := appsv1.DaemonSet{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "DaemonSet",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      networkConfigName,
-			Namespace: metav1.NamespaceSystem,
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"name": networkConfigName},
-			},
-			Template: k8sv1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"name": networkConfigName},
-				},
-				Spec: k8sv1.PodSpec{
-					Containers: []k8sv1.Container{
-						{
-							Name: networkConfigName,
-							// Reuse image which is already installed in the cluster. All we need is chroot.
-							// Local OKD cluster doesn't allow us to pull from the outside.
-							Image: virtHandlerImage,
-							Command: []string{
-								"sh",
-								"-c",
-								"set -x; chroot /host ip link add br10 type bridge; chroot /host iptables -I FORWARD 1 -i br10 -j ACCEPT; touch /tmp/ready; sleep INF",
-							},
-							SecurityContext: &k8sv1.SecurityContext{
-								Privileged: pointer.BoolPtr(true),
-								RunAsUser:  pointer.Int64Ptr(0),
-							},
-							ReadinessProbe: &k8sv1.Probe{
-								Handler: k8sv1.Handler{
-									Exec: &k8sv1.ExecAction{
-										Command: []string{"cat", "/tmp/ready"},
-									},
-								},
-							},
-							VolumeMounts: []k8sv1.VolumeMount{
-								{
-									Name:      "host",
-									MountPath: "/host",
-								},
-							},
-						},
-					},
-					Volumes: []k8sv1.Volume{
-						{
-							Name: "host",
-							VolumeSource: k8sv1.VolumeSource{
-								HostPath: &k8sv1.HostPathVolumeSource{
-									Path: "/",
-								},
-							},
-						},
-					},
-					HostNetwork: true,
-				},
-			},
-		},
-	}
-
-	// Helper function returning existing network-config DaemonSet if exists
-	getNetworkConfigDaemonSet := func() *appsv1.DaemonSet {
-		daemonSet, err := virtClient.AppsV1().DaemonSets(metav1.NamespaceSystem).Get(context.Background(), networkConfigDaemonSet.Name, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		Expect(err).NotTo(HaveOccurred())
-		return daemonSet
-	}
-
-	// If the DaemonSet haven't been created yet, do so
-	runningNetworkConfigDaemonSet := getNetworkConfigDaemonSet()
-	if runningNetworkConfigDaemonSet == nil {
-		_, err := virtClient.AppsV1().DaemonSets(metav1.NamespaceSystem).Create(context.Background(), &networkConfigDaemonSet, metav1.CreateOptions{})
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	// Make sure that all pods in the Daemon Set finished the configuration
-	nodes := util.GetAllSchedulableNodes(virtClient)
-	Eventually(func() int {
-		daemonSet := getNetworkConfigDaemonSet()
-		return int(daemonSet.Status.NumberAvailable)
-	}, time.Minute, time.Second).Should(Equal(len(nodes.Items)))
 }
 
 func validateSRIOVSetup(virtClient kubecli.KubevirtClient, sriovResourceName string, minRequiredNodes int) error {
