@@ -93,10 +93,11 @@ function kubevirt::version::get_version_vars() {
 }
 
 function kubevirt::version::ldflag() {
-    local key=${1}
-    local val=${2}
+    local pkg=${1}
+    local key=${2}
+    local val=${3}
 
-    echo "-X kubevirt.io/client-go/version.${key}=${val}"
+    echo "-X ${pkg}.${key}=${val}"
 }
 
 # Prints the value that needs to be passed to the -ldflags parameter of go build
@@ -105,16 +106,23 @@ function kubevirt::version::ldflags() {
 
     SOURCE_DATE_EPOCH=${KUBEVIRT_SOURCE_DATE_EPOCH-$(git show -s --format=format:%ct HEAD)}
 
+    version_pkg="kubevirt.io/client-go/version"
+
     local buildDate
     [[ -z ${SOURCE_DATE_EPOCH-} ]] || buildDate="--date=@${SOURCE_DATE_EPOCH}"
-    local -a ldflags=($(kubevirt::version::ldflag "buildDate" "$(date ${buildDate} -u +'%Y-%m-%dT%H:%M:%SZ')"))
+    local -a ldflags=($(kubevirt::version::ldflag ${version_pkg} "buildDate" "$(date ${buildDate} -u +'%Y-%m-%dT%H:%M:%SZ')"))
     if [[ -n ${KUBEVIRT_GIT_COMMIT-} ]]; then
-        ldflags+=($(kubevirt::version::ldflag "gitCommit" "${KUBEVIRT_GIT_COMMIT}"))
-        ldflags+=($(kubevirt::version::ldflag "gitTreeState" "${KUBEVIRT_GIT_TREE_STATE}"))
+        ldflags+=($(kubevirt::version::ldflag ${version_pkg} "gitCommit" "${KUBEVIRT_GIT_COMMIT}"))
+        ldflags+=($(kubevirt::version::ldflag ${version_pkg} "gitTreeState" "${KUBEVIRT_GIT_TREE_STATE}"))
     fi
 
     if [[ -n ${KUBEVIRT_GIT_VERSION-} ]]; then
-        ldflags+=($(kubevirt::version::ldflag "gitVersion" "${KUBEVIRT_GIT_VERSION}"))
+        ldflags+=($(kubevirt::version::ldflag ${version_pkg} "gitVersion" "${KUBEVIRT_GIT_VERSION}"))
+    fi
+
+    if [[ -n ${DOCKER_TAG-} ]]; then
+        conformance_pkg="kubevirt.io/tests/conformance"
+        ldflags+=($(kubevirt::version::ldflag ${conformance_pkg} "containerTag" "${DOCKER_TAG}"))
     fi
 
     # The -ldflags parameter takes a single string, so join the output.
