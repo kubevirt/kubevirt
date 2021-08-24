@@ -79,14 +79,9 @@ func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
 		return logAndReturnErrorWithSprintfIfNotNil(err, "failed creating new context executor. err: %v, pid: %d, cmd: %s", err, v.pid, cmd.String())
 	}
 
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Log.V(loggingVerbosity).Errorf("cannot fetch output from command. err: %v", err)
-	}
-
 	if err = finalCmd.Execute(); err != nil {
 		return logAndReturnErrorWithSprintfIfNotNil(err, "failed setting device rule through virt-chroot. "+
-			"full command %s, err: %v, output: %s", cmd.String(), err, string(output))
+			"full command %s, err: %v", cmd.String(), err)
 	}
 
 	return nil
