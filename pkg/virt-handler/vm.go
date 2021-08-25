@@ -1549,16 +1549,17 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	// set true to ensure that no updates to the current VirtualMachineInstance state will occur
 	forceIgnoreSync := false
 
-	log.Log.Infof("Processing event %v", key)
-	if vmiExists {
-		log.Log.Object(vmi).Infof("VMI is in phase: %v\n", vmi.Status.Phase)
+	log.Log.V(3).Infof("Processing event %v", key)
+
+	if vmiExists && domainExists {
+		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
+	} else if vmiExists {
+		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain does not exist", vmi.Status.Phase)
+	} else if domainExists {
+		vmiRef := v1.NewVMIReferenceWithUUID(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name, domain.Spec.Metadata.KubeVirt.UID)
+		log.Log.Object(vmiRef).Infof("VMI does not exist | Domain status: %v, reason: %v", domain.Status.Status, domain.Status.Reason)
 	} else {
-		log.Log.Info("VMI does not exist")
-	}
-	if domainExists {
-		log.Log.Object(domain).Infof("Domain status: %v, reason: %v\n", domain.Status.Status, domain.Status.Reason)
-	} else {
-		log.Log.Info("Domain does not exist")
+		log.Log.Info("VMI does not exist | Domain does not exist")
 	}
 
 	domainAlive := domainExists &&
@@ -1687,9 +1688,11 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	}
 
 	if syncErr != nil && !vmi.IsFinal() {
-
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
-		log.Log.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
+
+		// `syncErr` will be propagated anyway, and it will be logged in `re-enqueueing`
+		// so there is no need to log it twice in hot path without increased verbosity.
+		log.Log.Object(vmi).V(3).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}
 
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
