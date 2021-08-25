@@ -30,21 +30,10 @@ trap 'catch $? $LINENO' ERR TERM INT
 # Lastly, we take give the component CSVs to the csv-merger that combines all
 # of the manifests into a single, unified, ClusterServiceVersion.
 
-function get_image_digest() {
-  if [[ ! -f ${PROJECT_ROOT}/tools/digester/digester ]]; then
-    (
-      cd "${PROJECT_ROOT}/tools/digester"
-      go build .
-    )
-  fi
-
-  local image
-  image=$("${PROJECT_ROOT}/tools/digester/digester" -image "$1" "$2")
-  echo "${image}"
-}
-
 PROJECT_ROOT="$(readlink -e $(dirname "${BASH_SOURCE[0]}")/../)"
 source "${PROJECT_ROOT}"/hack/config
+# update image digests
+"${PROJECT_ROOT}"/automation/digester/update_images.sh
 source "${PROJECT_ROOT}"/deploy/images.env
 
 HCO_OPERATOR_IMAGE=${HCO_OPERATOR_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:${CSV_VERSION}-unstable}
