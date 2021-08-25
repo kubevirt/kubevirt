@@ -45,7 +45,7 @@ func (v *v2Manager) Set(r *runc_configs.Resources) error {
 	}
 
 	resourcesWithoutDevices := getNewResourcesWithoutDevices(r)
-	if areResourcesEmpty(&resourcesWithoutDevices) {
+	if areResourcesEmpty(resourcesWithoutDevices) {
 		return nil
 	}
 

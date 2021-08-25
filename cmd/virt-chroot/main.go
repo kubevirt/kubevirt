@@ -203,7 +203,6 @@ func main() {
 	cgroupsV2DeviceCmd := &cobra.Command{
 		Use:   "set-cgroupsv2-devices",
 		Short: "Set cgroups v2 device rules",
-		//Args:  cobra.MinimumNArgs(1), // ihol3 change to 4
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vmiPidFromHostView, err := strconv.ParseUint(cmd.Flag("pid").Value.String(), 10, 32)
 			if err != nil {

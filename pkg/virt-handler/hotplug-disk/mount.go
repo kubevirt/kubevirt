@@ -475,10 +475,8 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 		Allow:       allow,
 	}
 
-	// ihol3 this shouldn't be here - move to cgroup package
 	const permissions = "rwm"
 	const toAllow = true
-
 	defaultRules := []*devices.Rule{
 		deviceRule,
 		{ // /dev/ptmx (PTY master multiplex)

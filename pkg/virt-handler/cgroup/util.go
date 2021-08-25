@@ -46,7 +46,7 @@ func logAndReturnErrorWithSprintfIfNotNil(err error, template string, args ...in
 	return newErr
 }
 
-func areResourcesEmpty(r *runc_configs.Resources) bool {
+func areResourcesEmpty(r runc_configs.Resources) bool {
 	return reflect.DeepEqual(r, runc_configs.Resources{})
 }
 
