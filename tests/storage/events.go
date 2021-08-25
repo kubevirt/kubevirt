@@ -80,10 +80,13 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 	It("[QUARANTINE][test_id:6225]Should catch the IO error event", func() {
 		By("Creating VMI with faulty disk")
 		vmi := tests.NewRandomVMIWithPVC(pvc.Name)
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
-		Expect(err).To(BeNil(), "Failed to create vmi")
+		Eventually(func() error {
+			var err error
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			return err
+		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
 
-		tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 120)
+		tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 240)
 
 		By("Expecting  paused event on VMI ")
 		Eventually(func() bool {
@@ -97,7 +100,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", func() {
 
 			return false
 		}, 30*time.Second, 5*time.Second).Should(BeTrue())
-		err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+		err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 		Expect(err).To(BeNil(), "Failed to delete VMI")
 		tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})
