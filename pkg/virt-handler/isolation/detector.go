@@ -70,7 +70,6 @@ func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
 	return &socketBasedIsolationDetector{
 		socketDir:  socketDir,
 		controller: []string{"devices"},
-		//cgroupParser: cgroupParser,
 	}
 }
 
@@ -87,9 +86,7 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
 	var pid int
 	var ppid int
-	//var slice string
 	var err error
-	//var controller []string
 
 	if pid, err = s.getPid(socket); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)

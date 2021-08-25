@@ -1869,7 +1869,6 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	}
 
 	attachmentPods, err := controller.AttachmentPods(virtlauncherPod, c.podInformer)
-
 	if err != nil {
 		return err
 	}

@@ -838,8 +838,6 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 			log.DefaultLogger().V(1).Infof("Unable to open file: %v", err)
 			return false, nil
 		}
-		perms, _ := file.Stat()
-		perms.Mode().Perm()
 		if err := file.Close(); err != nil {
 			return false, fmt.Errorf("Unable to close file: %s", file.Name())
 		}
@@ -853,7 +851,6 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	if err := file.Close(); err != nil {
 		return false, fmt.Errorf("Unable to close file: %s", file.Name())
 	}
-
 	return true, nil
 }
 
