@@ -1,8 +1,10 @@
-package prometheus
+package main
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"libvirt.org/go/libvirt"
+
+	domainstats "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus"
 
 	k6tv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -18,7 +20,7 @@ func (fc fakeCollector) Describe(_ chan<- *prometheus.Desc) {
 
 //Collect needs to report all metrics to see it in docs
 func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
-	ps := prometheusScraper{ch: ch}
+	ps := domainstats.NewPrometheusScraper(ch)
 
 	libstatst, err := util.LoadStats()
 	if err != nil {

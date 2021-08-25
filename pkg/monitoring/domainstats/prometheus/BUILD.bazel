@@ -2,18 +2,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "fakeCollector.go",
-        "prometheus.go",
-    ],
+    srcs = ["prometheus.go"],
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/monitoring/domainstats:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",
-        "//pkg/virt-launcher/virtwrap/statsconv:go_default_library",
-        "//pkg/virt-launcher/virtwrap/statsconv/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
@@ -21,7 +16,6 @@ go_library(
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )
 

@@ -41,6 +41,13 @@ package stats
 // and make necessary changes in the cmd rpc implementation!
 const (
 	DomainStatsVersion = "v1"
+
+	// VIR_VCPU_OFFLINE    = 0,    /* the virtual CPU is offline */
+	VCPUOffline = 0
+	//  VIR_VCPU_RUNNING    = 1,    /* the virtual CPU is running */
+	VCPURunning = 1
+	//  VIR_VCPU_BLOCKED    = 2,    /* the virtual CPU is blocked on resource */
+	VCPUBlocked = 2
 )
 
 type DomainStats struct {

@@ -4617,30 +4617,6 @@ rpm(
 )
 
 rpm(
-    name = "mozjs60-0__60.9.0-5.fc32.aarch64",
-    sha256 = "b532ac1225423bbce715f47ae83c1b9b70ac1e7818760a498c83aab0ae374c99",
-    urls = [
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/releases/32/Everything/aarch64/os/Packages/m/mozjs60-60.9.0-5.fc32.aarch64.rpm",
-        "https://mirrors.xtom.de/fedora/releases/32/Everything/aarch64/os/Packages/m/mozjs60-60.9.0-5.fc32.aarch64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/aarch64/os/Packages/m/mozjs60-60.9.0-5.fc32.aarch64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/aarch64/os/Packages/m/mozjs60-60.9.0-5.fc32.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/b532ac1225423bbce715f47ae83c1b9b70ac1e7818760a498c83aab0ae374c99",
-    ],
-)
-
-rpm(
-    name = "mozjs60-0__60.9.0-5.fc32.x86_64",
-    sha256 = "80cf220a3314f965c088e03d2b750426767db0b36b6b7c5e8059b9217ff4de6d",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/m/mozjs60-60.9.0-5.fc32.x86_64.rpm",
-        "https://mirror.dogado.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/m/mozjs60-60.9.0-5.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/releases/32/Everything/x86_64/os/Packages/m/mozjs60-60.9.0-5.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/releases/32/Everything/x86_64/os/Packages/m/mozjs60-60.9.0-5.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/80cf220a3314f965c088e03d2b750426767db0b36b6b7c5e8059b9217ff4de6d",
-    ],
-)
-
-rpm(
     name = "mpfr-0__4.0.2-5.fc32.aarch64",
     sha256 = "374a30310d65af1224208fcb579b6edce08aace53c118e9230233b06492f3622",
     urls = [
