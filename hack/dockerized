@@ -107,9 +107,13 @@ _rsync \
 
 volumes="-v ${BUILDER}:/root:rw,z"
 
-# append .docker directory as volume
-mkdir -p "${HOME}/.docker"
-volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
+# Use a bind-mount to expose docker/podman auth file to the container
+ID=$(id -u)
+if [[ $KUBEVIRT_CRI = "podman" ]] && [[ -f "/tmp/podman-run-${ID}/containers/auth.json" ]]; then
+    volumes="$volumes --mount type=bind,source=/tmp/podman-run-${ID}/containers/auth.json,target=/root/.docker/config.json,readonly"
+elif [[ -f "${HOME}/.docker/config.json" ]]; then
+    volumes="$volumes --mount type=bind,source=${HOME}/.docker/config.json,target=/root/.docker/config.json,readonly"
+fi
 
 # add custom docker certs, if needed
 if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
