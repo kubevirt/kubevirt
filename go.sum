@@ -2042,8 +2042,8 @@ kubevirt.io/controller-lifecycle-operator-sdk v0.2.1-0.20210723143736-64585ea1d1
 kubevirt.io/controller-lifecycle-operator-sdk v0.2.1-0.20210723143736-64585ea1d1bd/go.mod h1:ZJhLceiY2Gl5CXFGSp5eMGt/sksOiJP0289nAZFCQf0=
 kubevirt.io/qe-tools v0.1.6/go.mod h1:PJyH/YXC4W0AmxfheDmXWMbLNsMSboVGXKpMAwfKzVE=
 kubevirt.io/qe-tools v0.1.7/go.mod h1:O1EynUeGswOi4Embakmv+SsGwr+U3ILHgit9pptK2qk=
-kubevirt.io/ssp-operator v0.11.2 h1:nMI/LhCug909rViX5nrfgwgICfvQ/ROMJDeJWiokmPs=
-kubevirt.io/ssp-operator v0.11.2/go.mod h1:nlwVwTC8StCB69JEaa6RtZepaU4TlrEuLm8566z7M28=
+kubevirt.io/ssp-operator v0.11.3 h1:7KieTmNNHe32Y6Whxc9yfTozzWLD+Vf6e5GwU+d/kaQ=
+kubevirt.io/ssp-operator v0.11.3/go.mod h1:nlwVwTC8StCB69JEaa6RtZepaU4TlrEuLm8566z7M28=
 libvirt.org/libvirt-go-xml v6.6.0+incompatible/go.mod h1:FL+H1+hKNWDdkKQGGS4sGCZJ3pGWcjt6VbxZvPlQJkY=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/letsencrypt v0.0.3/go.mod h1:buyQKZ6IXrRnB7TdkHP0RyEybLx18HHyOSoTyoOLqNY=

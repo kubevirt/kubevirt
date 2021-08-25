@@ -64,7 +64,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.58.0
         - name: SSP_VERSION
-          value: v0.11.2
+          value: v0.11.3
         - name: NMO_VERSION
           value: v0.9.0
         - name: HPPO_VERSION
@@ -437,13 +437,13 @@ spec:
         env:
         - name: KVM_INFO_IMAGE
         - name: VALIDATOR_IMAGE
-          value: quay.io/kubevirt/kubevirt-template-validator:v0.11.2
+          value: quay.io/kubevirt/kubevirt-template-validator:v0.11.3
         - name: VIRT_LAUNCHER_IMAGE
         - name: NODE_LABELLER_IMAGE
         - name: CPU_PLUGIN_IMAGE
         - name: OPERATOR_VERSION
-          value: v0.11.2
-        image: quay.io/kubevirt/ssp-operator@sha256:ea06926041d12ecfd5c6a91dc08c603aa0e96769aa6893e200c881d2898d7c41
+          value: v0.11.3
+        image: quay.io/kubevirt/ssp-operator@sha256:c2350bde1e5a165c33b8b1d7f0f9a90eab9f67cc13acd72dc5e566f5cc2d5325
         name: manager
         ports:
         - containerPort: 9443
@@ -454,7 +454,10 @@ spec:
             path: /readyz
             port: 9440
           initialDelaySeconds: 5
-        resources: {}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 150Mi
         volumeMounts:
         - mountPath: /apiserver.local.config/certificates
           name: apiservice-cert
