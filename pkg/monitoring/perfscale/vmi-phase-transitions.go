@@ -130,19 +130,41 @@ func newVMIPhaseTransitionTimeHistogramVec(informer cache.SharedIndexInformer) *
 	return histogramVec
 }
 
-func updateVMIPhaseTransitionTimeFromCreationDeletionTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
-	var deletion bool
-	creation := true
+func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
 	if newVMI.DeletionTimestamp != nil {
-		deletion = true
-		creation = false
+		return
 	}
 
 	if oldVMI == nil || oldVMI.Status.Phase == newVMI.Status.Phase {
 		return
 	}
 
-	diffSeconds, err := getTransitionTimeSeconds(creation, deletion, oldVMI, newVMI)
+	diffSeconds, err := getTransitionTimeSeconds(true, false, oldVMI, newVMI)
+	if err != nil {
+		log.Log.V(4).Infof("Error encountered during vmi transition time histogram calculation: %v", err)
+		return
+	}
+
+	labels := []string{string(newVMI.Status.Phase)}
+	histogram, err := histogramVec.GetMetricWithLabelValues(labels...)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to get a histogram for a vmi lifecycle transition times")
+		return
+	}
+
+	histogram.Observe(diffSeconds)
+}
+
+func updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
+	if newVMI.DeletionTimestamp == nil {
+		return
+	}
+
+	if oldVMI == nil || oldVMI.Status.Phase == newVMI.Status.Phase {
+		return
+	}
+
+	diffSeconds, err := getTransitionTimeSeconds(false, true, oldVMI, newVMI)
 	if err != nil {
 		log.Log.V(4).Infof("Error encountered during vmi transition time histogram calculation: %v", err)
 		return
@@ -174,7 +196,7 @@ func newVMIPhaseTransitionTimeFromCreationHistogramVec(informer cache.SharedInde
 		UpdateFunc: func(oldVMI, newVMI interface{}) {
 			vmi := newVMI.(*v1.VirtualMachineInstance)
 			if vmi.DeletionTimestamp == nil {
-				updateVMIPhaseTransitionTimeFromCreationDeletionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
+				updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
 			}
 		},
 	})
@@ -199,7 +221,7 @@ func newVMIPhaseTransitionTimeFromDeletionHistogramVec(informer cache.SharedInde
 			// Stop recording when VMI finalizer is removed
 			vmi := newVMI.(*v1.VirtualMachineInstance)
 			if vmi.DeletionTimestamp != nil && vmi.GetFinalizers() != nil {
-				updateVMIPhaseTransitionTimeFromCreationDeletionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
+				updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
 			}
 		},
 	})
