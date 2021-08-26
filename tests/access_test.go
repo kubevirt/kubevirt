@@ -154,7 +154,7 @@ func (r rights) list() (e []rightsEntry) {
 	return
 }
 
-var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]User Access", func() {
+var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]User Access", func() {
 
 	var k8sClient string
 	var authClient *authClientV1.AuthorizationV1Client

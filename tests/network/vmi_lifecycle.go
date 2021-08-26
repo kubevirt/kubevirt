@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", func() {
+var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance

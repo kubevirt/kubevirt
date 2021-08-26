@@ -79,7 +79,7 @@ func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
 	}
 }
 
-var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIlifecycle", func() {
+var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIlifecycle", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -829,6 +829,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			//store old kubevirt-config
 			BeforeEach(func() {
+				// arm64 does not support cpu model
+				tests.SkipIfARM64("arm64 does not support cpu model")
 				kv := util.GetCurrentKv(virtClient)
 				originalConfig = kv.Spec.Configuration
 			})
@@ -928,6 +930,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			}
 
 			BeforeEach(func() {
+				// arm64 does not support cpu model
+				tests.SkipIfARM64("arm64 does not support cpu model")
 				nodes := util.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
