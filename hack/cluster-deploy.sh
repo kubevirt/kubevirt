@@ -35,7 +35,7 @@ function dump_kubevirt() {
 function _deploy_infra_for_tests() {
     # Remove cdi manifests for sriov-lane until kubevirt/kubevirt#4120 is fixed
     if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
-        rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-*
+        rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-* ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml
     fi
 
     # Deploy infra for testing first
@@ -66,6 +66,11 @@ EOF
             sleep 1
         done
         _kubectl patch configmap cdi-insecure-registries -n $cdi_namespace --type merge -p '{"data":{"dev-registry": "registry:5000"}}'
+
+        # Configure uploadproxy override for virtctl imageupload
+        host_port=$(${KUBEVIRT_PATH}cluster-up/cli.sh ports uploadproxy | xargs)
+        override="https://127.0.0.1:$host_port"
+        _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
     fi
 }
 
