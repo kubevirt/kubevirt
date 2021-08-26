@@ -147,8 +147,7 @@ cluster-deploy: cluster-clean
 	./hack/cluster-deploy.sh
 
 cluster-sync:
-	$(MAKE) cluster-build
-	$(MAKE) cluster-deploy
+	./hack/cluster-sync.sh
 
 builder-build:
 	./hack/builder/build.sh
