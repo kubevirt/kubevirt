@@ -1,6 +1,7 @@
-package v1beta1
+package webhooks
 
 import (
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"os"
@@ -9,7 +10,7 @@ import (
 var _ = Describe("Hyperconverged API: Webhook", func() {
 	Context("Test GetWebhookCertDir", func() {
 		It("should return default value, if the env var is not set", func() {
-			Expect(GetWebhookCertDir()).Should(Equal(DefaultWebhookCertDir))
+			Expect(GetWebhookCertDir()).Should(Equal(hcoutil.DefaultWebhookCertDir))
 		})
 
 		It("should return the value of the env var, if set", func() {

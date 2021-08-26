@@ -3,29 +3,32 @@ package main
 import (
 	"context"
 	"fmt"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"os"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
+
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
+
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -97,8 +100,7 @@ func main() {
 
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 	// necessary to configure Prometheus to scrape metrics from this operator.
-	hwHandler := &webhooks.WebhookHandler{}
-	if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr, hwHandler, ci.IsOpenshift()); err != nil {
+	if err = webhooks.SetupWebhookWithManager(ctx, mgr, ci.IsOpenshift()); err != nil {
 		logger.Error(err, "unable to create webhook", "webhook", "HyperConverged")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to create webhook")
 		os.Exit(1)

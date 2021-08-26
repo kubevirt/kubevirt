@@ -54,6 +54,10 @@ const (
 	DefaulterWebhookPath        = "/mutate-hco-kubevirt-io-v1beta1-hyperconverged"
 	WebhookPort                 = 4343
 
+	WebhookCertName       = "apiserver.crt"
+	WebhookKeyName        = "apiserver.key"
+	DefaultWebhookCertDir = "/apiserver.local.config/certificates"
+
 	CliDownloadsServerPort = 8080
 )
 

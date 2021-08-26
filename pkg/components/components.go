@@ -1158,11 +1158,11 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 				Items: []corev1.KeyToPath{
 					{
 						Key:  "tls.crt",
-						Path: hcov1beta1.WebhookCertName,
+						Path: hcoutil.WebhookCertName,
 					},
 					{
 						Key:  "tls.key",
-						Path: hcov1beta1.WebhookKeyName,
+						Path: hcoutil.WebhookKeyName,
 					},
 				},
 			},
@@ -1174,7 +1174,7 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 		deploy.Spec.Template.Spec.Containers[index].VolumeMounts = append(container.VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "apiservice-cert",
-				MountPath: hcov1beta1.DefaultWebhookCertDir,
+				MountPath: hcoutil.DefaultWebhookCertDir,
 			})
 	}
 }

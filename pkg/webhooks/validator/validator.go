@@ -1,4 +1,4 @@
-package webhooks
+package validator
 
 import (
 	"context"
@@ -11,8 +11,6 @@ import (
 	"github.com/go-logr/logr"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
@@ -28,6 +26,8 @@ const (
 	updateDryRunTimeOut = time.Second * 3
 )
 
+var _ v1beta1.ValidatorWebhookHandler = &WebhookHandler{}
+
 type WebhookHandler struct {
 	logger      logr.Logger
 	cli         client.Client
@@ -35,11 +35,13 @@ type WebhookHandler struct {
 	isOpenshift bool
 }
 
-func (wh *WebhookHandler) Init(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool) {
-	wh.logger = logger
-	wh.cli = cli
-	wh.namespace = namespace
-	wh.isOpenshift = isOpenshift
+func NewWebhookHandler(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool) *WebhookHandler {
+	return &WebhookHandler{
+		logger:      logger,
+		cli:         cli,
+		namespace:   namespace,
+		isOpenshift: isOpenshift,
+	}
 }
 
 func (wh WebhookHandler) ValidateCreate(hc *v1beta1.HyperConverged) error {
@@ -218,39 +220,6 @@ func (wh WebhookHandler) ValidateDelete(hc *v1beta1.HyperConverged) error {
 	}
 
 	return nil
-}
-
-func (wh WebhookHandler) HandleMutatingNsDelete(ns *corev1.Namespace, dryRun bool) (bool, error) {
-	wh.logger.Info("validating namespace deletion", "name", ns.Name)
-
-	if ns.Name != wh.namespace {
-		wh.logger.Info("ignoring request for a different namespace")
-		return true, nil
-	}
-
-	ctx := context.TODO()
-	hco := &v1beta1.HyperConverged{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      hcoutil.HyperConvergedName,
-			Namespace: wh.namespace,
-		},
-	}
-
-	// Block the deletion if the namespace with a clear error message
-	// if HCO CR is still there
-
-	found := &v1beta1.HyperConverged{}
-	err := wh.cli.Get(ctx, client.ObjectKeyFromObject(hco), found)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			wh.logger.Info("HCO CR doesn't not exist, allow namespace deletion")
-			return true, nil
-		}
-		wh.logger.Error(err, "failed getting HyperConverged CR")
-		return false, err
-	}
-	wh.logger.Info("HCO CR still exists, forbid namespace deletion")
-	return false, nil
 }
 
 func (wh WebhookHandler) validateCertConfig(hc *v1beta1.HyperConverged) error {
