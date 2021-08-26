@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type MockEphemeralDiskImageCreator struct {
@@ -14,7 +15,7 @@ func (m *MockEphemeralDiskImageCreator) CreateBackedImageForVolume(_ v1.Volume, 
 	return nil
 }
 
-func (m *MockEphemeralDiskImageCreator) CreateEphemeralImages(_ *v1.VirtualMachineInstance) error {
+func (m *MockEphemeralDiskImageCreator) CreateEphemeralImages(_ *v1.VirtualMachineInstance, _ *api.Domain) error {
 	return nil
 }
 
