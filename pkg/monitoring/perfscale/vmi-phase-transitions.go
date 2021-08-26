@@ -131,7 +131,7 @@ func newVMIPhaseTransitionTimeHistogramVec(informer cache.SharedIndexInformer) *
 }
 
 func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
-	if newVMI.DeletionTimestamp != nil {
+	if newVMI.IsMarkedForDeletion() {
 		return
 	}
 
@@ -156,7 +156,7 @@ func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prom
 }
 
 func updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
-	if newVMI.DeletionTimestamp == nil {
+	if !newVMI.IsMarkedForDeletion() || !newVMI.IsFinal() {
 		return
 	}
 
@@ -195,7 +195,7 @@ func newVMIPhaseTransitionTimeFromCreationHistogramVec(informer cache.SharedInde
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldVMI, newVMI interface{}) {
 			vmi := newVMI.(*v1.VirtualMachineInstance)
-			if vmi.DeletionTimestamp == nil {
+			if !vmi.IsMarkedForDeletion() {
 				updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
 			}
 		},
@@ -220,7 +220,7 @@ func newVMIPhaseTransitionTimeFromDeletionHistogramVec(informer cache.SharedInde
 			// User is deleting a VM. Record time to deletion.
 			// Stop recording when VMI finalizer is removed
 			vmi := newVMI.(*v1.VirtualMachineInstance)
-			if vmi.DeletionTimestamp != nil && vmi.GetFinalizers() != nil {
+			if vmi.IsMarkedForDeletion() {
 				updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
 			}
 		},
