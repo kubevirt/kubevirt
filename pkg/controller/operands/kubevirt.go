@@ -82,6 +82,9 @@ const (
 
 	// Allow assigning host devices to virtual machines
 	kvHostDevicesGate = "HostDevices"
+
+	// Add downwardMetrics volume to expose a limited set of host metrics to guests
+	kvDownwardMetricsGate = "DownwardMetrics"
 )
 
 var (
@@ -95,6 +98,7 @@ var (
 		kvHotplugVolumesGate,
 		kvGPUGate,
 		kvHostDevicesGate,
+		kvDownwardMetricsGate,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
