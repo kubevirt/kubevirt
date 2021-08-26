@@ -591,6 +591,7 @@ func (vca *VirtControllerApp) initSnapshotController() {
 		CRDInformer:               vca.crdInformer,
 		PodInformer:               vca.allPodInformer,
 		DVInformer:                vca.dataVolumeInformer,
+		CRInformer:                vca.controllerRevisionInformer,
 		Recorder:                  recorder,
 		ResyncPeriod:              vca.snapshotControllerResyncPeriod,
 	}
