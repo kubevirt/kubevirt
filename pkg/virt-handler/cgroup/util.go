@@ -26,6 +26,11 @@ const (
 	errApplyingDeviceRule = "error occurred while applying device rule: %v"
 	errApplyingOtherRules = "error occurred while applying rules (that are not device rules): %v"
 	settingDeviceRule     = "setting device rule for cgroup %s: %v"
+
+	v1Str = "v1"
+	v2Str = "v2"
+
+	loggingVerbosity = 2
 )
 
 // getNewResourcesWithoutDevices returns a new Resources struct with Devices attributes dropped

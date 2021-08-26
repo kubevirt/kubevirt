@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"kubevirt.io/client-go/log"
+
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
 
@@ -36,8 +38,9 @@ type Manager interface {
 
 // NewManagerFromPid initializes a new cgroup manager from VMI's pid.
 // The pid is expected to VMI's pid from the host's viewpoint.
-func NewManagerFromPid(pid int) (Manager, error) {
+func NewManagerFromPid(pid int) (manager Manager, err error) {
 	const isRootless = false
+	var cgroupVersion string
 
 	procCgroupBasePath := filepath.Join(procMountPoint, strconv.Itoa(pid), cgroupStr)
 	controllerPaths, err := runc_cgroups.ParseCgroupFile(procCgroupBasePath)
@@ -51,9 +54,11 @@ func NewManagerFromPid(pid int) (Manager, error) {
 	}
 
 	if runc_cgroups.IsCgroup2UnifiedMode() {
+		cgroupVersion = v2Str
 		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
-		return newV2Manager(config, slicePath, isRootless, pid)
+		manager, err = newV2Manager(config, slicePath, isRootless, pid)
 	} else {
+		cgroupVersion = v1Str
 		for subsystem, path := range controllerPaths {
 			if path == "" {
 				continue
@@ -61,8 +66,16 @@ func NewManagerFromPid(pid int) (Manager, error) {
 			controllerPaths[subsystem] = filepath.Join("/", subsystem, path)
 		}
 
-		return newV1Manager(config, controllerPaths, isRootless)
+		manager, err = newV1Manager(config, controllerPaths, isRootless)
 	}
+
+	if err != nil {
+		log.Log.Infof("error occurred while initialized a new cgroup %s manager: %v", cgroupVersion, err)
+	} else {
+		log.Log.Infof("initialized a new cgroup %s manager successfully", cgroupVersion)
+	}
+
+	return manager, err
 }
 
 func NewManagerFromVM(vmi *v1.VirtualMachineInstance) (Manager, error) {

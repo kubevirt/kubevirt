@@ -54,8 +54,6 @@ func (v *v2Manager) Set(r *runc_configs.Resources) error {
 }
 
 func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
-	const loggingVerbosity = 3
-
 	marshalledRules, err := json.Marshal(deviceRules)
 	if err != nil {
 		return err
@@ -88,5 +86,5 @@ func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
 }
 
 func (v *v2Manager) GetCgroupVersion() string {
-	return "v2"
+	return v2Str
 }

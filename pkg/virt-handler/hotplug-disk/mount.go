@@ -507,7 +507,9 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 	})
 
 	if err != nil {
-		log.Log.Infof("cgroup rule is set successfully. rule: %+v", *deviceRule)
+		log.Log.Infof("cgroup %s had failed to set device rule. error: %v. rule: %+v", manager.GetCgroupVersion(), err, *deviceRule)
+	} else {
+		log.Log.Infof("cgroup %s device rule is set successfully. rule: %+v", manager.GetCgroupVersion(), *deviceRule)
 	}
 
 	return err

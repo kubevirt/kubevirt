@@ -39,5 +39,5 @@ func (v *v1Manager) Set(r *runc_configs.Resources) error {
 }
 
 func (v *v1Manager) GetCgroupVersion() string {
-	return "v1"
+	return v1Str
 }
