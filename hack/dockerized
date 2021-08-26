@@ -107,6 +107,10 @@ _rsync \
 
 volumes="-v ${BUILDER}:/root:rw,z"
 
+# append .docker secrets directory as volume
+mkdir -p "${HOME}/.docker/secrets"
+volumes="$volumes -v ${HOME}/.docker/secrets:/root/.docker/secrets:ro,z"
+
 # Use a bind-mount to expose docker/podman auth file to the container
 ID=$(id -u)
 if [[ $KUBEVIRT_CRI = "podman" ]] && [[ -f "/tmp/podman-run-${ID}/containers/auth.json" ]]; then
