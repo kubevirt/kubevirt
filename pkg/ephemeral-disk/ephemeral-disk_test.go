@@ -30,6 +30,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("ContainerDisk", func() {
@@ -40,7 +41,7 @@ var _ = Describe("ContainerDisk", func() {
 
 	createBackingImageForPVC := func(volumeName string) {
 		os.Mkdir(filepath.Join(pvcBaseTempDirPath, volumeName), 0755)
-		f, _ := os.Create(creator.getBackingFilePath(volumeName))
+		f, _ := os.Create(creator.getBackingFilePath(volumeName, false))
 		f.Close()
 	}
 
@@ -105,7 +106,7 @@ var _ = Describe("ContainerDisk", func() {
 				AppendEphemeralPVC(vmi, "fake-disk", "fake-pvc")
 
 				By("Creating VirtualMachineInstance disk image that corresponds to the VMIs PVC")
-				err := creator.CreateEphemeralImages(vmi)
+				err := creator.CreateEphemeralImages(vmi, &api.Domain{})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Now we can test the behavior - the COW image must exist.
@@ -125,7 +126,7 @@ var _ = Describe("ContainerDisk", func() {
 				AppendEphemeralPVC(vmi, "fake-disk3", "fake-pvc3")
 
 				By("Creating VirtualMachineInstance disk image that corresponds to the VMIs PVC")
-				err := creator.CreateEphemeralImages(vmi)
+				err := creator.CreateEphemeralImages(vmi, &api.Domain{})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Now we can test the behavior - the COW image must exist.
@@ -139,9 +140,9 @@ var _ = Describe("ContainerDisk", func() {
 			It("Should create ephemeral images in an idempotent way", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
 				AppendEphemeralPVC(vmi, "fake-disk1", "fake-pvc1")
-				err := creator.CreateEphemeralImages(vmi)
+				err := creator.CreateEphemeralImages(vmi, &api.Domain{})
 				Expect(err).NotTo(HaveOccurred())
-				err = creator.CreateEphemeralImages(vmi)
+				err = creator.CreateEphemeralImages(vmi, &api.Domain{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
