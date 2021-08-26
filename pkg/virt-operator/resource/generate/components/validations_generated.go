@@ -4943,8 +4943,6 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   type: array
-                virtualMachineRevisionName:
-                  type: string
                 volumes:
                   description: List of volumes that can be mounted by disks belonging
                     to the vmi.
@@ -7594,8 +7592,6 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
             type: object
           type: array
-        virtualMachineRevisionName:
-          type: string
         volumes:
           description: List of volumes that can be mounted by disks belonging to the
             vmi.
@@ -8177,6 +8173,10 @@ var CRDsValidation map[string]string = map[string]string{
               format: int64
               type: integer
           type: object
+        virtualMachineRevisionName:
+          description: VirtualMachineRevisionName is used to get the vm revision of
+            the vmi when doing an online vm snapshot
+          type: string
         volumeStatus:
           description: VolumeStatus contains the statuses of all the volumes
           items:
@@ -11401,8 +11401,6 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   type: array
-                virtualMachineRevisionName:
-                  type: string
                 volumes:
                   description: List of volumes that can be mounted by disks belonging
                     to the vmi.
@@ -14941,8 +14939,6 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: string
                                 type: object
                               type: array
-                            virtualMachineRevisionName:
-                              type: string
                             volumes:
                               description: List of volumes that can be mounted by
                                 disks belonging to the vmi.

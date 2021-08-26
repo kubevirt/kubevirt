@@ -25027,12 +25027,6 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 							},
 						},
 					},
-					"virtualMachineRevisionName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 				},
 				Required: []string{"domain"},
 			},
@@ -25197,6 +25191,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 					"topologyHints": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/client-go/api/v1.TopologyHints"),
+						},
+					},
+					"virtualMachineRevisionName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineRevisionName is used to get the vm revision of the vmi when doing an online vm snapshot",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

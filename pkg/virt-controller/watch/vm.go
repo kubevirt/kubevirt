@@ -760,7 +760,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
 		return err
 	}
-	vmi.Spec.VirtualMachineRevisionName = vmRevisionName
+	vmi.Status.VirtualMachineRevisionName = vmRevisionName
 
 	// add a finalizer to ensure the VM controller has a chance to see
 	// the VMI before it is deleted

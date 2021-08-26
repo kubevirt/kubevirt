@@ -183,7 +183,7 @@ func (s *vmSnapshotSource) getVMRevision() (*kubevirtv1.VirtualMachine, error) {
 		return nil, fmt.Errorf("can't get vm revision, vmi doesn't exist")
 	}
 
-	crName := vmi.Spec.VirtualMachineRevisionName
+	crName := vmi.Status.VirtualMachineRevisionName
 	cr, err := s.controller.Client.AppsV1().ControllerRevisions(s.vm.Namespace).Get(context.TODO(), crName, v1.GetOptions{})
 	if err != nil {
 		return nil, err

@@ -1137,7 +1137,7 @@ var _ = Describe("VirtualMachine", func() {
 			expectControllerRevisionCreation(vmRevision)
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
-				Expect(arg.(*v1.VirtualMachineInstance).Spec.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
 			}).Return(vmi, nil)
 
 			// expect update status is called
@@ -1165,7 +1165,7 @@ var _ = Describe("VirtualMachine", func() {
 			expectControllerRevisionCreation(vmRevision)
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
-				Expect(arg.(*v1.VirtualMachineInstance).Spec.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
 			}).Return(vmi, nil)
 
 			// expect update status is called

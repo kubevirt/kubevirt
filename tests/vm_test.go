@@ -682,9 +682,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", newVM.UID, newVM.Generation)
-			Expect(vmi.Spec.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
+			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 
-			cr, err := virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), vmi.Spec.VirtualMachineRevisionName, k8smetav1.GetOptions{})
+			cr, err := virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cr.Revision).To(Equal(int64(1)))
 			vmRevision := &v1.VirtualMachine{}
@@ -709,7 +709,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", newVM.UID, newVM.Generation)
-			Expect(vmi.Spec.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
+			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 			oldVMRevisionName := expectedVMRevisionName
 
 			By("Stoping the VM")
@@ -737,12 +737,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 			expectedVMRevisionName = fmt.Sprintf("revision-start-vm-%s-%d", newVM.UID, newVM.Generation)
-			Expect(vmi.Spec.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
+			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 
 			cr, err := virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), oldVMRevisionName, k8smetav1.GetOptions{})
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 
-			cr, err = virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), vmi.Spec.VirtualMachineRevisionName, k8smetav1.GetOptions{})
+			cr, err = virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cr.Revision).To(Equal(int64(4)))
 			vmRevision := &v1.VirtualMachine{}

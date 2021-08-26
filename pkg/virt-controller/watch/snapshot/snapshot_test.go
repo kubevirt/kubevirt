@@ -727,7 +727,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmRevision := createVMRevision(vm)
 				addVMRevision(vmRevision)
 				vmi := createVMI(vm)
-				vmi.Spec.VirtualMachineRevisionName = vmRevisionName
+				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmiSource.Add(vmi)
 				vmSource.Add(vm)
 				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil).Times(1)
@@ -759,7 +759,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				addVMRevision(vmRevision)
 
 				vmi := createVMI(vm)
-				vmi.Spec.VirtualMachineRevisionName = vmRevisionName
+				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmiSource.Add(vmi)
 				vmSource.Add(vm)
 				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil).Times(1)
@@ -810,7 +810,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmRevision := createVMRevision(vm)
 				addVMRevision(vmRevision)
 				vmi := createVMI(vm)
-				vmi.Spec.VirtualMachineRevisionName = vmRevisionName
+				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: "disk2",
 					VolumeSource: v1.VolumeSource{
@@ -935,7 +935,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmRevision := createVMRevision(vm)
 				addVMRevision(vmRevision)
 				vmi := createVMI(vm)
-				vmi.Spec.VirtualMachineRevisionName = vmRevisionName
+				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmiSource.Add(vmi)
 
 				vm.ObjectMeta.Annotations = map[string]string{}

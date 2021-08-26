@@ -165,8 +165,6 @@ type VirtualMachineInstanceSpec struct {
 	// +listType=atomic
 	// +optional
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
-	// +optional
-	VirtualMachineRevisionName string `json:"virtualMachineRevisionName,omitempty"`
 }
 
 // VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
@@ -240,6 +238,11 @@ type VirtualMachineInstanceStatus struct {
 
 	// +optional
 	TopologyHints *TopologyHints `json:"topologyHints,omitempty"`
+
+	//VirtualMachineRevisionName is used to get the vm revision of the vmi when doing
+	// an online vm snapshot
+	// +optional
+	VirtualMachineRevisionName string `json:"virtualMachineRevisionName,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
