@@ -871,6 +871,70 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			)
 		})
 
+		Context("With a dedicated migration network", func() {
+			BeforeEach(func() {
+				virtClient, err = kubecli.GetKubevirtClient()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating the Network Attachment Definition")
+				nad := tests.GenerateMigrationCNINetworkAttachmentDefinition()
+				_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.TODO(), nad, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred(), "Failed to create the Network Attachment Definition")
+
+				// Saving the list of virt-handler pods prior to changing migration settings, see comment below.
+				listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+				virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+				Expect(err).ToNot(HaveOccurred(), "Failed to list the virt-handler pods")
+
+				By("Setting it as the migration network in the KubeVirt CR")
+				tests.SetDedicatedMigrationNetwork(nad.Name)
+
+				// FIXME?: By design, changing migration settings trigger a re-creation of the virt-handler pods, amongst other things.
+				//   However, even if SetDedicatedMigrationNetwork() calls UpdateKubeVirtConfigValueAndWait(), VMIs still seem to get scheduled on outdated virt-handler pods.
+				//   Not sure if it's a bug or a feature though. Waiting for all "old" virt-handlers to disappear ensures test VMIs will be created on updated virt-handler pods.
+				Eventually(func() bool {
+					for _, pod := range virtHandlerPods.Items {
+						_, err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+						if err == nil {
+							return false
+						}
+					}
+					return true
+				}, 180*time.Second, 10*time.Second).Should(BeTrue(), "Some virt-handler pods survived the migration settings change")
+			})
+			AfterEach(func() {
+				By("Clearing the migration network in the KubeVirt CR")
+				tests.ClearDedicatedMigrationNetwork()
+
+				By("Deleting the Network Attachment Definition")
+				nad := tests.GenerateMigrationCNINetworkAttachmentDefinition()
+				err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.TODO(), nad.Name, metav1.DeleteOptions{})
+				Expect(err).NotTo(HaveOccurred(), "Failed to delete the Network Attachment Definition")
+			})
+			It("Should migrate over that network", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
+
+				By("Starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				By("Checking if the migration happened, and over the right network")
+				vmi = tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				Expect(vmi.Status.MigrationState.TargetNodeAddress).To(HavePrefix("10.1.1."), "The migration did not appear to go over the dedicated migration network")
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Failed to delete the VMI")
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+		})
+
 		Context("MTU verification", func() {
 			var vmi *v1.VirtualMachineInstance
 			var anotherVmi *v1.VirtualMachineInstance

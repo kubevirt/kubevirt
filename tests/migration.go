@@ -7,9 +7,13 @@ import (
 	"io"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/util"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -54,7 +58,7 @@ func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migratio
 	return ExpectMigrationSuccess(virtClient, migration, timeout)
 }
 
-func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migrationUID string) {
+func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migrationUID string) *v1.VirtualMachineInstance {
 	By("Retrieving the VMI post migration")
 	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
@@ -72,6 +76,62 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 
 	By("Verifying the VMI's is in the running state")
 	Expect(vmi.Status.Phase).To(Equal(v1.Running), "the VMI must be in `Running` state after the migration")
+
+	return vmi
+}
+
+func SetDedicatedMigrationNetwork(nad string) *v1.KubeVirt {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+
+	kv := util.GetCurrentKv(virtClient)
+
+	if kv.Spec.Configuration.MigrationConfiguration == nil {
+		kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
+			DedicatedMigrationNetwork: &nad,
+		}
+	}
+
+	kv.Spec.Configuration.MigrationConfiguration.DedicatedMigrationNetwork = &nad
+
+	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+}
+
+func ClearDedicatedMigrationNetwork() *v1.KubeVirt {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+
+	kv := util.GetCurrentKv(virtClient)
+
+	if kv.Spec.Configuration.MigrationConfiguration != nil {
+		kv.Spec.Configuration.MigrationConfiguration.DedicatedMigrationNetwork = nil
+	}
+
+	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+}
+
+func GenerateMigrationCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
+	nad := &k8snetworkplumbingwgv1.NetworkAttachmentDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "migration-cni",
+			Namespace: flags.KubeVirtInstallNamespace,
+		},
+		Spec: k8snetworkplumbingwgv1.NetworkAttachmentDefinitionSpec{
+			Config: `{
+      "cniVersion": "0.3.1",
+      "name": "migration-bridge",
+      "type": "macvlan",
+      "master": "eth1",
+      "mode": "bridge",
+      "ipam": {
+        "type": "whereabouts",
+        "range": "10.1.1.0/24"
+      }
+}`,
+		},
+	}
+
+	return nad
 }
 
 func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
