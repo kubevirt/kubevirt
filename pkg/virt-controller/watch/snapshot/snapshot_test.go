@@ -228,6 +228,8 @@ var _ = Describe("Snapshot controlleer", func() {
 		var crdInformer cache.SharedIndexInformer
 		var crdSource *framework.FakeControllerSource
 		var dvInformer cache.SharedIndexInformer
+		var crInformer cache.SharedIndexInformer
+		var crSource *framework.FakeControllerSource
 		var dvSource *framework.FakeControllerSource
 		var stop chan struct{}
 		var controller *VMSnapshotController
@@ -251,6 +253,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			go vmiInformer.Run(stop)
 			go podInformer.Run(stop)
 			go dvInformer.Run(stop)
+			go crInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
 				vmSnapshotInformer.HasSynced,
@@ -262,6 +265,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmiInformer.HasSynced,
 				podInformer.HasSynced,
 				dvInformer.HasSynced,
+				crInformer.HasSynced,
 			)).To(BeTrue())
 		}
 
@@ -295,6 +299,17 @@ var _ = Describe("Snapshot controlleer", func() {
 					return volumeSnapshots, nil
 				},
 			})
+			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
+				"vm": func(obj interface{}) ([]string, error) {
+					cr := obj.(*appsv1.ControllerRevision)
+					for _, ref := range cr.OwnerReferences {
+						if ref.Kind == "VirtualMachine" {
+							return []string{string(ref.UID)}, nil
+						}
+					}
+					return nil, nil
+				},
+			})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			podInformer, podSource = testutils.NewFakeInformerFor(&corev1.Pod{})
@@ -319,6 +334,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				PVCInformer:               pvcInformer,
 				CRDInformer:               crdInformer,
 				DVInformer:                dvInformer,
+				CRInformer:                crInformer,
 				Recorder:                  recorder,
 				ResyncPeriod:              60 * time.Second,
 				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
@@ -390,16 +406,6 @@ var _ = Describe("Snapshot controlleer", func() {
 			mockVMSnapshotQueue.ExpectAdds(1)
 			vmSource.Add(vm)
 			mockVMSnapshotQueue.Wait()
-		}
-
-		addVMRevision := func(vmRevision *appsv1.ControllerRevision) {
-			k8sClient.Fake.PrependReactor("get", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				get, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				Expect(get.GetNamespace()).To(Equal(vmRevision.Namespace))
-				Expect(get.GetName()).To(Equal(vmRevision.Name))
-				return true, vmRevision, nil
-			})
 		}
 
 		addVolumeSnapshot := func(s *vsv1beta1.VolumeSnapshot) {
@@ -725,7 +731,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.ResourceVersion = "1"
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 				vmRevision := createVMRevision(vm)
-				addVMRevision(vmRevision)
+				crSource.Add(vmRevision)
 				vmi := createVMI(vm)
 				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmiSource.Add(vmi)
@@ -756,7 +762,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.ResourceVersion = "1"
 				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
 				vmRevision := createVMRevision(vm)
-				addVMRevision(vmRevision)
+				crSource.Add(vmRevision)
 
 				vmi := createVMI(vm)
 				vmi.Status.VirtualMachineRevisionName = vmRevisionName
@@ -808,7 +814,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm.Spec.Running = &t
 				vmSource.Add(vm)
 				vmRevision := createVMRevision(vm)
-				addVMRevision(vmRevision)
+				crSource.Add(vmRevision)
 				vmi := createVMI(vm)
 				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -933,7 +939,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm.Spec.Running = &t
 
 				vmRevision := createVMRevision(vm)
-				addVMRevision(vmRevision)
+				crSource.Add(vmRevision)
 				vmi := createVMI(vm)
 				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmiSource.Add(vmi)

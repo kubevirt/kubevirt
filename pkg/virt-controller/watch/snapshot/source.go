@@ -20,15 +20,15 @@
 package snapshot
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	appsv1 "k8s.io/api/apps/v1"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
@@ -184,9 +184,17 @@ func (s *vmSnapshotSource) getVMRevision() (*kubevirtv1.VirtualMachine, error) {
 	}
 
 	crName := vmi.Status.VirtualMachineRevisionName
-	cr, err := s.controller.Client.AppsV1().ControllerRevisions(s.vm.Namespace).Get(context.TODO(), crName, v1.GetOptions{})
+	storeObj, exists, err := s.controller.CRInformer.GetStore().GetByKey(cacheKeyFunc(vmi.Namespace, crName))
 	if err != nil {
 		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("vm revision %s doesn't exist", crName)
+	}
+
+	cr, ok := storeObj.(*appsv1.ControllerRevision)
+	if !ok {
+		return nil, fmt.Errorf("unexpected resource %+v", storeObj)
 	}
 
 	vmRevision := &kubevirtv1.VirtualMachine{}
