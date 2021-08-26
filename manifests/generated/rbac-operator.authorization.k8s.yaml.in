@@ -116,9 +116,18 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - controllerrevisions
+  verbs:
+  - watch
+  - list
+  - create
+  - delete
+  - patch
+- apiGroups:
+  - apps
+  resources:
   - deployments
   - daemonsets
-  - controllerrevisions
   verbs:
   - get
   - list
@@ -418,7 +427,6 @@ rules:
   - watch
   - list
   - create
-  - get
   - delete
 - apiGroups:
   - ""
