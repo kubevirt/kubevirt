@@ -211,7 +211,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		util.PanicOnError(err)
 	})
 
-	It("[test_id:3468]Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
+	It("[test_id:6870]Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
 		By("Waiting for a VM to be created")
 		Eventually(func() bool {
 			_, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
@@ -310,7 +310,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 			"VM should be in the %s status", v12.VirtualMachineStatusStopped)
 	})
 
-	It("[test_id:3466]Should update vmi status with the proper columns using 'kubectl get vmi -w'", func() {
+	It("[test_id:6871]Should update vmi status with the proper columns using 'kubectl get vmi -w'", func() {
 		By("Waiting for a VM to be created")
 		Eventually(func() bool {
 			_, err := virtCli.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
