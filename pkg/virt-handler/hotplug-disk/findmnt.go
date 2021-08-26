@@ -35,6 +35,7 @@ const (
 
 var (
 	sourceRgx = regexp.MustCompile(`\[(.+)\]`)
+	deviceRgx = regexp.MustCompile(`([^\[]+)\[.+\]`)
 
 	findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
 		return exec.Command("/usr/bin/findmnt", "-T", fmt.Sprintf("/%s", volumeName), "-N", strconv.Itoa(pid), "-J").CombinedOutput()
@@ -80,12 +81,20 @@ func parseMntInfoJson(mntInfoJson []byte) ([]FindmntInfo, error) {
 	return mntinfo.Filesystems, nil
 }
 
-func (f *FindmntInfo) GetSource() string {
+func (f *FindmntInfo) GetSourcePath() string {
 	match := sourceRgx.FindStringSubmatch(f.Source)
 	if len(match) != 2 {
 		return strings.TrimPrefix(f.Source, rhcosPrefix)
 	}
 	return strings.TrimPrefix(match[1], rhcosPrefix)
+}
+
+func (f *FindmntInfo) GetSourceDevice() string {
+	match := deviceRgx.FindStringSubmatch(f.Source)
+	if len(match) == 0 {
+		return ""
+	}
+	return match[1]
 }
 
 func (f *FindmntInfo) GetOptions() []string {

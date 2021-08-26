@@ -72,10 +72,11 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh","-c","source /etc/bashrc && losetup -d ${LOOP_DEVICE}"]
+                command: ["/bin/sh","-c","source /etc/bashrc && losetup -d ${LOOP_DEVICE} && umount ${LOOP_DEVICE_HP} && losetup -d ${LOOP_DEVICE_HP}"]
           volumeMounts:
           - name: images
             mountPath: /hostImages
+            mountPropagation: Bidirectional
           - name: local-storage
             mountPath: /local-storage
           securityContext:
