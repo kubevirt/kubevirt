@@ -154,7 +154,6 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"list",
 					"create",
-					"get",
 					"delete",
 				},
 			},

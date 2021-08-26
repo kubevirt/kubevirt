@@ -602,13 +602,21 @@ rules:
   resources:
   - deployments
   - daemonsets
-  - controllerrevisions
   verbs:
   - get
   - list
   - watch
   - create
   - update
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - controllerrevisions
+  verbs:
+  - watch
+  - list
+  - create
   - delete
 ---
 # The role for the operator to manage resources in its own namespace
@@ -641,7 +649,6 @@ rules:
   - daemonsets
   - statefulsets
   - deployments
-  - controllerrevisions
   verbs:
   - get
   - list
