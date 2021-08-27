@@ -20,11 +20,15 @@
 package device_manager
 
 import (
+	"context"
 	"math"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -49,6 +53,7 @@ type DeviceController struct {
 	virtConfig         *virtconfig.ClusterConfig
 	stop               chan struct{}
 	mdevTypesManager   *MDEVTypesManager
+	clientset          k8scli.CoreV1Interface
 }
 
 type ControlledDevice struct {
@@ -67,7 +72,7 @@ func getPermanentHostDevicePlugins(maxDevices int, permissions string) map[strin
 	return ret
 }
 
-func NewDeviceController(host string, maxDevices int, permissions string, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
+func NewDeviceController(host string, maxDevices int, permissions string, clusterConfig *virtconfig.ClusterConfig, clientset k8scli.CoreV1Interface) *DeviceController {
 	controller := &DeviceController{
 		devicePlugins:    getPermanentHostDevicePlugins(maxDevices, permissions),
 		host:             host,
@@ -75,6 +80,7 @@ func NewDeviceController(host string, maxDevices int, permissions string, cluste
 		backoff:          []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 		virtConfig:       clusterConfig,
 		mdevTypesManager: NewMDEVTypesManager(),
+		clientset:        clientset,
 	}
 
 	return controller
