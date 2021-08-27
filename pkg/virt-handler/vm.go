@@ -567,18 +567,18 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
-func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) *v1.VirtualMachineInstance {
+func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
 		vmi.Status.MigrationState == nil ||
 		!d.isMigrationSource(vmi) {
-		return vmi
+		return
 	}
 
 	migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
 	if migrationMetadata.UID != vmi.Status.MigrationState.MigrationUID {
-		return vmi
+		return
 	}
 
 	if vmi.Status.MigrationState.EndTimestamp == nil && migrationMetadata.EndTimestamp != nil {
@@ -597,7 +597,6 @@ func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMac
 	vmi.Status.MigrationState.Completed = migrationMetadata.Completed
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 	vmi.Status.MigrationState.Mode = migrationMetadata.Mode
-	return vmi
 }
 
 func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -608,7 +607,7 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 	// if a migration happens very quickly, it's possible parts of the in
 	// progress status wasn't set. We need to make sure we set this even
 	// if the migration has completed
-	vmi = d.setMigrationProgressStatus(vmi, domain)
+	d.setMigrationProgressStatus(vmi, domain)
 
 	// handle migrations differently than normal status updates.
 	//
@@ -797,6 +796,11 @@ func (d *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 
 func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	hasHotplug := false
+
+	if domain == nil {
+		return hasHotplug
+	}
+
 	if len(vmi.Status.VolumeStatus) > 0 {
 		diskDeviceMap := make(map[string]string)
 		for _, disk := range domain.Spec.Devices.Disks {
@@ -832,206 +836,199 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 	return hasHotplug
 }
 
-func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
-	condManager := controller.NewVirtualMachineInstanceConditionManager()
+func (d *VirtualMachineController) updateGuestInfoFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 
-	// Don't update the VirtualMachineInstance if it is already in a final state
-	if origVMI.IsFinal() {
-		return nil
-	} else if origVMI.Status.NodeName != "" && origVMI.Status.NodeName != d.host {
-		// Only update the VMI's phase if this node owns the VMI.
-		// not owned by this host, likely the result of a migration
-		return nil
-	} else if domainMigrated(domain) {
-		return d.migrationSourceUpdateVMIStatus(origVMI, domain)
+	if domain == nil {
+		return
 	}
 
-	vmi := origVMI.DeepCopy()
-	oldStatus := *vmi.Status.DeepCopy()
+	if vmi.Status.GuestOSInfo.Name != domain.Status.OSInfo.Name {
+		vmi.Status.GuestOSInfo.Name = domain.Status.OSInfo.Name
+		vmi.Status.GuestOSInfo.Version = domain.Status.OSInfo.VersionId
+		vmi.Status.GuestOSInfo.KernelRelease = domain.Status.OSInfo.KernelRelease
+		vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
+		vmi.Status.GuestOSInfo.VersionID = domain.Status.OSInfo.VersionId
+		vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
+		vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
+	}
+}
 
-	vmi = d.setMigrationProgressStatus(vmi, domain)
+func (d *VirtualMachineController) updateInterfacesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 
-	if domain != nil {
-		if vmi.Status.GuestOSInfo.Name != domain.Status.OSInfo.Name {
-			vmi.Status.GuestOSInfo.Name = domain.Status.OSInfo.Name
-			vmi.Status.GuestOSInfo.Version = domain.Status.OSInfo.VersionId
-			vmi.Status.GuestOSInfo.KernelRelease = domain.Status.OSInfo.KernelRelease
-			vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
-			vmi.Status.GuestOSInfo.VersionID = domain.Status.OSInfo.VersionId
-			vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
-			vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
-		}
-		// This is needed to be backwards compatible with vmi's which have status interfaces
-		// with the name not being set
-		if len(domain.Spec.Devices.Interfaces) == 0 && len(vmi.Status.Interfaces) == 1 && vmi.Status.Interfaces[0].Name == "" {
-			for _, network := range vmi.Spec.Networks {
-				if network.NetworkSource.Pod != nil {
-					vmi.Status.Interfaces[0].Name = network.Name
-				}
+	if domain == nil {
+		return nil
+	}
+
+	// This is needed to be backwards compatible with vmi's which have status interfaces
+	// with the name not being set
+	if len(domain.Spec.Devices.Interfaces) == 0 && len(vmi.Status.Interfaces) == 1 && vmi.Status.Interfaces[0].Name == "" {
+		for _, network := range vmi.Spec.Networks {
+			if network.NetworkSource.Pod != nil {
+				vmi.Status.Interfaces[0].Name = network.Name
 			}
-		}
-
-		_ = d.updateVolumeStatusesFromDomain(vmi, domain)
-		if len(vmi.Status.Interfaces) == 0 {
-			// Set Pod Interface
-			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
-			for _, network := range vmi.Spec.Networks {
-				podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
-				if err != nil {
-					return err
-				}
-
-				if podIface != nil {
-					ifc := v1.VirtualMachineInstanceNetworkInterface{
-						Name: network.Name,
-						IP:   podIface.PodIP,
-						IPs:  podIface.PodIPs,
-					}
-					interfaces = append(interfaces, ifc)
-				}
-			}
-			vmi.Status.Interfaces = interfaces
-		}
-
-		if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
-			// This calculates the vmi.Status.Interfaces based on the following data sets:
-			// - vmi.Status.Interfaces - previously calculated interfaces, this can contain data (pod IP)
-			//   set in the previous loops (when there are no interfaces), which can not be deleted,
-			//   unless overridden by Qemu agent
-			// - domain.Spec - interfaces form the Spec
-			// - domain.Status.Interfaces - interfaces reported by guest agent (empty if Qemu agent not running)
-			newInterfaces := []v1.VirtualMachineInstanceNetworkInterface{}
-
-			existingInterfaceStatusByName := map[string]v1.VirtualMachineInstanceNetworkInterface{}
-			for _, existingInterfaceStatus := range vmi.Status.Interfaces {
-				if existingInterfaceStatus.Name != "" {
-					existingInterfaceStatusByName[existingInterfaceStatus.Name] = existingInterfaceStatus
-				}
-			}
-
-			domainInterfaceStatusByMac := map[string]api.InterfaceStatus{}
-			for _, domainInterfaceStatus := range domain.Status.Interfaces {
-				domainInterfaceStatusByMac[domainInterfaceStatus.Mac] = domainInterfaceStatus
-			}
-
-			existingInterfacesSpecByName := map[string]v1.Interface{}
-			for _, existingInterfaceSpec := range vmi.Spec.Domain.Devices.Interfaces {
-				existingInterfacesSpecByName[existingInterfaceSpec.Name] = existingInterfaceSpec
-			}
-			existingNetworksByName := map[string]v1.Network{}
-			for _, existingNetwork := range vmi.Spec.Networks {
-				existingNetworksByName[existingNetwork.Name] = existingNetwork
-			}
-
-			// Iterate through all domain.Spec interfaces
-			for _, domainInterface := range domain.Spec.Devices.Interfaces {
-				interfaceMAC := domainInterface.MAC.MAC
-				var newInterface v1.VirtualMachineInstanceNetworkInterface
-				var isForwardingBindingInterface = false
-
-				if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil || existingInterfacesSpecByName[domainInterface.Alias.GetName()].Slirp != nil {
-					isForwardingBindingInterface = true
-				}
-
-				if existingInterface, exists := existingInterfaceStatusByName[domainInterface.Alias.GetName()]; exists {
-					// Reuse previously calculated interface from vmi.Status.Interfaces, updating the MAC from domain.Spec
-					// Only interfaces defined in domain.Spec are handled here
-					newInterface = existingInterface
-					newInterface.MAC = interfaceMAC
-
-					// If it is a Combination of Masquerade+Pod network, check IP from file cache
-					if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil && existingNetworksByName[domainInterface.Alias.GetName()].NetworkSource.Pod != nil {
-						iface, err := d.getPodInterfacefromFileCache(vmi, domainInterface.Alias.GetName())
-						if err != nil {
-							return err
-						}
-
-						if !reflect.DeepEqual(iface.PodIPs, existingInterfaceStatusByName[domainInterface.Alias.GetName()].IPs) {
-							newInterface.Name = domainInterface.Alias.GetName()
-							newInterface.IP = iface.PodIP
-							newInterface.IPs = iface.PodIPs
-						}
-					}
-				} else {
-					// If not present in vmi.Status.Interfaces, create a new one based on domain.Spec
-					newInterface = v1.VirtualMachineInstanceNetworkInterface{
-						MAC:  interfaceMAC,
-						Name: domainInterface.Alias.GetName(),
-					}
-				}
-
-				// Update IP info based on information from domain.Status.Interfaces (Qemu guest)
-				// Remove the interface from domainInterfaceStatusByMac to mark it as handled
-				if interfaceStatus, exists := domainInterfaceStatusByMac[interfaceMAC]; exists {
-					newInterface.InterfaceName = interfaceStatus.InterfaceName
-					// Do not update if interface has Masquerede binding
-					// virt-controller should update VMI status interface with Pod IP instead
-					if !isForwardingBindingInterface {
-						newInterface.IP = interfaceStatus.Ip
-						newInterface.IPs = interfaceStatus.IPs
-					}
-					delete(domainInterfaceStatusByMac, interfaceMAC)
-				}
-				newInterfaces = append(newInterfaces, newInterface)
-			}
-
-			// If any of domain.Status.Interfaces were not handled above, it means that the vm contains additional
-			// interfaces not defined in domain.Spec.Devices.Interfaces (most likely added by user on VM or a SRIOV interface)
-			// Add them to vmi.Status.Interfaces
-			setMissingSRIOVInterfacesNames(existingInterfacesSpecByName, domainInterfaceStatusByMac)
-			for interfaceMAC, domainInterfaceStatus := range domainInterfaceStatusByMac {
-				newInterface := v1.VirtualMachineInstanceNetworkInterface{
-					Name:          domainInterfaceStatus.Name,
-					MAC:           interfaceMAC,
-					IP:            domainInterfaceStatus.Ip,
-					IPs:           domainInterfaceStatus.IPs,
-					InterfaceName: domainInterfaceStatus.InterfaceName,
-				}
-				newInterfaces = append(newInterfaces, newInterface)
-			}
-			vmi.Status.Interfaces = newInterfaces
 		}
 	}
 
-	// Update AccessCredential conditions
-	if domain != nil && domain.Spec.Metadata.KubeVirt.AccessCredential != nil {
-
-		message := domain.Spec.Metadata.KubeVirt.AccessCredential.Message
-		status := k8sv1.ConditionFalse
-		if domain.Spec.Metadata.KubeVirt.AccessCredential.Succeeded {
-			status = k8sv1.ConditionTrue
-		}
-
-		add := false
-		condition := condManager.GetCondition(vmi, v1.VirtualMachineInstanceAccessCredentialsSynchronized)
-		if condition == nil {
-			add = true
-		} else if condition.Status != status || condition.Message != message {
-			// if not as expected, remove, then add.
-			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceAccessCredentialsSynchronized)
-			add = true
-		}
-		if add {
-			newCondition := v1.VirtualMachineInstanceCondition{
-				Type:               v1.VirtualMachineInstanceAccessCredentialsSynchronized,
-				LastTransitionTime: metav1.Now(),
-				Status:             status,
-				Message:            message,
+	if len(vmi.Status.Interfaces) == 0 {
+		// Set Pod Interface
+		interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+		for _, network := range vmi.Spec.Networks {
+			podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
+			if err != nil {
+				return err
 			}
-			vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
-			if status == k8sv1.ConditionTrue {
-				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), message)
+
+			if podIface != nil {
+				ifc := v1.VirtualMachineInstanceNetworkInterface{
+					Name: network.Name,
+					IP:   podIface.PodIP,
+					IPs:  podIface.PodIPs,
+				}
+				interfaces = append(interfaces, ifc)
+			}
+		}
+		vmi.Status.Interfaces = interfaces
+	}
+
+	if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
+		// This calculates the vmi.Status.Interfaces based on the following data sets:
+		// - vmi.Status.Interfaces - previously calculated interfaces, this can contain data (pod IP)
+		//   set in the previous loops (when there are no interfaces), which can not be deleted,
+		//   unless overridden by Qemu agent
+		// - domain.Spec - interfaces form the Spec
+		// - domain.Status.Interfaces - interfaces reported by guest agent (empty if Qemu agent not running)
+		newInterfaces := []v1.VirtualMachineInstanceNetworkInterface{}
+
+		existingInterfaceStatusByName := map[string]v1.VirtualMachineInstanceNetworkInterface{}
+		for _, existingInterfaceStatus := range vmi.Status.Interfaces {
+			if existingInterfaceStatus.Name != "" {
+				existingInterfaceStatusByName[existingInterfaceStatus.Name] = existingInterfaceStatus
+			}
+		}
+
+		domainInterfaceStatusByMac := map[string]api.InterfaceStatus{}
+		for _, domainInterfaceStatus := range domain.Status.Interfaces {
+			domainInterfaceStatusByMac[domainInterfaceStatus.Mac] = domainInterfaceStatus
+		}
+
+		existingInterfacesSpecByName := map[string]v1.Interface{}
+		for _, existingInterfaceSpec := range vmi.Spec.Domain.Devices.Interfaces {
+			existingInterfacesSpecByName[existingInterfaceSpec.Name] = existingInterfaceSpec
+		}
+		existingNetworksByName := map[string]v1.Network{}
+		for _, existingNetwork := range vmi.Spec.Networks {
+			existingNetworksByName[existingNetwork.Name] = existingNetwork
+		}
+
+		// Iterate through all domain.Spec interfaces
+		for _, domainInterface := range domain.Spec.Devices.Interfaces {
+			interfaceMAC := domainInterface.MAC.MAC
+			var newInterface v1.VirtualMachineInstanceNetworkInterface
+			var isForwardingBindingInterface = false
+
+			if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil || existingInterfacesSpecByName[domainInterface.Alias.GetName()].Slirp != nil {
+				isForwardingBindingInterface = true
+			}
+
+			if existingInterface, exists := existingInterfaceStatusByName[domainInterface.Alias.GetName()]; exists {
+				// Reuse previously calculated interface from vmi.Status.Interfaces, updating the MAC from domain.Spec
+				// Only interfaces defined in domain.Spec are handled here
+				newInterface = existingInterface
+				newInterface.MAC = interfaceMAC
+
+				// If it is a Combination of Masquerade+Pod network, check IP from file cache
+				if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil && existingNetworksByName[domainInterface.Alias.GetName()].NetworkSource.Pod != nil {
+					iface, err := d.getPodInterfacefromFileCache(vmi, domainInterface.Alias.GetName())
+					if err != nil {
+						return err
+					}
+
+					if !reflect.DeepEqual(iface.PodIPs, existingInterfaceStatusByName[domainInterface.Alias.GetName()].IPs) {
+						newInterface.Name = domainInterface.Alias.GetName()
+						newInterface.IP = iface.PodIP
+						newInterface.IPs = iface.PodIPs
+					}
+				}
 			} else {
-				d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(), message)
+				// If not present in vmi.Status.Interfaces, create a new one based on domain.Spec
+				newInterface = v1.VirtualMachineInstanceNetworkInterface{
+					MAC:  interfaceMAC,
+					Name: domainInterface.Alias.GetName(),
+				}
 			}
+
+			// Update IP info based on information from domain.Status.Interfaces (Qemu guest)
+			// Remove the interface from domainInterfaceStatusByMac to mark it as handled
+			if interfaceStatus, exists := domainInterfaceStatusByMac[interfaceMAC]; exists {
+				newInterface.InterfaceName = interfaceStatus.InterfaceName
+				// Do not update if interface has Masquerede binding
+				// virt-controller should update VMI status interface with Pod IP instead
+				if !isForwardingBindingInterface {
+					newInterface.IP = interfaceStatus.Ip
+					newInterface.IPs = interfaceStatus.IPs
+				}
+				delete(domainInterfaceStatusByMac, interfaceMAC)
+			}
+			newInterfaces = append(newInterfaces, newInterface)
 		}
+
+		// If any of domain.Status.Interfaces were not handled above, it means that the vm contains additional
+		// interfaces not defined in domain.Spec.Devices.Interfaces (most likely added by user on VM or a SRIOV interface)
+		// Add them to vmi.Status.Interfaces
+		setMissingSRIOVInterfacesNames(existingInterfacesSpecByName, domainInterfaceStatusByMac)
+		for interfaceMAC, domainInterfaceStatus := range domainInterfaceStatusByMac {
+			newInterface := v1.VirtualMachineInstanceNetworkInterface{
+				Name:          domainInterfaceStatus.Name,
+				MAC:           interfaceMAC,
+				IP:            domainInterfaceStatus.Ip,
+				IPs:           domainInterfaceStatus.IPs,
+				InterfaceName: domainInterfaceStatus.InterfaceName,
+			}
+			newInterfaces = append(newInterfaces, newInterface)
+		}
+		vmi.Status.Interfaces = newInterfaces
+	}
+	return nil
+}
+
+func (d *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
+
+	if domain == nil || domain.Spec.Metadata.KubeVirt.AccessCredential == nil {
+		return
 	}
 
-	// Calculate the new VirtualMachineInstance state based on what libvirt reported
-	err = d.setVmPhaseForStatusReason(domain, vmi)
-	if err != nil {
-		return err
+	message := domain.Spec.Metadata.KubeVirt.AccessCredential.Message
+	status := k8sv1.ConditionFalse
+	if domain.Spec.Metadata.KubeVirt.AccessCredential.Succeeded {
+		status = k8sv1.ConditionTrue
 	}
+
+	add := false
+	condition := condManager.GetCondition(vmi, v1.VirtualMachineInstanceAccessCredentialsSynchronized)
+	if condition == nil {
+		add = true
+	} else if condition.Status != status || condition.Message != message {
+		// if not as expected, remove, then add.
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceAccessCredentialsSynchronized)
+		add = true
+	}
+	if add {
+		newCondition := v1.VirtualMachineInstanceCondition{
+			Type:               v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+			LastTransitionTime: metav1.Now(),
+			Status:             status,
+			Message:            message,
+		}
+		vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
+		if status == k8sv1.ConditionTrue {
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), message)
+		} else {
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(), message)
+		}
+	}
+}
+
+func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) {
 
 	// Cacluate whether the VM is migratable
 	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi)
@@ -1053,6 +1050,10 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	if vmi.IsEvictable() && liveMigrationCondition.Status == k8sv1.ConditionFalse {
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "EvictionStrategy is set but vmi is not migratable")
 	}
+}
+
+func (d *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
+
 	// Update the condition when GA is connected
 	channelConnected := false
 	if domain != nil {
@@ -1120,8 +1121,11 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 		}
 
 	}
+	return nil
+}
 
-	//
+func (d *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
+
 	// Update paused condition in case VMI was paused / unpaused
 	if domain != nil && domain.Status.Status == api.Paused {
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
@@ -1131,15 +1135,65 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 		log.Log.Object(vmi).V(3).Info("Removing paused condition")
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstancePaused)
 	}
+}
 
-	if domain != nil && domain.Status.FSFreezeStatus.Status != "" {
-		if domain.Status.FSFreezeStatus.Status == api.FSThawed {
-			vmi.Status.FSFreezeStatus = ""
-		} else {
-			vmi.Status.FSFreezeStatus = domain.Status.FSFreezeStatus.Status
-		}
+func (d *VirtualMachineController) updateFSFreezeStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+
+	if domain == nil || domain.Status.FSFreezeStatus.Status == "" {
+		return
 	}
 
+	if domain.Status.FSFreezeStatus.Status == api.FSThawed {
+		vmi.Status.FSFreezeStatus = ""
+	} else {
+		vmi.Status.FSFreezeStatus = domain.Status.FSFreezeStatus.Status
+	}
+
+}
+
+func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+
+	// Don't update the VirtualMachineInstance if it is already in a final state
+	if origVMI.IsFinal() {
+		return nil
+	} else if origVMI.Status.NodeName != "" && origVMI.Status.NodeName != d.host {
+		// Only update the VMI's phase if this node owns the VMI.
+		// not owned by this host, likely the result of a migration
+		return nil
+	} else if domainMigrated(domain) {
+		return d.migrationSourceUpdateVMIStatus(origVMI, domain)
+	}
+
+	vmi := origVMI.DeepCopy()
+	oldStatus := *vmi.Status.DeepCopy()
+
+	// Update VMI status fields based on what is reported on the domain
+	d.setMigrationProgressStatus(vmi, domain)
+	d.updateGuestInfoFromDomain(vmi, domain)
+	d.updateVolumeStatusesFromDomain(vmi, domain)
+	d.updateFSFreezeStatus(vmi, domain)
+	err = d.updateInterfacesFromDomain(vmi, domain)
+	if err != nil {
+		return err
+	}
+
+	// Calculate the new VirtualMachineInstance state based on what libvirt reported
+	err = d.setVmPhaseForStatusReason(domain, vmi)
+	if err != nil {
+		return err
+	}
+
+	// Update conditions on VMI Status
+	d.updateAccessCredentialConditions(vmi, domain, condManager)
+	d.updateLiveMigrationConditions(vmi, condManager)
+	err = d.updateGuestAgentConditions(vmi, domain, condManager)
+	if err != nil {
+		return err
+	}
+	d.updatePausedConditions(vmi, domain, condManager)
+
+	// Handle sync error
 	if _, ok := syncError.(*virtLauncherCriticalNetworkError); ok {
 		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
@@ -1152,6 +1206,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 
 	controller.SetVMIPhaseTransitionTimestamp(origVMI, vmi)
 
+	// Only issue vmi update if status has changed
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
@@ -1162,6 +1217,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 		}
 	}
 
+	// Record an event on the VMI when the VMI's phase changes
 	if oldStatus.Phase != vmi.Status.Phase {
 		switch vmi.Status.Phase {
 		case v1.Running:
