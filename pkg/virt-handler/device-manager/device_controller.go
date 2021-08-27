@@ -20,7 +20,6 @@
 package device_manager
 
 import (
-	"context"
 	"math"
 	"os"
 	"strings"
@@ -28,7 +27,6 @@ import (
 	"time"
 
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"

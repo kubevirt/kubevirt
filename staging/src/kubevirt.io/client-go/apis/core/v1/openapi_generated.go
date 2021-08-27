@@ -490,6 +490,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/core/v1.Network":                                                 schema_client_go_apis_core_v1_Network(ref),
 		"kubevirt.io/client-go/apis/core/v1.NetworkConfiguration":                                    schema_client_go_apis_core_v1_NetworkConfiguration(ref),
 		"kubevirt.io/client-go/apis/core/v1.NetworkSource":                                           schema_client_go_apis_core_v1_NetworkSource(ref),
+		"kubevirt.io/client-go/apis/core/v1.NodeMediatedDeviceTypesConfig":                           schema_client_go_apis_core_v1_NodeMediatedDeviceTypesConfig(ref),
 		"kubevirt.io/client-go/apis/core/v1.NodePlacement":                                           schema_client_go_apis_core_v1_NodePlacement(ref),
 		"kubevirt.io/client-go/apis/core/v1.PITTimer":                                                schema_client_go_apis_core_v1_PITTimer(ref),
 		"kubevirt.io/client-go/apis/core/v1.PciHostDevice":                                           schema_client_go_apis_core_v1_PciHostDevice(ref),
@@ -22305,9 +22306,28 @@ func schema_client_go_apis_core_v1_MediatedDevicesConfiguration(ref common.Refer
 							},
 						},
 					},
+					"nodeMediatedDeviceTypes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/core/v1.NodeMediatedDeviceTypesConfig"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/apis/core/v1.NodeMediatedDeviceTypesConfig"},
 	}
 }
 
@@ -22589,6 +22609,53 @@ func schema_client_go_apis_core_v1_NetworkSource(ref common.ReferenceCallback) c
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/apis/core/v1.MultusNetwork", "kubevirt.io/client-go/apis/core/v1.PodNetwork"},
+	}
+}
+
+func schema_client_go_apis_core_v1_NodeMediatedDeviceTypesConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeMediatedDeviceTypesConfig holds inforamtion about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeSelector is a selector which must be true for the vmi to fit on a node. Selector which must match a node's labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"mediatedDevicesTypes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"nodeSelector", "mediatedDevicesTypes"},
+			},
+		},
 	}
 }
 
