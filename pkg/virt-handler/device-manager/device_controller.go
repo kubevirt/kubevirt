@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"kubevirt.io/client-go/log"
@@ -200,8 +202,13 @@ func removeSelectorSpaces(selectorName string) string {
 }
 
 func (c *DeviceController) refreshMediatedDevicesTypes() {
-	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(c.host)
-	err := c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
+	node, err := c.clientset.Nodes().Get(context.Background(), c.host, metav1.GetOptions{})
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
+		return
+	}
+	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(node)
+	err = c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types: %s", strings.Join(nodeDesiredMdevTypesList, ", "))
 	}
