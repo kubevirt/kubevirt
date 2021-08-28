@@ -34,6 +34,7 @@ import (
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 // VMRestoreController is resonsible for restoring VMs
@@ -52,6 +53,8 @@ type VMRestoreController struct {
 	Recorder record.EventRecorder
 
 	vmRestoreQueue workqueue.RateLimitingInterface
+
+	vmStatusUpdater *status.VMStatusUpdater
 }
 
 // Init initializes the restore controller
@@ -78,6 +81,8 @@ func (ctrl *VMRestoreController) Init() {
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
 		},
 	)
+
+	ctrl.vmStatusUpdater = status.NewVMStatusUpdater(ctrl.Client)
 }
 
 // Run the controller
