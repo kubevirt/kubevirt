@@ -3,7 +3,6 @@ module github.com/kubevirt/hyperconverged-cluster-operator
 go 1.16
 
 require (
-	cloud.google.com/go v0.72.0 // indirect
 	github.com/blang/semver/v4 v4.0.0
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
@@ -17,27 +16,26 @@ require (
 	github.com/kubevirt/cluster-network-addons-operator v0.58.0
 	github.com/kubevirt/vm-import-operator v0.3.7
 	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.13.0
+	github.com/onsi/gomega v1.14.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
-	github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
-	github.com/operator-framework/api v0.7.1
+	github.com/openshift/custom-resource-status v1.1.0
+	github.com/operator-framework/api v0.9.2
 	github.com/operator-framework/operator-lib v0.4.0
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.46.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.49.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/oauth2 v0.0.0-20210113205817-d3ed898aa8a3 // indirect
-	golang.org/x/tools v0.1.0
-	k8s.io/api v0.21.1
-	k8s.io/apiextensions-apiserver v0.21.1
-	k8s.io/apimachinery v0.21.1
+	golang.org/x/tools v0.1.2
+	k8s.io/api v0.21.3
+	k8s.io/apiextensions-apiserver v0.21.3
+	k8s.io/apimachinery v0.21.3
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	kubevirt.io/client-go v0.44.1
 	kubevirt.io/containerized-data-importer v1.38.0
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.1-0.20210723143736-64585ea1d1bd
-	kubevirt.io/ssp-operator v0.11.3
-	sigs.k8s.io/controller-runtime v0.9.0
+	kubevirt.io/ssp-operator v0.12.0
+	sigs.k8s.io/controller-runtime v0.9.3
 	sigs.k8s.io/controller-tools v0.5.0
 )
 

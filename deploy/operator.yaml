@@ -64,7 +64,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.58.0
         - name: SSP_VERSION
-          value: v0.11.3
+          value: v0.12.0
         - name: NMO_VERSION
           value: v0.9.0
         - name: HPPO_VERSION
@@ -426,41 +426,55 @@ spec:
         app.kubernetes.io/part-of: hyperconverged-cluster
         app.kubernetes.io/version: 1.6.0
         control-plane: ssp-operator
+        prometheus.kubevirt.io: ""
     spec:
       containers:
       - args:
-        - --enable-leader-election
-        - --ready-probe-addr
-        - :9440
+        - --leader-elect
         command:
         - /manager
         env:
         - name: KVM_INFO_IMAGE
         - name: VALIDATOR_IMAGE
-          value: quay.io/kubevirt/kubevirt-template-validator:v0.11.3
+          value: quay.io/kubevirt/kubevirt-template-validator:v0.12.0
         - name: VIRT_LAUNCHER_IMAGE
         - name: NODE_LABELLER_IMAGE
         - name: CPU_PLUGIN_IMAGE
         - name: OPERATOR_VERSION
-          value: v0.11.3
-        image: quay.io/kubevirt/ssp-operator@sha256:c2350bde1e5a165c33b8b1d7f0f9a90eab9f67cc13acd72dc5e566f5cc2d5325
+          value: v0.12.0
+        image: quay.io/kubevirt/ssp-operator@sha256:05926bddbe2c568899ad88a53d4aa7542eed46ce9a508ca6e1d3ae31e8e5706f
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
         name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 9440
+            port: 8081
           initialDelaySeconds: 5
+          periodSeconds: 10
         resources:
           requests:
             cpu: 100m
             memory: 150Mi
+        securityContext:
+          allowPrivilegeEscalation: false
         volumeMounts:
         - mountPath: /apiserver.local.config/certificates
           name: apiservice-cert
+      priorityClassName: system-cluster-critical
+      securityContext:
+        runAsNonRoot: true
       serviceAccountName: ssp-operator
       terminationGracePeriodSeconds: 10
       volumes:

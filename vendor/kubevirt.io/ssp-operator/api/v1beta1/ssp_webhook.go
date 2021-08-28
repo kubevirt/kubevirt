@@ -44,7 +44,7 @@ func (r *SSP) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-ssp-kubevirt-io-v1beta1-ssp,mutating=false,failurePolicy=fail,groups=ssp.kubevirt.io,resources=ssps,versions=v1beta1,name=validation.ssp.kubevirt.io,webhookVersions=v1,sideEffects=None
+// +kubebuilder:webhook:verbs=create;update,path=/validate-ssp-kubevirt-io-v1beta1-ssp,mutating=false,failurePolicy=fail,groups=ssp.kubevirt.io,resources=ssps,versions=v1beta1,name=validation.ssp.kubevirt.io,admissionReviewVersions={v1,v1beta1},sideEffects=None
 
 var _ webhook.Validator = &SSP{}
 
@@ -106,17 +106,16 @@ func setClientForWebhook(c client.Client) {
 }
 
 func validatePlacement(ssp *SSP) error {
-	return validateOperandPlacement(ssp.Spec.TemplateValidator.Placement)
+	return validateOperandPlacement(ssp.Namespace, ssp.Spec.TemplateValidator.Placement)
 }
 
-func validateOperandPlacement(placement *api.NodePlacement) error {
+func validateOperandPlacement(namespace string, placement *api.NodePlacement) error {
 	if placement == nil {
 		return nil
 	}
 
 	const (
 		dplName          = "ssp-webhook-placement-verification-deployment"
-		namespace        = "default"
 		webhookTestLabel = "webhook.ssp.kubevirt.io/placement-verification-pod"
 		podName          = "ssp-webhook-placement-verification-pod"
 		naImage          = "ssp.kubevirt.io/not-available"

@@ -30,6 +30,28 @@ func SetStatusCondition(conditions *[]Condition, newCondition Condition) {
 	existingCondition.LastHeartbeatTime = metav1.NewTime(time.Now())
 }
 
+// SetStatusConditionNoHearbeat sets the corresponding condition in conditions to newCondition
+// without setting lastHeartbeatTime.
+func SetStatusConditionNoHeartbeat(conditions *[]Condition, newCondition Condition) {
+	if conditions == nil {
+		conditions = &[]Condition{}
+	}
+	existingCondition := FindStatusCondition(*conditions, newCondition.Type)
+	if existingCondition == nil {
+		newCondition.LastTransitionTime = metav1.NewTime(time.Now())
+		*conditions = append(*conditions, newCondition)
+		return
+	}
+
+	if existingCondition.Status != newCondition.Status {
+		existingCondition.Status = newCondition.Status
+		existingCondition.LastTransitionTime = metav1.NewTime(time.Now())
+	}
+
+	existingCondition.Reason = newCondition.Reason
+	existingCondition.Message = newCondition.Message
+}
+
 // RemoveStatusCondition removes the corresponding conditionType from conditions.
 func RemoveStatusCondition(conditions *[]Condition, conditionType ConditionType) {
 	if conditions == nil {
