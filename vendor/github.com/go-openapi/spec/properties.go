@@ -7,13 +7,18 @@ import (
 	"sort"
 )
 
+// OrderSchemaItem holds a named schema (e.g. from a property of an object)
 type OrderSchemaItem struct {
 	Name string
 	Schema
 }
 
+// OrderSchemaItems is a sortable slice of named schemas.
+// The ordering is defined by the x-order schema extension.
 type OrderSchemaItems []OrderSchemaItem
 
+// MarshalJSON produces a json object with keys defined by the name schemas
+// of the OrderSchemaItems slice, keeping the original order of the slice.
 func (items OrderSchemaItems) MarshalJSON() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString("{")
@@ -60,8 +65,11 @@ func (items OrderSchemaItems) Less(i, j int) (ret bool) {
 	return items[i].Name < items[j].Name
 }
 
+// SchemaProperties is a map representing the properties of a Schema object.
+// It knows how to transform its keys into an ordered slice.
 type SchemaProperties map[string]Schema
 
+// ToOrderedSchemaItems transforms the map of properties into a sortable slice
 func (properties SchemaProperties) ToOrderedSchemaItems() OrderSchemaItems {
 	items := make(OrderSchemaItems, 0, len(properties))
 	for k, v := range properties {
@@ -74,6 +82,7 @@ func (properties SchemaProperties) ToOrderedSchemaItems() OrderSchemaItems {
 	return items
 }
 
+// MarshalJSON produces properties as json, keeping their order.
 func (properties SchemaProperties) MarshalJSON() ([]byte, error) {
 	if properties == nil {
 		return []byte("null"), nil

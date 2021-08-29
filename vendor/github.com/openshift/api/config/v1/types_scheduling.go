@@ -8,6 +8,9 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // Scheduler holds cluster-wide config information to run the Kubernetes Scheduler
 // and influence its placement decisions. The canonical name for this config is `cluster`.
+//
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type Scheduler struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -28,7 +31,14 @@ type SchedulerSpec struct {
 	// scheduler will default to use DefaultAlgorithmProvider.
 	// The namespace for this configmap is openshift-config.
 	// +optional
-	Policy ConfigMapNameReference `json:"policy"`
+	Policy ConfigMapNameReference `json:"policy,omitempty"`
+	// profile sets which scheduling profile should be set in order to configure scheduling
+	// decisions for new pods.
+	//
+	// Valid values are "LowNodeUtilization", "HighNodeUtilization", "NoScoring"
+	// Defaults to "LowNodeUtilization"
+	// +optional
+	Profile SchedulerProfile `json:"profile,omitempty"`
 	// defaultNodeSelector helps set the cluster-wide default node selector to
 	// restrict pod placement to specific nodes. This is applied to the pods
 	// created in all namespaces and creates an intersection with any existing
@@ -63,11 +73,30 @@ type SchedulerSpec struct {
 	MastersSchedulable bool `json:"mastersSchedulable"`
 }
 
+// +kubebuilder:validation:Enum="";LowNodeUtilization;HighNodeUtilization;NoScoring
+type SchedulerProfile string
+
+var (
+	// LowNodeUtililization is the default, and defines a scheduling profile which prefers to
+	// spread pods evenly among nodes targeting low resource consumption on each node.
+	LowNodeUtilization SchedulerProfile = "LowNodeUtilization"
+
+	// HighNodeUtilization defines a scheduling profile which packs as many pods as possible onto
+	// as few nodes as possible targeting a small node count but high resource usage on each node.
+	HighNodeUtilization SchedulerProfile = "HighNodeUtilization"
+
+	// NoScoring defines a scheduling profile which tries to provide lower-latency scheduling
+	// at the expense of potentially less optimal pod placement decisions.
+	NoScoring SchedulerProfile = "NoScoring"
+)
+
 type SchedulerStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
+// +openshift:compatibility-gen:level=1
 type SchedulerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

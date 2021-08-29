@@ -133,6 +133,17 @@ const (
 	FADV_NOREUSE  = 0x5
 )
 
+type RawSockaddrNFCLLCP struct {
+	Sa_family        uint16
+	Dev_idx          uint32
+	Target_idx       uint32
+	Nfc_protocol     uint32
+	Dsap             uint8
+	Ssap             uint8
+	Service_name     [63]uint8
+	Service_name_len uint32
+}
+
 type RawSockaddr struct {
 	Family uint16
 	Data   [14]int8
@@ -165,9 +176,10 @@ type Cmsghdr struct {
 }
 
 const (
-	SizeofIovec   = 0x8
-	SizeofMsghdr  = 0x1c
-	SizeofCmsghdr = 0xc
+	SizeofSockaddrNFCLLCP = 0x58
+	SizeofIovec           = 0x8
+	SizeofMsghdr          = 0x1c
+	SizeofCmsghdr         = 0xc
 )
 
 const (
@@ -619,3 +631,8 @@ const (
 	PPS_GETCAP    = 0x400470a3
 	PPS_FETCH     = 0xc00470a4
 )
+
+type ifreq struct {
+	Ifrn [16]byte
+	Ifru [16]byte
+}

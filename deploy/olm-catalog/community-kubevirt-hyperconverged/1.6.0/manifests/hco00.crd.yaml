@@ -461,9 +461,9 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is alpha-level and is only
-                                            honored when PodAffinityNamespaceSelector
-                                            feature is enabled.
+                                            This field is beta-level and is only honored
+                                            when PodAffinityNamespaceSelector feature
+                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -633,7 +633,7 @@ spec:
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
                                         selector ({}) matches all namespaces. This
-                                        field is alpha-level and is only honored when
+                                        field is beta-level and is only honored when
                                         PodAffinityNamespaceSelector feature is enabled.
                                       properties:
                                         matchExpressions:
@@ -802,9 +802,9 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is alpha-level and is only
-                                            honored when PodAffinityNamespaceSelector
-                                            feature is enabled.
+                                            This field is beta-level and is only honored
+                                            when PodAffinityNamespaceSelector feature
+                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -974,7 +974,7 @@ spec:
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
                                         selector ({}) matches all namespaces. This
-                                        field is alpha-level and is only honored when
+                                        field is beta-level and is only honored when
                                         PodAffinityNamespaceSelector feature is enabled.
                                       properties:
                                         matchExpressions:
@@ -1656,9 +1656,9 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is alpha-level and is only
-                                            honored when PodAffinityNamespaceSelector
-                                            feature is enabled.
+                                            This field is beta-level and is only honored
+                                            when PodAffinityNamespaceSelector feature
+                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -1828,7 +1828,7 @@ spec:
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
                                         selector ({}) matches all namespaces. This
-                                        field is alpha-level and is only honored when
+                                        field is beta-level and is only honored when
                                         PodAffinityNamespaceSelector feature is enabled.
                                       properties:
                                         matchExpressions:
@@ -1997,9 +1997,9 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is alpha-level and is only
-                                            honored when PodAffinityNamespaceSelector
-                                            feature is enabled.
+                                            This field is beta-level and is only honored
+                                            when PodAffinityNamespaceSelector feature
+                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -2169,7 +2169,7 @@ spec:
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
                                         selector ({}) matches all namespaces. This
-                                        field is alpha-level and is only honored when
+                                        field is beta-level and is only honored when
                                         PodAffinityNamespaceSelector feature is enabled.
                                       properties:
                                         matchExpressions:

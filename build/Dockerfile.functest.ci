@@ -1,4 +1,6 @@
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.16-openshift-4.9 AS builder
+# TODO: replace with golang 1.17 and OCP 4.10 once ready
+# registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.17-openshift-4.10
+FROM registry.ci.openshift.org/open-cluster-management/builder:go1.17-linux AS builder
 
 WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .

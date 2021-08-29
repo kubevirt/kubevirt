@@ -102,6 +102,9 @@ const (
 
 	// SubscriptionInstallPlanFailed indicates that the installation of a Subscription's InstallPlan has failed.
 	SubscriptionInstallPlanFailed SubscriptionConditionType = "InstallPlanFailed"
+
+	// SubscriptionResolutionFailed indicates that the dependency resolution in the namespace in which the subscription is created has failed
+	SubscriptionResolutionFailed SubscriptionConditionType = "ResolutionFailed"
 )
 
 const (

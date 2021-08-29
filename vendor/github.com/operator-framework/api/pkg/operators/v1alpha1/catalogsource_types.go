@@ -131,6 +131,16 @@ type CatalogSourceStatus struct {
 	ConfigMapResource     *ConfigMapResourceReference `json:"configMapReference,omitempty"`
 	RegistryServiceStatus *RegistryServiceStatus      `json:"registryService,omitempty"`
 	GRPCConnectionState   *GRPCConnectionState        `json:"connectionState,omitempty"`
+
+	// Represents the state of a CatalogSource. Note that Message and Reason represent the original
+	// status information, which may be migrated to be conditions based in the future. Any new features
+	// introduced will use conditions.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 type ConfigMapResourceReference struct {
