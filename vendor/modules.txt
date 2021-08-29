@@ -103,7 +103,7 @@ github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperat
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
-# github.com/kubevirt/vm-import-operator v0.3.7
+# github.com/kubevirt/vm-import-operator v0.4.0
 ## explicit; go 1.13
 github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1
 # github.com/mailru/easyjson v0.7.6
