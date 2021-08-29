@@ -684,6 +684,15 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.Virtual
 		}
 	}
 
+	snapshottable := ctrl.isVolumeSnapshottable(volume)
+	if !snapshottable {
+		return kubevirtv1.VolumeSnapshotStatus{
+			Name:    volume.Name,
+			Enabled: false,
+			Reason:  fmt.Sprintf("Snapshot is not supported for this volumeSource type [%s]", volume.Name),
+		}
+	}
+
 	sc, err := ctrl.getVolumeStorageClass(vm.Namespace, volume)
 	if err != nil {
 		return kubevirtv1.VolumeSnapshotStatus{Name: volume.Name, Enabled: false, Reason: err.Error()}
@@ -703,6 +712,11 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.Virtual
 	}
 
 	return kubevirtv1.VolumeSnapshotStatus{Name: volume.Name, Enabled: true}
+}
+
+func (ctrl *VMSnapshotController) isVolumeSnapshottable(volume *kubevirtv1.Volume) bool {
+	return volume.VolumeSource.PersistentVolumeClaim != nil ||
+		volume.VolumeSource.DataVolume != nil
 }
 
 func (ctrl *VMSnapshotController) getVolumeStorageClass(namespace string, volume *kubevirtv1.Volume) (string, error) {
