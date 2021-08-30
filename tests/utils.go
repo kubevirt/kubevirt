@@ -5159,3 +5159,33 @@ func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.V
 		return vmi
 	}
 }
+
+func CreateAndWaitForVmi(client kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
+	vmi, err := client.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	vmi = WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+	return vmi, nil
+}
+
+func DeleteVmi(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) error {
+	if vmi != nil {
+		return virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+	}
+
+	By("vmi is nil")
+	return nil
+}
+
+func WaitForVmiDeletion(vmi *v1.VirtualMachineInstance) {
+	if vmi != nil {
+		EventuallyWithOffset(1, ThisVMI(vmi), 120).Should(BeGone())
+	}
+}
+
+func DeleteVmiAndWaitForDeletion(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
+	Expect(DeleteVmi(virtClient, vmi)).To(Succeed())
+	WaitForVmiDeletion(vmi)
+}
