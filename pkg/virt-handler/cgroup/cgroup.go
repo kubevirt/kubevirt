@@ -58,14 +58,6 @@ func NewManagerFromPid(pid int) (manager Manager, err error) {
 		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
 		manager, err = newV2Manager(config, slicePath, isRootless, pid)
 	} else {
-		cgroupVersion = v1Str
-		for subsystem, path := range controllerPaths {
-			if path == "" {
-				continue
-			}
-			controllerPaths[subsystem] = filepath.Join("/", subsystem, path)
-		}
-
 		manager, err = newV1Manager(config, controllerPaths, isRootless)
 	}
 
