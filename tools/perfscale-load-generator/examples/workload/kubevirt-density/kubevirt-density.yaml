@@ -1,0 +1,23 @@
+globalConfig:
+    qps: 0
+    burst: 0
+workloads:
+  - name: kubevirt-density-100
+    iterationCount: 1
+    iterationInterval: 0
+    iterationCreationWait: true
+    iterationCleanup: true
+    iterationDeletionWait: true
+    namespacedIterations: false    
+    maxWaitTimeout: 30m
+    qps: 20
+    burst: 20
+    waitWhenFinished: 30s
+    objects:          
+      - templateFile: templates/vmi-ephemeral.yaml
+        replicas: 100
+        inputVars:
+          containerPrefix: ""
+          containerImg: cirros-container-disk-demo
+          containerTag: ""
+          namespace: kubevirt-density

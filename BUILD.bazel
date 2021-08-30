@@ -362,6 +362,16 @@ genrule(
 )
 
 genrule(
+    name = "build-perfscale-load-generator",
+    srcs = [
+        "//tools/perfscale-load-generator",
+    ],
+    outs = ["perfscale-load-generator-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
     name = "build-junit-merger",
     srcs = [
         "//tools/junit-merger",

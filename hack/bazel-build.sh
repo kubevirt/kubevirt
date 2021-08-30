@@ -26,6 +26,7 @@ rm -rf ${CMD_OUT_DIR}
 mkdir -p ${CMD_OUT_DIR}/virtctl
 mkdir -p ${CMD_OUT_DIR}/dump
 mkdir -p ${CMD_OUT_DIR}/perfscale-audit
+mkdir -p ${CMD_OUT_DIR}/perfscale-load-generator
 
 # Build all binaries for amd64
 bazel build \
@@ -41,6 +42,11 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     :build-perfscale-audit -- ${CMD_OUT_DIR}/perfscale-audit/perfscale-audit
+
+# Copy perfscale-load-generator binary to a reachable place outside of the build container
+bazel run \
+    --config=${ARCHITECTURE} \
+    :build-perfscale-load-generator -- ${CMD_OUT_DIR}/perfscale-load-generator/perfscale-load-generator
 
 # build platform native virtctl explicitly
 bazel run \
