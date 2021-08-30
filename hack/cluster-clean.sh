@@ -43,14 +43,14 @@ function remove_finalizers() {
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        patch_remove_finalizers vmsnapshots $name -n $ns
+        patch_remove_finalizers -n $ns vmsnapshots $name
     done
 
     kubectl get vmsnapshotcontents --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshotcontent-protection | while read p; do
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        patch_remove_finalizers vmsnapshotcontents $name -n $ns
+        patch_remove_finalizers -n $ns vmsnapshotcontents $name
     done
 
     # Remove finalizers from all running vmis, to not block the cleanup
@@ -58,14 +58,14 @@ function remove_finalizers() {
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        patch_remove_finalizers vmi $name -n $ns
+        patch_remove_finalizers -n $ns vmi $name
     done
 
     _kubectl get vms --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep -e foregroundDeleteVirtualMachine -e orphan -e snapshot-source-protection | while read p; do
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        patch_remove_finalizers vm $name -n $ns
+        patch_remove_finalizers -n $ns vm $name
     done
 }
 
