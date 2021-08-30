@@ -29,7 +29,6 @@ DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
 source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
-source hack/prefetch-images.sh
 
 echo "Building ..."
 
@@ -37,25 +36,5 @@ echo "Building ..."
 ${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/build-func-tests.sh"
 ${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/bazel-push-images.sh"
 ${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} IMAGE_PREFIX=${IMAGE_PREFIX}  IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} feature_gates=${FEATURE_GATES} KUBEVIRT_ONLY_USE_TAGS=${KUBEVIRT_ONLY_USE_TAGS} ./hack/build-manifests.sh"
-
-# Make sure that all nodes use the newest images
-container=""
-container_alias=""
-for arg in ${docker_images}; do
-    name=${image_prefix}$(basename $arg)
-    container="${container} ${manifest_docker_prefix}/${name}:${docker_tag} ${manifest_docker_prefix}/${name}:${docker_tag_alt}"
-    container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
-done
-
-if [[ $image_prefix_alt ]]; then
-    for arg in ${docker_images}; do
-        name=${image_prefix_alt}$(basename $arg)
-        container="${container} ${manifest_docker_prefix}/${name}:${docker_tag}"
-        container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
-    done
-fi
-
-prefetch-images::pull_on_nodes $container
-prefetch-images::tag_on_nodes $container_alias
 
 echo "Done $0"

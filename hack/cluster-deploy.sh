@@ -24,7 +24,6 @@ DOCKER_TAG=${DOCKER_TAG:-devel}
 source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
-source hack/prefetch-images.sh
 
 function dump_kubevirt() {
     if [ "$?" -ne "0" ]; then
@@ -47,10 +46,6 @@ function _ensure_cdi_deployment() {
     # Do not deploy any cdi-operator related objects on
     # sriov-lane until kubevirt/kubevirt#4120 is fixed
     if [[ ! "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
-        # prefetch cdi images
-        cdi_images=$(sed -ne "s/.*\(quay.io[^\s]*\)/\1/p" manifests/testing/cdi*)
-        prefetch-images::pull_on_nodes $cdi_images
-
         _kubectl apply -f - <<EOF
 ---
 apiVersion: cdi.kubevirt.io/v1beta1
