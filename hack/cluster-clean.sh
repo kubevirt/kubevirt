@@ -25,13 +25,16 @@ source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
+function patch_remove_finalizers() {
+    _kubectl patch --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]' $@
+}
+
 function delete_kubevirt_cr() {
     # Delete KubeVirt CR, timeout after 10 seconds
     set +e
     _kubectl -n ${namespace} delete kv kubevirt --timeout=10s --ignore-not-found
-    _kubectl -n ${namespace} patch kv kubevirt --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
-    _kubectl patch cdi cdi --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
-
+    patch_remove_finalizers -n ${namespace} kv kubevirt
+    patch_remove_finalizers cdi cdi
     set -e
 }
 
@@ -40,14 +43,14 @@ function remove_finalizers() {
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        _kubectl patch vmsnapshots $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+        patch_remove_finalizers vmsnapshots $name -n $ns
     done
 
     kubectl get vmsnapshotcontents --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshotcontent-protection | while read p; do
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        _kubectl patch vmsnapshotcontents $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+        patch_remove_finalizers vmsnapshotcontents $name -n $ns
     done
 
     # Remove finalizers from all running vmis, to not block the cleanup
@@ -55,14 +58,14 @@ function remove_finalizers() {
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        _kubectl patch vmi $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+        patch_remove_finalizers vmi $name -n $ns
     done
 
     _kubectl get vms --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep -e foregroundDeleteVirtualMachine -e orphan -e snapshot-source-protection | while read p; do
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        _kubectl patch vm $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+        patch_remove_finalizers vm $name -n $ns
     done
 }
 
