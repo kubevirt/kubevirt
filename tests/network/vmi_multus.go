@@ -1283,6 +1283,8 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 
 				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
 				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
+				// Ensure QEMU GuestAgent is up as it should report network interfaces stats
+				tests.WaitAgentConnected(virtClient, serverVMI)
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
 				serverVMIPodName = tests.GetVmPodName(virtClient, serverVMI)
 
