@@ -27,6 +27,10 @@ func SIGDescribe(text string, body func()) bool {
 	return Describe("[sig-storage] "+text, body)
 }
 
+func PSIGDescribe(text string, body func()) bool {
+	return PDescribe("[sig-storage] "+text, body)
+}
+
 func FSIGDescribe(text string, body func()) bool {
 	return FDescribe("[sig-storage] "+text, body)
 }

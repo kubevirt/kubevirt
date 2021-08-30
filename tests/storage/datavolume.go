@@ -57,7 +57,8 @@ import (
 const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
 const DummyFilePath = "/usr/share/nginx/html/dummy.file"
 
-var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
+// experimenting with sig storage
+var _ = PSIGDescribe("[Serial]DataVolume Integration", func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
