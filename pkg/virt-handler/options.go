@@ -13,12 +13,14 @@ func virtualMachineOptions(
 	preallocatedVolumes []string,
 	capabilities *api.Capabilities,
 	disksInfo map[string]*containerdisk.DiskInfo,
+	expandDisksEnabled bool,
 ) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
 		Topology:              topologyToTopology(capabilities),
 		DisksInfo:             disksInfoToDisksInfo(disksInfo),
+		ExpandDisksEnabled:    expandDisksEnabled,
 	}
 	if smbios != nil {
 		options.VirtualMachineSMBios = &cmdv1.SMBios{

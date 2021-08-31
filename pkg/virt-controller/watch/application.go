@@ -156,6 +156,7 @@ type VirtControllerApp struct {
 	controllerRevisionInformer cache.SharedIndexInformer
 
 	dataVolumeInformer cache.SharedIndexInformer
+	cdiConfigInformer  cache.SharedIndexInformer
 
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
@@ -332,12 +333,14 @@ func Execute() {
 
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
+		app.cdiConfigInformer = app.informerFactory.CDIConfig()
 		log.Log.Infof("CDI detected, DataVolume integration enabled")
 	} else {
 		// Add a dummy DataVolume informer in the event datavolume support
 		// is disabled. This lets the controller continue to work without
 		// requiring a separate branching code path.
 		app.dataVolumeInformer = app.informerFactory.DummyDataVolume()
+		app.cdiConfigInformer = app.informerFactory.DummyCDIConfig()
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
 
@@ -518,6 +521,8 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.dataVolumeInformer,
+		vca.cdiConfigInformer,
+		vca.clusterConfig,
 		topologyHinter,
 	)
 

@@ -459,6 +459,8 @@ type VirDomain interface {
 	CreateWithFlags(flags libvirt.DomainCreateFlags) error
 	Suspend() error
 	Resume() error
+	BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error
+	GetBlockInfo(disk string, flags uint32) (*libvirt.DomainBlockInfo, error)
 	AttachDevice(xml string) error
 	AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DetachDevice(xml string) error

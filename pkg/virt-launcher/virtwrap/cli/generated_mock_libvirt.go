@@ -324,6 +324,27 @@ func (_mr *_MockVirDomainRecorder) Resume() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Resume")
 }
 
+func (_m *MockVirDomain) BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error {
+	ret := _m.ctrl.Call(_m, "BlockResize", disk, size, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) BlockResize(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "BlockResize", arg0, arg1, arg2)
+}
+
+func (_m *MockVirDomain) GetBlockInfo(disk string, flags uint32) (*libvirt.DomainBlockInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetBlockInfo", disk, flags)
+	ret0, _ := ret[0].(*libvirt.DomainBlockInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetBlockInfo(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetBlockInfo", arg0, arg1)
+}
+
 func (_m *MockVirDomain) AttachDevice(xml string) error {
 	ret := _m.ctrl.Call(_m, "AttachDevice", xml)
 	ret0, _ := ret[0].(error)

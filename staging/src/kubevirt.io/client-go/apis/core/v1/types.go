@@ -268,6 +268,10 @@ type PersistentVolumeClaimInfo struct {
 	// Preallocated indicates if the PVC's storage is preallocated or not
 	// +optional
 	Preallocated bool `json:"preallocated,omitempty"`
+
+	// Percentage of filesystem's size to be reserved when resizing the PVC
+	// +optional
+	FilesystemOverhead *cdiv1.Percent `json:"filesystemOverhead,omitempty"`
 }
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.

@@ -85,6 +85,7 @@ message VirtualMachineOptions {
   repeated string PreallocatedVolumes = 3;
   Topology topology = 4;
   map<string, DiskInfo> DisksInfo = 5;
+  bool ExpandDisksEnabled = 6;
 }
 
 message VMIRequest {
