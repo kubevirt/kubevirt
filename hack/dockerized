@@ -22,7 +22,7 @@ if [ -z ${KUBEVIRT_CRI} ]; then
     fi
 fi
 
-KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2107141556-8cc2ef886"
+KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2108311443-370e711b8"
 
 SYNC_OUT=${SYNC_OUT:-true}
 
