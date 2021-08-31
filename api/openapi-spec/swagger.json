@@ -12923,6 +12923,10 @@
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      },
+     "filesystemOverhead": {
+      "description": "Percentage of filesystem's size to be reserved when resizing the PVC",
+      "type": "string"
+     },
      "preallocated": {
       "description": "Preallocated indicates if the PVC's storage is preallocated or not",
       "type": "boolean"

@@ -118,6 +118,7 @@ type ConverterContext struct {
 	VolumesDiscardIgnore  []string
 	Topology              *cmdv1.Topology
 	CpuScheduler          *api.VCPUScheduler
+	ExpandDisksEnabled    bool
 }
 
 func contains(volumes []string, name string) bool {
@@ -150,7 +151,7 @@ func isARM64(arch string) bool {
 	return false
 }
 
-func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint) error {
+func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
@@ -216,6 +217,15 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		if !contains(c.VolumesDiscardIgnore, diskDevice.Name) {
 			disk.Driver.Discard = "unmap"
 		}
+		volumeStatus, ok := volumeStatusMap[diskDevice.Name]
+		if ok && volumeStatus.PersistentVolumeClaimInfo != nil {
+			disk.FilesystemOverhead = volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead
+			capacity, ok := volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage]
+			if ok {
+				disk.Capacity = &capacity
+			}
+		}
+		disk.ExpandDisksEnabled = c.ExpandDisksEnabled
 	}
 	if numQueues != nil && disk.Target.Bus == "virtio" {
 		disk.Driver.Queues = numQueues
@@ -415,7 +425,7 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 	return nil
 }
 
-func isPreAllocated(path string) bool {
+func IsPreAllocated(path string) bool {
 	diskInf, err := GetImageInfo(path)
 	if err != nil {
 		return false
@@ -444,7 +454,7 @@ func SetOptimalIOMode(disk *api.Disk) error {
 	// O_DIRECT is needed for io="native"
 	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
 		// set native for block device or pre-allocateed image file
-		if (disk.Source.Dev != "") || isPreAllocated(disk.Source.File) {
+		if (disk.Source.Dev != "") || IsPreAllocated(disk.Source.File) {
 			disk.Driver.IO = v1.IONative
 		}
 	}
@@ -1385,11 +1395,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		numBlkQueues = &vcpus
 	}
 
+	volumeStatusMap := make(map[string]v1.VolumeStatus)
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		volumeStatusMap[volumeStatus.Name] = volumeStatus
+	}
+
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues)
+		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
 		if err != nil {
 			return err
 		}

@@ -2683,7 +2683,7 @@ var _ = Describe("Converter", func() {
 			apiDisk := api.Disk{}
 			devicePerBus := map[string]deviceNamer{}
 			numQueues := uint(2)
-			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues)
+			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, make(map[string]v1.VolumeStatus))
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(*(apiDisk.Driver.Queues)).To(Equal(expectedQueues), "expected queues to be 2")
 		})
@@ -2696,7 +2696,7 @@ var _ = Describe("Converter", func() {
 			}
 			apiDisk := api.Disk{}
 			devicePerBus := map[string]deviceNamer{}
-			err := Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil)
+			err := Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
@@ -3313,7 +3313,7 @@ var _ = Describe("SetDriverCacheMode", func() {
 func diskToDiskXML(disk *v1.Disk) string {
 	devicePerBus := make(map[string]deviceNamer)
 	libvirtDisk := &api.Disk{}
-	Expect(Convert_v1_Disk_To_api_Disk(&ConverterContext{UseVirtioTransitional: false}, disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
+	Expect(Convert_v1_Disk_To_api_Disk(&ConverterContext{UseVirtioTransitional: false}, disk, libvirtDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
 	return string(data)
