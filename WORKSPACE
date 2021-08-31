@@ -2291,6 +2291,7 @@ rpm(
         "https://sjc.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/i/iptables-nft-1.8.4-9.fc32.x86_64.rpm",
         "https://mirror.us-midwest-1.nexcess.net/fedora/updates/32/Everything/x86_64/Packages/i/iptables-nft-1.8.4-9.fc32.x86_64.rpm",
         "https://mirrors.rit.edu/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/i/iptables-nft-1.8.4-9.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b81b7935915e07fe9fec3cfb0a25c27baa051ad9ee5a3f3a0ffd22b1615eccb9",
     ],
 )
 
