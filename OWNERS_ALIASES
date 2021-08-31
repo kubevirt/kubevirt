@@ -12,7 +12,6 @@ aliases:
       - AlonaKaplan
       - dhiller
       - jean-edouard
-      - ashleyschuett
       - mhenriks
       - enp0s3
   emeritus_approvers:
@@ -21,6 +20,7 @@ aliases:
       - mfranczy
       - SchSeba
       - codificat
+      - ashleyschuett
   code-reviewers:
       - davidvossel
       - rmohr
@@ -33,7 +33,6 @@ aliases:
       - jean-edouard
       - AlonaKaplan
       - omeryahud
-      - ashleyschuett
       - mhenriks
       - maiqueb
       - EdDev
