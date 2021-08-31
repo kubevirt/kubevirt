@@ -91,10 +91,10 @@ func (f *FindmntInfo) GetSourcePath() string {
 
 func (f *FindmntInfo) GetSourceDevice() string {
 	match := deviceRgx.FindStringSubmatch(f.Source)
-	if len(match) == 0 {
-		return ""
+	if len(match) == 2 {
+		return match[1]
 	}
-	return match[1]
+	return ""
 }
 
 func (f *FindmntInfo) GetOptions() []string {
