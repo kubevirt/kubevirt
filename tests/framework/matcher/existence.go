@@ -5,6 +5,8 @@ import (
 	"reflect"
 
 	"github.com/onsi/gomega/types"
+
+	"kubevirt.io/kubevirt/tests/framework/matcher/helper"
 )
 
 func Exist() types.GomegaMatcher {
@@ -23,7 +25,7 @@ type existMatcher struct {
 }
 
 func (e existMatcher) Match(actual interface{}) (success bool, err error) {
-	if isNil(actual) {
+	if helper.IsNil(actual) {
 		return false, nil
 	}
 	return true, nil
@@ -41,11 +43,10 @@ type goneMatcher struct {
 }
 
 func (g goneMatcher) Match(actual interface{}) (success bool, err error) {
-	if actual == nil || reflect.ValueOf(actual).IsNil() {
+	if helper.IsNil(actual) {
 		return true, nil
 	}
-	val := reflect.ValueOf(actual)
-	if val.Kind() == reflect.Array || val.Kind() == reflect.Slice && val.Len() == 0 {
+	if helper.IsSlice(actual) && reflect.ValueOf(actual).Len() == 0 {
 		return true, nil
 	}
 	return false, nil

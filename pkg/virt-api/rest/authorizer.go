@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/util/flowcontrol"
 
 	"kubevirt.io/client-go/kubecli"
 )
@@ -40,8 +41,6 @@ const (
 	userHeader            = "X-Remote-User"
 	groupHeader           = "X-Remote-Group"
 	userExtraHeaderPrefix = "X-Remote-Extra-"
-	clientQPS             = 200
-	clientBurst           = 400
 )
 
 type VirtApiAuthorizor interface {
@@ -302,13 +301,12 @@ func NewAuthorizorFromConfig(config *restclient.Config) (VirtApiAuthorizor, erro
 	return a, nil
 }
 
-func NewAuthorizor() (VirtApiAuthorizor, error) {
-	config, err := kubecli.GetConfig()
+func NewAuthorizor(rateLimiter flowcontrol.RateLimiter) (VirtApiAuthorizor, error) {
+	config, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		return nil, err
 	}
-	config.QPS = clientQPS
-	config.Burst = clientBurst
+	config.RateLimiter = rateLimiter
 
 	return NewAuthorizorFromConfig(config)
 }

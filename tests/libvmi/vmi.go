@@ -91,6 +91,16 @@ func WithResourceMemory(value string) Option {
 	}
 }
 
+// WithNodeSelectorFor ensures that the VMI gets scheduled on the specified node
+func WithNodeSelectorFor(node *k8sv1.Node) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		if vmi.Spec.NodeSelector == nil {
+			vmi.Spec.NodeSelector = map[string]string{}
+		}
+		vmi.Spec.NodeSelector["kubernetes.io/hostname"] = node.Name
+	}
+}
+
 func baseVmi(name string) *kvirtv1.VirtualMachineInstance {
 	vmi := kvirtv1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = kvirtv1.VirtualMachineInstanceSpec{Domain: kvirtv1.DomainSpec{}}

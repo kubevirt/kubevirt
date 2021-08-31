@@ -241,6 +241,30 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		SupportedGuestAgentVersions: supportedQEMUGuestAgentVersions,
 		OVMFPath:                    DefaultOVMFPath,
 		MemBalloonStatsPeriod:       &defaultMemBalloonStatsPeriod,
+		APIConfiguration: &v1.ReloadableComponentConfiguration{
+			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
+				QPS:   DefaultVirtAPIQPS,
+				Burst: DefaultVirtAPIBurst,
+			}}},
+		},
+		ControllerConfiguration: &v1.ReloadableComponentConfiguration{
+			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
+				QPS:   DefaultVirtControllerQPS,
+				Burst: DefaultVirtControllerBurst,
+			}}},
+		},
+		HandlerConfiguration: &v1.ReloadableComponentConfiguration{
+			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
+				QPS:   DefaultVirtHandlerQPS,
+				Burst: DefaultVirtHandlerBurst,
+			}}},
+		},
+		WebhookConfiguration: &v1.ReloadableComponentConfiguration{
+			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
+				QPS:   DefaultVirtWebhookClientQPS,
+				Burst: DefaultVirtWebhookClientBurst,
+			}}},
+		},
 	}
 }
 
