@@ -35,7 +35,6 @@ num=$(losetup -l | wc -l)
 
 # Put LOOP_DEVICE in /etc/bashrc in order to detach this loop device when the pod stopped.
 LOOP_DEVICE=$(chroot /host losetup --find --show /mnt/local-storage/cirros.img.raw)
-echo $LOOP_DEVICE
 echo LOOP_DEVICE=${LOOP_DEVICE} >>/etc/bashrc
 rm -f /local-storage/cirros-block-device
 ln -s $LOOP_DEVICE /local-storage/cirros-block-device
@@ -65,7 +64,6 @@ dd if=/dev/zero of=/local-storage/hp_file.img bs=4k count=1024k
 ls -al /local-storage/hp_file.img
 # Put LOOP_DEVICE_HP in /etc/bashrc in order to detach this loop device when the pod stopped.
 LOOP_DEVICE_HP=$(chroot /host losetup --verbose --find --show /mnt/local-storage/hp_file.img)
-echo $LOOP_DEVICE_HP
 echo LOOP_DEVICE_HP=${LOOP_DEVICE_HP} >>/etc/bashrc
 chroot /host mkfs.ext4 $LOOP_DEVICE_HP
 mkdir -p /hostImages/mount_hp
