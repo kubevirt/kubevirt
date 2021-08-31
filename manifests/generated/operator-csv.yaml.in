@@ -214,6 +214,16 @@ spec:
         - apiGroups:
           - apps
           resources:
+          - controllerrevisions
+          verbs:
+          - watch
+          - list
+          - create
+          - delete
+          - patch
+        - apiGroups:
+          - apps
+          resources:
           - deployments
           - daemonsets
           verbs:
@@ -507,6 +517,15 @@ spec:
           - daemonsets
           verbs:
           - list
+        - apiGroups:
+          - apps
+          resources:
+          - controllerrevisions
+          verbs:
+          - watch
+          - list
+          - create
+          - delete
         - apiGroups:
           - ""
           resources:

@@ -26,15 +26,18 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	"github.com/pborman/uuid"
+	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -58,6 +61,7 @@ const (
 	stoppingVmMsg                         = "Stopping VM"
 	startingVmMsg                         = "Starting VM"
 	failedExtractVmkeyFromVmErrMsg        = "Failed to extract vmKey from VirtualMachine."
+	failedCreateCRforVmErrMsg             = "Failed to create controller revision for VirtualMachine."
 	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
 )
@@ -68,6 +72,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	crInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient) *VMController {
 
@@ -79,6 +84,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		vmInformer:             vmInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
+		crInformer:             crInformer,
 		recorder:               recorder,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -125,6 +131,7 @@ type VMController struct {
 	vmInformer             cache.SharedIndexInformer
 	dataVolumeInformer     cache.SharedIndexInformer
 	pvcInformer            cache.SharedIndexInformer
+	crInformer             cache.SharedIndexInformer
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
@@ -748,6 +755,13 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 
 	// start it
 	vmi := c.setupVMIFromVM(vm)
+	vmRevisionName, err := c.createVMRevision(vm)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
+		return err
+	}
+	vmi.Status.VirtualMachineRevisionName = vmRevisionName
+
 	// add a finalizer to ensure the VM controller has a chance to see
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
@@ -922,6 +936,93 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s/%s with phase %s", vmi.Namespace, vmi.Name, vmi.Status.Phase)
 
 	return nil
+}
+
+func vmRevisionNamePrefix(vmUID types.UID) string {
+	return fmt.Sprintf("revision-start-vm-%s", vmUID)
+}
+
+func getVMRevisionName(vmUID types.UID, generation int64) string {
+	return fmt.Sprintf("%s-%d", vmRevisionNamePrefix(vmUID), generation)
+}
+
+func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
+	vmBytes, err := json.Marshal(vm)
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]interface{}
+	err = json.Unmarshal(vmBytes, &raw)
+	if err != nil {
+		return nil, err
+	}
+	objCopy := make(map[string]interface{})
+	spec := raw["spec"].(map[string]interface{})
+	objCopy["spec"] = spec
+	patch, err := json.Marshal(objCopy)
+	return patch, err
+}
+
+func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, error) {
+	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	if err != nil {
+		return false, err
+	}
+
+	createNotNeeded := false
+	for _, key := range keys {
+		storeObj, exists, err := c.crInformer.GetStore().GetByKey(key)
+		if !exists || err != nil {
+			return false, err
+		}
+
+		cr, ok := storeObj.(*appsv1.ControllerRevision)
+		if !ok {
+			return false, fmt.Errorf("unexpected resource %+v", storeObj)
+		}
+
+		// check the revision is of the revisions that are created in the vm startup
+		if !strings.HasPrefix(cr.Name, vmRevisionNamePrefix(vm.UID)) {
+			continue
+		}
+		if cr.Revision == vm.ObjectMeta.Generation {
+			createNotNeeded = true
+			continue
+		}
+		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return createNotNeeded, nil
+}
+
+func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, error) {
+	vmRevisionName := getVMRevisionName(vm.UID, vm.ObjectMeta.Generation)
+	createNotNeeded, err := c.deleteOlderVMRevision(vm)
+	if err != nil || createNotNeeded {
+		return vmRevisionName, err
+	}
+	patch, err := patchVMRevision(vm)
+	if err != nil {
+		return "", err
+	}
+	cr := &appsv1.ControllerRevision{
+		ObjectMeta: v1.ObjectMeta{
+			Name:            vmRevisionName,
+			Namespace:       vm.Namespace,
+			OwnerReferences: []v1.OwnerReference{*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+		},
+		Data:     runtime.RawExtension{Raw: patch},
+		Revision: vm.ObjectMeta.Generation,
+	}
+	_, err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, v1.CreateOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	return cr.Name, nil
 }
 
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.

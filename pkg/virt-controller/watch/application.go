@@ -148,6 +148,8 @@ type VirtControllerApp struct {
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
 
+	controllerRevisionInformer cache.SharedIndexInformer
+
 	dataVolumeInformer cache.SharedIndexInformer
 
 	migrationController *MigrationController
@@ -305,6 +307,8 @@ func Execute() {
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
+
+	app.controllerRevisionInformer = app.informerFactory.ControllerRevision()
 
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
@@ -530,6 +534,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.vmInformer,
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
+		vca.controllerRevisionInformer,
 		recorder,
 		vca.clientSet)
 }
@@ -586,6 +591,7 @@ func (vca *VirtControllerApp) initSnapshotController() {
 		CRDInformer:               vca.crdInformer,
 		PodInformer:               vca.allPodInformer,
 		DVInformer:                vca.dataVolumeInformer,
+		CRInformer:                vca.controllerRevisionInformer,
 		Recorder:                  recorder,
 		ResyncPeriod:              vca.snapshotControllerResyncPeriod,
 	}

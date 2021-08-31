@@ -163,6 +163,21 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"apps",
 				},
 				Resources: []string{
+					"controllerrevisions",
+				},
+				Verbs: []string{
+					"watch",
+					"list",
+					"create",
+					"delete",
+					"patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"apps",
+				},
+				Resources: []string{
 					"deployments",
 					"daemonsets",
 				},

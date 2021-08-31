@@ -69,6 +69,7 @@ type VMSnapshotController struct {
 	CRDInformer               cache.SharedIndexInformer
 	PodInformer               cache.SharedIndexInformer
 	DVInformer                cache.SharedIndexInformer
+	CRInformer                cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
 
