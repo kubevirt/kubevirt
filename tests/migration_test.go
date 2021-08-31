@@ -1358,6 +1358,129 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
+		FContext("with dedicated CPUs", func() {
+			var (
+				migratableVMI *v1.VirtualMachineInstance
+				staticVMIs    []*v1.VirtualMachineInstance
+				workerLabel   = "node-role.kubernetes.io/worker"
+				hostnameLabel = "kubernetes.io/hostname"
+			)
+
+			parseVCPUPinOutput := func(vcpuPinOutput string) []int {
+				cpuSet := []int{}
+				vcpuPinOutputLines := strings.Split(vcpuPinOutput, "\n")
+				cpuLines := vcpuPinOutputLines[2 : len(vcpuPinOutputLines)-2]
+
+				for _, line := range cpuLines {
+					lineSplits := strings.Split(line, " ")
+					var lineNoSpaces []string
+					for _, split := range lineSplits {
+						if split != "" {
+							lineNoSpaces = append(lineNoSpaces, split)
+						}
+					}
+
+					cpu, err := strconv.Atoi(lineNoSpaces[1])
+					Expect(err).To(BeNil(), "cpu id is non string in vcpupin output")
+
+					cpuSet = append(cpuSet, cpu)
+				}
+
+				return cpuSet
+			}
+
+			getVMICPUSet := func(vmi *v1.VirtualMachineInstance) []int {
+				vmiPod := tests.GetPodByVirtualMachineInstance(vmi)
+
+				stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient,
+					vmiPod,
+					"compute",
+					[]string{"virsh", "vcpupin", fmt.Sprintf("%s_%s", vmi.GetNamespace(), vmi.GetName())})
+				Expect(stderr).To(BeEmpty())
+				Expect(err).To(BeNil())
+
+				return parseVCPUPinOutput(stdout)
+			}
+
+			BeforeEach(func() {
+				nodes, err := virtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
+				})
+				Expect(err).To(BeNil())
+				Expect(nodes).ToNot(BeNil())
+				Expect(len(nodes.Items)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
+
+				dedicatedCPU := &v1.CPU{
+					Cores:                 uint32(2),
+					DedicatedCPUPlacement: true,
+				}
+
+				vmiStartTimeoutSeconds := 30
+
+				// Schedule VMs on all nods except the last, the last one is reserved for the migrated VM
+				for i := 0; i < len(nodes.Items)-1; i++ {
+					nodeHostname := nodes.Items[i].GetLabels()[hostnameLabel]
+
+					staticVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					staticVMI.Spec.Domain.CPU = dedicatedCPU
+					staticVMI.Spec.NodeSelector = map[string]string{
+						hostnameLabel: nodes.Items[i].GetLabels()[hostnameLabel],
+					}
+
+					staticVMI = runVMIAndExpectLaunch(staticVMI, vmiStartTimeoutSeconds)
+					staticVMIs = append(staticVMIs, staticVMI)
+					Expect(staticVMI.Status.NodeName).To(Equal(nodeHostname))
+				}
+
+				migratableVMINode := nodes.Items[len(nodes.Items)-1]
+				migratableVMISourceHostname := migratableVMINode.GetLabels()[hostnameLabel]
+
+				migratableVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				migratableVMI.Spec.Domain.CPU = dedicatedCPU
+				migratableVMI.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: &k8sv1.NodeAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
+							{
+								Weight: 1,
+								Preference: k8sv1.NodeSelectorTerm{
+									MatchExpressions: []k8sv1.NodeSelectorRequirement{
+										{
+											Key:      hostnameLabel,
+											Operator: k8sv1.NodeSelectorOpIn,
+											Values:   []string{migratableVMISourceHostname},
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				migratableVMI = runVMIAndExpectLaunch(migratableVMI, vmiStartTimeoutSeconds)
+				Expect(migratableVMI.Status.NodeName).To(Equal(migratableVMISourceHostname))
+			})
+
+			AfterEach(func() {
+				err = virtClient.VirtualMachineInstance(migratableVMI.GetNamespace()).Delete(migratableVMI.GetName(), &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				for i := range staticVMIs {
+					err = virtClient.VirtualMachineInstance(staticVMIs[i].GetNamespace()).Delete(staticVMIs[i].GetName(), &metav1.DeleteOptions{})
+					Expect(err).To(BeNil())
+				}
+			})
+
+			It("should successfully update a VMI's CPU set on migration", func() {
+				fmt.Println("")
+
+				fmt.Printf("%s, %v, %s\n", migratableVMI.GetName(), getVMICPUSet(migratableVMI), migratableVMI.Status.NodeName)
+
+				for i := range staticVMIs {
+					fmt.Printf("%s, %v, %s\n", staticVMIs[i].GetName(), getVMICPUSet(staticVMIs[i]), staticVMIs[i].Status.NodeName)
+				}
+			})
+		})
+
 		Context("migration security", func() {
 			Context("with TLS disabled", func() {
 				It("[test_id:6976] should be successfully migrated", func() {
