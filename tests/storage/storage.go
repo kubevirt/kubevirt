@@ -51,6 +51,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -1172,6 +1173,44 @@ var _ = SIGDescribe("Storage", func() {
 					&expect.BSnd{S: "blockdev --getsize64 /dev/sdb\n"},
 					&expect.BExp{R: "1073741824"}, // 1Gi in bytes
 				}, 10*time.Second)).To(Succeed())
+			})
+
+		})
+
+		Context("With a volumeMode block backed ephemeral disk", func() {
+			BeforeEach(func() {
+				tests.DeletePVC(tests.BlockDiskForTest)
+				tests.CreateBlockVolumePvAndPvc("1Gi")
+				vmi = nil
+			})
+
+			It("should generate the block backingstore disk within the domain", func() {
+				vmi = tests.NewRandomVMIWithEphemeralPVC(tests.BlockDiskForTest)
+
+				By("Initializing the VM")
+				tests.RunVMIAndExpectLaunch(vmi, 90)
+
+				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				disks := runningVMISpec.Devices.Disks
+
+				By("Checking if the disk backing store type is block")
+				Expect(disks[0].BackingStore).ToNot(BeNil())
+				Expect(disks[0].BackingStore.Type).To(Equal("block"))
+				By("Checking if the disk backing store device path is appropriately configured")
+				Expect(disks[0].BackingStore.Source.Dev).To(Equal(converter.GetBlockDeviceVolumePath("disk0")))
+			})
+			It("should generate the pod with the volumeDevice", func() {
+				vmi = tests.NewRandomVMIWithEphemeralPVC(tests.BlockDiskForTest)
+				By("Initializing the VM")
+
+				tests.RunVMIAndExpectLaunch(vmi, 60)
+				runningPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+
+				By("Checking that the virt-launcher pod spec contains the volumeDevice")
+				Expect(runningPod.Spec.Containers[0].VolumeDevices).NotTo(BeEmpty())
+				Expect(runningPod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal("disk0"))
 			})
 
 		})
