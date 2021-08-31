@@ -3,10 +3,9 @@ package commonTestUtils
 import (
 	"context"
 	"github.com/go-logr/logr"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sync"
 )
 
@@ -35,7 +34,7 @@ func (eem *EventEmitterMock) Reset() {
 	eem.storedEvents = make([]MockEvent, 0)
 }
 
-func (EventEmitterMock) Init(_ context.Context, _ manager.Manager, _ hcoutil.ClusterInfo, _ logr.Logger) {
+func (EventEmitterMock) Init(_ context.Context, _ client.Client, _ record.EventRecorder, _ logr.Logger) {
 	/* not implemented; mock only */
 }
 

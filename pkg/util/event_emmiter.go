@@ -8,7 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
@@ -20,23 +19,19 @@ func GetEventEmitter() EventEmitter {
 }
 
 type EventEmitter interface {
-	Init(ctx context.Context, mgr manager.Manager, ci ClusterInfo, logger logr.Logger)
+	Init(ctx context.Context, cl client.Client, recorder record.EventRecorder, logger logr.Logger)
 	EmitEvent(object runtime.Object, eventType, reason, msg string)
-	UpdateClient(ctx context.Context, clnt client.Reader, logger logr.Logger)
 }
 
 type eventEmitter struct {
-	recorder    record.EventRecorder
-	clusterInfo ClusterInfo
-	pod         *corev1.Pod
-	csv         *csvv1alpha1.ClusterServiceVersion
+	recorder record.EventRecorder
+	pod      *corev1.Pod
+	csv      *csvv1alpha1.ClusterServiceVersion
 }
 
-func (ee *eventEmitter) Init(ctx context.Context, mgr manager.Manager, ci ClusterInfo, logger logr.Logger) {
-	ee.recorder = mgr.GetEventRecorderFor(HyperConvergedName)
-	ee.clusterInfo = ci
-	clnt := mgr.GetAPIReader()
-	ee.UpdateClient(ctx, clnt, logger)
+func (ee *eventEmitter) Init(ctx context.Context, cl client.Client, recorder record.EventRecorder, logger logr.Logger) {
+	ee.recorder = recorder //mgr.GetEventRecorderFor(HyperConvergedName)
+	ee.getResource(ctx, cl, logger)
 }
 
 func (ee eventEmitter) EmitEvent(object runtime.Object, eventType, reason, msg string) {
@@ -53,20 +48,20 @@ func (ee eventEmitter) EmitEvent(object runtime.Object, eventType, reason, msg s
 	}
 }
 
-func (ee *eventEmitter) UpdateClient(ctx context.Context, clnt client.Reader, logger logr.Logger) {
-	if (ee.pod == nil) && !ee.clusterInfo.IsRunningLocally() {
+func (ee *eventEmitter) getResource(ctx context.Context, cl client.Reader, logger logr.Logger) {
+	if !GetClusterInfo().IsRunningLocally() {
 		var err error
 
-		ee.pod, err = GetPod(ctx, clnt, logger, clusterInfo)
+		ee.pod, err = GetPod(ctx, cl, logger)
 		if err != nil {
 			ee.pod = nil
 			logger.Error(err, "Can't get self pod")
 		}
 	}
 
-	if (ee.csv == nil) && clusterInfo.IsOpenshift() {
+	if GetClusterInfo().IsOpenshift() {
 		var err error
-		ee.csv, err = GetCSVfromPod(ee.pod, clnt, logger)
+		ee.csv, err = GetCSVfromPod(ee.pod, cl, logger)
 		if err != nil {
 			logger.Error(err, "Can't get CSV")
 			ee.csv = nil

@@ -884,10 +884,6 @@ func getNumOfChangesJsonPatch(jsonPatch string) int {
 }
 
 func (r *ReconcileHyperConverged) firstLoopInitialization(request *common.HcoRequest) {
-	// Reload eventEmitter.
-	// The client should now find all the required resources.
-	r.eventEmitter.UpdateClient(request.Ctx, r.client, request.Logger)
-
 	// Initialize operand handler.
 	r.operandHandler.FirstUseInitiation(r.scheme, hcoutil.GetClusterInfo().IsOpenshift(), request.Instance)
 

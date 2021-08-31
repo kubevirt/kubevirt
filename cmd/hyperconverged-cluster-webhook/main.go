@@ -5,28 +5,25 @@ import (
 	"fmt"
 	"os"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
-
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
-
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	apiclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
@@ -43,7 +40,7 @@ var (
 		sspv1beta1.AddToScheme,
 		vmimportv1beta1.AddToScheme,
 		admissionregistrationv1.AddToScheme,
-		openshiftconfigv1.AddToScheme,
+		openshiftconfigv1.Install,
 		kubevirtv1.AddToScheme,
 	}
 )
@@ -77,6 +74,14 @@ func main() {
 	})
 	cmdHelper.ExitOnError(err, "failed to create manager")
 
+	// apiclient.New() returns a client without cache.
+	// cache is not initialized before mgr.Start()
+	// we need this because we need to interact with OperatorCondition
+	apiClient, err := apiclient.New(mgr.GetConfig(), apiclient.Options{
+		Scheme: mgr.GetScheme(),
+	})
+	cmdHelper.ExitOnError(err, "Cannot create a new API client")
+
 	// register pprof instrumentation if HCO_PPROF_ADDR is set
 	cmdHelper.ExitOnError(cmdHelper.RegisterPPROFServer(mgr), "can't register pprof server")
 
@@ -85,12 +90,11 @@ func main() {
 	// Detect OpenShift version
 	ci := hcoutil.GetClusterInfo()
 	ctx := context.TODO()
-	err = ci.CheckRunningInOpenshift(mgr.GetAPIReader(), ctx, logger, cmdHelper.IsRunInLocal())
+	err = ci.Init(ctx, apiClient, logger)
 	cmdHelper.ExitOnError(err, "Cannot detect cluster type")
 
 	eventEmitter := hcoutil.GetEventEmitter()
-	// Set temporary configuration, until the regular client is ready
-	eventEmitter.Init(ctx, mgr, ci, logger)
+	eventEmitter.Init(ctx, apiClient, mgr.GetEventRecorderFor(hcoutil.HyperConvergedName), logger)
 
 	err = mgr.AddHealthzCheck("ping", healthz.Ping)
 	cmdHelper.ExitOnError(err, "unable to add health check")

@@ -11,7 +11,7 @@ import (
 )
 
 type ClusterInfo interface {
-	CheckRunningInOpenshift(creader client.Reader, ctx context.Context, logger logr.Logger, runningLocally bool) error
+	Init(ctx context.Context, cl client.Client, logger logr.Logger) error
 	IsOpenshift() bool
 	IsRunningLocally() bool
 	GetDomain() string
@@ -29,40 +29,28 @@ func GetClusterInfo() ClusterInfo {
 	return clusterInfo
 }
 
-func (c *ClusterInfoImp) CheckRunningInOpenshift(creader client.Reader, ctx context.Context, logger logr.Logger, runningLocally bool) error {
-	c.runningLocally = runningLocally
-	isOpenShift := false
-	version := ""
-
+func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr.Logger) error {
 	clusterVersion := &openshiftconfigv1.ClusterVersion{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "version",
 		},
 	}
-	if err := creader.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion); err != nil {
+	if err := cl.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion); err != nil {
 		if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
 			// Not on OpenShift
-			isOpenShift = false
+			c.runningInOpenshift = false
+			logger.Info("Cluster type = kubernetes")
 		} else {
 			logger.Error(err, "Failed to get ClusterVersion")
 			return err
 		}
 	} else {
-		isOpenShift = true
-		version = clusterVersion.Status.Desired.Version
-	}
-
-	c.runningInOpenshift = isOpenShift
-	if isOpenShift {
-		logger.Info("Cluster type = openshift", "version", version)
-		domain, err := getClusterDomain(creader, ctx)
+		c.runningInOpenshift = true
+		logger.Info("Cluster type = openshift", "version", clusterVersion.Status.Desired.Version)
+		c.domain, err = getClusterDomain(ctx, cl)
 		if err != nil {
 			return err
-		} else {
-			c.domain = domain
 		}
-	} else {
-		logger.Info("Cluster type = kubernetes")
 	}
 
 	return nil
@@ -80,13 +68,13 @@ func (c ClusterInfoImp) GetDomain() string {
 	return c.domain
 }
 
-func getClusterDomain(creader client.Reader, ctx context.Context) (string, error) {
+func getClusterDomain(ctx context.Context, cl client.Client) (string, error) {
 	clusterIngress := &openshiftconfigv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cluster",
 		},
 	}
-	if err := creader.Get(ctx, client.ObjectKeyFromObject(clusterIngress), clusterIngress); err != nil {
+	if err := cl.Get(ctx, client.ObjectKeyFromObject(clusterIngress), clusterIngress); err != nil {
 		return "", err
 	}
 	return clusterIngress.Spec.Domain, nil
@@ -95,6 +83,7 @@ func getClusterDomain(creader client.Reader, ctx context.Context) (string, error
 
 func init() {
 	clusterInfo = &ClusterInfoImp{
+		runningLocally:     IsRunModeLocal(),
 		runningInOpenshift: false,
 	}
 }

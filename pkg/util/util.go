@@ -88,7 +88,8 @@ func GetWatchNamespace() (string, error) {
 	return ns, nil
 }
 
-func GetPod(ctx context.Context, c client.Reader, logger logr.Logger, ci ClusterInfo) (*corev1.Pod, error) {
+func GetPod(ctx context.Context, c client.Reader, logger logr.Logger) (*corev1.Pod, error) {
+	ci := GetClusterInfo()
 	operatorNs, err := GetOperatorNamespace(logger)
 	if err != nil {
 		logger.Error(err, "Failed to get HCO namespace")

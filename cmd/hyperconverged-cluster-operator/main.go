@@ -23,11 +23,9 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	apiclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,14 +34,16 @@ import (
 
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
-
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -85,7 +85,8 @@ func main() {
 
 	// a lock is not needed in webhook mode
 	// TODO: remove this once we will move to OLM operator conditions
-	needLeaderElection := !cmdHelper.IsRunInLocal()
+	ci := hcoutil.GetClusterInfo()
+	needLeaderElection := !ci.IsRunningLocally()
 
 	// Setup Scheme for all resources
 	scheme := apiruntime.NewScheme()
@@ -100,15 +101,21 @@ func main() {
 
 	logger.Info("Registering Components.")
 
+	// apiclient.New() returns a client without cache.
+	// cache is not initialized before mgr.Start()
+	// we need this because we need to interact with OperatorCondition
+	apiClient, err := apiclient.New(mgr.GetConfig(), apiclient.Options{
+		Scheme: mgr.GetScheme(),
+	})
+	cmdHelper.ExitOnError(err, "Cannot create a new API client")
+
 	// Detect OpenShift version
 	ctx := context.TODO()
-	ci := hcoutil.GetClusterInfo()
-	err = ci.CheckRunningInOpenshift(mgr.GetAPIReader(), ctx, logger, cmdHelper.IsRunInLocal())
+	err = ci.Init(ctx, apiClient, logger)
 	cmdHelper.ExitOnError(err, "Cannot detect cluster type")
 
 	eventEmitter := hcoutil.GetEventEmitter()
-	// Set temporary configuration, until the regular client is ready
-	eventEmitter.Init(ctx, mgr, ci, logger)
+	eventEmitter.Init(ctx, apiClient, mgr.GetEventRecorderFor(hcoutil.HyperConvergedName), logger)
 
 	err = mgr.AddHealthzCheck("ping", healthz.Ping)
 	cmdHelper.ExitOnError(err, "unable to add health check")

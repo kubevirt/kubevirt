@@ -109,10 +109,6 @@ func (h HcCmdHelper) ExitOnError(err error, message string, keysAndValues ...int
 	}
 }
 
-func (h HcCmdHelper) IsRunInLocal() bool {
-	return h.runInLocal
-}
-
 func (h HcCmdHelper) AddToScheme(scheme *apiruntime.Scheme, addToSchemeFuncs []func(*apiruntime.Scheme) error) {
 	for _, f := range addToSchemeFuncs {
 		err := f(scheme)
