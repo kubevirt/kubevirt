@@ -35,8 +35,9 @@ function main() {
     cd "$TEMP_DIR"
     git clone --depth=100 -n "$REPO" >/dev/null 2>&1
     cd kubevirtci
-    info=$(git log $PREVIOUS..$CURRENT --format="%h %s" | sed 's!#!https://github.com/kubevirt/kubevirtci/pull/!g')
-    decorated_info=$(echo -e "Bump kubevirtci\n\n\`\`\`\n${info}\n\`\`\`")
+    info=$(git log $PREVIOUS..$CURRENT --format="%h %s" | sed 's! (#!](https://github.com/kubevirt/kubevirtci/pull/!g')
+    info=$(echo "$info" | sed 's/^/\[/')
+    decorated_info=$(echo -e "Bump kubevirtci\n\n${info}")
     echo "$decorated_info"
 }
 
