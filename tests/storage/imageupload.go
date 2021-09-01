@@ -17,6 +17,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -68,13 +69,17 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 
 		close(stopChan)
 
-		By("Setting up port forwarding")
-		portMapping := fmt.Sprintf("%d:%d", localUploadProxyPort, uploadProxyPort)
-		_, kubectlCmd, err = tests.CreateCommandWithNS(flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", uploadProxyService, portMapping)
+		config, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		if config.Status.UploadProxyURL == nil {
+			By("Setting up port forwarding")
+			portMapping := fmt.Sprintf("%d:%d", localUploadProxyPort, uploadProxyPort)
+			_, kubectlCmd, err = tests.CreateCommandWithNS(flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", uploadProxyService, portMapping)
+			Expect(err).ToNot(HaveOccurred())
 
-		err = kubectlCmd.Start()
-		Expect(err).ToNot(HaveOccurred())
+			err = kubectlCmd.Start()
+			Expect(err).ToNot(HaveOccurred())
+		}
 	})
 
 	validateDataVolume := func(targetName string, _ string) {
@@ -98,6 +103,19 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return false
 		}, 90*time.Second, 2*time.Second).Should(BeTrue())
+
+		Eventually(func() bool {
+			pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			for _, pv := range pvList.Items {
+				if ref := pv.Spec.ClaimRef; ref != nil {
+					if ref.Name == targetName {
+						return false
+					}
+				}
+			}
+			return true
+		}, 120*time.Second, 2*time.Second).Should(BeTrue())
 	}
 
 	deleteDataVolume := func(targetName string) {
@@ -144,9 +162,8 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 				"--namespace", util.NamespaceTestDefault,
 				"--image-path", imagePath,
 				"--size", pvcSize,
-				"--uploadproxy-url", fmt.Sprintf("https://127.0.0.1:%d", localUploadProxyPort),
-				"--wait-secs", "60",
 				"--storage-class", sc,
+				"--block-volume",
 				"--insecure")
 			err := virtctlCmd()
 			if err != nil {
@@ -170,8 +187,8 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
-			Entry("DataVolume", "dv", "alpine-dv", validateDataVolume, deleteDataVolume, true),
-			Entry("PVC", "pvc", "alpine-pvc", validatePVC, deletePVC, false),
+			Entry("DataVolume", "dv", "alpine-dv-"+rand.String(12), validateDataVolume, deleteDataVolume, true),
+			Entry("PVC", "pvc", "alpine-pvc-"+rand.String(12), validatePVC, deletePVC, false),
 		)
 	})
 
