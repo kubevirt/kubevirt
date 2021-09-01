@@ -1017,7 +1017,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "dd if=/dev/urandom of=largefile bs=1M count=500 2> /dev/null\n"},
+				&expect.BSnd{S: "dd if=/dev/urandom of=largefile bs=1M count=100 2> /dev/null\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "sync\n"},
 				&expect.BExp{R: console.PromptExpression},
@@ -1037,7 +1037,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			By("Deleting large file and trimming disk")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// Write a small file so that we'll have an increase in image size if trim is unsupported.
-				&expect.BSnd{S: "dd if=/dev/urandom of=smallfile bs=1M count=100 2> /dev/null\n"},
+				&expect.BSnd{S: "dd if=/dev/urandom of=smallfile bs=1M count=20 2> /dev/null\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "sync\n"},
 				&expect.BExp{R: console.PromptExpression},
