@@ -176,9 +176,13 @@ func (r *rtWrapper) RoundTrip(request *http.Request) (response *http.Response, e
 	}
 
 	resource, verb = parseURLResourceOperation(request)
-	if verb != "" && resource != "" {
-		requestResult.WithLabelValues(status, request.Method, host, resource, verb).Add(1)
+	if verb == "" {
+		verb = "none"
 	}
+	if resource == "" {
+		resource = "none"
+	}
+	requestResult.WithLabelValues(status, request.Method, host, resource, verb).Add(1)
 
 	return response, err
 }
