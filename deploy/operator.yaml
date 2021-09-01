@@ -66,7 +66,7 @@ spec:
         - name: SSP_VERSION
           value: v0.12.0
         - name: NMO_VERSION
-          value: v0.9.0
+          value: v0.10.0
         - name: HPPO_VERSION
           value: v0.9.0
         - name: VM_IMPORT_VERSION
@@ -587,7 +587,7 @@ spec:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: node-maintenance-operator
-        image: quay.io/kubevirt/node-maintenance-operator@sha256:8a406e215a002dd80a6c44ab8c136b0fa6efc04842901af55d53ef4d48856055
+        image: quay.io/kubevirt/node-maintenance-operator@sha256:c4636d17a446b0491362d4c5ef9d91c5059f5c5f6305fc7750afc1780c384c0c
         imagePullPolicy: Always
         name: node-maintenance-operator
         resources: {}
