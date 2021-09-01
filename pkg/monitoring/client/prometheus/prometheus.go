@@ -30,6 +30,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/metrics"
+
+	"kubevirt.io/client-go/kubecli"
 )
 
 var (
@@ -83,6 +85,8 @@ func init() {
 	// globally scoped core k8s apis and globally scoped custom apis
 	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/api/%s/(?P<resource>%s)`, resPat, resPat)))
 	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/apis/%s/%s/(?P<resource>%s)`, resPat, resPat, resPat)))
+
+	kubecli.RegisterRestConfigHook(addHTTPRoundTripClientMonitoring)
 
 	prometheus.MustRegister(requestLatency)
 	prometheus.MustRegister(requestResult)
@@ -179,7 +183,7 @@ func (r *rtWrapper) RoundTrip(request *http.Request) (response *http.Response, e
 	return response, err
 }
 
-func AddHTTPRoundTripClientMonitoring(config *rest.Config) {
+func addHTTPRoundTripClientMonitoring(config *rest.Config) {
 	fn := func(rt http.RoundTripper) http.RoundTripper {
 		return &rtWrapper{
 			origRoundTripper: rt,

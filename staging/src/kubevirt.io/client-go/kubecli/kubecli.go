@@ -44,13 +44,17 @@ import (
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
-	client_metrics "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"
 )
 
 var (
 	kubeconfig string
 	master     string
 )
+
+type RestConfigHookFunc func(*rest.Config)
+
+var restConfigHooks []RestConfigHookFunc
+var restConfigHooksLock sync.Mutex
 
 var virtclient KubevirtClient
 var once sync.Once
@@ -63,6 +67,22 @@ func Init() {
 	}
 	if flag.CommandLine.Lookup("master") == nil {
 		flag.StringVar(&master, "master", "", "master url")
+	}
+}
+
+func RegisterRestConfigHook(fn RestConfigHookFunc) {
+	restConfigHooksLock.Lock()
+	defer restConfigHooksLock.Unlock()
+
+	restConfigHooks = append(restConfigHooks, fn)
+}
+
+func executeRestConfigHooks(config *rest.Config) {
+	restConfigHooksLock.Lock()
+	defer restConfigHooksLock.Unlock()
+
+	for _, hookFn := range restConfigHooks {
+		hookFn(config)
 	}
 }
 
@@ -237,7 +257,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		config.UserAgent = restclient.DefaultKubernetesUserAgent()
 	}
 
-	client_metrics.AddHTTPRoundTripClientMonitoring(&shallowCopy)
+	executeRestConfigHooks(&shallowCopy)
 
 	restClient, err := rest.RESTClientFor(&shallowCopy)
 	if err != nil {
