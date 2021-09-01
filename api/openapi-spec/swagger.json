@@ -12936,6 +12936,10 @@
       "description": "Represents the status of a live migration",
       "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationState"
      },
+     "migrationTransport": {
+      "description": "This represents the migration transport",
+      "type": "string"
+     },
      "nodeName": {
       "description": "NodeName is the name where the VirtualMachineInstance is currently running.",
       "type": "string"

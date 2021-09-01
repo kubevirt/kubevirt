@@ -8136,6 +8136,9 @@ var CRDsValidation map[string]string = map[string]string{
               description: The target pod that the VMI is moving to
               type: string
           type: object
+        migrationTransport:
+          description: This represents the migration transport
+          type: string
         nodeName:
           description: NodeName is the name where the VirtualMachineInstance is currently
             running.

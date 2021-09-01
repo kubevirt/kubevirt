@@ -208,6 +208,8 @@ type VirtualMachineInstanceStatus struct {
 	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 	// Represents the method using which the vmi can be migrated: live migration or block migration
 	MigrationMethod VirtualMachineInstanceMigrationMethod `json:"migrationMethod,omitempty"`
+	// This represents the migration transport
+	MigrationTransport VirtualMachineInstanceMigrationTransport `json:"migrationTransport,omitempty"`
 	// The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements
 	// See PodQOSClass type for available QOS classes
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
@@ -600,6 +602,15 @@ const (
 	MigrationPreCopy MigrationMode = "PreCopy"
 	// MigrationPostCopy means the VMI migrations that is currently running is in post copy mode
 	MigrationPostCopy MigrationMode = "PostCopy"
+)
+
+//
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationTransport string
+
+const (
+	// MigrationTransportUnix means that the VMI will be migrated using the unix URI
+	MigrationTransportUnix VirtualMachineInstanceMigrationTransport = "Unix"
 )
 
 //
