@@ -1268,7 +1268,7 @@ const (
 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
 	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machine,
 	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
-	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "FailedUnschedulable"
+	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "ErrorUnschedulable"
 	// VirtualMachineStatusErrImagePull indicates that an error has occured while pulling an image for
 	// a containerDisk VM volume.
 	VirtualMachineStatusErrImagePull VirtualMachinePrintableStatus = "ErrImagePull"
@@ -1276,9 +1276,9 @@ const (
 	// a containerDisk VM volume, and that kubelet is backing off before retrying.
 	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
 	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
-	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "FailedPvcNotFound"
+	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "ErrorPvcNotFound"
 	// VirtualMachineStatusDataVolumeNotFound indicates that the virtual machine references a DataVolume volume which doesn't exist.
-	VirtualMachineStatusDataVolumeNotFound VirtualMachinePrintableStatus = "FailedDataVolumeNotFound"
+	VirtualMachineStatusDataVolumeNotFound VirtualMachinePrintableStatus = "ErrorDataVolumeNotFound"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
