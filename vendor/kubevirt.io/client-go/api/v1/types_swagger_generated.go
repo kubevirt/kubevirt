@@ -73,18 +73,30 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"volumeStatus":                  "VolumeStatus contains the statuses of all the volumes\n+optional\n+listType=atomic",
 		"fsFreezeStatus":                "FSFreezeStatus is the state of the fs of the guest\nit can be either frozen or thawed\n+optional",
 		"topologyHints":                 "+optional",
+		"virtualMachineRevisionName":    "VirtualMachineRevisionName is used to get the vm revision of the vmi when doing\nan online vm snapshot\n+optional",
+	}
+}
+
+func (PersistentVolumeClaimInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC\n+k8s:openapi-gen=true",
+		"accessModes":  "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+listType=atomic\n+optional",
+		"volumeMode":   "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
+		"capacity":     "Capacity represents the capacity set on the corresponding PVC spec\n+optional",
+		"preallocated": "Preallocated indicates if the PVC's storage is preallocated or not\n+optional",
 	}
 }
 
 func (VolumeStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.\n+k8s:openapi-gen=true",
-		"name":          "Name is the name of the volume",
-		"target":        "Target is the target name used when adding the volume to the VM, eg: vda",
-		"phase":         "Phase is the phase",
-		"reason":        "Reason is a brief description of why we are in the current hotplug volume phase",
-		"message":       "Message is a detailed message about the current hotplug volume phase",
-		"hotplugVolume": "If the volume is hotplug, this will contain the hotplug status.",
+		"":                          "VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.\n+k8s:openapi-gen=true",
+		"name":                      "Name is the name of the volume",
+		"target":                    "Target is the target name used when adding the volume to the VM, eg: vda",
+		"phase":                     "Phase is the phase",
+		"reason":                    "Reason is a brief description of why we are in the current hotplug volume phase",
+		"message":                   "Message is a detailed message about the current hotplug volume phase",
+		"persistentVolumeClaimInfo": "PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow",
+		"hotplugVolume":             "If the volume is hotplug, this will contain the hotplug status.",
 	}
 }
 
@@ -307,6 +319,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                       "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing\n\n+k8s:openapi-gen=true",
 		"snapshotInProgress":     "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
+		"restoreInProgress":      "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
 		"created":                "Created indicates if the virtual machine is created in the cluster",
 		"ready":                  "Ready indicates if the virtual machine is running and ready",
 		"printableStatus":        "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",
@@ -573,6 +586,34 @@ func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (TokenBucketRateLimiter) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "+k8s:openapi-gen=true",
+		"qps":   "QPS indicates the maximum QPS to the apiserver from this client.\nIf it's zero, the component default will be used",
+		"burst": "Maximum burst for throttle.\nIf it's zero, the component default will be used",
+	}
+}
+
+func (RateLimiter) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (RESTClientConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "RESTClientConfiguration allows configuring certain aspects of the k8s rest client.\n+k8s:openapi-gen=true",
+		"rateLimiter": "RateLimiter allows selecting and configuring different rate limiters for the k8s client.",
+	}
+}
+
+func (ReloadableComponentConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "ReloadableComponentConfiguration holds all generic k8s configuration options which can\nbe reloaded by components without requiring a restart.\n+k8s:openapi-gen=true",
+		"restClient": "RestClient can be used to tune certain aspects of the k8s client in use.",
+	}
+}
+
 func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                            "KubeVirtConfiguration holds all kubevirt configurations\n+k8s:openapi-gen=true",
@@ -601,6 +642,7 @@ func (DiskVerification) SwaggerDoc() map[string]string {
 func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                           "DeveloperConfiguration holds developer options\n+k8s:openapi-gen=true",
+		"useEmulation":               "UseEmulation can be set to true to allow fallback to software emulation\nin case hardware-assisted emulation is not available.",
 		"minimumClusterTSCFrequency": "Allow overriding the automatically determined minimum TSC frequency of the cluster\nand fixate the minimum to this frequency.",
 	}
 }
@@ -623,7 +665,7 @@ func (PermittedHostDevices) SwaggerDoc() map[string]string {
 func (PciHostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                         "PciHostDevice represents a host PCI device allowed for passthrough\n+k8s:openapi-gen=true",
-		"pciVendorSelector":        "The vendor_id:product_id tupple of the PCI device",
+		"pciVendorSelector":        "The vendor_id:product_id tuple of the PCI device",
 		"resourceName":             "The name of the resource that is representing the device. Exposed by\na device plugin and requested by VMs. Typically of the form\nvendor.com/product_nameThe name of the resource that is representing\nthe device. Exposed by a device plugin and requested by VMs.\nTypically of the form vendor.com/product_name",
 		"externalResourceProvider": "If true, KubeVirt will leave the allocation and monitoring to an\nexternal device plugin",
 	}
@@ -632,6 +674,13 @@ func (PciHostDevice) SwaggerDoc() map[string]string {
 func (MediatedHostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "MediatedHostDevice represents a host mediated device allowed for passthrough\n+k8s:openapi-gen=true",
+	}
+}
+
+func (MediatedDevicesConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                     "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available\n+k8s:openapi-gen=true",
+		"mediatedDevicesTypes": "+listType=atomic",
 	}
 }
 

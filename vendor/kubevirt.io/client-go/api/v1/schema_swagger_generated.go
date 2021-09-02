@@ -394,8 +394,16 @@ func (HotplugVolumeSource) SwaggerDoc() map[string]string {
 
 func (DataVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "+k8s:openapi-gen=true",
-		"name": "Name represents the name of the DataVolume in the same namespace",
+		"":             "+k8s:openapi-gen=true",
+		"name":         "Name represents the name of the DataVolume in the same namespace",
+		"hotpluggable": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.\n+optional",
+	}
+}
+
+func (PersistentVolumeClaimVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n\n+k8s:openapi-gen=true",
+		"hotpluggable": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.\n+optional",
 	}
 }
 

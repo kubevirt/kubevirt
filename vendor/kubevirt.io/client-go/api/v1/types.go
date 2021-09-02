@@ -238,6 +238,34 @@ type VirtualMachineInstanceStatus struct {
 
 	// +optional
 	TopologyHints *TopologyHints `json:"topologyHints,omitempty"`
+
+	//VirtualMachineRevisionName is used to get the vm revision of the vmi when doing
+	// an online vm snapshot
+	// +optional
+	VirtualMachineRevisionName string `json:"virtualMachineRevisionName,omitempty"`
+}
+
+// PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
+// +k8s:openapi-gen=true
+type PersistentVolumeClaimInfo struct {
+	// AccessModes contains the desired access modes the volume should have.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+	// +listType=atomic
+	// +optional
+	AccessModes []k8sv1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+
+	// VolumeMode defines what type of volume is required by the claim.
+	// Value of Filesystem is implied when not included in claim spec.
+	// +optional
+	VolumeMode *k8sv1.PersistentVolumeMode `json:"volumeMode,omitempty"`
+
+	// Capacity represents the capacity set on the corresponding PVC spec
+	// +optional
+	Capacity k8sv1.ResourceList `json:"capacity,omitempty"`
+
+	// Preallocated indicates if the PVC's storage is preallocated or not
+	// +optional
+	Preallocated bool `json:"preallocated,omitempty"`
 }
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
@@ -253,6 +281,8 @@ type VolumeStatus struct {
 	Reason string `json:"reason,omitempty"`
 	// Message is a detailed message about the current hotplug volume phase
 	Message string `json:"message,omitempty"`
+	// PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow
+	PersistentVolumeClaimInfo *PersistentVolumeClaimInfo `json:"persistentVolumeClaimInfo,omitempty"`
 	// If the volume is hotplug, this will contain the hotplug status.
 	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
 }
@@ -1222,9 +1252,15 @@ const (
 	// VirtualMachineStatusUnknown indicates that the state of the virtual machine could not be obtained,
 	// typically due to an error in communicating with the host on which it's running.
 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
-	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machime,
+	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machine,
 	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
 	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "FailedUnschedulable"
+	// VirtualMachineStatusErrImagePull indicates that an error has occured while pulling an image for
+	// a containerDisk VM volume.
+	VirtualMachineStatusErrImagePull VirtualMachinePrintableStatus = "ErrImagePull"
+	// VirtualMachineStatusImagePullBackOff indicates that an error has occured while pulling an image for
+	// a containerDisk VM volume, and that kubelet is backing off before retrying.
+	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
@@ -1244,6 +1280,8 @@ type VirtualMachineStartFailure struct {
 type VirtualMachineStatus struct {
 	// SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing
 	SnapshotInProgress *string `json:"snapshotInProgress,omitempty"`
+	// RestoreInProgress is the name of the VirtualMachineRestore currently executing
+	RestoreInProgress *string `json:"restoreInProgress,omitempty"`
 	// Created indicates if the virtual machine is created in the cluster
 	Created bool `json:"created,omitempty"`
 	// Ready indicates if the virtual machine is running and ready
@@ -1886,6 +1924,37 @@ type RemoveVolumeOptions struct {
 	Name string `json:"name"`
 }
 
+// +k8s:openapi-gen=true
+type TokenBucketRateLimiter struct {
+	// QPS indicates the maximum QPS to the apiserver from this client.
+	// If it's zero, the component default will be used
+	QPS float32 `json:"qps"`
+
+	// Maximum burst for throttle.
+	// If it's zero, the component default will be used
+	Burst int `json:"burst"`
+}
+
+// +k8s:openapi-gen=true
+type RateLimiter struct {
+	TokenBucketRateLimiter *TokenBucketRateLimiter `json:"tokenBucketRateLimiter,omitempty"`
+}
+
+// RESTClientConfiguration allows configuring certain aspects of the k8s rest client.
+// +k8s:openapi-gen=true
+type RESTClientConfiguration struct {
+	//RateLimiter allows selecting and configuring different rate limiters for the k8s client.
+	RateLimiter *RateLimiter `json:"rateLimiter,omitempty"`
+}
+
+// ReloadableComponentConfiguration holds all generic k8s configuration options which can
+// be reloaded by components without requiring a restart.
+// +k8s:openapi-gen=true
+type ReloadableComponentConfiguration struct {
+	//RestClient can be used to tune certain aspects of the k8s client in use.
+	RestClient *RESTClientConfiguration `json:"restClient,omitempty"`
+}
+
 // KubeVirtConfiguration holds all kubevirt configurations
 // +k8s:openapi-gen=true
 type KubeVirtConfiguration struct {
@@ -1902,12 +1971,17 @@ type KubeVirtConfiguration struct {
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
 	// deprecated
-	SupportedGuestAgentVersions    []string              `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod          *uint32               `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices           *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
-	MinCPUModel                    string                `json:"minCPUModel,omitempty"`
-	ObsoleteCPUModels              map[string]bool       `json:"obsoleteCPUModels,omitempty"`
-	VirtualMachineInstancesPerNode *int                  `json:"virtualMachineInstancesPerNode,omitempty"`
+	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices           *PermittedHostDevices             `json:"permittedHostDevices,omitempty"`
+	MediatedDevicesConfiguration   *MediatedDevicesConfiguration     `json:"mediatedDevicesConfiguration,omitempty"`
+	MinCPUModel                    string                            `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels              map[string]bool                   `json:"obsoleteCPUModels,omitempty"`
+	VirtualMachineInstancesPerNode *int                              `json:"virtualMachineInstancesPerNode,omitempty"`
+	APIConfiguration               *ReloadableComponentConfiguration `json:"apiConfiguration,omitempty"`
+	WebhookConfiguration           *ReloadableComponentConfiguration `json:"webhookConfiguration,omitempty"`
+	ControllerConfiguration        *ReloadableComponentConfiguration `json:"controllerConfiguration,omitempty"`
+	HandlerConfiguration           *ReloadableComponentConfiguration `json:"handlerConfiguration,omitempty"`
 }
 
 //
@@ -1949,8 +2023,10 @@ type DeveloperConfiguration struct {
 	MinimumReservePVCBytes uint64            `json:"minimumReservePVCBytes,omitempty"`
 	MemoryOvercommit       int               `json:"memoryOvercommit,omitempty"`
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
-	UseEmulation           bool              `json:"useEmulation,omitempty"`
-	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
+	// UseEmulation can be set to true to allow fallback to software emulation
+	// in case hardware-assisted emulation is not available.
+	UseEmulation       bool `json:"useEmulation,omitempty"`
+	CPUAllocationRatio int  `json:"cpuAllocationRatio,omitempty"`
 	// Allow overriding the automatically determined minimum TSC frequency of the cluster
 	// and fixate the minimum to this frequency.
 	MinimumClusterTSCFrequency *int64            `json:"minimumClusterTSCFrequency,omitempty"`
@@ -1982,7 +2058,7 @@ type PermittedHostDevices struct {
 // PciHostDevice represents a host PCI device allowed for passthrough
 // +k8s:openapi-gen=true
 type PciHostDevice struct {
-	// The vendor_id:product_id tupple of the PCI device
+	// The vendor_id:product_id tuple of the PCI device
 	PCIVendorSelector string `json:"pciVendorSelector"`
 	// The name of the resource that is representing the device. Exposed by
 	// a device plugin and requested by VMs. Typically of the form
@@ -2001,6 +2077,13 @@ type MediatedHostDevice struct {
 	MDEVNameSelector         string `json:"mdevNameSelector"`
 	ResourceName             string `json:"resourceName"`
 	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
+}
+
+// MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available
+// +k8s:openapi-gen=true
+type MediatedDevicesConfiguration struct {
+	// +listType=atomic
+	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
 }
 
 // NetworkConfiguration holds network options

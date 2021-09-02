@@ -476,6 +476,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.LogVerbosity":                                              schema_kubevirtio_client_go_api_v1_LogVerbosity(ref),
 		"kubevirt.io/client-go/api/v1.LunTarget":                                                 schema_kubevirtio_client_go_api_v1_LunTarget(ref),
 		"kubevirt.io/client-go/api/v1.Machine":                                                   schema_kubevirtio_client_go_api_v1_Machine(ref),
+		"kubevirt.io/client-go/api/v1.MediatedDevicesConfiguration":                              schema_kubevirtio_client_go_api_v1_MediatedDevicesConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.MediatedHostDevice":                                        schema_kubevirtio_client_go_api_v1_MediatedHostDevice(ref),
 		"kubevirt.io/client-go/api/v1.Memory":                                                    schema_kubevirtio_client_go_api_v1_Memory(ref),
 		"kubevirt.io/client-go/api/v1.MigrationConfiguration":                                    schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref),
@@ -489,12 +490,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.PITTimer":                                                  schema_kubevirtio_client_go_api_v1_PITTimer(ref),
 		"kubevirt.io/client-go/api/v1.PciHostDevice":                                             schema_kubevirtio_client_go_api_v1_PciHostDevice(ref),
 		"kubevirt.io/client-go/api/v1.PermittedHostDevices":                                      schema_kubevirtio_client_go_api_v1_PermittedHostDevices(ref),
+		"kubevirt.io/client-go/api/v1.PersistentVolumeClaimInfo":                                 schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimInfo(ref),
+		"kubevirt.io/client-go/api/v1.PersistentVolumeClaimVolumeSource":                         schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                                schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                      schema_kubevirtio_client_go_api_v1_Port(ref),
 		"kubevirt.io/client-go/api/v1.Probe":                                                     schema_kubevirtio_client_go_api_v1_Probe(ref),
 		"kubevirt.io/client-go/api/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation":     schema_kubevirtio_client_go_api_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.QemuGuestAgentUserPasswordAccessCredentialPropagation":     schema_kubevirtio_client_go_api_v1_QemuGuestAgentUserPasswordAccessCredentialPropagation(ref),
+		"kubevirt.io/client-go/api/v1.RESTClientConfiguration":                                   schema_kubevirtio_client_go_api_v1_RESTClientConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.RTCTimer":                                                  schema_kubevirtio_client_go_api_v1_RTCTimer(ref),
+		"kubevirt.io/client-go/api/v1.RateLimiter":                                               schema_kubevirtio_client_go_api_v1_RateLimiter(ref),
+		"kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration":                          schema_kubevirtio_client_go_api_v1_ReloadableComponentConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.RemoveVolumeOptions":                                       schema_kubevirtio_client_go_api_v1_RemoveVolumeOptions(ref),
 		"kubevirt.io/client-go/api/v1.ResourceRequirements":                                      schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref),
 		"kubevirt.io/client-go/api/v1.RestartOptions":                                            schema_kubevirtio_client_go_api_v1_RestartOptions(ref),
@@ -510,6 +516,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.SyNICTimer":                                                schema_kubevirtio_client_go_api_v1_SyNICTimer(ref),
 		"kubevirt.io/client-go/api/v1.SysprepSource":                                             schema_kubevirtio_client_go_api_v1_SysprepSource(ref),
 		"kubevirt.io/client-go/api/v1.Timer":                                                     schema_kubevirtio_client_go_api_v1_Timer(ref),
+		"kubevirt.io/client-go/api/v1.TokenBucketRateLimiter":                                    schema_kubevirtio_client_go_api_v1_TokenBucketRateLimiter(ref),
 		"kubevirt.io/client-go/api/v1.TopologyHints":                                             schema_kubevirtio_client_go_api_v1_TopologyHints(ref),
 		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredential":                              schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredential(ref),
 		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialPropagationMethod":             schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredentialPropagationMethod(ref),
@@ -19579,6 +19586,13 @@ func schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"hotpluggable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
@@ -19696,8 +19710,9 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 					},
 					"useEmulation": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "UseEmulation can be set to true to allow fallback to software emulation in case hardware-assisted emulation is not available.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"cpuAllocationRatio": {
@@ -20932,7 +20947,7 @@ func schema_kubevirtio_client_go_api_v1_HotplugVolumeSource(ref common.Reference
 					"persistentVolumeClaim": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.PersistentVolumeClaimVolumeSource"),
 						},
 					},
 					"dataVolume": {
@@ -20945,7 +20960,7 @@ func schema_kubevirtio_client_go_api_v1_HotplugVolumeSource(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.DataVolumeSource"},
+			"kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.PersistentVolumeClaimVolumeSource"},
 	}
 }
 
@@ -21576,6 +21591,11 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 							Ref: ref("kubevirt.io/client-go/api/v1.PermittedHostDevices"),
 						},
 					},
+					"mediatedDevicesConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.MediatedDevicesConfiguration"),
+						},
+					},
 					"minCPUModel": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -21602,11 +21622,31 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 							Format: "int32",
 						},
 					},
+					"apiConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration"),
+						},
+					},
+					"webhookConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration"),
+						},
+					},
+					"controllerConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration"),
+						},
+					},
+					"handlerConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.PermittedHostDevices", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MediatedDevicesConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.PermittedHostDevices", "kubevirt.io/client-go/api/v1.ReloadableComponentConfiguration", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
 	}
 }
 
@@ -22065,6 +22105,37 @@ func schema_kubevirtio_client_go_api_v1_Machine(ref common.ReferenceCallback) co
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_MediatedDevicesConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MediatedDevicesConfiguration holds inforamtion about MDEV types to be defined, if available",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mediatedDevicesTypes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_MediatedHostDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22430,7 +22501,7 @@ func schema_kubevirtio_client_go_api_v1_PciHostDevice(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"pciVendorSelector": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The vendor_id:product_id tupple of the PCI device",
+							Description: "The vendor_id:product_id tuple of the PCI device",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -22502,6 +22573,103 @@ func schema_kubevirtio_client_go_api_v1_PermittedHostDevices(ref common.Referenc
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.MediatedHostDevice", "kubevirt.io/client-go/api/v1.PciHostDevice"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"accessModes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "AccessModes contains the desired access modes the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"volumeMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"capacity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Capacity represents the capacity set on the corresponding PVC spec",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+					"preallocated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Preallocated indicates if the PVC's storage is preallocated or not",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_PersistentVolumeClaimVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"readOnly": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Will force the ReadOnly setting in VolumeMounts. Default false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hotpluggable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"claimName"},
+			},
+		},
 	}
 }
 
@@ -22683,6 +22851,27 @@ func schema_kubevirtio_client_go_api_v1_QemuGuestAgentUserPasswordAccessCredenti
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_RESTClientConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RESTClientConfiguration allows configuring certain aspects of the k8s rest client.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"rateLimiter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RateLimiter allows selecting and configuring different rate limiters for the k8s client.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.RateLimiter"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.RateLimiter"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_RTCTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22713,6 +22902,46 @@ func schema_kubevirtio_client_go_api_v1_RTCTimer(ref common.ReferenceCallback) c
 				},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_RateLimiter(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"tokenBucketRateLimiter": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.TokenBucketRateLimiter"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.TokenBucketRateLimiter"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_ReloadableComponentConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReloadableComponentConfiguration holds all generic k8s configuration options which can be reloaded by components without requiring a restart.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"restClient": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestClient can be used to tune certain aspects of the k8s client in use.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.RESTClientConfiguration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.RESTClientConfiguration"},
 	}
 }
 
@@ -23165,6 +23394,33 @@ func schema_kubevirtio_client_go_api_v1_Timer(ref common.ReferenceCallback) comm
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.HPETTimer", "kubevirt.io/client-go/api/v1.HypervTimer", "kubevirt.io/client-go/api/v1.KVMTimer", "kubevirt.io/client-go/api/v1.PITTimer", "kubevirt.io/client-go/api/v1.RTCTimer"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_TokenBucketRateLimiter(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"qps": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QPS indicates the maximum QPS to the apiserver from this client. If it's zero, the component default will be used",
+							Type:        []string{"number"},
+							Format:      "float",
+						},
+					},
+					"burst": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum burst for throttle. If it's zero, the component default will be used",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"qps", "burst"},
+			},
+		},
 	}
 }
 
@@ -24938,6 +25194,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Ref: ref("kubevirt.io/client-go/api/v1.TopologyHints"),
 						},
 					},
+					"virtualMachineRevisionName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineRevisionName is used to get the vm revision of the vmi when doing an online vm snapshot",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -25155,6 +25418,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"restoreInProgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"created": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Created indicates if the virtual machine is created in the cluster",
@@ -25296,7 +25566,7 @@ func schema_kubevirtio_client_go_api_v1_Volume(ref common.ReferenceCallback) com
 					"persistentVolumeClaim": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.PersistentVolumeClaimVolumeSource"),
 						},
 					},
 					"cloudInitNoCloud": {
@@ -25376,7 +25646,7 @@ func schema_kubevirtio_client_go_api_v1_Volume(ref common.ReferenceCallback) com
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
+			"kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
 	}
 }
 
@@ -25430,7 +25700,7 @@ func schema_kubevirtio_client_go_api_v1_VolumeSource(ref common.ReferenceCallbac
 					"persistentVolumeClaim": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.PersistentVolumeClaimVolumeSource"),
 						},
 					},
 					"cloudInitNoCloud": {
@@ -25509,7 +25779,7 @@ func schema_kubevirtio_client_go_api_v1_VolumeSource(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
+			"kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource", "kubevirt.io/client-go/api/v1.CloudInitNoCloudSource", "kubevirt.io/client-go/api/v1.ConfigMapVolumeSource", "kubevirt.io/client-go/api/v1.ContainerDiskSource", "kubevirt.io/client-go/api/v1.DataVolumeSource", "kubevirt.io/client-go/api/v1.DownwardAPIVolumeSource", "kubevirt.io/client-go/api/v1.DownwardMetricsVolumeSource", "kubevirt.io/client-go/api/v1.EmptyDiskSource", "kubevirt.io/client-go/api/v1.EphemeralVolumeSource", "kubevirt.io/client-go/api/v1.HostDisk", "kubevirt.io/client-go/api/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.SecretVolumeSource", "kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource", "kubevirt.io/client-go/api/v1.SysprepSource"},
 	}
 }
 
@@ -25555,6 +25825,12 @@ func schema_kubevirtio_client_go_api_v1_VolumeStatus(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"persistentVolumeClaimInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow",
+							Ref:         ref("kubevirt.io/client-go/api/v1.PersistentVolumeClaimInfo"),
+						},
+					},
 					"hotplugVolume": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If the volume is hotplug, this will contain the hotplug status.",
@@ -25566,7 +25842,7 @@ func schema_kubevirtio_client_go_api_v1_VolumeStatus(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.HotplugVolumeStatus"},
+			"kubevirt.io/client-go/api/v1.HotplugVolumeStatus", "kubevirt.io/client-go/api/v1.PersistentVolumeClaimInfo"},
 	}
 }
 
