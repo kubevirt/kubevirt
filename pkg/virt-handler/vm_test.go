@@ -1787,6 +1787,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			vmiUpdated := vmi.DeepCopy()
 			vmiUpdated.Status.MigrationState.Completed = true
+			vmiUpdated.Status.MigrationTransport = v1.MigrationTransportUnix
 			vmiUpdated.Status.MigrationState.StartTimestamp = &now
 			vmiUpdated.Status.MigrationState.EndTimestamp = &now
 			vmiUpdated.Status.NodeName = "othernode"
