@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	v1 "kubevirt.io/client-go/api/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -49,6 +51,7 @@ var (
 	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
+	MIGRATIONPOLICY                  = "migrationpolicies." + v1.MigrationPolicyKind.Group
 	PreserveUnknownFieldsFalse       = false
 )
 
@@ -561,6 +564,36 @@ func NewVirtualMachineClusterFlavorCrd() (*extv1.CustomResourceDefinition, error
 	}
 
 	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = MIGRATIONPOLICY
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group:    v1.MigrationPolicyKind.Group,
+		Versions: newCRDVersions(),
+		Scope:    "Namespaced",
+
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:   "migrationpolicies",
+			Singular: "migrationpolicy",
+			Kind:     v1.MigrationPolicyKind.Kind,
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{
+		Status: &extv1.CustomResourceSubresourceStatus{},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil

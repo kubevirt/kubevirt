@@ -66,6 +66,7 @@ type KubevirtClient interface {
 	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
 	VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface
 	VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface
+	MigrationPolicy(namespace string) MigrationPolicyInterface
 	ServerVersion() *ServerVersion
 	ClusterProfiler() *ClusterProfiler
 	GuestfsVersion() *GuestfsVersion
@@ -266,4 +267,15 @@ type KubeVirtInterface interface {
 	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error)
 	UpdateStatus(*v1.KubeVirt) (*v1.KubeVirt, error)
 	PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (result *v1.KubeVirt, err error)
+}
+
+type MigrationPolicyInterface interface {
+	Get(name string, options *k8smetav1.GetOptions) (*v1.MigrationPolicy, error)
+	List(opts *k8smetav1.ListOptions) (*v1.MigrationPolicyList, error)
+	Create(*v1.MigrationPolicy) (*v1.MigrationPolicy, error)
+	Update(*v1.MigrationPolicy) (*v1.MigrationPolicy, error)
+	Delete(name string, options *k8smetav1.DeleteOptions) error
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.MigrationPolicy, err error)
+	UpdateStatus(*v1.MigrationPolicy) (*v1.MigrationPolicy, error)
+	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.MigrationPolicy, err error)
 }

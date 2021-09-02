@@ -213,6 +213,16 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineClusterFlavor() *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineClusterFlavor")
 }
 
+func (_m *MockKubevirtClient) MigrationPolicy(namespace string) MigrationPolicyInterface {
+	ret := _m.ctrl.Call(_m, "MigrationPolicy", namespace)
+	ret0, _ := ret[0].(MigrationPolicyInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) MigrationPolicy(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrationPolicy", arg0)
+}
+
 func (_m *MockKubevirtClient) ServerVersion() *ServerVersion {
 	ret := _m.ctrl.Call(_m, "ServerVersion")
 	ret0, _ := ret[0].(*ServerVersion)
@@ -1737,4 +1747,117 @@ func (_m *MockKubeVirtInterface) PatchStatus(name string, pt types.PatchType, da
 
 func (_mr *_MockKubeVirtInterfaceRecorder) PatchStatus(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2, arg3)
+}
+
+// Mock of MigrationPolicyInterface interface
+type MockMigrationPolicyInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockMigrationPolicyInterfaceRecorder
+}
+
+// Recorder for MockMigrationPolicyInterface (not exported)
+type _MockMigrationPolicyInterfaceRecorder struct {
+	mock *MockMigrationPolicyInterface
+}
+
+func NewMockMigrationPolicyInterface(ctrl *gomock.Controller) *MockMigrationPolicyInterface {
+	mock := &MockMigrationPolicyInterface{ctrl: ctrl}
+	mock.recorder = &_MockMigrationPolicyInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockMigrationPolicyInterface) EXPECT() *_MockMigrationPolicyInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockMigrationPolicyInterface) Get(name string, options *v11.GetOptions) (*v117.MigrationPolicy, error) {
+	ret := _m.ctrl.Call(_m, "Get", name, options)
+	ret0, _ := ret[0].(*v117.MigrationPolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockMigrationPolicyInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+}
+
+func (_m *MockMigrationPolicyInterface) List(opts *v11.ListOptions) (*v117.MigrationPolicyList, error) {
+	ret := _m.ctrl.Call(_m, "List", opts)
+	ret0, _ := ret[0].(*v117.MigrationPolicyList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockMigrationPolicyInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
+}
+
+func (_m *MockMigrationPolicyInterface) Create(_param0 *v117.MigrationPolicy) (*v117.MigrationPolicy, error) {
+	ret := _m.ctrl.Call(_m, "Create", _param0)
+	ret0, _ := ret[0].(*v117.MigrationPolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockMigrationPolicyInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
+}
+
+func (_m *MockMigrationPolicyInterface) Update(_param0 *v117.MigrationPolicy) (*v117.MigrationPolicy, error) {
+	ret := _m.ctrl.Call(_m, "Update", _param0)
+	ret0, _ := ret[0].(*v117.MigrationPolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockMigrationPolicyInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
+}
+
+func (_m *MockMigrationPolicyInterface) Delete(name string, options *v11.DeleteOptions) error {
+	ret := _m.ctrl.Call(_m, "Delete", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockMigrationPolicyInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
+}
+
+func (_m *MockMigrationPolicyInterface) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (*v117.MigrationPolicy, error) {
+	_s := []interface{}{name, pt, data}
+	for _, _x := range subresources {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "Patch", _s...)
+	ret0, _ := ret[0].(*v117.MigrationPolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockMigrationPolicyInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
+}
+
+func (_m *MockMigrationPolicyInterface) UpdateStatus(_param0 *v117.MigrationPolicy) (*v117.MigrationPolicy, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", _param0)
+	ret0, _ := ret[0].(*v117.MigrationPolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockMigrationPolicyInterfaceRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
+}
+
+func (_m *MockMigrationPolicyInterface) PatchStatus(name string, pt types.PatchType, data []byte) (*v117.MigrationPolicy, error) {
+	ret := _m.ctrl.Call(_m, "PatchStatus", name, pt, data)
+	ret0, _ := ret[0].(*v117.MigrationPolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockMigrationPolicyInterfaceRecorder) PatchStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2)
 }

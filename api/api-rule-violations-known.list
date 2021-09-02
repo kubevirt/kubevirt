@@ -155,6 +155,7 @@ API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtConfigurat
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtConfiguration,SupportedGuestAgentVersions
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtList,Items
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtStatus,Conditions
+API rule violation: list_type_missing,kubevirt.io/api/core/v1,MigrationPolicyList,Items
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,NodePlacement,Tolerations
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceFileSystemInfo,Filesystems
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceFileSystemList,Items

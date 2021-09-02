@@ -2007,6 +2007,53 @@ type MigrationConfiguration struct {
 	DisableTLS                        *bool              `json:"disableTLS,omitempty"`
 }
 
+// MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+// +genclient
+type MigrationPolicy struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              MigrationPolicySpec `json:"spec" valid:"required"`
+	// +nullable
+	Status MigrationPolicyStatus `json:"status,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type MigrationPolicySpec struct {
+	//+optional
+	MaxParallelMigrations *uint32 `json:"maxParallelMigrations,omitempty"`
+	//+optional
+	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
+	//+optional
+	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	//+optional
+	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
+	//+optional
+	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
+	//+optional
+	UnsafeMigrationOverride *bool `json:"unsafeMigrationOverride,omitempty"`
+	//+optional
+	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
+	//+optional
+	DisableTLS *bool `json:"disableTLS,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type MigrationPolicyStatus struct {
+}
+
+// MigrationPolicyList is a list of MigrationPolicy
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type MigrationPolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []MigrationPolicy `json:"items"`
+}
+
 // DiskVerification holds container disks verification limits
 type DiskVerification struct {
 	MemoryLimit *resource.Quantity `json:"memoryLimit"`

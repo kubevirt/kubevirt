@@ -638,6 +638,39 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (MigrationPolicy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient",
+		"status": "+nullable",
+	}
+}
+
+func (MigrationPolicySpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                        "+k8s:openapi-gen=true",
+		"maxParallelMigrations":   "+optional",
+		"allowAutoConverge":       "+optional",
+		"bandwidthPerMigration":   "+optional",
+		"completionTimeoutPerGiB": "+optional",
+		"progressTimeout":         "+optional",
+		"unsafeMigrationOverride": "+optional",
+		"allowPostCopy":           "+optional",
+		"disableTLS":              "+optional",
+	}
+}
+
+func (MigrationPolicyStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (MigrationPolicyList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "MigrationPolicyList is a list of MigrationPolicy\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+	}
+}
+
 func (DiskVerification) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "DiskVerification holds container disks verification limits",
