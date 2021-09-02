@@ -22,7 +22,6 @@ package infraconfigurators
 import (
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -241,9 +240,6 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 				table.Entry("IPTables backend on an IPv4 cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterIPTables),
-				table.Entry("NFTables backend on an IPv4 cluster when *reserved* ports are specified",
-					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList()...),
-					mockNetfilterNFTables),
 				table.Entry("NFTables backend on an IPv4 cluster when using an ISTIO aware VMI",
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
 					mockNetfilterNFTables),
@@ -262,10 +258,6 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 				table.Entry("IPTables backend on a dual stack cluster when specific ports are specified",
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterIPTables,
-					iptables.ProtocolIPv6),
-				table.Entry("NFTables backend on a dual stack cluster when *reserved* ports are specified",
-					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList()...),
-					mockNetfilterNFTables,
 					iptables.ProtocolIPv6),
 				table.Entry("NFTables backend on a dual stack cluster when using an ISTIO aware VMI",
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
@@ -392,10 +384,6 @@ func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.
 	handler.EXPECT().NftablesAppendRule(proto, "nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil)
 	handler.EXPECT().NftablesAppendRule(proto, "nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil)
 
-	for _, chain := range []string{"output", "KUBEVIRT_POSTINBOUND"} {
-		handler.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(PortsUsedByLiveMigration(), ", ")), nftIPString, "saddr", GetLoopbackAdrress(proto), "counter", "return").Return(nil)
-	}
-
 	if len(portList) > 0 {
 		mockNFTablesBackendSpecificPorts(handler, proto, nftIPString, vmIP, gwIP, portList)
 	} else {
@@ -461,13 +449,6 @@ func mockIPTablesBackend(handler *netdriver.MockNetworkHandler, proto iptables.P
 		"k6t-eth0",
 		"-j",
 		"KUBEVIRT_POSTINBOUND").Return(nil)
-
-	for _, chain := range []string{"OUTPUT", "KUBEVIRT_POSTINBOUND"} {
-		handler.EXPECT().IptablesAppendRule(proto, "nat", chain,
-			"-p", "tcp", "--match", "multiport",
-			"--dports", fmt.Sprintf("%s", strings.Join(PortsUsedByLiveMigration(), ",")),
-			"--source", GetLoopbackAdrress(proto), "-j", "RETURN").Return(nil)
-	}
 
 	if len(portList) > 0 {
 		mockIPTablesBackendSpecificPorts(handler, proto, vmIP, gwIP, portList)
@@ -555,18 +536,6 @@ func protocols(optionalIPProtocol ...iptables.Protocol) []iptables.Protocol {
 	return append(
 		[]iptables.Protocol{iptables.ProtocolIPv4},
 		optionalIPProtocol...)
-}
-
-func getReservedPortList() []int {
-	var portList []int
-	for _, port := range PortsUsedByLiveMigration() {
-		intPort, err := strconv.ParseInt(port, 10, 64)
-		if err != nil {
-			Panic()
-		}
-		portList = append(portList, int(intPort))
-	}
-	return portList
 }
 
 func isIstioAware(vmiAnnotations map[string]string) bool {

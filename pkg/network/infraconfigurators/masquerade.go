@@ -20,11 +20,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const (
-	LibvirtDirectMigrationPort = 49152
-	LibvirtBlockMigrationPort  = 49153
-)
-
 type MasqueradePodNetworkConfigurator struct {
 	vmi                 *v1.VirtualMachineInstance
 	vmiSpecIface        *v1.Interface
@@ -198,13 +193,6 @@ func GetLoopbackAdrress(proto iptables.Protocol) string {
 	}
 }
 
-func PortsUsedByLiveMigration() []string {
-	return []string{
-		fmt.Sprint(LibvirtDirectMigrationPort),
-		fmt.Sprint(LibvirtBlockMigrationPort),
-	}
-}
-
 func (b *MasqueradePodNetworkConfigurator) createNatRules(protocol iptables.Protocol) error {
 	err := b.handler.ConfigureIpForwarding(protocol)
 	if err != nil {
@@ -242,11 +230,6 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingIptables(protocol 
 	}
 
 	err = b.handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-o", b.bridgeInterfaceName, "-j", "KUBEVIRT_POSTINBOUND")
-	if err != nil {
-		return err
-	}
-
-	err = b.skipForwardingForPortsUsingIptables(protocol, portsUsedByLiveMigration())
 	if err != nil {
 		return err
 	}
@@ -366,11 +349,6 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 	}
 
 	err = b.handler.NftablesAppendRule(proto, "nat", "postrouting", "oifname", b.bridgeInterfaceName, "counter", "jump", "KUBEVIRT_POSTINBOUND")
-	if err != nil {
-		return err
-	}
-
-	err = b.skipForwardingForPortsUsingNftables(proto, portsUsedByLiveMigration())
 	if err != nil {
 		return err
 	}
@@ -509,12 +487,5 @@ func getLoopbackAdrress(proto iptables.Protocol) string {
 		return "127.0.0.1"
 	} else {
 		return "::1"
-	}
-}
-
-func portsUsedByLiveMigration() []string {
-	return []string{
-		fmt.Sprint(LibvirtDirectMigrationPort),
-		fmt.Sprint(LibvirtBlockMigrationPort),
 	}
 }
