@@ -89,6 +89,10 @@ const (
 	ResultTypeVMICreationToRunningP50 ResultType = "vmiCreationToRunningSecondsP50"
 )
 
+const (
+	ResultTypeResourceOperationCountFormat = "%s-%s-count"
+)
+
 type ThresholdResult struct {
 	ThresholdValue    float64 `json:"thresholdValue"`
 	ThresholdExceeded bool    `json:"thresholdExceeded"`
