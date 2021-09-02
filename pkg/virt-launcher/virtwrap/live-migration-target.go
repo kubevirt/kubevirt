@@ -21,13 +21,12 @@ package virtwrap
 
 import (
 	"fmt"
-	"net"
-	"strconv"
+	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -55,7 +54,6 @@ func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool 
 }
 
 func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInstance, allowEmulation bool) error {
-	logger := log.Log.Object(vmi)
 
 	if shouldBlockMigrationTargetPreparation(vmi) {
 		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
@@ -89,21 +87,13 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
 
-	loopbackAddress := ip.GetLoopbackAddress()
-
-	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
-	for _, port := range migrationPortsRange {
-		// Prepare the direct migration proxy
-		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
-		curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
-		unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
-		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
-
-		err := migrationProxy.Start()
-		if err != nil {
-			logger.Reason(err).Errorf("proxy listening failed, socket %s", unixSocketPath)
-			return err
-		}
+	// Prepare the direct migration proxy
+	unixSocketDir := migrationproxy.SourceUnixFileDir(l.virtShareDir)
+	if err := os.MkdirAll(unixSocketDir, 0777); err != nil {
+		return fmt.Errorf("failed to create socket target directory: %v", err)
+	}
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(unixSocketDir); err != nil {
+		return fmt.Errorf("failed to set ownership for socket target directory: %v", err)
 	}
 
 	// since the source vmi is paused, add the vmi uuid to the pausedVMIs as
