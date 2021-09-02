@@ -34,7 +34,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -740,30 +739,7 @@ func isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Status.MigrationMethod == v1.BlockMigration)
 }
 
-func (l *LibvirtDomainManager) generateMigrationProxies(vmi *v1.VirtualMachineInstance) []migrationproxy.MigrationProxyListener {
-	// create local migration proxies.
-	//
-	// This creates a tcp server for each additional direct migration connections
-	// that will be proxied to the destination pod
-	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
-
-	proxies := []migrationproxy.MigrationProxyListener{}
-
-	loopbackAddress := ip.GetLoopbackAddress()
-	// Create a tcp server for each direct connection proxy
-	for _, port := range migrationPortsRange {
-		if osChosenMigrationProxyPort {
-			// this is only set to 0 during unit tests
-			port = 0
-		}
-		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
-		newProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key), string(vmi.UID))
-		proxies = append(proxies, newProxy)
-	}
-	return proxies
-}
-
-func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) (*libvirt.DomainMigrateParameters, error) {
+func generateMigrationParams(baseDir string, dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) (*libvirt.DomainMigrateParameters, error) {
 	bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
 	if err != nil {
 		return nil, err
@@ -774,10 +750,15 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		return nil, err
 	}
 
-	migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(ip.GetLoopbackAddress()))
+	migrSocket := migrationproxy.SourceUnixFile(baseDir, migrationproxy.ConstructProxyKey(string(vmi.UID), migrationproxy.LibvirtDirectMigrationSocketKey))
+	migrURI := fmt.Sprintf("unix://%s", migrSocket)
+	diskSocket := migrationproxy.SourceUnixFile(baseDir, migrationproxy.ConstructProxyKey(string(vmi.UID), migrationproxy.LibvirtBlockMigrationSocketKey))
+	diskURI := fmt.Sprintf("unix://%s", diskSocket)
 	params := &libvirt.DomainMigrateParameters{
 		URI:          migrURI,
 		URISet:       true,
+		DisksURI:     diskURI,
+		DisksURISet:  true,
 		Bandwidth:    bandwidth, // MiB/s
 		BandwidthSet: bandwidth > 0,
 		DestXML:      xmlstr,
@@ -797,8 +778,6 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 	var err error
 	var params *libvirt.DomainMigrateParameters
-
-	proxies := l.generateMigrationProxies(vmi)
 
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
@@ -823,7 +802,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 			return fmt.Errorf("error encountered during preparing domain for migration: %v", err)
 		}
 
-		params, err = generateMigrationParams(dom, vmi, options)
+		params, err = generateMigrationParams(l.virtShareDir, dom, vmi, options)
 		if err != nil {
 			return fmt.Errorf("error encountered while generating migration parameters: %v", err)
 		}
@@ -834,15 +813,6 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	err = critSection()
 	if err != nil {
 		return err
-	}
-
-	// establish all connection proxies before starting migration
-	for _, proxy := range proxies {
-		defer proxy.Stop()
-		err := proxy.Start()
-		if err != nil {
-			return fmt.Errorf("error encountered during proxy setup: %v", err)
-		}
 	}
 
 	// initiate the live migration
