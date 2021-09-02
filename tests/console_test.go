@@ -99,7 +99,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 			Context("with a fedora image", func() {
 				It("[sig-compute][test_id:1589]should return that we are running fedora", func() {
-					vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora))
+					vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 					RunVMIAndWaitForStart(vmi)
 					ExpectConsoleOutput(
 						vmi,
