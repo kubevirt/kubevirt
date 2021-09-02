@@ -2,6 +2,8 @@ package util
 
 import (
 	"context"
+	"os"
+
 	"github.com/go-logr/logr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,19 +17,24 @@ type ClusterInfo interface {
 	IsOpenshift() bool
 	IsRunningLocally() bool
 	GetDomain() string
+	IsManagedByOLM() bool
 }
 
 type ClusterInfoImp struct {
 	runningInOpenshift bool
+	managedByOLM       bool
 	runningLocally     bool
 	domain             string
 }
 
 var clusterInfo ClusterInfo
 
-func GetClusterInfo() ClusterInfo {
+var GetClusterInfo = func() ClusterInfo {
 	return clusterInfo
 }
+
+// OperatorConditionNameEnvVar - this Env var is set by OLM, so the Operator can discover it's OperatorCondition.
+const OperatorConditionNameEnvVar = "OPERATOR_CONDITION_NAME"
 
 func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr.Logger) error {
 	clusterVersion := &openshiftconfigv1.ClusterVersion{
@@ -53,7 +60,14 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 		}
 	}
 
+	// We assume that this Operator is managed by OLM when this variable is present.
+	_, c.managedByOLM = os.LookupEnv(OperatorConditionNameEnvVar)
+
 	return nil
+}
+
+func (c ClusterInfoImp) IsManagedByOLM() bool {
+	return c.managedByOLM
 }
 
 func (c ClusterInfoImp) IsOpenshift() bool {

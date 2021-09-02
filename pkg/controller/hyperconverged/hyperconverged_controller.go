@@ -3,25 +3,25 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
-	consolev1 "github.com/openshift/api/console/v1"
-	routev1 "github.com/openshift/api/route/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"reflect"
 	"strings"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/uuid"
+	consolev1 "github.com/openshift/api/console/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	operatorhandler "github.com/operator-framework/operator-lib/handler"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimetav1 "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,16 +34,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
-
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
+	"github.com/kubevirt/hyperconverged-cluster-operator/version"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
 var (
@@ -77,6 +76,8 @@ const (
 	v2vGroup     = "v2v.kubevirt.io"
 	prevSspGroup = "ssp.kubevirt.io"
 	origSspGroup = "kubevirt.io"
+
+	requestedStatusKey = "requested status"
 )
 
 // JSONPatchAnnotationNames - annotations used to patch operand CRs with unsupported/unofficial/hidden features.
@@ -88,12 +89,12 @@ var JSONPatchAnnotationNames = []string{
 }
 
 // RegisterReconciler creates a new HyperConverged Reconciler and registers it into manager.
-func RegisterReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) error {
-	return add(mgr, newReconciler(mgr, ci), ci)
+func RegisterReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond hcoutil.Condition) error {
+	return add(mgr, newReconciler(mgr, ci, upgradeableCond), ci)
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond hcoutil.Condition) reconcile.Reconciler {
 
 	ownVersion := os.Getenv(hcoutil.HcoKvIoVersionName)
 	if ownVersion == "" {
@@ -101,13 +102,14 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconc
 	}
 
 	return &ReconcileHyperConverged{
-		client:         mgr.GetClient(),
-		scheme:         mgr.GetScheme(),
-		operandHandler: operands.NewOperandHandler(mgr.GetClient(), mgr.GetScheme(), ci.IsOpenshift(), hcoutil.GetEventEmitter()),
-		upgradeMode:    false,
-		ownVersion:     ownVersion,
-		eventEmitter:   hcoutil.GetEventEmitter(),
-		firstLoop:      true,
+		client:               mgr.GetClient(),
+		scheme:               mgr.GetScheme(),
+		operandHandler:       operands.NewOperandHandler(mgr.GetClient(), mgr.GetScheme(), ci.IsOpenshift(), hcoutil.GetEventEmitter()),
+		upgradeMode:          false,
+		ownVersion:           ownVersion,
+		eventEmitter:         hcoutil.GetEventEmitter(),
+		firstLoop:            true,
+		upgradeableCondition: upgradeableCond,
 	}
 }
 
@@ -221,13 +223,14 @@ var _ reconcile.Reconciler = &ReconcileHyperConverged{}
 type ReconcileHyperConverged struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client         client.Client
-	scheme         *runtime.Scheme
-	operandHandler *operands.OperandHandler
-	upgradeMode    bool
-	ownVersion     string
-	eventEmitter   hcoutil.EventEmitter
-	firstLoop      bool
+	client               client.Client
+	scheme               *runtime.Scheme
+	operandHandler       *operands.OperandHandler
+	upgradeMode          bool
+	ownVersion           string
+	eventEmitter         hcoutil.EventEmitter
+	firstLoop            bool
+	upgradeableCondition hcoutil.Condition
 }
 
 // Reconcile reads that state of the cluster for a HyperConverged object and makes changes based on the state read
@@ -258,10 +261,18 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 
 	// Fetch the HyperConverged instance
 	instance, err := r.getHyperConverged(hcoRequest)
+
+	hcoRequest.Instance = instance
+
 	if instance == nil {
+		// if the HyperConverged CR was deleted during an upgrade process, then this is not an upgrade anymore
+		r.upgradeMode = false
+		if err == nil {
+			err = r.setOperatorUpgradeableStatus(hcoRequest)
+		}
+
 		return reconcile.Result{}, err
 	}
-	hcoRequest.Instance = instance
 
 	if r.firstLoop {
 		r.firstLoopInitialization(hcoRequest)
@@ -270,6 +281,10 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 	result, err := r.doReconcile(hcoRequest)
 	if err != nil {
 		r.eventEmitter.EmitEvent(hcoRequest.Instance, corev1.EventTypeWarning, "ReconcileError", err.Error())
+		return reconcile.Result{}, err
+	}
+
+	if err = r.setOperatorUpgradeableStatus(hcoRequest); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -345,7 +360,10 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 	// an old version, since Status.Versions will be empty.
 	knownHcoVersion, _ := req.Instance.Status.GetVersion(hcoVersionName)
 
+	// detect upgrade mode
 	if !r.upgradeMode && !init && knownHcoVersion != r.ownVersion {
+		// get into upgrade mode
+
 		r.upgradeMode = true
 
 		r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "UpgradeHCO", "Upgrading the HyperConverged to version "+r.ownVersion)
@@ -392,7 +410,6 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 func (r *ReconcileHyperConverged) EnsureOperandAndComplete(req *common.HcoRequest, init bool) (reconcile.Result, error) {
 	if err := r.operandHandler.Ensure(req); err != nil {
 		r.updateConditions(req)
-		hcoutil.SetReady(false)
 		return reconcile.Result{Requeue: init}, nil
 	}
 
@@ -400,7 +417,6 @@ func (r *ReconcileHyperConverged) EnsureOperandAndComplete(req *common.HcoReques
 
 	// Requeue if we just created everything
 	if init {
-		hcoutil.SetReady(false)
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -826,7 +842,6 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 		})
 	}
 
-	hcoutil.SetReady(hcoReady)
 	if hcoReady {
 		// If no operator whose conditions we are watching reports an error, then it is safe
 		// to set readiness.
@@ -938,6 +953,31 @@ func (r *ReconcileHyperConverged) firstLoopInitialization(request *common.HcoReq
 
 	// Avoid re-initializing.
 	r.firstLoop = false
+}
+
+func (r *ReconcileHyperConverged) setOperatorUpgradeableStatus(request *common.HcoRequest) error {
+	if hcoutil.GetClusterInfo().IsManagedByOLM() {
+
+		request.Logger.Info("setting the Upgradeable operator condition", requestedStatusKey, !r.upgradeMode)
+
+		msg := hcoutil.UpgradeableAllowMessage
+		status := metav1.ConditionTrue
+		reason := hcoutil.UpgradeableAllowReason
+
+		if r.upgradeMode {
+			msg = hcoutil.UpgradeableUpgradingMessage + r.ownVersion
+			status = metav1.ConditionFalse
+			reason = hcoutil.UpgradeableUpgradingReason
+		}
+
+		if err := r.upgradeableCondition.Set(request.Ctx, status, reason, msg); err != nil {
+			request.Logger.Error(err, "can't set the Upgradeable operator condition", requestedStatusKey, !r.upgradeMode)
+			return err
+		}
+
+	}
+
+	return nil
 }
 
 // This function performs migrations before starting the upgrade process

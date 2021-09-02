@@ -2,10 +2,11 @@ package util
 
 import (
 	"fmt"
-	"github.com/ghodss/yaml"
 	"io"
 	"io/ioutil"
 	"os"
+
+	"github.com/ghodss/yaml"
 )
 
 func UnmarshalYamlFileToObject(file io.Reader, o interface{}) error {

@@ -109,6 +109,10 @@ curl -L -o ~/virtctl https://github.com/kubevirt/kubevirt/releases/download/${KV
 chmod +x ~/virtctl
 ###################
 
+Msg "operator conditions before upgrade"
+source ./hack/check_operator_condition.sh
+KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${INITIAL_CHANNEL}"
+
 ### Create a VM ###
 Msg "Create a simple VM on the previous version cluster, before the upgrade"
 ${CMD} create namespace ${VMS_NAMESPACE}
@@ -184,6 +188,10 @@ ${CMD} get pods -n ${HCO_NAMESPACE}
 ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 
+Msg "operator conditions during upgrade"
+KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${INITIAL_CHANNEL}"
+KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${TARGET_VERSION}"
+
 ./hack/retry.sh 30 60 "${CMD} get subscriptions -n ${HCO_NAMESPACE} -o yaml | grep currentCSV   | grep v${TARGET_VERSION}"
 ./hack/retry.sh  2 30 "${CMD} get subscriptions -n ${HCO_NAMESPACE} -o yaml | grep installedCSV | grep v${TARGET_VERSION}"
 
@@ -219,6 +227,9 @@ for hco_pod in $( ${CMD} get pods -n ${HCO_NAMESPACE} -l "name=hyperconverged-cl
     found_new_running_hco_pod="true"
   fi
 done
+
+Msg "operator conditions after upgrade"
+KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${TARGET_VERSION}"
 
 Msg "Ensure that old SSP operator resources are removed from the cluster"
 ./hack/retry.sh 5 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} ./hack/check_old_ssp_removed.sh"
@@ -289,6 +300,13 @@ else
     echo "v2v references removed from .status.relatedObjects"
 fi
 
+Msg "Read the HCO operator log before it been deleted"
+HCO_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-operator" -o name)
+${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}"
+
+Msg "Read the HCO webhook log before it been deleted"
+WH_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-webhook" -o name)
+${CMD} logs -n ${HCO_NAMESPACE} "${WH_POD}"
 
 Msg "Brutally delete HCO removing the namespace where it's running"
 source hack/test_delete_ns.sh

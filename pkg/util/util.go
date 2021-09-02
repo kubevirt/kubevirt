@@ -63,7 +63,7 @@ func IsRunModeLocal() bool {
 }
 
 // GetOperatorNamespace returns the namespace the operator should be running in.
-func GetOperatorNamespace(logger logr.Logger) (string, error) {
+var GetOperatorNamespace = func(logger logr.Logger) (string, error) {
 	if IsRunModeLocal() {
 		return "", ErrRunLocal
 	}
@@ -125,6 +125,9 @@ func GetPod(ctx context.Context, c client.Reader, logger logr.Logger) (*corev1.P
 }
 
 func GetCSVfromPod(pod *corev1.Pod, c client.Reader, logger logr.Logger) (*csvv1alpha1.ClusterServiceVersion, error) {
+	if pod == nil {
+		return nil, nil
+	}
 	operatorNs, err := GetOperatorNamespace(logger)
 	if err != nil {
 		return nil, err
@@ -318,27 +321,6 @@ func EnsureDeleted(ctx context.Context, c client.Client, obj client.Object, hcoN
 	}
 
 	return ComponentResourceRemoval(ctx, c, obj, hcoName, logger, dryRun, wait)
-}
-
-// EnsureCreated creates the runtime object if it does not exist
-func EnsureCreated(ctx context.Context, c client.Client, obj client.Object, logger logr.Logger) error {
-	err := GetRuntimeObject(ctx, c, obj, logger)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			logger.Info("Creating object", "kind", obj.GetObjectKind())
-			return c.Create(ctx, obj)
-		}
-
-		if meta.IsNoMatchError(err) {
-			return err
-		}
-
-		logger.Error(err, "failed getting runtime object", "kind", obj.GetObjectKind())
-		return err
-	}
-
-	return nil
 }
 
 func ContainsString(s []string, word string) bool {

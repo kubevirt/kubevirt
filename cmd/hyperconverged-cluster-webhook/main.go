@@ -10,7 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	apiclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -75,7 +75,7 @@ func main() {
 	// apiclient.New() returns a client without cache.
 	// cache is not initialized before mgr.Start()
 	// we need this because we need to interact with OperatorCondition
-	apiClient, err := apiclient.New(mgr.GetConfig(), apiclient.Options{
+	apiClient, err := client.New(mgr.GetConfig(), client.Options{
 		Scheme: mgr.GetScheme(),
 	})
 	cmdHelper.ExitOnError(err, "Cannot create a new API client")

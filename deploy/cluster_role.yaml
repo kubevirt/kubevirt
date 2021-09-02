@@ -422,6 +422,16 @@ rules:
   - create
   - update
   - delete
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - operatorconditions
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

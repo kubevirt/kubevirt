@@ -172,11 +172,14 @@ github.com/openshift/custom-resource-status/objectreferences/v1
 github.com/operator-framework/api/pkg/lib/version
 github.com/operator-framework/api/pkg/operators
 github.com/operator-framework/api/pkg/operators/v1alpha1
+github.com/operator-framework/api/pkg/operators/v2
 # github.com/operator-framework/operator-lib v0.6.0
 ## explicit; go 1.15
+github.com/operator-framework/operator-lib/conditions
 github.com/operator-framework/operator-lib/handler
 github.com/operator-framework/operator-lib/handler/internal/metrics
 github.com/operator-framework/operator-lib/internal/annotation
+github.com/operator-framework/operator-lib/internal/utils
 # github.com/pborman/uuid v1.2.0
 ## explicit
 github.com/pborman/uuid
@@ -588,6 +591,7 @@ k8s.io/client-go/util/flowcontrol
 k8s.io/client-go/util/homedir
 k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
+k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
 # k8s.io/component-base v0.22.1 => k8s.io/component-base v0.22.1
 ## explicit; go 1.16

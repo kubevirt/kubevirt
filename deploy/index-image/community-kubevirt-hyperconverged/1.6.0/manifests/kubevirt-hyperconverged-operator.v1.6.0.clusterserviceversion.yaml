@@ -403,6 +403,16 @@ spec:
           - create
           - update
           - delete
+        - apiGroups:
+          - operators.coreos.com
+          resources:
+          - operatorconditions
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - patch
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:

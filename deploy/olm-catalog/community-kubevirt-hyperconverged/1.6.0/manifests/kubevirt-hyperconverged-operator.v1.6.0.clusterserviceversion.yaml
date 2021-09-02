@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
-    createdAt: "2021-09-02 06:22:00"
+    createdAt: "2021-09-02 12:26:36"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -403,6 +403,16 @@ spec:
           - create
           - update
           - delete
+        - apiGroups:
+          - operators.coreos.com
+          resources:
+          - operatorconditions
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - patch
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:

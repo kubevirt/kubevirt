@@ -1,37 +1,16 @@
 package util
 
 import (
-	"errors"
-
 	"net/http"
+
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 )
 
-var hcoReady bool
-
-var hcoPing healthz.Checker
-
-func IsReady() bool {
-	return hcoReady
-}
-
-func SetReady(ready bool) {
-	hcoReady = ready
+// the readiness prob always returns a valid answer
+var hcoPing healthz.Checker = func(_ *http.Request) error {
+	return nil
 }
 
 func GetHcoPing() healthz.Checker {
 	return hcoPing
-}
-
-func hcoChecker(_ *http.Request) error {
-	if hcoReady {
-		return nil
-	}
-	hcoNotReady := errors.New("HCO is not ready")
-	return hcoNotReady
-}
-
-func init() {
-	hcoReady = true
-	hcoPing = hcoChecker
 }

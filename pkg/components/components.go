@@ -161,7 +161,7 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 						Image:           params.Image,
 						ImagePullPolicy: corev1.PullPolicy(params.ImagePullPolicy),
 						// command being name is artifact of operator-sdk usage
-						Command:        []string{hcoName},
+						Command:        stringListToSlice(hcoName),
 						ReadinessProbe: getReadinessProbe(),
 						LivenessProbe:  getLivenessProbe(),
 						Env: append([]corev1.EnvVar{
@@ -340,7 +340,7 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 						Name:            hcoNameWebhook,
 						Image:           image,
 						ImagePullPolicy: corev1.PullPolicy(imagePullPolicy),
-						Command:         []string{hcoNameWebhook},
+						Command:         stringListToSlice(hcoNameWebhook),
 						ReadinessProbe:  getReadinessProbe(),
 						LivenessProbe:   getLivenessProbe(),
 						Env: append([]corev1.EnvVar{
@@ -416,91 +416,84 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 
 	return []rbacv1.PolicyRule{
 		{
-			APIGroups: stringListToSilce(util.APIVersionGroup),
-			Resources: stringListToSilce("hyperconvergeds"),
-			Verbs:     stringListToSilce("get", "list", "update", "watch"),
+			APIGroups: stringListToSlice(util.APIVersionGroup),
+			Resources: stringListToSlice("hyperconvergeds"),
+			Verbs:     stringListToSlice("get", "list", "update", "watch"),
 		},
 		{
-			APIGroups: stringListToSilce(util.APIVersionGroup),
-			Resources: stringListToSilce("hyperconvergeds/finalizers", "hyperconvergeds/status"),
-			Verbs:     stringListToSilce("get", "list", "create", "update", "watch"),
+			APIGroups: stringListToSlice(util.APIVersionGroup),
+			Resources: stringListToSlice("hyperconvergeds/finalizers", "hyperconvergeds/status"),
+			Verbs:     stringListToSlice("get", "list", "create", "update", "watch"),
 		},
-		roleWithAllPermissions("kubevirt.io", stringListToSilce("kubevirts", "kubevirts/finalizers")),
-		roleWithAllPermissions("cdi.kubevirt.io", stringListToSilce("cdis", "cdis/finalizers")),
-		roleWithAllPermissions("ssp.kubevirt.io", stringListToSilce("ssps", "ssps/finalizers")),
-		roleWithAllPermissions("networkaddonsoperator.network.kubevirt.io", stringListToSilce("networkaddonsconfigs", "networkaddonsconfigs/finalizers")),
-		roleWithAllPermissions("", stringListToSilce("configmaps")),
-		{
-			APIGroups: emptyAPIGroup,
-			Resources: stringListToSilce("events"),
-			Verbs:     stringListToSilce("get", "list", "watch", "create", "patch"),
-		},
-		roleWithAllPermissions("", stringListToSilce("services")),
+		roleWithAllPermissions("kubevirt.io", stringListToSlice("kubevirts", "kubevirts/finalizers")),
+		roleWithAllPermissions("cdi.kubevirt.io", stringListToSlice("cdis", "cdis/finalizers")),
+		roleWithAllPermissions("ssp.kubevirt.io", stringListToSlice("ssps", "ssps/finalizers")),
+		roleWithAllPermissions("networkaddonsoperator.network.kubevirt.io", stringListToSlice("networkaddonsconfigs", "networkaddonsconfigs/finalizers")),
+		roleWithAllPermissions("", stringListToSlice("configmaps")),
 		{
 			APIGroups: emptyAPIGroup,
-			Resources: stringListToSilce("pods"),
-			Verbs:     stringListToSilce("get", "list", "watch"),
+			Resources: stringListToSlice("events"),
+			Verbs:     stringListToSlice("get", "list", "watch", "create", "patch"),
+		},
+		roleWithAllPermissions("", stringListToSlice("services")),
+		{
+			APIGroups: emptyAPIGroup,
+			Resources: stringListToSlice("pods"),
+			Verbs:     stringListToSlice("get", "list", "watch"),
 		},
 		{
-			APIGroups: []string{
-				"apps",
-			},
-			Resources: stringListToSilce("deployments", "replicasets"),
-			Verbs:     stringListToSilce("get", "list"),
+			APIGroups: stringListToSlice("apps"),
+			Resources: stringListToSlice("deployments", "replicasets"),
+			Verbs:     stringListToSlice("get", "list"),
 		},
-		roleWithAllPermissions("rbac.authorization.k8s.io", stringListToSilce("roles", "rolebindings")),
+		roleWithAllPermissions("rbac.authorization.k8s.io", stringListToSlice("roles", "rolebindings")),
 		{
-			APIGroups: []string{
-				"apiextensions.k8s.io",
-			},
-			Resources: stringListToSilce("customresourcedefinitions"),
-			Verbs:     stringListToSilce("get", "list", "watch", "delete"),
+			APIGroups: stringListToSlice("apiextensions.k8s.io"),
+			Resources: stringListToSlice("customresourcedefinitions"),
+			Verbs:     stringListToSlice("get", "list", "watch", "delete"),
 		},
 		{
-			APIGroups: []string{
-				"apiextensions.k8s.io",
-			},
-			Resources: stringListToSilce("customresourcedefinitions/status"),
-			Verbs:     stringListToSilce("get", "list", "watch", "patch", "update"),
+			APIGroups: stringListToSlice("apiextensions.k8s.io"),
+			Resources: stringListToSlice("customresourcedefinitions/status"),
+			Verbs:     stringListToSlice("get", "list", "watch", "patch", "update"),
 		},
-		roleWithAllPermissions("monitoring.coreos.com", stringListToSilce("servicemonitors", "prometheusrules")),
+		roleWithAllPermissions("monitoring.coreos.com", stringListToSlice("servicemonitors", "prometheusrules")),
 		{
-			APIGroups: []string{
-				"operators.coreos.com",
-			},
-			Resources: stringListToSilce("clusterserviceversions"),
-			Verbs:     stringListToSilce("get", "list", "watch"),
+			APIGroups: stringListToSlice("operators.coreos.com"),
+			Resources: stringListToSlice("clusterserviceversions"),
+			Verbs:     stringListToSlice("get", "list", "watch"),
 		},
 		{
-			APIGroups: []string{"scheduling.k8s.io"},
-			Resources: stringListToSilce("priorityclasses"),
-			Verbs:     stringListToSilce("get", "list", "watch", "create", "delete"),
+			APIGroups: stringListToSlice("scheduling.k8s.io"),
+			Resources: stringListToSlice("priorityclasses"),
+			Verbs:     stringListToSlice("get", "list", "watch", "create", "delete"),
 		},
 		{
-			APIGroups: []string{
-				"admissionregistration.k8s.io",
-			},
-			Resources: stringListToSilce("validatingwebhookconfigurations"),
-			Verbs:     stringListToSilce("list", "watch", "update", "patch"),
+			APIGroups: stringListToSlice("admissionregistration.k8s.io"),
+			Resources: stringListToSlice("validatingwebhookconfigurations"),
+			Verbs:     stringListToSlice("list", "watch", "update", "patch"),
 		},
-		roleWithAllPermissions("console.openshift.io", stringListToSilce("consoleclidownloads", "consolequickstarts")),
+		roleWithAllPermissions("console.openshift.io", stringListToSlice("consoleclidownloads", "consolequickstarts")),
 		{
-			APIGroups: []string{
-				"config.openshift.io",
-			},
-			Resources: stringListToSilce("clusterversions", "ingresses"),
-			Verbs:     stringListToSilce("get", "list"),
+			APIGroups: stringListToSlice("config.openshift.io"),
+			Resources: stringListToSlice("clusterversions", "ingresses"),
+			Verbs:     stringListToSlice("get", "list"),
 		},
-		roleWithAllPermissions("coordination.k8s.io", stringListToSilce("leases")),
-		roleWithAllPermissions("route.openshift.io", stringListToSilce("routes")),
+		roleWithAllPermissions("coordination.k8s.io", stringListToSlice("leases")),
+		roleWithAllPermissions("route.openshift.io", stringListToSlice("routes")),
+		{
+			APIGroups: stringListToSlice("operators.coreos.com"),
+			Resources: stringListToSlice("operatorconditions"),
+			Verbs:     stringListToSlice("get", "list", "watch", "update", "patch"),
+		},
 	}
 }
 
 func roleWithAllPermissions(apiGroup string, resources []string) rbacv1.PolicyRule {
 	return rbacv1.PolicyRule{
-		APIGroups: stringListToSilce(apiGroup),
+		APIGroups: stringListToSlice(apiGroup),
 		Resources: resources,
-		Verbs:     stringListToSilce("get", "list", "watch", "create", "update", "delete"),
+		Verbs:     stringListToSlice("get", "list", "watch", "create", "update", "delete"),
 	}
 }
 
@@ -650,7 +643,7 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 				ProgressTimeout:                   &progressTimeout,
 			},
 			WorkloadUpdateStrategy: &hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
-				WorkloadUpdateMethods: []string{"LiveMigrate", "Evict"},
+				WorkloadUpdateMethods: stringListToSlice("LiveMigrate", "Evict"),
 				BatchEvictionSize:     &batchEvictionSize,
 				BatchEvictionInterval: &batchEvictionInterval,
 			},
@@ -733,7 +726,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		Type:                    csvv1alpha1.ValidatingAdmissionWebhook,
 		DeploymentName:          hcoWhDeploymentName,
 		ContainerPort:           util.WebhookPort,
-		AdmissionReviewVersions: []string{"v1beta1", "v1"},
+		AdmissionReviewVersions: stringListToSlice("v1beta1", "v1"),
 		SideEffects:             &sideEffect,
 		FailurePolicy:           &failurePolicy,
 		TimeoutSeconds:          &webhookTimeout,
@@ -745,9 +738,9 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 					admissionregistrationv1.Update,
 				},
 				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{util.APIVersionGroup},
-					APIVersions: []string{util.APIVersionAlpha, util.APIVersionBeta},
-					Resources:   []string{"hyperconvergeds"},
+					APIGroups:   stringListToSlice(util.APIVersionGroup),
+					APIVersions: stringListToSlice(util.APIVersionAlpha, util.APIVersionBeta),
+					Resources:   stringListToSlice("hyperconvergeds"),
 				},
 			},
 		},
@@ -762,7 +755,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
 		DeploymentName:          hcoWhDeploymentName,
 		ContainerPort:           util.WebhookPort,
-		AdmissionReviewVersions: []string{"v1beta1", "v1"},
+		AdmissionReviewVersions: stringListToSlice("v1beta1", "v1"),
 		SideEffects:             &mutatingWebhookSideEffects,
 		FailurePolicy:           &failurePolicy,
 		TimeoutSeconds:          &webhookTimeout,
@@ -776,8 +769,8 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				},
 				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{""},
-					APIVersions: []string{"v1"},
-					Resources:   []string{"namespaces"},
+					APIVersions: stringListToSlice("v1"),
+					Resources:   stringListToSlice("namespaces"),
 				},
 			},
 		},
@@ -810,7 +803,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		Spec: csvv1alpha1.ClusterServiceVersionSpec{
 			DisplayName: params.DisplayName,
 			Description: params.Description,
-			Keywords:    []string{"KubeVirt", "Virtualization"},
+			Keywords:    stringListToSlice("KubeVirt", "Virtualization"),
 			Version:     csvVersion.OperatorVersion{Version: params.Version},
 			Replaces:    params.Replaces,
 			Maintainers: []csvv1alpha1.Maintainer{
@@ -888,57 +881,57 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 								DisplayName: "Infra components node affinity",
 								Description: "nodeAffinity describes node affinity scheduling rules for the infra pods.",
 								Path:        "infra.nodePlacement.affinity.nodeAffinity",
-								XDescriptors: []string{
+								XDescriptors: stringListToSlice(
 									"urn:alm:descriptor:com.tectonic.ui:nodeAffinity",
-								},
+								),
 							},
 							{
 								DisplayName: "Infra components pod affinity",
 								Description: "podAffinity describes pod affinity scheduling rules for the infra pods.",
 								Path:        "infra.nodePlacement.affinity.podAffinity",
-								XDescriptors: []string{
+								XDescriptors: stringListToSlice(
 									"urn:alm:descriptor:com.tectonic.ui:podAffinity",
-								},
+								),
 							},
 							{
 								DisplayName: "Infra components pod anti-affinity",
 								Description: "podAntiAffinity describes pod anti affinity scheduling rules for the infra pods.",
 								Path:        "infra.nodePlacement.affinity.podAntiAffinity",
-								XDescriptors: []string{
+								XDescriptors: stringListToSlice(
 									"urn:alm:descriptor:com.tectonic.ui:podAntiAffinity",
-								},
+								),
 							},
 							{
 								DisplayName: "Workloads components node affinity",
 								Description: "nodeAffinity describes node affinity scheduling rules for the workloads pods.",
 								Path:        "workloads.nodePlacement.affinity.nodeAffinity",
-								XDescriptors: []string{
+								XDescriptors: stringListToSlice(
 									"urn:alm:descriptor:com.tectonic.ui:nodeAffinity",
-								},
+								),
 							},
 							{
 								DisplayName: "Workloads components pod affinity",
 								Description: "podAffinity describes pod affinity scheduling rules for the workloads pods.",
 								Path:        "workloads.nodePlacement.affinity.podAffinity",
-								XDescriptors: []string{
+								XDescriptors: stringListToSlice(
 									"urn:alm:descriptor:com.tectonic.ui:podAffinity",
-								},
+								),
 							},
 							{
 								DisplayName: "Workloads components pod anti-affinity",
 								Description: "podAntiAffinity describes pod anti affinity scheduling rules for the workloads pods.",
 								Path:        "workloads.nodePlacement.affinity.podAntiAffinity",
-								XDescriptors: []string{
+								XDescriptors: stringListToSlice(
 									"urn:alm:descriptor:com.tectonic.ui:podAntiAffinity",
-								},
+								),
 							},
 							{
 								DisplayName: "HIDDEN FIELDS - operator version",
 								Description: "HIDDEN FIELDS - operator version.",
 								Path:        "version",
-								XDescriptors: []string{
+								XDescriptors: stringListToSlice(
 									"urn:alm:descriptor:com.tectonic.ui:hidden",
-								},
+								),
 							},
 						},
 						StatusDescriptors: []csvv1alpha1.StatusDescriptor{},
@@ -1018,7 +1011,7 @@ func getLivenessProbe() *corev1.Probe {
 	}
 }
 
-func stringListToSilce(words ...string) []string {
+func stringListToSlice(words ...string) []string {
 	return words
 }
 

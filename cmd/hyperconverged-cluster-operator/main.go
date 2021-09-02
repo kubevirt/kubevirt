@@ -5,10 +5,15 @@ import (
 	"fmt"
 	"os"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
+
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftroutev1 "github.com/openshift/api/route/v1"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	operatorsapiv2 "github.com/operator-framework/api/pkg/operators/v2"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,7 +30,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	apiclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -67,6 +71,7 @@ var (
 		apiextensionsv1.AddToScheme,
 		kubevirtv1.AddToScheme,
 		coordinationv1.AddToScheme,
+		operatorsapiv2.AddToScheme,
 	}
 )
 
@@ -102,7 +107,7 @@ func main() {
 	// apiclient.New() returns a client without cache.
 	// cache is not initialized before mgr.Start()
 	// we need this because we need to interact with OperatorCondition
-	apiClient, err := apiclient.New(mgr.GetConfig(), apiclient.Options{
+	apiClient, err := client.New(mgr.GetConfig(), client.Options{
 		Scheme: mgr.GetScheme(),
 	})
 	cmdHelper.ExitOnError(err, "Cannot create a new API client")
@@ -123,8 +128,33 @@ func main() {
 	err = mgr.AddReadyzCheck("ready", readyCheck)
 	cmdHelper.ExitOnError(err, "unable to add ready check")
 
-	// Setup all Controllers
-	if err := hyperconverged.RegisterReconciler(mgr, ci); err != nil {
+	// Force OperatorCondition Upgradeable to False
+	//
+	// We have to at least default the condition to False or
+	// OLM will use the Readiness condition via our readiness probe instead:
+	// https://olm.operatorframework.io/docs/advanced-tasks/communicating-operator-conditions-to-olm/#setting-defaults
+	//
+	// We want to force it to False to ensure that the final decision about whether
+	// the operator can be upgraded stays within the hyperconverged controller.
+	logger.Info("Setting OperatorCondition.")
+	upgradeableCondition, err := hcoutil.NewOperatorCondition(ci, apiClient, operatorsapiv2.Upgradeable)
+	cmdHelper.ExitOnError(err, "Cannot create the Upgradeable Operator Condition")
+
+	err = wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
+		err := upgradeableCondition.Set(ctx, metav1.ConditionFalse, hcoutil.UpgradeableInitReason, hcoutil.UpgradeableInitMessage)
+		if err != nil {
+			logger.Error(err, "Cannot set the status of the Upgradeable Operator Condition; "+err.Error())
+		}
+		return err == nil, nil
+	})
+	cmdHelper.ExitOnError(err, "Failed to set the status of the Upgradeable Operator Condition")
+
+	// re-create the condition, this time with the final client
+	upgradeableCondition, err = hcoutil.NewOperatorCondition(ci, mgr.GetClient(), operatorsapiv2.Upgradeable)
+	cmdHelper.ExitOnError(err, "Cannot create Upgradeable Operator Condition")
+
+	// Create a new reconciler
+	if err := hyperconverged.RegisterReconciler(mgr, ci, upgradeableCondition); err != nil {
 		logger.Error(err, "")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register HyperConverged controller; "+err.Error())
 		os.Exit(1)
@@ -135,6 +165,7 @@ func main() {
 
 	logger.Info("Starting the Cmd.")
 	eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Init", "Starting the HyperConverged Pod")
+
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		logger.Error(err, "Manager exited non-zero")

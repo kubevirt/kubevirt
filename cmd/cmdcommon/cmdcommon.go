@@ -9,9 +9,10 @@ import (
 	"os"
 	"runtime"
 
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"

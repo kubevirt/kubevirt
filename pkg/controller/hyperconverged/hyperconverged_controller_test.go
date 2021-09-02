@@ -5,34 +5,28 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"os"
 	"time"
-
-	apimetav1 "k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/util/yaml"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimetav1 "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8sTime "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/reference"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	// TODO: Move to envtest to get an actual api server
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -42,6 +36,9 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
 // name and namespace of our primary resource
@@ -51,6 +48,20 @@ const (
 )
 
 var _ = Describe("HyperconvergedController", func() {
+
+	getClusterInfo := hcoutil.GetClusterInfo
+
+	BeforeSuite(func() {
+		hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+			return &ClusterInfoMock{}
+		}
+	})
+
+	AfterSuite(func() {
+		hcoutil.GetClusterInfo = getClusterInfo
+	})
+
+	_ = os.Setenv(hcoutil.OperatorConditionNameEnvVar, "OPERATOR_CONDITION")
 
 	Describe("Reconcile HyperConverged", func() {
 		Context("HCO Lifecycle", func() {
@@ -68,6 +79,7 @@ var _ = Describe("HyperconvergedController", func() {
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{}))
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 			})
 
 			It("should ignore invalid requests", func() {
@@ -124,6 +136,7 @@ var _ = Describe("HyperconvergedController", func() {
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 
 				// Get the HCO
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -617,8 +630,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("Should not be ready if one of the operands is returns error, on create", func() {
-				hcoutil.SetReady(true)
-				Expect(checkHcoReady()).To(BeTrue())
 				hco := commonTestUtils.NewHco()
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
 				cl.InitiateCreateErrors(func(obj client.Object) error {
@@ -653,11 +664,9 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 				}
 				Expect(foundCond).To(BeTrue())
-
-				Expect(checkHcoReady()).To(BeFalse())
 			})
 
-			It("Should not be ready if one of the operands is returns error, on update", func() {
+			It("Should be ready even if one of the operands is returns error, on update", func() {
 				expected := getBasicDeployment()
 				expected.kv.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
 					FeatureGates: []string{"fakeFg"}, // force update
@@ -670,9 +679,6 @@ var _ = Describe("HyperconvergedController", func() {
 					return nil
 				})
 
-				hcoutil.SetReady(true)
-				Expect(checkHcoReady()).To(BeTrue())
-
 				hco := commonTestUtils.NewHco()
 				r := initReconciler(cl, nil)
 
@@ -682,16 +688,16 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
 
 				// Get the HCO
-				foundResource := &hcov1beta1.HyperConverged{}
+				foundHyperConverged := &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
-						foundResource),
+						foundHyperConverged),
 				).To(BeNil())
 
 				// Check condition
 				foundCond := false
-				for _, cond := range foundResource.Status.Conditions {
+				for _, cond := range foundHyperConverged.Status.Conditions {
 					if cond.Type == hcov1beta1.ConditionReconcileComplete {
 						foundCond = true
 						Expect(cond.Status).Should(Equal(metav1.ConditionFalse))
@@ -700,8 +706,6 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 				}
 				Expect(foundCond).To(BeTrue())
-
-				Expect(checkHcoReady()).To(BeFalse())
 			})
 
 			It("should remove the kubevirt-config CM not in upgrade", func() {
@@ -838,6 +842,28 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.Status.Conditions = origConditions
 			})
 
+			It("Should update OperatorCondition Upgradeable to False", func() {
+				_ = commonTestUtils.GetScheme() // ensure the scheme is loaded so this test can be focused
+
+				expected := getBasicDeployment()
+
+				// old HCO Version is set
+				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+
+				cl := expected.initClient()
+				r := initReconciler(cl, nil)
+
+				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
+				if r.ownVersion == "" {
+					r.ownVersion = version.Version
+				}
+
+				_, err := r.Reconcile(context.TODO(), request)
+				Expect(err).To(BeNil())
+
+				validateOperatorCondition(r, metav1.ConditionFalse, hcoutil.UpgradeableUpgradingReason, hcoutil.UpgradeableUpgradingMessage)
+			})
+
 			It("Should update HCO Version Id in the CR on init", func() {
 
 				expected.hco.Status.Conditions = nil
@@ -886,6 +912,8 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 
+				validateOperatorCondition(reconciler, metav1.ConditionFalse, hcoutil.UpgradeableUpgradingReason, hcoutil.UpgradeableUpgradingMessage)
+
 				// now, complete the upgrade
 				expected.cdi.Status.Conditions = getGenericCompletedConditions()
 				cl = expected.initClient()
@@ -901,7 +929,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				// Call again, to start complete the upgrade
 				// check that the image Id is set, now, when upgrade is completed
-				foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
 				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, metav1.ConditionTrue)
 
@@ -910,6 +938,13 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ver).Should(Equal(newVersion))
 				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				validateOperatorCondition(reconciler, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
+
+				// Call again, to start complete the upgrade
+				// check that the image Id is set, now, when upgrade is completed
+				_, _, requeue = doReconcile(cl, expected.hco, reconciler)
+				Expect(requeue).To(BeFalse())
+				validateOperatorCondition(reconciler, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 			})
 
 			It("detect upgrade w/o HCO Version", func() {
@@ -985,9 +1020,6 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 					Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
-					hcoReady := checkHcoReady()
-					Expect(hcoReady).To(BeFalse())
-
 					// check that the upgrade is not done if the not all the versions are match.
 					// Conditions are valid
 					makeComponentReady()
@@ -1007,9 +1039,6 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 					Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
-					hcoReady = checkHcoReady()
-					Expect(hcoReady).To(BeFalse())
-
 					// now, complete the upgrade
 					updateComponentVersion()
 
@@ -1026,9 +1055,6 @@ var _ = Describe("HyperconvergedController", func() {
 					cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 					Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
 					Expect(cond.Reason).Should(Equal("ReconcileCompleted"))
-
-					hcoReady = checkHcoReady()
-					Expect(hcoReady).To(BeTrue())
 				},
 				Entry(
 					"don't complete upgrade if kubevirt version is not match to the kubevirt version env ver",
