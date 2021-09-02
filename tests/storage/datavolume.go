@@ -923,7 +923,12 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			// bytes of difference.
 			// A VM cannot do sub-512 byte accesses anyway, so such small size
 			// differences are practically equal.
-			return math.Abs((float64)(a-b)) < 512
+			if math.Abs((float64)(a-b)) >= 512 {
+				By(fmt.Sprintf("Image sizes not equal, %d - %d >= 512", a, b))
+				return false
+			} else {
+				return true
+			}
 		}
 		getImageSize := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, withOCS bool) int64 {
 			var imageSize int64
