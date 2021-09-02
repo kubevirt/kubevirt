@@ -4215,6 +4215,11 @@ func (in *VirtualMachineStatus) DeepCopyInto(out *VirtualMachineStatus) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.RestoreInProgress != nil {
+		in, out := &in.RestoreInProgress, &out.RestoreInProgress
+		*out = new(string)
+		**out = **in
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]VirtualMachineCondition, len(*in))
