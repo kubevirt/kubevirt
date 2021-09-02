@@ -105,7 +105,7 @@ type OwnershipManagerInterface interface {
 	SetFileOwnership(file string) error
 }
 
-func GetEphemeralBackingSourceBlockDevices(domain api.Domain) map[string]bool {
+func GetEphemeralBackingSourceBlockDevices(domain *api.Domain) map[string]bool {
 	isDevEphemeralBackingSource := make(map[string]bool)
 	for _, disk := range domain.Spec.Devices.Disks {
 		if disk.BackingStore != nil && disk.BackingStore.Source != nil {
