@@ -43,10 +43,6 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        - name: CONVERSION_CONTAINER
-          value: quay.io/kubevirt/kubevirt-v2v-conversion@sha256:c620233c71b805004c2cd38927c421b69d99b27cb40af521967e655882b2f815
-        - name: VMWARE_CONTAINER
-          value: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
         - name: VIRTIOWIN_CONTAINER
           value: quay.io/kubevirt/virtio-container-disk@sha256:77c448875247bf4dbeaa0b9b1b720c0f30bb8177628061c592ce7a68863a96c2
         - name: SMBIOS
@@ -69,8 +65,6 @@ spec:
           value: v0.10.0
         - name: HPPO_VERSION
           value: v0.9.0
-        - name: VM_IMPORT_VERSION
-          value: v0.4.0
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -663,58 +657,6 @@ spec:
         name: hostpath-provisioner-operator
         resources: {}
       serviceAccountName: hostpath-provisioner-operator
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/component: import
-    app.kubernetes.io/part-of: hyperconverged-cluster
-    app.kubernetes.io/version: 1.6.0
-    name: vm-import-operator
-  name: vm-import-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: vm-import-operator
-      operator.v2v.kubevirt.io: ""
-  strategy: {}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: import
-        app.kubernetes.io/part-of: hyperconverged-cluster
-        app.kubernetes.io/version: 1.6.0
-        name: vm-import-operator
-        operator.v2v.kubevirt.io: ""
-    spec:
-      containers:
-      - env:
-        - name: DEPLOY_CLUSTER_RESOURCES
-          value: "true"
-        - name: OPERATOR_VERSION
-          value: v0.4.0
-        - name: CONTROLLER_IMAGE
-          value: quay.io/kubevirt/vm-import-controller@sha256:349098d0dcc30c01135ea761abd2dad1367b737d8523c8d01508cb7797d48e93
-        - name: PULL_POLICY
-          value: IfNotPresent
-        - name: WATCH_NAMESPACE
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: MONITORING_NAMESPACE
-          value: openshift-monitoring
-        - name: VIRTV2V_IMAGE
-          value: quay.io/kubevirt/vm-import-virtv2v@sha256:595793a0178d13553ad5f43268988de5fa98bfd764a4fb5f40922a2a372010b8
-        image: quay.io/kubevirt/vm-import-operator@sha256:2bd7063e6c6a4cb88412738b5257bad3615d9a18359ce472fb75e0fd70dafed2
-        imagePullPolicy: IfNotPresent
-        name: vm-import-operator
-        resources: {}
-      securityContext:
-        runAsNonRoot: true
-      serviceAccountName: vm-import-operator
 ---
 apiVersion: v1
 kind: Service

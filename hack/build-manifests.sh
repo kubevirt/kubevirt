@@ -208,25 +208,6 @@ function create_hpp_csv() {
   echo "${operatorName}"
 }
 
-function create_vm_import_csv() {
-  local operatorName="vm-import-operator"
-  local containerPrefix="${VMIMPORT_OPERATOR_IMAGE%/*}"
-
-  local dumpCRDsArg="--dump-crds"
-  local operatorArgs=" \
-    --csv-version=${CSV_VERSION} \
-    --operator-version=${VM_IMPORT_VERSION} \
-    --operator-image=${VMIMPORT_OPERATOR_IMAGE} \
-    --controller-image=${VMIMPORT_CONTROLLER_IMAGE} \
-    --namespace=${OPERATOR_NAMESPACE} \
-    --virtv2v-image=${VMIMPORT_VIRTV2V_IMAGE} \
-    --pull-policy=IfNotPresent \
-  "
-
-  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} "${VMIMPORT_OPERATOR_IMAGE}" ${dumpCRDsArg} ${operatorArgs}
-  echo "${operatorName}"
-}
-
 TEMPDIR=$(mktemp -d) || (echo "Failed to create temp directory" && exit 1)
 pushd $TEMPDIR
 virtFile=$(create_virt_csv)
@@ -241,8 +222,6 @@ nmoFile=$(create_nmo_csv)
 nmoCsv="${TEMPDIR}/${nmoFile}.${CSV_EXT}"
 hhpFile=$(create_hpp_csv)
 hppCsv="${TEMPDIR}/${hhpFile}.${CSV_EXT}"
-vmImportFile=$(create_vm_import_csv)
-importCsv="${TEMPDIR}/${vmImportFile}.${CSV_EXT}"
 csvOverrides="${TEMPDIR}/csv_overrides.${CSV_EXT}"
 keywords="  keywords:
   - KubeVirt
@@ -288,7 +267,7 @@ EOM
 )
 
 # validate CSVs. Make sure each one of them contain an image (and so, also not empty):
-csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${cdiCsv}" "${nmoCsv}" "${hppCsv}" "${importCsv}")
+csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${cdiCsv}" "${nmoCsv}" "${hppCsv}")
 for csv in "${csvs[@]}"; do
   grep -E "^ *image: [a-zA-Z0-9/\.:@\-]+$" ${csv}
 done
@@ -303,9 +282,6 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --cdi-csv="$(<${cdiCsv})" \
   --nmo-csv="$(<${nmoCsv})" \
   --hpp-csv="$(<${hppCsv})" \
-  --vmimport-csv="$(<${importCsv})" \
-  --ims-conversion-image-name="${CONVERSION_IMAGE}" \
-  --ims-vmware-image-name="${VMWARE_IMAGE}" \
   --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
   --smbios="${SMBIOS}" \
@@ -316,7 +292,6 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --ssp-version="${SSP_VERSION}" \
   --nmo-version="${NMO_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
-  --vm-import-version="${VM_IMPORT_VERSION}" \
   --operator-image="${HCO_OPERATOR_IMAGE}" \
   --webhook-image="${HCO_WEBHOOK_IMAGE}" \
   --cli-downloads-image="${HCO_DOWNLOADS_IMAGE}"
@@ -340,9 +315,6 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cdi-csv="$(<${cdiCsv})" \
   --nmo-csv="$(<${nmoCsv})" \
   --hpp-csv="$(<${hppCsv})" \
-  --vmimport-csv="$(<${importCsv})" \
-  --ims-conversion-image-name="${CONVERSION_IMAGE}" \
-  --ims-vmware-image-name="${VMWARE_IMAGE}" \
   --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
   --csv-version=${CSV_VERSION_PARAM} \
   --replaces-csv-version=${REPLACES_CSV_VERSION} \
@@ -360,7 +332,6 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --ssp-version="${SSP_VERSION}" \
   --nmo-version="${NMO_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
-  --vm-import-version="${VM_IMPORT_VERSION}" \
   --related-images-list="${DIGEST_LIST}" \
   --operator-image-name="${HCO_OPERATOR_IMAGE}" \
   --webhook-image-name="${HCO_WEBHOOK_IMAGE}" \

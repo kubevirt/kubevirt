@@ -23,7 +23,6 @@ import (
 
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
@@ -52,7 +51,6 @@ var _ = Describe("webhooks validator", func() {
 		kubevirtv1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspv1beta1.AddToScheme,
-		vmimportv1beta1.AddToScheme,
 		corev1.AddToScheme,
 	} {
 		Expect(f(s)).To(BeNil())

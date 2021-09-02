@@ -5,7 +5,6 @@ import (
 	"fmt"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -34,11 +33,9 @@ import (
 
 // Name and Namespace of our primary resource
 const (
-	Name            = "kubevirt-hyperconverged"
-	Namespace       = "kubevirt-hyperconverged"
-	ConversionImage = "quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0"
-	VmwareImage     = "quay.io/kubevirt/kubevirt-vmware:v2.0.0"
-	VirtioWinImage  = "quay.io/kubevirt/virtio-container-disk:v2.0.0"
+	Name           = "kubevirt-hyperconverged"
+	Namespace      = "kubevirt-hyperconverged"
+	VirtioWinImage = "quay.io/kubevirt/virtio-container-disk:v2.0.0"
 )
 
 var (
@@ -139,7 +136,6 @@ func GetScheme() *runtime.Scheme {
 		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspv1beta1.AddToScheme,
-		vmimportv1beta1.AddToScheme,
 		consolev1.AddToScheme,
 		monitoringv1.AddToScheme,
 		apiextensionsv1.AddToScheme,

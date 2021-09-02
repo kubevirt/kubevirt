@@ -56,8 +56,6 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("HCO Lifecycle", func() {
 
 			BeforeEach(func() {
-				_ = os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
-				_ = os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
 				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
@@ -200,7 +198,6 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.cdi.Status.Conditions = nil
 				expected.cna.Status.Conditions = nil
 				expected.ssp.Status.Conditions = nil
-				expected.vmi.Status.Conditions = nil
 				cl := expected.initClient()
 
 				r := initReconciler(cl, nil)
@@ -554,7 +551,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(16))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(14))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO
@@ -767,8 +764,6 @@ var _ = Describe("HyperconvergedController", func() {
 			)
 
 			BeforeEach(func() {
-				_ = os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
-				_ = os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
 				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
@@ -825,8 +820,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			BeforeEach(func() {
-				_ = os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
-				_ = os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
 				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 
@@ -838,9 +831,6 @@ var _ = Describe("HyperconvergedController", func() {
 
 				expected.cna.Status.ObservedVersion = newComponentVersion
 				_ = os.Setenv(hcoutil.CnaoVersionEnvV, newComponentVersion)
-
-				expected.vmi.Status.ObservedVersion = newComponentVersion
-				_ = os.Setenv(hcoutil.VMImportEnvV, newComponentVersion)
 
 				_ = os.Setenv(hcoutil.SspVersionEnvV, newComponentVersion)
 				expected.ssp.Status.ObservedVersion = newComponentVersion
@@ -1081,21 +1071,6 @@ var _ = Describe("HyperconvergedController", func() {
 					},
 					func() {
 						expected.cna.Status.ObservedVersion = newComponentVersion
-					},
-				),
-				Entry(
-					"don't complete upgrade if VM-Import version is not match to the VM-Import version env ver",
-					func() {
-						expected.vmi.Status.ObservedVersion = ""
-						// VM-Import is not ready
-						expected.vmi.Status.Conditions = getGenericProgressingConditions()
-					},
-					func() {
-						// VM-Import is now ready
-						expected.vmi.Status.Conditions = getGenericCompletedConditions()
-					},
-					func() {
-						expected.vmi.Status.ObservedVersion = newComponentVersion
 					},
 				),
 			)
@@ -1568,116 +1543,6 @@ progressTimeout: 150`,
 				})
 			})
 
-			Context("Adopt IMS Config on upgrade", func() {
-
-				It("should adopt IMS config into HC CR", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-
-					vddkInitImageValue := "vddk-init-image-value-to-be-preserved"
-					vddkk := "vddk-init-image"
-
-					expected.imsConfig.Data[vddkk] = vddkInitImageValue
-
-					cl := expected.initClient()
-					foundHC, reconciler, requeue := doReconcile(cl, expected.hco, nil)
-					Expect(requeue).To(BeTrue())
-					checkAvailability(foundHC, metav1.ConditionUnknown)
-
-					By("Check that the spec.VddkInitImage is now populated")
-					Expect(foundHC.Spec.VddkInitImage).ShouldNot(BeNil())
-					Expect(*foundHC.Spec.VddkInitImage).Should(Equal(vddkInitImageValue))
-
-					By("Run reconcile again")
-					expected.hco = foundHC
-					cl = expected.initClient()
-					foundHC, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
-					Expect(requeue).To(BeTrue())
-					checkAvailability(foundHC, metav1.ConditionTrue)
-
-					By("Check that IMS cm still contains the expected values")
-					vmiCM, err := operands.NewIMSConfigForCR(foundHC, namespace)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmiCM, log)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmiCM.Data).ShouldNot(BeNil())
-					Expect(vmiCM.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
-
-					// call again, make sure this time the requeue is false
-					foundHC, _, requeue = doReconcile(cl, expected.hco, reconciler)
-					Expect(requeue).To(BeFalse())
-					ver, ok := foundHC.Status.GetVersion(hcoVersionName)
-					Expect(ok).To(BeTrue())
-					Expect(ver).Should(Equal(newVersion))
-				})
-
-				It("should ignore IMS value if already exists in HC CR", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-
-					vddkInitImageValue := "vddk-init-image-value-to-be-overwritten"
-					vddkk := "vddk-init-image"
-
-					expected.imsConfig.Data[vddkk] = vddkInitImageValue
-
-					hcoVddkInitImageValue := "vddk-init-image-value-to-be-preserved"
-					expected.hco.Spec.VddkInitImage = &hcoVddkInitImageValue
-
-					resources := expected.toArray()
-					cl := commonTestUtils.InitClient(resources)
-
-					foundHC, _, requeue := doReconcile(cl, expected.hco, nil)
-					Expect(requeue).To(BeTrue())
-					checkAvailability(foundHC, metav1.ConditionTrue)
-
-					By("Check that the spec.VddkInitImage has not been updated on HCO CR")
-					Expect(foundHC.Spec.VddkInitImage).ShouldNot(BeNil())
-					Expect(*foundHC.Spec.VddkInitImage).Should(Equal(hcoVddkInitImageValue))
-					Expect(*foundHC.Spec.VddkInitImage).Should(Not(Equal(vddkInitImageValue)))
-
-					By("Check that IMS CM value is now the same as HCO's")
-					vmiCM, err := operands.NewIMSConfigForCR(foundHC, namespace)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmiCM, log)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmiCM.Data).ShouldNot(BeNil())
-					Expect(vmiCM.Data).To(HaveKeyWithValue(vddkk, hcoVddkInitImageValue))
-
-				})
-
-				It("TODO: should ignore IMS config into HC CR if there is no change", func() {
-					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
-
-					vddkInitImageValue := "vddk-init-image-value-to-be-preserved"
-					vddkk := "vddk-init-image"
-
-					expected.imsConfig.Data[vddkk] = vddkInitImageValue
-
-					expected.hco.Spec.VddkInitImage = &vddkInitImageValue
-
-					resources := expected.toArray()
-					cl := commonTestUtils.InitClient(resources)
-
-					foundHC, _, requeue := doReconcile(cl, expected.hco, nil)
-					Expect(requeue).To(BeTrue())
-					checkAvailability(foundHC, metav1.ConditionTrue)
-
-					By("Check that the spec.VddkInitImage has not been updated on HCO CR")
-					Expect(foundHC.Spec.VddkInitImage).ShouldNot(BeNil())
-					Expect(*foundHC.Spec.VddkInitImage).Should(Equal(vddkInitImageValue))
-
-					By("Check that IMS CM value is still the same as HCO's")
-					vmiCM, err := operands.NewIMSConfigForCR(foundHC, namespace)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmiCM, log)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmiCM.Data).ShouldNot(BeNil())
-					Expect(vmiCM.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
-				})
-
-			})
-
 			Context("Remove deprecated versions from .status.storedVersions on the CRD", func() {
 
 				It("should update .status.storedVersions on the HCO CRD during upgrades", func() {
@@ -1733,6 +1598,305 @@ progressTimeout: 150`,
 					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1alpha1"))
 					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1beta1"))
 					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1"))
+
+				})
+
+			})
+
+			Context("Remove v2v CRDs and related objects", func() {
+
+				var (
+					currentCRDs          []*apiextensionsv1.CustomResourceDefinition
+					oldCRDs              []*apiextensionsv1.CustomResourceDefinition
+					oldCRDRelatedObjects []corev1.ObjectReference
+					otherRelatedObjects  []corev1.ObjectReference
+				)
+
+				BeforeEach(func() {
+					currentCRDs = []*apiextensionsv1.CustomResourceDefinition{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "cdis.cdi.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "hostpathprovisioners.hostpathprovisioner.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "kubevirts.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "nodemaintenances.nodemaintenance.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "ssps.ssp.kubevirt.io",
+							},
+						},
+					}
+					oldCRDs = []*apiextensionsv1.CustomResourceDefinition{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "vmimportconfigs.v2v.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "v2vvmwares.v2v.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "ovirtproviders.v2v.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "kubevirtcommontemplatesbundles.ssp.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "kubevirtmetricsaggregations.ssp.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "kubevirtnodelabellerbundles.ssp.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "kubevirttemplatevalidators.ssp.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "kubevirtcommontemplatesbundles.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "kubevirtmetricsaggregations.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "kubevirtnodelabellerbundles.kubevirt.io",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "kubevirttemplatevalidators.kubevirt.io",
+							},
+						},
+					}
+					oldCRDRelatedObjects = []corev1.ObjectReference{
+						{
+							APIVersion:      "v2v.kubevirt.io/v1alpha1",
+							Kind:            "VMImportConfig",
+							Name:            "vmimport-kubevirt-hyperconverged",
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "ssp.kubevirt.io/v1",
+							Kind:            "KubevirtCommonTemplatesBundle",
+							Name:            "common-templates-kubevirt-hyperconverged",
+							Namespace:       "openshift",
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "ssp.kubevirt.io/v1",
+							Kind:            "KubevirtNodeLabellerBundle",
+							Name:            "node-labeller-kubevirt-hyperconverged",
+							Namespace:       "kubevirt-hyperconverged",
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "ssp.kubevirt.io/v1",
+							Kind:            "KubevirtTemplateValidator",
+							Name:            "template-validator-kubevirt-hyperconverged",
+							Namespace:       "kubevirt-hyperconverged",
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "ssp.kubevirt.io/v1",
+							Kind:            "KubevirtMetricsAggregation",
+							Name:            "metrics-aggregation-kubevirt-hyperconverged",
+							Namespace:       "kubevirt-hyperconverged",
+							ResourceVersion: "999",
+						},
+					}
+					otherRelatedObjects = []corev1.ObjectReference{
+						{
+							APIVersion:      "v1",
+							Kind:            "Service",
+							Name:            "kubevirt-hyperconverged-operator-metrics",
+							Namespace:       "kubevirt-hyperconverged",
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "monitoring.coreos.com/v1",
+							Kind:            "ServiceMonitor",
+							Name:            "kubevirt-hyperconverged-operator-metrics",
+							Namespace:       "kubevirt-hyperconverged",
+							ResourceVersion: "999",
+						},
+						{
+							APIVersion:      "monitoring.coreos.com/v1",
+							Kind:            "PrometheusRule",
+							Name:            "kubevirt-hyperconverged-prometheus-rule",
+							Namespace:       "kubevirt-hyperconverged",
+							ResourceVersion: "999",
+						},
+					}
+				})
+
+				It("should remove v2v CRDs during upgrades", func() {
+					// Simulate ongoing upgrade
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+
+					resources := expected.toArray()
+					for _, r := range currentCRDs {
+						resources = append(resources, r)
+					}
+					for _, r := range oldCRDs {
+						resources = append(resources, r)
+					}
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					By("Run reconcile again")
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundCrds := apiextensionsv1.CustomResourceDefinitionList{}
+					Expect(cl.List(context.TODO(), &foundCrds)).To(BeNil())
+					crdNames := make([]string, len(foundCrds.Items))
+					for i := range crdNames {
+						crdNames[i] = foundCrds.Items[i].Name
+					}
+					Expect(crdNames).To(ContainElement(expected.hcoCRD.Name))
+					for _, c := range currentCRDs {
+						Expect(crdNames).To(ContainElement(c.Name))
+					}
+					for _, c := range oldCRDs {
+						Expect(crdNames).To(Not(ContainElement(c.Name)))
+					}
+				})
+
+				It("shouldn't remove v2v CRDs if upgrade isn't in progress", func() {
+					resources := expected.toArray()
+					for _, r := range currentCRDs {
+						resources = append(resources, r)
+					}
+					for _, r := range oldCRDs {
+						resources = append(resources, r)
+					}
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundCrds := apiextensionsv1.CustomResourceDefinitionList{}
+					Expect(cl.List(context.TODO(), &foundCrds)).To(BeNil())
+					crdNames := make([]string, len(foundCrds.Items))
+					for i := range crdNames {
+						crdNames[i] = foundCrds.Items[i].Name
+					}
+					Expect(crdNames).To(ContainElement(expected.hcoCRD.Name))
+					for _, c := range currentCRDs {
+						Expect(crdNames).To(ContainElement(c.Name))
+					}
+					for _, c := range oldCRDs {
+						Expect(crdNames).To(ContainElement(c.Name))
+					}
+				})
+
+				It("should remove v2v related objects if upgrade is in progress", func() {
+					// Simulate ongoing upgrade
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+
+					// Initialize RelatedObjects with a bunch of objects
+					// including old SSP ones.
+					for _, objRef := range oldCRDRelatedObjects {
+						Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
+					}
+					for _, objRef := range otherRelatedObjects {
+						Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
+					}
+
+					resources := expected.toArray()
+					for _, r := range currentCRDs {
+						resources = append(resources, r)
+					}
+					for _, r := range oldCRDs {
+						resources = append(resources, r)
+					}
+					cl := commonTestUtils.InitClient(resources)
+					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+
+					By("Run reconcile again")
+					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					By("Run reconcile again")
+					foundResource, _, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					for _, objRef := range oldCRDRelatedObjects {
+						Expect(foundResource.Status.RelatedObjects).ToNot(ContainElement(objRef))
+					}
+					for _, objRef := range otherRelatedObjects {
+						Expect(foundResource.Status.RelatedObjects).To(ContainElement(objRef))
+					}
+
+				})
+
+				It("should remove v2v related objects if upgrade isn't in progress", func() {
+					// Initialize RelatedObjects with a bunch of objects
+					// including old SSP ones.
+					for _, objRef := range oldCRDRelatedObjects {
+						Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
+					}
+					for _, objRef := range otherRelatedObjects {
+						Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, objRef)).ToNot(HaveOccurred())
+					}
+
+					resources := expected.toArray()
+					for _, r := range currentCRDs {
+						resources = append(resources, r)
+					}
+					for _, r := range oldCRDs {
+						resources = append(resources, r)
+					}
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeFalse())
+
+					for _, objRef := range oldCRDRelatedObjects {
+						Expect(foundResource.Status.RelatedObjects).To(ContainElement(objRef))
+					}
+					for _, objRef := range otherRelatedObjects {
+						Expect(foundResource.Status.RelatedObjects).To(ContainElement(objRef))
+					}
 
 				})
 

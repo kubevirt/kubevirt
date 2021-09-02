@@ -40,7 +40,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
@@ -60,7 +59,6 @@ var (
 		networkaddons.AddToScheme,
 		sspv1beta1.AddToScheme,
 		csvv1alpha1.AddToScheme,
-		vmimportv1beta1.AddToScheme,
 		admissionregistrationv1.AddToScheme,
 		consolev1.Install,
 		openshiftconfigv1.Install,
@@ -158,7 +156,6 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 				&cdiv1beta1.CDI{}:                      {},
 				&networkaddonsv1.NetworkAddonsConfig{}: {},
 				&sspv1beta1.SSP{}:                      {},
-				&vmimportv1beta1.VMImportConfig{}:      {},
 				&schedulingv1.PriorityClass{}: {
 					Label: labels.SelectorFromSet(labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}),
 				},

@@ -6,7 +6,6 @@ import (
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
-	"github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -24,9 +23,6 @@ var _ = Describe("Test operandHandler", func() {
 	Context("Test operandHandler", func() {
 		testFileLocation := getTestFilesLocation()
 
-		_ = os.Setenv("CONVERSION_CONTAINER", "just-a-value:version")
-		_ = os.Setenv("VMWARE_CONTAINER", "just-a-value:version")
-		_ = os.Setenv("VIRTIOWIN_CONTAINER", "just-a-value:version")
 		_ = os.Setenv(quickStartManifestLocationVarName, testFileLocation+"/quickstarts")
 		_ = os.Setenv(dashboardManifestLocationVarName, testFileLocation+"/dashboards")
 
@@ -68,16 +64,6 @@ var _ = Describe("Test operandHandler", func() {
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Created",
 					Msg:       "Created NetworkAddonsConfig cluster",
-				},
-				{
-					EventType: corev1.EventTypeNormal,
-					Reason:    "Created",
-					Msg:       "Created VMImportConfig vmimport-kubevirt-hyperconverged",
-				},
-				{
-					EventType: corev1.EventTypeNormal,
-					Reason:    "Created",
-					Msg:       "Created ConfigMap v2v-vmware",
 				},
 				{
 					EventType: corev1.EventTypeNormal,
@@ -140,16 +126,6 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(cdiList).ToNot(BeNil())
 				Expect(cdiList.Items).To(HaveLen(1))
 				Expect(cdiList.Items[0].Name).Should(Equal("cdi-kubevirt-hyperconverged"))
-			})
-
-			By("make sure the VM-Import object created", func() {
-				// Read back VM-Import
-				vmImportList := v1beta1.VMImportConfigList{}
-				err := cli.List(req.Ctx, &vmImportList)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmImportList).ToNot(BeNil())
-				Expect(vmImportList.Items).To(HaveLen(1))
-				Expect(vmImportList.Items[0].Name).Should(Equal("vmimport-kubevirt-hyperconverged"))
 			})
 
 			By("make sure the ConsoleQuickStart object created", func() {
@@ -249,11 +225,6 @@ var _ = Describe("Test operandHandler", func() {
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Killing",
-					Msg:       "Removed VMImportConfig vmimport-kubevirt-hyperconverged",
-				},
-				{
-					EventType: corev1.EventTypeNormal,
-					Reason:    "Killing",
 					Msg:       "Removed ConsoleQuickStart test-quick-start",
 				},
 				{
@@ -299,15 +270,6 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cdiList).ToNot(BeNil())
 				Expect(cdiList.Items).To(BeEmpty())
-			})
-
-			By("make sure the VM-Import object deleted", func() {
-				// Read back VM-Import
-				vmImportList := v1beta1.VMImportConfigList{}
-				err := cli.List(req.Ctx, &vmImportList)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmImportList).ToNot(BeNil())
-				Expect(vmImportList.Items).To(BeEmpty())
 			})
 
 			By("check that ConsoleQuickStart is deleted", func() {

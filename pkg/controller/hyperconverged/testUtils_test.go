@@ -9,7 +9,6 @@ import (
 	"os"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -79,8 +78,6 @@ type BasicExpected struct {
 	cdi                  *cdiv1beta1.CDI
 	cna                  *networkaddonsv1.NetworkAddonsConfig
 	ssp                  *sspv1beta1.SSP
-	vmi                  *vmimportv1beta1.VMImportConfig
-	imsConfig            *corev1.ConfigMap
 	mService             *corev1.Service
 	serviceMonitor       *monitoringv1.ServiceMonitor
 	promRule             *monitoringv1.PrometheusRule
@@ -101,8 +98,6 @@ func (be BasicExpected) toArray() []runtime.Object {
 		be.cdi,
 		be.cna,
 		be.ssp,
-		be.vmi,
-		be.imsConfig,
 		be.mService,
 		be.serviceMonitor,
 		be.promRule,
@@ -196,16 +191,6 @@ func getBasicDeployment() *BasicExpected {
 	expectedSSP.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedSSP.Namespace, expectedSSP.Name)
 	expectedSSP.Status.Conditions = getGenericCompletedConditions()
 	res.ssp = expectedSSP
-
-	expectedVMI := operands.NewVMImportForCR(hco)
-	expectedVMI.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedVMI.Namespace, expectedVMI.Name)
-	expectedVMI.Status.Conditions = getGenericCompletedConditions()
-	res.vmi = expectedVMI
-
-	res.imsConfig, err = operands.NewIMSConfigForCR(hco, namespace)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	res.imsConfig.Data["v2v-conversion-image"] = commonTestUtils.ConversionImage
-	res.imsConfig.Data["kubevirt-vmware-image"] = commonTestUtils.VmwareImage
 
 	expectedCliDownload := operands.NewConsoleCLIDownload(hco)
 	expectedCliDownload.SelfLink = fmt.Sprintf("/apis/console.openshift.io/v1/consoleclidownloads/%s", expectedCliDownload.Name)

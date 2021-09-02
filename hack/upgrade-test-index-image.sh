@@ -273,6 +273,23 @@ if [[ -n ${KV_CM_FOUND} ]]; then
   ${CMD} get cm kubevirt-config-backup -n ${HCO_NAMESPACE}
 fi
 
+Msg "Check that the v2v CRDs were removed"
+if ${CMD} get crd | grep -q v2v.kubevirt.io; then
+    echo "The v2v CRDs should not be found; they had to be removed."
+    exit 1
+else
+    echo "v2v CRDs removed"
+fi
+
+Msg "Check that the v2v references were removed from .status.relatedObjects"
+if ${CMD} -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} -o=jsonpath={.status.relatedObjects[*].apiVersion} | grep -q v2v.kubevirt.io; then
+    echo "v2v references should not be found in relatedObjects; they had to be removed."
+    exit 1
+else
+    echo "v2v references removed from .status.relatedObjects"
+fi
+
+
 Msg "Brutally delete HCO removing the namespace where it's running"
 source hack/test_delete_ns.sh
 test_delete_ns

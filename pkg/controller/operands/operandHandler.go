@@ -53,8 +53,6 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		(*genericOperand)(newConfigReaderRoleHandler(client, scheme)),
 		(*genericOperand)(newConfigReaderRoleBindingHandler(client, scheme)),
 		(*genericOperand)(newCnaHandler(client, scheme)),
-		(*genericOperand)(newVmImportHandler(client, scheme)),
-		(*genericOperand)(newImsConfigHandler(client, scheme)),
 		newKubeVirtCmHandler(client, eventEmitter),
 	}
 
@@ -155,7 +153,6 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 		NewNetworkAddonsWithNameOnly(req.Instance),
 		NewSSP(req.Instance),
 		NewConsoleCLIDownload(req.Instance),
-		NewVMImportForCR(req.Instance),
 	}
 
 	resources = append(resources, h.objects...)

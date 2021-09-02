@@ -47,33 +47,29 @@ var (
 
 // flags for the command line arguments we accept
 var (
-	cwd, _             = os.Getwd()
-	deployDir          = flag.String("deploy-dir", "deploy", "Directory where manifests should be written")
-	cnaCsv             = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
-	virtCsv            = flag.String("virt-csv", "", "KubeVirt CSV string")
-	sspCsv             = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
-	cdiCsv             = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
-	nmoCsv             = flag.String("nmo-csv", "", "Node Maintenance Operator CSV String")
-	hppCsv             = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
-	vmImportCsv        = flag.String("vmimport-csv", "", "Virtual Machine Import Operator CSV String")
-	operatorNamespace  = flag.String("operator-namespace", "kubevirt-hyperconverged", "Name of the Operator")
-	operatorImage      = flag.String("operator-image", "", "HyperConverged Cluster Operator image")
-	webhookImage       = flag.String("webhook-image", "", "HyperConverged Cluster Webhook image")
-	cliDownloadsImage  = flag.String("cli-downloads-image", "", "Downloads Server image")
-	imsConversionImage = flag.String("ims-conversion-image-name", "", "IMS conversion image")
-	imsVMWareImage     = flag.String("ims-vmware-image-name", "", "IMS VMWare image")
-	kvVirtIOWinImage   = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
-	smbios             = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
-	machinetype        = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
-	hcoKvIoVersion     = flag.String("hco-kv-io-version", "", "KubeVirt version")
-	kubevirtVersion    = flag.String("kubevirt-version", "", "Kubevirt operator version")
-	cdiVersion         = flag.String("cdi-version", "", "CDI operator version")
-	cnaoVersion        = flag.String("cnao-version", "", "CNA operator version")
-	sspVersion         = flag.String("ssp-version", "", "SSP operator version")
-	nmoVersion         = flag.String("nmo-version", "", "NM operator version")
-	hppoVersion        = flag.String("hppo-version", "", "HPP operator version")
-	vmImportVersion    = flag.String("vm-import-version", "", "VM-Import operator version")
-	apiSources         = flag.String("api-sources", cwd+"/...", "Project sources")
+	cwd, _            = os.Getwd()
+	deployDir         = flag.String("deploy-dir", "deploy", "Directory where manifests should be written")
+	cnaCsv            = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
+	virtCsv           = flag.String("virt-csv", "", "KubeVirt CSV string")
+	sspCsv            = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
+	cdiCsv            = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
+	nmoCsv            = flag.String("nmo-csv", "", "Node Maintenance Operator CSV String")
+	hppCsv            = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
+	operatorNamespace = flag.String("operator-namespace", "kubevirt-hyperconverged", "Name of the Operator")
+	operatorImage     = flag.String("operator-image", "", "HyperConverged Cluster Operator image")
+	webhookImage      = flag.String("webhook-image", "", "HyperConverged Cluster Webhook image")
+	cliDownloadsImage = flag.String("cli-downloads-image", "", "Downloads Server image")
+	kvVirtIOWinImage  = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
+	smbios            = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
+	machinetype       = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
+	hcoKvIoVersion    = flag.String("hco-kv-io-version", "", "KubeVirt version")
+	kubevirtVersion   = flag.String("kubevirt-version", "", "Kubevirt operator version")
+	cdiVersion        = flag.String("cdi-version", "", "CDI operator version")
+	cnaoVersion       = flag.String("cnao-version", "", "CNA operator version")
+	sspVersion        = flag.String("ssp-version", "", "SSP operator version")
+	nmoVersion        = flag.String("nmo-version", "", "NM operator version")
+	hppoVersion       = flag.String("hppo-version", "", "HPP operator version")
+	apiSources        = flag.String("api-sources", cwd+"/...", "Project sources")
 )
 
 // check handles errors
@@ -191,8 +187,6 @@ func main() {
 	// Write out CRDs and CR
 	writeOperatorCR()
 	writeOperatorCRD()
-	writeV2VCR()
-	writeV2VCRD()
 
 	// Write out deployments and services
 	writeOperatorDeploymentsAndServices(deployments, services)
@@ -398,50 +392,28 @@ func getCsvWithComponent() []util.CsvWithComponent {
 			Csv:       *hppCsv,
 			Component: hcoutil.AppComponentStorage,
 		},
-		{
-			Csv:       *vmImportCsv,
-			Component: hcoutil.AppComponentImport,
-		},
 	}
 	return componentsWithCsvs
 }
 
-func writeV2VCRD() {
-	v2voVirtCrd, err := os.Create(path.Join(*deployDir, "crds/v2vovirt.crd.yaml"))
-	check(err)
-	defer v2voVirtCrd.Close()
-	check(util.MarshallObject(components.GetV2VOvirtProviderCRD(), v2voVirtCrd))
-}
-
-func writeV2VCR() {
-	v2vCrd, err := os.Create(path.Join(*deployDir, "crds/v2vvmware.crd.yaml"))
-	check(err)
-	defer v2vCrd.Close()
-
-	check(util.MarshallObject(components.GetV2VCRD(), v2vCrd))
-}
-
 func getOperatorParameters() *components.DeploymentOperatorParams {
 	params := &components.DeploymentOperatorParams{
-		Namespace:           *operatorNamespace,
-		Image:               *operatorImage,
-		WebhookImage:        *webhookImage,
-		CliDownloadsImage:   *cliDownloadsImage,
-		ImagePullPolicy:     "IfNotPresent",
-		ConversionContainer: *imsConversionImage,
-		VmwareContainer:     *imsVMWareImage,
-		VirtIOWinContainer:  *kvVirtIOWinImage,
-		Smbios:              *smbios,
-		Machinetype:         *machinetype,
-		HcoKvIoVersion:      *hcoKvIoVersion,
-		KubevirtVersion:     *kubevirtVersion,
-		CdiVersion:          *cdiVersion,
-		CnaoVersion:         *cnaoVersion,
-		SspVersion:          *sspVersion,
-		NmoVersion:          *nmoVersion,
-		HppoVersion:         *hppoVersion,
-		VMImportVersion:     *vmImportVersion,
-		Env:                 []corev1.EnvVar{},
+		Namespace:          *operatorNamespace,
+		Image:              *operatorImage,
+		WebhookImage:       *webhookImage,
+		CliDownloadsImage:  *cliDownloadsImage,
+		ImagePullPolicy:    "IfNotPresent",
+		VirtIOWinContainer: *kvVirtIOWinImage,
+		Smbios:             *smbios,
+		Machinetype:        *machinetype,
+		HcoKvIoVersion:     *hcoKvIoVersion,
+		KubevirtVersion:    *kubevirtVersion,
+		CdiVersion:         *cdiVersion,
+		CnaoVersion:        *cnaoVersion,
+		SspVersion:         *sspVersion,
+		NmoVersion:         *nmoVersion,
+		HppoVersion:        *hppoVersion,
+		Env:                []corev1.EnvVar{},
 	}
 	return params
 }

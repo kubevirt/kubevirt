@@ -28,7 +28,6 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 )
 
 const (
@@ -68,7 +67,6 @@ type DeploymentOperatorParams struct {
 	SspVersion          string
 	NmoVersion          string
 	HppoVersion         string
-	VMImportVersion     string
 	Env                 []corev1.EnvVar
 }
 
@@ -205,14 +203,6 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 								Value: "",
 							},
 							{
-								Name:  "CONVERSION_CONTAINER",
-								Value: params.ConversionContainer,
-							},
-							{
-								Name:  "VMWARE_CONTAINER",
-								Value: params.VmwareContainer,
-							},
-							{
 								Name:  "VIRTIOWIN_CONTAINER",
 								Value: params.VirtIOWinContainer,
 							},
@@ -251,10 +241,6 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 							{
 								Name:  util.HppoVersionEnvV,
 								Value: params.HppoVersion,
-							},
-							{
-								Name:  util.VMImportEnvV,
-								Value: params.VMImportVersion,
 							},
 						}, params.Env...),
 						Resources: v1.ResourceRequirements{
@@ -443,7 +429,6 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		roleWithAllPermissions("cdi.kubevirt.io", stringListToSilce("cdis", "cdis/finalizers")),
 		roleWithAllPermissions("ssp.kubevirt.io", stringListToSilce("ssps", "ssps/finalizers")),
 		roleWithAllPermissions("networkaddonsoperator.network.kubevirt.io", stringListToSilce("networkaddonsconfigs", "networkaddonsconfigs/finalizers")),
-		roleWithAllPermissions("v2v.kubevirt.io", stringListToSilce("vmimportconfigs", "vmimportconfigs/finalizers")),
 		roleWithAllPermissions("", stringListToSilce("configmaps")),
 		{
 			APIGroups: emptyAPIGroup,
@@ -469,7 +454,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 				"apiextensions.k8s.io",
 			},
 			Resources: stringListToSilce("customresourcedefinitions"),
-			Verbs:     stringListToSilce("get", "list", "watch"),
+			Verbs:     stringListToSilce("get", "list", "watch", "delete"),
 		},
 		{
 			APIGroups: []string{
@@ -622,173 +607,6 @@ func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
 		}
 	}
 	return &c
-}
-
-var crdMeta = metav1.TypeMeta{
-	APIVersion: "apiextensions.k8s.io/v1",
-	Kind:       "CustomResourceDefinition",
-}
-
-func getSchemaInitialProps() map[string]extv1.JSONSchemaProps {
-	return map[string]extv1.JSONSchemaProps{
-		"apiVersion": {
-			Type: "string",
-			Description: `APIVersion defines the versioned schema of this representation
-                        of an object. Servers should convert recognized schemas to the latest
-                        internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources`,
-		},
-		"kind": {
-			Type: "string",
-			Description: `Kind is a string value representing the REST resource this
-                        object represents. Servers may infer this from the endpoint the client
-                        submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds`,
-		},
-		"metadata": {Type: objectType},
-	}
-}
-
-// TODO: remove once VMware provider is removed from HCO
-// GetV2VCRD creates CRD for v2v VMWare provider
-func GetV2VCRD() *extv1.CustomResourceDefinition {
-	versionSchema := &extv1.CustomResourceValidation{
-		OpenAPIV3Schema: &extv1.JSONSchemaProps{
-			Description: "V2VVmware is the Schema for the v2vvmwares API",
-			Type:        objectType,
-			Properties:  getSchemaInitialProps(),
-		},
-	}
-
-	versionSchema.OpenAPIV3Schema.Properties["spec"] = extv1.JSONSchemaProps{
-		Description: "V2VVmwareSpec defines the desired state of V2VVmware",
-		Type:        objectType,
-		Properties: map[string]extv1.JSONSchemaProps{
-			"connection": {Type: "string"},
-			"thumbprint": {Type: "string"},
-			"timeToLive": {Type: "string"},
-			"vms": {
-				Items: &extv1.JSONSchemaPropsOrArray{
-					Schema: &extv1.JSONSchemaProps{
-						Type: objectType,
-						Properties: map[string]extv1.JSONSchemaProps{
-							"detail": {
-								Type: objectType,
-								Properties: map[string]extv1.JSONSchemaProps{
-									"hostPath": {
-										Type: "string",
-									},
-									"raw": {
-										Type:        "string",
-										Description: "TODO: list required details",
-									},
-								},
-								Required: []string{"hostPath"},
-							},
-							"detailRequest": {Type: "boolean"},
-							"name":          {Type: "string"},
-						},
-						Required: []string{"name"},
-					},
-				},
-				Type: "array",
-			},
-		},
-	}
-	versionSchema.OpenAPIV3Schema.Properties["status"] = extv1.JSONSchemaProps{
-		Description: "V2VVmwareStatus defines the observed state of V2VVmware",
-		Type:        objectType,
-		Properties: map[string]extv1.JSONSchemaProps{
-			"phase": {
-				Type: "string",
-			},
-		},
-	}
-
-	names := extv1.CustomResourceDefinitionNames{
-		Plural:   "v2vvmwares",
-		Singular: "v2vvmware",
-		Kind:     "V2VVmware",
-		ListKind: "V2VVmwareList",
-	}
-
-	return getCrd("v2vvmwares."+vmimportv1beta1.SchemeGroupVersion.Group, versionSchema, names)
-}
-
-// TODO: remove once oVirt provider  is removed from HCO
-// GetV2VOvirtProviderCRD creates CRD for v2v oVirt provider
-func GetV2VOvirtProviderCRD() *extv1.CustomResourceDefinition {
-	versionSchema := &extv1.CustomResourceValidation{
-		OpenAPIV3Schema: &extv1.JSONSchemaProps{
-			Description: "OVirtProvider is the Schema for the ovirtproviders API",
-			Type:        objectType,
-			Properties: map[string]extv1.JSONSchemaProps{
-				"apiVersion": {
-					Type: "string",
-					Description: `APIVersion defines the versioned schema of this representation
-                        of an object. Servers should convert recognized schemas to the latest
-                        internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources`,
-				},
-				"kind": {
-					Type: "string",
-					Description: `Kind is a string value representing the REST resource this
-                        object represents. Servers may infer this from the endpoint the client
-                        submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds`,
-				},
-				"metadata": {Type: objectType},
-			},
-		},
-	}
-
-	versionSchema.OpenAPIV3Schema.Properties["spec"] = extv1.JSONSchemaProps{
-		Description: "OVirtProviderSpec defines the desired state of OVirtProvider",
-		Type:        objectType,
-		Properties: map[string]extv1.JSONSchemaProps{
-			"connection": {Type: "string"},
-			"timeToLive": {Type: "string"},
-			"vms": {
-				Items: &extv1.JSONSchemaPropsOrArray{
-					Schema: &extv1.JSONSchemaProps{
-						Description: "OVirtVM aligns with maintained UI interface",
-						Type:        objectType,
-						Properties: map[string]extv1.JSONSchemaProps{
-							"cluster": {Type: "string"},
-							"detail": {
-								Description: "OVirtVMDetail contains ovirt vm details as json string",
-								Type:        objectType,
-								Properties: map[string]extv1.JSONSchemaProps{
-									"raw": {Type: "string"},
-								},
-							},
-							"detailRequest": {Type: "boolean"},
-							"id":            {Type: "string"},
-							"name":          {Type: "string"},
-						},
-						Required: []string{"cluster", "id", "name"},
-					},
-				},
-				Type: "array",
-			},
-		},
-	}
-
-	versionSchema.OpenAPIV3Schema.Properties["status"] = extv1.JSONSchemaProps{
-		Description: "OVirtProviderStatus defines the observed state of OVirtProvider",
-		Type:        objectType,
-		Properties: map[string]extv1.JSONSchemaProps{
-			"phase": {
-				Description: "VirtualMachineProviderPhase defines provider phase",
-				Type:        "string",
-			},
-		},
-	}
-
-	names := extv1.CustomResourceDefinitionNames{
-		Plural:   "ovirtproviders",
-		Singular: "ovirtprovider",
-		Kind:     "OVirtProvider",
-		ListKind: "OVirtProviderList",
-	}
-
-	return getCrd("ovirtproviders."+vmimportv1beta1.SchemeGroupVersion.Group, versionSchema, names)
 }
 
 func GetOperatorCR() *hcov1beta1.HyperConverged {
@@ -1125,21 +943,6 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 						},
 						StatusDescriptors: []csvv1alpha1.StatusDescriptor{},
 					},
-					// TODO: remove once oVirt and VMware providers are removed from HCO
-					{
-						Name:        "v2vvmwares.v2v.kubevirt.io",
-						Version:     "v1alpha1",
-						Kind:        "V2VVmware",
-						DisplayName: "V2V Vmware",
-						Description: "V2V Vmware",
-					},
-					{
-						Name:        "ovirtproviders.v2v.kubevirt.io",
-						Version:     "v1alpha1",
-						Kind:        "OVirtProvider",
-						DisplayName: "V2V oVirt",
-						Description: "V2V oVirt",
-					},
 				},
 				Required: []csvv1alpha1.CRDDescription{},
 			},
@@ -1217,35 +1020,6 @@ func getLivenessProbe() *corev1.Probe {
 
 func stringListToSilce(words ...string) []string {
 	return words
-}
-
-func getCrd(crdName string, versionSchema *extv1.CustomResourceValidation, names extv1.CustomResourceDefinitionNames) *extv1.CustomResourceDefinition {
-	return &extv1.CustomResourceDefinition{
-		TypeMeta: crdMeta,
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-		},
-		Spec: getCrdSpec(versionSchema, names),
-	}
-}
-
-func getCrdSpec(schema *extv1.CustomResourceValidation, names extv1.CustomResourceDefinitionNames) extv1.CustomResourceDefinitionSpec {
-	return extv1.CustomResourceDefinitionSpec{
-		Group: vmimportv1beta1.SchemeGroupVersion.Group,
-		Scope: "Namespaced",
-		Versions: []extv1.CustomResourceDefinitionVersion{
-			{
-				Name:    "v1alpha1",
-				Served:  true,
-				Storage: true,
-				Subresources: &extv1.CustomResourceSubresources{
-					Status: &extv1.CustomResourceSubresourceStatus{},
-				},
-				Schema: schema,
-			},
-		},
-		Names: names,
-	}
 }
 
 func int32Ptr(i int32) *int32 {

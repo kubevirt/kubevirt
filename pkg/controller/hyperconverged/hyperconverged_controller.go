@@ -9,6 +9,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"reflect"
 	"strings"
@@ -33,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
@@ -72,6 +72,11 @@ const (
 
 	hcoVersionName    = "operator"
 	secondaryCRPrefix = "hco-controlled-cr-"
+
+	// These group are no longer supported. Use these constants to remove unused resources
+	v2vGroup     = "v2v.kubevirt.io"
+	prevSspGroup = "ssp.kubevirt.io"
+	origSspGroup = "kubevirt.io"
 )
 
 // JSONPatchAnnotationNames - annotations used to patch operand CRs with unsupported/unofficial/hidden features.
@@ -106,6 +111,40 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconc
 	}
 }
 
+// newCRDremover returns a new CRDRemover
+func newCRDremover(client client.Client) *CRDRemover {
+	crdRemover := &CRDRemover{
+		client: client,
+		crdsToRemove: []schema.GroupKind{
+			// These are the v2v CRDs we have to remove moving to MTV
+			{Group: v2vGroup, Kind: "V2VVmware"},
+			{Group: v2vGroup, Kind: "OVirtProvider"},
+			{Group: v2vGroup, Kind: "VMImportConfig"},
+
+			// These are the 2nd generation SSP CRDs,
+			// where the group name has been changed to "ssp.kubevirt.io"
+			{Group: prevSspGroup, Kind: "KubevirtCommonTemplatesBundle"},
+			{Group: prevSspGroup, Kind: "KubevirtNodeLabellerBundle"},
+			{Group: prevSspGroup, Kind: "KubevirtTemplateValidator"},
+			{Group: prevSspGroup, Kind: "KubevirtMetricsAggregation"},
+
+			// These are the original SSP CRDs, with the group name "kubevirt.io".
+			// We attempt to remove these too, for upgrades from even older version.
+			{Group: origSspGroup, Kind: "KubevirtCommonTemplatesBundle"},
+			{Group: origSspGroup, Kind: "KubevirtNodeLabellerBundle"},
+			{Group: origSspGroup, Kind: "KubevirtTemplateValidator"},
+			{Group: origSspGroup, Kind: "KubevirtMetricsAggregation"},
+		},
+	}
+
+	// The list of related objects to remove is initialized empty;
+	// Once the corresponding CRD (and hence CR) is removed successfully,
+	// the CR can be removed from the list of related objects.
+	crdRemover.relatedObjectsToRemove = make([]schema.GroupKind, 0, len(crdRemover.crdsToRemove))
+
+	return crdRemover
+}
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) error {
 	// Create a new controller
@@ -138,7 +177,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		&networkaddonsv1.NetworkAddonsConfig{},
 		&sspv1beta1.SSP{},
 		&schedulingv1.PriorityClass{},
-		&vmimportv1beta1.VMImportConfig{},
 		&corev1.ConfigMap{},
 		&corev1.Service{},
 		&rbacv1.Role{},
@@ -324,6 +362,17 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 			if crdStatusUpdated {
 				return reconcile.Result{Requeue: true}, nil
 			}
+		}
+
+		// Attempt to remove old CRDs and related objects
+		cdrRemover := newCRDremover(r.client)
+		err = cdrRemover.Remove(req)
+		if err != nil {
+			return reconcile.Result{Requeue: init}, err
+		}
+		// if we still have something to remove, requeue to retry
+		if !cdrRemover.Done() {
+			return reconcile.Result{Requeue: true}, nil
 		}
 
 		modified, err := r.migrateBeforeUpgrade(req)
@@ -903,9 +952,7 @@ func (r *ReconcileHyperConverged) firstLoopInitialization(request *common.HcoReq
 const (
 	kvCmName         = "kubevirt-config"
 	backupKvCmName   = kvCmName + "-backup"
-	imsCmName        = "v2v-vmware"
 	liveMigrationKey = "migrations"
-	vddkInitImakeKey = "vddk-init-image"
 	crdName          = "hyperconvergeds.hco.kubevirt.io"
 )
 
@@ -956,12 +1003,7 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 		return false, err
 	}
 
-	imsConfigModified, err := r.migrateImsConfigurations(req)
-	if err != nil {
-		return false, err
-	}
-
-	return kvConfigModified || cdiConfigModified || imsConfigModified, nil
+	return kvConfigModified || cdiConfigModified, nil
 }
 
 func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest) (bool, error) {
@@ -1000,38 +1042,6 @@ func (r ReconcileHyperConverged) migrateCdiConfigurations(req *common.HcoRequest
 	}
 
 	return adoptCdiConfigs(req, cdi.Spec.Config), nil
-}
-
-func (r ReconcileHyperConverged) migrateImsConfigurations(req *common.HcoRequest) (bool, error) {
-	req.Logger.Info("read IMS configmap")
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      imsCmName,
-			Namespace: req.Namespace,
-		},
-	}
-
-	if err := hcoutil.GetRuntimeObject(req.Ctx, r.client, cm, req.Logger); err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("IMS configmap already removed")
-			return false, nil
-		}
-		req.Logger.Info("failed to get IMS configmap", "error", err.Error())
-		return false, err
-	}
-
-	modified := false
-	vddkInitImage, ok := cm.Data[vddkInitImakeKey]
-	if ok {
-		if req.Instance.Spec.VddkInitImage == nil {
-			req.Logger.Info("updating the HyperConverged CR from the IMS configMap")
-			req.Instance.Spec.VddkInitImage = &vddkInitImage
-			req.Dirty = true
-			modified = true
-		}
-	}
-
-	return modified, nil
 }
 
 func (r *ReconcileHyperConverged) removeConfigMap(req *common.HcoRequest, cm *corev1.ConfigMap, cmName string) error {

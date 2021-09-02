@@ -4,18 +4,18 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta1","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-example"},"spec":{"nodeName":"node02","reason":"Test
-      node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":false}}},{"apiVersion":"v2v.kubevirt.io/v1beta1","kind":"VMImportConfig","metadata":{"name":"vm-import-operator-config"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
+      node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":false}}}]'
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
-    createdAt: "2021-09-01 05:12:07"
+    createdAt: "2021-09-01 15:36:16"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
     operatorframework.io/suggested-namespace: kubevirt-hyperconverged
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
-    operators.operatorframework.io/internal-objects: '["v2vvmwares.v2v.kubevirt.io","ovirtproviders.v2v.kubevirt.io","networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.nodemaintenance.kubevirt.io","vmimportconfigs.v2v.kubevirt.io"]'
+    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.nodemaintenance.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
   name: kubevirt-hyperconverged-operator.v1.6.0
@@ -73,16 +73,6 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
       version: v1beta1
-    - description: V2V Vmware
-      displayName: V2V Vmware
-      kind: V2VVmware
-      name: v2vvmwares.v2v.kubevirt.io
-      version: v1alpha1
-    - description: V2V oVirt
-      displayName: V2V oVirt
-      kind: OVirtProvider
-      name: ovirtproviders.v2v.kubevirt.io
-      version: v1alpha1
     - description: Cluster Network Addons
       displayName: Cluster Network Addons
       kind: NetworkAddonsConfig
@@ -111,11 +101,6 @@ spec:
       displayName: HostPathProvisioner deployment
       kind: HostPathProvisioner
       name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
-      version: v1beta1
-    - description: Represents a virtual machine import config
-      displayName: Virtual Machine import config
-      kind: VMImportConfig
-      name: vmimportconfigs.v2v.kubevirt.io
       version: v1beta1
   description: |-
     **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
@@ -259,18 +244,6 @@ spec:
           - update
           - delete
         - apiGroups:
-          - v2v.kubevirt.io
-          resources:
-          - vmimportconfigs
-          - vmimportconfigs/finalizers
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
-          - delete
-        - apiGroups:
           - ""
           resources:
           - configmaps
@@ -338,6 +311,7 @@ spec:
           - get
           - list
           - watch
+          - delete
         - apiGroups:
           - apiextensions.k8s.io
           resources:
@@ -1797,54 +1771,6 @@ spec:
           verbs:
           - get
         serviceAccountName: hostpath-provisioner-operator
-      - rules:
-        - apiGroups:
-          - ""
-          resources:
-          - pods
-          - events
-          - configmaps
-          - secrets
-          - serviceaccounts
-          - services
-          - services/finalizers
-          verbs:
-          - '*'
-        - apiGroups:
-          - apps
-          resources:
-          - deployments
-          - deployments/finalizers
-          verbs:
-          - '*'
-        - apiGroups:
-          - v2v.kubevirt.io
-          resources:
-          - vmimportconfigs
-          - vmimportconfigs/finalizers
-          - vmimportconfigs/status
-          verbs:
-          - '*'
-        - apiGroups:
-          - apiextensions.k8s.io
-          resources:
-          - customresourcedefinitions
-          verbs:
-          - '*'
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
-          - clusterrolebindings
-          - clusterroles
-          verbs:
-          - '*'
-        - apiGroups:
-          - monitoring.coreos.com
-          resources:
-          - servicemonitors
-          verbs:
-          - '*'
-        serviceAccountName: vm-import-operator
       deployments:
       - label:
           app.kubernetes.io/component: deployment
@@ -1889,10 +1815,6 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                - name: CONVERSION_CONTAINER
-                  value: quay.io/kubevirt/kubevirt-v2v-conversion@sha256:c620233c71b805004c2cd38927c421b69d99b27cb40af521967e655882b2f815
-                - name: VMWARE_CONTAINER
-                  value: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
                 - name: VIRTIOWIN_CONTAINER
                   value: quay.io/kubevirt/virtio-container-disk@sha256:77c448875247bf4dbeaa0b9b1b720c0f30bb8177628061c592ce7a68863a96c2
                 - name: SMBIOS
@@ -1915,8 +1837,6 @@ spec:
                   value: v0.10.0
                 - name: HPPO_VERSION
                   value: v0.9.0
-                - name: VM_IMPORT_VERSION
-                  value: v0.4.0
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -2449,55 +2369,6 @@ spec:
                 name: hostpath-provisioner-operator
                 resources: {}
               serviceAccountName: hostpath-provisioner-operator
-      - label:
-          app.kubernetes.io/component: import
-          app.kubernetes.io/managed-by: olm
-          app.kubernetes.io/part-of: hyperconverged-cluster
-          app.kubernetes.io/version: 1.6.0
-        name: vm-import-operator
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              name: vm-import-operator
-              operator.v2v.kubevirt.io: ""
-          strategy: {}
-          template:
-            metadata:
-              labels:
-                app.kubernetes.io/component: import
-                app.kubernetes.io/managed-by: olm
-                app.kubernetes.io/part-of: hyperconverged-cluster
-                app.kubernetes.io/version: 1.6.0
-                name: vm-import-operator
-                operator.v2v.kubevirt.io: ""
-            spec:
-              containers:
-              - env:
-                - name: DEPLOY_CLUSTER_RESOURCES
-                  value: "true"
-                - name: OPERATOR_VERSION
-                  value: v0.4.0
-                - name: CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/vm-import-controller@sha256:349098d0dcc30c01135ea761abd2dad1367b737d8523c8d01508cb7797d48e93
-                - name: PULL_POLICY
-                  value: IfNotPresent
-                - name: WATCH_NAMESPACE
-                - name: POD_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.name
-                - name: MONITORING_NAMESPACE
-                  value: openshift-monitoring
-                - name: VIRTV2V_IMAGE
-                  value: quay.io/kubevirt/vm-import-virtv2v@sha256:595793a0178d13553ad5f43268988de5fa98bfd764a4fb5f40922a2a372010b8
-                image: quay.io/kubevirt/vm-import-operator@sha256:2bd7063e6c6a4cb88412738b5257bad3615d9a18359ce472fb75e0fd70dafed2
-                imagePullPolicy: IfNotPresent
-                name: vm-import-operator
-                resources: {}
-              securityContext:
-                runAsNonRoot: true
-              serviceAccountName: vm-import-operator
       permissions:
       - rules:
         - apiGroups:
@@ -2720,10 +2591,6 @@ spec:
     name: kubemacpool
   - image: quay.io/nmstate/kubernetes-nmstate-handler@sha256:18041db3cb27c673121e798b090e54cc42f6591f877ff599fa09f55c6d2388fe
     name: kubernetes-nmstate-handler
-  - image: quay.io/kubevirt/kubevirt-v2v-conversion@sha256:c620233c71b805004c2cd38927c421b69d99b27cb40af521967e655882b2f815
-    name: kubevirt-v2v-conversion
-  - image: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
-    name: kubevirt-vmware
   - image: quay.io/kubevirt/libguestfs-tools@sha256:c759792fb8938ea0b7812cd88fdd5dfbba0bf008d16ad3adf3cc33f6329dfeb2
     name: libguestfs-tools
   - image: quay.io/kubevirt/macvtap-cni@sha256:e34cc796dee2e300f866d6f5b563361253ce89226eaf9eb0c3bc792f5481b8df
@@ -2748,12 +2615,6 @@ spec:
     name: virt-operator
   - image: quay.io/kubevirt/virtio-container-disk@sha256:77c448875247bf4dbeaa0b9b1b720c0f30bb8177628061c592ce7a68863a96c2
     name: virtio-container-disk
-  - image: quay.io/kubevirt/vm-import-controller@sha256:349098d0dcc30c01135ea761abd2dad1367b737d8523c8d01508cb7797d48e93
-    name: vm-import-controller
-  - image: quay.io/kubevirt/vm-import-operator@sha256:2bd7063e6c6a4cb88412738b5257bad3615d9a18359ce472fb75e0fd70dafed2
-    name: vm-import-operator
-  - image: quay.io/kubevirt/vm-import-virtv2v@sha256:595793a0178d13553ad5f43268988de5fa98bfd764a4fb5f40922a2a372010b8
-    name: vm-import-virtv2v
   replaces: kubevirt-hyperconverged-operator.v1.5.0
   selector:
     matchLabels:

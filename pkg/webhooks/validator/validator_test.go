@@ -17,7 +17,6 @@ import (
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -105,7 +104,6 @@ var _ = Describe("webhooks validator", func() {
 		kubevirtv1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspv1beta1.AddToScheme,
-		vmimportv1beta1.AddToScheme,
 	} {
 		Expect(f(s)).To(BeNil())
 	}
@@ -380,39 +378,6 @@ var _ = Describe("webhooks validator", func() {
 
 		})
 
-		It("should return error if VMImport CR is missing", func() {
-			ctx := context.TODO()
-			cli := getFakeClient(hco)
-			Expect(cli.Delete(ctx, operands.NewVMImportForCR(hco))).To(BeNil())
-			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true)
-
-			newHco := &v1beta1.HyperConverged{}
-			hco.DeepCopyInto(newHco)
-			// just do some change to force update
-			newHco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "value3"
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			Expect(err.Error()).Should(ContainSubstring("vmimportconfigs.v2v.kubevirt.io"))
-		})
-
-		It("should return error if dry-run update of VMImport CR returns error", func() {
-			cli := getFakeClient(hco)
-			cli.InitiateUpdateErrors(getUpdateError(vmImportUpdateFailure))
-
-			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true)
-
-			newHco := &v1beta1.HyperConverged{}
-			hco.DeepCopyInto(newHco)
-			// change something in workloads to trigger dry-run update
-			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(err).Should(Equal(ErrFakeVMImportError))
-		})
-
 		It("should return error if dry-run update is timeout", func() {
 			cli := getFakeClient(hco)
 			cli.InitiateUpdateErrors(initiateTimeout)
@@ -515,30 +480,6 @@ var _ = Describe("webhooks validator", func() {
 				err = wh.ValidateUpdate(newHco, hco)
 				Expect(err).NotTo(BeNil())
 				Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			})
-
-			It("should return error in plain-k8s if dry-run update of VMImport CR returns error", func() {
-				hco := commonTestUtils.NewHco()
-				hco.Spec.Infra = v1beta1.HyperConvergedConfig{
-					NodePlacement: newHyperConvergedConfig(),
-				}
-				hco.Spec.Workloads = v1beta1.HyperConvergedConfig{
-					NodePlacement: newHyperConvergedConfig(),
-				}
-
-				cli := getFakeClient(hco)
-				cli.InitiateUpdateErrors(getUpdateError(vmImportUpdateFailure))
-
-				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true)
-
-				newHco := &v1beta1.HyperConverged{}
-				hco.DeepCopyInto(newHco)
-				// change something in workloads to trigger dry-run update
-				newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
-
-				err := wh.ValidateUpdate(newHco, hco)
-				Expect(err).NotTo(BeNil())
-				Expect(err).Should(Equal(ErrFakeVMImportError))
 			})
 		})
 
@@ -1025,7 +966,7 @@ func getFakeClient(hco *v1beta1.HyperConverged) *commonTestUtils.HcoTestClient {
 	cna, err := operands.NewNetworkAddons(hco)
 	Expect(err).ToNot(HaveOccurred())
 
-	return commonTestUtils.InitClient([]runtime.Object{hco, kv, cdi, cna, operands.NewSSP(hco), operands.NewVMImportForCR(hco)})
+	return commonTestUtils.InitClient([]runtime.Object{hco, kv, cdi, cna, operands.NewSSP(hco)})
 }
 
 type fakeFailure int
@@ -1036,15 +977,13 @@ const (
 	cdiUpdateFailure
 	networkUpdateFailure
 	sspUpdateFailure
-	vmImportUpdateFailure
 )
 
 var (
-	ErrFakeKvError       = errors.New("fake KubeVirt error")
-	ErrFakeCdiError      = errors.New("fake CDI error")
-	ErrFakeNetworkError  = errors.New("fake Network error")
-	ErrFakeSspError      = errors.New("fake SSP error")
-	ErrFakeVMImportError = errors.New("fake VMImport error")
+	ErrFakeKvError      = errors.New("fake KubeVirt error")
+	ErrFakeCdiError     = errors.New("fake CDI error")
+	ErrFakeNetworkError = errors.New("fake Network error")
+	ErrFakeSspError     = errors.New("fake SSP error")
 )
 
 func getUpdateError(failure fakeFailure) commonTestUtils.FakeWriteErrorGenerator {
@@ -1069,14 +1008,6 @@ func getUpdateError(failure fakeFailure) commonTestUtils.FakeWriteErrorGenerator
 		return func(obj client.Object) error {
 			if _, ok := obj.(*networkaddonsv1.NetworkAddonsConfig); ok {
 				return ErrFakeNetworkError
-			}
-			return nil
-		}
-
-	case vmImportUpdateFailure:
-		return func(obj client.Object) error {
-			if _, ok := obj.(*vmimportv1beta1.VMImportConfig); ok {
-				return ErrFakeVMImportError
 			}
 			return nil
 		}

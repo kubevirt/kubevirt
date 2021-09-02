@@ -22,7 +22,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks"
-	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
@@ -38,7 +37,6 @@ var (
 		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspv1beta1.AddToScheme,
-		vmimportv1beta1.AddToScheme,
 		admissionregistrationv1.AddToScheme,
 		openshiftconfigv1.Install,
 		kubevirtv1.AddToScheme,

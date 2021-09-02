@@ -84,14 +84,13 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 	Context("validate node placement on infra nodes", func() {
 		It("[test_id:5678] all expected 'infra' pod must be on infra node", func() {
 			expectedInfraPods := map[string]bool{
-				"cdi-apiserver":        false,
-				"cdi-controller":       false,
-				"cdi-uploadproxy":      false,
-				"manager":              false,
-				"nmstate-webhook":      false,
-				"virt-api":             false,
-				"virt-controller":      false,
-				"vm-import-controller": false,
+				"cdi-apiserver":   false,
+				"cdi-controller":  false,
+				"cdi-uploadproxy": false,
+				"manager":         false,
+				"nmstate-webhook": false,
+				"virt-api":        false,
+				"virt-controller": false,
 			}
 
 			By("Listing infra nodes")

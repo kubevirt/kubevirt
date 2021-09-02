@@ -54,9 +54,6 @@ function get_current_versions {
     ["NMO"]=""
     ["HPPO"]=""
     ["HPP"]=""
-    ["VM_IMPORT"]=""
-#    ["CONVERSION_CONTAINER"]=""
-#    ["VMWARE_CONTAINER"]=""
   )
 
   for component in "${!CURRENT_VERSIONS[@]}"; do
@@ -73,9 +70,6 @@ function get_updated_versions {
     ["NMO"]="kubevirt/node-maintenance-operator"
     ["HPPO"]="kubevirt/hostpath-provisioner-operator"
     ["HPP"]="kubevirt/hostpath-provisioner"
-    ["VM_IMPORT"]="kubevirt/vm-import-operator"
-#    ["CONVERSION_CONTAINER"]=""
-#    ["VMWARE_CONTAINER"]=""
   )
 
   UPDATED_VERSIONS=()

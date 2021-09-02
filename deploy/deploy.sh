@@ -23,9 +23,6 @@ kubectl apply  -f https://raw.githubusercontent.com/kubevirt/hyperconverged-clus
 kubectl apply  -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/deploy/crds/hostpath-provisioner00.crd.yaml
 kubectl apply  -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/deploy/crds/node-maintenance00.crd.yaml
 kubectl apply  -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/deploy/crds/scheduling-scale-performance00.crd.yaml
-kubectl apply  -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/deploy/crds/vm-import-operator00.crd.yaml
-kubectl apply  -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/deploy/crds/hco01.crd.yaml
-kubectl apply  -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/deploy/crds/hco02.crd.yaml
 
 # Deploy cert-manager for webhook certificates
 kubectl apply  -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/deploy/cert-manager.yaml
