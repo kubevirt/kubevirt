@@ -38,11 +38,17 @@ import (
 )
 
 const (
-	LibvirtDirectMigrationPort = 49152
-	LibvirtBlockMigrationPort  = 49153
+	// LibvirtDirectMigrationSocketKey acts in kubevirt < 0.44 also as the tcp port for migrations.
+	// Never versions directly use the socket. In order to migrate from older virt-launchers with tcp proxying
+	// we keep the socket names identical, but not tcp ports are used anymore on newer virt-launchers.
+	LibvirtDirectMigrationSocketKey = 49152
+	// LibvirtBlockMigrationSocketKey acts in kubevirt < 0.44 also as the tcp port for migrations.
+	// Never versions directly use the socket. In order to migrate from older virt-launchers with tcp proxying
+	// we keep the socket names identical, but not tcp ports are used anymore on newer virt-launchers.
+	LibvirtBlockMigrationSocketKey = 49153
 )
 
-var migrationPortsRange = []int{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
+var migrationSocketKeyRange = []int{LibvirtDirectMigrationSocketKey, LibvirtBlockMigrationSocketKey}
 
 type ProxyManager interface {
 	StartTargetListener(key string, targetUnixFiles []string) error
@@ -106,9 +112,9 @@ func (m *migrationProxyManager) OpenListenerCount() int {
 }
 
 func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
-	ports = append(ports, migrationPortsRange[0])
+	ports = append(ports, migrationSocketKeyRange[0])
 	if isBlockMigration {
-		ports = append(ports, migrationPortsRange[1])
+		ports = append(ports, migrationSocketKeyRange[1])
 	}
 	return
 }
@@ -123,8 +129,12 @@ func NewMigrationProxyManager(serverTLSConfig *tls.Config, clientTLSConfig *tls.
 	}
 }
 
+func SourceUnixFileDir(baseDir string) string {
+	return filepath.Join(baseDir, "migrationproxy")
+}
+
 func SourceUnixFile(baseDir string, key string) string {
-	return filepath.Join(baseDir, "migrationproxy", key+"-source.sock")
+	return filepath.Join(SourceUnixFileDir(baseDir), key+"-source.sock")
 }
 
 func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles []string) error {
@@ -221,7 +231,7 @@ func (m *migrationProxyManager) GetTargetListenerPorts(key string) map[string]in
 	defer m.managerLock.Unlock()
 
 	getPortFromSocket := func(id string, path string) int {
-		for _, port := range migrationPortsRange {
+		for _, port := range migrationSocketKeyRange {
 			key := ConstructProxyKey(id, port)
 			if strings.Contains(path, key) {
 				return port
