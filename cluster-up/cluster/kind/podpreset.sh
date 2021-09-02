@@ -4,6 +4,8 @@ set -e
 
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
+VALIDATE_PODPRESET_TIMEOUT="60"
+
 function podpreset::enable_admission_plugin() {
     local -r cluster_name=$1
 
@@ -38,7 +40,7 @@ EOT
 function podpreset::create_virt_launcher_fake_product_uuid_podpreset() {
     local -r namespace=$1
 
-    if ! _kubectl get ns "$namespace" &>2; then
+    if ! _kubectl get ns "$namespace" >&2; then
         _kubectl create ns "$namespace"
     fi
 
@@ -50,6 +52,6 @@ function podpreset::expose_unique_product_uuid_per_node() {
     local -r namespace=$2
 
     podpreset::enable_admission_plugin "$cluster_name"
-    podpreset::validate_admission_plugin_is_enabled "$cluster_name" "30"
+    podpreset::validate_admission_plugin_is_enabled "$cluster_name" "$VALIDATE_PODPRESET_TIMEOUT"
     podpreset::create_virt_launcher_fake_product_uuid_podpreset "$namespace"
 }
