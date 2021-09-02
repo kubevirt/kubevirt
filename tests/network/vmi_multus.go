@@ -903,10 +903,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			// it's hard to match them.
 		})
 
-		// createSriovVMs instantiates two VMs connected through SR-IOV.
-		// Note: test case assumes interconnectivity between SR-IOV
-		// interfaces. It can be achieved either by configuring the external switch
-		// properly, or via in-PF switching for VFs (works for some NIC models)
+		// createSriovVMs instantiates two VMs on the same node connected through SR-IOV.
 		createSriovVMs := func(networkNameA, networkNameB, cidrA, cidrB string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstance) {
 			// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
 			// 1) we don't at the moment deploy kubemacpool in kind providers
@@ -929,8 +926,13 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi1.Spec.Domain.Devices.Interfaces[1].MacAddress = mac1.String()
 			vmi2.Spec.Domain.Devices.Interfaces[1].MacAddress = mac2.String()
 
-			vmi1 = startVmi(vmi1)
-			vmi2 = startVmi(vmi2)
+			// schedule both VM's on the same node to prevent test from being affected by how the SR-IOV card port's are connected
+			sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
+			Expect(sriovNodes).ToNot(BeEmpty())
+			sriovNode := sriovNodes[0].Name
+			vmi1 = tests.StartVmOnNode(vmi1, sriovNode)
+			vmi2 = tests.StartVmOnNode(vmi2, sriovNode)
+
 			vmi1 = waitVmi(vmi1)
 			vmi2 = waitVmi(vmi2)
 
@@ -1407,25 +1409,29 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 }
 
 func validateSRIOVSetup(virtClient kubecli.KubevirtClient, sriovResourceName string, minRequiredNodes int) error {
-	nodes := util.GetAllSchedulableNodes(virtClient)
-	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+	sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
+	if len(sriovNodes) < minRequiredNodes {
+		return fmt.Errorf("not enough compute nodes with SR-IOV support detected")
+	}
+	return nil
+}
 
-	var sriovEnabledNode int
+func getNodesWithAllocatedResource(virtClient kubecli.KubevirtClient, resourceName string) []k8sv1.Node {
+	nodes := util.GetAllSchedulableNodes(virtClient)
+	filteredNodes := []k8sv1.Node{}
 	for _, node := range nodes.Items {
 		resourceList := node.Status.Allocatable
 		for k, v := range resourceList {
-			if string(k) == sriovResourceName {
+			if string(k) == resourceName {
 				if v.Value() > 0 {
-					sriovEnabledNode++
+					filteredNodes = append(filteredNodes, node)
 					break
 				}
 			}
 		}
 	}
-	if sriovEnabledNode < minRequiredNodes {
-		return fmt.Errorf("not enough compute nodes with SR-IOV support detected")
-	}
-	return nil
+
+	return filteredNodes
 }
 
 func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, networkName, sriovResourceName string) error {
