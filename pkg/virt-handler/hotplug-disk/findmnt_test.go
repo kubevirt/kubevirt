@@ -83,7 +83,7 @@ var _ = Describe("findmnt", func() {
 		res, err := findMntFunc()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(res)).To(Equal(1))
-		Expect(res[0].GetSource()).To(Equal("/test/path"))
+		Expect(res[0].GetSourcePath()).To(Equal("/test/path"))
 		Expect(res[0].Target).To(Equal("/testvolume"))
 		Expect(res[0].Fstype).To(Equal("xfs"))
 		Expect(len(res[0].GetOptions())).To(Equal(8))
@@ -119,19 +119,38 @@ var _ = Describe("findmnt", func() {
 		table.Entry("for findmntbydevice", callFindMntByDeviceInvalidJson),
 	)
 
-	It("GetSource should properly match source field", func() {
+	It("GetSourcePath should properly match source field", func() {
 		test := FindmntInfo{
 			Source: "/dev/test",
 		}
-		Expect(test.GetSource()).To(Equal("/dev/test"))
+		Expect(test.GetSourcePath()).To(Equal("/dev/test"))
 		test2 := FindmntInfo{
 			Source: "/dev/test[/mnt/something/else/]",
 		}
-		Expect(test2.GetSource()).To(Equal("/mnt/something/else/"))
+		Expect(test2.GetSourcePath()).To(Equal("/mnt/something/else/"))
 		test3 := FindmntInfo{
 			Source: "/dev/test[/mnt/something/else/[/more]]",
 		}
-		Expect(test3.GetSource()).To(Equal("/mnt/something/else/[/more]"))
+		Expect(test3.GetSourcePath()).To(Equal("/mnt/something/else/[/more]"))
+	})
+
+	It("GetSourceDevice should return the device", func() {
+		test := FindmntInfo{
+			Source: "/dev/test",
+		}
+		Expect(test.GetSourceDevice()).To(Equal(""))
+		test2 := FindmntInfo{
+			Source: "/dev/test[/mnt/something/else/]",
+		}
+		Expect(test2.GetSourceDevice()).To(Equal("/dev/test"))
+		test3 := FindmntInfo{
+			Source: "/dev/test[/mnt/something/else/[/more]]",
+		}
+		Expect(test3.GetSourceDevice()).To(Equal("/dev/test"))
+		test4 := FindmntInfo{
+			Source: "/path/to/somewhere",
+		}
+		Expect(test4.GetSourceDevice()).To(Equal(""))
 	})
 
 	It("GetOptions should properly return a list", func() {

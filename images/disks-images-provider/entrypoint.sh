@@ -34,7 +34,7 @@ num=$(losetup -l | wc -l)
 [ ${num} -gt 100 ] && echo "attached loopdevices have reach limit number(100)" && exit 1
 
 # Put LOOP_DEVICE in /etc/bashrc in order to detach this loop device when the pod stopped.
-LOOP_DEVICE=$(losetup --find --show /local-storage/cirros.img.raw)
+LOOP_DEVICE=$(chroot /host losetup --find --show /mnt/local-storage/cirros.img.raw)
 echo LOOP_DEVICE=${LOOP_DEVICE} >>/etc/bashrc
 rm -f /local-storage/cirros-block-device
 ln -s $LOOP_DEVICE /local-storage/cirros-block-device
@@ -58,6 +58,27 @@ chmod -R 777 /hostImages
 if [ ${SELINUX_TAG:0:1} != "?" ]; then
     chcon -Rt svirt_sandbox_file_t /hostImages
 fi
+
+# Create a 4Gi blank disk image
+dd if=/dev/zero of=/local-storage/hp_file.img bs=4k count=1024k
+ls -al /local-storage/hp_file.img
+# Put LOOP_DEVICE_HP in /etc/bashrc in order to detach this loop device when the pod stopped.
+LOOP_DEVICE_HP=$(chroot /host losetup --verbose --find --show /mnt/local-storage/hp_file.img)
+echo LOOP_DEVICE_HP=${LOOP_DEVICE_HP} >>/etc/bashrc
+chroot /host mkfs.ext4 $LOOP_DEVICE_HP
+mkdir -p /hostImages/mount_hp
+ls -al /host${LOOP_DEVICE_HP}
+chroot /host mount ${LOOP_DEVICE_HP} /tmp/hostImages/mount_hp
+mkdir -p /host/tmp/hostImages/mount_hp/test
+# When the host is ubuntu, by default, selinux is not used, so chcon is not necessary.
+# If selinux tag is set, use chcon to change /hostImages privileges.
+if [ ${SELINUX_TAG:0:1} != "?" ]; then
+    chcon -Rt svirt_sandbox_file_t /host/tmp/hostImages/mount_hp
+fi
+chmod 777 /host/tmp/hostImages/mount_hp
+chmod 777 /host/tmp/hostImages/mount_hp/test
+
+cat /etc/bashrc
 
 # for some reason without sleep, container sometime fails to create the file
 sleep 10
