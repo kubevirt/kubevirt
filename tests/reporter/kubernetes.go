@@ -42,6 +42,10 @@ const (
 	networkAttachmentDefinitionEntity = "network-attachment-definitions"
 )
 
+type JustAfterEachReporter interface {
+	JustAfterEach(specSummary ginkgo.GinkgoTestDescription)
+}
+
 type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
@@ -73,11 +77,13 @@ func (r *KubernetesReporter) SpecWillRun(_ *types.SpecSummary) {
 	fmt.Fprintf(ginkgo.GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
 }
 
-func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
+func (r *KubernetesReporter) SpecDidComplete(_ *types.SpecSummary) {}
+
+func (r *KubernetesReporter) JustAfterEach(specSummary ginkgo.GinkgoTestDescription) {
 	if r.failureCount > r.maxFails {
 		return
 	}
-	if specSummary.HasFailureState() {
+	if specSummary.Failed {
 		r.failureCount++
 	} else {
 		return
@@ -87,7 +93,7 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	if r.artifactsDir == "" {
 		return
 	}
-	r.DumpTestNamespaces(specSummary.RunTime)
+	r.DumpTestNamespaces(specSummary.Duration)
 }
 
 func (r *KubernetesReporter) DumpTestNamespaces(duration time.Duration) {

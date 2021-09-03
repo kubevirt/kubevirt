@@ -27,7 +27,8 @@ func NewCapturedOutputEnricher(reporters ...ginkgo.Reporter) *capturedOutputEnri
 }
 
 type capturedOutputEnricher struct {
-	reporters []ginkgo.Reporter
+	reporters        []ginkgo.Reporter
+	additionalOutput interface{}
 }
 
 func (j *capturedOutputEnricher) SpecSuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
@@ -43,6 +44,7 @@ func (j *capturedOutputEnricher) BeforeSuiteDidRun(setupSummary *types.SetupSumm
 }
 
 func (j *capturedOutputEnricher) SpecWillRun(specSummary *types.SpecSummary) {
+	j.additionalOutput = ""
 	for _, report := range j.reporters {
 		report.SpecWillRun(specSummary)
 	}
@@ -50,13 +52,18 @@ func (j *capturedOutputEnricher) SpecWillRun(specSummary *types.SpecSummary) {
 
 func (j *capturedOutputEnricher) SpecDidComplete(specSummary *types.SpecSummary) {
 	if specSummary.State.IsFailure() {
-		additionalOutput := j.collect(specSummary.RunTime)
-		if additionalOutput != "" {
-			specSummary.CapturedOutput = fmt.Sprintf("%s\n%s", specSummary.CapturedOutput, additionalOutput)
+		if j.additionalOutput != "" {
+			specSummary.CapturedOutput = fmt.Sprintf("%s\n%s", specSummary.CapturedOutput, j.additionalOutput)
 		}
 	}
 	for _, report := range j.reporters {
 		report.SpecDidComplete(specSummary)
+	}
+}
+
+func (j *capturedOutputEnricher) JustAfterEach(specSummary ginkgo.GinkgoTestDescription) {
+	if specSummary.Failed {
+		j.additionalOutput = j.collect(specSummary.Duration)
 	}
 }
 

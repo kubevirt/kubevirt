@@ -43,6 +43,8 @@ import (
 	_ "kubevirt.io/kubevirt/tests/storage"
 )
 
+var justAfterEachReporter = []reporter.JustAfterEachReporter{}
+
 func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
 	tests.CalculateNamespaces()
@@ -56,15 +58,20 @@ func TestTests(t *testing.T) {
 		artifactsPath = path.Join(artifactsPath, strconv.Itoa(config.GinkgoConfig.ParallelNode))
 		junitOutput = path.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", config.GinkgoConfig.ParallelNode))
 	}
+
+	outputEnricherReporter := reporter.NewCapturedOutputEnricher(
+		ginkgo_reporters.NewJUnitReporter(junitOutput),
+	)
+	k8sReporter := reporter.NewKubernetesReporter(artifactsPath, maxFails)
+	justAfterEachReporter = append(justAfterEachReporter, outputEnricherReporter, k8sReporter)
 	reporters := []Reporter{
-		reporter.NewCapturedOutputEnricher(
-			ginkgo_reporters.NewJUnitReporter(junitOutput),
-		),
-		reporter.NewKubernetesReporter(artifactsPath, maxFails),
+		outputEnricherReporter,
+		k8sReporter,
 	}
 	if qe_reporters.Polarion.Run {
 		reporters = append(reporters, &qe_reporters.Polarion)
 	}
+
 	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", reporters)
 }
 
@@ -86,3 +93,11 @@ func getMaxFailsFromEnv() int {
 
 	return maxFails
 }
+
+// Collect info directly after each `It` execution with our reporters
+// to collect the state directly after the spec.
+var _ = JustAfterEach(func() {
+	for _, reporter := range justAfterEachReporter {
+		reporter.JustAfterEach(CurrentGinkgoTestDescription())
+	}
+})
