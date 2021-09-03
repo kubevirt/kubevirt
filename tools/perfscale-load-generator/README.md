@@ -1,4 +1,4 @@
-# Perscale Load Generator
+# PerfScale Load Generator
 
 The load generator is a tool aimed at stressing the Kubernetes and KubeVirt control plane by creating several objects (e.g., VM, VMI, and VMIReplicaSet). The main functionality it provides can be summarized as follows:
 - Create the objects declared in a workload description.
@@ -23,7 +23,7 @@ globalConfig:
     // it is needed to tweak QPS/Burst and maxWaitTimeout parameters according to the cluster size and number of created objects
     qps: 0
     burst: 0
-// workloads defines a list of workload to be executed
+// workloads define a list of workloads to be executed
 workloads:
   - name: kubevirt-density-10
     // iterationCount defined how many times to execute the workload
