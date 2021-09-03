@@ -110,10 +110,9 @@ var _ = SIGDescribe("Storage", func() {
 
 		runHostPathJobAndExpectCompletion := func(pod *k8sv1.Pod) *k8sv1.Pod {
 			pod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
-			podWithName := pod.DeepCopy()
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
-			_, err = ThisPod(pod)()
+			podWithName, err := ThisPod(pod)()
 			Expect(err).ToNot(HaveOccurred())
 			return podWithName
 		}
@@ -965,6 +964,8 @@ var _ = SIGDescribe("Storage", func() {
 						}
 						return k8sv1.ConditionFalse
 					}, 30, 1).Should(Equal(k8sv1.ConditionTrue))
+					pod, err = ThisPod(pod)()
+					Expect(err).ToNot(HaveOccurred())
 
 					By("Determining the size of the mounted directory")
 					diskSizeStr, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, []string{"/usr/bin/bash", "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
