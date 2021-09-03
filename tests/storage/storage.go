@@ -720,15 +720,18 @@ var _ = SIGDescribe("Storage", func() {
 
 		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
 
+			BeforeEach(func() {
+				if !checks.HasFeature(virtconfig.HostDiskGate) {
+					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
+				}
+			})
+
 			Context("With a HostDisk defined", func() {
 
 				var hostDiskDir string
 				var nodeName string
 
 				BeforeEach(func() {
-					if !checks.HasFeature(virtconfig.HostDiskGate) {
-						Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
-					}
 					hostDiskDir = tests.RandTmpDir()
 					nodeName = ""
 				})
