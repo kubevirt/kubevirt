@@ -1530,7 +1530,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Name).To(Equal("disk2"))
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Reason).
-							To(Equal("volume type has no StorageClass defined"))
+							To(Equal("Snapshot is not supported for this volumeSource type [disk2]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[2].Name).To(Equal("disk3"))
 						Expect(vm.Status.VolumeSnapshotStatuses[2].Enabled).To(BeFalse())
@@ -1540,7 +1540,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						Expect(vm.Status.VolumeSnapshotStatuses[3].Name).To(Equal("disk4"))
 						Expect(vm.Status.VolumeSnapshotStatuses[3].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[3].Reason).
-							To(Equal("volume type has no StorageClass defined"))
+							To(Equal("Snapshot is not supported for this volumeSource type [disk4]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Name).To(Equal("disk5"))
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Enabled).To(BeFalse())
