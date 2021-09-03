@@ -946,7 +946,10 @@ var _ = SIGDescribe("Storage", func() {
 					pod.Spec.Containers[0].Lifecycle = &k8sv1.Lifecycle{
 						PreStop: &k8sv1.Handler{
 							Exec: &k8sv1.ExecAction{
-								Command: []string{"umount", mountDir},
+								Command: []string{
+									"/usr/bin/bash", "-c",
+									fmt.Sprintf("rm -f %s && umount %s", diskPath, mountDir),
+								},
 							},
 						},
 					}
@@ -973,7 +976,15 @@ var _ = SIGDescribe("Storage", func() {
 					diskSize, err = strconv.Atoi(strings.TrimSpace(diskSizeStr))
 					diskSize = diskSize * 1000 // byte to kilobyte
 					Expect(err).ToNot(HaveOccurred())
+				})
 
+				AfterEach(func() {
+					if vmi != nil {
+						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					}
+					Expect(virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})).To(Succeed())
+					tests.WaitForPodToDisappearWithTimeout(pod.Name, 120)
 				})
 
 				configureToleration := func(toleration int) {
