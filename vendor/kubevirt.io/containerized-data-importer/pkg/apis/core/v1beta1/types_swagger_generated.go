@@ -302,6 +302,7 @@ func (CDISpec) SwaggerDoc() map[string]string {
 		"cloneStrategyOverride": "Clone strategy override: should we use a host-assisted copy even if snapshots are available?\n+kubebuilder:validation:Enum=\"copy\";\"snapshot\"",
 		"config":                "CDIConfig at CDI level",
 		"certConfig":            "certificate configuration",
+		"priorityClass":         "PriorityClass of the CDI control plane",
 	}
 }
 

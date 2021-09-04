@@ -14682,6 +14682,13 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
 							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDICertConfig"),
 						},
 					},
+					"priorityClass": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PriorityClass of the CDI control plane",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

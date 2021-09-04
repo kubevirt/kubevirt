@@ -291,6 +291,11 @@ func (in *CDISpec) DeepCopyInto(out *CDISpec) {
 		*out = new(CDICertConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PriorityClass != nil {
+		in, out := &in.PriorityClass, &out.PriorityClass
+		*out = new(CDIPriorityClass)
+		**out = **in
+	}
 	return
 }
 

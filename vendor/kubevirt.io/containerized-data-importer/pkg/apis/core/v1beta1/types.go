@@ -567,7 +567,12 @@ type CDISpec struct {
 	Config *CDIConfigSpec `json:"config,omitempty"`
 	// certificate configuration
 	CertConfig *CDICertConfig `json:"certConfig,omitempty"`
+	// PriorityClass of the CDI control plane
+	PriorityClass *CDIPriorityClass `json:"priorityClass,omitempty"`
 }
+
+// CDIPriorityClass defines the priority class of the CDI control plane.
+type CDIPriorityClass string
 
 // CDICloneStrategy defines the preferred method for performing a CDI clone (override snapshot?)
 type CDICloneStrategy string

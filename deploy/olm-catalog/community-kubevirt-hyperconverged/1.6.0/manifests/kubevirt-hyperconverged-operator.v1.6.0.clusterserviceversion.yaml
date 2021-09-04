@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
-    createdAt: "2021-09-02 12:26:36"
+    createdAt: "2021-09-04 05:10:47"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -1575,6 +1575,7 @@ spec:
           - storage.k8s.io
           resources:
           - storageclasses
+          - csidrivers
           verbs:
           - get
           - list
@@ -1611,6 +1612,14 @@ spec:
           - apiextensions.k8s.io
           resources:
           - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - scheduling.k8s.io
+          resources:
+          - priorityclasses
           verbs:
           - get
           - list
@@ -1878,7 +1887,7 @@ spec:
                 - name: KUBEVIRT_VERSION
                   value: v0.45.0-rc.0
                 - name: CDI_VERSION
-                  value: v1.38.0
+                  value: v1.39.0
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.58.0
                 - name: SSP_VERSION
@@ -2293,24 +2302,24 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
-                  value: v1.38.0
+                  value: v1.39.0
                 - name: CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/cdi-controller@sha256:74f4ee768b6b1a697729167ef2c76bdcee36b80bf6c5c6650a1e0d9e2ac8267c
+                  value: quay.io/kubevirt/cdi-controller@sha256:6b0baa8110644dbefe2ac5f6a1327808f678494ed9332f9337440d1c3fa7cf76
                 - name: IMPORTER_IMAGE
-                  value: quay.io/kubevirt/cdi-importer@sha256:317e2c265ae5a44e8d96e94fbd60ffdbc0753b7dc7e2c7786e591e5f8cb49476
+                  value: quay.io/kubevirt/cdi-importer@sha256:246474e2daf72fa98c69e3fd5abf67a317291b1faa22243f658e0a7d96690217
                 - name: CLONER_IMAGE
-                  value: quay.io/kubevirt/cdi-cloner@sha256:269286573a102a2d4e4700e6a520879410a5520e3d325b358ed5eadefc9a65ad
+                  value: quay.io/kubevirt/cdi-cloner@sha256:9cac78759bafcb2a01d09dcf63aa1b3f8ddfa8efd1a670a82729b56d982c6122
                 - name: APISERVER_IMAGE
-                  value: quay.io/kubevirt/cdi-apiserver@sha256:a82039087a07d1af0cf2f0ed1d8ca0ed76f1a32bfadb9eb4657f3ab6e5f1aee7
+                  value: quay.io/kubevirt/cdi-apiserver@sha256:4f40906db98cd182f028961080305112c9ced199dd843d82a55fa9087339f25d
                 - name: UPLOAD_SERVER_IMAGE
-                  value: quay.io/kubevirt/cdi-uploadserver@sha256:9b1c0676623c331bbc9e942138425782039fa571150307a8a39c0a2ff4bbc63c
+                  value: quay.io/kubevirt/cdi-uploadserver@sha256:633266b7097caea025bcb11568908d866871ba27a0d521b70865e60375aa0a70
                 - name: UPLOAD_PROXY_IMAGE
-                  value: quay.io/kubevirt/cdi-uploadproxy@sha256:960418f62d3a03a06b6644156551ce9710ef34b6ddc8ec3cf57d26333100b5cc
+                  value: quay.io/kubevirt/cdi-uploadproxy@sha256:60d8dd6b97779a48318abadfae56925090d4e0108fd6bc14fffe3a802b518221
                 - name: VERBOSITY
                   value: "1"
                 - name: PULL_POLICY
                   value: IfNotPresent
-                image: quay.io/kubevirt/cdi-operator@sha256:af060a88eb9531cca88b8834a3379353f3c8c5b95912da24e2bc3cbead285324
+                image: quay.io/kubevirt/cdi-operator@sha256:170b8b4444a66d3f0c031787279880eb34136b6ae487da6498d5411b5f07fe0b
                 imagePullPolicy: IfNotPresent
                 name: cdi-operator
                 ports:
@@ -2609,19 +2618,19 @@ spec:
   relatedImages:
   - image: quay.io/kubevirt/bridge-marker@sha256:8e9de03dbf6f35eb88af94e3d93da66d926d002c1574619f63186f1e88bf3c52
     name: bridge-marker
-  - image: quay.io/kubevirt/cdi-apiserver@sha256:a82039087a07d1af0cf2f0ed1d8ca0ed76f1a32bfadb9eb4657f3ab6e5f1aee7
+  - image: quay.io/kubevirt/cdi-apiserver@sha256:4f40906db98cd182f028961080305112c9ced199dd843d82a55fa9087339f25d
     name: cdi-apiserver
-  - image: quay.io/kubevirt/cdi-cloner@sha256:269286573a102a2d4e4700e6a520879410a5520e3d325b358ed5eadefc9a65ad
+  - image: quay.io/kubevirt/cdi-cloner@sha256:9cac78759bafcb2a01d09dcf63aa1b3f8ddfa8efd1a670a82729b56d982c6122
     name: cdi-cloner
-  - image: quay.io/kubevirt/cdi-controller@sha256:74f4ee768b6b1a697729167ef2c76bdcee36b80bf6c5c6650a1e0d9e2ac8267c
+  - image: quay.io/kubevirt/cdi-controller@sha256:6b0baa8110644dbefe2ac5f6a1327808f678494ed9332f9337440d1c3fa7cf76
     name: cdi-controller
-  - image: quay.io/kubevirt/cdi-importer@sha256:317e2c265ae5a44e8d96e94fbd60ffdbc0753b7dc7e2c7786e591e5f8cb49476
+  - image: quay.io/kubevirt/cdi-importer@sha256:246474e2daf72fa98c69e3fd5abf67a317291b1faa22243f658e0a7d96690217
     name: cdi-importer
-  - image: quay.io/kubevirt/cdi-operator@sha256:af060a88eb9531cca88b8834a3379353f3c8c5b95912da24e2bc3cbead285324
+  - image: quay.io/kubevirt/cdi-operator@sha256:170b8b4444a66d3f0c031787279880eb34136b6ae487da6498d5411b5f07fe0b
     name: cdi-operator
-  - image: quay.io/kubevirt/cdi-uploadproxy@sha256:960418f62d3a03a06b6644156551ce9710ef34b6ddc8ec3cf57d26333100b5cc
+  - image: quay.io/kubevirt/cdi-uploadproxy@sha256:60d8dd6b97779a48318abadfae56925090d4e0108fd6bc14fffe3a802b518221
     name: cdi-uploadproxy
-  - image: quay.io/kubevirt/cdi-uploadserver@sha256:9b1c0676623c331bbc9e942138425782039fa571150307a8a39c0a2ff4bbc63c
+  - image: quay.io/kubevirt/cdi-uploadserver@sha256:633266b7097caea025bcb11568908d866871ba27a0d521b70865e60375aa0a70
     name: cdi-uploadserver
   - image: quay.io/kubevirt/cluster-network-addon-multus@sha256:32867c73cda4d605651b898dc85fea67d93191c47f27e1ad9e9f2b9041c518de
     name: cluster-network-addon-multus

@@ -31,7 +31,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20210817084001-7fbd8d59e5b8
 	kubevirt.io/client-go v0.45.0-rc.0
-	kubevirt.io/containerized-data-importer v1.38.0
+	kubevirt.io/containerized-data-importer v1.39.0
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.1
 	kubevirt.io/ssp-operator v0.12.0
 	sigs.k8s.io/controller-runtime v0.9.6
@@ -173,7 +173,7 @@ replace (
 	kubevirt.io/client-go => kubevirt.io/client-go v0.45.0-rc.0
 )
 
-// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.38.0
+// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.39.0
 replace (
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210817132244-67c28690af52
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c

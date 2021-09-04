@@ -1618,6 +1618,7 @@ rules:
   - storage.k8s.io
   resources:
   - storageclasses
+  - csidrivers
   verbs:
   - get
   - list
@@ -1654,6 +1655,14 @@ rules:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - scheduling.k8s.io
+  resources:
+  - priorityclasses
   verbs:
   - get
   - list
