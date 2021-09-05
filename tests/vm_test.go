@@ -831,6 +831,35 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 		})
 
+		table.DescribeTable("should report an error status when a VM with a missing PVC/DV is started", func(vmiFunc func() *v1.VirtualMachineInstance, status v1.VirtualMachinePrintableStatus) {
+			vm := createVirtualMachine(true, vmiFunc())
+
+			vmPrintableStatus := func() v1.VirtualMachinePrintableStatus {
+				updatedVm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return updatedVm.Status.PrintableStatus
+			}
+
+			Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).Should(Equal(status))
+		},
+			table.Entry(
+				"missing PVC",
+				func() *v1.VirtualMachineInstance {
+					vmi := tests.NewRandomVMIWithEphemeralDisk("vmi-with-missing-pvc")
+					return tests.AddPVCDisk(vmi, "disk1", "virtio", "missing-pvc")
+				},
+				v1.VirtualMachineStatusPvcNotFound,
+			),
+			table.Entry(
+				"missing DataVolume",
+				func() *v1.VirtualMachineInstance {
+					vmi, _ := newVirtualMachineInstanceWithOCSFileDisk()
+					return vmi
+				},
+				v1.VirtualMachineStatusDataVolumeNotFound,
+			),
+		)
+
 		Context("Using virtctl interface", func() {
 			It("[test_id:1529]should start a VirtualMachineInstance once", func() {
 				By("getting a VM")
