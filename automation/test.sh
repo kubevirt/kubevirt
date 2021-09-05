@@ -57,6 +57,8 @@ elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_STORAGE="rook-ceph-default"
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
+elif [[ $TARGET =~ sig-operator ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-operator/}  
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -340,6 +342,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
     export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
+  elif [[ $TARGET =~ sig-operator ]]; then
+    export KUBEVIRT_E2E_FOCUS="\\[sig-operator\\]"
   elif [[ $TARGET =~ sriov.* ]]; then
     export KUBEVIRT_E2E_FOCUS=SRIOV
   elif [[ $TARGET =~ gpu.* ]]; then
