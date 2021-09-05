@@ -115,6 +115,7 @@ go_test(
         "kubecli_suite_test.go",
         "kv_test.go",
         "migration_test.go",
+        "migrationpolicy_test.go",
         "replicaset_test.go",
         "version_test.go",
         "vm_test.go",

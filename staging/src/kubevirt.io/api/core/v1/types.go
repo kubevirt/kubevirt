@@ -2054,6 +2054,35 @@ type MigrationPolicyList struct {
 	Items           []MigrationPolicy `json:"items"`
 }
 
+func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfigurations *MigrationConfiguration) (*MigrationConfiguration, error) {
+	policySpec := m.Spec
+	newMigrationConfigs := clusterMigrationConfigurations.DeepCopy()
+
+	if policySpec.AllowAutoConverge != nil {
+		*newMigrationConfigs.AllowAutoConverge = *policySpec.AllowAutoConverge
+	}
+	if policySpec.BandwidthPerMigration != nil {
+		*newMigrationConfigs.BandwidthPerMigration = *policySpec.BandwidthPerMigration
+	}
+	if policySpec.CompletionTimeoutPerGiB != nil {
+		*newMigrationConfigs.CompletionTimeoutPerGiB = *policySpec.CompletionTimeoutPerGiB
+	}
+	if policySpec.ProgressTimeout != nil {
+		*newMigrationConfigs.ProgressTimeout = *policySpec.ProgressTimeout
+	}
+	if policySpec.UnsafeMigrationOverride != nil {
+		*newMigrationConfigs.UnsafeMigrationOverride = *policySpec.UnsafeMigrationOverride
+	}
+	if policySpec.AllowPostCopy != nil {
+		*newMigrationConfigs.AllowPostCopy = *policySpec.AllowPostCopy
+	}
+	if policySpec.DisableTLS != nil {
+		*newMigrationConfigs.DisableTLS = *policySpec.DisableTLS
+	}
+
+	return newMigrationConfigs, nil
+}
+
 // DiskVerification holds container disks verification limits
 type DiskVerification struct {
 	MemoryLimit *resource.Quantity `json:"memoryLimit"`

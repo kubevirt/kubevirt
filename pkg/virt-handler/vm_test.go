@@ -114,6 +114,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var wg *sync.WaitGroup
 	var eventChan chan watch.Event
 
+	var _true, _false bool
+
 	var host string
 
 	var certDir string
@@ -158,7 +160,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		host = "master"
 		podIpAddress := "10.10.10.10"
 
-		Expect(err).ToNot(HaveOccurred())
+		_true = true
+		_false = false
 
 		vmiSourceInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiTargetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
@@ -286,6 +289,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}
 		dom.Spec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{}
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
+	}
+
+	expectMigrationPolicy := func(policy *v1.MigrationPolicy) {
+		By("Setting expectation for migration policy")
+		mockMigrationPolicy := kubecli.NewMockMigrationPolicyInterface(ctrl)
+		mockMigrationPolicy.EXPECT().Get(metav1.NamespaceDefault, gomock.Any()).Return(policy, nil)
+		virtClient.EXPECT().MigrationPolicy(metav1.NamespaceDefault).Times(1).Return(mockMigrationPolicy)
 	}
 
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
@@ -1695,14 +1705,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
-			options := &cmdclient.MigrationOptions{
-				Bandwidth:               resource.MustParse("0Mi"),
-				ProgressTimeout:         150,
-				CompletionTimeoutPerGiB: 800,
-				UnsafeMigration:         false,
-				AllowPostCopy:           false,
-			}
-			client.EXPECT().MigrateVirtualMachine(vmi, options)
+			client.EXPECT().MigrateVirtualMachine(vmi, getDefaultMigrationOptions())
+			expectMigrationPolicy(&v1.MigrationPolicy{})
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIMigrating)
 		}, 3)
@@ -3075,6 +3079,141 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(result).To(BeTrue())
 		})
 	})
+
+	Context("Migration policy", func() {
+
+		var vmi *v1.VirtualMachineInstance
+		var migrationPolicy *v1.MigrationPolicy
+		var stubNumber int64
+		var stubResourceQuantity resource.Quantity
+
+		BeforeEach(func() {
+			stubNumber = 33425
+			stubResourceQuantity = resource.MustParse("25Mi")
+
+			By("Initialize VMI")
+			vmi = v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
+			vmi.Status.NodeName = host
+			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+			}
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+
+			By("Initialize migration policy")
+			migrationPolicy = kubecli.NewMinimalMigrationPolicy(metav1.NamespaceDefault)
+			migrationPolicy.Namespace = metav1.NamespaceDefault
+		})
+
+		table.DescribeTable("should override cluster-wide migration configurations when", func(setMigrationPolicy func(*v1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration)) {
+			By("Defining migration policy")
+			setMigrationPolicy(&migrationPolicy.Spec)
+
+			expectMigrationPolicy(migrationPolicy)
+
+			By("Calculating new migration config and validating it")
+			expectedConfigs, err := migrationPolicy.GetMigrationConfByPolicy(getDefaultMigrationConfiguration())
+			Expect(err).ToNot(HaveOccurred())
+			testMigrationConfigs(expectedConfigs)
+
+			By("Expecting that controller will use expected configurations")
+			client.EXPECT().MigrateVirtualMachine(vmi, migrationConfigurationToMigrationOptions(expectedConfigs))
+
+			By("Running the controller")
+			controller.Execute()
+			testutils.ExpectEvent(recorder, VMIMigrating)
+		},
+			table.Entry("allow auto coverage",
+				func(p *v1.MigrationPolicySpec) { p.AllowAutoConverge = &_true },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.AllowAutoConverge).ToNot(BeNil())
+					Expect(*c.AllowAutoConverge).To(BeTrue())
+				},
+			),
+			table.Entry("deny auto coverage",
+				func(p *v1.MigrationPolicySpec) { p.AllowAutoConverge = &_false },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.AllowAutoConverge).ToNot(BeNil())
+					Expect(*c.AllowAutoConverge).To(BeFalse())
+				},
+			),
+			table.Entry("set bandwidth per migration",
+				func(p *v1.MigrationPolicySpec) { p.BandwidthPerMigration = &stubResourceQuantity },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.BandwidthPerMigration).ToNot(BeNil())
+					Expect(c.BandwidthPerMigration.Equal(stubResourceQuantity)).To(BeTrue())
+				},
+			),
+			table.Entry("set completion time per GiB",
+				func(p *v1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.CompletionTimeoutPerGiB).ToNot(BeNil())
+					Expect(*c.CompletionTimeoutPerGiB).To(Equal(stubNumber))
+				},
+			),
+			table.Entry("set progress timeout",
+				func(p *v1.MigrationPolicySpec) { p.ProgressTimeout = &stubNumber },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.ProgressTimeout).ToNot(BeNil())
+					Expect(*c.ProgressTimeout).To(Equal(stubNumber))
+				},
+			),
+			table.Entry("allow unsafe migration",
+				func(p *v1.MigrationPolicySpec) { p.UnsafeMigrationOverride = &_true },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.UnsafeMigrationOverride).ToNot(BeNil())
+					Expect(*c.UnsafeMigrationOverride).To(BeTrue())
+				},
+			),
+			table.Entry("deny unsafe migration",
+				func(p *v1.MigrationPolicySpec) { p.UnsafeMigrationOverride = &_false },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.UnsafeMigrationOverride).ToNot(BeNil())
+					Expect(*c.UnsafeMigrationOverride).To(BeFalse())
+				},
+			),
+			table.Entry("allow post copy",
+				func(p *v1.MigrationPolicySpec) { p.AllowPostCopy = &_true },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.AllowPostCopy).ToNot(BeNil())
+					Expect(*c.AllowPostCopy).To(BeTrue())
+				},
+			),
+			table.Entry("deny post copy",
+				func(p *v1.MigrationPolicySpec) { p.AllowPostCopy = &_false },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.AllowPostCopy).ToNot(BeNil())
+					Expect(*c.AllowPostCopy).To(BeFalse())
+				},
+			),
+			table.Entry("nothing is changed",
+				func(p *v1.MigrationPolicySpec) {},
+				func(c *v1.MigrationConfiguration) {},
+			),
+		)
+
+	})
 })
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
@@ -3361,4 +3500,43 @@ func addNode(client *fake.Clientset, node *k8sv1.Node) {
 	client.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 		return true, node, nil
 	})
+}
+
+func getDefaultMigrationConfiguration() *v1.MigrationConfiguration {
+	parallelOutboundMigrationsPerNode := virtconfig.ParallelOutboundMigrationsPerNodeDefault
+	parallelMigrationsPerCluster := virtconfig.ParallelMigrationsPerClusterDefault
+	allowAutoConverge := virtconfig.MigrationAllowAutoConverge
+	bandwidthPerMigration := resource.MustParse(virtconfig.BandwithPerMigrationDefault)
+	completionTimeoutPerGiB := virtconfig.MigrationCompletionTimeoutPerGiB
+	progressTimeout := virtconfig.MigrationProgressTimeout
+	unsafeMigrationOverride := virtconfig.DefaultUnsafeMigrationOverride
+	allowPostCopy := virtconfig.MigrationAllowPostCopy
+
+	return &v1.MigrationConfiguration{
+		ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+		ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
+		AllowAutoConverge:                 &allowAutoConverge,
+		BandwidthPerMigration:             &bandwidthPerMigration,
+		CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
+		ProgressTimeout:                   &progressTimeout,
+		UnsafeMigrationOverride:           &unsafeMigrationOverride,
+		AllowPostCopy:                     &allowPostCopy,
+	}
+}
+
+func migrationConfigurationToMigrationOptions(configuration *v1.MigrationConfiguration) *cmdclient.MigrationOptions {
+	options := cmdclient.MigrationOptions{
+		Bandwidth:               *configuration.BandwidthPerMigration,
+		ProgressTimeout:         *configuration.ProgressTimeout,
+		CompletionTimeoutPerGiB: *configuration.CompletionTimeoutPerGiB,
+		UnsafeMigration:         *configuration.UnsafeMigrationOverride,
+		AllowAutoConverge:       *configuration.AllowAutoConverge,
+		AllowPostCopy:           *configuration.AllowPostCopy,
+	}
+
+	return &options
+}
+
+func getDefaultMigrationOptions() *cmdclient.MigrationOptions {
+	return migrationConfigurationToMigrationOptions(getDefaultMigrationConfiguration())
 }

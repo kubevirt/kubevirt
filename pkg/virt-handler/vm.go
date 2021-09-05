@@ -2475,6 +2475,22 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 	} else {
 		migrationConfiguration := d.clusterConfig.GetMigrationConfiguration()
 
+		// Override cluster-wide migration configuration if migration policy exists
+		clientset := d.clientset
+		mp := clientset.MigrationPolicy(vmi.Namespace)
+		migrationPolicy, err := mp.Get(vmi.Namespace, &metav1.GetOptions{})
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Warningf("could not fetch migration policy")
+		} else {
+			var updatedMigrationConfiguration *v1.MigrationConfiguration
+			updatedMigrationConfiguration, err = migrationPolicy.GetMigrationConfByPolicy(migrationConfiguration)
+			if err != nil {
+				log.Log.Object(vmi).Reason(err).Warningf("cannot get migration config by migration policy")
+			} else {
+				migrationConfiguration = updatedMigrationConfiguration
+			}
+		}
+
 		options := &cmdclient.MigrationOptions{
 			Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
 			ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
