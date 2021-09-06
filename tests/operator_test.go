@@ -1621,7 +1621,7 @@ spec:
 			allPodsAreReady(kv)
 		})
 
-		It("[QUARANTINE][sig-compute][test_id:3150]should be able to update kubevirt install with custom image tag", func() {
+		It("[test_id:3150]should be able to update kubevirt install with custom image tag", func() {
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
