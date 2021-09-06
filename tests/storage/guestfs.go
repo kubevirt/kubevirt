@@ -102,6 +102,43 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 
 	}
 
+	failedRunningVMIWithPVCInUseByGuestfs := func(vmiName string) {
+		Eventually(func() bool {
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiName, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			for _, cond := range vmi.Status.Conditions {
+				if cond.Reason == k8sv1.PodReasonUnschedulable && strings.Contains(cond.Message, "is in use by virtctl guestfs") {
+					return true
+				}
+			}
+			return false
+		}, 120).Should(BeTrue())
+	}
+
+	isPVCUseByGuestfsErrorEvent := func(e corev1.Event, pvc, vmiName string) bool {
+		if e.Type == "Warning" &&
+			e.Reason == "PVCUseByMaintenancePod" &&
+			e.Message == "Volume is in used: volume "+pvc+" is in use by virtctl guestfs" &&
+			e.InvolvedObject.Kind == "VirtualMachineInstance" &&
+			e.InvolvedObject.Name == vmiName {
+			return true
+		}
+		return false
+	}
+
+	checkEventPVCUseByGuestfs := func(pvc, vmiName string) {
+		Eventually(func() bool {
+			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			for _, e := range events.Items {
+				if isPVCUseByGuestfsErrorEvent(e, pvc, vmiName) {
+					return true
+				}
+			}
+			return false
+		}, 120).Should(BeTrue())
+
+	}
 	Context("Run libguestfs on PVCs", func() {
 		BeforeEach(func() {
 			var err error
@@ -170,6 +207,20 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			Expect(stdout).To(Equal(""))
 			Expect(err).ToNot(HaveOccurred())
 
+		})
+
+		It("Should fail to run a VMI using a PVC in use by virtctl guestfs", func() {
+			f := createFakeAttacher()
+			defer f.closeChannel()
+			pvcClaim = "pvc-vmi"
+			pvc := createPVCFilesystem(pvcClaim)
+			createGuestfsWithPVC(pvc)
+			vmi := tests.NewRandomVMIWithPVCFS(pvcClaim)
+			By("Creating the VMI")
+			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			failedRunningVMIWithPVCInUseByGuestfs(vmi.Name)
+			checkEventPVCUseByGuestfs(pvcClaim, vmi.Name)
 		})
 
 	})
