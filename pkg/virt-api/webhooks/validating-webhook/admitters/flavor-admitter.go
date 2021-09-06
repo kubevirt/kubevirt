@@ -3,6 +3,8 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strconv"
 
 	"kubevirt.io/api/flavor"
 
@@ -106,6 +108,7 @@ func ValidateFlavorProfiles(basePath *k8sfield.Path, profiles []flavorv1alpha1.V
 		if profile.Default {
 			defaultCount += 1
 		}
+		allCauses = append(allCauses, validateFlavorProfile(basePath.Child(strconv.Itoa(i)), profile)...)
 	}
 
 	if defaultCount > 1 {
@@ -117,4 +120,39 @@ func ValidateFlavorProfiles(basePath *k8sfield.Path, profiles []flavorv1alpha1.V
 	}
 
 	return allCauses
+}
+
+func validateFlavorProfile(basePath *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile) []metav1.StatusCause {
+	return validateUnusedFieldsAreZero(basePath.Child("domainTemplate"), profile.DomainTemplate)
+}
+
+func validateUnusedFieldsAreZero(basePath *k8sfield.Path, domainTemplate *flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec) []metav1.StatusCause {
+
+	if domainTemplate == nil {
+		return nil
+	}
+
+	// While VirtualMachineFlavorDomainTemplateSpec.Devices is accepted we don't want to allow Disks, Interfaces etc.
+	unusedDeviceFields := []string{
+		"Disks",
+		"Interfaces",
+		"Inputs",
+		"GPUs",
+		"Filesystems",
+		"HostDevices",
+		"ClientPassthrough",
+		"Sound",
+	}
+	var causes []metav1.StatusCause
+	devices := reflect.ValueOf(domainTemplate.Devices)
+	for _, field := range unusedDeviceFields {
+		if !reflect.Indirect(devices).FieldByName(field).IsZero() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("%s is not supported on domainTemplate.devices", field),
+				Field:   basePath.Child(field).String(),
+			})
+		}
+	}
+	return causes
 }

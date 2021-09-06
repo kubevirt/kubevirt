@@ -818,7 +818,11 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	}
 
 	// start it
-	vmi := c.setupVMIFromVM(vm)
+	vmi, err := c.setupVMIFromVMAndFlavor(vm)
+	if err != nil {
+		return err
+	}
+
 	vmRevisionName, err := c.createVMRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
@@ -829,13 +833,6 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// add a finalizer to ensure the VM controller has a chance to see
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
-
-	err = c.applyFlavorToVmi(vm, vmi)
-	if err != nil {
-		log.Log.Object(vm).Infof("Failed to apply flavor to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply flavor: %v", err)
-		return err
-	}
 
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(vmi)
@@ -1099,8 +1096,7 @@ func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, erro
 }
 
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
-func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
-
+func (c *VMController) setupVMIFromVMAndFlavor(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
 	vmi.ObjectMeta = vm.Spec.Template.ObjectMeta
 	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
@@ -1113,15 +1109,22 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		vmi.Spec.StartStrategy = &strategy
 	}
 
-	setupStableFirmwareUUID(vm, vmi)
-
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
 	vmi.ObjectMeta.OwnerReferences = []v1.OwnerReference{
 		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
-	return vmi
+	err := c.applyFlavorToVmi(vm, vmi)
+	if err != nil {
+		log.Log.Object(vm).Infof("Failed to apply flavor to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply flavor: %v", err)
+		return nil, err
+	}
+
+	setupStableFirmwareUUID(vm, vmi)
+
+	return vmi, nil
 }
 
 func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {

@@ -1,9 +1,13 @@
 package flavor_test
 
 import (
+	"reflect"
+	"strconv"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
@@ -54,15 +58,15 @@ var _ = Describe("Flavor", func() {
 			}
 
 			flavorProfiles = []flavorv1alpha1.VirtualMachineFlavorProfile{{
-				Name:    defaultProfileName,
-				Default: true,
-				CPU:     &v1.CPU{Sockets: 2, Cores: 1, Threads: 1},
+				Name:           defaultProfileName,
+				Default:        true,
+				DomainTemplate: nil,
 			}, {
-				Name: customProfileName1,
-				CPU:  &v1.CPU{Sockets: 4, Cores: 1, Threads: 1},
+				Name:           customProfileName1,
+				DomainTemplate: nil,
 			}, {
-				Name: customProfileName2,
-				CPU:  &v1.CPU{Sockets: 6, Cores: 1, Threads: 1},
+				Name:           customProfileName2,
+				DomainTemplate: nil,
 			}}
 		})
 
@@ -250,10 +254,14 @@ var _ = Describe("Flavor", func() {
 				}
 
 				profile = &flavorv1alpha1.VirtualMachineFlavorProfile{
-					CPU: &v1.CPU{
-						Sockets: 2,
-						Cores:   1,
-						Threads: 1,
+					Name:    "default",
+					Default: true,
+					DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{
+						CPU: &v1.CPU{
+							Sockets: 2,
+							Cores:   1,
+							Threads: 1,
+						},
 					},
 				}
 			})
@@ -299,7 +307,7 @@ var _ = Describe("Flavor", func() {
 					Threads: 1,
 				}
 
-				profile.CPU = nil
+				profile.DomainTemplate = &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{}
 
 				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
 				Expect(conflicts).To(HaveLen(0))
@@ -318,7 +326,7 @@ var _ = Describe("Flavor", func() {
 				conflicts := flavorMethods.ApplyToVmi(k8sfield.NewPath("spec"), profile, vm, vmi)
 				Expect(conflicts).To(HaveLen(0))
 
-				Expect(vmi.Spec.Domain.CPU).To(Equal(profile.CPU))
+				Expect(vmi.Spec.Domain.CPU).To(Equal(profile.DomainTemplate.CPU))
 				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(testFlavor))
 			})
 
@@ -340,3 +348,62 @@ var _ = Describe("Flavor", func() {
 		})
 	})
 })
+
+func getDeepZeroFields(field *k8sfield.Path, objVal reflect.Value) []string {
+	if objVal.IsZero() {
+		// If objVal is a struct with no fields, it counts as non-empty
+		if objVal.Kind() == reflect.Struct && objVal.NumField() == 0 {
+			return nil
+		}
+		return []string{field.String()}
+	}
+
+	switch objVal.Kind() {
+	case reflect.Struct:
+		switch obj := objVal.Interface().(type) {
+		// Quantity struct should not be checked recursively
+		case resource.Quantity:
+			if obj.IsZero() {
+				return []string{field.String()}
+			}
+			return nil
+		default:
+			var res []string
+			for i := 0; i < objVal.NumField(); i++ {
+				f := objVal.Field(i)
+				fName := objVal.Type().Field(i).Name
+				res = append(res, getDeepZeroFields(field.Child(fName), f)...)
+			}
+			return res
+		}
+
+	case reflect.Ptr:
+		return getDeepZeroFields(field, objVal.Elem())
+
+	case reflect.Slice, reflect.Array:
+		if objVal.Len() == 0 {
+			return []string{field.String()}
+		}
+		var res []string
+		for i := 0; i < objVal.Len(); i++ {
+			item := objVal.Index(i)
+			res = append(res, getDeepZeroFields(field.Child(strconv.Itoa(i)), item)...)
+		}
+		return res
+
+	case reflect.Map:
+		if objVal.Len() == 0 {
+			return []string{field.String()}
+		}
+		var res []string
+		mapRange := objVal.MapRange()
+		for mapRange.Next() {
+			key := mapRange.Key()
+			value := mapRange.Value()
+			res = append(res, getDeepZeroFields(field.Child(key.String()), value)...)
+		}
+		return res
+	}
+
+	return nil
+}

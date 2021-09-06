@@ -88,6 +88,51 @@ type VirtualMachineFlavorProfile struct {
 	// +optional
 	Default bool `json:"default,omitempty"`
 
+	// DomainTemplate specifies domain that will be used to fill missing values in a VMI domain.
+	// Devices filed is not allowed in DomainTemplate.
+	//
+	// +optional
+	DomainTemplate *VirtualMachineFlavorDomainTemplateSpec `json:"domainTemplate,omitempty"`
+}
+
+// VirtualMachineFlavorDomainTemplateSpec contains the generic spec definition for the flavor.
+// Note that resources and devices are optional unlike within a full DomainSpec.
+//
+// +k8s:openapi-gen=true
+type VirtualMachineFlavorDomainTemplateSpec struct {
+	// Resources describes the Compute Resources required by this vmi.
+	// +optional
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// CPU allow specified the detailed CPU topology inside the vmi.
 	// +optional
 	CPU *v1.CPU `json:"cpu,omitempty"`
+	// Memory allow specifying the VMI memory features.
+	// +optional
+	Memory *v1.Memory `json:"memory,omitempty"`
+	// Machine type.
+	// +optional
+	Machine *v1.Machine `json:"machine,omitempty"`
+	// Firmware.
+	// +optional
+	Firmware *v1.Firmware `json:"firmware,omitempty"`
+	// Clock sets the clock and timers of the vmi.
+	// +optional
+	Clock *v1.Clock `json:"clock,omitempty"`
+	// Features like acpi, apic, hyperv, smm.
+	// +optional
+	Features *v1.Features `json:"features,omitempty"`
+	// Devices allows adding disks, network interfaces, and others
+	// +optional
+	Devices v1.Devices `json:"devices,omitempty"`
+	// Controls whether or not disks will share IOThreads.
+	// Omitting IOThreadsPolicy disables use of IOThreads.
+	// One of: shared, auto
+	// +optional
+	IOThreadsPolicy *v1.IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
+	// Chassis specifies the chassis info passed to the domain.
+	// +optional
+	Chassis *v1.Chassis `json:"chassis,omitempty"`
+	// Launch Security setting of the vmi.
+	// +optional
+	LaunchSecurity *v1.LaunchSecurity `json:"launchSecurity,omitempty"`
 }

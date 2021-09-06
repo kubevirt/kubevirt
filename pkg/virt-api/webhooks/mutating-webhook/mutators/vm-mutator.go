@@ -25,6 +25,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/flavor"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -33,6 +34,14 @@ import (
 
 type VMsMutator struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	FlavorMethods flavor.Methods
+}
+
+func NewVMsMutator(clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers) *VMsMutator {
+	return &VMsMutator{
+		ClusterConfig: clusterConfig,
+		FlavorMethods: flavor.NewMethods(informers.FlavorInformer.GetStore(), informers.ClusterFlavorInformer.GetStore()),
+	}
 }
 
 // until the minimum supported version is kubernetes 1.15 (see https://github.com/kubernetes/kubernetes/commit/c2fcdc818be1441dd788cae22648c04b1650d3af#diff-e057ec5b2ec27b4ba1e1a3915f715262)
@@ -102,6 +111,19 @@ func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {
 		// nothing to do, let's the validating webhook fail later
 		return
 	}
+
+	flavorProfile, err := mutator.FlavorMethods.FindProfile(vm)
+	if err == nil &&
+		flavorProfile != nil &&
+		flavorProfile.DomainTemplate != nil &&
+		flavorProfile.DomainTemplate.Machine != nil &&
+		flavorProfile.DomainTemplate.Machine.Type != "" {
+
+		// If a flavor defines the machine, this mutating webhook
+		// should not set the machine, because it would cause conflict.
+		return
+	}
+
 	machineType := mutator.ClusterConfig.GetMachineType()
 
 	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil {

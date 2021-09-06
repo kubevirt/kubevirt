@@ -1334,16 +1334,16 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should have stable firmware UUIDs", func() {
 			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi1 := controller.setupVMIFromVM(vm1)
+			vmi1, _ := controller.setupVMIFromVMAndFlavor(vm1)
 
 			// intentionally use the same names
 			vm2, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi2 := controller.setupVMIFromVM(vm2)
+			vmi2, _ := controller.setupVMIFromVMAndFlavor(vm2)
 			Expect(vmi1.Spec.Domain.Firmware.UUID).To(Equal(vmi2.Spec.Domain.Firmware.UUID))
 
 			// now we want different names
 			vm3, _ := DefaultVirtualMachineWithNames(true, "testvm3", "testvmi3")
-			vmi3 := controller.setupVMIFromVM(vm3)
+			vmi3, _ := controller.setupVMIFromVMAndFlavor(vm3)
 			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
 		})
 
@@ -1352,7 +1352,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
 			vm1.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: types.UID(uid)}
 
-			vmi1 := controller.setupVMIFromVM(vm1)
+			vmi1, _ := controller.setupVMIFromVMAndFlavor(vm1)
 			Expect(string(vmi1.Spec.Domain.Firmware.UUID)).To(Equal(uid))
 		})
 
@@ -2438,13 +2438,7 @@ var _ = Describe("VirtualMachine", func() {
 				testFlavor = "test-flavor"
 
 				flavorMethods.FindFlavorFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
-					return &flavorv1alpha1.VirtualMachineFlavorProfile{
-						CPU: &virtv1.CPU{
-							Sockets: 2,
-							Cores:   1,
-							Threads: 1,
-						},
-					}, nil
+					return &flavorv1alpha1.VirtualMachineFlavorProfile{}, nil
 				}
 			})
 

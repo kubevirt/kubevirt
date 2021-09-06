@@ -70,11 +70,11 @@ func ServeVMRestores(resp http.ResponseWriter, req *http.Request, clusterConfig 
 	validating_webhooks.Serve(resp, req, admitters.NewVMRestoreAdmitter(clusterConfig, virtCli, informers.VMRestoreInformer))
 }
 
-func ServeVmFlavors(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+func ServeVmFlavors(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.FlavorAdmitter{})
 }
 
-func ServeVmClusterFlavors(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+func ServeVmClusterFlavors(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.ClusterFlavorAdmitter{})
 }
 

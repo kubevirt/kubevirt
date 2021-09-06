@@ -12,7 +12,9 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
 
+	v1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 )
 
@@ -33,11 +35,9 @@ var _ = Describe("Validating Flavor Admitter", func() {
 			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
 				Name:    "default",
 				Default: true,
-				CPU:     nil,
 			}, {
 				Name:    "second",
 				Default: false,
-				CPU:     nil,
 			}},
 		}
 	})
@@ -69,6 +69,57 @@ var _ = Describe("Validating Flavor Admitter", func() {
 		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
 	})
+
+	It("should allow flavor with domainTemplate.devices.UseVirtioTransitional", func() {
+		flavorWithDevices := &flavorv1alpha1.VirtualMachineFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
+				Name:    "default",
+				Default: true,
+				DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{
+					Devices: v1.Devices{
+						UseVirtioTransitional: pointer.BoolPtr(true),
+					},
+				},
+			}},
+		}
+		ar := createFlavorAdmissionReview(flavorWithDevices)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeTrue(), "Expected flavor to be allowed.")
+	})
+
+	It("should reject flavor with Disks, Interfaces, Inputs etc", func() {
+		flavorWithDevices := &flavorv1alpha1.VirtualMachineFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
+				Name:    "default",
+				Default: true,
+				DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{
+					Devices: v1.Devices{
+						Disks:      []v1.Disk{{}},
+						Interfaces: []v1.Interface{{}},
+						Inputs:     []v1.Input{{}},
+					},
+				},
+			}},
+		}
+		ar := createFlavorAdmissionReview(flavorWithDevices)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(3))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(response.Result.Details.Causes[0].Message).To(HavePrefix("Disks is not supported on domainTemplate.devices"))
+		Expect(response.Result.Details.Causes[1].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(response.Result.Details.Causes[1].Message).To(HavePrefix("Interfaces is not supported on domainTemplate.devices"))
+		Expect(response.Result.Details.Causes[2].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(response.Result.Details.Causes[2].Message).To(HavePrefix("Inputs is not supported on domainTemplate.devices"))
+	})
 })
 
 var _ = Describe("Validating ClusterFlavor Admitter", func() {
@@ -88,11 +139,9 @@ var _ = Describe("Validating ClusterFlavor Admitter", func() {
 			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
 				Name:    "default",
 				Default: true,
-				CPU:     nil,
 			}, {
 				Name:    "second",
 				Default: false,
-				CPU:     nil,
 			}},
 		}
 	})
@@ -123,6 +172,51 @@ var _ = Describe("Validating ClusterFlavor Admitter", func() {
 
 		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
+	})
+
+	It("should allow flavor with domainTemplate.Devices.UseVirtioTransitional", func() {
+		flavorWithDevices := &flavorv1alpha1.VirtualMachineClusterFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
+				Name:    "default",
+				Default: true,
+				DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{
+					Devices: v1.Devices{
+						UseVirtioTransitional: pointer.BoolPtr(true),
+					},
+				},
+			}},
+		}
+		ar := createClusterFlavorAdmissionReview(flavorWithDevices)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeTrue(), "Expected flavor to be allowed.")
+	})
+
+	It("should reject flavor with domainTemplate.Devices.Disks", func() {
+		flavorWithDevices := &flavorv1alpha1.VirtualMachineClusterFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+			Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
+				Name:    "default",
+				Default: true,
+				DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{
+					Devices: v1.Devices{
+						Disks: []v1.Disk{{Name: "test"}},
+					},
+				},
+			}},
+		}
+		ar := createClusterFlavorAdmissionReview(flavorWithDevices)
+		response := admitter.Admit(ar)
+		Expect(response.Allowed).To(BeFalse(), "Expected flavor to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(response.Result.Details.Causes[0].Message).To(HavePrefix("Disks is not supported on domainTemplate.devices"))
 	})
 })
 

@@ -757,10 +757,10 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVMRestores(w, r, app.clusterConfig, app.virtCli, informers)
 	})
 	http.HandleFunc(components.VMFlavorValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmFlavors(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmFlavors(w, r)
 	})
 	http.HandleFunc(components.VMClusterFlavorValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmClusterFlavors(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmClusterFlavors(w, r)
 	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers)
@@ -776,7 +776,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 
 	http.HandleFunc(components.VMMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMs(w, r, app.clusterConfig)
+		mutating_webhook.ServeVMs(w, r, app.clusterConfig, informers)
 	})
 	http.HandleFunc(components.VMIMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers)

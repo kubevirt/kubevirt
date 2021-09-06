@@ -30,9 +30,26 @@ func (VirtualMachineClusterFlavorList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineFlavorProfile) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "VirtualMachineFlavorProfile contains definitions that will be applied to VirtualMachine.\n\n+k8s:openapi-gen=true",
-		"name":    "Name specifies the name of this custom profile.",
-		"default": "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor.\nZero or one profile can be set to default.\n\n+optional",
-		"cpu":     "+optional",
+		"":               "VirtualMachineFlavorProfile contains definitions that will be applied to VirtualMachine.\n\n+k8s:openapi-gen=true",
+		"name":           "Name specifies the name of this custom profile.",
+		"default":        "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor.\nZero or one profile can be set to default.\n\n+optional",
+		"domainTemplate": "DomainTemplate specifies domain that will be used to fill missing values in a VMI domain.\nDevices filed is not allowed in DomainTemplate.\n\n+optional",
+	}
+}
+
+func (VirtualMachineFlavorDomainTemplateSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "VirtualMachineFlavorDomainTemplateSpec contains the generic spec definition for the flavor.\nNote that resources and devices are optional unlike within a full DomainSpec.\n\n+k8s:openapi-gen=true",
+		"resources":       "Resources describes the Compute Resources required by this vmi.\n+optional",
+		"cpu":             "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
+		"memory":          "Memory allow specifying the VMI memory features.\n+optional",
+		"machine":         "Machine type.\n+optional",
+		"firmware":        "Firmware.\n+optional",
+		"clock":           "Clock sets the clock and timers of the vmi.\n+optional",
+		"features":        "Features like acpi, apic, hyperv, smm.\n+optional",
+		"devices":         "Devices allows adding disks, network interfaces, and others\n+optional",
+		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
+		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
 	}
 }

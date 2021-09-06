@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	utiltypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -38,6 +39,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	var vm *v1.VirtualMachine
 	var kvInformer cache.SharedIndexInformer
 	var mutator *VMsMutator
+	var flavorMethods *testutils.MockFlavorMethods
 
 	machineTypeFromConfig := "pc-q35-3.0"
 
@@ -79,8 +81,11 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		}
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
 
+		flavorMethods = testutils.NewMockFlavorMethods()
+
 		mutator = &VMsMutator{}
 		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		mutator.FlavorMethods = flavorMethods
 	})
 
 	It("should apply defaults on VM create", func() {
@@ -120,5 +125,22 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vmSpec, _ := getVMSpecMetaFromResponse()
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
+	})
+
+	It("should not set Machine type if flavor defines Machine type", func() {
+		flavorMethods.FindFlavorFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
+			return &flavorv1alpha1.VirtualMachineFlavorProfile{
+				Name:    "test-profile",
+				Default: true,
+				DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{
+					Machine: &v1.Machine{
+						Type: "q35",
+					},
+				},
+			}, nil
+		}
+
+		vmSpec, _ := getVMSpecMetaFromResponse()
+		Expect(vmSpec.Template.Spec.Domain.Machine).To(BeNil())
 	})
 })

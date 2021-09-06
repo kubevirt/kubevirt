@@ -5,10 +5,15 @@ import (
 	goerrors "errors"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -82,6 +87,32 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 			Expect(cause.Message).To(HavePrefix("Flavor contains more than one default profile"))
 			Expect(cause.Field).To(Equal("profiles"))
+		})
+
+		It("[test_id:TODO] should fail with DomainTemplate.Devices.Disks", func() {
+			flavor := newVirtualMachineFlavor()
+			flavor.Profiles[0].DomainTemplate.Devices.Disks = []v1.Disk{{Name: "test"}}
+
+			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+
+			Expect(err).To(HaveOccurred())
+			var apiStatus errors.APIStatus
+			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+
+			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
+			cause := apiStatus.Status().Details.Causes[0]
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+			Expect(cause.Message).To(HavePrefix("Disks is not supported on domainTemplate.devices"))
+		})
+
+		It("[test_id:TODO] should allow DomainTemplate.Devices.UseVirtioTransitional", func() {
+			flavor := newVirtualMachineFlavor()
+			flavor.Profiles[0].DomainTemplate.Devices.UseVirtioTransitional = pointer.BoolPtr(true)
+
+			_, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -185,6 +216,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("Flavor application", func() {
+		newVmi := func() *v1.VirtualMachineInstance {
+			return tests.NewRandomVMIWithEphemeralDisk(
+				cd.ContainerDiskFor(cd.ContainerDiskCirros),
+			)
+		}
+
 		startVM := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
 			runStrategyAlways := v1.RunStrategyAlways
 			By("Starting the VirtualMachine")
@@ -217,70 +254,496 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			return updatedVM
 		}
 
-		Context("CPU", func() {
-			It("[test_id:TODO] should apply flavor to CPU", func() {
-				cpu := &v1.CPU{Sockets: 2, Cores: 1, Threads: 1, Model: v1.DefaultCPUModel}
+		table.DescribeTable("should apply flavor", func(getFlavorAndVmi func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance), expectedVm func(*v1.VirtualMachineInstance)) {
+			flavor, vmi := getFlavorAndVmi()
 
-				flavor := newVirtualMachineFlavor()
-				flavor.Profiles[0].CPU = cpu
+			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
-					Create(context.Background(), flavor, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Flavor = &v1.FlavorMatcher{
+				Name: flavor.Name,
+				Kind: namespacedFlavorKind,
+			}
 
-				vmi := tests.NewRandomVMIWithEphemeralDisk(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-				)
-				vmi.Spec.Domain.CPU = nil
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
 
-				vm := tests.NewRandomVirtualMachine(vmi, false)
-				vm.Spec.Flavor = &v1.FlavorMatcher{
-					Name: flavor.Name,
-					Kind: namespacedFlavorKind,
-				}
+			startVM(vm)
 
-				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
-				Expect(err).ToNot(HaveOccurred())
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				startVM(vm)
+			expectedVm(vmi)
+		},
+			table.Entry("[test_id:TODO] resources requests",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Resources.Requests = k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+					}
+					vmi := newVmi()
+					vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(vmi.Spec.Domain.Resources.Requests).To(
+						HaveKeyWithValue(k8sv1.ResourceMemory, resource.MustParse("128Mi")),
+					)
+				},
+			),
 
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Domain.CPU).To(Equal(cpu))
-				Expect(vmi.Annotations[v1.FlavorAnnotation]).To(Equal(flavor.Name))
-				Expect(vmi.Annotations[v1.ClusterFlavorAnnotation]).To(Equal(""))
-			})
+			table.Entry("[test_id:TODO] resources limits",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Resources.Limits = k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+					}
 
-			It("[test_id:TODO] should fail if flavor and VMI define CPU", func() {
-				flavor := newVirtualMachineFlavor()
-				flavor.Profiles[0].CPU = &v1.CPU{Sockets: 2, Cores: 1, Threads: 1}
+					vmi := newVmi()
+					vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(vmi.Spec.Domain.Resources.Limits).To(
+						HaveKeyWithValue(k8sv1.ResourceMemory, resource.MustParse("128Mi")),
+					)
+				},
+			),
 
-				flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
-					Create(context.Background(), flavor, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+			table.Entry("[test_id:TODO] CPU",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.CPU = &v1.CPU{
+						Sockets: 2, Cores: 1, Threads: 1, Model: v1.DefaultCPUModel,
+					}
+					vmi := newVmi()
+					vmi.Spec.Domain.CPU = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(vmi.Spec.Domain.CPU).To(Equal(&v1.CPU{
+						Sockets: 2, Cores: 1, Threads: 1, Model: v1.DefaultCPUModel,
+					}))
+				},
+			),
 
-				vmi := tests.NewRandomVMI()
-				vmi.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
+			table.Entry("[test_id:TODO] memory guest",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					memory := resource.MustParse("128Mi")
+					flavor.Profiles[0].DomainTemplate.Memory = &v1.Memory{
+						Guest: &memory,
+					}
 
-				vm := tests.NewRandomVirtualMachine(vmi, false)
-				vm.Spec.Flavor = &v1.FlavorMatcher{
-					Name: flavor.Name,
-					Kind: namespacedFlavorKind,
-				}
+					vmi := newVmi()
+					vmi.Spec.Domain.Memory = nil
+					vmi.Spec.Domain.Resources.Requests = nil
+					vmi.Spec.Domain.Resources.Limits = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					memory := resource.MustParse("128Mi")
+					Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(memory))
+				},
+			),
 
-				_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
-				Expect(err).To(HaveOccurred())
-				var apiStatus errors.APIStatus
-				Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+			table.Entry("[test_id:TODO] memory huge pages",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Memory = &v1.Memory{
+						Hugepages: &v1.Hugepages{
+							PageSize: "2Mi",
+						},
+					}
 
-				Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-				cause := apiStatus.Status().Details.Causes[0]
+					vmi := newVmi()
+					vmi.Spec.Domain.Memory = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(vmi.Spec.Domain.Memory.Hugepages.PageSize).To(Equal("2Mi"))
+				},
+			),
 
-				Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-				Expect(cause.Message).To(Equal("VMI field conflicts with selected Flavor profile"))
-				Expect(cause.Field).To(Equal("spec.template.spec.domain.cpu"))
-			})
-		})
+			table.Entry("[test_id:TODO] machine",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Machine = &v1.Machine{
+						Type: "q35",
+					}
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Machine = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(vmi.Spec.Domain.Machine.Type).To(Equal("q35"))
+				},
+			),
+
+			table.Entry("[test_id:TODO] firmware",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Firmware = &v1.Firmware{
+						UUID:   "6d5e3bde-8796-4364-97fe-e210ab9ff161",
+						Serial: "123456",
+					}
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Firmware = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(*vmi.Spec.Domain.Firmware).To(Equal(v1.Firmware{
+						UUID:   "6d5e3bde-8796-4364-97fe-e210ab9ff161",
+						Serial: "123456",
+					}))
+				},
+			),
+
+			table.Entry("[test_id:TODO] clock",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Clock = &v1.Clock{
+						ClockOffset: v1.ClockOffset{
+							UTC: &v1.ClockOffsetUTC{},
+						},
+						Timer: &v1.Timer{
+							KVM: &v1.KVMTimer{
+								Enabled: pointer.BoolPtr(true),
+							},
+						},
+					}
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Clock = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(*vmi.Spec.Domain.Clock).To(Equal(v1.Clock{
+						ClockOffset: v1.ClockOffset{
+							UTC: &v1.ClockOffsetUTC{},
+						},
+						Timer: &v1.Timer{
+							KVM: &v1.KVMTimer{
+								Enabled: pointer.BoolPtr(true),
+							},
+						},
+					}))
+				},
+			),
+
+			table.Entry("[test_id:TODO] features",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Features = &v1.Features{
+						ACPI: v1.FeatureState{
+							Enabled: pointer.BoolPtr(true),
+						},
+						KVM: &v1.FeatureKVM{
+							Hidden: false,
+						},
+						Pvspinlock: &v1.FeatureState{
+							Enabled: pointer.BoolPtr(true),
+						},
+					}
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Features = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(*vmi.Spec.Domain.Features).To(Equal(v1.Features{
+						ACPI: v1.FeatureState{
+							Enabled: pointer.BoolPtr(true),
+						},
+						KVM: &v1.FeatureKVM{
+							Hidden: false,
+						},
+						Pvspinlock: &v1.FeatureState{
+							Enabled: pointer.BoolPtr(true),
+						},
+					}))
+				},
+			),
+
+			table.Entry("[test_id:TODO] ioThreadPolicy",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					ioThreadPolicy := v1.IOThreadsPolicyAuto
+					flavor.Profiles[0].DomainTemplate.IOThreadsPolicy = &ioThreadPolicy
+
+					vmi := newVmi()
+					vmi.Spec.Domain.IOThreadsPolicy = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(v1.IOThreadsPolicyAuto))
+				},
+			),
+
+			table.Entry("[test_id:TODO] chassis",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Chassis = &v1.Chassis{
+						Manufacturer: "manufacturer",
+						Version:      "123",
+						Serial:       "123456",
+						Asset:        "asset",
+						Sku:          "12345678",
+					}
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Chassis = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(*vmi.Spec.Domain.Chassis).To(Equal(v1.Chassis{
+						Manufacturer: "manufacturer",
+						Version:      "123",
+						Serial:       "123456",
+						Asset:        "asset",
+						Sku:          "12345678",
+					}))
+				},
+			),
+			table.Entry("[test_id:TODO] Devices.UseVirtioTransitional",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Devices.UseVirtioTransitional = pointer.BoolPtr(true)
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Devices.UseVirtioTransitional = nil
+					return flavor, vmi
+				},
+				func(vmi *v1.VirtualMachineInstance) {
+					Expect(*vmi.Spec.Domain.Devices.UseVirtioTransitional).To(Equal(true))
+				},
+			),
+		)
+
+		table.DescribeTable("flavor conflicts with VM", func(conflictingField string, getFlavorAndVmi func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance)) {
+			flavor, vmi := getFlavorAndVmi()
+
+			flavor, err := virtClient.VirtualMachineFlavor(util.NamespaceTestDefault).
+				Create(context.Background(), flavor, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Flavor = &v1.FlavorMatcher{
+				Name: flavor.Name,
+				Kind: namespacedFlavorKind,
+			}
+
+			_, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			Expect(err).To(HaveOccurred())
+			var apiStatus errors.APIStatus
+			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
+
+			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
+			cause := apiStatus.Status().Details.Causes[0]
+
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid), "Expected cause type")
+			Expect(cause.Message).To(Equal("VMI field conflicts with selected Flavor profile"), "Expected cause message")
+			Expect(cause.Field).To(Equal(conflictingField), "Expected conflicting field")
+		},
+			table.Entry("[test_id:TODO] resources requests",
+				"spec.template.spec.domain.resources.requests.memory",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Resources.Requests = k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+					}
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+					}
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] resources limits",
+				"spec.template.spec.domain.resources.limits.memory",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Resources.Limits = k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+					}
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+					}
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] CPU",
+				"spec.template.spec.domain.cpu",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.CPU = &v1.CPU{Sockets: 2, Cores: 1, Threads: 1}
+
+					vmi := tests.NewRandomVMI()
+					vmi.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
+
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] memory guest",
+				"spec.template.spec.domain.memory.guest",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					memory := resource.MustParse("128Mi")
+					flavor.Profiles[0].DomainTemplate.Memory = &v1.Memory{
+						Guest: &memory,
+					}
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Memory = &v1.Memory{
+						Guest: &memory,
+					}
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] memory huge pages",
+				"spec.template.spec.domain.memory.hugepages",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					pagesize := "2Mi"
+					flavor.Profiles[0].DomainTemplate.Memory = &v1.Memory{
+						Hugepages: &v1.Hugepages{
+							PageSize: pagesize,
+						},
+					}
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Memory = &v1.Memory{
+						Hugepages: &v1.Hugepages{
+							PageSize: pagesize,
+						},
+					}
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] machine",
+				"spec.template.spec.domain.machine",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					machine := &v1.Machine{
+						Type: "q35",
+					}
+
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Machine = machine
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Machine = machine
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] firmware",
+				"spec.template.spec.domain.firmware",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					firmware := &v1.Firmware{
+						UUID:   "6d5e3bde-8796-4364-97fe-e210ab9ff161",
+						Serial: "123456",
+					}
+
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Firmware = firmware
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Firmware = firmware
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] clock",
+				"spec.template.spec.domain.clock",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					clock := &v1.Clock{
+						ClockOffset: v1.ClockOffset{
+							UTC: &v1.ClockOffsetUTC{},
+						},
+						Timer: &v1.Timer{
+							KVM: &v1.KVMTimer{
+								Enabled: pointer.BoolPtr(true),
+							},
+						},
+					}
+
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Clock = clock
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Clock = clock
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] features",
+				"spec.template.spec.domain.features",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					features := &v1.Features{
+						ACPI: v1.FeatureState{
+							Enabled: pointer.BoolPtr(true),
+						},
+						KVM: &v1.FeatureKVM{
+							Hidden: false,
+						},
+						Pvspinlock: &v1.FeatureState{
+							Enabled: pointer.BoolPtr(true),
+						},
+					}
+
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Features = features
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Features = features
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] ioThreadsPolicy",
+				"spec.template.spec.domain.ioThreadsPolicy",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					flavor := newVirtualMachineFlavor()
+					ioThreadPolicy := v1.IOThreadsPolicyAuto
+					flavor.Profiles[0].DomainTemplate.IOThreadsPolicy = &ioThreadPolicy
+
+					vmi := newVmi()
+					vmi.Spec.Domain.IOThreadsPolicy = &ioThreadPolicy
+					return flavor, vmi
+				},
+			),
+
+			table.Entry("[test_id:TODO] chassis",
+				"spec.template.spec.domain.chassis",
+				func() (*flavorv1alpha1.VirtualMachineFlavor, *v1.VirtualMachineInstance) {
+					chassis := &v1.Chassis{
+						Manufacturer: "manufacturer",
+						Version:      "123",
+						Serial:       "123456",
+						Asset:        "asset",
+						Sku:          "12345678",
+					}
+					flavor := newVirtualMachineFlavor()
+					flavor.Profiles[0].DomainTemplate.Chassis = chassis
+
+					vmi := newVmi()
+					vmi.Spec.Domain.Chassis = chassis
+					return flavor, vmi
+				},
+			),
+		)
 	})
 })
 
@@ -291,8 +754,9 @@ func newVirtualMachineFlavor() *flavorv1alpha1.VirtualMachineFlavor {
 			Namespace:    util.NamespaceTestDefault,
 		},
 		Profiles: []flavorv1alpha1.VirtualMachineFlavorProfile{{
-			Name:    "default",
-			Default: true,
+			Name:           "default",
+			Default:        true,
+			DomainTemplate: &flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec{},
 		}},
 	}
 }

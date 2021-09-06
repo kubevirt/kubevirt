@@ -492,6 +492,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavor":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineClusterFlavorList":                            schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavor":                                       schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref),
+		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorDomainTemplateSpec":                     schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorDomainTemplateSpec(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorList":                                   schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorList(ref),
 		"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorProfile":                                schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorProfile(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicy":                                        schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicy(ref),
@@ -22240,6 +22241,88 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavor(ref common.Refer
 	}
 }
 
+func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorDomainTemplateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineFlavorDomainTemplateSpec contains the generic spec definition for the flavor. Note that resources and devices are optional unlike within a full DomainSpec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources describes the Compute Resources required by this vmi.",
+							Ref:         ref("kubevirt.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CPU allow specified the detailed CPU topology inside the vmi.",
+							Ref:         ref("kubevirt.io/api/core/v1.CPU"),
+						},
+					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Memory allow specifying the VMI memory features.",
+							Ref:         ref("kubevirt.io/api/core/v1.Memory"),
+						},
+					},
+					"machine": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Machine type.",
+							Ref:         ref("kubevirt.io/api/core/v1.Machine"),
+						},
+					},
+					"firmware": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Firmware.",
+							Ref:         ref("kubevirt.io/api/core/v1.Firmware"),
+						},
+					},
+					"clock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clock sets the clock and timers of the vmi.",
+							Ref:         ref("kubevirt.io/api/core/v1.Clock"),
+						},
+					},
+					"features": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Features like acpi, apic, hyperv, smm.",
+							Ref:         ref("kubevirt.io/api/core/v1.Features"),
+						},
+					},
+					"devices": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Devices allows adding disks, network interfaces, and others",
+							Ref:         ref("kubevirt.io/api/core/v1.Devices"),
+						},
+					},
+					"ioThreadsPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"chassis": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Chassis specifies the chassis info passed to the domain.",
+							Ref:         ref("kubevirt.io/api/core/v1.Chassis"),
+						},
+					},
+					"launchSecurity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Launch Security setting of the vmi.",
+							Ref:         ref("kubevirt.io/api/core/v1.LaunchSecurity"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.CPU", "kubevirt.io/api/core/v1.Chassis", "kubevirt.io/api/core/v1.Clock", "kubevirt.io/api/core/v1.Devices", "kubevirt.io/api/core/v1.Features", "kubevirt.io/api/core/v1.Firmware", "kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.Memory", "kubevirt.io/api/core/v1.ResourceRequirements"},
+	}
+}
+
 func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22308,9 +22391,10 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorProfile(ref commo
 							Format:      "",
 						},
 					},
-					"cpu": {
+					"domainTemplate": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.CPU"),
+							Description: "DomainTemplate specifies domain that will be used to fill missing values in a VMI domain. Devices filed is not allowed in DomainTemplate.",
+							Ref:         ref("kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorDomainTemplateSpec"),
 						},
 					},
 				},
@@ -22318,7 +22402,7 @@ func schema_kubevirtio_api_flavor_v1alpha1_VirtualMachineFlavorProfile(ref commo
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPU"},
+			"kubevirt.io/api/flavor/v1alpha1.VirtualMachineFlavorDomainTemplateSpec"},
 	}
 }
 

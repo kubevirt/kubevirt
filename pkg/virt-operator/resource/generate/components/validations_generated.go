@@ -6774,90 +6774,963 @@ var CRDsValidation map[string]string = map[string]string{
         description: VirtualMachineFlavorProfile contains definitions that will be
           applied to VirtualMachine.
         properties:
-          cpu:
-            description: CPU allows specifying the CPU topology.
-            properties:
-              cores:
-                description: Cores specifies the number of cores inside the vmi. Must
-                  be a value greater or equal 1.
-                format: int32
-                type: integer
-              dedicatedCpuPlacement:
-                description: DedicatedCPUPlacement requests the scheduler to place
-                  the VirtualMachineInstance on a node with enough dedicated pCPUs
-                  and pin the vCPUs to it.
-                type: boolean
-              features:
-                description: Features specifies the CPU features list inside the VMI.
-                items:
-                  description: CPUFeature allows specifying a CPU feature.
-                  properties:
-                    name:
-                      description: Name of the CPU feature
-                      type: string
-                    policy:
-                      description: 'Policy is the CPU feature attribute which can
-                        have the following attributes: force    - The virtual CPU
-                        will claim the feature is supported regardless of it being
-                        supported by host CPU. require  - Guest creation will fail
-                        unless the feature is supported by the host CPU or the hypervisor
-                        is able to emulate it. optional - The feature will be supported
-                        by virtual CPU if and only if it is supported by host CPU.
-                        disable  - The feature will not be supported by virtual CPU.
-                        forbid   - Guest creation will fail if the feature is supported
-                        by host CPU. Defaults to require'
-                      type: string
-                  required:
-                  - name
-                  type: object
-                type: array
-              isolateEmulatorThread:
-                description: IsolateEmulatorThread requests one more dedicated pCPU
-                  to be allocated for the VMI to place the emulator thread on it.
-                type: boolean
-              model:
-                description: Model specifies the CPU model inside the VMI. List of
-                  available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
-                  It is possible to specify special cases like "host-passthrough"
-                  to get the same CPU as the node and "host-model" to get CPU closest
-                  to the node one. Defaults to host-model.
-                type: string
-              numa:
-                description: NUMA allows specifying settings for the guest NUMA topology
-                properties:
-                  guestMappingPassthrough:
-                    description: GuestMappingPassthrough will create an efficient
-                      guest topology based on host CPUs exclusively assigned to a
-                      pod. The created topology ensures that memory and CPUs on the
-                      virtual numa nodes never cross boundaries of host numa nodes.
-                    type: object
-                type: object
-              realtime:
-                description: Realtime instructs the virt-launcher to tune the VMI
-                  for lower latency, optional for real time workloads
-                properties:
-                  mask:
-                    description: 'Mask defines the vcpu mask expression that defines
-                      which vcpus are used for realtime. Format matches libvirt''s
-                      expressions. Example: "0-3,^1","0,2,3","2-3"'
-                    type: string
-                type: object
-              sockets:
-                description: Sockets specifies the number of sockets inside the vmi.
-                  Must be a value greater or equal 1.
-                format: int32
-                type: integer
-              threads:
-                description: Threads specifies the number of threads inside the vmi.
-                  Must be a value greater or equal 1.
-                format: int32
-                type: integer
-            type: object
           default:
             description: Default specifies if this VirtualMachineFlavorProfile is
               the default for the VirtualMachineFlavor. Zero or one profile can be
               set to default.
             type: boolean
+          domainTemplate:
+            description: DomainTemplate specifies domain that will be used to fill
+              missing values in a VMI domain. Devices filed is not allowed in DomainTemplate.
+            properties:
+              chassis:
+                description: Chassis specifies the chassis info passed to the domain.
+                properties:
+                  asset:
+                    type: string
+                  manufacturer:
+                    type: string
+                  serial:
+                    type: string
+                  sku:
+                    type: string
+                  version:
+                    type: string
+                type: object
+              clock:
+                description: Clock sets the clock and timers of the vmi.
+                properties:
+                  timer:
+                    description: Timer specifies whih timers are attached to the vmi.
+                    properties:
+                      hpet:
+                        description: HPET (High Precision Event Timer) - multiple
+                          timers with periodic interrupts.
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                          tickPolicy:
+                            description: TickPolicy determines what happens when QEMU
+                              misses a deadline for injecting a tick to the guest.
+                              One of "delay", "catchup", "merge", "discard".
+                            type: string
+                        type: object
+                      hyperv:
+                        description: Hyperv (Hypervclock) - lets guests read the host’s
+                          wall clock time (paravirtualized). For windows guests.
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                        type: object
+                      kvm:
+                        description: "KVM \t(KVM clock) - lets guests read the host’s
+                          wall clock time (paravirtualized). For linux guests."
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                        type: object
+                      pit:
+                        description: PIT (Programmable Interval Timer) - a timer with
+                          periodic interrupts.
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                          tickPolicy:
+                            description: TickPolicy determines what happens when QEMU
+                              misses a deadline for injecting a tick to the guest.
+                              One of "delay", "catchup", "discard".
+                            type: string
+                        type: object
+                      rtc:
+                        description: RTC (Real Time Clock) - a continuously running
+                          timer with periodic interrupts.
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                          tickPolicy:
+                            description: TickPolicy determines what happens when QEMU
+                              misses a deadline for injecting a tick to the guest.
+                              One of "delay", "catchup".
+                            type: string
+                          track:
+                            description: Track the guest or the wall clock.
+                            type: string
+                        type: object
+                    type: object
+                  timezone:
+                    description: Timezone sets the guest clock to the specified timezone.
+                      Zone name follows the TZ environment variable format (e.g. 'America/New_York').
+                    type: string
+                  utc:
+                    description: UTC sets the guest clock to UTC on each boot. If
+                      an offset is specified, guest changes to the clock will be kept
+                      during reboots and are not reset.
+                    properties:
+                      offsetSeconds:
+                        description: OffsetSeconds specifies an offset in seconds,
+                          relative to UTC. If set, guest changes to the clock will
+                          be kept during reboots and not reset.
+                        type: integer
+                    type: object
+                type: object
+              cpu:
+                description: CPU allow specified the detailed CPU topology inside
+                  the vmi.
+                properties:
+                  cores:
+                    description: Cores specifies the number of cores inside the vmi.
+                      Must be a value greater or equal 1.
+                    format: int32
+                    type: integer
+                  dedicatedCpuPlacement:
+                    description: DedicatedCPUPlacement requests the scheduler to place
+                      the VirtualMachineInstance on a node with enough dedicated pCPUs
+                      and pin the vCPUs to it.
+                    type: boolean
+                  features:
+                    description: Features specifies the CPU features list inside the
+                      VMI.
+                    items:
+                      description: CPUFeature allows specifying a CPU feature.
+                      properties:
+                        name:
+                          description: Name of the CPU feature
+                          type: string
+                        policy:
+                          description: 'Policy is the CPU feature attribute which
+                            can have the following attributes: force    - The virtual
+                            CPU will claim the feature is supported regardless of
+                            it being supported by host CPU. require  - Guest creation
+                            will fail unless the feature is supported by the host
+                            CPU or the hypervisor is able to emulate it. optional
+                            - The feature will be supported by virtual CPU if and
+                            only if it is supported by host CPU. disable  - The feature
+                            will not be supported by virtual CPU. forbid   - Guest
+                            creation will fail if the feature is supported by host
+                            CPU. Defaults to require'
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  isolateEmulatorThread:
+                    description: IsolateEmulatorThread requests one more dedicated
+                      pCPU to be allocated for the VMI to place the emulator thread
+                      on it.
+                    type: boolean
+                  model:
+                    description: Model specifies the CPU model inside the VMI. List
+                      of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
+                      It is possible to specify special cases like "host-passthrough"
+                      to get the same CPU as the node and "host-model" to get CPU
+                      closest to the node one. Defaults to host-model.
+                    type: string
+                  numa:
+                    description: NUMA allows specifying settings for the guest NUMA
+                      topology
+                    properties:
+                      guestMappingPassthrough:
+                        description: GuestMappingPassthrough will create an efficient
+                          guest topology based on host CPUs exclusively assigned to
+                          a pod. The created topology ensures that memory and CPUs
+                          on the virtual numa nodes never cross boundaries of host
+                          numa nodes.
+                        type: object
+                    type: object
+                  realtime:
+                    description: Realtime instructs the virt-launcher to tune the
+                      VMI for lower latency, optional for real time workloads
+                    properties:
+                      mask:
+                        description: 'Mask defines the vcpu mask expression that defines
+                          which vcpus are used for realtime. Format matches libvirt''s
+                          expressions. Example: "0-3,^1","0,2,3","2-3"'
+                        type: string
+                    type: object
+                  sockets:
+                    description: Sockets specifies the number of sockets inside the
+                      vmi. Must be a value greater or equal 1.
+                    format: int32
+                    type: integer
+                  threads:
+                    description: Threads specifies the number of threads inside the
+                      vmi. Must be a value greater or equal 1.
+                    format: int32
+                    type: integer
+                type: object
+              devices:
+                description: Devices allows adding disks, network interfaces, and
+                  others
+                properties:
+                  autoattachGraphicsDevice:
+                    description: Whether to attach the default graphics device or
+                      not. VNC will not be available if set to false. Defaults to
+                      true.
+                    type: boolean
+                  autoattachMemBalloon:
+                    description: Whether to attach the Memory balloon device with
+                      default period. Period can be adjusted in virt-config. Defaults
+                      to true.
+                    type: boolean
+                  autoattachPodInterface:
+                    description: Whether to attach a pod network interface. Defaults
+                      to true.
+                    type: boolean
+                  autoattachSerialConsole:
+                    description: Whether to attach the default serial console or not.
+                      Serial console access will not be available if set to false.
+                      Defaults to true.
+                    type: boolean
+                  blockMultiQueue:
+                    description: Whether or not to enable virtio multi-queue for block
+                      devices. Defaults to false.
+                    type: boolean
+                  clientPassthrough:
+                    description: To configure and access client devices such as redirecting
+                      USB
+                    type: object
+                  disableHotplug:
+                    description: DisableHotplug disabled the ability to hotplug disks.
+                    type: boolean
+                  disks:
+                    description: Disks describes disks, cdroms and luns which are
+                      connected to the vmi.
+                    items:
+                      properties:
+                        blockSize:
+                          description: If specified, the virtual disk will be presented
+                            with the given block sizes.
+                          properties:
+                            custom:
+                              description: CustomBlockSize represents the desired
+                                logical and physical block size for a VM disk.
+                              properties:
+                                logical:
+                                  type: integer
+                                physical:
+                                  type: integer
+                              required:
+                              - logical
+                              - physical
+                              type: object
+                            matchVolume:
+                              description: Represents if a feature is enabled or disabled.
+                              properties:
+                                enabled:
+                                  description: Enabled determines if the feature should
+                                    be enabled or disabled on the guest. Defaults
+                                    to true.
+                                  type: boolean
+                              type: object
+                          type: object
+                        bootOrder:
+                          description: BootOrder is an integer value > 0, used to
+                            determine ordering of boot devices. Lower values take
+                            precedence. Each disk or interface that has a boot order
+                            must have a unique value. Disks without a boot order are
+                            not tried if a disk with a boot order exists.
+                          type: integer
+                        cache:
+                          description: 'Cache specifies which kvm disk cache mode
+                            should be used. Supported values are: CacheNone, CacheWriteThrough.'
+                          type: string
+                        cdrom:
+                          description: Attach a volume as a cdrom to the vmi.
+                          properties:
+                            bus:
+                              description: 'Bus indicates the type of disk device
+                                to emulate. supported values: virtio, sata, scsi.'
+                              type: string
+                            readonly:
+                              description: ReadOnly. Defaults to true.
+                              type: boolean
+                            tray:
+                              description: Tray indicates if the tray of the device
+                                is open or closed. Allowed values are "open" and "closed".
+                                Defaults to closed.
+                              type: string
+                          type: object
+                        dedicatedIOThread:
+                          description: dedicatedIOThread indicates this disk should
+                            have an exclusive IO Thread. Enabling this implies useIOThreads
+                            = true. Defaults to false.
+                          type: boolean
+                        disk:
+                          description: Attach a volume as a disk to the vmi.
+                          properties:
+                            bus:
+                              description: 'Bus indicates the type of disk device
+                                to emulate. supported values: virtio, sata, scsi.'
+                              type: string
+                            pciAddress:
+                              description: 'If specified, the virtual disk will be
+                                placed on the guests pci address with the specified
+                                PCI address. For example: 0000:81:01.10'
+                              type: string
+                            readonly:
+                              description: ReadOnly. Defaults to false.
+                              type: boolean
+                          type: object
+                        io:
+                          description: 'IO specifies which QEMU disk IO mode should
+                            be used. Supported values are: native, default, threads.'
+                          type: string
+                        lun:
+                          description: Attach a volume as a LUN to the vmi.
+                          properties:
+                            bus:
+                              description: 'Bus indicates the type of disk device
+                                to emulate. supported values: virtio, sata, scsi.'
+                              type: string
+                            readonly:
+                              description: ReadOnly. Defaults to false.
+                              type: boolean
+                          type: object
+                        name:
+                          description: Name is the device name
+                          type: string
+                        serial:
+                          description: Serial provides the ability to specify a serial
+                            number for the disk device.
+                          type: string
+                        shareable:
+                          description: If specified the disk is made sharable and
+                            multiple write from different VMs are permitted
+                          type: boolean
+                        tag:
+                          description: If specified, disk address and its tag will
+                            be provided to the guest via config drive metadata
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  filesystems:
+                    description: Filesystems describes filesystem which is connected
+                      to the vmi.
+                    items:
+                      properties:
+                        name:
+                          description: Name is the device name
+                          type: string
+                        virtiofs:
+                          description: Virtiofs is supported
+                          type: object
+                      required:
+                      - name
+                      - virtiofs
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  gpus:
+                    description: Whether to attach a GPU device to the vmi.
+                    items:
+                      properties:
+                        deviceName:
+                          type: string
+                        name:
+                          description: Name of the GPU device as exposed by a device
+                            plugin
+                          type: string
+                        tag:
+                          description: If specified, the virtual network interface
+                            address and its tag will be provided to the guest via
+                            config drive
+                          type: string
+                        virtualGPUOptions:
+                          properties:
+                            display:
+                              properties:
+                                enabled:
+                                  description: Enabled determines if a display addapter
+                                    backed by a vGPU should be enabled or disabled
+                                    on the guest. Defaults to true.
+                                  type: boolean
+                                ramFB:
+                                  description: Enables a boot framebuffer, until the
+                                    guest OS loads a real GPU driver Defaults to true.
+                                  properties:
+                                    enabled:
+                                      description: Enabled determines if the feature
+                                        should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
+                              type: object
+                          type: object
+                      required:
+                      - deviceName
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  hostDevices:
+                    description: Whether to attach a host device to the vmi.
+                    items:
+                      properties:
+                        deviceName:
+                          description: DeviceName is the resource name of the host
+                            device exposed by a device plugin
+                          type: string
+                        name:
+                          type: string
+                        tag:
+                          description: If specified, the virtual network interface
+                            address and its tag will be provided to the guest via
+                            config drive
+                          type: string
+                      required:
+                      - deviceName
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  inputs:
+                    description: Inputs describe input devices
+                    items:
+                      properties:
+                        bus:
+                          description: 'Bus indicates the bus of input device to emulate.
+                            Supported values: virtio, usb.'
+                          type: string
+                        name:
+                          description: Name is the device name
+                          type: string
+                        type:
+                          description: 'Type indicated the type of input device. Supported
+                            values: tablet.'
+                          type: string
+                      required:
+                      - name
+                      - type
+                      type: object
+                    type: array
+                  interfaces:
+                    description: Interfaces describe network interfaces which are
+                      added to the vmi.
+                    items:
+                      properties:
+                        bootOrder:
+                          description: BootOrder is an integer value > 0, used to
+                            determine ordering of boot devices. Lower values take
+                            precedence. Each interface or disk that has a boot order
+                            must have a unique value. Interfaces without a boot order
+                            are not tried.
+                          type: integer
+                        bridge:
+                          type: object
+                        dhcpOptions:
+                          description: If specified the network interface will pass
+                            additional DHCP options to the VMI
+                          properties:
+                            bootFileName:
+                              description: If specified will pass option 67 to interface's
+                                DHCP server
+                              type: string
+                            ntpServers:
+                              description: If specified will pass the configured NTP
+                                server to the VM via DHCP option 042.
+                              items:
+                                type: string
+                              type: array
+                            privateOptions:
+                              description: 'If specified will pass extra DHCP options
+                                for private use, range: 224-254'
+                              items:
+                                description: DHCPExtraOptions defines Extra DHCP options
+                                  for a VM.
+                                properties:
+                                  option:
+                                    description: Option is an Integer value from 224-254
+                                      Required.
+                                    type: integer
+                                  value:
+                                    description: Value is a String value for the Option
+                                      provided Required.
+                                    type: string
+                                required:
+                                - option
+                                - value
+                                type: object
+                              type: array
+                            tftpServerName:
+                              description: If specified will pass option 66 to interface's
+                                DHCP server
+                              type: string
+                          type: object
+                        macAddress:
+                          description: 'Interface MAC address. For example: de:ad:00:00:be:af
+                            or DE-AD-00-00-BE-AF.'
+                          type: string
+                        macvtap:
+                          type: object
+                        masquerade:
+                          type: object
+                        model:
+                          description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
+                            pcnet, rtl8139, virtio. Defaults to virtio. TODO:(ihar)
+                            switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                          type: string
+                        name:
+                          description: Logical name of the interface as well as a
+                            reference to the associated networks. Must match the Name
+                            of a Network.
+                          type: string
+                        pciAddress:
+                          description: 'If specified, the virtual network interface
+                            will be placed on the guests pci address with the specified
+                            PCI address. For example: 0000:81:01.10'
+                          type: string
+                        ports:
+                          description: List of ports to be forwarded to the virtual
+                            machine.
+                          items:
+                            description: Port represents a port to expose from the
+                              virtual machine. Default protocol TCP. The port field
+                              is mandatory
+                            properties:
+                              name:
+                                description: If specified, this must be an IANA_SVC_NAME
+                                  and unique within the pod. Each named port in a
+                                  pod must have a unique name. Name for the port that
+                                  can be referred to by services.
+                                type: string
+                              port:
+                                description: Number of port to expose for the virtual
+                                  machine. This must be a valid port number, 0 < x
+                                  < 65536.
+                                format: int32
+                                type: integer
+                              protocol:
+                                description: Protocol for port. Must be UDP or TCP.
+                                  Defaults to "TCP".
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          type: array
+                        slirp:
+                          type: object
+                        sriov:
+                          type: object
+                        tag:
+                          description: If specified, the virtual network interface
+                            address and its tag will be provided to the guest via
+                            config drive
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  networkInterfaceMultiqueue:
+                    description: If specified, virtual network interfaces configured
+                      with a virtio bus will also enable the vhost multiqueue feature
+                      for network devices. The number of queues created depends on
+                      additional factors of the VirtualMachineInstance, like the number
+                      of guest CPUs.
+                    type: boolean
+                  rng:
+                    description: Whether to have random number generator from host
+                    type: object
+                  sound:
+                    description: Whether to emulate a sound device.
+                    properties:
+                      model:
+                        description: 'We only support ich9 or ac97. If SoundDevice
+                          is not set: No sound card is emulated. If SoundDevice is
+                          set but Model is not: ich9'
+                        type: string
+                      name:
+                        description: User's defined name for this sound device
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  useVirtioTransitional:
+                    description: Fall back to legacy virtio 0.9 support if virtio
+                      bus is selected on devices. This is helpful for old machines
+                      like CentOS6 or RHEL6 which do not understand virtio_non_transitional
+                      (virtio 1.0).
+                    type: boolean
+                  watchdog:
+                    description: Watchdog describes a watchdog device which can be
+                      added to the vmi.
+                    properties:
+                      i6300esb:
+                        description: i6300esb watchdog device.
+                        properties:
+                          action:
+                            description: The action to take. Valid values are poweroff,
+                              reset, shutdown. Defaults to reset.
+                            type: string
+                        type: object
+                      name:
+                        description: Name of the watchdog.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+              features:
+                description: Features like acpi, apic, hyperv, smm.
+                properties:
+                  acpi:
+                    description: ACPI enables/disables ACPI inside the guest. Defaults
+                      to enabled.
+                    properties:
+                      enabled:
+                        description: Enabled determines if the feature should be enabled
+                          or disabled on the guest. Defaults to true.
+                        type: boolean
+                    type: object
+                  apic:
+                    description: Defaults to the machine type setting.
+                    properties:
+                      enabled:
+                        description: Enabled determines if the feature should be enabled
+                          or disabled on the guest. Defaults to true.
+                        type: boolean
+                      endOfInterrupt:
+                        description: EndOfInterrupt enables the end of interrupt notification
+                          in the guest. Defaults to false.
+                        type: boolean
+                    type: object
+                  hyperv:
+                    description: Defaults to the machine type setting.
+                    properties:
+                      evmcs:
+                        description: EVMCS Speeds up L2 vmexits, but disables other
+                          virtualization features. Requires vapic. Defaults to the
+                          machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      frequencies:
+                        description: Frequencies improves the TSC clock source handling
+                          for Hyper-V on KVM. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      ipi:
+                        description: IPI improves performances in overcommited environments.
+                          Requires vpindex. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      reenlightenment:
+                        description: Reenlightenment enables the notifications on
+                          TSC frequency changes. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      relaxed:
+                        description: Relaxed instructs the guest OS to disable watchdog
+                          timeouts. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      reset:
+                        description: Reset enables Hyperv reboot/reset for the vmi.
+                          Requires synic. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      runtime:
+                        description: Runtime improves the time accounting to improve
+                          scheduling in the guest. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      spinlocks:
+                        description: Spinlocks allows to configure the spinlock retry
+                          attempts.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                          spinlocks:
+                            description: Retries indicates the number of retries.
+                              Must be a value greater or equal 4096. Defaults to 4096.
+                            format: int32
+                            type: integer
+                        type: object
+                      synic:
+                        description: SyNIC enables the Synthetic Interrupt Controller.
+                          Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      synictimer:
+                        description: SyNICTimer enables Synthetic Interrupt Controller
+                          Timers, reducing CPU load. Defaults to the machine type
+                          setting.
+                        properties:
+                          direct:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should
+                                  be enabled or disabled on the guest. Defaults to
+                                  true.
+                                type: boolean
+                            type: object
+                          enabled:
+                            type: boolean
+                        type: object
+                      tlbflush:
+                        description: TLBFlush improves performances in overcommited
+                          environments. Requires vpindex. Defaults to the machine
+                          type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      vapic:
+                        description: VAPIC improves the paravirtualized handling of
+                          interrupts. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      vendorid:
+                        description: VendorID allows setting the hypervisor vendor
+                          id. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                          vendorid:
+                            description: VendorID sets the hypervisor vendor id, visible
+                              to the vmi. String up to twelve characters.
+                            type: string
+                        type: object
+                      vpindex:
+                        description: VPIndex enables the Virtual Processor Index to
+                          help windows identifying virtual processors. Defaults to
+                          the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                    type: object
+                  kvm:
+                    description: Configure how KVM presence is exposed to the guest.
+                    properties:
+                      hidden:
+                        description: Hide the KVM hypervisor from standard MSR based
+                          discovery. Defaults to false
+                        type: boolean
+                    type: object
+                  pvspinlock:
+                    description: Notify the guest that the host supports paravirtual
+                      spinlocks. For older kernels this feature should be explicitly
+                      disabled.
+                    properties:
+                      enabled:
+                        description: Enabled determines if the feature should be enabled
+                          or disabled on the guest. Defaults to true.
+                        type: boolean
+                    type: object
+                  smm:
+                    description: SMM enables/disables System Management Mode. TSEG
+                      not yet implemented.
+                    properties:
+                      enabled:
+                        description: Enabled determines if the feature should be enabled
+                          or disabled on the guest. Defaults to true.
+                        type: boolean
+                    type: object
+                type: object
+              firmware:
+                description: Firmware.
+                properties:
+                  bootloader:
+                    description: Settings to control the bootloader that is used.
+                    properties:
+                      bios:
+                        description: If set (default), BIOS will be used.
+                        properties:
+                          useSerial:
+                            description: If set, the BIOS output will be transmitted
+                              over serial
+                            type: boolean
+                        type: object
+                      efi:
+                        description: If set, EFI will be used instead of BIOS.
+                        properties:
+                          secureBoot:
+                            description: If set, SecureBoot will be enabled and the
+                              OVMF roms will be swapped for SecureBoot-enabled ones.
+                              Requires SMM to be enabled. Defaults to true
+                            type: boolean
+                        type: object
+                    type: object
+                  kernelBoot:
+                    description: Settings to set the kernel for booting.
+                    properties:
+                      container:
+                        description: Container defines the container that containes
+                          kernel artifacts
+                        properties:
+                          image:
+                            description: Image that contains initrd / kernel files.
+                            type: string
+                          imagePullPolicy:
+                            description: 'Image pull policy. One of Always, Never,
+                              IfNotPresent. Defaults to Always if :latest tag is specified,
+                              or IfNotPresent otherwise. Cannot be updated. More info:
+                              https://kubernetes.io/docs/concepts/containers/images#updating-images'
+                            type: string
+                          imagePullSecret:
+                            description: ImagePullSecret is the name of the Docker
+                              registry secret required to pull the image. The secret
+                              must already exist.
+                            type: string
+                          initrdPath:
+                            description: the fully-qualified path to the ramdisk image
+                              in the host OS
+                            type: string
+                          kernelPath:
+                            description: The fully-qualified path to the kernel image
+                              in the host OS
+                            type: string
+                        required:
+                        - image
+                        type: object
+                      kernelArgs:
+                        description: Arguments to be passed to the kernel at boot
+                          time
+                        type: string
+                    type: object
+                  serial:
+                    description: The system-serial-number in SMBIOS
+                    type: string
+                  uuid:
+                    description: UUID reported by the vmi bios. Defaults to a random
+                      generated uid.
+                    type: string
+                type: object
+              ioThreadsPolicy:
+                description: 'Controls whether or not disks will share IOThreads.
+                  Omitting IOThreadsPolicy disables use of IOThreads. One of: shared,
+                  auto'
+                type: string
+              launchSecurity:
+                description: Launch Security setting of the vmi.
+                properties:
+                  sev:
+                    description: AMD Secure Encrypted Virtualization (SEV).
+                    type: object
+                type: object
+              machine:
+                description: Machine type.
+                properties:
+                  type:
+                    description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
+                    type: string
+                type: object
+              memory:
+                description: Memory allow specifying the VMI memory features.
+                properties:
+                  guest:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: Guest allows to specifying the amount of memory which
+                      is visible inside the Guest OS. The Guest must lie between Requests
+                      and Limits from the resources section. Defaults to the requested
+                      memory in the resources section if not specified.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  hugepages:
+                    description: Hugepages allow to use hugepages for the VirtualMachineInstance
+                      instead of regular memory.
+                    properties:
+                      pageSize:
+                        description: PageSize specifies the hugepage size, for x86_64
+                          architecture valid values are 1Gi and 2Mi.
+                        type: string
+                    type: object
+                type: object
+              resources:
+                description: Resources describes the Compute Resources required by
+                  this vmi.
+                properties:
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Limits describes the maximum amount of compute resources
+                      allowed. Valid resource keys are "memory" and "cpu".
+                    type: object
+                  overcommitGuestOverhead:
+                    description: Don't ask the scheduler to take the guest-management
+                      overhead into account. Instead put the overhead only into the
+                      container's memory limit. This can lead to crashes if all memory
+                      is in use on a node. Defaults to false.
+                    type: boolean
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Requests is a description of the initial vmi resources.
+                      Valid resource keys are "memory" and "cpu".
+                    type: object
+                type: object
+            type: object
           name:
             description: Name specifies the name of this custom profile.
             type: string
@@ -6893,90 +7766,963 @@ var CRDsValidation map[string]string = map[string]string{
         description: VirtualMachineFlavorProfile contains definitions that will be
           applied to VirtualMachine.
         properties:
-          cpu:
-            description: CPU allows specifying the CPU topology.
-            properties:
-              cores:
-                description: Cores specifies the number of cores inside the vmi. Must
-                  be a value greater or equal 1.
-                format: int32
-                type: integer
-              dedicatedCpuPlacement:
-                description: DedicatedCPUPlacement requests the scheduler to place
-                  the VirtualMachineInstance on a node with enough dedicated pCPUs
-                  and pin the vCPUs to it.
-                type: boolean
-              features:
-                description: Features specifies the CPU features list inside the VMI.
-                items:
-                  description: CPUFeature allows specifying a CPU feature.
-                  properties:
-                    name:
-                      description: Name of the CPU feature
-                      type: string
-                    policy:
-                      description: 'Policy is the CPU feature attribute which can
-                        have the following attributes: force    - The virtual CPU
-                        will claim the feature is supported regardless of it being
-                        supported by host CPU. require  - Guest creation will fail
-                        unless the feature is supported by the host CPU or the hypervisor
-                        is able to emulate it. optional - The feature will be supported
-                        by virtual CPU if and only if it is supported by host CPU.
-                        disable  - The feature will not be supported by virtual CPU.
-                        forbid   - Guest creation will fail if the feature is supported
-                        by host CPU. Defaults to require'
-                      type: string
-                  required:
-                  - name
-                  type: object
-                type: array
-              isolateEmulatorThread:
-                description: IsolateEmulatorThread requests one more dedicated pCPU
-                  to be allocated for the VMI to place the emulator thread on it.
-                type: boolean
-              model:
-                description: Model specifies the CPU model inside the VMI. List of
-                  available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
-                  It is possible to specify special cases like "host-passthrough"
-                  to get the same CPU as the node and "host-model" to get CPU closest
-                  to the node one. Defaults to host-model.
-                type: string
-              numa:
-                description: NUMA allows specifying settings for the guest NUMA topology
-                properties:
-                  guestMappingPassthrough:
-                    description: GuestMappingPassthrough will create an efficient
-                      guest topology based on host CPUs exclusively assigned to a
-                      pod. The created topology ensures that memory and CPUs on the
-                      virtual numa nodes never cross boundaries of host numa nodes.
-                    type: object
-                type: object
-              realtime:
-                description: Realtime instructs the virt-launcher to tune the VMI
-                  for lower latency, optional for real time workloads
-                properties:
-                  mask:
-                    description: 'Mask defines the vcpu mask expression that defines
-                      which vcpus are used for realtime. Format matches libvirt''s
-                      expressions. Example: "0-3,^1","0,2,3","2-3"'
-                    type: string
-                type: object
-              sockets:
-                description: Sockets specifies the number of sockets inside the vmi.
-                  Must be a value greater or equal 1.
-                format: int32
-                type: integer
-              threads:
-                description: Threads specifies the number of threads inside the vmi.
-                  Must be a value greater or equal 1.
-                format: int32
-                type: integer
-            type: object
           default:
             description: Default specifies if this VirtualMachineFlavorProfile is
               the default for the VirtualMachineFlavor. Zero or one profile can be
               set to default.
             type: boolean
+          domainTemplate:
+            description: DomainTemplate specifies domain that will be used to fill
+              missing values in a VMI domain. Devices filed is not allowed in DomainTemplate.
+            properties:
+              chassis:
+                description: Chassis specifies the chassis info passed to the domain.
+                properties:
+                  asset:
+                    type: string
+                  manufacturer:
+                    type: string
+                  serial:
+                    type: string
+                  sku:
+                    type: string
+                  version:
+                    type: string
+                type: object
+              clock:
+                description: Clock sets the clock and timers of the vmi.
+                properties:
+                  timer:
+                    description: Timer specifies whih timers are attached to the vmi.
+                    properties:
+                      hpet:
+                        description: HPET (High Precision Event Timer) - multiple
+                          timers with periodic interrupts.
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                          tickPolicy:
+                            description: TickPolicy determines what happens when QEMU
+                              misses a deadline for injecting a tick to the guest.
+                              One of "delay", "catchup", "merge", "discard".
+                            type: string
+                        type: object
+                      hyperv:
+                        description: Hyperv (Hypervclock) - lets guests read the host’s
+                          wall clock time (paravirtualized). For windows guests.
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                        type: object
+                      kvm:
+                        description: "KVM \t(KVM clock) - lets guests read the host’s
+                          wall clock time (paravirtualized). For linux guests."
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                        type: object
+                      pit:
+                        description: PIT (Programmable Interval Timer) - a timer with
+                          periodic interrupts.
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                          tickPolicy:
+                            description: TickPolicy determines what happens when QEMU
+                              misses a deadline for injecting a tick to the guest.
+                              One of "delay", "catchup", "discard".
+                            type: string
+                        type: object
+                      rtc:
+                        description: RTC (Real Time Clock) - a continuously running
+                          timer with periodic interrupts.
+                        properties:
+                          present:
+                            description: Enabled set to false makes sure that the
+                              machine type or a preset can't add the timer. Defaults
+                              to true.
+                            type: boolean
+                          tickPolicy:
+                            description: TickPolicy determines what happens when QEMU
+                              misses a deadline for injecting a tick to the guest.
+                              One of "delay", "catchup".
+                            type: string
+                          track:
+                            description: Track the guest or the wall clock.
+                            type: string
+                        type: object
+                    type: object
+                  timezone:
+                    description: Timezone sets the guest clock to the specified timezone.
+                      Zone name follows the TZ environment variable format (e.g. 'America/New_York').
+                    type: string
+                  utc:
+                    description: UTC sets the guest clock to UTC on each boot. If
+                      an offset is specified, guest changes to the clock will be kept
+                      during reboots and are not reset.
+                    properties:
+                      offsetSeconds:
+                        description: OffsetSeconds specifies an offset in seconds,
+                          relative to UTC. If set, guest changes to the clock will
+                          be kept during reboots and not reset.
+                        type: integer
+                    type: object
+                type: object
+              cpu:
+                description: CPU allow specified the detailed CPU topology inside
+                  the vmi.
+                properties:
+                  cores:
+                    description: Cores specifies the number of cores inside the vmi.
+                      Must be a value greater or equal 1.
+                    format: int32
+                    type: integer
+                  dedicatedCpuPlacement:
+                    description: DedicatedCPUPlacement requests the scheduler to place
+                      the VirtualMachineInstance on a node with enough dedicated pCPUs
+                      and pin the vCPUs to it.
+                    type: boolean
+                  features:
+                    description: Features specifies the CPU features list inside the
+                      VMI.
+                    items:
+                      description: CPUFeature allows specifying a CPU feature.
+                      properties:
+                        name:
+                          description: Name of the CPU feature
+                          type: string
+                        policy:
+                          description: 'Policy is the CPU feature attribute which
+                            can have the following attributes: force    - The virtual
+                            CPU will claim the feature is supported regardless of
+                            it being supported by host CPU. require  - Guest creation
+                            will fail unless the feature is supported by the host
+                            CPU or the hypervisor is able to emulate it. optional
+                            - The feature will be supported by virtual CPU if and
+                            only if it is supported by host CPU. disable  - The feature
+                            will not be supported by virtual CPU. forbid   - Guest
+                            creation will fail if the feature is supported by host
+                            CPU. Defaults to require'
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  isolateEmulatorThread:
+                    description: IsolateEmulatorThread requests one more dedicated
+                      pCPU to be allocated for the VMI to place the emulator thread
+                      on it.
+                    type: boolean
+                  model:
+                    description: Model specifies the CPU model inside the VMI. List
+                      of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
+                      It is possible to specify special cases like "host-passthrough"
+                      to get the same CPU as the node and "host-model" to get CPU
+                      closest to the node one. Defaults to host-model.
+                    type: string
+                  numa:
+                    description: NUMA allows specifying settings for the guest NUMA
+                      topology
+                    properties:
+                      guestMappingPassthrough:
+                        description: GuestMappingPassthrough will create an efficient
+                          guest topology based on host CPUs exclusively assigned to
+                          a pod. The created topology ensures that memory and CPUs
+                          on the virtual numa nodes never cross boundaries of host
+                          numa nodes.
+                        type: object
+                    type: object
+                  realtime:
+                    description: Realtime instructs the virt-launcher to tune the
+                      VMI for lower latency, optional for real time workloads
+                    properties:
+                      mask:
+                        description: 'Mask defines the vcpu mask expression that defines
+                          which vcpus are used for realtime. Format matches libvirt''s
+                          expressions. Example: "0-3,^1","0,2,3","2-3"'
+                        type: string
+                    type: object
+                  sockets:
+                    description: Sockets specifies the number of sockets inside the
+                      vmi. Must be a value greater or equal 1.
+                    format: int32
+                    type: integer
+                  threads:
+                    description: Threads specifies the number of threads inside the
+                      vmi. Must be a value greater or equal 1.
+                    format: int32
+                    type: integer
+                type: object
+              devices:
+                description: Devices allows adding disks, network interfaces, and
+                  others
+                properties:
+                  autoattachGraphicsDevice:
+                    description: Whether to attach the default graphics device or
+                      not. VNC will not be available if set to false. Defaults to
+                      true.
+                    type: boolean
+                  autoattachMemBalloon:
+                    description: Whether to attach the Memory balloon device with
+                      default period. Period can be adjusted in virt-config. Defaults
+                      to true.
+                    type: boolean
+                  autoattachPodInterface:
+                    description: Whether to attach a pod network interface. Defaults
+                      to true.
+                    type: boolean
+                  autoattachSerialConsole:
+                    description: Whether to attach the default serial console or not.
+                      Serial console access will not be available if set to false.
+                      Defaults to true.
+                    type: boolean
+                  blockMultiQueue:
+                    description: Whether or not to enable virtio multi-queue for block
+                      devices. Defaults to false.
+                    type: boolean
+                  clientPassthrough:
+                    description: To configure and access client devices such as redirecting
+                      USB
+                    type: object
+                  disableHotplug:
+                    description: DisableHotplug disabled the ability to hotplug disks.
+                    type: boolean
+                  disks:
+                    description: Disks describes disks, cdroms and luns which are
+                      connected to the vmi.
+                    items:
+                      properties:
+                        blockSize:
+                          description: If specified, the virtual disk will be presented
+                            with the given block sizes.
+                          properties:
+                            custom:
+                              description: CustomBlockSize represents the desired
+                                logical and physical block size for a VM disk.
+                              properties:
+                                logical:
+                                  type: integer
+                                physical:
+                                  type: integer
+                              required:
+                              - logical
+                              - physical
+                              type: object
+                            matchVolume:
+                              description: Represents if a feature is enabled or disabled.
+                              properties:
+                                enabled:
+                                  description: Enabled determines if the feature should
+                                    be enabled or disabled on the guest. Defaults
+                                    to true.
+                                  type: boolean
+                              type: object
+                          type: object
+                        bootOrder:
+                          description: BootOrder is an integer value > 0, used to
+                            determine ordering of boot devices. Lower values take
+                            precedence. Each disk or interface that has a boot order
+                            must have a unique value. Disks without a boot order are
+                            not tried if a disk with a boot order exists.
+                          type: integer
+                        cache:
+                          description: 'Cache specifies which kvm disk cache mode
+                            should be used. Supported values are: CacheNone, CacheWriteThrough.'
+                          type: string
+                        cdrom:
+                          description: Attach a volume as a cdrom to the vmi.
+                          properties:
+                            bus:
+                              description: 'Bus indicates the type of disk device
+                                to emulate. supported values: virtio, sata, scsi.'
+                              type: string
+                            readonly:
+                              description: ReadOnly. Defaults to true.
+                              type: boolean
+                            tray:
+                              description: Tray indicates if the tray of the device
+                                is open or closed. Allowed values are "open" and "closed".
+                                Defaults to closed.
+                              type: string
+                          type: object
+                        dedicatedIOThread:
+                          description: dedicatedIOThread indicates this disk should
+                            have an exclusive IO Thread. Enabling this implies useIOThreads
+                            = true. Defaults to false.
+                          type: boolean
+                        disk:
+                          description: Attach a volume as a disk to the vmi.
+                          properties:
+                            bus:
+                              description: 'Bus indicates the type of disk device
+                                to emulate. supported values: virtio, sata, scsi.'
+                              type: string
+                            pciAddress:
+                              description: 'If specified, the virtual disk will be
+                                placed on the guests pci address with the specified
+                                PCI address. For example: 0000:81:01.10'
+                              type: string
+                            readonly:
+                              description: ReadOnly. Defaults to false.
+                              type: boolean
+                          type: object
+                        io:
+                          description: 'IO specifies which QEMU disk IO mode should
+                            be used. Supported values are: native, default, threads.'
+                          type: string
+                        lun:
+                          description: Attach a volume as a LUN to the vmi.
+                          properties:
+                            bus:
+                              description: 'Bus indicates the type of disk device
+                                to emulate. supported values: virtio, sata, scsi.'
+                              type: string
+                            readonly:
+                              description: ReadOnly. Defaults to false.
+                              type: boolean
+                          type: object
+                        name:
+                          description: Name is the device name
+                          type: string
+                        serial:
+                          description: Serial provides the ability to specify a serial
+                            number for the disk device.
+                          type: string
+                        shareable:
+                          description: If specified the disk is made sharable and
+                            multiple write from different VMs are permitted
+                          type: boolean
+                        tag:
+                          description: If specified, disk address and its tag will
+                            be provided to the guest via config drive metadata
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  filesystems:
+                    description: Filesystems describes filesystem which is connected
+                      to the vmi.
+                    items:
+                      properties:
+                        name:
+                          description: Name is the device name
+                          type: string
+                        virtiofs:
+                          description: Virtiofs is supported
+                          type: object
+                      required:
+                      - name
+                      - virtiofs
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  gpus:
+                    description: Whether to attach a GPU device to the vmi.
+                    items:
+                      properties:
+                        deviceName:
+                          type: string
+                        name:
+                          description: Name of the GPU device as exposed by a device
+                            plugin
+                          type: string
+                        tag:
+                          description: If specified, the virtual network interface
+                            address and its tag will be provided to the guest via
+                            config drive
+                          type: string
+                        virtualGPUOptions:
+                          properties:
+                            display:
+                              properties:
+                                enabled:
+                                  description: Enabled determines if a display addapter
+                                    backed by a vGPU should be enabled or disabled
+                                    on the guest. Defaults to true.
+                                  type: boolean
+                                ramFB:
+                                  description: Enables a boot framebuffer, until the
+                                    guest OS loads a real GPU driver Defaults to true.
+                                  properties:
+                                    enabled:
+                                      description: Enabled determines if the feature
+                                        should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
+                              type: object
+                          type: object
+                      required:
+                      - deviceName
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  hostDevices:
+                    description: Whether to attach a host device to the vmi.
+                    items:
+                      properties:
+                        deviceName:
+                          description: DeviceName is the resource name of the host
+                            device exposed by a device plugin
+                          type: string
+                        name:
+                          type: string
+                        tag:
+                          description: If specified, the virtual network interface
+                            address and its tag will be provided to the guest via
+                            config drive
+                          type: string
+                      required:
+                      - deviceName
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  inputs:
+                    description: Inputs describe input devices
+                    items:
+                      properties:
+                        bus:
+                          description: 'Bus indicates the bus of input device to emulate.
+                            Supported values: virtio, usb.'
+                          type: string
+                        name:
+                          description: Name is the device name
+                          type: string
+                        type:
+                          description: 'Type indicated the type of input device. Supported
+                            values: tablet.'
+                          type: string
+                      required:
+                      - name
+                      - type
+                      type: object
+                    type: array
+                  interfaces:
+                    description: Interfaces describe network interfaces which are
+                      added to the vmi.
+                    items:
+                      properties:
+                        bootOrder:
+                          description: BootOrder is an integer value > 0, used to
+                            determine ordering of boot devices. Lower values take
+                            precedence. Each interface or disk that has a boot order
+                            must have a unique value. Interfaces without a boot order
+                            are not tried.
+                          type: integer
+                        bridge:
+                          type: object
+                        dhcpOptions:
+                          description: If specified the network interface will pass
+                            additional DHCP options to the VMI
+                          properties:
+                            bootFileName:
+                              description: If specified will pass option 67 to interface's
+                                DHCP server
+                              type: string
+                            ntpServers:
+                              description: If specified will pass the configured NTP
+                                server to the VM via DHCP option 042.
+                              items:
+                                type: string
+                              type: array
+                            privateOptions:
+                              description: 'If specified will pass extra DHCP options
+                                for private use, range: 224-254'
+                              items:
+                                description: DHCPExtraOptions defines Extra DHCP options
+                                  for a VM.
+                                properties:
+                                  option:
+                                    description: Option is an Integer value from 224-254
+                                      Required.
+                                    type: integer
+                                  value:
+                                    description: Value is a String value for the Option
+                                      provided Required.
+                                    type: string
+                                required:
+                                - option
+                                - value
+                                type: object
+                              type: array
+                            tftpServerName:
+                              description: If specified will pass option 66 to interface's
+                                DHCP server
+                              type: string
+                          type: object
+                        macAddress:
+                          description: 'Interface MAC address. For example: de:ad:00:00:be:af
+                            or DE-AD-00-00-BE-AF.'
+                          type: string
+                        macvtap:
+                          type: object
+                        masquerade:
+                          type: object
+                        model:
+                          description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
+                            pcnet, rtl8139, virtio. Defaults to virtio. TODO:(ihar)
+                            switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                          type: string
+                        name:
+                          description: Logical name of the interface as well as a
+                            reference to the associated networks. Must match the Name
+                            of a Network.
+                          type: string
+                        pciAddress:
+                          description: 'If specified, the virtual network interface
+                            will be placed on the guests pci address with the specified
+                            PCI address. For example: 0000:81:01.10'
+                          type: string
+                        ports:
+                          description: List of ports to be forwarded to the virtual
+                            machine.
+                          items:
+                            description: Port represents a port to expose from the
+                              virtual machine. Default protocol TCP. The port field
+                              is mandatory
+                            properties:
+                              name:
+                                description: If specified, this must be an IANA_SVC_NAME
+                                  and unique within the pod. Each named port in a
+                                  pod must have a unique name. Name for the port that
+                                  can be referred to by services.
+                                type: string
+                              port:
+                                description: Number of port to expose for the virtual
+                                  machine. This must be a valid port number, 0 < x
+                                  < 65536.
+                                format: int32
+                                type: integer
+                              protocol:
+                                description: Protocol for port. Must be UDP or TCP.
+                                  Defaults to "TCP".
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          type: array
+                        slirp:
+                          type: object
+                        sriov:
+                          type: object
+                        tag:
+                          description: If specified, the virtual network interface
+                            address and its tag will be provided to the guest via
+                            config drive
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  networkInterfaceMultiqueue:
+                    description: If specified, virtual network interfaces configured
+                      with a virtio bus will also enable the vhost multiqueue feature
+                      for network devices. The number of queues created depends on
+                      additional factors of the VirtualMachineInstance, like the number
+                      of guest CPUs.
+                    type: boolean
+                  rng:
+                    description: Whether to have random number generator from host
+                    type: object
+                  sound:
+                    description: Whether to emulate a sound device.
+                    properties:
+                      model:
+                        description: 'We only support ich9 or ac97. If SoundDevice
+                          is not set: No sound card is emulated. If SoundDevice is
+                          set but Model is not: ich9'
+                        type: string
+                      name:
+                        description: User's defined name for this sound device
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  useVirtioTransitional:
+                    description: Fall back to legacy virtio 0.9 support if virtio
+                      bus is selected on devices. This is helpful for old machines
+                      like CentOS6 or RHEL6 which do not understand virtio_non_transitional
+                      (virtio 1.0).
+                    type: boolean
+                  watchdog:
+                    description: Watchdog describes a watchdog device which can be
+                      added to the vmi.
+                    properties:
+                      i6300esb:
+                        description: i6300esb watchdog device.
+                        properties:
+                          action:
+                            description: The action to take. Valid values are poweroff,
+                              reset, shutdown. Defaults to reset.
+                            type: string
+                        type: object
+                      name:
+                        description: Name of the watchdog.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+              features:
+                description: Features like acpi, apic, hyperv, smm.
+                properties:
+                  acpi:
+                    description: ACPI enables/disables ACPI inside the guest. Defaults
+                      to enabled.
+                    properties:
+                      enabled:
+                        description: Enabled determines if the feature should be enabled
+                          or disabled on the guest. Defaults to true.
+                        type: boolean
+                    type: object
+                  apic:
+                    description: Defaults to the machine type setting.
+                    properties:
+                      enabled:
+                        description: Enabled determines if the feature should be enabled
+                          or disabled on the guest. Defaults to true.
+                        type: boolean
+                      endOfInterrupt:
+                        description: EndOfInterrupt enables the end of interrupt notification
+                          in the guest. Defaults to false.
+                        type: boolean
+                    type: object
+                  hyperv:
+                    description: Defaults to the machine type setting.
+                    properties:
+                      evmcs:
+                        description: EVMCS Speeds up L2 vmexits, but disables other
+                          virtualization features. Requires vapic. Defaults to the
+                          machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      frequencies:
+                        description: Frequencies improves the TSC clock source handling
+                          for Hyper-V on KVM. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      ipi:
+                        description: IPI improves performances in overcommited environments.
+                          Requires vpindex. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      reenlightenment:
+                        description: Reenlightenment enables the notifications on
+                          TSC frequency changes. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      relaxed:
+                        description: Relaxed instructs the guest OS to disable watchdog
+                          timeouts. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      reset:
+                        description: Reset enables Hyperv reboot/reset for the vmi.
+                          Requires synic. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      runtime:
+                        description: Runtime improves the time accounting to improve
+                          scheduling in the guest. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      spinlocks:
+                        description: Spinlocks allows to configure the spinlock retry
+                          attempts.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                          spinlocks:
+                            description: Retries indicates the number of retries.
+                              Must be a value greater or equal 4096. Defaults to 4096.
+                            format: int32
+                            type: integer
+                        type: object
+                      synic:
+                        description: SyNIC enables the Synthetic Interrupt Controller.
+                          Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      synictimer:
+                        description: SyNICTimer enables Synthetic Interrupt Controller
+                          Timers, reducing CPU load. Defaults to the machine type
+                          setting.
+                        properties:
+                          direct:
+                            description: Represents if a feature is enabled or disabled.
+                            properties:
+                              enabled:
+                                description: Enabled determines if the feature should
+                                  be enabled or disabled on the guest. Defaults to
+                                  true.
+                                type: boolean
+                            type: object
+                          enabled:
+                            type: boolean
+                        type: object
+                      tlbflush:
+                        description: TLBFlush improves performances in overcommited
+                          environments. Requires vpindex. Defaults to the machine
+                          type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      vapic:
+                        description: VAPIC improves the paravirtualized handling of
+                          interrupts. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                      vendorid:
+                        description: VendorID allows setting the hypervisor vendor
+                          id. Defaults to the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                          vendorid:
+                            description: VendorID sets the hypervisor vendor id, visible
+                              to the vmi. String up to twelve characters.
+                            type: string
+                        type: object
+                      vpindex:
+                        description: VPIndex enables the Virtual Processor Index to
+                          help windows identifying virtual processors. Defaults to
+                          the machine type setting.
+                        properties:
+                          enabled:
+                            description: Enabled determines if the feature should
+                              be enabled or disabled on the guest. Defaults to true.
+                            type: boolean
+                        type: object
+                    type: object
+                  kvm:
+                    description: Configure how KVM presence is exposed to the guest.
+                    properties:
+                      hidden:
+                        description: Hide the KVM hypervisor from standard MSR based
+                          discovery. Defaults to false
+                        type: boolean
+                    type: object
+                  pvspinlock:
+                    description: Notify the guest that the host supports paravirtual
+                      spinlocks. For older kernels this feature should be explicitly
+                      disabled.
+                    properties:
+                      enabled:
+                        description: Enabled determines if the feature should be enabled
+                          or disabled on the guest. Defaults to true.
+                        type: boolean
+                    type: object
+                  smm:
+                    description: SMM enables/disables System Management Mode. TSEG
+                      not yet implemented.
+                    properties:
+                      enabled:
+                        description: Enabled determines if the feature should be enabled
+                          or disabled on the guest. Defaults to true.
+                        type: boolean
+                    type: object
+                type: object
+              firmware:
+                description: Firmware.
+                properties:
+                  bootloader:
+                    description: Settings to control the bootloader that is used.
+                    properties:
+                      bios:
+                        description: If set (default), BIOS will be used.
+                        properties:
+                          useSerial:
+                            description: If set, the BIOS output will be transmitted
+                              over serial
+                            type: boolean
+                        type: object
+                      efi:
+                        description: If set, EFI will be used instead of BIOS.
+                        properties:
+                          secureBoot:
+                            description: If set, SecureBoot will be enabled and the
+                              OVMF roms will be swapped for SecureBoot-enabled ones.
+                              Requires SMM to be enabled. Defaults to true
+                            type: boolean
+                        type: object
+                    type: object
+                  kernelBoot:
+                    description: Settings to set the kernel for booting.
+                    properties:
+                      container:
+                        description: Container defines the container that containes
+                          kernel artifacts
+                        properties:
+                          image:
+                            description: Image that contains initrd / kernel files.
+                            type: string
+                          imagePullPolicy:
+                            description: 'Image pull policy. One of Always, Never,
+                              IfNotPresent. Defaults to Always if :latest tag is specified,
+                              or IfNotPresent otherwise. Cannot be updated. More info:
+                              https://kubernetes.io/docs/concepts/containers/images#updating-images'
+                            type: string
+                          imagePullSecret:
+                            description: ImagePullSecret is the name of the Docker
+                              registry secret required to pull the image. The secret
+                              must already exist.
+                            type: string
+                          initrdPath:
+                            description: the fully-qualified path to the ramdisk image
+                              in the host OS
+                            type: string
+                          kernelPath:
+                            description: The fully-qualified path to the kernel image
+                              in the host OS
+                            type: string
+                        required:
+                        - image
+                        type: object
+                      kernelArgs:
+                        description: Arguments to be passed to the kernel at boot
+                          time
+                        type: string
+                    type: object
+                  serial:
+                    description: The system-serial-number in SMBIOS
+                    type: string
+                  uuid:
+                    description: UUID reported by the vmi bios. Defaults to a random
+                      generated uid.
+                    type: string
+                type: object
+              ioThreadsPolicy:
+                description: 'Controls whether or not disks will share IOThreads.
+                  Omitting IOThreadsPolicy disables use of IOThreads. One of: shared,
+                  auto'
+                type: string
+              launchSecurity:
+                description: Launch Security setting of the vmi.
+                properties:
+                  sev:
+                    description: AMD Secure Encrypted Virtualization (SEV).
+                    type: object
+                type: object
+              machine:
+                description: Machine type.
+                properties:
+                  type:
+                    description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
+                    type: string
+                type: object
+              memory:
+                description: Memory allow specifying the VMI memory features.
+                properties:
+                  guest:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: Guest allows to specifying the amount of memory which
+                      is visible inside the Guest OS. The Guest must lie between Requests
+                      and Limits from the resources section. Defaults to the requested
+                      memory in the resources section if not specified.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  hugepages:
+                    description: Hugepages allow to use hugepages for the VirtualMachineInstance
+                      instead of regular memory.
+                    properties:
+                      pageSize:
+                        description: PageSize specifies the hugepage size, for x86_64
+                          architecture valid values are 1Gi and 2Mi.
+                        type: string
+                    type: object
+                type: object
+              resources:
+                description: Resources describes the Compute Resources required by
+                  this vmi.
+                properties:
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Limits describes the maximum amount of compute resources
+                      allowed. Valid resource keys are "memory" and "cpu".
+                    type: object
+                  overcommitGuestOverhead:
+                    description: Don't ask the scheduler to take the guest-management
+                      overhead into account. Instead put the overhead only into the
+                      container's memory limit. This can lead to crashes if all memory
+                      is in use on a node. Defaults to false.
+                    type: boolean
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Requests is a description of the initial vmi resources.
+                      Valid resource keys are "memory" and "cpu".
+                    type: object
+                type: object
+            type: object
           name:
             description: Name specifies the name of this custom profile.
             type: string

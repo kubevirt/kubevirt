@@ -16630,6 +16630,56 @@
      }
     }
    },
+   "v1alpha1.VirtualMachineFlavorDomainTemplateSpec": {
+    "description": "VirtualMachineFlavorDomainTemplateSpec contains the generic spec definition for the flavor. Note that resources and devices are optional unlike within a full DomainSpec.",
+    "type": "object",
+    "properties": {
+     "chassis": {
+      "description": "Chassis specifies the chassis info passed to the domain.",
+      "$ref": "#/definitions/v1.Chassis"
+     },
+     "clock": {
+      "description": "Clock sets the clock and timers of the vmi.",
+      "$ref": "#/definitions/v1.Clock"
+     },
+     "cpu": {
+      "description": "CPU allow specified the detailed CPU topology inside the vmi.",
+      "$ref": "#/definitions/v1.CPU"
+     },
+     "devices": {
+      "description": "Devices allows adding disks, network interfaces, and others",
+      "$ref": "#/definitions/v1.Devices"
+     },
+     "features": {
+      "description": "Features like acpi, apic, hyperv, smm.",
+      "$ref": "#/definitions/v1.Features"
+     },
+     "firmware": {
+      "description": "Firmware.",
+      "$ref": "#/definitions/v1.Firmware"
+     },
+     "ioThreadsPolicy": {
+      "description": "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
+      "type": "string"
+     },
+     "launchSecurity": {
+      "description": "Launch Security setting of the vmi.",
+      "$ref": "#/definitions/v1.LaunchSecurity"
+     },
+     "machine": {
+      "description": "Machine type.",
+      "$ref": "#/definitions/v1.Machine"
+     },
+     "memory": {
+      "description": "Memory allow specifying the VMI memory features.",
+      "$ref": "#/definitions/v1.Memory"
+     },
+     "resources": {
+      "description": "Resources describes the Compute Resources required by this vmi.",
+      "$ref": "#/definitions/v1.ResourceRequirements"
+     }
+    }
+   },
    "v1alpha1.VirtualMachineFlavorList": {
     "description": "VirtualMachineFlavorList is a list of VirtualMachineFlavor resources.",
     "type": "object",
@@ -16663,12 +16713,13 @@
      "name"
     ],
     "properties": {
-     "cpu": {
-      "$ref": "#/definitions/v1.CPU"
-     },
      "default": {
       "description": "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor. Zero or one profile can be set to default.",
       "type": "boolean"
+     },
+     "domainTemplate": {
+      "description": "DomainTemplate specifies domain that will be used to fill missing values in a VMI domain. Devices filed is not allowed in DomainTemplate.",
+      "$ref": "#/definitions/v1alpha1.VirtualMachineFlavorDomainTemplateSpec"
      },
      "name": {
       "description": "Name specifies the name of this custom profile.",

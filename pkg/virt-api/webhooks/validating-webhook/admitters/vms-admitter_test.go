@@ -1425,13 +1425,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		BeforeEach(func() {
 			flavorMethods.FindFlavorFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
-				return &flavorv1alpha1.VirtualMachineFlavorProfile{
-					CPU: &v1.CPU{
-						Sockets: 2,
-						Cores:   1,
-						Threads: 1,
-					},
-				}, nil
+				return &flavorv1alpha1.VirtualMachineFlavorProfile{}, nil
 			}
 
 			vmi := api.NewMinimalVMI("testvmi")

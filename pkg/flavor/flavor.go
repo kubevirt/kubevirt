@@ -2,15 +2,15 @@ package flavor
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	apiflavor "kubevirt.io/api/flavor"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-
-	"k8s.io/client-go/tools/cache"
-
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
@@ -93,7 +93,7 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, profile *flavorv1alpha1.Virtu
 		vmi.Annotations[virtv1.ClusterFlavorAnnotation] = vm.Spec.Flavor.Name
 	}
 
-	conflicts = append(conflicts, applyCpu(field, profile, &vmi.Spec)...)
+	conflicts = append(conflicts, patchDomainSpec(field.Child("domain"), profile.DomainTemplate, &vmi.Spec.Domain)...)
 
 	return conflicts
 }
@@ -141,14 +141,96 @@ func getProfiles(name string, namespace string, kind string, flavorStore, cluste
 	}
 }
 
-func applyCpu(field *k8sfield.Path, profile *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if profile.CPU == nil {
+func patchDomainSpec(field *k8sfield.Path, profileDomain *flavorv1alpha1.VirtualMachineFlavorDomainTemplateSpec, vmiDomain *virtv1.DomainSpec) Conflicts {
+	if profileDomain == nil {
 		return nil
 	}
-	if vmiSpec.Domain.CPU != nil {
-		return Conflicts{field.Child("domain", "cpu")}
+
+	// Not using reflection, to make it easier to understand and less likely to contain a bug.
+	conflicts := patchResourceRequirements(field.Child("resources"), &profileDomain.Resources, &vmiDomain.Resources)
+	conflicts = append(conflicts, patchPtr(field.Child("cpu"), &profileDomain.CPU, &vmiDomain.CPU)...)
+	conflicts = append(conflicts, patchMemory(field.Child("memory"), &profileDomain.Memory, &vmiDomain.Memory)...)
+	conflicts = append(conflicts, patchPtr(field.Child("machine"), &profileDomain.Machine, &vmiDomain.Machine)...)
+	conflicts = append(conflicts, patchPtr(field.Child("firmware"), &profileDomain.Firmware, &vmiDomain.Firmware)...)
+	conflicts = append(conflicts, patchPtr(field.Child("clock"), &profileDomain.Clock, &vmiDomain.Clock)...)
+	conflicts = append(conflicts, patchPtr(field.Child("features"), &profileDomain.Features, &vmiDomain.Features)...)
+	conflicts = append(conflicts, patchPtr(field.Child("ioThreadsPolicy"), &profileDomain.IOThreadsPolicy, &vmiDomain.IOThreadsPolicy)...)
+	conflicts = append(conflicts, patchPtr(field.Child("chassis"), &profileDomain.Chassis, &vmiDomain.Chassis)...)
+
+	// The "devices" field is not applied to VMI in full, we do however want to apply some of the bools
+	conflicts = append(conflicts, patchPtr(field.Child("devices.UseVirtioTransitional"), &profileDomain.Devices.UseVirtioTransitional, &vmiDomain.Devices.UseVirtioTransitional)...)
+	conflicts = append(conflicts, patchPtr(field.Child("devices.DisableHotplug"), &profileDomain.Devices.DisableHotplug, &vmiDomain.Devices.DisableHotplug)...)
+	conflicts = append(conflicts, patchPtr(field.Child("devices.AutoattachPodInterface"), &profileDomain.Devices.AutoattachPodInterface, &vmiDomain.Devices.AutoattachPodInterface)...)
+	conflicts = append(conflicts, patchPtr(field.Child("devices.AutoattachGraphicsDevice"), &profileDomain.Devices.AutoattachGraphicsDevice, &vmiDomain.Devices.AutoattachGraphicsDevice)...)
+	conflicts = append(conflicts, patchPtr(field.Child("devices.AutoattachSerialConsole"), &profileDomain.Devices.AutoattachSerialConsole, &vmiDomain.Devices.AutoattachSerialConsole)...)
+	conflicts = append(conflicts, patchPtr(field.Child("devices.AutoattachMemBalloon"), &profileDomain.Devices.AutoattachMemBalloon, &vmiDomain.Devices.AutoattachMemBalloon)...)
+	conflicts = append(conflicts, patchPtr(field.Child("devices.BlockMultiQueue"), &profileDomain.Devices.BlockMultiQueue, &vmiDomain.Devices.BlockMultiQueue)...)
+	conflicts = append(conflicts, patchPtr(field.Child("devices.NetworkInterfaceMultiQueue"), &profileDomain.Devices.NetworkInterfaceMultiQueue, &vmiDomain.Devices.NetworkInterfaceMultiQueue)...)
+
+	return conflicts
+}
+
+func patchPtr(field *k8sfield.Path, profilePtr interface{}, vmiPtr interface{}) Conflicts {
+	profileVal := reflect.ValueOf(profilePtr).Elem()
+	vmiVal := reflect.ValueOf(vmiPtr).Elem()
+
+	if profileVal.Type() != vmiVal.Type() {
+		panic("patchPtr requires the same type")
 	}
 
-	vmiSpec.Domain.CPU = profile.CPU.DeepCopy()
-	return nil
+	if profileVal.IsZero() {
+		return nil
+	}
+	if vmiVal.IsZero() {
+		vmiVal.Set(profileVal)
+		return nil
+	}
+
+	return Conflicts{field}
+}
+
+func patchResourceRequirements(field *k8sfield.Path, profileObj *virtv1.ResourceRequirements, vmiObj *virtv1.ResourceRequirements) Conflicts {
+	conflicts := patchResourceList(field.Child("requests"), &profileObj.Requests, &vmiObj.Requests)
+	conflicts = append(conflicts, patchResourceList(field.Child("limits"), &profileObj.Limits, &vmiObj.Limits)...)
+	if profileObj.OvercommitGuestOverhead {
+		vmiObj.OvercommitGuestOverhead = true
+	}
+	return conflicts
+}
+
+func patchResourceList(field *k8sfield.Path, profileObj *corev1.ResourceList, vmiObj *corev1.ResourceList) Conflicts {
+	if *profileObj == nil {
+		return nil
+	}
+	if *vmiObj == nil {
+		*vmiObj = *profileObj
+		return nil
+	}
+
+	var conflicts Conflicts
+	for name, quantity := range *profileObj {
+		if _, ok := (*vmiObj)[name]; ok {
+			conflicts = append(conflicts, field.Child(string(name)))
+			continue
+		}
+		(*vmiObj)[name] = quantity
+	}
+	return conflicts
+}
+
+func patchMemory(field *k8sfield.Path, profileObj **virtv1.Memory, vmiObj **virtv1.Memory) Conflicts {
+	if (*profileObj) == nil {
+		return nil
+	}
+	if (*vmiObj) == nil {
+		*vmiObj = *profileObj
+		return nil
+	}
+
+	profileMem := *profileObj
+	vmiMem := *vmiObj
+	conflicts := patchPtr(field.Child("hugepages"), &profileMem.Hugepages, &vmiMem.Hugepages)
+	conflicts = append(conflicts, patchPtr(field.Child("guest"), &profileMem.Guest, &vmiMem.Guest)...)
+
+	return conflicts
 }
