@@ -26,6 +26,7 @@ var _ = Describe("Capabilities", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(counter.Frequency).To(BeNumerically("==", 4008012000))
 		Expect(bool(counter.Scaling)).To(BeFalse())
+		Expect(capabilities.Host.Topology.Cells.Cell[0].Cpus.CPU[7].Siblings).To(HaveLen(29))
 	})
 
 	It("should properly read cpu siblings", func() {

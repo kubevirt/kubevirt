@@ -68,7 +68,7 @@
                         <cpu id='4' socket_id='0' die_id='0' core_id='0' siblings='0,4'/>
                         <cpu id='5' socket_id='0' die_id='0' core_id='1' siblings='1,5'/>
                         <cpu id='6' socket_id='0' die_id='0' core_id='2' siblings='2,6'/>
-                        <cpu id='7' socket_id='0' die_id='0' core_id='3' siblings='3,7'/>
+                        <cpu id='7' socket_id='0' die_id='0' core_id='3' siblings='3-30,35'/>
                     </cpus>
                 </cell>
             </cells>
