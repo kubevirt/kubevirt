@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 )
 
 // Reasons for vmi events
@@ -117,6 +118,8 @@ const (
 	// ImagePullBackOffReason is set when an error has occured while pulling an image for a containerDisk VM volume,
 	// and that kubelet is backing off before retrying.
 	ImagePullBackOffReason = "ImagePullBackOff"
+	// PVCUseByMaintenancePodReason is set when the PVC is used by a maintenance pod e.g pod created by virtctl guestfs
+	PVCUseByMaintenancePodReason = "PVCUseByMaintenancePod"
 )
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
@@ -442,12 +445,15 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					}
 				}
 			}
-			if syncErr != nil && syncErr.Reason() == FailedPvcNotFoundReason {
+			if syncErr != nil && (syncErr.Reason() == FailedPvcNotFoundReason || syncErr.Reason() == PVCUseByMaintenancePodReason) {
 				condition := virtv1.VirtualMachineInstanceCondition{
 					Type:    virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
 					Reason:  k8sv1.PodReasonUnschedulable,
 					Message: syncErr.Error(),
 					Status:  k8sv1.ConditionFalse,
+				}
+				if syncErr.Reason() == PVCUseByMaintenancePodReason {
+					vmiCopy.Status.Phase = virtv1.Failed
 				}
 				cm := controller.NewVirtualMachineInstanceConditionManager()
 				if cm.HasCondition(vmiCopy, condition.Type) {
@@ -861,6 +867,42 @@ func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, vir
 	return true, nil
 }
 
+// checkMaintenancePodActiveOnVolumes checks if one of the volumes of the VMI is in used by a pod created by virtctl guestfs
+func (c *VMIController) checkMaintenancePodActiveOnVolumes(vmi *virtv1.VirtualMachineInstance) error {
+	objs, err := c.podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	if err != nil {
+		return err
+	}
+	pvcsInUse := make(map[string]interface{})
+	for _, obj := range objs {
+		pod := obj.(*k8sv1.Pod)
+		if pod.Status.Phase == k8sv1.PodUnknown ||
+			pod.Status.Phase == k8sv1.PodFailed ||
+			pod.Status.Phase == k8sv1.PodSucceeded {
+			continue
+		}
+		if pod.ObjectMeta.Labels[virtv1.AppLabel] == guestfs.VirtGuestfsName {
+			pvcsInUse[pod.ObjectMeta.Labels[guestfs.VirtGuestfsPVCLabel]] = pod
+		}
+	}
+
+	for _, v := range vmi.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil || v.DataVolume != nil {
+			var claimName string
+			if v.PersistentVolumeClaim != nil {
+				claimName = v.PersistentVolumeClaim.ClaimName
+			} else {
+				claimName = v.DataVolume.Name
+			}
+			_, exists := pvcsInUse[claimName]
+			if exists {
+				return fmt.Errorf("volume %s is in use by virtctl guestfs", claimName)
+			}
+		}
+	}
+	return nil
+}
+
 func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) syncError {
 	if vmi.DeletionTimestamp != nil {
 		err := c.deleteAllMatchingPods(vmi)
@@ -886,6 +928,12 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
 	if syncErr != nil {
 		return syncErr
+	}
+
+	if err := c.checkMaintenancePodActiveOnVolumes(vmi); err != nil {
+		log.Log.Reason(err).Errorf("Volume is in use: %v", err)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, PVCUseByMaintenancePodReason, "Volume is in used: %v", err)
+		return &syncErrorImpl{err, PVCUseByMaintenancePodReason}
 	}
 
 	if !podExists(pod) {
