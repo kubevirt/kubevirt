@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 
+	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -29,16 +30,18 @@ const (
 	defaultImageName = "libguestfs-tools"
 	defaultImage     = "quay.io/kubevirt/" + defaultImageName + ":latest"
 	// KvmDevice defines the resource as in pkg/virt-controller/services/template.go, but we don't import the package to avoid compile conflicts when the os is windows
-	KvmDevice         = "devices.kubevirt.io/kvm"
-	volume            = "volume"
-	contName          = "libguestfs"
-	diskDir           = "/disk"
-	diskPath          = "/dev/vda"
-	podNamePrefix     = "libguestfs-tools"
-	appliancePath     = "/usr/local/lib/guestfs"
-	tmpDirVolumeName  = "libguestfs-tmp-dir"
-	tmpDirPath        = "/tmp/guestfs"
-	pullPolicyDefault = corev1.PullIfNotPresent
+	KvmDevice           = "devices.kubevirt.io/kvm"
+	volume              = "volume"
+	contName            = "libguestfs"
+	diskDir             = "/disk"
+	diskPath            = "/dev/vda"
+	podNamePrefix       = "libguestfs-tools"
+	appliancePath       = "/usr/local/lib/guestfs"
+	tmpDirVolumeName    = "libguestfs-tmp-dir"
+	tmpDirPath          = "/tmp/guestfs"
+	pullPolicyDefault   = corev1.PullIfNotPresent
+	VirtGuestfsName     = "guestfs"
+	VirtGuestfsPVCLabel = virtv1.AppLabel + "/pvc"
 )
 
 var (
@@ -351,6 +354,10 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 	c := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
+			Labels: map[string]string{
+				virtv1.AppLabel:     VirtGuestfsName,
+				VirtGuestfsPVCLabel: pvc,
+			},
 		},
 		Spec: corev1.PodSpec{
 			Volumes: []corev1.Volume{
