@@ -981,6 +981,7 @@ func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 		causes = append(causes, validateRequestLimitOrCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
 		causes = append(causes, validateRequestEqualsLimitOnDedicatedCPUPlacement(field, spec)...)
 		causes = append(causes, validateRequestOrLimitWithCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
+		causes = append(causes, validateThreadCountOnDedicatedCPUPlacement(field, spec)...)
 	}
 	return causes
 }
@@ -1015,6 +1016,20 @@ func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, con
 				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
 			})
 		}
+	}
+	return causes
+}
+
+func validateThreadCountOnDedicatedCPUPlacement(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.CPU != nil && spec.Domain.CPU.Threads > 2 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Not more than two threads must be provided at %v (got %v) when DedicatedCPUPlacement is true",
+				field.Child("domain", "cpu", "threads").String(),
+				spec.Domain.CPU.Threads,
+			),
+			Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+		})
 	}
 	return causes
 }
