@@ -3,8 +3,8 @@ package api
 import (
 	"encoding/xml"
 	"fmt"
-	"strconv"
-	"strings"
+
+	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 )
 
 type yesnobool bool
@@ -107,12 +107,13 @@ func (b *yesnobool) UnmarshalXMLAttr(attr xml.Attr) error {
 
 func (b *CPUSiblings) UnmarshalXMLAttr(attr xml.Attr) error {
 	if attr.Value != "" {
-		for _, cpuStr := range strings.Split(attr.Value, ",") {
-			val, err := strconv.ParseInt(cpuStr, 10, 32)
-			if err != nil {
-				return fmt.Errorf("failed to parse %v to int from %v: %v", cpuStr, attr.Value, err)
+		if list, err := hwutil.ParseCPUSetLine(attr.Value, 100); err == nil {
+			for _, cpu := range list {
+				*b = append(*b, uint32(cpu))
 			}
-			*b = append(*b, uint32(val))
+		} else {
+			return fmt.Errorf("failed to parse %v to ints: %v", attr.Value, err)
+
 		}
 	}
 	return nil
