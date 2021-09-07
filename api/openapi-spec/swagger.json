@@ -10208,6 +10208,11 @@
       "description": "Name is the device name",
       "type": "string"
      },
+     "queue": {
+      "description": "virtio queue num for block devices.",
+      "type": "integer",
+      "format": "int32"
+     },
      "serial": {
       "description": "Serial provides the ability to specify a serial number for the disk device.",
       "type": "string"
@@ -10827,6 +10832,11 @@
       "items": {
        "$ref": "#/definitions/v1.Port"
       }
+     },
+     "queue": {
+      "description": "vhost queue for network devices.",
+      "type": "integer",
+      "format": "int32"
      },
      "slirp": {
       "$ref": "#/definitions/v1.InterfaceSlirp"

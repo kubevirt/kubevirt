@@ -1364,14 +1364,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		vcpus = uint(1)
 	}
 
-	if virtioBlkMQRequested {
-		numBlkQueues = &vcpus
-	}
-
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
-
+		if virtioBlkMQRequested {
+			if disk.Queue != nil && *disk.Queue > 0 {
+				numBlkQueues = disk.Queue
+			} else {
+				numBlkQueues = &vcpus
+			}
+		}
 		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues)
 		if err != nil {
 			return err

@@ -70,7 +70,12 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 		if ifaceType == "virtio" && virtioNetProhibited {
 			return nil, fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 		} else if ifaceType == "virtio" && virtioNetMQRequested {
-			queueCount := uint(CalculateNetworkQueues(vmi))
+			var queueCount uint
+			if iface.Queue != nil && *iface.Queue > 0 {
+				queueCount = *iface.Queue
+			} else {
+				queueCount = uint(CalculateNetworkQueues(vmi))
+			}
 			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
 		}
 

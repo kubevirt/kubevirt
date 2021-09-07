@@ -821,6 +821,11 @@ func (in *Disk) DeepCopyInto(out *Disk) {
 		*out = new(BlockSize)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Queue != nil {
+		in, out := &in.Queue, &out.Queue
+		*out = new(uint)
+		**out = **in
+	}
 	return
 }
 
@@ -1700,6 +1705,11 @@ func (in *Interface) DeepCopyInto(out *Interface) {
 		in, out := &in.DHCPOptions, &out.DHCPOptions
 		*out = new(DHCPOptions)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.Queue != nil {
+		in, out := &in.Queue, &out.Queue
+		*out = new(uint)
+		**out = **in
 	}
 	return
 }

@@ -583,6 +583,9 @@ type Disk struct {
 	// If specified, the virtual disk will be presented with the given block sizes.
 	// +optional
 	BlockSize *BlockSize `json:"blockSize,omitempty"`
+	// virtio queue num for block devices.
+	// +optional
+	Queue *uint `json:"queue,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
@@ -1230,6 +1233,9 @@ type Interface struct {
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
+	// vhost queue for network devices.
+	// +optional
+	Queue *uint `json:"queue,omitempty"`
 }
 
 // Extra DHCP options to use in the interface.

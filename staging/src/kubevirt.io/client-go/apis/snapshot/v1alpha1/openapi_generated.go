@@ -15070,6 +15070,13 @@ func schema_kubevirtio_client_go_api_v1_Disk(ref common.ReferenceCallback) commo
 							Ref:         ref("kubevirt.io/client-go/api/v1.BlockSize"),
 						},
 					},
+					"queue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "virtio queue num for block devices.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
@@ -16232,6 +16239,13 @@ func schema_kubevirtio_client_go_api_v1_Interface(ref common.ReferenceCallback) 
 							Description: "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"queue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "vhost queue for network devices.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},

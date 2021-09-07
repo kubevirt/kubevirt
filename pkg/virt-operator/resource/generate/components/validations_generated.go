@@ -3968,6 +3968,9 @@ var CRDsValidation map[string]string = map[string]string{
                               name:
                                 description: Name is the device name
                                 type: string
+                              queue:
+                                description: virtio queue num for block devices.
+                                type: integer
                               serial:
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
@@ -4154,6 +4157,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   - port
                                   type: object
                                 type: array
+                              queue:
+                                description: vhost queue for network devices.
+                                type: integer
                               slirp:
                                 type: object
                               sriov:
@@ -5545,6 +5551,9 @@ var CRDsValidation map[string]string = map[string]string{
                       name:
                         description: Name is the device name
                         type: string
+                      queue:
+                        description: virtio queue num for block devices.
+                        type: integer
                       serial:
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
@@ -6680,6 +6689,9 @@ var CRDsValidation map[string]string = map[string]string{
                       name:
                         description: Name is the device name
                         type: string
+                      queue:
+                        description: virtio queue num for block devices.
+                        type: integer
                       serial:
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
@@ -6862,6 +6874,9 @@ var CRDsValidation map[string]string = map[string]string{
                           - port
                           type: object
                         type: array
+                      queue:
+                        description: vhost queue for network devices.
+                        type: integer
                       slirp:
                         type: object
                       sriov:
@@ -8659,6 +8674,9 @@ var CRDsValidation map[string]string = map[string]string{
                       name:
                         description: Name is the device name
                         type: string
+                      queue:
+                        description: virtio queue num for block devices.
+                        type: integer
                       serial:
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
@@ -8841,6 +8859,9 @@ var CRDsValidation map[string]string = map[string]string{
                           - port
                           type: object
                         type: array
+                      queue:
+                        description: vhost queue for network devices.
+                        type: integer
                       slirp:
                         type: object
                       sriov:
@@ -10430,6 +10451,9 @@ var CRDsValidation map[string]string = map[string]string{
                               name:
                                 description: Name is the device name
                                 type: string
+                              queue:
+                                description: virtio queue num for block devices.
+                                type: integer
                               serial:
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
@@ -10616,6 +10640,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   - port
                                   type: object
                                 type: array
+                              queue:
+                                description: vhost queue for network devices.
+                                type: integer
                               slirp:
                                 type: object
                               sriov:
@@ -13889,6 +13916,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           name:
                                             description: Name is the device name
                                             type: string
+                                          queue:
+                                            description: virtio queue num for block
+                                              devices.
+                                            type: integer
                                           serial:
                                             description: Serial provides the ability
                                               to specify a serial number for the disk
@@ -14092,6 +14123,9 @@ var CRDsValidation map[string]string = map[string]string{
                                               - port
                                               type: object
                                             type: array
+                                          queue:
+                                            description: vhost queue for network devices.
+                                            type: integer
                                           slirp:
                                             type: object
                                           sriov:
@@ -15611,6 +15645,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   name:
                                     description: Name is the device name
                                     type: string
+                                  queue:
+                                    description: virtio queue num for block devices.
+                                    type: integer
                                   serial:
                                     description: Serial provides the ability to specify
                                       a serial number for the disk device.
