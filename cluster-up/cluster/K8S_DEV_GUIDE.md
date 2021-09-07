@@ -1,15 +1,23 @@
 ﻿# kubevirtci K8s provider dev guide.
 
+Note: in the following scenarios we are using `${KUBEVIRT_PROVIDER_VERSION}` as pointer to the `major.minor` k8s version we are using
+
+This then can map to any of these folders:
+* `cluster-provision/k8s/${KUBEVIRT_PROVIDER_VERSION}`
+* `cluster-up/cluster/k8s-${KUBEVIRT_PROVIDER_VERSION}`
+
+## Creating or updating a provider
+
 The purpose of kubevirtci is to create pre-provisioned K8s clusters as container images,
 allowing people to easily run a K8s cluster.
 
 The target audience is developers of kubevirtci, who want to create a new provider, or to update an existing one.
 
-Please refer first to the following documents on how to run k8s-1.21:\
-[k8s-1.21 cluster-up](https://github.com/kubevirt/kubevirtci/blob/master/cluster-up/cluster/k8s-1.21/README.md)
+Please refer first to the following documents on how to run k8s-1.x:\
+[k8s-1.x cluster-up](./K8S.md)
 
-In this doc, we will go on what kubevirtci provider image consist of, what its inner architecture,
-flow of start a pre-provisioned cluster, flow of creating a new provider, and how to create a new provider.
+In this doc, we will go on what kubevirtci provider image consists of, what its inner architecture is,
+flow of starting a pre-provisioned cluster, flow of creating a new provider, and how to create a new provider.
 
 A provider includes all the images (K8s base image, nodes OS image) and the scripts that allows it to start a
 cluster offline, without downloading / installing / compiling new resources.
@@ -25,11 +33,11 @@ It gives us isolation advantage and state freezing of the needed components, all
 # K8s Deployment
 Running `make cluster-up` will deploy a pre-provisioned cluster.
 Upon finishing deployment of a K8s deploy, we will have 3 containers:
-* k8s-1.21 vm container - a container that runs a qemu VM, which is the K8s node, in which the pods will run.
+* k8s-${KUBEVIRT_PROVIDER_VERSION} vm container - a container that runs a qemu VM, which is the K8s node, in which the pods will run.
 * Registry container - a shared image registry.
-* k8s-1.21 dnsmasq container - a container that run dnsmasq, which gives dns and dhcp services.
+* k8s-${KUBEVIRT_PROVIDER_VERSION} dnsmasq container - a container that run dnsmasq, which gives dns and dhcp services.
 
-The containers are running and looks like this:
+The containers are running and look like this:
 ```
 [root@modi01 1.21.0]# docker ps
 CONTAINER ID        IMAGE                   COMMAND                  CREATED             STATUS              PORTS                                                                                                                          NAMES
@@ -92,8 +100,8 @@ From within the container we can see there is a process of qemu which runs the n
 root         1     0 36 13:39 ?        00:05:22 qemu-system-x86_64 -enable-kvm -drive format=qcow2,file=/var/run/disk/disk.qcow2,if=virtio,cache=unsafe -device virtio-net-pci,netdev=network0,mac=52:55:00:d1:55:01 -netdev tap,id=network0,ifname=tap01,script=no,downscript=no -device virtio-rng-pci -vnc :01 -cpu host -m 5120M -smp 5 -serial pty
 ```
 
-# Flow of K8s provisioning (1.21 for example)
-`cluster-provision/k8s/1.21.0/provision.sh`
+# Flow of K8s provisioning ${KUBEVIRT_PROVIDER_VERSION}
+`cluster-provision/k8s/${KUBEVIRT_PROVIDER_VERSION}/provision.sh`
 * Runs the common cluster-provision/k8s/provision.sh.
     * Runs cluster-provision/cli/cli (bash script).
         * Creates a container for dnsmasq and runs dnsmasq.sh in it.
@@ -109,14 +117,14 @@ root         1     0 36 13:39 ?        00:05:22 qemu-system-x86_64 -enable-kvm -
                 * Create local volume directories.
             * Shutdown the vm and commit its container.
 
-# Flow of K8s cluster-up (1.21 for example)
+# Flow of K8s cluster-up ${KUBEVIRT_PROVIDER_VERSION}
 Run
 ```
-export KUBEVIRT_PROVIDER=k8s-1.21.0
+export KUBEVIRT_PROVIDER=k8s-${KUBEVIRT_PROVIDER_VERSION}
 make cluster-up
 ```
 * Runs cluster-up/up.sh which sources the following:
-    * cluster-up/cluster/k8s-1.21.0/provider.sh (selected according $KUBEVIRT_PROVIDER), which sources:
+    * cluster-up/cluster/k8s-${KUBEVIRT_PROVIDER_VERSION}/provider.sh (selected according $KUBEVIRT_PROVIDER), which sources:
         * cluster-up/cluster/k8s-provider-common.sh
 * Runs `up` (which appears at cluster-up/cluster/k8s-provider-common.sh).
 It Triggers `gocli run` - (cluster-provision/gocli/cmd/run.go) which create the following containers:
@@ -125,13 +133,13 @@ It Triggers `gocli run` - (cluster-provision/gocli/cmd/run.go) which create the 
     * Container for dnsmasq (provides dns, dhcp services).
 
 # Creating new K8s provider
-Clone folders of k8s, folder name should be x/y as in the provider name x-y (ie. k8s-1.21.0) and includes:
-* cluster-provision/k8s/1.21.0/provision.sh  # used to create a new provider
-* cluster-provision/k8s/1.21.0/publish.sh  # used to publish new provider
-* cluster-up/cluster/k8s-1.21.0/provider.sh  # used by cluster-up
-* cluster-up/cluster/k8s-1.21.0/README.md
+Clone folders of k8s, folder name should be x/y as in the provider name x-y (ie. k8s-${KUBEVIRT_PROVIDER_VERSION}.0) and includes:
+* cluster-provision/k8s/${KUBEVIRT_PROVIDER_VERSION}/provision.sh  # used to create a new provider
+* cluster-provision/k8s/${KUBEVIRT_PROVIDER_VERSION}/publish.sh  # used to publish new provider
+* cluster-up/cluster/k8s-${KUBEVIRT_PROVIDER_VERSION}/provider.sh  # used by cluster-up
+* cluster-up/cluster/k8s-${KUBEVIRT_PROVIDER_VERSION}/README.md
 
-# Example - Adding a new manifest to K8s 1.21
+# Example - Adding a new manifest to K8s
 * First add the file at cluster-provision/manifests, this folder would be copied to /tmp in the container,
 by cluster-provision/cli/cli as part of provision.
 * Add this snippet at cluster-provision/k8s/scripts/provision.sh, before "Wait at least for 7 pods" line.
@@ -139,10 +147,14 @@ by cluster-provision/cli/cli as part of provision.
 custom_manifest="/tmp/custom_manifest.yaml"
 kubectl --kubeconfig=/etc/kubernetes/admin.conf create -f "$custom_manifest"
 ```
-* Run ./cluster-provision/k8s/1.21.0/provision.sh, it will create a new provision and test it.
-* Run ./cluster-provision/k8s/1.21.0/publish.sh, it will publish the new created image to docker.io
-* Update k8s-1.21.0 image line at cluster-up/cluster/images.sh, to point on the newly published image.
+* Run ./cluster-provision/k8s/${KUBEVIRT_PROVIDER_VERSION}/provision.sh, it will create a new provision and test it.
+
+# Manual steps for publishing a new provider
+
+The steps to create, test and integrate a new KubeVirtCI provider are [mostly automated](./K8S_AUTOMATION.md), but just in case you need to do it manually:
+
+* Run `./cluster-provision/k8s/${KUBEVIRT_PROVIDER_DIR}/publish.sh`, it will publish the new created image to quay.io
 * Create a PR with the following files:
     * The new manifest.
-    * Updated cluster-provision/k8s/scripts/provision.sh
-    * Updated cluster-up/cluster/images.sh.
+    * Updated `cluster-provision/k8s/scripts/provision.sh`
+    * Updated `cluster-up/cluster/images.sh`.
