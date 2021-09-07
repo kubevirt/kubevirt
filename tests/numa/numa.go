@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -107,13 +108,18 @@ var _ = Describe("[sig-compute][serial]NUMA", func() {
 })
 
 func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
-	stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, handlerPod, "virt-handler",
-		[]string{
-			"/bin/bash",
-			"-c",
-			"trap '' URG && ps ax",
-		})
-	Expect(err).ToNot(HaveOccurred(), stderr)
+	var stdout, stderr string
+	// The retry is a desperate try to cope with URG in case that URG is not catches by the script
+	// since URG keep ps failing
+	Eventually(func() (err error) {
+		stdout, stderr, err = tests.ExecuteCommandOnPodV2(virtClient, handlerPod, "virt-handler",
+			[]string{
+				"/bin/bash",
+				"-c",
+				"trap '' URG && ps ax",
+			})
+		return err
+	}, 3*time.Second, 500*time.Millisecond).Should(Succeed(), stderr)
 
 	pid := ""
 	for _, str := range strings.Split(stdout, "\n") {
@@ -123,7 +129,7 @@ func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v
 		words := strings.Fields(str)
 
 		// verify it is numeric
-		_, err = strconv.Atoi(words[0])
+		_, err := strconv.Atoi(words[0])
 		Expect(err).ToNot(HaveOccurred(), "should have found pid for qemu that is numeric")
 
 		pid = words[0]
