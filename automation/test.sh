@@ -61,6 +61,11 @@ else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
 
+
+if [[ $TARGET =~ nonroot ]]; then
+  export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER/-nonroot/}
+fi
+
 if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
   exit 1
