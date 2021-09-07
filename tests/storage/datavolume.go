@@ -39,10 +39,11 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 
@@ -57,7 +58,7 @@ import (
 const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
 const DummyFilePath = "/usr/share/nginx/html/dummy.file"
 
-var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
+var _ = SIGDescribe("DataVolume Integration", func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
@@ -332,17 +333,6 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			waitForVM := func(vm *v1.VirtualMachine, phase v1.VirtualMachineInstancePhase, message string) {
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.GetName(), &metav1.GetOptions{})
-					if err != nil {
-						Expect(err.Error()).To(ContainSubstring("not found"),
-							"A 404 while VMI is being created would be normal. All other errors are unexpected")
-						return v1.VmPhaseUnset
-					}
-					return vmi.Status.Phase
-				}, 100*time.Second, 1*time.Second).Should(Equal(phase), message)
-			}
 			It("shold be possible to stop VM if datavolume is crashing", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMIWithDataVolume(dataVolume.Name), true)
@@ -373,11 +363,11 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				vm := tests.NewRandomVirtualMachine(vmi, true)
 
 				By("Creating a VM with an invalid DataVolume")
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to be created")
-				waitForVM(vm, v1.Pending, "VMI with invalid DataVolume should not be scheduled")
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Pending))
 			})
 			It("[test_id:3190]should correctly handle eventually consistent DataVolumes", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.DummyFileHttpUrl),
@@ -395,24 +385,20 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 				// Create a VM for this VMI
 				vm := tests.NewRandomVirtualMachine(vmi, true)
-				_, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
-				waitForVM(vm, v1.Pending, "VMI with inconsistent DV should be created")
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Pending))
 
 				By("Fix DataVolume URL")
 				createDummyFile(DummyFilePath, "1")
 				defer deleteDummyFile(DummyFilePath)
 
 				By("Wait for DataVolume to complete")
-				Eventually(func() cdiv1.DataVolumePhase {
-					dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
-					return dataVolume.Status.Phase
-				}, 160*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
+				Eventually(ThisDV(dataVolume), 160).Should(HaveSucceeded())
 
 				By("Waiting for VMI to be created")
-				waitForVM(vm, v1.Running, "VMI with eventually consistent DataVolume should have been started")
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Running))
 			})
 		})
 	})
@@ -442,159 +428,12 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		deleteIfExistsVM := func(name string, namespace string) {
-			vm, err := virtClient.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
-			if err == nil && vm.DeletionTimestamp == nil {
-				err := virtClient.VirtualMachine(namespace).Delete(name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
-		}
-
-		deleteIfExistsVMI := func(name string, namespace string) {
-			vmi, err := virtClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
-			if err == nil && vmi.DeletionTimestamp == nil {
-				err := virtClient.VirtualMachineInstance(namespace).Delete(name, &metav1.DeleteOptions{})
-				// In some tests, OwnerReferences in k8s can cause this to be deleted already
-				// just ignore 404's to avoid that race.
-				if err != nil && !errors.IsNotFound(err) {
-					Expect(err).ToNot(HaveOccurred())
-				}
-			}
-		}
-
-		deleteIfExistsDataVolume := func(name string, namespace string) {
-			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
-			if err == nil && dataVolume.DeletionTimestamp == nil {
-				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
-				// In some tests, OwnerReferences in k8s can cause this to be deleted already
-				// just ignore 404's to avoid that race.
-				if err != nil && !errors.IsNotFound(err) {
-					Expect(err).ToNot(HaveOccurred())
-				}
-			}
-		}
-
-		vmiIsRunningAndOwned := func(name, namespace string) {
-			Eventually(func() error {
-				vmi, err := virtClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				Expect(vmi.OwnerReferences).ToNot(BeEmpty())
-
-				if !vmi.IsRunning() {
-					return fmt.Errorf("Waiting on VMI to enter running phase")
-				}
-				return nil
-			}, 160*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		vmiIsRunningAndNotOwned := func(name, namespace string) {
-			Eventually(func() error {
-				vmi, err := virtClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				Expect(vmi.OwnerReferences).To(BeEmpty())
-
-				if !vmi.IsRunning() {
-					return fmt.Errorf("Waiting on VMI to enter running phase")
-				}
-				return nil
-			}, 160*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		dataVolumeIsSuccessAndOwned := func(name, namespace string) {
-			Eventually(func() error {
-				dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				Expect(dataVolume.OwnerReferences).ToNot(BeEmpty())
-
-				if dataVolume.Status.Phase != cdiv1.Succeeded {
-					return fmt.Errorf("Waiting on DataVolume to enter succeeded phase")
-				}
-				return nil
-			}, 160*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		dataVolumeIsSuccessAndNotOwned := func(name, namespace string) {
-			Eventually(func() error {
-				dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				Expect(dataVolume.OwnerReferences).To(BeEmpty())
-
-				if dataVolume.Status.Phase != cdiv1.Succeeded {
-					return fmt.Errorf("Waiting on DataVolume to enter succeeded phase")
-				}
-				return nil
-			}, 160*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		pvcExists := func(name, namespace string) {
-			Eventually(func() error {
-				_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				return nil
-			}, 160*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		waitForDeletionVM := func(name, namespace string) {
-			Eventually(func() bool {
-				_, err := virtClient.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				return false
-			}, 100*time.Second, 1*time.Second).Should(BeTrue())
-		}
-
-		waitForDeletionVMI := func(name, namespace string) {
-			Eventually(func() bool {
-				_, err := virtClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				return false
-			}, 100*time.Second, 1*time.Second).Should(BeTrue())
-		}
-
-		waitForDeletionDataVolume := func(name, namespace string) {
-			Eventually(func() bool {
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				return false
-			}, 100*time.Second, 1*time.Second).Should(BeTrue())
-		}
-
-		waitForDeletionPVC := func(name, namespace string) {
-			Eventually(func() bool {
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				return false
-			}, 100*time.Second, 1*time.Second).Should(BeTrue())
-
-		}
-
 		AfterEach(func() {
 			if workDir != "" {
 				err = os.RemoveAll(workDir)
 				Expect(err).ToNot(HaveOccurred())
 				workDir = ""
 			}
-
-			deleteIfExistsVM(vm.Name, vm.Namespace)
-			deleteIfExistsVMI(vm.Name, vm.Namespace)
-			deleteIfExistsDataVolume(dataVolumeName, vm.Namespace)
 		})
 
 		It("[test_id:836] Creating a VM with DataVolumeTemplates should succeed.", func() {
@@ -603,17 +442,13 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying DataVolume succeeded and is created with VM owner reference")
-			dataVolumeIsSuccessAndOwned(dataVolumeName, vm.Namespace)
+			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(And(HaveSucceeded(), BeOwned()))
 
 			By("Verifying PVC is created")
-			pvcExists(pvcName, vm.Namespace)
+			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
 
 			By("Verifying VMI is created with VM owner reference")
-			vmiIsRunningAndOwned(vm.Name, vm.Namespace)
-
-			By("Delete VM")
-			_, _, err = tests.RunCommand("kubectl", "delete", "vm", vm.Name)
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 		})
 
 		It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
@@ -622,29 +457,29 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying DataVolume succeeded and is created with VM owner reference")
-			dataVolumeIsSuccessAndOwned(dataVolumeName, vm.Namespace)
+			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(And(HaveSucceeded(), BeOwned()))
 
 			By("Verifying PVC is created")
-			pvcExists(pvcName, vm.Namespace)
+			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
 
 			By("Verifying VMI is created with VM owner reference")
-			vmiIsRunningAndOwned(vm.Name, vm.Namespace)
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 
 			By("Deleting VM with cascade=true")
 			_, _, err = tests.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=true")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VM to be deleted")
-			waitForDeletionVM(vm.Name, vm.Namespace)
+			Eventually(ThisVM(vm), 100).Should(BeGone())
 
 			By("Waiting for the VMI to be deleted")
-			waitForDeletionVMI(vm.Name, vm.Namespace)
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeGone())
 
 			By("Waiting for the DataVolume to be deleted")
-			waitForDeletionDataVolume(dataVolumeName, vm.Namespace)
+			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(BeGone())
 
 			By("Waiting for the PVC to be deleted")
-			waitForDeletionPVC(pvcName, vm.Namespace)
+			Eventually(ThisPVCWith(vm.Namespace, pvcName), 100).Should(BeGone())
 		})
 
 		It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
@@ -657,43 +492,26 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying DataVolume succeeded and is created with VM owner reference")
-			dataVolumeIsSuccessAndOwned(dataVolumeName, vm.Namespace)
+			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(And(HaveSucceeded(), BeOwned()))
 
 			By("Verifying PVC is created")
-			pvcExists(pvcName, vm.Namespace)
+			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
 
 			By("Verifying VMI is created with VM owner reference")
-			vmiIsRunningAndOwned(vm.Name, vm.Namespace)
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 
 			By("Deleting VM with cascade=false")
 			_, _, err = tests.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=false")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VM to be deleted")
-			waitForDeletionVM(vm.Name, vm.Namespace)
+			Eventually(ThisVM(vm), 100).Should(BeGone())
 
 			By("Verifying DataVolume still exists with owner references removed")
-			dataVolumeIsSuccessAndNotOwned(dataVolumeName, vm.Namespace)
+			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(And(HaveSucceeded(), Not(BeOwned())))
 
 			By("Verifying VMI still exists with owner references removed")
-			vmiIsRunningAndNotOwned(vm.Name, vm.Namespace)
-
-			By("Deleting the orphaned VMI")
-			err = virtClient.VirtualMachineInstance(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for the VMI to be deleted")
-			waitForDeletionVMI(vm.Name, vm.Namespace)
-
-			By("Deleting the orphaned DataVolume")
-			err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Delete(context.Background(), dataVolumeName, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for the DataVolume to be deleted")
-			waitForDeletionDataVolume(dataVolumeName, vm.Namespace)
-
-			By("Waiting for the PVC to be deleted")
-			waitForDeletionPVC(pvcName, vm.Namespace)
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(And(BeRunning(), Not(BeOwned())))
 		})
 
 	})
@@ -745,7 +563,6 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 					}
 					vm = tests.StopVirtualMachine(vm)
 				}
-				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})).To(Succeed())
 			},
 
 				table.Entry("with http import", true),
@@ -761,31 +578,15 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Check for owner reference
-				Eventually(func() []metav1.OwnerReference {
-					dataVolume, _ := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
-					return dataVolume.OwnerReferences
-				}, 100*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeOwned())
 
 				// Delete the VM with orphan Propagation
 				orphanPolicy := metav1.DeletePropagationOrphan
 				Expect(virtClient.VirtualMachine(vm.Namespace).
 					Delete(vm.Name, &metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 
-				// Wait until the virtual machine instance is deleted
-				Eventually(func() bool {
-					_, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-					if errors.IsNotFound(err) {
-						return true
-					}
-					return false
-				}, 100*time.Second, 1*time.Second).Should(BeTrue())
-
-				dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
-				Expect(dataVolume.OwnerReferences).To(BeEmpty())
-				Expect(err).ToNot(HaveOccurred())
-
-				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				// Wait for the owner reference to disappear
+				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(Not(BeOwned()))
 			})
 		})
 	})
@@ -808,13 +609,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				dv := tests.NewRandomDataVolumeWithHttpImportInStorageClass(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() bool {
-					dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(dataVolume.Status.Phase).ToNot(Equal(cdiv1.Failed))
-					return dataVolume.Status.Phase == cdiv1.Succeeded
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+				Eventually(ThisDV(dataVolume), 90).Should(HaveSucceeded())
 			})
 
 			AfterEach(func() {
@@ -831,13 +626,6 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				if createdVirtualMachine != nil {
 					err := virtClient.VirtualMachine(createdVirtualMachine.Namespace).Delete(createdVirtualMachine.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-				}
-
-				if dataVolume != nil {
-					err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
-					if err != nil && !errors.IsNotFound(err) {
-						Expect(err).ToNot(HaveOccurred())
-					}
 				}
 			})
 
@@ -896,14 +684,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 
 				// wait for clone to complete
 				targetDVName := vm.Spec.DataVolumeTemplates[0].Name
-				Eventually(func() bool {
-					dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(createdVirtualMachine.Namespace).Get(context.Background(), targetDVName, metav1.GetOptions{})
-					if err != nil && errors.IsNotFound(err) {
-						return false
-					}
-					Expect(err).ToNot(HaveOccurred())
-					return dv.Status.Phase == cdiv1.Succeeded
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+				Eventually(ThisDVWith(createdVirtualMachine.Namespace, targetDVName), 90).Should(HaveSucceeded())
 
 				// start/stop vm
 				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
