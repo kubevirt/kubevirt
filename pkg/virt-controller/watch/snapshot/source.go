@@ -20,11 +20,15 @@
 package snapshot
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	appsv1 "k8s.io/api/apps/v1"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
@@ -47,8 +51,8 @@ type snapshotSource interface {
 	Frozen() (bool, error)
 	Freeze() error
 	Unfreeze() error
-	Spec() snapshotv1.SourceSpec
-	PersistentVolumeClaims() map[string]string
+	Spec() (snapshotv1.SourceSpec, error)
+	PersistentVolumeClaims() (map[string]string, error)
 }
 
 type vmSnapshotSource struct {
@@ -72,17 +76,12 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return true, nil
 	}
 
-	vmRunning, err := checkVMRunning(s.vm)
+	vmOnline, err := s.Online()
 	if err != nil {
 		return false, err
 	}
 
-	exists, err := s.controller.checkVMIRunning(s.vm)
-	if err != nil {
-		return false, err
-	}
-
-	if !vmRunning && !exists {
+	if !vmOnline {
 		pvcNames := s.pvcNames()
 		pods, err := podsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
 		if err != nil {
@@ -91,6 +90,16 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 		if len(pods) > 0 {
 			log.Log.V(3).Infof("Vm is offline but %d pods using PVCs %+v", len(pods), pvcNames)
+			return false, nil
+		}
+	} else {
+		valid, err := s.validateVolumes()
+		if err != nil {
+			return false, err
+		}
+
+		if !valid {
+			log.Log.Infof("VMSnapshot is not supported with hotplug disks")
 			return false, nil
 		}
 	}
@@ -148,12 +157,84 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 	return true, nil
 }
 
-func (s *vmSnapshotSource) Spec() snapshotv1.SourceSpec {
-	vmCpy := s.vm.DeepCopy()
-	vmCpy.Status = kubevirtv1.VirtualMachineStatus{}
+func (s *vmSnapshotSource) validateVolumes() (bool, error) {
+	vmi, exists, err := s.controller.getVMI(s.vm)
+	if err != nil || !exists {
+		return false, err
+	}
+
+	vmRevision, err := s.getVMRevision()
+	if err != nil {
+		return false, err
+	}
+
+	vmiPVCs := getPVCsFromVolumes(vmi.Spec.Volumes)
+	vmRevisionPVCs := getPVCsFromVolumes(vmRevision.Spec.Template.Spec.Volumes)
+
+	return reflect.DeepEqual(vmiPVCs, vmRevisionPVCs), nil
+}
+
+func (s *vmSnapshotSource) getVMRevision() (*kubevirtv1.VirtualMachine, error) {
+	vmi, exists, err := s.controller.getVMI(s.vm)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("can't get vm revision, vmi doesn't exist")
+	}
+
+	crName := vmi.Status.VirtualMachineRevisionName
+	storeObj, exists, err := s.controller.CRInformer.GetStore().GetByKey(cacheKeyFunc(vmi.Namespace, crName))
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("vm revision %s doesn't exist", crName)
+	}
+
+	cr, ok := storeObj.(*appsv1.ControllerRevision)
+	if !ok {
+		return nil, fmt.Errorf("unexpected resource %+v", storeObj)
+	}
+
+	vmRevision := &kubevirtv1.VirtualMachine{}
+	err = json.Unmarshal(cr.Data.Raw, vmRevision)
+	if err != nil {
+		return nil, err
+	}
+	return vmRevision, nil
+}
+
+func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
+	online, err := s.Online()
+	if err != nil {
+		return snapshotv1.SourceSpec{}, err
+	}
+
+	var vmCpy *kubevirtv1.VirtualMachine
+	if online {
+		vmCpy, err = s.getVMRevision()
+		if err != nil {
+			return snapshotv1.SourceSpec{}, err
+		}
+		labels := map[string]string{}
+		for k, v := range s.vm.ObjectMeta.Labels {
+			labels[k] = v
+		}
+		vmCpy.ObjectMeta.Labels = labels
+
+		annotations := map[string]string{}
+		for k, v := range s.vm.ObjectMeta.Annotations {
+			annotations[k] = v
+		}
+		vmCpy.ObjectMeta.Annotations = annotations
+	} else {
+		vmCpy = s.vm.DeepCopy()
+		vmCpy.Status = kubevirtv1.VirtualMachineStatus{}
+	}
 	return snapshotv1.SourceSpec{
 		VirtualMachine: vmCpy,
-	}
+	}, nil
 }
 
 func (s *vmSnapshotSource) Online() (bool, error) {
@@ -232,12 +313,24 @@ func (s *vmSnapshotSource) Unfreeze() error {
 	return nil
 }
 
-func (s *vmSnapshotSource) PersistentVolumeClaims() map[string]string {
-	return getPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes)
+func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
+	vm := s.vm
+	online, err := s.Online()
+	if err != nil {
+		return map[string]string{}, err
+	}
+
+	if online {
+		vm, err = s.getVMRevision()
+		if err != nil {
+			return map[string]string{}, err
+		}
+	}
+	return getPVCsFromVolumes(vm.Spec.Template.Spec.Volumes), nil
 }
 
 func (s *vmSnapshotSource) pvcNames() sets.String {
-	pvcs := s.PersistentVolumeClaims()
+	pvcs := getPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes)
 	ss := sets.NewString()
 	for _, pvc := range pvcs {
 		ss.Insert(pvc)
