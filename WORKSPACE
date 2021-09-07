@@ -448,9 +448,9 @@ container_pull(
 # TODO build fedora_with_test_tooling for multi-arch
 container_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:9ec3e137bff093597d192f5a4e346f25b614c3a94216b857de0e3d75b68bfb17",
+    digest = "sha256:ce36d2b4f81b038fba0b61b1bb1ac7f671d47687fb1f9d7ddedd22742cc79dd9",
     registry = "quay.io",
-    repository = "kubevirt/fedora-with-test-tooling",
+    repository = "kubevirtci/fedora-with-test-tooling",
 )
 
 container_pull(
