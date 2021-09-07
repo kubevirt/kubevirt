@@ -21,6 +21,7 @@ LIBGUESTFS_VERSION=1:1.44.0-3.el8s
 # explicitly ensures that bazeldnf always reaches the same solution
 # and thus keeps things reproducible
 centos_base="
+  acl
   curl
   vim-minimal
 "
