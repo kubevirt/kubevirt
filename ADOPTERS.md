@@ -1,9 +1,8 @@
 # KubeVirt Adopters
 
-This is a likely incomplete list of KubeVirt adopters - end-users and distributors alike.
-
 | User | Since | Use-Case |
 |-|-|:-|
+| Apple | 20XX | |
 | Red Hat | 2016 | As a distributor we are building OpenShift Virtualization on KubeVirt in order to enable VM workloads and -flows on Kubernetes. |
 | [Kubermatic](https://kubermatic.com) | 2019 | As a distributor we are running KubeVirt to enable VM workload on Kubermatic Virtualization. Follow the [link](https://www.kubermatic.com/products/kubevirt/) for more information. |
 | H3C | 2019 | We distribute KubeVirt as part of CloudOS to enable VM workloads on Kubernetes at customer sites . Follow the  [link](https://www.h3c.com/en/Products_Technology/Enterprise_Products/Cloud_Computing/Cloud_Computing_Products/H3C_CloudOS/H3C_CloudOS_full-stack/) for more product information |
@@ -12,3 +11,5 @@ This is a likely incomplete list of KubeVirt adopters - end-users and distributo
 | [Civo](https://www.civo.com) | 2020 | We are using KubeVirt as part of our stack to enable tenant cluster provisioning within Civo cloud. |
 | [SUSE](https://www.suse.com/) | 2020 | SUSE believes KubeVirt is the best open source way to handle Virtual Machines on Kubernetes today. We offer this additional possibility to our customers by leveraging KubeVirt in our products. |
 | [Cloudflare](https://www.cloudflare.com/) | 2018 | Cloudflare uses KubeVirt within its core data centers to accommodate use cases of our teams that are less container friendly, such as our CI runners, while still taking advantage of the Kubernetes environment. |
+
+Be sure to add updates to kubevirt/kubevirt.github.io
