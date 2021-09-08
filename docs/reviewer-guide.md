@@ -19,6 +19,9 @@ Make a few passes over the code you want to review.
 * Reasonable info messages
 * Unit and functional tests to avoid regressions (the core case must be tested)
 * The PR implement what is needed (changes out of the PR scope should belong to a separate one)
+* Nested loops must be avoided. When matching elements, create an
+  index in a hash map on one of the lists and iterate over the other list. This
+  trades `O(n^2)` with `O(n)`, which keeps kubevirt robust and scalable.
 
 ## Pull Request structure
 
@@ -36,3 +39,4 @@ Make a few passes over the code you want to review.
 * Always consider the update path. Most importantly, does a PR cause a change in behavior that impacts previously expected behavior? For example, if virt-handler always expects a file to exist within a certain folder within virt-launcher, and a PR changes that path, then does this impact virt-handler's ability to manage communication with old virt-launcher pods?
 * When creating kubernetes events, make sure the code path issuing the event doesn't cause the event to fire every time the object is reconciled. For example, if we want to fire an event when a vmi moves to the running phase, we should compare the old phase with the new phase and only fire the event when the phase transition is occurring. A bad example would be to fire the event every time the reconcile loop sees the vmi's phase is Running. This would cause an unnecessary amount of duplicate events to be sent to the api-server.
 * List ordering on CRD APIs matter. If two components need to update a list on the same object, make sure both components do it in a way that preserves the order of the list. For example, both virt-handler and virt-controller need to modify conditions on the VMI status. If both virt-handler and virt-controller are constantly changing the order of the conditions list, that will cause an update storm where both components are competing with one another to write changes.
+* Privileged node-level operations should be added to virt-handler and not virt-launcher to keep the privileges on virt-launcher at a minimum.
