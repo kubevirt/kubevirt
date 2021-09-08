@@ -33,8 +33,8 @@ function delete_kubevirt_cr() {
     # Delete KubeVirt CR, timeout after 10 seconds
     set +e
     _kubectl -n ${namespace} delete kv kubevirt --timeout=10s --ignore-not-found
+    _kubectl -n cdi delete service cdi-uploadproxy-nodeport
     patch_remove_finalizers -n ${namespace} kv kubevirt
-    patch_remove_finalizers cdi cdi
     set -e
 }
 
@@ -74,7 +74,7 @@ function delete_resources() {
 
     # Delete all traces of kubevirt
     local namespaces=(default ${managed_namespaces[@]})
-    local labels=("operator.kubevirt.io" "operator.cdi.kubevirt.io" "kubevirt.io" "cdi.kubevirt.io")
+    local labels=("operator.kubevirt.io" "kubevirt.io")
 
     # Namespaced resources
     for i in ${namespaces[@]}; do
@@ -98,7 +98,7 @@ function delete_namespaces() {
 function main() {
     echo "Cleaning up ..."
 
-    local kubevirt_managed_namespaces=(${namespace} ${cdi_namespace})
+    local kubevirt_managed_namespaces=(${namespace})
 
     delete_kubevirt_cr
     remove_finalizers
