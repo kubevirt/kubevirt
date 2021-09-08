@@ -513,7 +513,7 @@ func getLoopbackAdrress(proto iptables.Protocol) string {
 
 func (b *MasqueradePodNetworkConfigurator) portsUsedByLiveMigration() []string {
 	if b.vmi.Status.MigrationTransport == v1.MigrationTransportUnix {
-		return []string{}
+		return nil
 	}
 	return []string{
 		fmt.Sprint(LibvirtDirectMigrationPort),

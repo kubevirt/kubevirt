@@ -287,12 +287,11 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 
 func portsUsedByLiveMigration(isMigrationOverSockets bool) []string {
 	if isMigrationOverSockets {
-		return []string{}
-	} else {
-		return []string{
-			fmt.Sprint(LibvirtDirectMigrationPort),
-			fmt.Sprint(LibvirtBlockMigrationPort),
-		}
+		return nil
+	}
+	return []string{
+		fmt.Sprint(LibvirtDirectMigrationPort),
+		fmt.Sprint(LibvirtBlockMigrationPort),
 	}
 }
 
@@ -413,9 +412,7 @@ func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.
 	handler.EXPECT().NftablesAppendRule(proto, "nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil)
 	handler.EXPECT().NftablesAppendRule(proto, "nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil)
 
-	skipPorts := portsUsedByLiveMigration(isMigrationOverSockets)
-
-	if len(skipPorts) > 0 {
+	if skipPorts := portsUsedByLiveMigration(isMigrationOverSockets); len(skipPorts) > 0 {
 		for _, chain := range []string{"output", "KUBEVIRT_POSTINBOUND"} {
 			handler.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(skipPorts, ", ")), nftIPString, "saddr", GetLoopbackAdrress(proto), "counter", "return").Return(nil)
 		}
@@ -487,9 +484,7 @@ func mockIPTablesBackend(handler *netdriver.MockNetworkHandler, proto iptables.P
 		"-j",
 		"KUBEVIRT_POSTINBOUND").Return(nil)
 
-	skipPorts := portsUsedByLiveMigration(isMigrationOverSockets)
-
-	if len(skipPorts) > 0 {
+	if skipPorts := portsUsedByLiveMigration(isMigrationOverSockets); len(skipPorts) > 0 {
 		for _, chain := range []string{"OUTPUT", "KUBEVIRT_POSTINBOUND"} {
 			handler.EXPECT().IptablesAppendRule(proto, "nat", chain,
 				"-p", "tcp", "--match", "multiport",
