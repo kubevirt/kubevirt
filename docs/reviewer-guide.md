@@ -25,3 +25,14 @@ Make a few passes over the code you want to review.
 * It's preferred that authors rebase on master instead of merging master into their PRs.
 * We merge PRs into our branches.
 * Commits in a PR should make sense: Ask people to squash commits like "Fix reviewer comments", "wip", "addition", ...
+
+## Common Architecture Flaws to Avoid
+
+* Avoid using api GETs/LISTs to retrieve an object from the api-server when an informer is more appropriate. In general, informers should be used in cluster wide components such as virt-controller, virt-api, and virt-operator.
+* Use a PATCH instead of an UPDATE operation when a controller does not strictly own the object being modified. An example of this is when the live migration controller needs to modify a VMI. The VMI is owned by a different controller, so the migration controller should use a PATCH on the VMI.
+* Avoid adding informers to node level components such as virt-handler. This causes api-server pressure at scale.
+* Reconcile loops are multithreaded and we must pay attention to thread safety. For example, accessing an external golang map within the reconcile loop must be protected by locks.
+* Take a critical look at an new RBAC permissions added to the project and determine if new permissions grant a component permissions that breaks separation of concerns. For example, virt-handler shouldn't need permissions to list all Pods because viewing pods is virt-controller's responsibility.
+* Always consider the update path. Most importantly, does a PR cause a change in behavior that impacts previously expected behavior? For example, if virt-handler always expects a file to exist within a certain folder within virt-launcher, and a PR changes that path, then does this impact virt-handler's ability to manage communication with old virt-launcher pods?
+* When creating kubernetes events, make sure the code path issuing the event doesn't cause the event to fire every time the object is reconciled. For example, if we want to fire an event when a vmi moves to the running phase, we should compare the old phase with the new phase and only fire the event when the phase transition is occurring. A bad example would be to fire the event every time the reconcile loop sees the vmi's phase is Running. This would cause an unnecessary amount of duplicate events to be sent to the api-server.
+* List ordering on CRD APIs matter. If two components need to update a list on the same object, make sure both components do it in a way that preserves the order of the list. For example, both virt-handler and virt-controller need to modify conditions on the VMI status. If both virt-handler and virt-controller are constantly changing the order of the conditions list, that will cause an update storm where both components are competing with one another to write changes.
