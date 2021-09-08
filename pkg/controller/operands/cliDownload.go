@@ -90,7 +90,7 @@ func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLID
 			DisplayName: displayName,
 			Links: []consolev1.CLIDownloadLink{
 				{
-					Href: baseUrl + "/amd64/linux/virtctl.tar",
+					Href: baseUrl + "/amd64/linux/virtctl.tar.gz",
 					Text: "Download virtctl for Linux for x86_64",
 				},
 				{
