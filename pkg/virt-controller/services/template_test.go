@@ -1815,6 +1815,32 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("3"))
 			})
+			It("should allocate proportinal amount of cpus to vmipod as vcpus with allocation_ratio set to 10", func() {
+				/*config, kvInformer, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio = 10
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)*/
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: true,
+							},
+							CPU: &v1.CPU{Cores: 3},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("300m"))
+			})
 			It("should override the calculated amount of cpus if the user has explicitly specified cpu request", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
