@@ -18,65 +18,65 @@ func CalculateRequestedVCPUs(cpuTopology *api.CPUTopology) uint32 {
 }
 
 type cell struct {
-	bigThreadChunks [][]uint32
-	smallChunks     []uint32
-	threadsPerCore  int
+	fullCoresList       [][]uint32
+	fragmentedCoresList []uint32
+	threadsPerCore      int
 }
 
-// GetCPUBoundChunk consumes the amount of threadsPerCore from the numa cell
+// GetNotFragmentedThreads consumes the amount of threadsPerCore from the numa cell
 // or none if it can't be fit on the numa cell
-func (c *cell) GetCPUBoundChunk() []uint32 {
-	if len(c.bigThreadChunks) > 0 {
-		selected := c.bigThreadChunks[0][:c.threadsPerCore]
-		remaining := c.bigThreadChunks[0][c.threadsPerCore:]
+func (c *cell) GetNotFragmentedThreads() []uint32 {
+	if len(c.fullCoresList) > 0 {
+		selected := c.fullCoresList[0][:c.threadsPerCore]
+		remaining := c.fullCoresList[0][c.threadsPerCore:]
 		if len(remaining) >= c.threadsPerCore {
-			c.bigThreadChunks[0] = remaining
+			c.fullCoresList[0] = remaining
 		} else {
-			c.bigThreadChunks = c.bigThreadChunks[1:]
-			c.smallChunks = append(c.smallChunks, remaining...)
+			c.fullCoresList = c.fullCoresList[1:]
+			c.fragmentedCoresList = append(c.fragmentedCoresList, remaining...)
 		}
 		return selected
 	}
 	return nil
 }
 
-// GetCellBoundChunk will allocate as many threadsPerCore out of the request
-func (c *cell) GetCellBoundChunk() []uint32 {
-	if c.threadsPerCore <= len(c.smallChunks) {
-		selected := c.smallChunks[:c.threadsPerCore]
-		c.smallChunks = c.smallChunks[c.threadsPerCore:]
+// GetFragmentedThreads will allocate as many threadsPerCore out of the request
+func (c *cell) GetFragmentedThreads() []uint32 {
+	if c.threadsPerCore <= len(c.fragmentedCoresList) {
+		selected := c.fragmentedCoresList[:c.threadsPerCore]
+		c.fragmentedCoresList = c.fragmentedCoresList[c.threadsPerCore:]
 		return selected
 	}
 	return nil
 }
 
-// GetCellBoundChunk will allocate as many threads as possible
+// GetFragmentedThreads will allocate as many threads as possible
 // and return them, even if it can only satisfy parts of the request.
-func (c *cell) GetCellBoundChunkUpTo(threads int) []uint32 {
+func (c *cell) GetFragmentedThreadsUpTo(threads int) []uint32 {
 	selector := threads
-	if threads > len(c.smallChunks) {
-		selector = len(c.smallChunks)
+	if threads > len(c.fragmentedCoresList) {
+		selector = len(c.fragmentedCoresList)
 	}
-	selected := c.smallChunks[:selector]
-	c.smallChunks = c.smallChunks[selector:]
+	selected := c.fragmentedCoresList[:selector]
+	c.fragmentedCoresList = c.fragmentedCoresList[selector:]
 	return selected
 }
 
 // GetThread will first try to allocate a thread from fragmented cores
 // but fall back to not fragmented cores if the request can't be satisfied otherwise
 func (c *cell) GetThread() *uint32 {
-	if len(c.smallChunks) > 0 {
-		thread := c.smallChunks[0]
-		c.smallChunks = c.smallChunks[1:]
+	if len(c.fragmentedCoresList) > 0 {
+		thread := c.fragmentedCoresList[0]
+		c.fragmentedCoresList = c.fragmentedCoresList[1:]
 		return &thread
-	} else if len(c.bigThreadChunks) > 0 {
-		thread := c.bigThreadChunks[0][0]
-		remaining := c.bigThreadChunks[0][1:]
+	} else if len(c.fullCoresList) > 0 {
+		thread := c.fullCoresList[0][0]
+		remaining := c.fullCoresList[0][1:]
 		if len(remaining) >= c.threadsPerCore {
-			c.bigThreadChunks[0] = remaining
+			c.fullCoresList[0] = remaining
 		} else {
-			c.bigThreadChunks = c.bigThreadChunks[1:]
-			c.smallChunks = append(c.smallChunks, remaining...)
+			c.fullCoresList = c.fullCoresList[1:]
+			c.fragmentedCoresList = append(c.fragmentedCoresList, remaining...)
 		}
 		return &thread
 	}
@@ -84,7 +84,7 @@ func (c *cell) GetThread() *uint32 {
 }
 
 func (c *cell) IsEmpty() bool {
-	return len(c.smallChunks) == 0 && len(c.bigThreadChunks) == 0
+	return len(c.fragmentedCoresList) == 0 && len(c.fullCoresList) == 0
 }
 
 type cpuPool struct {
@@ -118,9 +118,9 @@ func newCPUPool(requestedToplogy *api.CPUTopology, nodeTopology *v1.Topology, cp
 		c := cell{threadsPerCore: int(requestedToplogy.Threads)}
 		for j, core := range coresOnCell {
 			if len(core) >= c.threadsPerCore {
-				c.bigThreadChunks = append(c.bigThreadChunks, coresOnCell[j])
+				c.fullCoresList = append(c.fullCoresList, coresOnCell[j])
 			} else {
-				c.smallChunks = append(c.smallChunks, coresOnCell[j]...)
+				c.fragmentedCoresList = append(c.fragmentedCoresList, coresOnCell[j]...)
 			}
 		}
 		pool.cells = append(pool.cells, &c)
@@ -235,14 +235,14 @@ func fitChunk(cells []*cell, requested int, allocator func(cells []*cell, idx in
 
 func (p *cpuPool) fitCPUBound(requested int) (threads []uint32, remainingCores int) {
 	allocator := func(cell []*cell, idx int) []uint32 {
-		return cell[idx].GetCPUBoundChunk()
+		return cell[idx].GetNotFragmentedThreads()
 	}
 	return fitChunk(p.cells, requested, allocator)
 }
 
 func (p *cpuPool) fitCellBound(requested int) (threads []uint32, remainingCores int) {
 	allocator := func(cell []*cell, idx int) []uint32 {
-		return cell[idx].GetCellBoundChunk()
+		return cell[idx].GetFragmentedThreads()
 	}
 	return fitChunk(p.cells, requested, allocator)
 }
@@ -251,7 +251,7 @@ func (p *cpuPool) fitUnbound(requested int) (threads []uint32, remainingCores in
 	remainingThreads := p.threadsPerCore * requested
 	for _, cell := range p.cells {
 		for {
-			chunk := cell.GetCellBoundChunkUpTo(remainingThreads)
+			chunk := cell.GetFragmentedThreadsUpTo(remainingThreads)
 			if len(chunk) == 0 {
 				// go to the next cell
 				break
