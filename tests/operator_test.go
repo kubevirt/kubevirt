@@ -49,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"k8s.io/utils/pointer"
@@ -2157,6 +2158,28 @@ spec:
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
 			patchKvWorkloads(kv.Name, nil)
+		})
+
+		It("[test_id:TODO]should place components only on linux nodes", func() {
+			// TODO: we're only testing specific components now as cdi does not comply yet.
+			labelReq, err := labels.NewRequirement(v1.AppLabel, selection.In, []string{
+				components.VirtAPIName,
+				components.VirtControllerName,
+				components.VirtHandlerName,
+			})
+			if err != nil {
+				panic(err)
+			}
+			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labels.NewSelector().Add(
+					*labelReq,
+				).String(),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pods.Items).NotTo(BeEmpty())
+			for _, pod := range pods.Items {
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/os", "linux"), fmt.Sprintf("pod %s has linux node selector", pod.Name))
+			}
 		})
 	})
 
