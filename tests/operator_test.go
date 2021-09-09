@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	util2 "kubevirt.io/kubevirt/tests/util"
 
 	"regexp"
@@ -1226,30 +1227,6 @@ spec:
 			launcherSha := getVirtLauncherSha()
 			Expect(launcherSha).ToNot(Equal(""))
 
-			// Disable HonorWaitForFirstCustomer, since we don't know if previous versions
-			// already support this setting.
-			// TODO drop this step after a few releases after 0.36
-			cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(cdis.Items).To(HaveLen(1))
-			cdi := &cdis.Items[0]
-			if cdi.Spec.Config != nil {
-				features := []string{}
-				needsUpdate := false
-				for _, feature := range cdi.Spec.Config.FeatureGates {
-					if feature != "HonorWaitForFirstConsumer" {
-						features = append(features, feature)
-					} else {
-						needsUpdate = true
-					}
-				}
-				if needsUpdate {
-					cdi.Spec.Config.FeatureGates = features
-					_, err := virtClient.CdiClient().CdiV1beta1().CDIs().Update(context.Background(), cdi, metav1.UpdateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}
-			}
-
 			previousImageTag := flags.PreviousReleaseTag
 			previousImageRegistry := flags.PreviousReleaseRegistry
 			if previousImageTag == "" {
@@ -1447,6 +1424,12 @@ spec:
 
 			By("Verifying all migratable vmi workloads are updated via live migration")
 			verifyVMIsUpdated(migratableVMIs, launcherSha)
+
+			By("Verifying that a once migrated VMI after an update can be migrated again")
+			vmi := migratableVMIs[0]
+			migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(tests.NewRandomMigration(vmi.Name, vmi.Namespace))
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisMigration(migration), 180).Should(HaveSucceeded())
 
 			By("Deleting migratable VMIs")
 			deleteAllVMIs(migratableVMIs)

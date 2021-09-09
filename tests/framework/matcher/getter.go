@@ -123,3 +123,23 @@ func ThisPVCWith(namespace string, name string) func() (*v1.PersistentVolumeClai
 		return
 	}
 }
+
+// ThisMigration fetches the latest state of the Migration. If the object does not exist, nil is returned.
+func ThisMigration(migration *virtv1.VirtualMachineInstanceMigration) func() (*virtv1.VirtualMachineInstanceMigration, error) {
+	return ThisMigrationWith(migration.Namespace, migration.Name)
+}
+
+// ThisMigrationWith fetches the latest state of the Migration based on namespace and name. If the object does not exist, nil is returned.
+func ThisMigrationWith(namespace string, name string) func() (*virtv1.VirtualMachineInstanceMigration, error) {
+	return func() (p *virtv1.VirtualMachineInstanceMigration, err error) {
+		virtClient, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			return nil, err
+		}
+		p, err = virtClient.VirtualMachineInstanceMigration(namespace).Get(name, &k8smetav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return
+	}
+}
