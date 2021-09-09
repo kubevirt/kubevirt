@@ -35,32 +35,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-type MockNotifier struct {
-	Events chan k8sv1.Event
-}
-
-func (m MockNotifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
-	event := k8sv1.Event{
-		InvolvedObject: k8sv1.ObjectReference{
-			Namespace: vmi.Namespace,
-			Name:      vmi.Name,
-		},
-		Type:    severity,
-		Reason:  reason,
-		Message: message,
-	}
-	m.Events <- event
-	return nil
-}
-
 var _ = Describe("HostDisk", func() {
-	var tempDir string
-
+	var (
+		tempDir                    string
+		recorder                   *record.FakeRecorder
+		hostDiskCreator            DiskImgCreator
+		hostDiskCreatorWithReserve DiskImgCreator
+	)
 	addHostDisk := func(vmi *v1.VirtualMachineInstance, volumeName string, hostDiskType v1.HostDiskType, capacity string) {
 		var quantity resource.Quantity
 
@@ -106,17 +94,18 @@ var _ = Describe("HostDisk", func() {
 		tempDir, err = ioutil.TempDir("", "host-disk-images")
 		setDiskDirectory(tempDir)
 		Expect(err).NotTo(HaveOccurred())
+
+		recorder = record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
+
+		hostDiskCreator = NewHostDiskCreator(recorder, 0, 0, "")
+		hostDiskCreatorWithReserve = NewHostDiskCreator(recorder, 10, 1048576, "")
+
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(tempDir)
 	})
-
-	notifier := MockNotifier{
-		Events: make(chan k8sv1.Event, 10),
-	}
-	hostDiskCreator := NewHostDiskCreator(notifier, 0, 0)
-	hostDiskCreatorWithReserve := NewHostDiskCreator(notifier, 10, 1048576)
 
 	Describe("HostDisk with 'Disk' type", func() {
 		It("Should not create a disk.img when it exists", func() {
@@ -266,16 +255,11 @@ var _ = Describe("HostDisk", func() {
 					By("Executing CreateHostDisks func which should NOT create disk.img minus reserve")
 					err := hostDiskCreatorWithReserve.Create(vmi)
 					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("unable to create"))
 
 					_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
 					Expect(true).To(Equal(os.IsNotExist(err)))
 
-					event := <-notifier.Events
-					Expect(event.InvolvedObject.Namespace).To(Equal(vmi.Namespace))
-					Expect(event.InvolvedObject.Name).To(Equal(vmi.Name))
-					Expect(event.Type).To(Equal(EventTypeToleratedSmallPV))
-					Expect(event.Reason).To(Equal(EventReasonToleratedSmallPV))
-					Expect(event.Message).To(ContainSubstring("PV size too small"))
 					close(done)
 				}, 5)
 
@@ -329,12 +313,7 @@ var _ = Describe("HostDisk", func() {
 					_, err = os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
 					Expect(true).To(Equal(os.IsNotExist(err)))
 
-					event := <-notifier.Events
-					Expect(event.InvolvedObject.Namespace).To(Equal(vmi.Namespace))
-					Expect(event.InvolvedObject.Name).To(Equal(vmi.Name))
-					Expect(event.Type).To(Equal(EventTypeToleratedSmallPV))
-					Expect(event.Reason).To(Equal(EventReasonToleratedSmallPV))
-					Expect(event.Message).To(ContainSubstring("PV size too small"))
+					testutils.ExpectEvent(recorder, "PV size too small")
 					close(done)
 				}, 5)
 

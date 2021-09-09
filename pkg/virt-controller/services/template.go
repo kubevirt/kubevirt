@@ -991,8 +991,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
 	}
 
-	lessPVCSpaceToleration := t.clusterConfig.GetLessPVCSpaceToleration()
-	reservePVCBytes := t.clusterConfig.GetMinimumReservePVCBytes()
 	ovmfPath := t.clusterConfig.GetOVMFPath()
 
 	var command []string
@@ -1013,8 +1011,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"--container-disk-dir", t.containerDiskDir,
 			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
-			"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
-			"--minimum-pvc-reserve-bytes", strconv.FormatUint(reservePVCBytes, 10),
 			"--ovmf-path", ovmfPath,
 		}
 		if nonRoot {
