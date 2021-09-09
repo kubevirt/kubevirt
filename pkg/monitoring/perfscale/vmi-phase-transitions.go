@@ -38,8 +38,10 @@ func getTransitionTimeSeconds(fromCreation bool, fromDeletion bool, oldVMI *v1.V
 
 	if fromCreation || oldVMI == nil || (oldVMI.Status.Phase == v1.VmPhaseUnset) {
 		oldTime = newVMI.CreationTimestamp.DeepCopy()
-	} else if fromDeletion {
+	} else if fromDeletion && newVMI.IsMarkedForDeletion() {
 		oldTime = newVMI.DeletionTimestamp.DeepCopy()
+	} else if fromDeletion && !newVMI.IsMarkedForDeletion() {
+		return 0.0, fmt.Errorf("missing deletion timestamp")
 	}
 
 	for _, transitionTimestamp := range newVMI.Status.PhaseTransitionTimestamps {
@@ -131,10 +133,6 @@ func newVMIPhaseTransitionTimeHistogramVec(informer cache.SharedIndexInformer) *
 }
 
 func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prometheus.HistogramVec, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
-	if newVMI.IsMarkedForDeletion() {
-		return
-	}
-
 	if oldVMI == nil || oldVMI.Status.Phase == newVMI.Status.Phase {
 		return
 	}
@@ -194,10 +192,7 @@ func newVMIPhaseTransitionTimeFromCreationHistogramVec(informer cache.SharedInde
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldVMI, newVMI interface{}) {
-			vmi := newVMI.(*v1.VirtualMachineInstance)
-			if !vmi.IsMarkedForDeletion() {
-				updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
-			}
+			updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), newVMI.(*v1.VirtualMachineInstance))
 		},
 	})
 	return histogramVec
@@ -217,12 +212,9 @@ func newVMIPhaseTransitionTimeFromDeletionHistogramVec(informer cache.SharedInde
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldVMI, newVMI interface{}) {
-			// User is deleting a VM. Record time to deletion.
-			// Stop recording when VMI finalizer is removed
-			vmi := newVMI.(*v1.VirtualMachineInstance)
-			if vmi.IsMarkedForDeletion() {
-				updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), vmi)
-			}
+			// User is deleting a VM. Record the time from the
+			// deletionTimestamp to when the VMI enters the final phase
+			updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), newVMI.(*v1.VirtualMachineInstance))
 		},
 	})
 	return histogramVec

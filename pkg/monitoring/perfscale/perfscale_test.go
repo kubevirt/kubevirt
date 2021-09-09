@@ -54,6 +54,7 @@ var _ = Describe("VMI phase transition time histogram", func() {
 			table.Entry("Time between running and scheduled using fraction of a second", .5, v1.Running, v1.Scheduled),
 			table.Entry("Time between scheduled and scheduling", 2.0, v1.Scheduled, v1.Scheduling),
 			table.Entry("Time between scheduling and pending", 1.0, v1.Scheduling, v1.Pending),
+			table.Entry("Time between running and failed", 1.0, v1.Running, v1.Failed),
 		)
 	})
 
