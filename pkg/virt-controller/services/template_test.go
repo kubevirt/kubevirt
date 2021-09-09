@@ -1816,11 +1816,6 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("3"))
 			})
 			It("should allocate proportinal amount of cpus to vmipod as vcpus with allocation_ratio set to 10", func() {
-				/*config, kvInformer, svc = configFactory(defaultArch)
-				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio = 10
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)*/
-
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
