@@ -634,11 +634,11 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					Cores:   6,
 				}
 
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				var computeContainer *kubev1.Container
 				for _, container := range readyPod.Spec.Containers {
 					if container.Name == "compute" {
@@ -647,7 +647,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 					}
 				}
 				if computeContainer == nil {
-					util.PanicOnError(fmt.Errorf("could not find the compute container"))
+					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 				Expect(computeContainer.Resources.Requests.Cpu().String()).To(Equal("600m"))
 			})
