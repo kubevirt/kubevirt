@@ -85,7 +85,7 @@ func (se *SELinuxImpl) semodule(args ...string) (out []byte, err error) {
 	} else if !exists {
 		// on some environments some selinux related binaries are missing, e.g. when the cluster runs in containers (kind).
 		// In such a case, inform the admin, but continue.
-		if se.isPermissive() {
+		if se.IsPermissive() {
 			log.DefaultLogger().Warning("Permissive mode, ignoring missing 'semodule' binary. SELinux policies will not be installed.")
 			return []byte{}, nil
 		}
@@ -98,7 +98,7 @@ func (se *SELinuxImpl) semodule(args ...string) (out []byte, err error) {
 	}
 
 	out, err = se.execFunc(virt_chroot.GetChrootBinaryPath(), argsArray...)
-	if err != nil && se.isPermissive() {
+	if err != nil && se.IsPermissive() {
 		log.DefaultLogger().Warningf("Permissive mode, ignoring 'semodule' failure: out: %q, error: %v", string(out), err)
 		return []byte{}, nil
 	}
@@ -106,7 +106,7 @@ func (se *SELinuxImpl) semodule(args ...string) (out []byte, err error) {
 	return out, err
 }
 
-func (se *SELinuxImpl) isPermissive() bool {
+func (se *SELinuxImpl) IsPermissive() bool {
 	return se.mode == "permissive"
 }
 
@@ -161,4 +161,24 @@ func (se *SELinuxImpl) InstallPolicy(dir string) (err error) {
 type SELinux interface {
 	InstallPolicy(dir string) (err error)
 	Mode() string
+	IsPermissive() bool
+}
+
+func RelabelFiles(newLabel string, continueOnError bool, files ...string) error {
+	relabelArgs := []string{"selinux", "relabel", newLabel}
+	for _, file := range files {
+		cmd := exec.Command("virt-chroot", append(relabelArgs, file)...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			err := fmt.Errorf("error relabeling file %s with label %s. Reason: %v", file, newLabel, err)
+			if !continueOnError {
+				return err
+			} else {
+				log.DefaultLogger().Reason(err).Errorf("Relabeling a file faild, continuing since selinux is permissive.")
+			}
+		}
+	}
+	return nil
 }

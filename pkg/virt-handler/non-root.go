@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -34,10 +33,10 @@ func changeOwnershipAndRelabel(path string) error {
 		return err
 	}
 
-	_, selinuxEnabled, err := selinux.NewSELinux()
+	seLinux, selinuxEnabled, err := selinux.NewSELinux()
 	if err == nil && selinuxEnabled {
 		unprivilegedContainerSELinuxLabel := "system_u:object_r:container_file_t:s0"
-		err = relabelFiles(unprivilegedContainerSELinuxLabel, filepath.Join(path))
+		err = selinux.RelabelFiles(unprivilegedContainerSELinuxLabel, seLinux.IsPermissive(), filepath.Join(path))
 		if err != nil {
 			return (fmt.Errorf("error relabeling %s: %v", path, err))
 		}
@@ -133,20 +132,6 @@ func (d *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineI
 	}
 	if err := d.prepareTap(origVMI, res); err != nil {
 		return err
-	}
-	return nil
-}
-
-func relabelFiles(newLabel string, files ...string) error {
-	relabelArgs := []string{"selinux", "relabel", newLabel}
-	for _, file := range files {
-		cmd := exec.Command("virt-chroot", append(relabelArgs, file)...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err := cmd.Run()
-		if err != nil {
-			return fmt.Errorf("error relabeling file %s with label %s. Reason: %v", file, newLabel, err)
-		}
 	}
 	return nil
 }
