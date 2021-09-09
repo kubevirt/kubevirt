@@ -494,7 +494,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				By("Waiting until the DataVolume is ready")
 				if tests.HasBindingModeWaitForFirstConsumer() {
-					tests.WaitForDataVolumePhaseWFFC(dataVolume.Namespace, dataVolume.Name, 30)
+					Eventually(ThisDV(dataVolume), 30).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
 				}
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 

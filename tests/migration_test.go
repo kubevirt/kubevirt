@@ -909,7 +909,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				tests.WaitForDataVolumeReadyToStartVMI(vmi, 340)
+				Eventually(ThisDV(dataVolume), 340).Should(HaveSucceeded())
 
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
@@ -951,7 +951,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				tests.WaitForDataVolumeReadyToStartVMI(vmi, 240)
+				Eventually(ThisDV(dataVolume), 240).Should(HaveSucceeded())
 
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
@@ -1214,7 +1214,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Eventually(ThisPod(wffcPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 
 				By("waiting for the dv import to pvc to finish")
-				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
+				Eventually(ThisDV(dv), 600).Should(HaveSucceeded())
 
 				pvName = "test-nfs" + rand.String(48)
 				// Prepare a NFS backed PV
@@ -1926,7 +1926,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
+				Eventually(ThisDV(dv), 600).Should(HaveSucceeded())
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
 				tests.AddUserData(vmi, "disk1", "#!/bin/bash\n echo hello\n")
 				return vmi, dv

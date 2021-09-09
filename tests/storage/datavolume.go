@@ -102,12 +102,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if tests.HasBindingModeWaitForFirstConsumer() {
-					tests.WaitForDataVolumePhaseWFFC(dataVolume.Namespace, dataVolume.Name, 30)
+					Eventually(ThisDV(dataVolume), 30).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
 				}
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
-					tests.WaitForDataVolumeReadyToStartVMI(vmi, 140)
+					Eventually(ThisDV(dataVolume), 140).Should(HaveSucceeded())
 					vmi := tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
@@ -162,7 +162,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if tests.HasBindingModeWaitForFirstConsumer() {
-					tests.WaitForDataVolumePhaseWFFC(dataVolume.Namespace, dataVolume.Name, 30)
+					Eventually(ThisDV(dataVolume), 30).Should(BeInPhase(cdiv1.WaitForFirstConsumer))
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
@@ -348,7 +348,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for DV to start crashing")
-				tests.WaitForDataVolumeImportInProgress(vm.Namespace, dataVolume.Name, 30)
+				Eventually(ThisDV(dataVolume), 30).Should(BeInPhase(cdiv1.ImportInProgress))
 
 				By("Stop VM")
 				tests.StopVirtualMachineWithTimeout(vm, time.Second*30)
@@ -785,7 +785,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForDataVolumeReadyToStartVMI(vmi, 140)
+			Eventually(ThisDV(dataVolume), 140).Should(HaveSucceeded())
 			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
 			By("Expecting the VirtualMachineInstance console")

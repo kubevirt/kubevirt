@@ -31,6 +31,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 
 	corev1 "k8s.io/api/core/v1"
@@ -494,7 +495,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		dvBlock := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, sc, "64Mi", accessMode, volumeMode)
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dvBlock.Namespace).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).To(BeNil())
-		tests.WaitForSuccessfulDataVolumeImport(dvBlock, 240)
+		Eventually(ThisDV(dvBlock), 240).Should(HaveSucceeded())
 		return dvBlock
 	}
 
