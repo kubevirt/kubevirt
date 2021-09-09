@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 )
 
@@ -40,6 +41,10 @@ type CommonTemplates struct {
 	//+kubebuilder:validation:MaxLength=63
 	//+kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	Namespace string `json:"namespace"`
+
+	// DataImportCronTemplates defines a list of DataImportCrons managed by the SSP
+	// Operator. This is intended for images used by CommonTemplates.
+	DataImportCronTemplates []DataImportCronTemplate `json:"dataImportCronTemplates,omitempty"`
 }
 
 type NodeLabeller struct {
@@ -57,6 +62,22 @@ type SSPSpec struct {
 
 	// NodeLabeller is configuration of the node-labeller operand
 	NodeLabeller NodeLabeller `json:"nodeLabeller,omitempty"`
+}
+
+// DataImportCronTemplate defines the template type for DataImportCrons.
+// It requires metadata.name to be specified while leaving namespace as optional.
+type DataImportCronTemplate struct {
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec cdiv1beta1.DataImportCronSpec `json:"spec"`
+}
+
+// AsDataImportCron converts the DataImportCronTemplate to a cdiv1beta1.DataImportCron
+func (t DataImportCronTemplate) AsDataImportCron() cdiv1beta1.DataImportCron {
+	return cdiv1beta1.DataImportCron{
+		ObjectMeta: t.ObjectMeta,
+		Spec:       t.Spec,
+	}
 }
 
 // SSPStatus defines the observed state of SSP

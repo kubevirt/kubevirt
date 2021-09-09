@@ -38,6 +38,89 @@ spec:
                 description: CommonTemplates is the configuration of the common templates
                   operand
                 properties:
+                  dataImportCronTemplates:
+                    description: DataImportCronTemplates defines a list of DataImportCrons
+                      managed by the SSP Operator. This is intended for images used
+                      by CommonTemplates.
+                    items:
+                      description: DataImportCronTemplate defines the template type
+                        for DataImportCrons. It requires metadata.name to be specified
+                        while leaving namespace as optional.
+                      properties:
+                        metadata:
+                          properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            finalizers:
+                              items:
+                                type: string
+                              type: array
+                            labels:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          type: object
+                        spec:
+                          description: DataImportCronSpec defines specification for
+                            DataImportCron
+                          properties:
+                            garbageCollect:
+                              description: GarbageCollect specifies whether old PVCs
+                                should be cleaned up after a new PVC is imported.
+                                Options are currently "Never" and "Outdated", defaults
+                                to "Never".
+                              type: string
+                            managedDataSource:
+                              description: ManagedDataSource specifies the name of
+                                the corresponding DataSource this cron will manage.
+                                DataSource has to be in the same namespace.
+                              type: string
+                            schedule:
+                              description: Schedule specifies in cron format when
+                                and how often to look for new imports
+                              type: string
+                            source:
+                              description: Source specifies where to poll disk images
+                                from
+                              properties:
+                                registry:
+                                  description: DataVolumeSourceRegistry provides the
+                                    parameters to create a Data Volume from an registry
+                                    source
+                                  properties:
+                                    certConfigMap:
+                                      description: CertConfigMap provides a reference
+                                        to the Registry certs
+                                      type: string
+                                    secretRef:
+                                      description: SecretRef provides the secret reference
+                                        needed to access the Registry source
+                                      type: string
+                                    url:
+                                      description: URL is the url of the Docker registry
+                                        source
+                                      type: string
+                                  required:
+                                  - url
+                                  type: object
+                              required:
+                              - registry
+                              type: object
+                          required:
+                          - managedDataSource
+                          - schedule
+                          - source
+                          type: object
+                      required:
+                      - spec
+                      type: object
+                    type: array
                   namespace:
                     description: Namespace is the k8s namespace where CommonTemplates
                       should be installed

@@ -60,7 +60,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.58.0
         - name: SSP_VERSION
-          value: v0.12.0
+          value: v0.13.0-rc.0
         - name: NMO_VERSION
           value: v0.10.0
         - name: HPPO_VERSION
@@ -420,6 +420,7 @@ spec:
         app.kubernetes.io/part-of: hyperconverged-cluster
         app.kubernetes.io/version: 1.6.0
         control-plane: ssp-operator
+        name: ssp-operator
         prometheus.kubevirt.io: ""
     spec:
       containers:
@@ -430,13 +431,13 @@ spec:
         env:
         - name: KVM_INFO_IMAGE
         - name: VALIDATOR_IMAGE
-          value: quay.io/kubevirt/kubevirt-template-validator:v0.12.0
+          value: quay.io/kubevirt/kubevirt-template-validator:v0.13.0-rc.0
         - name: VIRT_LAUNCHER_IMAGE
         - name: NODE_LABELLER_IMAGE
         - name: CPU_PLUGIN_IMAGE
         - name: OPERATOR_VERSION
-          value: v0.12.0
-        image: quay.io/kubevirt/ssp-operator@sha256:05926bddbe2c568899ad88a53d4aa7542eed46ce9a508ca6e1d3ae31e8e5706f
+          value: v0.13.0-rc.0
+        image: quay.io/kubevirt/ssp-operator@sha256:0d728e3ec76695a2938d8e4226e389cb2957233a0406a0d3ca8527703aa5ec0f
         livenessProbe:
           httpGet:
             path: /healthz
