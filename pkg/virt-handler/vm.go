@@ -1409,10 +1409,51 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses virtiofs", v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable), isBlockMigration
 	}
 
+	containsPCIHostDev, err := vmiContainsPCIHostDevice(vmi)
+	// should never happen; checking error in case the underline implementation will be changed
+	if err != nil {
+		return newNonMigratableCondition("can't get host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
+	}
+
+	if containsPCIHostDev {
+		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
+	}
+
 	return &v1.VirtualMachineInstanceCondition{
 		Type:   v1.VirtualMachineInstanceIsMigratable,
 		Status: k8sv1.ConditionTrue,
 	}, isBlockMigration
+}
+
+// Note: genhostdev.CreateHostDevices uses NewBestEffortAddressPool, that its Pop() function does not return error; the
+// meaning is that this function won't return error unless the implementation of the genhostdev.CreateHostDevices function
+// will be changed.
+func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) (bool, error) {
+	if len(vmi.Spec.Domain.Devices.HostDevices) > 0 {
+		hostDevs, err := genhostdev.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)
+		if err != nil {
+			return false, err
+		}
+
+		for _, dev := range hostDevs {
+			if dev.Type == "pci" {
+				return true, nil
+			}
+		}
+	}
+
+	if len(vmi.Spec.Domain.Devices.GPUs) > 0 {
+		hostDevs, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+		if err != nil {
+			return false, err
+		}
+		for _, dev := range hostDevs {
+			if dev.Type == "pci" {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
