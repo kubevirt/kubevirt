@@ -22,6 +22,7 @@ set -e
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
+PROMETHEUS_PORT=${PROMETHEUS_PORT:-30007}
 
 source hack/common.sh
 source hack/config.sh
@@ -45,6 +46,8 @@ export KUBEVIRT_E2E_PERF_TEST=true
 
 echo 'Preparing directory for artifacts'
 export ARTIFACTS=${ARTIFACTS}/performance
+export AUDIT_CONFIG=${ARTIFACTS}/perfscale-audit-cfg.json
+export AUDIT_RESULTS=${ARTIFACTS}/perfscale-audit-results.json
 rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
@@ -56,6 +59,10 @@ echo 'TESTS_OUT_DIR ' ${TESTS_OUT_DIR}
 
 function perftest() {
     _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${perftest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
+}
+
+function perfaudit() {
+    _out/cmd/perfscale-audit/perfscale-audit --config-file=${AUDIT_CONFIG} --results-file=${AUDIT_RESULTS}
 }
 
 if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
@@ -75,4 +82,16 @@ fi
 
 additional_test_args="${additional_test_args} --skipPackage test/performance"
 
+start_timestamp=$(date -u +%Y-%m-%dT%TZ)
 perftest ${additional_test_args} ${FUNC_TEST_ARGS}
+sleep 30
+stop_timestamp=$(date -u +%Y-%m-%dT%TZ)
+cat <<EOF >${ARTIFACTS}/perfscale-audit-cfg.json
+{
+	"prometheusURL": "http://127.0.0.1:${PROMETHEUS_PORT}",
+	"startTime": "$start_timestamp",
+	"endTime": "$stop_timestamp"
+}
+EOF
+
+perfaudit
