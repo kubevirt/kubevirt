@@ -43,7 +43,7 @@ func GetPodCPUSet() ([]int, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
-	cpusList, err := hardware.ParseCPUSetLine(cpuset)
+	cpusList, err := hardware.ParseCPUSetLine(cpuset, 50000)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse cpuset file: %v", err)
 	}

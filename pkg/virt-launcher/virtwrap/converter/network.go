@@ -28,6 +28,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -186,7 +187,7 @@ func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Doma
 
 func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
 	cpuTopology := getCPUTopology(vmi)
-	queueNumber := calculateRequestedVCPUs(cpuTopology)
+	queueNumber := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 	if queueNumber > multiQueueMaxQueues {
 		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", multiQueueMaxQueues)
