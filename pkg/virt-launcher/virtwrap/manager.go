@@ -97,7 +97,7 @@ type DomainManager interface {
 	MarkGracefulShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
-	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
+	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
 	GetDomainStats() ([]*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
 	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
@@ -290,8 +290,12 @@ func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
 }
 
 // PrepareMigrationTarget the target pod environment before the migration is initiated
-func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, allowEmulation bool) error {
-	return l.prepareMigrationTarget(vmi, allowEmulation)
+func (l *LibvirtDomainManager) PrepareMigrationTarget(
+	vmi *v1.VirtualMachineInstance,
+	allowEmulation bool,
+	options *cmdv1.VirtualMachineOptions,
+) error {
+	return l.prepareMigrationTarget(vmi, allowEmulation, options)
 }
 
 // FinalizeVirtualMachineMigration finalized the migration after the migration has completed and vmi is running on target pod.

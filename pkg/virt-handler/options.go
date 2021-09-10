@@ -15,17 +15,19 @@ func virtualMachineOptions(
 	disksInfo map[string]*containerdisk.DiskInfo,
 ) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
-		VirtualMachineSMBios: &cmdv1.SMBios{
+		MemBalloonStatsPeriod: period,
+		PreallocatedVolumes:   preallocatedVolumes,
+		Topology:              topologyToTopology(capabilities),
+		DisksInfo:             disksInfoToDisksInfo(disksInfo),
+	}
+	if smbios != nil {
+		options.VirtualMachineSMBios = &cmdv1.SMBios{
 			Family:       smbios.Family,
 			Product:      smbios.Product,
 			Manufacturer: smbios.Manufacturer,
 			Sku:          smbios.Sku,
 			Version:      smbios.Version,
-		},
-		MemBalloonStatsPeriod: period,
-		PreallocatedVolumes:   preallocatedVolumes,
-		Topology:              topologyToTopology(capabilities),
-		DisksInfo:             disksInfoToDisksInfo(disksInfo),
+		}
 	}
 	return options
 }

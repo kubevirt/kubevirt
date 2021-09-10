@@ -83,14 +83,14 @@ func (_mr *_MockLauncherClientRecorder) UnfreezeVirtualMachine(arg0 interface{})
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVirtualMachine", arg0)
 }
 
-func (_m *MockLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "SyncMigrationTarget", vmi)
+func (_m *MockLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance, options *v10.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "SyncMigrationTarget", vmi, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLauncherClientRecorder) SyncMigrationTarget(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncMigrationTarget", arg0)
+func (_mr *_MockLauncherClientRecorder) SyncMigrationTarget(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncMigrationTarget", arg0, arg1)
 }
 
 func (_m *MockLauncherClient) SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error {

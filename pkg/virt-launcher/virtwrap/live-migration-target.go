@@ -28,6 +28,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
@@ -61,14 +62,18 @@ func canSourceMigrateOverUnixURI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Status.MigrationTransport == v1.MigrationTransportUnix
 }
 
-func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInstance, allowEmulation bool) error {
+func (l *LibvirtDomainManager) prepareMigrationTarget(
+	vmi *v1.VirtualMachineInstance,
+	allowEmulation bool,
+	options *cmdv1.VirtualMachineOptions,
+) error {
 	logger := log.Log.Object(vmi)
 
 	if shouldBlockMigrationTargetPreparation(vmi) {
 		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
 	}
 
-	c, err := l.generateConverterContext(vmi, allowEmulation, nil, true)
+	c, err := l.generateConverterContext(vmi, allowEmulation, options, true)
 	if err != nil {
 		return fmt.Errorf("Failed to generate libvirt domain from VMI spec: %v", err)
 	}

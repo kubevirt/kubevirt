@@ -146,14 +146,14 @@ func (_mr *_MockDomainManagerRecorder) MigrateVMI(arg0, arg1 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateVMI", arg0, arg1)
 }
 
-func (_m *MockDomainManager) PrepareMigrationTarget(_param0 *v1.VirtualMachineInstance, _param1 bool) error {
-	ret := _m.ctrl.Call(_m, "PrepareMigrationTarget", _param0, _param1)
+func (_m *MockDomainManager) PrepareMigrationTarget(_param0 *v1.VirtualMachineInstance, _param1 bool, _param2 *v10.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "PrepareMigrationTarget", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockDomainManagerRecorder) PrepareMigrationTarget(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrepareMigrationTarget", arg0, arg1)
+func (_mr *_MockDomainManagerRecorder) PrepareMigrationTarget(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrepareMigrationTarget", arg0, arg1, arg2)
 }
 
 func (_m *MockDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {

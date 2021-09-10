@@ -2463,7 +2463,8 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// Mount container disks
-	if _, err := d.containerDiskMounter.Mount(vmi, true); err != nil {
+	disksInfo, err := d.containerDiskMounter.Mount(vmi, true)
+	if err != nil {
 		return err
 	}
 
@@ -2515,7 +2516,8 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 	}
 
-	if err := client.SyncMigrationTarget(vmi); err != nil {
+	options := virtualMachineOptions(nil, 0, nil, nil, disksInfo)
+	if err := client.SyncMigrationTarget(vmi, options); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
 
 	}

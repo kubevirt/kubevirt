@@ -1545,7 +1545,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPorts
 
 			client.EXPECT().Ping()
-			client.EXPECT().SyncMigrationTarget(vmi)
+			client.EXPECT().SyncMigrationTarget(vmi, gomock.Any())
 			vmiInterface.EXPECT().Update(updatedVmi)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIMigrationTargetPrepared)
