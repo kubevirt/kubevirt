@@ -39,7 +39,7 @@ type mounter struct {
 
 type Mounter interface {
 	ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error)
-	Mount(vmi *v1.VirtualMachineInstance, verify bool) error
+	Mount(vmi *v1.VirtualMachineInstance, verify bool) (map[string]*containerdisk.DiskInfo, error)
 	MountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bool) error
 	Unmount(vmi *v1.VirtualMachineInstance) error
 	UnmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error
@@ -186,19 +186,20 @@ func (m *mounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *v
 
 // Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
 // Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
-func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
+func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) (map[string]*containerdisk.DiskInfo, error) {
 	record := vmiMountTargetRecord{}
+	disksInfo := map[string]*containerdisk.DiskInfo{}
 
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 			targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			sock, err := m.socketPathGetter(vmi, i)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
@@ -211,7 +212,7 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 	if len(record.MountTargetEntries) > 0 {
 		err := m.setMountTargetRecord(vmi, &record)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -219,60 +220,62 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 		if volume.ContainerDisk != nil {
 			targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			nodeRes := isolation.NodeIsolationResult()
 
 			if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
-				return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
+				return nil, fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
 			} else if !isMounted {
 				sock, err := m.socketPathGetter(vmi, i)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
 				if err != nil {
-					return fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
+					return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
 				}
 				mountPoint, err := isolation.ParentPathForRootMount(nodeRes, res)
 				if err != nil {
-					return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
+					return nil, fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
 				}
 				sourceFile, err := containerdisk.GetImage(mountPoint, volume.ContainerDisk.Path)
 				if err != nil {
-					return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
+					return nil, fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
 				}
 				f, err := os.Create(targetFile)
 				if err != nil {
-					return fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
+					return nil, fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
 				}
 				f.Close()
 
 				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile)
 				out, err := virt_chroot.MountChroot(strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile, true).CombinedOutput()
 				if err != nil {
-					return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
+					return nil, fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
 				}
 			}
 			if verify {
 				res, err := m.podIsolationDetector.Detect(vmi)
 				if err != nil {
-					return fmt.Errorf("failed to detect VMI pod: %v", err)
+					return nil, fmt.Errorf("failed to detect VMI pod: %v", err)
 				}
 				imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), res, m.clusterConfig.GetDiskVerification())
 				if err != nil {
-					return fmt.Errorf("failed to get image info: %v", err)
+					return nil, fmt.Errorf("failed to get image info: %v", err)
 				}
 
 				if err := containerdisk.VerifyImage(imageInfo); err != nil {
-					return fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
+					return nil, fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
 				}
+
+				disksInfo[volume.Name] = imageInfo
 			}
 		}
 	}
-	return nil
+	return disksInfo, nil
 }
 
 // Legacy Unmount unmounts all container disks of a given VMI when the hold HostPath method was in use.

@@ -130,6 +130,7 @@ type LibvirtDomainManager struct {
 	networkCacheStoreFactory cache.InterfaceCacheFactory
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker          converter.DirectIOChecker
+	disksInfo                map[string]*cmdv1.DiskInfo
 }
 
 type hostDeviceTypePrefix struct {
@@ -177,6 +178,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, age
 		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
 		directIOChecker:          directIOChecker,
+		disksInfo:                map[string]*cmdv1.DiskInfo{},
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
@@ -422,10 +424,21 @@ func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstan
 // The Domain.Spec can be alterned in this function and any changes
 // made to the domain will get set in libvirt after this function exits.
 func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain) (*api.Domain, error) {
-
 	logger := log.Log.Object(vmi)
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
+
+	disksInfo := map[string]*containerdisk.DiskInfo{}
+	for k, v := range l.disksInfo {
+		if v != nil {
+			disksInfo[k] = &containerdisk.DiskInfo{
+				Format:      v.Format,
+				BackingFile: v.BackingFile,
+				ActualSize:  int(v.ActualSize),
+				VirtualSize: int(v.VirtualSize),
+			}
+		}
+	}
 
 	// generate cloud-init data
 	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
@@ -632,8 +645,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
-	diskInfo := make(map[string]*containerdisk.DiskInfo)
-	for i, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
 			isBlockPVC := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
@@ -642,16 +654,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 				isBlockPVC, _ = isBlockDeviceVolume(volume.Name)
 			}
 			isBlockPVCMap[volume.Name] = isBlockPVC
-		} else if volume.VolumeSource.ContainerDisk != nil {
-			image, err := containerdisk.GetDiskTargetPartFromLauncherView(i)
-			if err != nil {
-				return nil, err
-			}
-			info, err := converter.GetImageInfo(image)
-			if err != nil {
-				return nil, err
-			}
-			diskInfo[volume.Name] = info
 		} else if volume.VolumeSource.DataVolume != nil {
 			isBlockDV := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
@@ -687,7 +689,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		CPUSet:                podCPUSet,
 		IsBlockPVC:            isBlockPVCMap,
 		IsBlockDV:             isBlockDVMap,
-		DiskType:              diskInfo,
 		EFIConfiguration:      efiConf,
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
@@ -704,7 +705,12 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		c.MemBalloonStatsPeriod = uint(options.MemBalloonStatsPeriod)
 		// Add preallocated and thick-provisioned volumes for which we need to avoid the discard=unmap option
 		c.VolumesDiscardIgnore = options.PreallocatedVolumes
+
+		if len(options.DisksInfo) > 0 {
+			l.disksInfo = options.DisksInfo
+		}
 	}
+	c.DisksInfo = l.disksInfo
 
 	if !isMigrationTarget {
 		sriovDevices, err := sriov.CreateHostDevices(vmi)

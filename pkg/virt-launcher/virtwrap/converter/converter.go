@@ -105,7 +105,7 @@ type ConverterContext struct {
 	IsBlockDV             map[string]bool
 	HotplugVolumes        map[string]v1.VolumeStatus
 	PermanentVolumes      map[string]v1.VolumeStatus
-	DiskType              map[string]*containerdisk.DiskInfo
+	DisksInfo             map[string]*cmdv1.DiskInfo
 	SMBios                *cmdv1.SMBios
 	SRIOVDevices          []api.HostDevice
 	LegacyHostDevices     []api.HostDevice
@@ -798,8 +798,11 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 	}
 
 	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
-
-	disk.BackingStore.Format.Type = c.DiskType[volumeName].Format
+	if info, _ := c.DisksInfo[volumeName]; info != nil {
+		disk.BackingStore.Format.Type = info.Format
+	} else {
+		return fmt.Errorf("no disk info provided for volume %s", volumeName)
+	}
 	disk.BackingStore.Source.File = source
 	disk.BackingStore.Type = "file"
 

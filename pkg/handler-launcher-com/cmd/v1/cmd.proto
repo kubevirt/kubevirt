@@ -72,11 +72,19 @@ message SMBios {
   string family = 5;
 }
 
+message DiskInfo {
+    string format = 1;
+    string backingFile = 2;
+    uint64 actualSize = 3;
+    uint64 virtualSize = 4;
+}
+
 message VirtualMachineOptions {
   SMBios VirtualMachineSMBios = 1;
   uint32 MemBalloonStatsPeriod = 2;
   repeated string PreallocatedVolumes = 3;
   Topology topology = 4;
+  map<string, DiskInfo> DisksInfo = 5;
 }
 
 message VMIRequest {

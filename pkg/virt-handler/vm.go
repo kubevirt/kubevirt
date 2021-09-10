@@ -61,6 +61,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -2462,7 +2463,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// Mount container disks
-	if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
+	if _, err := d.containerDiskMounter.Mount(vmi, true); err != nil {
 		return err
 	}
 
@@ -2546,8 +2547,8 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		return err
 	}
 
+	disksInfo := map[string]*containerdisk.DiskInfo{}
 	if !vmi.IsRunning() && !vmi.IsFinal() {
-
 		// give containerDisks some time to become ready before throwing errors on retries
 		info := d.getLauncherClientInfo(vmi)
 		if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
@@ -2558,7 +2559,8 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return nil
 		}
 
-		if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
+		disksInfo, err = d.containerDiskMounter.Mount(vmi, true)
+		if err != nil {
 			return err
 		}
 
@@ -2621,7 +2623,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	smbios := d.clusterConfig.GetSMBIOS()
 	period := d.clusterConfig.GetMemBalloonStatsPeriod()
 
-	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities)
+	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities, disksInfo)
 
 	err = client.SyncVirtualMachine(vmi, options)
 	if err != nil {
