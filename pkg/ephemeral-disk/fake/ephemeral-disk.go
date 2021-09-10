@@ -10,7 +10,7 @@ type MockEphemeralDiskImageCreator struct {
 	BaseDir string
 }
 
-func (m *MockEphemeralDiskImageCreator) CreateBackedImageForVolume(_ v1.Volume, _ string) error {
+func (m *MockEphemeralDiskImageCreator) CreateBackedImageForVolume(_ v1.Volume, _ string, _ string) error {
 	return nil
 }
 

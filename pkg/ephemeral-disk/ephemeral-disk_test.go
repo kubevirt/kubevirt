@@ -20,6 +20,7 @@
 package ephemeraldisk
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -147,7 +148,10 @@ var _ = Describe("ContainerDisk", func() {
 	})
 })
 
-func fakeCreateBackingDisk(backingFile string, imagePath string) ([]byte, error) {
+func fakeCreateBackingDisk(backingFile string, backingFormat string, imagePath string) ([]byte, error) {
+	if backingFormat != "raw" {
+		return nil, fmt.Errorf("wrong backing format")
+	}
 	_, err := os.Stat(backingFile)
 	if os.IsNotExist(err) {
 		return nil, err
