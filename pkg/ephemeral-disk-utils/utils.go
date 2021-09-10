@@ -22,13 +22,11 @@ package ephemeraldiskutils
 import (
 	"fmt"
 	"os"
-	"os/user"
-	"strconv"
 	"syscall"
 )
 
 // TODO this should be part of structs, instead of a global
-var DefaultOwnershipManager OwnershipManagerInterface = &OwnershipManager{user: "qemu"}
+var DefaultOwnershipManager OwnershipManagerInterface = &OwnershipManager{uid: 107, gid: 107}
 
 // For testing
 func MockDefaultOwnershipManager() {
@@ -43,38 +41,24 @@ func (no *nonOpManager) SetFileOwnership(file string) error {
 }
 
 type OwnershipManager struct {
-	user string
+	uid, gid int
 }
 
 func (om *OwnershipManager) SetFileOwnership(file string) error {
-	owner, err := user.Lookup(om.user)
-	if err != nil {
-		return fmt.Errorf("failed to look up user %s: %v", om.user, err)
-	}
-
-	uid, err := strconv.Atoi(owner.Uid)
-	if err != nil {
-		return fmt.Errorf("failed to convert UID %s of user %s: %v", owner.Uid, om.user, err)
-	}
-
-	gid, err := strconv.Atoi(owner.Gid)
-	if err != nil {
-		return fmt.Errorf("failed to convert GID %s of user %s: %v", owner.Gid, om.user, err)
-	}
 	fileInfo, err := os.Stat(file)
 	if err != nil {
 		return err
 	}
 
 	if stat, ok := fileInfo.Sys().(*syscall.Stat_t); ok {
-		if uid == int(stat.Uid) && gid == int(stat.Gid) {
+		if om.uid == int(stat.Uid) && om.gid == int(stat.Gid) {
 			return nil
 		}
 	} else {
 		return fmt.Errorf("failed to convert stat info")
 	}
 
-	return os.Chown(file, uid, gid)
+	return os.Chown(file, om.uid, om.gid)
 }
 
 func RemoveFilesIfExist(paths ...string) error {
