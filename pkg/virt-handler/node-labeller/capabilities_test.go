@@ -26,6 +26,18 @@ var _ = Describe("Capabilities", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(counter.Frequency).To(BeNumerically("==", 4008012000))
 		Expect(bool(counter.Scaling)).To(BeFalse())
+		Expect(capabilities.Host.Topology.Cells.Cell[0].Cpus.CPU[7].Siblings).To(HaveLen(29))
+	})
+
+	It("should properly read cpu siblings", func() {
+		f, err := os.Open("testdata/capabilities.xml")
+		Expect(err).ToNot(HaveOccurred())
+		defer f.Close()
+		capabilities := &api.Capabilities{}
+		Expect(xml.NewDecoder(f).Decode(capabilities)).To(Succeed())
+		Expect(capabilities.Host.Topology.Cells.Cell).To(HaveLen(1))
+		Expect(capabilities.Host.Topology.Cells.Cell[0].Cpus.CPU).To(HaveLen(8))
+		Expect(capabilities.Host.Topology.Cells.Cell[0].Cpus.CPU[0].Siblings).To(ConsistOf(uint32(0), uint32(4)))
 	})
 
 	It("should read the numa topology from the host", func() {
@@ -81,42 +93,42 @@ var _ = Describe("Capabilities", func() {
 						SocketID: 0,
 						DieID:    0,
 						CoreID:   0,
-						Siblings: "0",
+						Siblings: []uint32{0},
 					},
 					{
 						ID:       1,
 						SocketID: 1,
 						DieID:    0,
 						CoreID:   0,
-						Siblings: "1",
+						Siblings: []uint32{1},
 					},
 					{
 						ID:       2,
 						SocketID: 2,
 						DieID:    0,
 						CoreID:   0,
-						Siblings: "2",
+						Siblings: []uint32{2},
 					},
 					{
 						ID:       3,
 						SocketID: 3,
 						DieID:    0,
 						CoreID:   0,
-						Siblings: "3",
+						Siblings: []uint32{3},
 					},
 					{
 						ID:       4,
 						SocketID: 4,
 						DieID:    0,
 						CoreID:   0,
-						Siblings: "4",
+						Siblings: []uint32{4},
 					},
 					{
 						ID:       5,
 						SocketID: 5,
 						DieID:    0,
 						CoreID:   0,
-						Siblings: "5",
+						Siblings: []uint32{5},
 					},
 				},
 			},

@@ -2314,7 +2314,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
-				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output)
+				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores)))
@@ -2424,7 +2424,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
-				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output)
+				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
 				Expect(err).ToNot(HaveOccurred())
 
 				// 1 additioan pcpus should be allocated on the pod for the emulation threads

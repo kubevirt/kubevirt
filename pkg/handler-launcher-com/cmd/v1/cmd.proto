@@ -33,6 +33,7 @@ message VMI {
 
 message CPU {
   uint32 id = 1;
+  repeated uint32 siblings = 2;
 }
 
 message Sibling {

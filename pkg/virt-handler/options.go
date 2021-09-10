@@ -73,8 +73,9 @@ func distanceToDistance(distance api.Sibling) *cmdv1.Sibling {
 	}
 }
 
-func cpuToCPU(distance api.CPU) *cmdv1.CPU {
+func cpuToCPU(cpu api.CPU) *cmdv1.CPU {
 	return &cmdv1.CPU{
-		Id: distance.ID,
+		Id:       cpu.ID,
+		Siblings: cpu.Siblings,
 	}
 }
