@@ -66,7 +66,7 @@ func (m *mp) Create(policy *v12.MigrationPolicy) (*v12.MigrationPolicy, error) {
 func (m *mp) Update(policy *v12.MigrationPolicy) (*v12.MigrationPolicy, error) {
 	result := &v12.MigrationPolicy{}
 	err := m.restClient.Put().
-		Name(policy.ObjectMeta.Name).
+		Name(policy.Name).
 		Namespace(m.namespace).
 		Resource(m.resource).
 		Body(policy).
