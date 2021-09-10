@@ -30,4 +30,5 @@ func RegisterPerfScaleMetrics(vmiInformer cache.SharedIndexInformer) {
 	log.Log.Infof("Starting performance and scale metrics")
 	prometheus.MustRegister(newVMIPhaseTransitionTimeHistogramVec(vmiInformer))
 	prometheus.MustRegister(newVMIPhaseTransitionTimeFromCreationHistogramVec(vmiInformer))
+	prometheus.MustRegister(newVMIPhaseTransitionTimeFromDeletionHistogramVec(vmiInformer))
 }
