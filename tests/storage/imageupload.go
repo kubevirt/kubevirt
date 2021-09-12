@@ -13,6 +13,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/util"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -167,8 +168,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 				defer func() {
 					err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}()
 				tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
