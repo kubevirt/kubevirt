@@ -107,7 +107,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
-					Eventually(ThisDV(dataVolume), 140).Should(HaveSucceeded())
 					vmi := tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
@@ -785,7 +784,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(ThisDV(dataVolume), 140).Should(HaveSucceeded())
 			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
 			By("Expecting the VirtualMachineInstance console")
