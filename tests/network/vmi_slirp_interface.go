@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial]Slirp Networking", func() {
+var _ = SIGDescribe("Slirp Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -88,16 +88,11 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		)
 
 		BeforeEach(func() {
-			setSlirpEnabled(true)
 			ports = []v1.Port{{Name: "http", Port: 80}}
 
 			genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 			deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 			deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
-		})
-
-		AfterEach(func() {
-			setSlirpEnabled(false)
 		})
 
 		table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
@@ -181,7 +176,7 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		)
 	})
 
-	Context("slirp is the default interface", func() {
+	Context("[Serial]slirp is the default interface", func() {
 		BeforeEach(func() {
 			setSlirpEnabled(false)
 			setDefaultNetworkInterface("slirp")
