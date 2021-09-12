@@ -1698,6 +1698,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
+			vmi.Status.MigrationState.ConfigurationSource = v1.ClusterWideConfig
 			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
@@ -3126,18 +3127,24 @@ var _ = Describe("VirtualMachineInstance", func() {
 			migrationPolicy.Namespace = metav1.NamespaceDefault
 		})
 
-		table.DescribeTable("should override cluster-wide migration configurations when", func(setMigrationPolicy func(*v1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration)) {
+		table.DescribeTable("should override cluster-wide migration configurations when", func(setMigrationPolicy func(*v1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration), expectConfigUpdate bool) {
 			By("Defining migration policy")
 			setMigrationPolicy(&migrationPolicy.Spec)
 
 			expectMigrationPolicy(migrationPolicy)
 
 			By("Calculating new migration config and validating it")
-			expectedConfigs, err := migrationPolicy.GetMigrationConfByPolicy(getDefaultMigrationConfiguration())
+			expectedConfigs, isConfigUpdated, err := migrationPolicy.GetMigrationConfByPolicy(getDefaultMigrationConfiguration())
 			Expect(err).ToNot(HaveOccurred())
+			Expect(isConfigUpdated).To(Equal(expectConfigUpdate))
 			testMigrationConfigs(expectedConfigs)
 
 			By("Expecting that controller will use expected configurations")
+			if expectConfigUpdate {
+				vmi.Status.MigrationState.ConfigurationSource = v1.NamespacedConfig
+			} else {
+				vmi.Status.MigrationState.ConfigurationSource = v1.ClusterWideConfig
+			}
 			client.EXPECT().MigrateVirtualMachine(vmi, migrationConfigurationToMigrationOptions(expectedConfigs))
 
 			By("Running the controller")
@@ -3150,6 +3157,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(c.AllowAutoConverge).ToNot(BeNil())
 					Expect(*c.AllowAutoConverge).To(BeTrue())
 				},
+				true,
 			),
 			table.Entry("deny auto coverage",
 				func(p *v1.MigrationPolicySpec) { p.AllowAutoConverge = &_false },
@@ -3157,6 +3165,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(c.AllowAutoConverge).ToNot(BeNil())
 					Expect(*c.AllowAutoConverge).To(BeFalse())
 				},
+				true,
 			),
 			table.Entry("set bandwidth per migration",
 				func(p *v1.MigrationPolicySpec) { p.BandwidthPerMigration = &stubResourceQuantity },
@@ -3164,6 +3173,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(c.BandwidthPerMigration).ToNot(BeNil())
 					Expect(c.BandwidthPerMigration.Equal(stubResourceQuantity)).To(BeTrue())
 				},
+				true,
 			),
 			table.Entry("set completion time per GiB",
 				func(p *v1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
@@ -3171,6 +3181,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(c.CompletionTimeoutPerGiB).ToNot(BeNil())
 					Expect(*c.CompletionTimeoutPerGiB).To(Equal(stubNumber))
 				},
+				true,
 			),
 			table.Entry("set progress timeout",
 				func(p *v1.MigrationPolicySpec) { p.ProgressTimeout = &stubNumber },
@@ -3178,6 +3189,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(c.ProgressTimeout).ToNot(BeNil())
 					Expect(*c.ProgressTimeout).To(Equal(stubNumber))
 				},
+				true,
 			),
 			table.Entry("allow unsafe migration",
 				func(p *v1.MigrationPolicySpec) { p.UnsafeMigrationOverride = &_true },
@@ -3185,6 +3197,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(c.UnsafeMigrationOverride).ToNot(BeNil())
 					Expect(*c.UnsafeMigrationOverride).To(BeTrue())
 				},
+				true,
 			),
 			table.Entry("deny unsafe migration",
 				func(p *v1.MigrationPolicySpec) { p.UnsafeMigrationOverride = &_false },
@@ -3192,6 +3205,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(c.UnsafeMigrationOverride).ToNot(BeNil())
 					Expect(*c.UnsafeMigrationOverride).To(BeFalse())
 				},
+				true,
 			),
 			table.Entry("allow post copy",
 				func(p *v1.MigrationPolicySpec) { p.AllowPostCopy = &_true },
@@ -3199,6 +3213,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(c.AllowPostCopy).ToNot(BeNil())
 					Expect(*c.AllowPostCopy).To(BeTrue())
 				},
+				true,
 			),
 			table.Entry("deny post copy",
 				func(p *v1.MigrationPolicySpec) { p.AllowPostCopy = &_false },
@@ -3206,10 +3221,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(c.AllowPostCopy).ToNot(BeNil())
 					Expect(*c.AllowPostCopy).To(BeFalse())
 				},
+				true,
 			),
 			table.Entry("nothing is changed",
 				func(p *v1.MigrationPolicySpec) {},
 				func(c *v1.MigrationConfiguration) {},
+				false,
 			),
 		)
 

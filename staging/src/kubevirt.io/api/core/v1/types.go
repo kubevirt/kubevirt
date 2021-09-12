@@ -524,6 +524,17 @@ type VirtualMachineInstanceGuestOSInfo struct {
 	ID string `json:"id,omitempty"`
 }
 
+// MigrationConfigSource indicates the source of migration configuration.
+//
+// +k8s:openapi-gen=true
+type MigrationConfigSource string
+
+const (
+	ClusterWideConfig MigrationConfigSource = "ClusterWideConfig"
+	NamespacedConfig  MigrationConfigSource = "NamespacedConfig"
+)
+
+// +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action began
 	// +nullable
@@ -557,6 +568,8 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
+	// Lets us know if the vmi is currently running pre or post copy migration
+	ConfigurationSource MigrationConfigSource `json:"migrationConfigSource,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -2054,33 +2067,44 @@ type MigrationPolicyList struct {
 	Items           []MigrationPolicy `json:"items"`
 }
 
-func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfigurations *MigrationConfiguration) (*MigrationConfiguration, error) {
+// GetMigrationConfByPolicy returns a new migration configuration. The new configuration attributes will be overridden
+// by the migration policy if the specified attributes were defined for this policy. Otherwise they wouldn't change.
+// The boolean returned value indicates if any changes were made to the configurations.
+func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfigurations *MigrationConfiguration) (*MigrationConfiguration, bool, error) {
 	policySpec := m.Spec
+	clusterConfigChanged := false
 	newMigrationConfigs := clusterMigrationConfigurations.DeepCopy()
 
 	if policySpec.AllowAutoConverge != nil {
+		clusterConfigChanged = true
 		*newMigrationConfigs.AllowAutoConverge = *policySpec.AllowAutoConverge
 	}
 	if policySpec.BandwidthPerMigration != nil {
+		clusterConfigChanged = true
 		*newMigrationConfigs.BandwidthPerMigration = *policySpec.BandwidthPerMigration
 	}
 	if policySpec.CompletionTimeoutPerGiB != nil {
+		clusterConfigChanged = true
 		*newMigrationConfigs.CompletionTimeoutPerGiB = *policySpec.CompletionTimeoutPerGiB
 	}
 	if policySpec.ProgressTimeout != nil {
+		clusterConfigChanged = true
 		*newMigrationConfigs.ProgressTimeout = *policySpec.ProgressTimeout
 	}
 	if policySpec.UnsafeMigrationOverride != nil {
+		clusterConfigChanged = true
 		*newMigrationConfigs.UnsafeMigrationOverride = *policySpec.UnsafeMigrationOverride
 	}
 	if policySpec.AllowPostCopy != nil {
+		clusterConfigChanged = true
 		*newMigrationConfigs.AllowPostCopy = *policySpec.AllowPostCopy
 	}
 	if policySpec.DisableTLS != nil {
+		clusterConfigChanged = true
 		*newMigrationConfigs.DisableTLS = *policySpec.DisableTLS
 	}
 
-	return newMigrationConfigs, nil
+	return newMigrationConfigs, clusterConfigChanged, nil
 }
 
 // DiskVerification holds container disks verification limits

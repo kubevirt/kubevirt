@@ -24874,6 +24874,13 @@ func schema_client_go_apis_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"migrationConfigSource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Lets us know if the vmi is currently running pre or post copy migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

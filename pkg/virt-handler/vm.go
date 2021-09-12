@@ -2474,20 +2474,36 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 		}
 	} else {
 		migrationConfiguration := d.clusterConfig.GetMigrationConfiguration()
+		origVMI.Status.MigrationState.ConfigurationSource = v1.ClusterWideConfig
 
 		// Override cluster-wide migration configuration if migration policy exists
-		clientset := d.clientset
-		mp := clientset.MigrationPolicy(vmi.Namespace)
-		migrationPolicy, err := mp.Get(vmi.Namespace, &metav1.GetOptions{})
+		migrationList, err := d.clientset.MigrationPolicy(vmi.Namespace).List(&metav1.ListOptions{})
+
+		var migrationPolicy *v1.MigrationPolicy
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Warningf("could not fetch migration policy")
 		} else {
-			var updatedMigrationConfiguration *v1.MigrationConfiguration
-			updatedMigrationConfiguration, err = migrationPolicy.GetMigrationConfByPolicy(migrationConfiguration)
+			for _, migration := range migrationList.Items {
+				if migration.Namespace == vmi.Namespace {
+					migrationPolicy = &migration
+					break
+				}
+			}
+		}
+
+		if migrationPolicy == nil && err == nil {
+			log.Log.Object(vmi).Reason(err).Warningf("migration policy doesn't exist for namespace %s", vmi.Namespace)
+		} else if err == nil {
+			updatedMigrationConfiguration, isUpdated, err := migrationPolicy.GetMigrationConfByPolicy(migrationConfiguration)
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Warningf("cannot get migration config by migration policy")
 			} else {
 				migrationConfiguration = updatedMigrationConfiguration
+
+				if isUpdated {
+					origVMI.Status.MigrationState.ConfigurationSource = v1.NamespacedConfig
+					log.Log.Object(vmi).Infof("migration is updated by migration policy (named %s)", migrationPolicy.Name)
+				}
 			}
 		}
 
