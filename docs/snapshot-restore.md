@@ -28,10 +28,17 @@ kubectl patch -n kubevirt kubevirt kubevirt -p '{"spec": {"configuration": { "de
 
 ## Snapshot a VirtualMachine
 
-To snapshot a `VirtualMachine` named `larry`, apply the following yaml.
+Snapshot a virtualMachine is supported for online and offline vms.
 
-\* It is currently a requirement that `VirtualMachines` are shut down before taking a snapshot  
-(One way to achieve this is via virtctl - `cluster-up/virtctl.sh stop larry` and when appropriate, start again: `cluster-up/virtctl.sh start larry`).
+When snapshoting a running vm the controller will check for qemu guest agent in the vm, if it exists it will freeze the vm filesystems before taking the snapshot (and unfreeze after the snapshot). It is recommended to take online snapshot with the guest agent for a better snapshot, if not present a best effort snapshot will be taken.\
+\*To check if you're vm has qemu-guest-agent check for 'AgentConnected' in the vm spec.
+
+There will be an indication in the vmSnapshot status if the snapshot was taken online and with or without guest agent participation.
+
+\*Currently online vm snapshot is not supported with hotplug disks, in such case the vm has to be turned off in order to take the snapshot.
+
+
+To snapshot a `VirtualMachine` named `larry`, apply the following yaml.
 
 ```yaml
 apiVersion: snapshot.kubevirt.io/v1alpha1
@@ -50,6 +57,12 @@ To wait for a snapshot to complete, execute:
 ```bash
 kubectl wait vmsnapshot snap-larry --for condition=Ready
 ```
+
+You can check the vmSnapshot phase in the vmSnapshot status, it can be either InProgress/Succeeded/Failed.\
+The vmSnapshot has a default deadline of 5min. If the vmSnapshot hasn't completed succeessfully until then it will be marked as Failed and cleanup will be made (unfreeze vm and delete created content snapshot as necessary).
+The vmSnapshot will remain in Failed state until deleted by the user.\
+To change the default deadline add to the snapshot Spec: 'FailureDeadline' with the new value. In order to cancel this deadline you can mark it as 0 (not recommended).
+
 
 ## Restoring a VirtualMachine
 
