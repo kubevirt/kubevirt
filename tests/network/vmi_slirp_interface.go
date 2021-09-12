@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial]Slirp Networking", func() {
+var _ = SIGDescribe("Slirp Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -85,14 +85,9 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 
 	Context("slirp is not the default interface", func() {
 		BeforeEach(func() {
-			setSlirpEnabled(true)
 			ports = []v1.Port{{Name: "http", Port: 80}}
 
 			vmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
-		})
-
-		AfterEach(func() {
-			setSlirpEnabled(false)
 		})
 
 		table.DescribeTable("should be able to", func(withMacAddress bool) {
@@ -178,13 +173,12 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		)
 	})
 
-	Context("slirp is the default interface", func() {
+	Context("[Serial]slirp is the default interface", func() {
 		BeforeEach(func() {
 			setSlirpEnabled(false)
 			setDefaultNetworkInterface("slirp")
 		})
 		AfterEach(func() {
-			setSlirpEnabled(true)
 			setDefaultNetworkInterface("bridge")
 		})
 		It("should reject VMIs with default interface slirp when it's not permitted", func() {

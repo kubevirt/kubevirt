@@ -55,7 +55,7 @@ var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", fu
 	})
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
-		Context("[Serial]when virt-handler is responsive", func() {
+		Context("when virt-handler is responsive", func() {
 			It("VMIs with Bridge Networking shouldn't fail after the kubelet restarts", func() {
 				bridgeVMI := vmi
 				// Remove the masquerade interface to use the default bridge one

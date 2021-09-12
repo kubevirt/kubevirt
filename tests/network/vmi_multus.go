@@ -43,7 +43,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -95,7 +94,7 @@ const (
 	helloWorldCloudInitData = "#!/bin/bash\necho 'hello'\n"
 )
 
-var _ = SIGDescribe("[Serial]Multus", func() {
+var _ = SIGDescribe("Multus", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -663,7 +662,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 	})
 })
 
-var _ = Describe("[Serial]SRIOV", func() {
+var _ = Describe("SRIOV", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -767,9 +766,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
 			Expect(createNetworkAttachementDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
-
-			tests.EnableFeatureGate(virtconfig.LiveMigrationGate)
-			defer tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
 
 			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 			vmi = startVmi(vmi)
@@ -1029,14 +1025,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 				}
 			})
 
-			BeforeEach(func() {
-				tests.EnableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
-			})
-
-			AfterEach(func() {
-				tests.DisableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
-			})
-
 			var vmi *v1.VirtualMachineInstance
 
 			const mac = "de:ad:00:00:be:ef"
@@ -1090,7 +1078,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 	})
 })
 
-var _ = SIGDescribe("[Serial]Macvtap", func() {
+var _ = SIGDescribe("Macvtap", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var macvtapLowerDevice string
@@ -1108,20 +1096,12 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 	})
 
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.MacvtapGate)
-	})
-
-	BeforeEach(func() {
 		result := virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, util.NamespaceTestDefault, macvtapNetworkName)).
 			Body([]byte(fmt.Sprintf(macvtapNetworkConf, macvtapNetworkName, util.NamespaceTestDefault, macvtapLowerDevice, macvtapNetworkName))).
 			Do(context.Background())
 		Expect(result.Error()).NotTo(HaveOccurred(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
-	})
-
-	AfterEach(func() {
-		tests.DisableFeatureGate(virtconfig.MacvtapGate)
 	})
 
 	newCirrosVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {

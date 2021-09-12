@@ -754,8 +754,18 @@ func AdjustKubeVirtResource() {
 		virtconfig.HotplugVolumesGate,
 		virtconfig.DownwardMetricsFeatureGate,
 		virtconfig.NUMAFeatureGate,
+		virtconfig.SRIOVLiveMigrationGate,
+		virtconfig.MacvtapGate,
 	)
 	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
+
+	if kv.Spec.Configuration.NetworkConfiguration == nil {
+		testDefaultPermitSlirpInterface := true
+
+		kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
+			PermitSlirpInterface: &testDefaultPermitSlirpInterface,
+		}
+	}
 
 	data, err := json.Marshal(kv.Spec)
 	Expect(err).ToNot(HaveOccurred())
