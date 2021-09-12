@@ -1139,7 +1139,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 	})
 })
 
-var _ = SIGDescribe("[Serial]Macvtap", func() {
+var _ = SIGDescribe("Macvtap", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var macvtapLowerDevice string
@@ -1162,16 +1162,8 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 	})
 
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.MacvtapGate)
-	})
-
-	BeforeEach(func() {
 		Expect(createMacvtapNetworkAttachmentDefinition(util.NamespaceTestDefault, macvtapNetworkName, macvtapLowerDevice)).
 			To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
-	})
-
-	AfterEach(func() {
-		tests.DisableFeatureGate(virtconfig.MacvtapGate)
 	})
 
 	newCirrosVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {
@@ -1243,10 +1235,11 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 			nodeList = util.GetAllSchedulableNodes(virtClient)
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName = nodeList.Items[0].Name
-			chosenMAC = "de:ad:00:00:be:af"
+			chosenMACHW, err := tests.GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+			chosenMAC = chosenMACHW.String()
 			serverCIDR := "192.0.2.102/24"
 
-			var err error
 			serverIP, err = cidrToIP(serverCIDR)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1277,7 +1270,9 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 		})
 
 		BeforeEach(func() {
-			macAddress := "02:03:04:05:06:07"
+			macAddressHW, err := tests.GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+			macAddress := macAddressHW.String()
 			clientVMI, err = createCirrosVMIRandomNode(macvtapNetworkName, macAddress)
 			Expect(err).NotTo(HaveOccurred(), "must succeed creating a VMI on a random node")
 		})
@@ -1335,7 +1330,9 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 			}
 
 			BeforeEach(func() {
-				macAddress := "02:03:04:05:06:aa"
+				macAddressHW, err := tests.GenerateRandomMac()
+				Expect(err).ToNot(HaveOccurred())
+				macAddress := macAddressHW.String()
 
 				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
 				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")

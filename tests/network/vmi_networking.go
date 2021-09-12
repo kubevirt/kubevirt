@@ -55,7 +55,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
+var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -354,23 +354,6 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 	})
 
 	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
-
-		setPermitSlirpInterface := func(enable bool) {
-			if currentConfiguration.NetworkConfiguration == nil {
-				currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
-			}
-
-			currentConfiguration.NetworkConfiguration.PermitSlirpInterface = pointer.BoolPtr(enable)
-			kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
-			currentConfiguration = kv.Spec.Configuration
-		}
-		BeforeEach(func() {
-			setPermitSlirpInterface(true)
-		})
-		AfterEach(func() {
-			setPermitSlirpInterface(false)
-		})
-
 		It("[test_id:1773]should configure custom MAC address", func() {
 			By("checking eth0 MAC address")
 			deadbeafVMI := tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
@@ -996,7 +979,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 		})
 	})
 
-	Context("vmi with default bridge interface on pod network", func() {
+	Context("[Serial]vmi with default bridge interface on pod network", func() {
 		BeforeEach(func() {
 			setBridgeEnabled(false)
 		})

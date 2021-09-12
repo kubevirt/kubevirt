@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial] Port-forward", func() {
+var _ = SIGDescribe("Port-forward", func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
