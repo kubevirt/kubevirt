@@ -122,6 +122,11 @@ type virtAPIApp struct {
 	externallyManaged            bool
 	reloadableRateLimiter        *ratelimiter.ReloadableRateLimiter
 	reloadableWebhookRateLimiter *ratelimiter.ReloadableRateLimiter
+
+	// indicates if controllers were started with or without CDI/DataVolume support
+	hasCDI bool
+	// the channel used to trigger re-initialization.
+	reInitChan chan string
 }
 
 var (
@@ -171,6 +176,8 @@ func (app *virtAPIApp) Execute() {
 	}
 
 	app.ConfigureOpenAPIService()
+	app.reInitChan = make(chan string, 10)
+
 	app.Run()
 }
 
@@ -680,7 +687,9 @@ func (app *virtAPIApp) prepareCertManager() {
 	app.handlerCertManager = bootstrap.NewFileCertificateManager(app.handlerCertFilePath, app.handlerKeyFilePath)
 }
 
-func (app *virtAPIApp) registerValidatingWebhooks() {
+func (app *virtAPIApp) registerValidatingWebhooks(vmiInformer cache.SharedIndexInformer,
+	dataSourceInformer cache.SharedIndexInformer) {
+
 	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
 	})
@@ -688,7 +697,7 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, vmiInformer, dataSourceInformer)
 	})
 	http.HandleFunc(components.VMIRSValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
@@ -709,7 +718,7 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 		validating_webhook.ServeVMRestores(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, vmiInformer, dataSourceInformer)
 	})
 	http.HandleFunc(components.LauncherEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)
@@ -785,8 +794,12 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 
 	// start graceful shutdown handler
 	go func() {
-		s := <-c
-		log.Log.Infof("Received signal %s, initiating graceful shutdown", s.String())
+		select {
+		case s := <-c:
+			log.Log.Infof("Received signal %s, initiating graceful shutdown", s.String())
+		case msg := <-app.reInitChan:
+			log.Log.Infof("Received signal to reInitialize virt-api [%s], initiating graceful shutdown", msg)
+		}
 
 		// pause briefly to ensure the load balancer has had a chance to
 		// remove this endpoint from rotation due to pod.DeletionTimestamp != nil
@@ -837,10 +850,6 @@ func (app *virtAPIApp) Run() {
 	// Get/Set selfsigned cert
 	app.prepareCertManager()
 
-	// Build webhook subresources
-	app.registerMutatingWebhook()
-	app.registerValidatingWebhooks()
-
 	// Run informers for webhooks usage
 	webhookInformers := webhooks.GetInformers()
 	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
@@ -849,6 +858,30 @@ func (app *virtAPIApp) Run() {
 	authConfigMapInformer := kubeInformerFactory.ApiAuthConfigMap()
 	kubevirtCAConfigInformer := kubeInformerFactory.KubeVirtCAConfigMap()
 	kubeVirtInformer := kubeInformerFactory.KubeVirt()
+
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, app.namespace)
+	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
+	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
+
+	var dataSourceInformer cache.SharedIndexInformer
+
+	if app.hasCDI {
+		dataSourceInformer = kubeInformerFactory.DataSource()
+		log.Log.Infof("CDI detected, DataSource integration enabled")
+	} else {
+		// Add a dummy DataSource informer in the event datasource support
+		// is disabled. This lets the controller continue to work without
+		// requiring a separate branching code path.
+		dataSourceInformer = kubeInformerFactory.DummyDataSource()
+		log.Log.Infof("CDI not detected, DataSource integration disabled")
+	}
+
+	// Build webhook subresources
+	app.registerMutatingWebhook()
+	app.registerValidatingWebhooks(webhookInformers.VMIInformer,
+		dataSourceInformer)
 
 	// Wire up health check trigger
 	configMapInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
@@ -877,10 +910,6 @@ func (app *virtAPIApp) Run() {
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
 		configMapInformer.HasSynced)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, app.namespace)
-	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
-	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
-
 	go app.certmanager.Start()
 	go app.handlerCertManager.Start()
 
@@ -889,6 +918,21 @@ func (app *virtAPIApp) Run() {
 	err = app.startTLS(kubeInformerFactory)
 	if err != nil {
 		panic(err)
+	}
+
+}
+
+// Detects if a config has been applied that requires
+// re-initializing virt-api.
+func (app *virtAPIApp) configModificationCallback() {
+	newHasCDI := app.clusterConfig.HasDataVolumeAPI()
+	if newHasCDI != app.hasCDI {
+		if newHasCDI {
+			log.Log.Infof("Reinitialize virt-api, cdi api has been introduced")
+		} else {
+			log.Log.Infof("Reinitialize virt-api, cdi api has been removed")
+		}
+		app.reInitChan <- "reinit due to CDI api change"
 	}
 }
 

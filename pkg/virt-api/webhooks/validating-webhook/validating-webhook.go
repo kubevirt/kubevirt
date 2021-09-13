@@ -22,6 +22,8 @@ package validating_webhook
 import (
 	"net/http"
 
+	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/client-go/kubecli"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -36,8 +38,16 @@ func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request, clusterConfig *
 	validating_webhooks.Serve(resp, req, &admitters.VMIUpdateAdmitter{ClusterConfig: clusterConfig})
 }
 
-func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli))
+func ServeVMs(resp http.ResponseWriter,
+	req *http.Request,
+	clusterConfig *virtconfig.ClusterConfig,
+	virtCli kubecli.KubevirtClient,
+	vmiInformer cache.SharedIndexInformer,
+	dataSourceInformer cache.SharedIndexInformer) {
+
+	validating_webhooks.Serve(resp,
+		req,
+		admitters.NewVMsAdmitter(clusterConfig, virtCli, vmiInformer, dataSourceInformer))
 }
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
@@ -64,9 +74,9 @@ func ServeVMRestores(resp http.ResponseWriter, req *http.Request, clusterConfig 
 	validating_webhooks.Serve(resp, req, admitters.NewVMRestoreAdmitter(clusterConfig, virtCli))
 }
 
-func ServeStatusValidation(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+func ServeStatusValidation(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, vmiInformer cache.SharedIndexInformer, dataSourceInformer cache.SharedIndexInformer) {
 	validating_webhooks.Serve(resp, req, &admitters.StatusAdmitter{
-		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli),
+		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, vmiInformer, dataSourceInformer),
 	})
 }
 

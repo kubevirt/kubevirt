@@ -134,6 +134,12 @@ type KubeInformerFactory interface {
 	// Fake CDI DataVolume informer used when feature gate is disabled
 	DummyDataVolume() cache.SharedIndexInformer
 
+	// Watches for CDI DataSource objects
+	DataSource() cache.SharedIndexInformer
+
+	// Fake CDI DataSource informer used when feature gate is disabled
+	DummyDataSource() cache.SharedIndexInformer
+
 	// CRD
 	CRD() cache.SharedIndexInformer
 
@@ -484,6 +490,20 @@ func (f *kubeInformerFactory) DataVolume() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) DummyDataVolume() cache.SharedIndexInformer {
 	return f.getInformer("fakeDataVolumeInformer", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) DataSource() cache.SharedIndexInformer {
+	return f.getInformer("dataSourceInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.CdiClient().CdiV1beta1().RESTClient(), "datasources", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &cdiv1.DataSource{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyDataSource() cache.SharedIndexInformer {
+	return f.getInformer("fakeDataSourceInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		return informer
 	})
 }

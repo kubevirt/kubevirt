@@ -29,6 +29,7 @@ import (
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -46,9 +47,10 @@ var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
 
 type VMsAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
-	cloneAuthFunc CloneAuthFunc
-	virtClient    kubecli.KubevirtClient
+	VMIInformer        cache.SharedIndexInformer
+	DataSourceInformer cache.SharedIndexInformer
+	ClusterConfig      *virtconfig.ClusterConfig
+	cloneAuthFunc      CloneAuthFunc
 }
 
 type sarProxy struct {
@@ -59,12 +61,13 @@ func (p *sarProxy) Create(sar *authv1.SubjectAccessReview) (*authv1.SubjectAcces
 	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMsAdmitter {
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmiInformer cache.SharedIndexInformer, dataSourceInformer cache.SharedIndexInformer) *VMsAdmitter {
 	proxy := &sarProxy{client: client}
 
 	return &VMsAdmitter{
-		ClusterConfig: clusterConfig,
-		virtClient:    client,
+		VMIInformer:        vmiInformer,
+		DataSourceInformer: dataSourceInformer,
+		ClusterConfig:      clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
 		},
@@ -157,7 +160,7 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.Admissi
 	var causes []metav1.StatusCause
 
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
-		cloneSource, err := typesutil.GetCloneSource(context.TODO(), admitter.virtClient, vm, &dataVolume.Spec)
+		cloneSource, err := typesutil.GetCloneSourceWithInformers(vm, &dataVolume.Spec, admitter.DataSourceInformer)
 		if err != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeUnexpectedServerResponse,
@@ -316,8 +319,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 
 	// get VMI if vm is active
 	if vm.Status.Ready {
-		informers := webhooks.GetInformers()
-		obj, exists, err := informers.VMIInformer.GetStore().GetByKey(controller.VirtualMachineKey(vm))
+		obj, exists, err := admitter.VMIInformer.GetStore().GetByKey(controller.VirtualMachineKey(vm))
 		if err != nil {
 			return nil, err
 		} else if exists {
