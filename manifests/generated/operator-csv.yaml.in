@@ -478,6 +478,7 @@ spec:
           resources:
           - events
           verbs:
+          - list
           - update
           - create
           - patch

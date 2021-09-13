@@ -380,6 +380,7 @@ rules:
   resources:
   - events
   verbs:
+  - list
   - update
   - create
   - patch
