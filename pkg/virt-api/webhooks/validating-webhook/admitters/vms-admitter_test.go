@@ -52,7 +52,6 @@ var _ = Describe("Validating VM Admitter", func() {
 	var vmsAdmitter *VMsAdmitter
 
 	var virtClient *kubecli.MockKubevirtClient
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
@@ -68,7 +67,6 @@ var _ = Describe("Validating VM Admitter", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		vmsAdmitter = &VMsAdmitter{
 			ClusterConfig: config,
 			cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
@@ -76,7 +74,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 			virtClient: virtClient,
 		}
-		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiInterface).AnyTimes()
 
 	})
 	AfterEach(func() {
@@ -167,6 +164,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: vmi.Namespace,
+			},
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -189,7 +190,9 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Return(vmi, nil)
+		informers := webhooks.GetInformers()
+		informers.VMIInformer.GetIndexer().Add(vmi)
+
 		resp := vmsAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(Equal(false))
 	},
@@ -270,6 +273,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: vmi.Namespace,
+			},
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -307,7 +314,9 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Return(vmi, nil)
+		informers := webhooks.GetInformers()
+		informers.VMIInformer.GetIndexer().Add(vmi)
+
 		resp := vmsAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},
@@ -473,6 +482,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: vmi.Namespace,
+			},
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
