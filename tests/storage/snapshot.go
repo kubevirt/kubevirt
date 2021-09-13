@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -306,7 +307,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, snapshotStorageClass, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
-				tests.WaitForSuccessfulDataVolumeImport(dv, 240)
+				Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
 				volumeSource := &v1.HotplugVolumeSource{
 					DataVolume: &v1.DataVolumeSource{
 						Name: dv.Name,

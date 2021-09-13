@@ -108,6 +108,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
@@ -1570,7 +1571,7 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the DataVolume is ready")
-	WaitForSuccessfulDataVolumeImport(dv, timeout)
+	Eventually(ThisDV(dv), timeout).Should(HaveSucceeded())
 	By("Waiting until the VirtualMachineInstance will start")
 	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 	return obj
@@ -1957,7 +1958,7 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 	dv.Spec.PVC.VolumeMode = &volMode
 	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	WaitForSuccessfulDataVolumeImport(dv, 240)
+	Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 
@@ -2941,50 +2942,6 @@ func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
 	AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 	return vmi
-}
-
-// Block until DataVolume succeeds on storage with Immediate binding
-// or is in WaitForFirstConsumer state on storage with WaitForFirstConsumer binding.
-func WaitForDataVolumeReadyToStartVMI(obj runtime.Object, seconds int) {
-	vmi, ok := obj.(*v1.VirtualMachineInstance)
-	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
-	WaitForDataVolumeReady(vmi.Namespace, vmi.Spec.Volumes[0].DataVolume.Name, seconds)
-}
-
-func WaitForDataVolumeReady(namespace, name string, seconds int) {
-	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.Succeeded)
-}
-
-func WaitForDataVolumeImportInProgress(namespace, name string, seconds int) {
-	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.ImportInProgress)
-}
-
-func WaitForDataVolumePhaseWFFC(namespace, name string, seconds int) {
-	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer)
-}
-
-func WaitForSuccessfulDataVolumeImport(dv *cdiv1.DataVolume, seconds int) {
-	waitForDataVolumePhase(dv.Namespace, dv.Name, seconds, cdiv1.Succeeded)
-}
-
-func waitForDataVolumePhase(namespace, name string, seconds int, phase ...cdiv1.DataVolumePhase) {
-	By("Checking that the DataVolume has succeeded")
-	virtClient, err := kubecli.GetKubevirtClient()
-	ExpectWithOffset(2, err).ToNot(HaveOccurred())
-
-	EventuallyWithOffset(2,
-		func() cdiv1.DataVolumePhase {
-			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
-			if apierrors.IsNotFound(err) {
-				return cdiv1.PhaseUnset
-			}
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
-
-			return dv.Status.Phase
-		},
-		time.Duration(seconds)*time.Second, 1*time.Second).
-		Should(BeElementOf(phase),
-			"Timed out waiting for DataVolume to enter Succeeded phase")
 }
 
 // Block until the specified VirtualMachineInstance reached either Failed or Running states
