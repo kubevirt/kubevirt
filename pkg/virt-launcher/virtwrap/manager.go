@@ -613,18 +613,10 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	logger := log.Log.Object(vmi)
 
-	var emulatorThreadCpu *int
 	podCPUSet, err := util.GetPodCPUSet()
 	if err != nil {
 		logger.Reason(err).Error("failed to read pod cpuset.")
 		return nil, fmt.Errorf("failed to read pod cpuset: %v", err)
-	}
-	// reserve the last cpu for the emulator thread
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		if len(podCPUSet) > 0 {
-			emulatorThreadCpu = &podCPUSet[len(podCPUSet)-1]
-			podCPUSet = podCPUSet[:len(podCPUSet)-1]
-		}
 	}
 
 	hotplugVolumes := make(map[string]v1.VolumeStatus)
@@ -696,7 +688,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		IsBlockPVC:            isBlockPVCMap,
 		IsBlockDV:             isBlockDVMap,
 		DiskType:              diskInfo,
-		EmulatorThreadCpu:     emulatorThreadCpu,
 		EFIConfiguration:      efiConf,
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
