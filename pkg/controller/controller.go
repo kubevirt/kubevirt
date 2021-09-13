@@ -108,6 +108,10 @@ func VirtualMachineInstanceKey(vmi *v1.VirtualMachineInstance) string {
 	return fmt.Sprintf("%v/%v", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name)
 }
 
+func VirtualMachineKey(vm *v1.VirtualMachine) string {
+	return fmt.Sprintf("%v/%v", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name)
+}
+
 func PodKey(pod *k8sv1.Pod) string {
 	return fmt.Sprintf("%v/%v", pod.Namespace, pod.Name)
 }
