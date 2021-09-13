@@ -1,13 +1,11 @@
-package profiler_test
+package profiler
 
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestProfiler(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Profiler Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

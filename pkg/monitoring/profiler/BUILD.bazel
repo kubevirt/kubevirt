@@ -25,6 +25,7 @@ go_test(
     deps = [
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
