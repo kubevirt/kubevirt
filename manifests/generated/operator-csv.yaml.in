@@ -443,6 +443,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - kubevirt.io
+          resources:
+          - migrationpolicies
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - ""
           resources:
           - configmaps
@@ -682,6 +690,20 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - migrationpolicies
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
         - apiGroups:
           - ""
           resources:
