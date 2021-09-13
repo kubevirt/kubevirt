@@ -135,11 +135,14 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 	var buf bytes.Buffer
 	encoder := xml.NewEncoder(&buf)
 
-	depth := 0
-	inMeta := false
-	inMetaKV := false
-	inMetaKVMigration := false
+	var location = make([]string, 0)
+	var newLocation []string = nil
 	for {
+		if newLocation != nil {
+			// Postpone popping end elements from `location` to ensure their removal
+			location = newLocation
+			newLocation = nil
+		}
 		token, err := decoder.RawToken()
 		if err == io.EOF {
 			break
@@ -151,29 +154,16 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string
 
 		switch v := token.(type) {
 		case xml.StartElement:
-			if depth == 1 && v.Name.Local == "metadata" {
-				inMeta = true
-			} else if inMeta && depth == 2 && v.Name.Local == "kubevirt" {
-				inMetaKV = true
-			} else if inMetaKV && depth == 3 && v.Name.Local == "migration" {
-				inMetaKVMigration = true
-			}
-			depth++
+			location = append(location, v.Name.Local)
 		case xml.EndElement:
-			depth--
-			if inMetaKVMigration && depth == 3 && v.Name.Local == "migration" {
-				inMetaKVMigration = false
-				continue // Skip </migration>
-			}
-			if inMetaKV && depth == 2 && v.Name.Local == "kubevirt" {
-				inMetaKV = false
-			}
-			if inMeta && depth == 1 && v.Name.Local == "metadata" {
-				inMeta = false
-			}
+			newLocation = location[:len(location)-1]
 		}
-		if inMetaKVMigration {
-			continue // We're inside metadata/kubevirt/migration, continuing to skip elements
+		if len(location) >= 4 &&
+			location[0] == "domain" &&
+			location[1] == "metadata" &&
+			location[2] == "kubevirt" &&
+			location[3] == "migration" {
+			continue // We're inside domain/metadata/kubevirt/migration, continue will skip elements
 		}
 
 		if err := encoder.EncodeToken(xml.CopyToken(token)); err != nil {
