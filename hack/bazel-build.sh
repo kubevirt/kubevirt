@@ -31,7 +31,11 @@ mkdir -p ${CMD_OUT_DIR}/perfscale-load-generator
 # Build all binaries for amd64
 bazel build \
     --config=${ARCHITECTURE} \
-    //tools/csv-generator/... //cmd/... //staging/src/kubevirt.io/client-go/examples/...
+    //tools/csv-generator/... \
+    //tools/perfscale-audit/... \
+    //tools/perfscale-load-generator/... \
+    //cmd/... \
+    //staging/src/kubevirt.io/client-go/examples/...
 
 # Copy dump binary to a reachable place outside of the build container
 bazel run \
