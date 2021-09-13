@@ -85,6 +85,7 @@ type Informers struct {
 	NamespaceLimitsInformer cache.SharedIndexInformer
 	VMIInformer             cache.SharedIndexInformer
 	VMRestoreInformer       cache.SharedIndexInformer
+	DataSourceInformer      cache.SharedIndexInformer
 }
 
 // XXX fix this, this is a huge mess. Move informers to Admitter and Mutator structs.
@@ -93,13 +94,9 @@ var mutex sync.Mutex
 func GetInformers() *Informers {
 	mutex.Lock()
 	defer mutex.Unlock()
-	if webhookInformers == nil {
-		webhookInformers = newInformers()
-	}
 	return webhookInformers
 }
 
-// SetInformers created for unittest usage only
 func SetInformers(informers *Informers) {
 	mutex.Lock()
 	defer mutex.Unlock()
