@@ -73,6 +73,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	storageClassInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	flaovrMethods flavor.Methods,
 	recorder record.EventRecorder,
@@ -86,6 +87,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		vmInformer:             vmInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
+		storageClassInformer:   storageClassInformer,
 		crInformer:             crInformer,
 		flavorMethods:          flaovrMethods,
 		recorder:               recorder,
@@ -134,6 +136,7 @@ type VMController struct {
 	vmInformer             cache.SharedIndexInformer
 	dataVolumeInformer     cache.SharedIndexInformer
 	pvcInformer            cache.SharedIndexInformer
+	storageClassInformer   cache.SharedIndexInformer
 	crInformer             cache.SharedIndexInformer
 	flavorMethods          flavor.Methods
 	recorder               record.EventRecorder
@@ -526,6 +529,34 @@ func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
 			dvRunningCond.Status == k8score.ConditionFalse &&
 			dvRunningCond.Reason == "Error" {
 			log.Log.Object(vm).Errorf("DataVolume %s importer has stopped running due to an error: %v", dvKey, dvRunningCond.Message)
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c *VMController) hasPVCBindingErrors(vm *virtv1.VirtualMachine) bool {
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		claimName := ""
+		switch {
+		case volume.PersistentVolumeClaim != nil:
+			claimName = volume.PersistentVolumeClaim.ClaimName
+		case volume.DataVolume != nil:
+			claimName = volume.DataVolume.Name
+		default:
+			continue
+		}
+
+		failed, message, err := typesutil.IsPVCFailedProvisioning(c.pvcInformer.GetStore(), c.storageClassInformer.GetStore(),
+			c.clientset, vm.Namespace, claimName)
+
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error detecting volume provisioning status: %v", err)
+			return false
+		}
+		if failed {
+			log.Log.Object(vm).Warningf("Volume provisioning error detected: %s", message)
 			return true
 		}
 	}
@@ -1690,6 +1721,7 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusPvcNotFound, c.isVirtualMachineStatusPvcNotFound},
 		{virtv1.VirtualMachineStatusDataVolumeNotFound, c.isVirtualMachineStatusDataVolumeNotFound},
 		{virtv1.VirtualMachineStatusDataVolumeError, c.isVirtualMachineStatusDataVolumeError},
+		{virtv1.VirtualMachineStatusPvcNotBound, c.isVirtualMachineStatusPvcNotBound},
 		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
 		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
@@ -1795,7 +1827,7 @@ func (c *VMController) isVirtualMachineStatusMigrating(vm *virtv1.VirtualMachine
 	return vmi != nil && migrations.IsMigrating(vmi)
 }
 
-// isVirtualMachineStatusUnschedulable determines whether the VM status field should be set to "FailedUnschedulable".
+// isVirtualMachineStatusUnschedulable determines whether the VM status field should be set to "ErrorUnschedulable".
 func (c *VMController) isVirtualMachineStatusUnschedulable(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
 		virtv1.VirtualMachineInstanceConditionType(k8score.PodScheduled),
@@ -1815,7 +1847,7 @@ func (c *VMController) isVirtualMachineStatusImagePullBackOff(vm *virtv1.Virtual
 	return syncCond != nil && syncCond.Status == k8score.ConditionFalse && syncCond.Reason == ImagePullBackOffReason
 }
 
-// isVirtualMachineStatusPvcNotFound determines whether the VM status field should be set to "FailedPvcNotFound".
+// isVirtualMachineStatusPvcNotFound determines whether the VM status field should be set to "ErrorPvcNotFound".
 func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
 		virtv1.VirtualMachineInstanceSynchronized,
@@ -1823,7 +1855,7 @@ func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachi
 		FailedPvcNotFoundReason)
 }
 
-// isVirtualMachineStatusDataVolumeNotFound determines whether the VM status field should be set to "FailedDataVolumeNotFound".
+// isVirtualMachineStatusDataVolumeNotFound determines whether the VM status field should be set to "ErrorDataVolumeNotFound".
 func (c *VMController) isVirtualMachineStatusDataVolumeNotFound(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
 		virtv1.VirtualMachineInstanceSynchronized,
@@ -1834,6 +1866,11 @@ func (c *VMController) isVirtualMachineStatusDataVolumeNotFound(vm *virtv1.Virtu
 // isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"
 func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return c.hasDataVolumeErrors(vm)
+}
+
+// isVirtualMachineStatusPvcNotBound determines whether the VM status field should be set to "ErrorPvcNotBound".
+func (c *VMController) isVirtualMachineStatusPvcNotBound(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return c.hasPVCBindingErrors(vm)
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {

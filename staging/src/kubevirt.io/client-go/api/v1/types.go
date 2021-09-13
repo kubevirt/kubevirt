@@ -1291,6 +1291,9 @@ const (
 	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "ErrorPvcNotFound"
 	// VirtualMachineStatusDataVolumeNotFound indicates that the virtual machine references a DataVolume volume which doesn't exist.
 	VirtualMachineStatusDataVolumeNotFound VirtualMachinePrintableStatus = "ErrorDataVolumeNotFound"
+	// VirtualMachineStatusPvcNotBound indicates that the virtual machine references a PVC
+	// (potentially, via a DataVolume reference) which failed to bind within a timeout.
+	VirtualMachineStatusPvcNotBound VirtualMachinePrintableStatus = "ErrorPvcNotBound"
 	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes
 	// referenced by the virtual machines.
 	VirtualMachineStatusDataVolumeError VirtualMachinePrintableStatus = "DataVolumeError"

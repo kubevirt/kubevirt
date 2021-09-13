@@ -13,6 +13,7 @@ import (
 	"github.com/pborman/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,8 +54,9 @@ var _ = Describe("VirtualMachine", func() {
 		var vmInformer cache.SharedIndexInformer
 		var dataVolumeInformer cache.SharedIndexInformer
 		var dataVolumeSource *framework.FakeControllerSource
-		var pvcInformer cache.SharedIndexInformer
 		var crInformer cache.SharedIndexInformer
+		var pvcInformer cache.SharedIndexInformer
+		var storageClassInformer cache.SharedIndexInformer
 		var flavorMethods *testutils.MockFlavorMethods
 		var stop chan struct{}
 		var controller *VMController
@@ -84,6 +86,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
@@ -105,6 +108,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInformer,
 				dataVolumeInformer,
 				pvcInformer,
+				storageClassInformer,
 				crInformer,
 				flavorMethods,
 				recorder,

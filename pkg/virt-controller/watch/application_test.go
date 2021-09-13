@@ -121,6 +121,7 @@ var _ = Describe("Application", func() {
 			vmInformer,
 			dataVolumeInformer,
 			pvcInformer,
+			storageClassInformer,
 			crInformer,
 			flavorMethods,
 			recorder,

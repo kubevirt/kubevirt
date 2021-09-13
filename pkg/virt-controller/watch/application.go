@@ -552,6 +552,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.vmInformer,
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
+		vca.storageClassInformer,
 		vca.controllerRevisionInformer,
 		flavor.NewMethods(vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore()),
 		recorder,
