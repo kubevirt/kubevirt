@@ -2301,6 +2301,63 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				expectFeatureToBeSupportedOnNode(newNode, requiredFeatures)
 			})
 		})
+
+		FContext("with migration policies", func() {
+
+			confirmMigrationConfigSource := func(vmi *v1.VirtualMachineInstance, expectedConfigSource v1.MigrationConfigSource) {
+				By("Retrieving the VMI post migration")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying the VMI's configuration source")
+				Expect(vmi.Status.MigrationState.ConfigurationSource).To(Equal(expectedConfigSource))
+			}
+
+			BeforeEach(func() {
+
+			})
+
+			table.DescribeTable("migration policy", func(defineMigrationPolicy bool) {
+				By("Updating config to allow auto converge")
+				config := getCurrentKv()
+				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
+				tests.UpdateKubeVirtConfigValueAndWait(config)
+
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+
+				expectedConfigSource := v1.ClusterWideConfig
+				if defineMigrationPolicy {
+					By("Creating a migration policy that overrides cluster policy")
+					policy := kubecli.NewMinimalMigrationPolicy("testpolicy")
+					policy.Namespace = vmi.Namespace
+					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
+
+					_, err := virtClient.MigrationPolicy(policy.Namespace).Create(policy)
+					Expect(err).ToNot(HaveOccurred())
+
+					expectedConfigSource = v1.NamespacedConfig
+				}
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+				confirmMigrationConfigSource(vmi, expectedConfigSource)
+			},
+				//table.Entry("should affect override cluster-wide policy if defined", true),
+				table.Entry("should not affect override cluster-wide policy if not defined", false),
+			)
+
+			// migration policy affects VM
+			// no >1 migration policies in namespace
+			//
+
+		})
 	})
 
 	Context("with sata disks", func() {
