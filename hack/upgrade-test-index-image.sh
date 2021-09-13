@@ -284,12 +284,18 @@ if [[ -n ${KV_CM_FOUND} ]]; then
   ${CMD} get cm kubevirt-config-backup -n ${HCO_NAMESPACE}
 fi
 
-Msg "Check that the v2v CRDs were removed"
+Msg "Check that the v2v CRDs and deployments were removed"
 if ${CMD} get crd | grep -q v2v.kubevirt.io; then
     echo "The v2v CRDs should not be found; they had to be removed."
     exit 1
 else
     echo "v2v CRDs removed"
+fi
+if ${CMD} get deployments -n ${HCO_NAMESPACE} | grep -q vm-import; then
+    echo "v2v deployments should not be found; they had to be removed."
+    exit 1
+else
+    echo "v2v deployments removed"
 fi
 
 Msg "Check that the v2v references were removed from .status.relatedObjects"

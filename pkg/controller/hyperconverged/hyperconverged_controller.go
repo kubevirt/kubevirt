@@ -382,7 +382,20 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 			}
 		}
 
-		// Attempt to remove old CRDs and related objects
+		// Attempt to remove old CRDs and related objects:
+		// Directly removing v2v CRDs will be enough to trigger the
+		// removal of the corresponding CRs.
+		// vmimportconfigs CR is protected by "vm-import-finalizer"
+		// which is managed by vm-import-operator that should remove
+		// all of its operands before removing the finalizer so that the
+		// CR and then the CRD can be really deleted.
+		// We don't have any race condition here because the CRD will be
+		// deleted without blocking the caller.
+		// vm-import-operator pod on the other side is not deleted during the
+		// upgrade process, but only at the end of it as a consequence of
+		// the removal of the old CSV (vm-import-operator deployment has
+		// an owner reference on it) once the upgrade successfully completed.
+
 		cdrRemover := newCRDremover(r.client)
 		err = cdrRemover.Remove(req)
 		if err != nil {
