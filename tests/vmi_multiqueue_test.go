@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
+var _ = Describe("[sig-compute]MultiQueue", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -56,7 +56,7 @@ var _ = Describe("[Serial][sig-compute]MultiQueue", func() {
 	Context("MultiQueue Behavior", func() {
 		var availableCPUs int
 
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			availableCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
 		})
 

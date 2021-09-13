@@ -51,23 +51,19 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 		ExecutingBatchCmd func(*v1.VirtualMachineInstance, []expect.Batcher, time.Duration)
 	)
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
+		tests.BeforeTestCleanup()
 
 		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
-
-		ExecutingBatchCmd = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
-			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-			err := console.ExpectBatch(vmi, commands, timeout)
-			Expect(err).ToNot(HaveOccurred())
-		}
-
 	})
 
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-	})
+	ExecutingBatchCmd = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
+		By("Checking that the VirtualMachineInstance serial console output equals to expected one")
+		err := console.ExpectBatch(vmi, commands, timeout)
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	Context("with qemu guest agent", func() {
 		It("[test_id:6220]should propagate public ssh keys", func() {
