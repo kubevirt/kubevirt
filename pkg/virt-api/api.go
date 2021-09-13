@@ -768,6 +768,9 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 	http.HandleFunc(components.LauncherEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)
 	})
+	http.HandleFunc(components.MigrationPolicyCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeMigrationPolicies(w, r, app.virtCli)
+	})
 }
 
 func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {

@@ -163,7 +163,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
-		"migrationConfigSource":          "Lets us know if the vmi is currently running pre or post copy migration",
+		"migrationConfigSource":          "Lets us know if the vmi migration configuration is affected by KubevirtCR or a migration policy",
 	}
 }
 
@@ -649,12 +649,9 @@ func (MigrationPolicy) SwaggerDoc() map[string]string {
 func (MigrationPolicySpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                        "+k8s:openapi-gen=true",
-		"maxParallelMigrations":   "+optional",
 		"allowAutoConverge":       "+optional",
 		"bandwidthPerMigration":   "+optional",
 		"completionTimeoutPerGiB": "+optional",
-		"progressTimeout":         "+optional",
-		"unsafeMigrationOverride": "+optional",
 		"allowPostCopy":           "+optional",
 		"disableTLS":              "+optional",
 	}
@@ -668,7 +665,8 @@ func (MigrationPolicyStatus) SwaggerDoc() map[string]string {
 
 func (MigrationPolicyList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "MigrationPolicyList is a list of MigrationPolicy\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+		"":      "MigrationPolicyList is a list of MigrationPolicy\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+		"items": "+listType=atomic",
 	}
 }
 

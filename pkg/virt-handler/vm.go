@@ -2473,8 +2473,8 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 		}
 	} else {
-		migrationConfiguration := d.clusterConfig.GetMigrationConfiguration()
-		origVMI.Status.MigrationState.ConfigurationSource = v1.ClusterWideConfig
+		migrationConfiguration := d.clusterConfig.GetMigrationConfiguration().DeepCopy()
+		origVMI.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
 
 		// Override cluster-wide migration configuration if migration policy exists
 		migrationList, err := d.clientset.MigrationPolicy(vmi.Namespace).List(&metav1.ListOptions{})
@@ -2482,28 +2482,22 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 		var migrationPolicy *v1.MigrationPolicy
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Warningf("could not fetch migration policy")
-		} else {
-			for _, migration := range migrationList.Items {
-				if migration.Namespace == vmi.Namespace {
-					migrationPolicy = &migration
-					break
-				}
+		} else if len(migrationList.Items) > 0 {
+			migrationPolicy = &migrationList.Items[0]
+			if len(migrationList.Items) > 1 {
+				log.Log.Object(vmi).Reason(err).Errorf("namespace %s contains more than 1 migration policy - this shouldn't happen", vmi.Namespace)
 			}
 		}
 
 		if migrationPolicy == nil && err == nil {
-			log.Log.Object(vmi).Reason(err).Warningf("migration policy doesn't exist for namespace %s", vmi.Namespace)
+			log.Log.Object(vmi).Reason(err).Infof("migration policy doesn't exist for namespace %s", vmi.Namespace)
 		} else if err == nil {
-			updatedMigrationConfiguration, isUpdated, err := migrationPolicy.GetMigrationConfByPolicy(migrationConfiguration)
+			isUpdated, err := migrationPolicy.GetMigrationConfByPolicy(migrationConfiguration)
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Warningf("cannot get migration config by migration policy")
-			} else {
-				migrationConfiguration = updatedMigrationConfiguration
-
-				if isUpdated {
-					origVMI.Status.MigrationState.ConfigurationSource = v1.NamespacedConfig
-					log.Log.Object(vmi).Infof("migration is updated by migration policy (named %s)", migrationPolicy.Name)
-				}
+			} else if isUpdated {
+				origVMI.Status.MigrationState.MigrationConfigSource = v1.NamespacedConfig
+				log.Log.Object(vmi).Infof("migration is updated by migration policy (named %s)", migrationPolicy.Name)
 			}
 		}
 

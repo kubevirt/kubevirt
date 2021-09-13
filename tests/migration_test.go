@@ -2302,7 +2302,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
-		FContext("with migration policies", func() {
+		Context("with migration policies", func() {
 
 			confirmMigrationConfigSource := func(vmi *v1.VirtualMachineInstance, expectedConfigSource v1.MigrationConfigSource) {
 				By("Retrieving the VMI post migration")
@@ -2310,12 +2310,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying the VMI's configuration source")
-				Expect(vmi.Status.MigrationState.ConfigurationSource).To(Equal(expectedConfigSource))
+				Expect(vmi.Status.MigrationState.MigrationConfigSource).To(Equal(expectedConfigSource))
 			}
-
-			BeforeEach(func() {
-
-			})
 
 			table.DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
@@ -2328,8 +2324,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				expectedConfigSource := v1.ClusterWideConfig
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
-					policy := kubecli.NewMinimalMigrationPolicy("testpolicy")
-					policy.Namespace = vmi.Namespace
+					policy := kubecli.NewMinimalMigrationPolicy("testpolicy", vmi.Namespace)
 					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
 
 					_, err := virtClient.MigrationPolicy(policy.Namespace).Create(policy)
@@ -2349,13 +2344,25 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 				confirmMigrationConfigSource(vmi, expectedConfigSource)
 			},
-				//table.Entry("should affect override cluster-wide policy if defined", true),
-				table.Entry("should not affect override cluster-wide policy if not defined", false),
+				table.Entry("should override cluster-wide policy if defined", true),
+				table.Entry("should not affect cluster-wide policy if not defined", false),
 			)
 
-			// migration policy affects VM
-			// no >1 migration policies in namespace
-			//
+			It("should reject the creation on two migration policies in the same namespace", func() {
+				namespace := util.NamespaceTestDefault
+
+				By("Creating two migration policies")
+				policy1 := kubecli.NewMinimalMigrationPolicy("testpolicy1", namespace)
+				policy2 := kubecli.NewMinimalMigrationPolicy("testpolicy2", namespace)
+
+				By("Posting one policy and expect success")
+				_, err := virtClient.MigrationPolicy(namespace).Create(policy1)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Posting the second policy and expect error")
+				_, err = virtClient.MigrationPolicy(namespace).Create(policy2)
+				Expect(err).To(HaveOccurred(), "two policies in the same namespace is not allowed")
+			})
 
 		})
 	})

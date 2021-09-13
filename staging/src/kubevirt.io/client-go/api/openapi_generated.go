@@ -17861,6 +17861,11 @@ func schema_kubevirtio_api_core_v1_MigrationPolicyList(ref common.ReferenceCallb
 						},
 					},
 					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -17887,12 +17892,6 @@ func schema_kubevirtio_api_core_v1_MigrationPolicySpec(ref common.ReferenceCallb
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"maxParallelMigrations": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
-						},
-					},
 					"allowAutoConverge": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -17908,18 +17907,6 @@ func schema_kubevirtio_api_core_v1_MigrationPolicySpec(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",
-						},
-					},
-					"progressTimeout": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
-						},
-					},
-					"unsafeMigrationOverride": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
 						},
 					},
 					"allowPostCopy": {
@@ -20376,7 +20363,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 					},
 					"migrationConfigSource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Lets us know if the vmi is currently running pre or post copy migration",
+							Description: "Lets us know if the vmi migration configuration is affected by KubevirtCR or a migration policy",
 							Type:        []string{"string"},
 							Format:      "",
 						},

@@ -2427,14 +2427,6 @@ var CRDsValidation map[string]string = map[string]string{
           type: integer
         disableTLS:
           type: boolean
-        maxParallelMigrations:
-          format: int32
-          type: integer
-        progressTimeout:
-          format: int64
-          type: integer
-        unsafeMigrationOverride:
-          type: boolean
       type: object
     status:
       nullable: true
@@ -8524,8 +8516,8 @@ var CRDsValidation map[string]string = map[string]string{
               description: Indicates that the migration failed
               type: boolean
             migrationConfigSource:
-              description: Lets us know if the vmi is currently running pre or post
-                copy migration
+              description: Lets us know if the vmi migration configuration is affected
+                by KubevirtCR or a migration policy
               type: string
             migrationUid:
               description: The VirtualMachineInstanceMigration object associated with

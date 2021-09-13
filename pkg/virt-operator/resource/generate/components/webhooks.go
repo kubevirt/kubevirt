@@ -243,6 +243,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	VmClusterFlavorValidatePath := VMClusterFlavorValidatePath
 	launcherEvictionValidatePath := LauncherEvictionValidatePath
 	statusValidatePath := StatusValidatePath
+	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
 	failurePolicy := admissionregistrationv1.Fail
 	ignorePolicy := admissionregistrationv1.Ignore
 
@@ -613,6 +614,30 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					},
 				},
 			},
+			{
+				Name:                    "migration-policy-create-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{core.GroupName},
+						APIVersions: virtv1.ApiSupportedWebhookVersions,
+						Resources:   []string{"migrationpolicies"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &migrationPolicyCreateValidatePath,
+					},
+				},
+			},
 		},
 	}
 }
@@ -668,3 +693,5 @@ const VMClusterFlavorValidatePath = "/virtualmachineclusterflavors-validate"
 const StatusValidatePath = "/status-validate"
 
 const LauncherEvictionValidatePath = "/launcher-eviction-validate"
+
+const MigrationPolicyCreateValidatePath = "/migration-policy-validate-create"

@@ -72,10 +72,15 @@ func NewMinimalVirtualMachineInstancePreset(name string) *v1.VirtualMachineInsta
 	return &v1.VirtualMachineInstancePreset{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstancePreset"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }
 
-func NewMinimalMigrationPolicy(name string) *v1.MigrationPolicy {
-	return &v1.MigrationPolicy{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "MigrationPolicy"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+func NewMinimalMigrationPolicy(name, namespace string) *v12.MigrationPolicy {
+	return &v12.MigrationPolicy{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "MigrationPolicy"},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
 }
 
-func NewMinimalMigrationPolicyList(policies ...v1.MigrationPolicy) *v1.MigrationPolicyList {
-	return &v1.MigrationPolicyList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "MigrationPolicyList"}, Items: policies}
+func NewMinimalMigrationPolicyList(policies ...v12.MigrationPolicy) *v12.MigrationPolicyList {
+	return &v12.MigrationPolicyList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v12.GroupVersion.String(), Kind: "MigrationPolicyList"}, Items: policies}
 }

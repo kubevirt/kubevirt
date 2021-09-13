@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	v12 "kubevirt.io/client-go/apis/core/v1"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +53,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
-	policy := &v1.MigrationPolicy{}
+	policy := &v12.MigrationPolicy{}
 	err := json.Unmarshal(ar.Request.Object.Raw, policy)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -69,9 +71,9 @@ func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		if policiesFound := len(policies.Items); policiesFound > 1 {
-			const errMessage = "number of policies per namespace must not exceed 1 but found %d, this should never occur"
-			return webhookutils.ToAdmissionResponseError(fmt.Errorf(errMessage, policiesFound))
+		if policiesFound := len(policies.Items); policiesFound > 0 {
+			const errMessage = "%s namespace already has a policy named %s defined; number of policies per namespace must be at most 1"
+			return webhookutils.ToAdmissionResponseError(fmt.Errorf(errMessage, ar.Request.Namespace, policies.Items[0].Name))
 		}
 
 		for _, existingPolicy := range policies.Items {

@@ -14191,7 +14191,7 @@
       "type": "boolean"
      },
      "migrationConfigSource": {
-      "description": "Lets us know if the vmi is currently running pre or post copy migration",
+      "description": "Lets us know if the vmi migration configuration is affected by KubevirtCR or a migration policy",
       "type": "string"
      },
      "migrationUid": {

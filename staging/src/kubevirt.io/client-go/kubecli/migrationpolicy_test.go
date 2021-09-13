@@ -53,7 +53,7 @@ var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 	})
 
 	It("should fetch a MigrationPolicy", func() {
-		policy := NewMinimalMigrationPolicy(testPolicyName)
+		policy := NewMinimalMigrationPolicy(testPolicyName, k8sv1.NamespaceDefault)
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", policyPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, policy),
@@ -78,7 +78,7 @@ var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 	})
 
 	It("should fetch a MigrationPolicy list", func() {
-		policy := NewMinimalMigrationPolicy(testPolicyName)
+		policy := NewMinimalMigrationPolicy(testPolicyName, k8sv1.NamespaceDefault)
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewMinimalMigrationPolicyList(*policy)),
@@ -92,7 +92,7 @@ var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 	})
 
 	It("should create a MigrationPolicy", func() {
-		policy := NewMinimalMigrationPolicy(testPolicyName)
+		policy := NewMinimalMigrationPolicy(testPolicyName, k8sv1.NamespaceDefault)
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("POST", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, policy),
@@ -105,7 +105,7 @@ var _ = Describe("Kubevirt MigrationPolicy Client", func() {
 	})
 
 	It("should update a MigrationPolicy", func() {
-		policy := NewMinimalMigrationPolicy(testPolicyName)
+		policy := NewMinimalMigrationPolicy(testPolicyName, k8sv1.NamespaceDefault)
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("PUT", policyPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, policy),

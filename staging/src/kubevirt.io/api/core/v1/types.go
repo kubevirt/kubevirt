@@ -568,8 +568,8 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
-	// Lets us know if the vmi is currently running pre or post copy migration
-	ConfigurationSource MigrationConfigSource `json:"migrationConfigSource,omitempty"`
+	// Lets us know if the vmi migration configuration is affected by KubevirtCR or a migration policy
+	MigrationConfigSource MigrationConfigSource `json:"migrationConfigSource,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -2036,17 +2036,11 @@ type MigrationPolicy struct {
 // +k8s:openapi-gen=true
 type MigrationPolicySpec struct {
 	//+optional
-	MaxParallelMigrations *uint32 `json:"maxParallelMigrations,omitempty"`
-	//+optional
 	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
 	//+optional
 	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
 	//+optional
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
-	//+optional
-	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
-	//+optional
-	UnsafeMigrationOverride *bool `json:"unsafeMigrationOverride,omitempty"`
 	//+optional
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
 	//+optional
@@ -2064,47 +2058,39 @@ type MigrationPolicyStatus struct {
 type MigrationPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MigrationPolicy `json:"items"`
+	// +listType=atomic
+	Items []MigrationPolicy `json:"items"`
 }
 
 // GetMigrationConfByPolicy returns a new migration configuration. The new configuration attributes will be overridden
 // by the migration policy if the specified attributes were defined for this policy. Otherwise they wouldn't change.
 // The boolean returned value indicates if any changes were made to the configurations.
-func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfigurations *MigrationConfiguration) (*MigrationConfiguration, bool, error) {
+func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfigurations *MigrationConfiguration) (changed bool, err error) {
 	policySpec := m.Spec
-	clusterConfigChanged := false
-	newMigrationConfigs := clusterMigrationConfigurations.DeepCopy()
+	changed = false
 
 	if policySpec.AllowAutoConverge != nil {
-		clusterConfigChanged = true
-		*newMigrationConfigs.AllowAutoConverge = *policySpec.AllowAutoConverge
+		changed = true
+		*clusterMigrationConfigurations.AllowAutoConverge = *policySpec.AllowAutoConverge
 	}
 	if policySpec.BandwidthPerMigration != nil {
-		clusterConfigChanged = true
-		*newMigrationConfigs.BandwidthPerMigration = *policySpec.BandwidthPerMigration
+		changed = true
+		*clusterMigrationConfigurations.BandwidthPerMigration = *policySpec.BandwidthPerMigration
 	}
 	if policySpec.CompletionTimeoutPerGiB != nil {
-		clusterConfigChanged = true
-		*newMigrationConfigs.CompletionTimeoutPerGiB = *policySpec.CompletionTimeoutPerGiB
-	}
-	if policySpec.ProgressTimeout != nil {
-		clusterConfigChanged = true
-		*newMigrationConfigs.ProgressTimeout = *policySpec.ProgressTimeout
-	}
-	if policySpec.UnsafeMigrationOverride != nil {
-		clusterConfigChanged = true
-		*newMigrationConfigs.UnsafeMigrationOverride = *policySpec.UnsafeMigrationOverride
+		changed = true
+		*clusterMigrationConfigurations.CompletionTimeoutPerGiB = *policySpec.CompletionTimeoutPerGiB
 	}
 	if policySpec.AllowPostCopy != nil {
-		clusterConfigChanged = true
-		*newMigrationConfigs.AllowPostCopy = *policySpec.AllowPostCopy
+		changed = true
+		*clusterMigrationConfigurations.AllowPostCopy = *policySpec.AllowPostCopy
 	}
 	if policySpec.DisableTLS != nil {
-		clusterConfigChanged = true
-		*newMigrationConfigs.DisableTLS = *policySpec.DisableTLS
+		changed = true
+		*clusterMigrationConfigurations.DisableTLS = *policySpec.DisableTLS
 	}
 
-	return newMigrationConfigs, clusterConfigChanged, nil
+	return changed, nil
 }
 
 // DiskVerification holds container disks verification limits

@@ -22,6 +22,8 @@ package admitters
 import (
 	"encoding/json"
 
+	v12 "kubevirt.io/client-go/apis/core/v1"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -40,9 +42,9 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 	var admitter *MigrationPolicyAdmitter
 	var _true *bool
 	var mockMigrationPolies map[string]*kubecli.MockMigrationPolicyInterface
-	var addedPolicies map[string][]v1.MigrationPolicy
+	var addedPolicies map[string][]v12.MigrationPolicy
 
-	addMigrationPolicy := func(policy *v1.MigrationPolicy) {
+	addMigrationPolicy := func(policy *v12.MigrationPolicy) {
 		By("Setting expectation for migration policy")
 
 		// Adding policy to added policies list
@@ -91,7 +93,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 
 		t := true
 		_true = &t
-		addedPolicies = make(map[string][]v1.MigrationPolicy)
+		addedPolicies = make(map[string][]v12.MigrationPolicy)
 	})
 
 	It("Should reject admitting two migration policies to the same namespace", func() {
@@ -99,16 +101,14 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		const namespace = metav1.NamespaceDefault
 
 		By("Introducing a first policy to current namespace")
-		policy := kubecli.NewMinimalMigrationPolicy(policyName)
-		policy.Namespace = namespace
+		policy := kubecli.NewMinimalMigrationPolicy(policyName, namespace)
 		policy.Spec.AllowPostCopy = _true
 
 		By("Admitting migration policy and expecting it to be allowed")
 		admitter.admitAndExpect(policy, true)
 
 		By("Introducing a second policy to current namespace")
-		anotherPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
-		anotherPolicy.Namespace = namespace
+		anotherPolicy := kubecli.NewMinimalMigrationPolicy(policyName, namespace)
 		addMigrationPolicy(anotherPolicy)
 
 		By("Admitting migration policy and expecting it to be denied")
@@ -117,7 +117,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 
 })
 
-func createPolicyAdmissionReview(policy *v1.MigrationPolicy, namespace string) *admissionv1.AdmissionReview {
+func createPolicyAdmissionReview(policy *v12.MigrationPolicy, namespace string) *admissionv1.AdmissionReview {
 	policyBytes, _ := json.Marshal(policy)
 
 	ar := &admissionv1.AdmissionReview{
@@ -161,7 +161,7 @@ func createMigrationPolicyUpdateAdmissionReview(old, current *snapshotv1.Virtual
 	return ar
 }
 
-func (admitter *MigrationPolicyAdmitter) admitAndExpect(policy *v1.MigrationPolicy, expectAllowed bool) {
+func (admitter *MigrationPolicyAdmitter) admitAndExpect(policy *v12.MigrationPolicy, expectAllowed bool) {
 	ar := createPolicyAdmissionReview(policy, policy.Namespace)
 	resp := admitter.Admit(ar)
 	Expect(resp.Allowed).To(Equal(expectAllowed))

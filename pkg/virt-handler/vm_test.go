@@ -294,7 +294,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 	expectMigrationPolicy := func(policy *v1.MigrationPolicy) {
 		By("Setting expectation for migration policy")
 		mockMigrationPolicy := kubecli.NewMockMigrationPolicyInterface(ctrl)
-		mockMigrationPolicy.EXPECT().Get(metav1.NamespaceDefault, gomock.Any()).Return(policy, nil)
+		policyList := kubecli.NewMinimalMigrationPolicyList(*policy)
+		mockMigrationPolicy.EXPECT().List(gomock.Any()).Times(1).Return(policyList, nil)
 		virtClient.EXPECT().MigrationPolicy(metav1.NamespaceDefault).Times(1).Return(mockMigrationPolicy)
 	}
 
@@ -1698,7 +1699,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
-			vmi.Status.MigrationState.ConfigurationSource = v1.ClusterWideConfig
+			vmi.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
 			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
@@ -3123,8 +3124,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			By("Initialize migration policy")
-			migrationPolicy = kubecli.NewMinimalMigrationPolicy(metav1.NamespaceDefault)
-			migrationPolicy.Namespace = metav1.NamespaceDefault
+			migrationPolicy = kubecli.NewMinimalMigrationPolicy("testpolicy", metav1.NamespaceDefault)
 		})
 
 		table.DescribeTable("should override cluster-wide migration configurations when", func(setMigrationPolicy func(*v1.MigrationPolicySpec), testMigrationConfigs func(*v1.MigrationConfiguration), expectConfigUpdate bool) {
@@ -3132,20 +3132,21 @@ var _ = Describe("VirtualMachineInstance", func() {
 			setMigrationPolicy(&migrationPolicy.Spec)
 
 			expectMigrationPolicy(migrationPolicy)
+			expectedConfigs := getDefaultMigrationConfiguration()
 
 			By("Calculating new migration config and validating it")
-			expectedConfigs, isConfigUpdated, err := migrationPolicy.GetMigrationConfByPolicy(getDefaultMigrationConfiguration())
+			isConfigUpdated, err := migrationPolicy.GetMigrationConfByPolicy(expectedConfigs)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isConfigUpdated).To(Equal(expectConfigUpdate))
 			testMigrationConfigs(expectedConfigs)
 
 			By("Expecting that controller will use expected configurations")
 			if expectConfigUpdate {
-				vmi.Status.MigrationState.ConfigurationSource = v1.NamespacedConfig
+				vmi.Status.MigrationState.MigrationConfigSource = v1.NamespacedConfig
 			} else {
-				vmi.Status.MigrationState.ConfigurationSource = v1.ClusterWideConfig
+				vmi.Status.MigrationState.MigrationConfigSource = v1.ClusterWideConfig
 			}
-			client.EXPECT().MigrateVirtualMachine(vmi, migrationConfigurationToMigrationOptions(expectedConfigs))
+			client.EXPECT().MigrateVirtualMachine(vmi, migrationConfigurationToMigrationOptions(expectedConfigs)).Times(1)
 
 			By("Running the controller")
 			controller.Execute()
@@ -3180,30 +3181,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				func(c *v1.MigrationConfiguration) {
 					Expect(c.CompletionTimeoutPerGiB).ToNot(BeNil())
 					Expect(*c.CompletionTimeoutPerGiB).To(Equal(stubNumber))
-				},
-				true,
-			),
-			table.Entry("set progress timeout",
-				func(p *v1.MigrationPolicySpec) { p.ProgressTimeout = &stubNumber },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.ProgressTimeout).ToNot(BeNil())
-					Expect(*c.ProgressTimeout).To(Equal(stubNumber))
-				},
-				true,
-			),
-			table.Entry("allow unsafe migration",
-				func(p *v1.MigrationPolicySpec) { p.UnsafeMigrationOverride = &_true },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.UnsafeMigrationOverride).ToNot(BeNil())
-					Expect(*c.UnsafeMigrationOverride).To(BeTrue())
-				},
-				true,
-			),
-			table.Entry("deny unsafe migration",
-				func(p *v1.MigrationPolicySpec) { p.UnsafeMigrationOverride = &_false },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.UnsafeMigrationOverride).ToNot(BeNil())
-					Expect(*c.UnsafeMigrationOverride).To(BeFalse())
 				},
 				true,
 			),
