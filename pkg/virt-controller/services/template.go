@@ -858,7 +858,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		if vcpus != 0 && cpuAllocationRatio > 0 {
 			val := float64(vcpus) / float64(cpuAllocationRatio)
 			vcpusStr := fmt.Sprintf("%g", val)
-			if val < 0 {
+			if val < 1 {
 				val *= 1000
 				vcpusStr = fmt.Sprintf("%gm", val)
 			}

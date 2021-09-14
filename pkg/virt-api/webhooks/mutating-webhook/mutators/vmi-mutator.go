@@ -330,16 +330,18 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 			log.Log.Object(vmi).V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
 		}
 	}
-
-	if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
-		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
-			return
+	if cpuRequest := mutator.ClusterConfig.GetCPURequest(); !cpuRequest.Equal(resource.MustParse(virtconfig.DefaultCPURequest)) {
+		if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
+			if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+				return
+			}
+			if resources.Requests == nil {
+				resources.Requests = k8sv1.ResourceList{}
+			}
+			resources.Requests[k8sv1.ResourceCPU] = *cpuRequest
 		}
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
-		resources.Requests[k8sv1.ResourceCPU] = *mutator.ClusterConfig.GetCPURequest()
 	}
+
 }
 
 func canBeNonRoot(vmi *v1.VirtualMachineInstance) error {
