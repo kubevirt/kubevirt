@@ -588,7 +588,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("[QUARANTINE][test_id:5261]should restore a vm that boots from a datavolume (not template)", func() {
+			It("[test_id:5261]should restore a vm that boots from a datavolume (not template)", func() {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
 					util.NamespaceTestDefault,
@@ -635,7 +635,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("[QUARANTINE][test_id:5262]should restore a vm that boots from a PVC", func() {
+			It("[test_id:5262]should restore a vm that boots from a PVC", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				pvc := &corev1.PersistentVolumeClaim{
@@ -688,7 +688,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("[QUARANTINE][test_id:5263]should restore a vm with containerdisk and blank datavolume", func() {
+			It("[test_id:5263]should restore a vm with containerdisk and blank datavolume", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
@@ -840,7 +840,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				deleteRestore(restore)
 			})
 
-			It("[QUARANTINE][test_id:6053]should restore a vm from an online snapshot", func() {
+			It("[test_id:6053]should restore a vm from an online snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
 					util.NamespaceTestDefault,
