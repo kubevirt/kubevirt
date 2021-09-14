@@ -43,7 +43,6 @@ const (
 	HyperConvergedName          = "kubevirt-hyperconverged"
 	MetricsHost                 = "0.0.0.0"
 	MetricsPort           int32 = 8383
-	OperatorMetricsPort   int32 = 8686
 	HealthProbeHost             = "0.0.0.0"
 	HealthProbePort       int32 = 6060
 	ReadinessEndpointName       = "/readyz"
