@@ -149,7 +149,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	}
 
 	Context("[rook-ceph] Upload an image and start a VMI with PVC", func() {
-		DescribeTable("[QUARANTINE][test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
+		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
 			sc, exists := tests.GetCephStorageClass()
 			if !exists {
 				Skip("Skip OCS tests when Ceph is not present")
