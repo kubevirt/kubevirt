@@ -744,13 +744,13 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 	})
 }
 
-func (app *virtAPIApp) registerMutatingWebhook() {
+func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 
 	http.HandleFunc(components.VMMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMs(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMIMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMIs(w, r, app.clusterConfig)
+		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers)
 	})
 	http.HandleFunc(components.MigrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
@@ -911,7 +911,7 @@ func (app *virtAPIApp) Run() {
 	webhooks.SetInformers(webhookInformers)
 
 	// Build webhook subresources
-	app.registerMutatingWebhook()
+	app.registerMutatingWebhook(webhookInformers)
 	app.registerValidatingWebhooks(webhookInformers)
 
 	// Wire up health check trigger
