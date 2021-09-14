@@ -70,6 +70,9 @@ type KubeInformerFactory interface {
 	// This function is thread safe and idempotent
 	Start(stopCh <-chan struct{})
 
+	// Waits for all informers to sync
+	WaitForCacheSync(stopCh <-chan struct{})
+
 	// Watches for vmi objects
 	VMI() cache.SharedIndexInformer
 
@@ -272,6 +275,19 @@ func (f *kubeInformerFactory) Start(stopCh <-chan struct{}) {
 		f.startedInformers[name] = true
 	}
 	f.k8sInformers.Start(stopCh)
+}
+
+func (f *kubeInformerFactory) WaitForCacheSync(stopCh <-chan struct{}) {
+	syncs := []cache.InformerSynced{}
+
+	f.lock.Lock()
+	for name, informer := range f.informers {
+		log.Log.Infof("Waiting for cache sync of informer %s", name)
+		syncs = append(syncs, informer.HasSynced)
+	}
+	f.lock.Unlock()
+
+	cache.WaitForCacheSync(stopCh, syncs...)
 }
 
 // internal function used to retrieve an already created informer

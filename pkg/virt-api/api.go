@@ -871,15 +871,27 @@ func (app *virtAPIApp) Run() {
 
 	// Run informers for webhooks usage
 	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
+
 	configMapInformer := kubeInformerFactory.ConfigMap()
+	// Wire up health check trigger
+	configMapInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		apiHealthVersion.Clear()
+		cache.DefaultWatchErrorHandler(r, err)
+	})
+
+	kubeInformerFactory.ApiAuthConfigMap()
+	kubeInformerFactory.KubeVirtCAConfigMap()
 	crdInformer := kubeInformerFactory.CRD()
-	authConfigMapInformer := kubeInformerFactory.ApiAuthConfigMap()
-	kubevirtCAConfigInformer := kubeInformerFactory.KubeVirtCAConfigMap()
 	kubeVirtInformer := kubeInformerFactory.KubeVirt()
 	vmiInformer := kubeInformerFactory.VMI()
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	namespaceLimitsInformer := kubeInformerFactory.LimitRanges()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
+
+	stopChan := make(chan struct{}, 1)
+	defer close(stopChan)
+	kubeInformerFactory.Start(stopChan)
+	kubeInformerFactory.WaitForCacheSync(stopChan)
 
 	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, app.namespace)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
@@ -888,7 +900,6 @@ func (app *virtAPIApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 
 	var dataSourceInformer cache.SharedIndexInformer
-
 	if app.hasCDI {
 		dataSourceInformer = kubeInformerFactory.DataSource()
 		log.Log.Infof("CDI detected, DataSource integration enabled")
@@ -899,6 +910,12 @@ func (app *virtAPIApp) Run() {
 		dataSourceInformer = kubeInformerFactory.DummyDataSource()
 		log.Log.Infof("CDI not detected, DataSource integration disabled")
 	}
+
+	// It is safe to call kubeInformerFactory.Start multiple times.
+	// The function is idempotent and will only start the informers that
+	// have not been started yet
+	kubeInformerFactory.Start(stopChan)
+	kubeInformerFactory.WaitForCacheSync(stopChan)
 
 	webhookInformers := &webhooks.Informers{
 		VMIInformer:             vmiInformer,
@@ -911,36 +928,6 @@ func (app *virtAPIApp) Run() {
 	// Build webhook subresources
 	app.registerMutatingWebhook(webhookInformers)
 	app.registerValidatingWebhooks(webhookInformers)
-
-	// Wire up health check trigger
-	configMapInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
-	})
-
-	stopChan := make(chan struct{}, 1)
-	defer close(stopChan)
-	go vmiInformer.Run(stopChan)
-	go vmiPresetInformer.Run(stopChan)
-	go namespaceLimitsInformer.Run(stopChan)
-	go vmRestoreInformer.Run(stopChan)
-	go dataSourceInformer.Run(stopChan)
-	go kubeVirtInformer.Run(stopChan)
-	go configMapInformer.Run(stopChan)
-	go crdInformer.Run(stopChan)
-	go authConfigMapInformer.Run(stopChan)
-	go kubevirtCAConfigInformer.Run(stopChan)
-	cache.WaitForCacheSync(stopChan,
-		crdInformer.HasSynced,
-		authConfigMapInformer.HasSynced,
-		kubevirtCAConfigInformer.HasSynced,
-		kubeVirtInformer.HasSynced,
-		vmiInformer.HasSynced,
-		vmiPresetInformer.HasSynced,
-		namespaceLimitsInformer.HasSynced,
-		vmRestoreInformer.HasSynced,
-		dataSourceInformer.HasSynced,
-		configMapInformer.HasSynced)
 
 	go app.certmanager.Start()
 	go app.handlerCertManager.Start()
