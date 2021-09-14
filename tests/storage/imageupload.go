@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 )
@@ -222,6 +223,58 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		},
 			Entry("DataVolume", "dv", "alpine-dv-"+rand.String(12), validateDataVolumeForceBind, deleteDataVolume),
 			Entry("PVC", "pvc", "alpine-pvc-"+rand.String(12), validatePVCForceBind, deletePVC),
+		)
+	})
+
+	Context("Create upload archive volume", func() {
+		var archivePath string
+
+		BeforeEach(func() {
+			archivePath = tests.ArchiveFiles("archive", os.TempDir(), imagePath)
+		})
+
+		AfterEach(func() {
+			err := os.Remove(archivePath)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		validateArchiveUpload := func(targetName string, uploadDV bool) {
+			if uploadDV {
+				By("Get DataVolume")
+				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(dv.Spec.ContentType).To(Equal(cdiv1.DataVolumeArchive))
+			} else {
+				By("Validate no DataVolume")
+				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			}
+
+			By("Get PVC")
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			contentType, found := pvc.Annotations["cdi.kubevirt.io/storage.contentType"]
+			Expect(found).To(BeTrue())
+			Expect(contentType).To(Equal(string(cdiv1.DataVolumeArchive)))
+		}
+
+		DescribeTable("Should succeed", func(resource, targetName string, uploadDV bool, deleteFunc func(string)) {
+			defer deleteFunc(targetName)
+
+			By("Upload archive content")
+			virtctlCmd := tests.NewRepeatableVirtctlCommand("image-upload",
+				resource, targetName,
+				"--namespace", util.NamespaceTestDefault,
+				"--archive-path", archivePath,
+				"--size", pvcSize,
+				"--insecure")
+
+			Expect(virtctlCmd()).To(Succeed())
+			validateArchiveUpload(targetName, uploadDV)
+		},
+			Entry("DataVolume", "dv", "alpine-archive-dv-"+rand.String(12), true, deleteDataVolume),
+			Entry("PVC", "pvc", "alpine-archive-pvc-"+rand.String(12), false, deletePVC),
 		)
 	})
 
