@@ -33,9 +33,9 @@ function dump_kubevirt() {
 }
 
 function _deploy_infra_for_tests() {
-    # Remove cdi manifests for sriov-lane until kubevirt/kubevirt#4120 is fixed
-    if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
-        rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-* ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml
+    if [[ $KUBEVIRT_DEPLOY_CDI != true ]]; then
+        rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-* ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml \
+            ${MANIFESTS_OUT_DIR}/testing/local-block-storage.yaml ${MANIFESTS_OUT_DIR}/testing/disks-images-provider.yaml
     fi
 
     # Deploy infra for testing first
@@ -43,10 +43,7 @@ function _deploy_infra_for_tests() {
 }
 
 function _ensure_cdi_deployment() {
-    # Do not deploy any cdi-operator related objects on
-    # sriov-lane until kubevirt/kubevirt#4120 is fixed
-    if [[ ! "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
-        _kubectl apply -f - <<EOF
+    _kubectl apply -f - <<EOF
 ---
 apiVersion: cdi.kubevirt.io/v1beta1
 kind: CDI
@@ -58,20 +55,19 @@ spec:
     - HonorWaitForFirstConsumer
 EOF
 
-        # Ensure that cdi insecure registries are set
-        count=0
-        until _kubectl get configmap -n ${cdi_namespace} cdi-insecure-registries; do
-            ((count++)) && ((count == 120)) && echo "cdi-insecure-registries config-map not found" && exit 1
-            echo "waiting for cdi-insecure-registries configmap to be created"
-            sleep 1
-        done
-        _kubectl patch configmap cdi-insecure-registries -n $cdi_namespace --type merge -p '{"data":{"dev-registry": "registry:5000"}}'
+    # Ensure that cdi insecure registries are set
+    count=0
+    until _kubectl get configmap -n ${cdi_namespace} cdi-insecure-registries; do
+        ((count++)) && ((count == 120)) && echo "cdi-insecure-registries config-map not found" && exit 1
+        echo "waiting for cdi-insecure-registries configmap to be created"
+        sleep 1
+    done
+    _kubectl patch configmap cdi-insecure-registries -n $cdi_namespace --type merge -p '{"data":{"dev-registry": "registry:5000"}}'
 
-        # Configure uploadproxy override for virtctl imageupload
-        host_port=$(${KUBEVIRT_PATH}cluster-up/cli.sh ports uploadproxy | xargs)
-        override="https://127.0.0.1:$host_port"
-        _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
-    fi
+    # Configure uploadproxy override for virtctl imageupload
+    host_port=$(${KUBEVIRT_PATH}cluster-up/cli.sh ports uploadproxy | xargs)
+    override="https://127.0.0.1:$host_port"
+    _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
 }
 
 trap dump_kubevirt EXIT
@@ -102,10 +98,15 @@ if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
     done
 fi
 
+if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
+    # Don't install CDI and loopback devices it's crashing with dind because loopback devices are shared with the host
+    export KUBEVIRT_DEPLOY_CDI=false
+fi
+
 _deploy_infra_for_tests
 
-# TODO: Remove it when cdi is supported on ARM
-if [[ ${ARCHITECTURE} != *aarch64 ]]; then
+# TODO: Remove the 2nd condition when CDI is supported on ARM
+if [[ $KUBEVIRT_DEPLOY_CDI == true ]] && [[ ${ARCHITECTURE} != *aarch64 ]]; then
     _ensure_cdi_deployment
 fi
 
@@ -115,11 +116,6 @@ _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ (okd|ocp)-* ]]; then
     # Helpful for development. Allows admin to access everything KubeVirt creates in the web console
     _kubectl adm policy add-scc-to-user privileged admin
-fi
-
-if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
-    #removing it since it's crashing with dind because loopback devices are shared with the host
-    _kubectl delete -n kubevirt ds disks-images-provider
 fi
 
 # Ensure the KubeVirt CRD is created

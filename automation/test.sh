@@ -40,15 +40,18 @@ if [ -z $TARGET ]; then
   exit 1
 fi
 
+export KUBEVIRT_DEPLOY_CDI=true
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
 elif [[ $TARGET =~ cnao ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_PROVIDER=${TARGET/-cnao/}
+  export KUBEVIRT_DEPLOY_CDI=false
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
   export KUBEVIRT_DEPLOY_ISTIO=true
+  export KUBEVIRT_DEPLOY_CDI=false
   if [[ $TARGET =~ k8s-1\.1.* ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
   fi
@@ -70,6 +73,7 @@ fi
 
 if [[ $TARGET =~ sriov.* ]]; then
   export KUBEVIRT_NUM_NODES=3
+  export KUBEVIRT_DEPLOY_CDI=false
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
