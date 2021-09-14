@@ -10,3 +10,9 @@ which can be found on the github release page.
 Then, before calling one of the make targets, the environment variable
 `KUBEVIRTCI_TAG` must be exported and set to the tag which was used to vendor
 kubevirtci. It allow the content to find the right `gocli` version.
+
+```
+export KUBEVIRTCI_TAG=`curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest`
+```
+
+Find more kubevirtci tags at https://quay.io/repository/kubevirtci/gocli?tab=tags.
