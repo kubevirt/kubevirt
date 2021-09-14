@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/libnet"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -48,10 +50,8 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var currentConfiguration v1.KubeVirtConfiguration
-
-	var genericVmi *v1.VirtualMachineInstance
-	var deadbeafVmi *v1.VirtualMachineInstance
 	var container k8sv1.Container
+
 	setSlirpEnabled := func(enable bool) {
 		if currentConfiguration.NetworkConfiguration == nil {
 			currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
@@ -72,101 +72,118 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 		currentConfiguration = kv.Spec.Configuration
 	}
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
+		tests.BeforeTestCleanup()
+
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
 		kv := util.GetCurrentKv(virtClient)
 		currentConfiguration = kv.Spec.Configuration
+	})
 
-		setSlirpEnabled(true)
-		ports := []v1.Port{{Name: "http", Port: 80}}
-		genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
-		deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
-		deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+	Context("slirp is not the default interface", func() {
+		var (
+			genericVmi  *v1.VirtualMachineInstance
+			deadbeafVmi *v1.VirtualMachineInstance
+			ports       []v1.Port
+		)
 
-		for _, vmi := range []*v1.VirtualMachineInstance{genericVmi, deadbeafVmi} {
+		BeforeEach(func() {
+			setSlirpEnabled(true)
+			ports = []v1.Port{{Name: "http", Port: 80}}
+
+			genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+			deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+			deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+		})
+
+		AfterEach(func() {
+			setSlirpEnabled(false)
+		})
+
+		table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
+			vmi := *vmiRef
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 			tests.GenerateHelloWorldServer(vmi, 80, "tcp")
-		}
-	})
-	AfterEach(func() {
-		setSlirpEnabled(false)
-	})
 
-	table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
-		By("have containerPort in the pod manifest")
-		vmi := *vmiRef
-		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-		for _, containerSpec := range vmiPod.Spec.Containers {
-			if containerSpec.Name == "compute" {
-				container = containerSpec
-				break
+			By("have containerPort in the pod manifest")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			for _, containerSpec := range vmiPod.Spec.Containers {
+				if containerSpec.Name == "compute" {
+					container = containerSpec
+					break
+				}
 			}
-		}
-		Expect(container.Name).ToNot(Equal(""))
-		Expect(container.Ports).ToNot(Equal(nil))
-		Expect(container.Ports[0].Name).To(Equal("http"))
-		Expect(container.Ports[0].Protocol).To(Equal(k8sv1.Protocol("TCP")))
-		Expect(container.Ports[0].ContainerPort).To(Equal(int32(80)))
+			Expect(container.Name).ToNot(Equal(""))
+			Expect(container.Ports).ToNot(Equal(nil))
+			Expect(container.Ports[0].Name).To(Equal("http"))
+			Expect(container.Ports[0].Protocol).To(Equal(k8sv1.Protocol("TCP")))
+			Expect(container.Ports[0].ContainerPort).To(Equal(int32(80)))
 
-		By("start the virtual machine with slirp interface")
-		output, err := tests.ExecuteCommandOnPod(
-			virtClient,
-			vmiPod,
-			vmiPod.Spec.Containers[0].Name,
-			[]string{"cat", "/proc/net/tcp"},
+			By("start the virtual machine with slirp interface")
+			output, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"cat", "/proc/net/tcp"},
+			)
+			log.Log.Infof("%v", output)
+			Expect(err).ToNot(HaveOccurred())
+			// :0050 is port 80, 0A is listening
+			Expect(strings.Contains(output, "0: 00000000:0050 00000000:0000 0A")).To(BeTrue())
+			By("return \"Hello World!\" when connecting to localhost on port 80")
+			output, err = tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"nc", "127.0.0.1", "80", "--recv-only"},
+			)
+			log.Log.Infof("%v", output)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strings.Contains(output, "Hello World!")).To(BeTrue())
+
+			By("reject connecting to localhost and port different than 80")
+			output, err = tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[1].Name,
+				[]string{"curl", "127.0.0.1:9080"},
+			)
+			log.Log.Infof("%v", output)
+			Expect(err).To(HaveOccurred())
+		},
+			table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
+			table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
 		)
-		log.Log.Infof("%v", output)
-		Expect(err).ToNot(HaveOccurred())
-		// :0050 is port 80, 0A is listening
-		Expect(strings.Contains(output, "0: 00000000:0050 00000000:0000 0A")).To(BeTrue())
-		By("return \"Hello World!\" when connecting to localhost on port 80")
-		output, err = tests.ExecuteCommandOnPod(
-			virtClient,
-			vmiPod,
-			vmiPod.Spec.Containers[0].Name,
-			[]string{"nc", "127.0.0.1", "80", "--recv-only"},
+
+		table.DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
+			vmi := *vmiRef
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+			tests.GenerateHelloWorldServer(vmi, 80, "tcp")
+
+			dns := "google.com"
+			if flags.ConnectivityCheckDNS != "" {
+				dns = flags.ConnectivityCheckDNS
+			}
+
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://%s\n", dns)},
+				&expect.BExp{R: "301"},
+			}, 180)).To(Succeed())
+		},
+			table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
+			table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
 		)
-		log.Log.Infof("%v", output)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(strings.Contains(output, "Hello World!")).To(BeTrue())
+	})
 
-		By("reject connecting to localhost and port different than 80")
-		output, err = tests.ExecuteCommandOnPod(
-			virtClient,
-			vmiPod,
-			vmiPod.Spec.Containers[1].Name,
-			[]string{"curl", "127.0.0.1:9080"},
-		)
-		log.Log.Infof("%v", output)
-		Expect(err).To(HaveOccurred())
-	},
-		table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
-		table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
-	)
-
-	table.DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
-		vmi := *vmiRef
-		dns := "google.com"
-		if flags.ConnectivityCheckDNS != "" {
-			dns = flags.ConnectivityCheckDNS
-		}
-
-		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://%s\n", dns)},
-			&expect.BExp{R: "301"},
-		}, 180)).To(Succeed())
-	},
-		table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
-		table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
-	)
-
-	Context("vmi with default slirp interface", func() {
+	Context("slirp is the default interface", func() {
 		BeforeEach(func() {
 			setSlirpEnabled(false)
 			setDefaultNetworkInterface("slirp")
