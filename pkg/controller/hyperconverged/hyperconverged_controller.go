@@ -356,6 +356,8 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 		return r.ensureHcoDeleted(req)
 	}
 
+	applyDataImportSchedule(req)
+
 	// If the current version is not updated in CR ,then we're updating. This is also works when updating from
 	// an old version, since Status.Versions will be empty.
 	knownHcoVersion, _ := req.Instance.Status.GetVersion(hcoVersionName)

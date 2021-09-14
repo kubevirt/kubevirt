@@ -12,6 +12,7 @@ spec:
       duration: 24h0m0s
       renewBefore: 12h0m0s
   featureGates:
+    commonDataImportCronEnabled: false
     sriovLiveMigration: true
     withHostPassthroughCPU: false
   infra: {}

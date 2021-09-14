@@ -99,7 +99,7 @@ func main() {
 	cli, err := docker.NewEnvClient()
 	exitOnError(err, "can't create docker client")
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
 	// Single image use-case

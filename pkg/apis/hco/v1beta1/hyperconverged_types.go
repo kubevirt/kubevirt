@@ -3,7 +3,9 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -37,7 +39,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"withHostPassthroughCPU": false, "sriovLiveMigration": true}
+	// +kubebuilder:default={"withHostPassthroughCPU": false, "sriovLiveMigration": true, "commonDataImportCronEnabled": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -89,6 +91,11 @@ type HyperConvergedSpec struct {
 	// +kubebuilder:default={"workloadUpdateMethods": {"LiveMigrate", "Evict"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m0s"}
 	// +optional
 	WorkloadUpdateStrategy *HyperConvergedWorkloadUpdateStrategy `json:"workloadUpdateStrategy,omitempty"`
+
+	// DataImportCronTemplates holds list of data import cron templates (golden images)
+	// +optional
+	// +listType=atomic
+	DataImportCronTemplates []sspv1beta1.DataImportCronTemplate `json:"dataImportCronTemplates,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.
@@ -196,6 +203,14 @@ type HyperConvergedFeatureGates struct {
 	// +optional
 	// +kubebuilder:default=true
 	SRIOVLiveMigration bool `json:"sriovLiveMigration"`
+
+	// Opt-in to automatic delivery/updates of the common data import cron templates.
+	// There are two sources for the data import cron templates: hard coded list of common templates, and custom
+	// templates that can be added to the dataImportCronTemplates field. This feature gates only control the common
+	// templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.
+	// +optional
+	// +kubebuilder:default=false
+	CommonDataImportCronEnabled bool `json:"commonDataImportCronEnabled"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough
@@ -262,6 +277,7 @@ type HyperConvergedObsoleteCPUs struct {
 	// eliminates those CPU models and creates labels for valid CPU models.
 	// The default values for this field is nil, however, HCO uses opinionated values, and adding values to this list
 	// will add them to the opinionated values.
+	// +listType=set
 	// +optional
 	CPUModels []string `json:"cpuModels,omitempty"`
 }
@@ -271,6 +287,7 @@ type HyperConvergedObsoleteCPUs struct {
 type StorageImportConfig struct {
 	// InsecureRegistries is a list of image registries URLs that are not secured. Setting an insecure registry URL
 	// in this list allows pulling images from this registry.
+	// +listType=set
 	// +optional
 	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
 }
@@ -332,6 +349,11 @@ type HyperConvergedStatus struct {
 	// resource generation in metadata, the status is out of date
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// DataImportSchedule is the cron expression that is used in for the hard-coded data import cron templates. HCO
+	// generates the value of this field once and stored in the status field, so will survive restart.
+	// +optional
+	DataImportSchedule string `json:"dataImportSchedule,omitempty"`
 }
 
 func (hcs *HyperConvergedStatus) UpdateVersion(name, version string) {
@@ -415,7 +437,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true}, "liveMigrationConfig": {"bandwidthPerMigration": "64Mi", "completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "commonDataImportCronEnabled": false}, "liveMigrationConfig": {"bandwidthPerMigration": "64Mi", "completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

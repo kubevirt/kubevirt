@@ -146,6 +146,15 @@ This may degrade virt-launcher security.
 
 **Default**: `true`
 
+### commonDataImportCronEnabled Feature Gate
+Set the `commonDataImportCronEnabled` feature gate to `true` in order to enable the common golden images in the cluster.
+For additional information, see here: https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md 
+
+**Note**: Custom golden images are enabled by adding them the [dataImportCronTemplates field](#configure-custom-golden-images),
+even if this feature gate is `false`.
+
+**Default**: `false`
+
 ### Feature Gates Example
 ```yaml
 apiVersion: hco.kubevirt.io/v1beta1
@@ -158,6 +167,7 @@ spec:
   featureGates:
     withHostPassthroughCPU: true
     sriovLiveMigration: true
+    commonDataImportCronEnabled: false
 ```
 
 ## Live Migration Configurations
@@ -465,6 +475,40 @@ spec:
       ...
 ```
 
+## Configure custom golden images
+Golden images are root disk images for commonly used operating systems. HCO provides several hard coded images, but it 
+is also possible to add custom golden images. For more details, see [the golden image documentation](https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md).
+
+To add a custom image, add a `DataImportCronTemplate` object to the `dataImportCronTemplates` under the `HyperConverged`'s
+`spec` field.
+
+**Note**: the commonDataImportCronEnabled feature does not block the custom golden images, but only the common ones. 
+
+### Custom Golden Images example
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  dataImportCronTemplates:
+  - metadata:
+      name: custom-image1
+    spec:
+      schedule: "0 */12 * * *"
+      source:
+        registry:
+          url: docker://myprivateregistry/custom1
+      managedDataSource: custom1
+  - metadata:
+      name: custom-image2
+    spec:
+      schedule: "1 */12 * * *"
+      source:
+        registry:
+          url: docker://myprivateregistry/custom2
+      managedDataSource: custom2
+```
 
 ## Configurations via Annotations
 

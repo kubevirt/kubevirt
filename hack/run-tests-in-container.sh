@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -exuo pipefail
 
 INSTALLED_NAMESPACE=${INSTALLED_NAMESPACE:-"kubevirt-hyperconverged"}
 
@@ -56,7 +56,7 @@ $KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" run functest \
  --restart=Never -- --config-file hack/testFiles/test_config.yaml
 
 phase="Running"
-for i in $(seq 1 60); do
+for i in $(seq 1 90); do
   phase=$($KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" get pod/functest -o jsonpath='{.status.phase}')
 
   if [[ "${phase}" == "Succeeded" || "${phase}" == "Failed" ]]; then

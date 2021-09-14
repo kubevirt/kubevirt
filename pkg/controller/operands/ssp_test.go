@@ -3,24 +3,32 @@ package operands
 import (
 	"context"
 	"fmt"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+	"os"
+	"path"
+	"time"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
 
 var _ = Describe("SSP Operands", func() {
 
+	var (
+		testFilesLocation = getTestFilesLocation() + "/dataImportCronTemplates"
+	)
 	Context("SSP", func() {
 		var hco *hcov1beta1.HyperConverged
 		var req *common.HcoRequest
@@ -325,6 +333,291 @@ var _ = Describe("SSP Operands", func() {
 				Expect(crI == crII).To(BeFalse())
 				Expect(handler.hooks.(*sspHooks).cache == crI).To(BeFalse())
 				Expect(handler.hooks.(*sspHooks).cache == crII).To(BeTrue())
+			})
+		})
+
+		Context("Test data import cron template", func() {
+			dir := path.Join(os.TempDir(), fmt.Sprint(time.Now().UTC().Unix()))
+			origFunc := getDataImportCronTemplatesFileLocation
+
+			image1 := sspv1beta1.DataImportCronTemplate{
+				ObjectMeta: metav1.ObjectMeta{Name: "image1"},
+				Spec: cdiv1beta1.DataImportCronSpec{
+					Schedule: "1 */12 * * *",
+					Source: cdiv1beta1.DataImportCronSource{
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: "docker://someregistry/image1"},
+					},
+					ManagedDataSource: "image1",
+				},
+			}
+
+			image2 := sspv1beta1.DataImportCronTemplate{
+				ObjectMeta: metav1.ObjectMeta{Name: "image2"},
+				Spec: cdiv1beta1.DataImportCronSpec{
+					Schedule: "2 */12 * * *",
+					Source: cdiv1beta1.DataImportCronSource{
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: "docker://someregistry/image2"},
+					},
+					ManagedDataSource: "image2",
+				},
+			}
+
+			image3 := sspv1beta1.DataImportCronTemplate{
+				ObjectMeta: metav1.ObjectMeta{Name: "image3"},
+				Spec: cdiv1beta1.DataImportCronSpec{
+					Schedule: "3 */12 * * *",
+					Source: cdiv1beta1.DataImportCronSource{
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: "docker://someotherregistry/image3"},
+					},
+					ManagedDataSource: "image3",
+				},
+			}
+
+			image4 := sspv1beta1.DataImportCronTemplate{
+				ObjectMeta: metav1.ObjectMeta{Name: "image4"},
+				Spec: cdiv1beta1.DataImportCronSpec{
+					Schedule: "4 */12 * * *",
+					Source: cdiv1beta1.DataImportCronSource{
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: "docker://someotherregistry/image4"},
+					},
+					ManagedDataSource: "image4",
+				},
+			}
+
+			BeforeEach(func() {
+				getDataImportCronTemplatesFileLocation = func() string {
+					return dir
+				}
+			})
+
+			AfterEach(func() {
+				getDataImportCronTemplatesFileLocation = origFunc
+			})
+
+			It("should read the dataImportCronTemplates file", func() {
+
+				By("directory does not exist - no error")
+				Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+				Expect(dataImportCronTemplateHardCodedList).To(BeEmpty())
+
+				By("file does not exist - no error")
+				err := os.Mkdir(dir, os.ModePerm)
+				Expect(err).ToNot(HaveOccurred())
+				defer func() { _ = os.RemoveAll(dir) }()
+
+				Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+				Expect(dataImportCronTemplateHardCodedList).To(BeEmpty())
+
+				destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+				By("valid file exits")
+				err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
+				Expect(err).ToNot(HaveOccurred())
+				defer os.Remove(destFile)
+				Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+				Expect(dataImportCronTemplateHardCodedList).ToNot(BeNil())
+				Expect(dataImportCronTemplateHardCodedList).To(HaveLen(2))
+
+				By("the file is wrong")
+				err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "wrongDataImportCronTemplates.yaml"))
+				Expect(err).ToNot(HaveOccurred())
+				defer os.Remove(destFile)
+				Expect(readDataImportCronTemplatesFromFile()).To(HaveOccurred())
+				Expect(dataImportCronTemplateHardCodedList).To(BeEmpty())
+			})
+
+			Context("test getDataImportCronTemplates", func() {
+				origList := dataImportCronTemplateHardCodedList
+				defer func() { dataImportCronTemplateHardCodedList = origList }()
+
+				It("should not return the hard coded list dataImportCron FeatureGate is false", func() {
+					hco := commonTestUtils.NewHco()
+					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					list := getDataImportCronTemplates(hco)
+					Expect(list).To(HaveLen(2))
+					Expect(list).To(ContainElements(image3, image4))
+
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{}
+					list = getDataImportCronTemplates(hco)
+					Expect(list).To(BeNil())
+				})
+
+				It("should return an empty list if both the hard-coded list and the list from HC are empty", func() {
+					hcoWithEmptyList := commonTestUtils.NewHco()
+					hcoWithEmptyList.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hcoWithEmptyList.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{}
+					hcoWithNilList := commonTestUtils.NewHco()
+					hcoWithNilList.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hcoWithNilList.Spec.DataImportCronTemplates = nil
+
+					dataImportCronTemplateHardCodedList = nil
+					Expect(getDataImportCronTemplates(hcoWithNilList)).To(BeNil())
+					Expect(getDataImportCronTemplates(hcoWithEmptyList)).To(BeNil())
+					dataImportCronTemplateHardCodedList = make([]sspv1beta1.DataImportCronTemplate, 0)
+					Expect(getDataImportCronTemplates(hcoWithNilList)).To(BeNil())
+					Expect(getDataImportCronTemplates(hcoWithEmptyList)).To(BeNil())
+				})
+
+				It("Should add the CR list to the hard-coded list", func() {
+					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					goldenImageList := getDataImportCronTemplates(hco)
+					Expect(goldenImageList).To(HaveLen(4))
+					Expect(goldenImageList).To(HaveCap(4))
+					Expect(goldenImageList).To(ContainElements(image1, image2, image3, image4))
+				})
+
+				It("Should not add the CR list to the hard-coded list, if it's empty", func() {
+					By("CR list is nil")
+					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.DataImportCronTemplates = nil
+					goldenImageList := getDataImportCronTemplates(hco)
+					Expect(goldenImageList).To(HaveLen(2))
+					Expect(goldenImageList).To(HaveCap(2))
+					Expect(goldenImageList).To(ContainElements(image1, image2))
+
+					By("CR list is empty")
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{}
+					goldenImageList = getDataImportCronTemplates(hco)
+					Expect(goldenImageList).To(HaveLen(2))
+					Expect(goldenImageList).To(ContainElements(image1, image2))
+				})
+
+				It("Should return only the CR list, if the hard-coded list is empty", func() {
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+
+					By("when dataImportCronTemplateHardCodedList is nil")
+					dataImportCronTemplateHardCodedList = nil
+					goldenImageList := getDataImportCronTemplates(hco)
+					Expect(goldenImageList).To(HaveLen(2))
+					Expect(goldenImageList).To(HaveCap(2))
+					Expect(goldenImageList).To(ContainElements(image3, image4))
+
+					By("when dataImportCronTemplateHardCodedList is empty")
+					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{}
+					goldenImageList = getDataImportCronTemplates(hco)
+					Expect(goldenImageList).To(HaveLen(2))
+					Expect(goldenImageList).To(HaveCap(2))
+					Expect(goldenImageList).To(ContainElements(image3, image4))
+				})
+			})
+
+			Context("test data import cron templates in NewSsp", func() {
+
+				It("should return an empty list if there is no file and no list in the HyperConverged CR", func() {
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					ssp := NewSSP(hco)
+
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(BeNil())
+				})
+
+				It("should return an the hard coded list if there is a file, but no list in the HyperConverged CR", func() {
+					err := os.Mkdir(dir, os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					defer func() { _ = os.RemoveAll(dir) }()
+					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
+					Expect(err).ToNot(HaveOccurred())
+					defer os.Remove(destFile)
+					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					ssp := NewSSP(hco)
+
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+				})
+
+				It("should return a combined list if there is a file and a list in the HyperConverged CR", func() {
+					err := os.Mkdir(dir, os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					defer func() { _ = os.RemoveAll(dir) }()
+					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
+					Expect(err).ToNot(HaveOccurred())
+					defer os.Remove(destFile)
+					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					ssp := NewSSP(hco)
+
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(image3, image4))
+				})
+
+				It("should return a only the list from the HyperConverged CR, if the file is missing", func() {
+					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(dataImportCronTemplateHardCodedList).Should(BeEmpty())
+
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					ssp := NewSSP(hco)
+
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(image3, image4))
+				})
+
+				It("should not return the common templates, if feature gate is false", func() {
+					err := os.Mkdir(dir, os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					defer func() { _ = os.RemoveAll(dir) }()
+					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
+					Expect(err).ToNot(HaveOccurred())
+					defer os.Remove(destFile)
+					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.CommonDataImportCronEnabled = false
+					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
+					ssp := NewSSP(hco)
+
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(image3, image4))
+				})
+
+			})
+
+			Context("test applyDataImportSchedule", func() {
+				It("should not set the schedule filed if missing from the status", func() {
+					hco := commonTestUtils.NewHco()
+					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
+
+					applyDataImportSchedule(hco)
+
+					Expect(dataImportCronTemplateHardCodedList[0].Spec.Schedule).Should(Equal("1 */12 * * *"))
+					Expect(dataImportCronTemplateHardCodedList[1].Spec.Schedule).Should(Equal("2 */12 * * *"))
+				})
+
+				It("should set the variable and the images, if the schedule is in the status field", func() {
+					const schedule = "42 */1 * * *"
+					hco := commonTestUtils.NewHco()
+					hco.Status.DataImportSchedule = schedule
+
+					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
+
+					applyDataImportSchedule(hco)
+					for _, image := range dataImportCronTemplateHardCodedList {
+						Expect(image.Spec.Schedule).Should(Equal(schedule))
+					}
+				})
 			})
 		})
 	})

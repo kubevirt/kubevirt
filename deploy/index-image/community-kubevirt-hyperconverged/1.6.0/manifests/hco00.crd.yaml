@@ -52,6 +52,7 @@ spec:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
               featureGates:
+                commonDataImportCronEnabled: false
                 sriovLiveMigration: true
                 withHostPassthroughCPU: false
               liveMigrationConfig:
@@ -119,14 +120,88 @@ spec:
                 description: CommonTemplatesNamespace defines namespace in which common
                   templates will be deployed. It overrides the default openshift namespace.
                 type: string
+              dataImportCronTemplates:
+                description: DataImportCronTemplates holds list of data import cron
+                  templates (golden images)
+                items:
+                  description: DataImportCronTemplate defines the template type for
+                    DataImportCrons. It requires metadata.name to be specified while
+                    leaving namespace as optional.
+                  properties:
+                    metadata:
+                      type: object
+                    spec:
+                      description: DataImportCronSpec defines specification for DataImportCron
+                      properties:
+                        garbageCollect:
+                          description: GarbageCollect specifies whether old PVCs should
+                            be cleaned up after a new PVC is imported. Options are
+                            currently "Never" and "Outdated", defaults to "Never".
+                          type: string
+                        managedDataSource:
+                          description: ManagedDataSource specifies the name of the
+                            corresponding DataSource this cron will manage. DataSource
+                            has to be in the same namespace.
+                          type: string
+                        schedule:
+                          description: Schedule specifies in cron format when and
+                            how often to look for new imports
+                          type: string
+                        source:
+                          description: Source specifies where to poll disk images
+                            from
+                          properties:
+                            registry:
+                              description: DataVolumeSourceRegistry provides the parameters
+                                to create a Data Volume from an registry source
+                              properties:
+                                certConfigMap:
+                                  description: CertConfigMap provides a reference
+                                    to the Registry certs
+                                  type: string
+                                secretRef:
+                                  description: SecretRef provides the secret reference
+                                    needed to access the Registry source
+                                  type: string
+                                url:
+                                  description: URL is the url of the Docker registry
+                                    source
+                                  type: string
+                              required:
+                              - url
+                              type: object
+                          required:
+                          - registry
+                          type: object
+                      required:
+                      - managedDataSource
+                      - schedule
+                      - source
+                      type: object
+                  required:
+                  - spec
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
               featureGates:
                 default:
+                  commonDataImportCronEnabled: false
                   sriovLiveMigration: true
                   withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
                 properties:
+                  commonDataImportCronEnabled:
+                    default: false
+                    description: 'Opt-in to automatic delivery/updates of the common
+                      data import cron templates. There are two sources for the data
+                      import cron templates: hard coded list of common templates,
+                      and custom templates that can be added to the dataImportCronTemplates
+                      field. This feature gates only control the common templates.
+                      It is possible to use custom templates by adding them to the
+                      dataImportCronTemplates field.'
+                    type: boolean
                   sriovLiveMigration:
                     default: true
                     description: Allow migrating a virtual machine with SRIOV interfaces.
@@ -1167,6 +1242,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   minCPUModel:
                     description: MinCPUModel is the Minimum CPU model that is used
                       for basic CPU features; e.g. Penryn or Haswell. The default
@@ -1291,6 +1367,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                 type: object
               vddkInitImage:
                 description: VDDK Init Image eventually used to import VMs from external
@@ -2378,6 +2455,12 @@ spec:
                   - type
                   type: object
                 type: array
+              dataImportSchedule:
+                description: DataImportSchedule is the cron expression that is used
+                  in for the hard-coded data import cron templates. HCO generates
+                  the value of this field once and stored in the status field, so
+                  will survive restart.
+                type: string
               observedGeneration:
                 description: ObservedGeneration reflects the HyperConverged resource
                   generation. If the ObservedGeneration is less than the resource
