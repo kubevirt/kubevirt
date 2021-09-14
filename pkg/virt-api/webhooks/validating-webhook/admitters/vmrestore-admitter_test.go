@@ -574,7 +574,6 @@ func createTestVMRestoreAdmitter(
 	virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 
 	restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
-	webhooks.GetInformers().VMRestoreInformer = restoreInformer
 	for _, obj := range objs {
 		r, ok := obj.(*snapshotv1.VirtualMachineRestore)
 		if ok {
@@ -588,5 +587,5 @@ func createTestVMRestoreAdmitter(
 	} else {
 		vmInterface.EXPECT().Get(vm.Name, gomock.Any()).Return(vm, nil)
 	}
-	return &VMRestoreAdmitter{Config: config, Client: virtClient}
+	return &VMRestoreAdmitter{Config: config, Client: virtClient, VMRestoreInformer: restoreInformer}
 }

@@ -36,21 +36,22 @@ import (
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 // VMRestoreAdmitter validates VirtualMachineRestores
 type VMRestoreAdmitter struct {
-	Config *virtconfig.ClusterConfig
-	Client kubecli.KubevirtClient
+	Config            *virtconfig.ClusterConfig
+	Client            kubecli.KubevirtClient
+	VMRestoreInformer cache.SharedIndexInformer
 }
 
 // NewVMRestoreAdmitter creates a VMRestoreAdmitter
-func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMRestoreAdmitter {
+func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
 	return &VMRestoreAdmitter{
-		Config: config,
-		Client: client,
+		Config:            config,
+		Client:            client,
+		VMRestoreInformer: vmRestoreInformer,
 	}
 }
 
@@ -126,8 +127,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		informers := webhooks.GetInformers()
-		objects, err := informers.VMRestoreInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ar.Request.Namespace)
+		objects, err := admitter.VMRestoreInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ar.Request.Namespace)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
