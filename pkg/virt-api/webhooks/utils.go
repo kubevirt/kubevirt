@@ -22,7 +22,6 @@ package webhooks
 import (
 	"fmt"
 	"runtime"
-	"sync"
 
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,21 +85,6 @@ type Informers struct {
 	VMIInformer             cache.SharedIndexInformer
 	VMRestoreInformer       cache.SharedIndexInformer
 	DataSourceInformer      cache.SharedIndexInformer
-}
-
-// XXX fix this, this is a huge mess. Move informers to Admitter and Mutator structs.
-var mutex sync.Mutex
-
-func GetInformers() *Informers {
-	mutex.Lock()
-	defer mutex.Unlock()
-	return webhookInformers
-}
-
-func SetInformers(informers *Informers) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	webhookInformers = informers
 }
 
 func newInformers() *Informers {

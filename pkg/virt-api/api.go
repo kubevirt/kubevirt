@@ -908,8 +908,6 @@ func (app *virtAPIApp) Run() {
 		DataSourceInformer:      dataSourceInformer,
 	}
 
-	webhooks.SetInformers(webhookInformers)
-
 	// Build webhook subresources
 	app.registerMutatingWebhook(webhookInformers)
 	app.registerValidatingWebhooks(webhookInformers)
