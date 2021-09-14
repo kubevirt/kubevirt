@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -37,6 +38,7 @@ import (
 )
 
 type MigrationCreateAdmitter struct {
+	VMIInformer   cache.SharedIndexInformer
 	ClusterConfig *virtconfig.ClusterConfig
 	VirtClient    kubecli.KubevirtClient
 }
@@ -93,9 +95,8 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	informers := webhooks.GetInformers()
 	cacheKey := fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName)
-	obj, exists, err := informers.VMIInformer.GetStore().GetByKey(cacheKey)
+	obj, exists, err := admitter.VMIInformer.GetStore().GetByKey(cacheKey)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}

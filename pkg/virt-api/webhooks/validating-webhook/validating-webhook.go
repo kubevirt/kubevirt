@@ -50,8 +50,8 @@ func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.VMIPresetAdmitter{})
 }
 
-func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, &admitters.MigrationCreateAdmitter{ClusterConfig: clusterConfig, VirtClient: virtCli})
+func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
+	validating_webhooks.Serve(resp, req, &admitters.MigrationCreateAdmitter{ClusterConfig: clusterConfig, VirtClient: virtCli, VMIInformer: informers.VMIInformer})
 }
 
 func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
