@@ -50,7 +50,6 @@ go_test(
     name = "go_default_test",
     srcs = [
         "admitters_suite_test.go",
-        "admitters_test.go",
         "migration-create-admitter_test.go",
         "migration-update-admitter_test.go",
         "pod-eviction-admitter_test.go",
