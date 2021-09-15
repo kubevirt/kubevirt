@@ -58,7 +58,7 @@ spec:
         - name: CDI_VERSION
           value: v1.39.0
         - name: NETWORK_ADDONS_VERSION
-          value: v0.58.0
+          value: v0.59.0
         - name: SSP_VERSION
           value: v0.13.0-rc.0
         - name: NMO_VERSION
@@ -242,25 +242,25 @@ spec:
         - name: MULTUS_IMAGE
           value: quay.io/kubevirt/cluster-network-addon-multus@sha256:32867c73cda4d605651b898dc85fea67d93191c47f27e1ad9e9f2b9041c518de
         - name: LINUX_BRIDGE_IMAGE
-          value: quay.io/kubevirt/cni-default-plugins@sha256:828df9e296db6f2772e69671189c68b69c258fdc9c84b4cc08b16866f69c162d
+          value: quay.io/kubevirt/cni-default-plugins@sha256:b6906c6b4d783d0418db5ad7dad601129b7d99917edc7533999c960e6df828ec
         - name: LINUX_BRIDGE_MARKER_IMAGE
-          value: quay.io/kubevirt/bridge-marker@sha256:8e9de03dbf6f35eb88af94e3d93da66d926d002c1574619f63186f1e88bf3c52
+          value: quay.io/kubevirt/bridge-marker@sha256:9d90a5bd051d71429b6d9fc34112081fe64c6d3fb02221e18ebe72d428d58092
         - name: NMSTATE_HANDLER_IMAGE
-          value: quay.io/nmstate/kubernetes-nmstate-handler@sha256:18041db3cb27c673121e798b090e54cc42f6591f877ff599fa09f55c6d2388fe
+          value: quay.io/nmstate/kubernetes-nmstate-handler@sha256:1184cf21f3fc0bbc327bb9281157ce72706c655cf3c7a822d3cc3a18d32ca67f
         - name: OVS_CNI_IMAGE
-          value: quay.io/kubevirt/ovs-cni-plugin@sha256:bb6acd2712482746da774af365afba2632beeacdb085e5266d527e3b08047466
+          value: quay.io/kubevirt/ovs-cni-plugin@sha256:1e100c9584044c93c78020b4e4d037f26bbc8cc5b04e51c881ee5d7db5b117fe
         - name: OVS_MARKER_IMAGE
-          value: quay.io/kubevirt/ovs-cni-marker@sha256:33671de777943e404d1cf980727b9c3cfb5b73dba1624614ab8a179bf02f6473
+          value: quay.io/kubevirt/ovs-cni-marker@sha256:abf8d51df5904e7a01743524e75c8abdd41922f75fa0093e9fdd01fdfc22ac72
         - name: KUBEMACPOOL_IMAGE
-          value: quay.io/kubevirt/kubemacpool@sha256:4e1a54bf29456fd020cd8cbe9ea4b36e84f7f29eb342a469f6fba72da4b450a1
+          value: quay.io/kubevirt/kubemacpool@sha256:9c885072d4be4924abe542a008b33492aa81806b950f22634c314d258f9b8789
         - name: MACVTAP_CNI_IMAGE
           value: quay.io/kubevirt/macvtap-cni@sha256:e34cc796dee2e300f866d6f5b563361253ce89226eaf9eb0c3bc792f5481b8df
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:6302411b2813d0d8e53d1f25303310b6e68d5ede53ca73040e39911d0f25889f
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:a5835aa49ea20fa25fea2388a75bb68a3e3793a92c9d076faf6d91d6c044b92d
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.58.0
+          value: v0.59.0
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -278,7 +278,7 @@ spec:
           value: openshift-monitoring
         - name: MONITORING_SERVICE_ACCOUNT
           value: prometheus-k8s
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:6302411b2813d0d8e53d1f25303310b6e68d5ede53ca73040e39911d0f25889f
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:a5835aa49ea20fa25fea2388a75bb68a3e3793a92c9d076faf6d91d6c044b92d
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         ports:
