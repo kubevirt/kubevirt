@@ -184,6 +184,10 @@ tests:
         values: "2 2 2 2 2 2 2 2 2 2"
       - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
         values: "10 10 10 10 10 10 10 10 10 20"
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
+        values: "2 2 2 2 2 2 2 2 2 2"
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
+        values: "10 10 10 10 10 10 10 10 10 20"
 
     alert_rule_test:
       - eval_time: 5m
@@ -239,6 +243,22 @@ tests:
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerRESTErrorsBurst"
             exp_labels:
               pod: "virt-handler-1"
+              severity: "critical"
+      - eval_time: 5m
+        alertname: VirtApiRESTErrorsHigh
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 5% of the rest calls failed in virt-api for the last hour"
+            exp_labels:
+              pod: "virt-api-1"
+              severity: "warning"
+      - eval_time: 5m
+        alertname: VirtApiRESTErrorsBurst
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 80% of the rest calls failed in virt-api for the last 5 minutes"
+            exp_labels:
+              pod: "virt-api-1"
               severity: "critical"
 
   # Some nodes without KVM resources
