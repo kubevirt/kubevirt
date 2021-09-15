@@ -25128,6 +25128,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Format:      "",
 						},
 					},
+					"migrationTransport": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This represents the migration transport",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"qosClass": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements See PodQOSClass type for available QOS classes More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md",

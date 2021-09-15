@@ -1705,6 +1705,22 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("ErrImagePull --> ImagePullBackOff", ErrImagePullReason, ImagePullBackOffReason),
 			table.Entry("ImagePullBackOff --> ErrImagePull", ImagePullBackOffReason, ErrImagePullReason),
 		)
+		It("should add MigrationTransport to VMI status if MigrationTransportUnixAnnotation was set", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Annotations[v1.MigrationTransportUnixAnnotation] = "true"
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationTransport).
+					To(Equal(v1.MigrationTransportUnix))
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
 	})
 
 	Context("hotplug volume", func() {

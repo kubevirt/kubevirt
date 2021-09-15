@@ -22,11 +22,14 @@ package virtwrap
 import (
 	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -52,6 +55,10 @@ func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool 
 
 	_, shouldBlock := vmi.Annotations[v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation]
 	return shouldBlock
+}
+
+func canSourceMigrateOverUnixURI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Status.MigrationTransport == v1.MigrationTransportUnix
 }
 
 func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInstance, allowEmulation bool) error {
@@ -89,27 +96,43 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
 
-	loopbackAddress := ip.GetLoopbackAddress()
-
-	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
-	for _, port := range migrationPortsRange {
-		// Prepare the direct migration proxy
-		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
-		curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
-		unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
-		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
-
-		err := migrationProxy.Start()
+	if canSourceMigrateOverUnixURI(vmi) {
+		// Prepare the directory for migration sockets
+		migrationSocketsPath := filepath.Join(l.virtShareDir, "migrationproxy")
+		err = util.MkdirAllWithNosec(migrationSocketsPath)
 		if err != nil {
-			logger.Reason(err).Errorf("proxy listening failed, socket %s", unixSocketPath)
+			logger.Reason(err).Error("failed to create the migration sockets directory")
 			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(migrationSocketsPath); err != nil {
+			logger.Reason(err).Error("failed to change ownership on migration sockets directory")
+			return err
+		}
+	} else {
+		logger.V(3).Info("Setting up TCP proxies to support incoming legacy VMI migration")
+		loopbackAddress := ip.GetLoopbackAddress()
+
+		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
+		for _, port := range migrationPortsRange {
+			// Prepare the direct migration proxy
+			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
+			curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
+			unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
+			migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
+
+			err := migrationProxy.Start()
+			if err != nil {
+				logger.Reason(err).Errorf("proxy listening failed, socket %s", unixSocketPath)
+				return err
+			}
+
 		}
 	}
 
 	// since the source vmi is paused, add the vmi uuid to the pausedVMIs as
 	// after the migration this vmi should remain paused.
 	if vmiHasCondition(vmi, v1.VirtualMachineInstancePaused) {
-		log.Log.Object(vmi).V(3).Info("adding vmi uuid to pausedVMIs list on the target")
+		logger.V(3).Info("adding vmi uuid to pausedVMIs list on the target")
 		l.paused.add(vmi.UID)
 	}
 

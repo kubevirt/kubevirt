@@ -252,6 +252,7 @@ var _ = Describe("Template", func() {
 						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 						"post.hook.backup.velero.io/container": "compute",
 						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"kubevirt.io/migrationTransportUnix":   "true",
 					},
 				),
 				table.Entry("and don't contain kubevirt annotation added by apiserver",
@@ -265,6 +266,7 @@ var _ = Describe("Template", func() {
 						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 						"post.hook.backup.velero.io/container": "compute",
 						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"kubevirt.io/migrationTransportUnix":   "true",
 					},
 				),
 				table.Entry("and contain kubevirt domain annotation",
@@ -277,6 +279,7 @@ var _ = Describe("Template", func() {
 						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 						"post.hook.backup.velero.io/container": "compute",
 						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"kubevirt.io/migrationTransportUnix":   "true",
 					},
 				),
 				table.Entry("and contain kubernetes annotation",
@@ -290,6 +293,7 @@ var _ = Describe("Template", func() {
 						"pre.hook.backup.velero.io/command":              "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 						"post.hook.backup.velero.io/container":           "compute",
 						"post.hook.backup.velero.io/command":             "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"kubevirt.io/migrationTransportUnix":             "true",
 					},
 				),
 				table.Entry("and contain kubevirt ignitiondata annotation",
@@ -311,6 +315,7 @@ var _ = Describe("Template", func() {
 						"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 						"post.hook.backup.velero.io/container": "compute",
 						"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+						"kubevirt.io/migrationTransportUnix":   "true",
 					},
 				),
 			)
@@ -354,6 +359,7 @@ var _ = Describe("Template", func() {
 					"pre.hook.backup.velero.io/command":    "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
 					"post.hook.backup.velero.io/container": "compute",
 					"post.hook.backup.velero.io/command":   "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					"kubevirt.io/migrationTransportUnix":   "true",
 				}))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
 					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
@@ -860,6 +866,17 @@ var _ = Describe("Template", func() {
 
 			})
 
+		})
+		Context("migration over unix sockets", func() {
+			It("virt-launcher should have a MigrationTransportUnixAnnotation", func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+				vmi := v1.NewMinimalVMI("fake-vmi")
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				_, ok := pod.Annotations[v1.MigrationTransportUnixAnnotation]
+				Expect(ok).To(BeTrue())
+			})
 		})
 		Context("with multus annotation", func() {
 			It("should add multus networks in the pod annotation", func() {

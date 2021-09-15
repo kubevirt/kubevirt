@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/istio"
 )
 
-type mockNetfilterFrontend func(*netdriver.MockNetworkHandler, iptables.Protocol, string, string, string, []int, map[string]string)
+type mockNetfilterFrontend func(*netdriver.MockNetworkHandler, iptables.Protocol, string, string, string, []int, map[string]string, bool)
 
 var _ = Describe("Masquerade infrastructure configurator", func() {
 	var (
@@ -89,6 +89,11 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 		vmi.Annotations = map[string]string{
 			istio.ISTIO_INJECT_ANNOTATION: "true",
 		}
+		return vmi
+	}
+	newVMIMasqueradeMigrateOverSockets := func(namespace string, name string, ports ...int) *v1.VirtualMachineInstance {
+		vmi := newVMIMasqueradeInterface(namespace, name, ports...)
+		vmi.Status.MigrationTransport = v1.MigrationTransportUnix
 		return vmi
 	}
 
@@ -179,15 +184,16 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 
 	Context("preparing network infrastructure", func() {
 		const (
-			ifaceName     = "eth0"
-			ipv6GwStr     = "fd10:0:2::1/120"
-			launcherPID   = 1000
-			mtu           = 1000
-			namespace     = "default"
-			queueCount    = uint32(0)
-			tapDeviceName = "tap0"
-			vmIPv6Str     = "fd10:0:2::2/120"
-			vmName        = "vm1"
+			ifaceName        = "eth0"
+			ipv6GwStr        = "fd10:0:2::1/120"
+			launcherPID      = 1000
+			mtu              = 1000
+			namespace        = "default"
+			queueCount       = uint32(0)
+			tapDeviceName    = "tap0"
+			vmIPv6Str        = "fd10:0:2::2/120"
+			vmName           = "vm1"
+			migrationOverTCP = false
 		)
 
 		var (
@@ -242,7 +248,7 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 					newVMIMasqueradeInterface(namespace, vmName, 15000, 18000),
 					mockNetfilterIPTables),
 				table.Entry("NFTables backend on an IPv4 cluster when *reserved* ports are specified",
-					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList()...),
+					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList(migrationOverTCP)...),
 					mockNetfilterNFTables),
 				table.Entry("NFTables backend on an IPv4 cluster when using an ISTIO aware VMI",
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
@@ -264,17 +270,30 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 					mockNetfilterIPTables,
 					iptables.ProtocolIPv6),
 				table.Entry("NFTables backend on a dual stack cluster when *reserved* ports are specified",
-					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList()...),
+					newVMIMasqueradeInterface(namespace, vmName, getReservedPortList(migrationOverTCP)...),
 					mockNetfilterNFTables,
 					iptables.ProtocolIPv6),
 				table.Entry("NFTables backend on a dual stack cluster when using an ISTIO aware VMI",
 					newIstioAwareVMIWithSingleInterface(namespace, vmName),
 					mockNetfilterNFTables,
 					iptables.ProtocolIPv6),
+				table.Entry("NFTables backend on an IPv4 cluster with migration over sockets",
+					newVMIMasqueradeMigrateOverSockets(namespace, vmName, getReservedPortList(!migrationOverTCP)...),
+					mockNetfilterNFTables),
 			)
 		})
 	})
 })
+
+func portsUsedByLiveMigration(isMigrationOverSockets bool) []string {
+	if isMigrationOverSockets {
+		return nil
+	}
+	return []string{
+		fmt.Sprint(LibvirtDirectMigrationPort),
+		fmt.Sprint(LibvirtBlockMigrationPort),
+	}
+}
 
 func podBridge(ifaceName string, mtu int) *netlink.Bridge {
 	inPodBridgeMAC, _ := net.ParseMAC("02:00:00:00:00:00")
@@ -350,6 +369,7 @@ func mockNATNetfilterRules(configurator MasqueradePodNetworkConfigurator, dhcpCo
 
 	handler := configurator.handler.(*netdriver.MockNetworkHandler)
 	portList := getVMPrimaryInterfacePortList(*configurator.vmi)
+	isMigrationOverSockets := configurator.vmi.Status.MigrationTransport == v1.MigrationTransportUnix
 	for _, proto := range protocols(optionalIPProtocol...) {
 		vmIP := dhcpConfig.IP.IP.String()
 		gwIP := dhcpConfig.AdvertisingIPAddr.String()
@@ -358,7 +378,7 @@ func mockNATNetfilterRules(configurator MasqueradePodNetworkConfigurator, dhcpCo
 			gwIP = dhcpConfig.AdvertisingIPv6Addr.String()
 		}
 		handler.EXPECT().ConfigureIpForwarding(proto).Return(nil)
-		mockFrontendFunc(handler, proto, getNFTIPString(proto), vmIP, gwIP, portList, configurator.vmi.Annotations)
+		mockFrontendFunc(handler, proto, getNFTIPString(proto), vmIP, gwIP, portList, configurator.vmi.Annotations, isMigrationOverSockets)
 	}
 }
 
@@ -370,20 +390,20 @@ func getVMPrimaryInterfacePortList(vmi v1.VirtualMachineInstance) []int {
 	return portList
 }
 
-func mockNetfilterIPTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string) {
+func mockNetfilterIPTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string, isMigrationOverSockets bool) {
 	handler.EXPECT().NftablesLoad(proto).Return(fmt.Errorf("nft not found"))
 	handler.EXPECT().HasNatIptables(proto).Return(true)
-	mockIPTablesBackend(handler, proto, nftIPString, vmIP, gwIP, portList)
+	mockIPTablesBackend(handler, proto, nftIPString, vmIP, gwIP, portList, isMigrationOverSockets)
 }
 
-func mockNetfilterNFTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string) {
+func mockNetfilterNFTables(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string, isMigrationOverSockets bool) {
 	handler.EXPECT().NftablesLoad(proto).Return(nil)
 	handler.EXPECT().HasNatIptables(proto).Return(true).Times(0)
 	handler.EXPECT().HasNatIptables(proto).Return(false).Times(0)
-	mockNFTablesFrontend(handler, proto, nftIPString, vmIP, gwIP, portList, vmiAnnotations)
+	mockNFTablesFrontend(handler, proto, nftIPString, vmIP, gwIP, portList, vmiAnnotations, isMigrationOverSockets)
 }
 
-func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string) {
+func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, vmiAnnotations map[string]string, isMigrationOverSockets bool) {
 	handler.EXPECT().GetNFTIPString(proto).Return(nftIPString).AnyTimes()
 	handler.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND").Return(nil)
 	handler.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND").Return(nil)
@@ -392,8 +412,10 @@ func mockNFTablesFrontend(handler *netdriver.MockNetworkHandler, proto iptables.
 	handler.EXPECT().NftablesAppendRule(proto, "nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil)
 	handler.EXPECT().NftablesAppendRule(proto, "nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil)
 
-	for _, chain := range []string{"output", "KUBEVIRT_POSTINBOUND"} {
-		handler.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(PortsUsedByLiveMigration(), ", ")), nftIPString, "saddr", GetLoopbackAdrress(proto), "counter", "return").Return(nil)
+	if skipPorts := portsUsedByLiveMigration(isMigrationOverSockets); len(skipPorts) > 0 {
+		for _, chain := range []string{"output", "KUBEVIRT_POSTINBOUND"} {
+			handler.EXPECT().NftablesAppendRule(proto, "nat", chain, "tcp", "dport", fmt.Sprintf("{ %s }", strings.Join(skipPorts, ", ")), nftIPString, "saddr", GetLoopbackAdrress(proto), "counter", "return").Return(nil)
+		}
 	}
 
 	if len(portList) > 0 {
@@ -438,7 +460,7 @@ func mockNFTablesBackendAllPorts(handler *netdriver.MockNetworkHandler, proto ip
 	handler.EXPECT().NftablesAppendRule(proto, "nat", "output", nftIPString, "daddr", fmt.Sprintf("{ %s }", GetLoopbackAdrress(proto)), "counter", "dnat", "to", vmIP).Return(nil)
 }
 
-func mockIPTablesBackend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int) {
+func mockIPTablesBackend(handler *netdriver.MockNetworkHandler, proto iptables.Protocol, nftIPString string, vmIP string, gwIP string, portList []int, isMigrationOverSockets bool) {
 	handler.EXPECT().GetNFTIPString(proto).Return(nftIPString).AnyTimes()
 	handler.EXPECT().IptablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND").Return(nil)
 	handler.EXPECT().IptablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND").Return(nil)
@@ -462,11 +484,13 @@ func mockIPTablesBackend(handler *netdriver.MockNetworkHandler, proto iptables.P
 		"-j",
 		"KUBEVIRT_POSTINBOUND").Return(nil)
 
-	for _, chain := range []string{"OUTPUT", "KUBEVIRT_POSTINBOUND"} {
-		handler.EXPECT().IptablesAppendRule(proto, "nat", chain,
-			"-p", "tcp", "--match", "multiport",
-			"--dports", fmt.Sprintf("%s", strings.Join(PortsUsedByLiveMigration(), ",")),
-			"--source", GetLoopbackAdrress(proto), "-j", "RETURN").Return(nil)
+	if skipPorts := portsUsedByLiveMigration(isMigrationOverSockets); len(skipPorts) > 0 {
+		for _, chain := range []string{"OUTPUT", "KUBEVIRT_POSTINBOUND"} {
+			handler.EXPECT().IptablesAppendRule(proto, "nat", chain,
+				"-p", "tcp", "--match", "multiport",
+				"--dports", fmt.Sprintf("%s", strings.Join(skipPorts, ",")),
+				"--source", GetLoopbackAdrress(proto), "-j", "RETURN").Return(nil)
+		}
 	}
 
 	if len(portList) > 0 {
@@ -557,9 +581,9 @@ func protocols(optionalIPProtocol ...iptables.Protocol) []iptables.Protocol {
 		optionalIPProtocol...)
 }
 
-func getReservedPortList() []int {
+func getReservedPortList(isMigrationOverSockets bool) []int {
 	var portList []int
-	for _, port := range PortsUsedByLiveMigration() {
+	for _, port := range portsUsedByLiveMigration(isMigrationOverSockets) {
 		intPort, err := strconv.ParseInt(port, 10, 64)
 		if err != nil {
 			Panic()

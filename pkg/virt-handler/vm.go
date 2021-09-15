@@ -666,6 +666,10 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		// clean the evacuation node name since have already migrated to a new node
 		vmi.Status.EvacuationNodeName = ""
 		vmi.Status.MigrationState.Completed = true
+		// update the vmi migrationTransport to indicate that next migration should use unix URI
+		// new workloads will set the migrationTransport on their creation, however, legacy workloads
+		// can make the switch only after the first migration
+		vmi.Status.MigrationTransport = v1.MigrationTransportUnix
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
 		log.Log.Object(vmi).Infof("migration completed to node %s", migrationHost)
 	}

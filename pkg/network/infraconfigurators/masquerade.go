@@ -198,13 +198,6 @@ func GetLoopbackAdrress(proto iptables.Protocol) string {
 	}
 }
 
-func PortsUsedByLiveMigration() []string {
-	return []string{
-		fmt.Sprint(LibvirtDirectMigrationPort),
-		fmt.Sprint(LibvirtBlockMigrationPort),
-	}
-}
-
 func (b *MasqueradePodNetworkConfigurator) createNatRules(protocol iptables.Protocol) error {
 	err := b.handler.ConfigureIpForwarding(protocol)
 	if err != nil {
@@ -246,7 +239,7 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingIptables(protocol 
 		return err
 	}
 
-	err = b.skipForwardingForPortsUsingIptables(protocol, portsUsedByLiveMigration())
+	err = b.skipForwardingForPortsUsingIptables(protocol, b.portsUsedByLiveMigration())
 	if err != nil {
 		return err
 	}
@@ -329,6 +322,9 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingIptables(protocol 
 }
 
 func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingIptables(protocol iptables.Protocol, ports []string) error {
+	if len(ports) == 0 {
+		return nil
+	}
 	chainWhereDnatIsPerformed := "OUTPUT"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
@@ -370,7 +366,7 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 		return err
 	}
 
-	err = b.skipForwardingForPortsUsingNftables(proto, portsUsedByLiveMigration())
+	err = b.skipForwardingForPortsUsingNftables(proto, b.portsUsedByLiveMigration())
 	if err != nil {
 		return err
 	}
@@ -454,6 +450,9 @@ func (b *MasqueradePodNetworkConfigurator) createNatRulesUsingNftables(proto ipt
 }
 
 func (b *MasqueradePodNetworkConfigurator) skipForwardingForPortsUsingNftables(proto iptables.Protocol, ports []string) error {
+	if len(ports) == 0 {
+		return nil
+	}
 	chainWhereDnatIsPerformed := "output"
 	chainWhereSnatIsPerformed := "KUBEVIRT_POSTINBOUND"
 	for _, chain := range []string{chainWhereDnatIsPerformed, chainWhereSnatIsPerformed} {
@@ -512,7 +511,10 @@ func getLoopbackAdrress(proto iptables.Protocol) string {
 	}
 }
 
-func portsUsedByLiveMigration() []string {
+func (b *MasqueradePodNetworkConfigurator) portsUsedByLiveMigration() []string {
+	if b.vmi.Status.MigrationTransport == v1.MigrationTransportUnix {
+		return nil
+	}
 	return []string{
 		fmt.Sprint(LibvirtDirectMigrationPort),
 		fmt.Sprint(LibvirtBlockMigrationPort),
