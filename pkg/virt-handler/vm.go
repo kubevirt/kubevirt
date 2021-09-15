@@ -2463,7 +2463,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// Mount container disks
-	disksInfo, err := d.containerDiskMounter.Mount(vmi, true)
+	disksInfo, err := d.containerDiskMounter.MountAndVerify(vmi)
 	if err != nil {
 		return err
 	}
@@ -2561,7 +2561,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return nil
 		}
 
-		disksInfo, err = d.containerDiskMounter.Mount(vmi, true)
+		disksInfo, err = d.containerDiskMounter.MountAndVerify(vmi)
 		if err != nil {
 			return err
 		}

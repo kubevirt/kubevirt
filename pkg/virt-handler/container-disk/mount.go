@@ -39,7 +39,7 @@ type mounter struct {
 
 type Mounter interface {
 	ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error)
-	Mount(vmi *v1.VirtualMachineInstance, verify bool) (map[string]*containerdisk.DiskInfo, error)
+	MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error)
 	MountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bool) error
 	Unmount(vmi *v1.VirtualMachineInstance) error
 	UnmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error
@@ -186,7 +186,7 @@ func (m *mounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *v
 
 // Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
 // Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
-func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) (map[string]*containerdisk.DiskInfo, error) {
+func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error) {
 	record := vmiMountTargetRecord{}
 	disksInfo := map[string]*containerdisk.DiskInfo{}
 
@@ -214,6 +214,11 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) (map[string
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	vmiRes, err := m.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect VMI pod: %v", err)
 	}
 
 	for i, volume := range vmi.Spec.Volumes {
@@ -257,22 +262,15 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) (map[string
 					return nil, fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
 				}
 			}
-			if verify {
-				res, err := m.podIsolationDetector.Detect(vmi)
-				if err != nil {
-					return nil, fmt.Errorf("failed to detect VMI pod: %v", err)
-				}
-				imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), res, m.clusterConfig.GetDiskVerification())
-				if err != nil {
-					return nil, fmt.Errorf("failed to get image info: %v", err)
-				}
 
-				if err := containerdisk.VerifyImage(imageInfo); err != nil {
-					return nil, fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
-				}
-
-				disksInfo[volume.Name] = imageInfo
+			imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), vmiRes, m.clusterConfig.GetDiskVerification())
+			if err != nil {
+				return nil, fmt.Errorf("failed to get image info: %v", err)
 			}
+			if err := containerdisk.VerifyImage(imageInfo); err != nil {
+				return nil, fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
+			}
+			disksInfo[volume.Name] = imageInfo
 		}
 	}
 	return disksInfo, nil
