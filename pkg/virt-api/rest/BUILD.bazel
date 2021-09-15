@@ -9,6 +9,7 @@ go_library(
         "dialers.go",
         "generated_mock_authorizer.go",
         "portforward.go",
+        "profiler.go",
         "streamer.go",
         "subresource.go",
         "usbredir.go",
@@ -26,6 +27,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
@@ -50,6 +52,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "authorizer_test.go",
+        "profiler_test.go",
         "rest_suite_test.go",
         "streamer_test.go",
         "subresource_test.go",

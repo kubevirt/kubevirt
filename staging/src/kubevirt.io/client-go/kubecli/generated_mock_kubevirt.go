@@ -190,6 +190,16 @@ func (_mr *_MockKubevirtClientRecorder) ServerVersion() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ServerVersion")
 }
 
+func (_m *MockKubevirtClient) ClusterProfiler() *ClusterProfiler {
+	ret := _m.ctrl.Call(_m, "ClusterProfiler")
+	ret0, _ := ret[0].(*ClusterProfiler)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) ClusterProfiler() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ClusterProfiler")
+}
+
 func (_m *MockKubevirtClient) GuestfsVersion() *GuestfsVersion {
 	ret := _m.ctrl.Call(_m, "GuestfsVersion")
 	ret0, _ := ret[0].(*GuestfsVersion)

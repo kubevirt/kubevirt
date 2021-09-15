@@ -49,9 +49,12 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+const defaultProfilerComponentPort = 8443
+
 type SubresourceAPIApp struct {
 	virtCli                 kubecli.KubevirtClient
 	consoleServerPort       int
+	profilerComponentPort   int
 	handlerTLSConfiguration *tls.Config
 	credentialsLock         *sync.Mutex
 	statusUpdater           *status.VMStatusUpdater
@@ -62,6 +65,7 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 	return &SubresourceAPIApp{
 		virtCli:                 virtCli,
 		consoleServerPort:       consoleServerPort,
+		profilerComponentPort:   defaultProfilerComponentPort,
 		credentialsLock:         &sync.Mutex{},
 		handlerTLSConfiguration: tlsConfiguration,
 		statusUpdater:           status.NewVMStatusUpdater(virtCli),

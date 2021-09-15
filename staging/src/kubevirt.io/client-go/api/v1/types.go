@@ -2112,3 +2112,13 @@ type NetworkConfiguration struct {
 // +k8s:openapi-gen=true
 type GuestAgentPing struct {
 }
+
+// +k8s:openapi-gen=true
+type ProfilerResult struct {
+	PprofData map[string][]byte `json:"pprofData,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type ClusterProfilerResults struct {
+	ComponentResults map[string]ProfilerResult `json:"componentResults"`
+}

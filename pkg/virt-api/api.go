@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
+	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -347,6 +348,19 @@ func (app *virtAPIApp) composeSubresources() {
 			To(func(request *restful.Request, response *restful.Response) {
 				response.WriteAsJson(virtversion.Get())
 			}).Operation(version.Version + "Version"))
+
+		subws.Route(subws.GET(rest.SubResourcePath("start-cluster-profiler")).Produces(restful.MIME_JSON).
+			To(subresourceApp.StartClusterProfilerHandler).
+			Operation(version.Version + "start-cluster-profiler"))
+
+		subws.Route(subws.GET(rest.SubResourcePath("stop-cluster-profiler")).Produces(restful.MIME_JSON).
+			To(subresourceApp.StopClusterProfilerHandler).
+			Operation(version.Version + "stop-cluster-profiler"))
+
+		subws.Route(subws.GET(rest.SubResourcePath("dump-cluster-profiler")).Produces(restful.MIME_JSON).
+			To(subresourceApp.DumpClusterProfilerHandler).
+			Operation(version.Version + "dump-cluster-profiler"))
+
 		subws.Route(subws.GET(rest.SubResourcePath("guestfs")).Produces(restful.MIME_JSON).
 			To(app.GetGsInfo()).
 			Operation(version.Version+"Guestfs").
@@ -538,6 +552,12 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
 		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
 	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
+
+	componentProfiler := profiler.NewProfileManager(app.clusterConfig)
+
+	ws.Route(ws.GET("/start-profiler").To(componentProfiler.HandleStartProfiler).Doc("start profiler endpoint"))
+	ws.Route(ws.GET("/stop-profiler").To(componentProfiler.HandleStopProfiler).Doc("stop profiler endpoint"))
+	ws.Route(ws.GET("/dump-profiler").To(componentProfiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
 
 	for _, version := range v1.SubresourceGroupVersions {
 		// K8s needs the ability to query info about a specific API group

@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
+	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -288,6 +289,12 @@ func Execute() {
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
 	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
 	webService.Route(webService.GET("/leader").To(app.leaderProbe).Doc("Leader endpoint"))
+
+	componentProfiler := profiler.NewProfileManager(app.clusterConfig)
+	webService.Route(webService.GET("/start-profiler").To(componentProfiler.HandleStartProfiler).Doc("start profiler endpoint"))
+	webService.Route(webService.GET("/stop-profiler").To(componentProfiler.HandleStopProfiler).Doc("stop profiler endpoint"))
+	webService.Route(webService.GET("/dump-profiler").To(componentProfiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
+
 	restful.Add(webService)
 
 	app.vmiInformer = app.informerFactory.VMI()

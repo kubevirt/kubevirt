@@ -12,6 +12,7 @@ go_library(
         "kubevirt_test_utils.go",
         "kv.go",
         "migration.go",
+        "profiler.go",
         "replicaset.go",
         "streamer.go",
         "version.go",
