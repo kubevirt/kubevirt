@@ -767,12 +767,14 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 	key := migrationproxy.ConstructProxyKey(string(vmi.UID), migrationproxy.LibvirtDirectMigrationPort)
 	migrURI := fmt.Sprintf("unix://%s", migrationproxy.SourceUnixFile(virtShareDir, key))
 	params := &libvirt.DomainMigrateParameters{
-		URI:          migrURI,
-		URISet:       true,
-		Bandwidth:    bandwidth, // MiB/s
-		BandwidthSet: bandwidth > 0,
-		DestXML:      xmlstr,
-		DestXMLSet:   true,
+		URI:           migrURI,
+		URISet:        true,
+		Bandwidth:     bandwidth, // MiB/s
+		BandwidthSet:  bandwidth > 0,
+		DestXML:       xmlstr,
+		DestXMLSet:    true,
+		PersistXML:    xmlstr,
+		PersistXMLSet: true,
 	}
 
 	copyDisks := getDiskTargetsForMigration(dom, vmi)
