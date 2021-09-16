@@ -210,4 +210,87 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(vm.Labels["key"]).ToNot(Equal("42"))
 		})
 	})
+
+	Context("Migrations", func() {
+		var vmim *v1.VirtualMachineInstanceMigration
+		resource := "virtualmachineinstancemigrations"
+
+		BeforeEach(func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			vmim = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+		})
+
+		It("create a migration", func() {
+			By("Make a Dry-Run request to create a Migration")
+			err = tests.DryRunCreate(restClient, resource, vmim.Namespace, vmim, vmim)
+			Expect(err).To(BeNil())
+
+			By("Check that no migration was actually created")
+			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("delete a migration", func() {
+			By("Create a migration")
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim)
+			Expect(err).To(BeNil())
+
+			By("Make a Dry-Run request to delete a Migration")
+			deletePolicy := metav1.DeletePropagationForeground
+			opts := metav1.DeleteOptions{
+				DryRun:            []string{metav1.DryRunAll},
+				PropagationPolicy: &deletePolicy,
+			}
+			err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Delete(vmim.Name, &opts)
+			Expect(err).To(BeNil())
+
+			By("Check that no migration was actually deleted")
+			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("update a migration", func() {
+			By("Create a migration")
+			vmim, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim)
+			Expect(err).To(BeNil())
+
+			By("Make a Dry-Run request to update the migration")
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				vmim.Annotations = map[string]string{
+					"key": "42",
+				}
+				return tests.DryRunUpdate(restClient, resource, vmim.Name, vmim.Namespace, vmim, nil)
+
+			})
+
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that no update actually took place")
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmim.Annotations["key"]).ToNot(Equal("42"))
+		})
+
+		It("patch a migration", func() {
+			By("Create a migration")
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim)
+			Expect(err).To(BeNil())
+
+			By("Make a Dry-Run request to patch the migration")
+			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
+			err = tests.DryRunPatch(restClient, resource, vmim.Name, vmim.Namespace, types.MergePatchType, patch, nil)
+			Expect(err).To(BeNil())
+
+			By("Check that no update actually took place")
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmim.Labels["key"]).ToNot(Equal("42"))
+		})
+	})
 })
