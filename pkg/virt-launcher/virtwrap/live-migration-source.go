@@ -796,11 +796,13 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 	}
 
 	params := &libvirt.DomainMigrateParameters{
-		Bandwidth:  bandwidth, // MiB/s
-		URI:        migrURI,
-		URISet:     true,
-		DestXML:    xmlstr,
-		DestXMLSet: true,
+		Bandwidth:     bandwidth, // MiB/s
+		URI:           migrURI,
+		URISet:        true,
+		DestXML:       xmlstr,
+		DestXMLSet:    true,
+		PersistXML:    xmlstr,
+		PersistXMLSet: true,
 	}
 
 	copyDisks := getDiskTargetsForMigration(dom, vmi)
