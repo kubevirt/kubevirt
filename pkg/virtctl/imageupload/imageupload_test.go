@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
+
 	"k8s.io/client-go/testing"
 
 	fakecdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
@@ -190,9 +191,10 @@ var _ = Describe("ImageUpload", func() {
 		defer GinkgoRecover()
 		time.Sleep(10 * time.Millisecond)
 		pvc := pvcSpecWithUploadAnnotation()
-		pvc.Spec.VolumeMode = dv.Spec.PVC.VolumeMode
-		pvc.Spec.AccessModes = append([]v1.PersistentVolumeAccessMode(nil), dv.Spec.PVC.AccessModes...)
-		pvc.Spec.StorageClassName = dv.Spec.PVC.StorageClassName
+
+		pvc.Spec.VolumeMode = getVolumeMode(dv.Spec)
+		pvc.Spec.AccessModes = append([]v1.PersistentVolumeAccessMode(nil), getAccessModes(dv.Spec)...)
+		pvc.Spec.StorageClassName = getStorageClassName(dv.Spec)
 		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 		Expect(err).To(BeNil())
 	}
@@ -251,8 +253,23 @@ var _ = Describe("ImageUpload", func() {
 		})
 	}
 
+	validateDvStorageSpec := func(spec cdiv1.DataVolumeSpec, mode v1.PersistentVolumeMode) {
+		resource, ok := getResourceRequestedStorageSize(spec)
+
+		Expect(ok).To(BeTrue())
+		Expect(resource.String()).To(Equal(pvcSize))
+
+		volumeMode := getVolumeMode(spec)
+		if volumeMode == nil {
+			vm := v1.PersistentVolumeFilesystem
+			volumeMode = &vm
+		}
+		Expect(mode).To(Equal(*volumeMode))
+	}
+
 	validatePVCSpec := func(spec *v1.PersistentVolumeClaimSpec, mode v1.PersistentVolumeMode) {
 		resource, ok := spec.Resources.Requests[v1.ResourceStorage]
+
 		Expect(ok).To(BeTrue())
 		Expect(resource.String()).To(Equal(pvcSize))
 
@@ -286,7 +303,7 @@ var _ = Describe("ImageUpload", func() {
 		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 
-		validatePVCSpec(dv.Spec.PVC, mode)
+		validateDvStorageSpec(dv.Spec, mode)
 	}
 
 	validateDataVolume := func() {
@@ -344,6 +361,7 @@ var _ = Describe("ImageUpload", func() {
 
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(kubeClient.StorageV1()).AnyTimes()
 
 		addReactors()
 
@@ -590,6 +608,36 @@ var _ = Describe("ImageUpload", func() {
 		)
 	})
 })
+
+func getResourceRequestedStorageSize(dvSpec cdiv1.DataVolumeSpec) (resource.Quantity, bool) {
+	if dvSpec.PVC != nil {
+		resource, ok := dvSpec.PVC.Resources.Requests[v1.ResourceStorage]
+		return resource, ok
+	}
+	resource, ok := dvSpec.Storage.Resources.Requests[v1.ResourceStorage]
+	return resource, ok
+}
+
+func getStorageClassName(dvSpec cdiv1.DataVolumeSpec) *string {
+	if dvSpec.PVC != nil {
+		return dvSpec.PVC.StorageClassName
+	}
+	return dvSpec.Storage.StorageClassName
+}
+
+func getAccessModes(dvSpec cdiv1.DataVolumeSpec) []v1.PersistentVolumeAccessMode {
+	if dvSpec.PVC != nil {
+		return dvSpec.PVC.AccessModes
+	}
+	return dvSpec.Storage.AccessModes
+}
+
+func getVolumeMode(dvSpec cdiv1.DataVolumeSpec) *v1.PersistentVolumeMode {
+	if dvSpec.PVC != nil {
+		return dvSpec.PVC.VolumeMode
+	}
+	return dvSpec.Storage.VolumeMode
+}
 
 type atomicBool struct {
 	lock  *sync.Mutex
