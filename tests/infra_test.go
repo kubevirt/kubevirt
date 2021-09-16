@@ -122,7 +122,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			return duration
 		}
 
-		It("on the controller rate limiter should lead to delayed VMI starts", func() {
+		It("[QUARANTINE]on the controller rate limiter should lead to delayed VMI starts", func() {
 			By("first getting the basetime for a replicaset")
 			replicaset := tests.NewRandomReplicaSetFromVMI(libvmi.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
 			replicaset, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(replicaset)
