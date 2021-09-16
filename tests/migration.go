@@ -1,8 +1,13 @@
 package tests
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -65,4 +70,36 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 
 	By("Verifying the VMI's is in the running state")
 	Expect(vmi.Status.Phase).To(Equal(v1.Running), "the VMI must be in `Running` state after the migration")
+}
+
+func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
+	domXML := RunCommandOnVmiPod(vmi, []string{"cat", "/etc/libvirt/qemu/" + util.NamespaceTestDefault + "_" + vmi.Name + ".xml"})
+	decoder := xml.NewDecoder(bytes.NewReader([]byte(domXML)))
+
+	var location = make([]string, 0)
+	var found = false
+	for {
+		token, err := decoder.RawToken()
+		if err == io.EOF {
+			break
+		}
+		Expect(err).To(BeNil(), "error getting token: %v\n", err)
+
+		switch v := token.(type) {
+		case xml.StartElement:
+			location = append(location, v.Name.Local)
+
+			if len(location) >= 4 &&
+				location[0] == "domain" &&
+				location[1] == "metadata" &&
+				location[2] == "kubevirt" &&
+				location[3] == "migration" {
+				found = true
+			}
+			Expect(found).To(BeFalse(), "Unexpected KubeVirt migration metadata found in domain XML")
+		case xml.EndElement:
+			location = location[:len(location)-1]
+		}
+
+	}
 }
