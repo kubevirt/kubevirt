@@ -1197,7 +1197,7 @@ func (c *VMIController) addVirtualMachineInstance(obj interface{}) {
 func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
 	c.lowerVMIExpectation(obj)
 
-	_, ok := obj.(*virtv1.VirtualMachineInstance)
+	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 
 	// When a delete is dropped, the relist will notice a vmi in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -1208,16 +1208,14 @@ func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
 			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
 			return
 		}
-		_, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
+		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
 			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vmi %#v", obj)).Error("Failed to process delete notification")
 			return
 		}
-		// The VMI object has been deleted
-		return
 	}
 
-	c.enqueueVirtualMachine(obj)
+	c.enqueueVirtualMachine(vmi)
 }
 
 func (c *VMIController) updateVirtualMachineInstance(_, curr interface{}) {
