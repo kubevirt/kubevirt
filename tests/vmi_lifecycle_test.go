@@ -510,7 +510,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("[Serial]when virt-handler is responsive", func() {
-			It("[QUARANTINE][test_id:1633]should indicate that a node is ready for vmis", func() {
+			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
 				nodes := util.GetAllSchedulableNodes(virtClient)
@@ -529,7 +529,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
 					return n.Labels[v1.NodeSchedulable]
-				}, 2*time.Minute, 2*time.Second).Should(Equal("true"), "Nodes should be schedulable")
+				}, 5*time.Minute, 2*time.Second).Should(Equal("true"), "Nodes should be schedulable")
 				By("updating the heartbeat roughly every minute")
 				Expect(func() string {
 					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
