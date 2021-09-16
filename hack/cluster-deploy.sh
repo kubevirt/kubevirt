@@ -33,7 +33,7 @@ function dump_kubevirt() {
 }
 
 function _deploy_infra_for_tests() {
-    if [[ $KUBEVIRT_DEPLOY_CDI != true ]]; then
+    if [[ "$KUBEVIRT_DEPLOY_CDI" == "false" ]]; then
         rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-* ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml \
             ${MANIFESTS_OUT_DIR}/testing/local-block-storage.yaml ${MANIFESTS_OUT_DIR}/testing/disks-images-provider.yaml
     fi
@@ -106,7 +106,7 @@ fi
 _deploy_infra_for_tests
 
 # TODO: Remove the 2nd condition when CDI is supported on ARM
-if [[ $KUBEVIRT_DEPLOY_CDI == true ]] && [[ ${ARCHITECTURE} != *aarch64 ]]; then
+if [[ "$KUBEVIRT_DEPLOY_CDI" != "false" ]] && [[ ${ARCHITECTURE} != *aarch64 ]]; then
     _ensure_cdi_deployment
 fi
 
