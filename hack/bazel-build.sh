@@ -35,6 +35,7 @@ bazel build \
     //tools/csv-generator/... \
     //tools/perfscale-audit/... \
     //tools/perfscale-load-generator/... \
+    //tools/cluster-profiler/... \
     //cmd/... \
     //staging/src/kubevirt.io/client-go/examples/...
 
