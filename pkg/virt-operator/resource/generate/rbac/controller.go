@@ -185,7 +185,6 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/removevolume",
 				},
 				Verbs: []string{
-					"get",
 					"update",
 				},
 			},
