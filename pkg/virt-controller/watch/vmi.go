@@ -1195,8 +1195,6 @@ func (c *VMIController) addVirtualMachineInstance(obj interface{}) {
 }
 
 func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
-	c.lowerVMIExpectation(obj)
-
 	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 
 	// When a delete is dropped, the relist will notice a vmi in the store not
@@ -1214,7 +1212,7 @@ func (c *VMIController) deleteVirtualMachineInstance(obj interface{}) {
 			return
 		}
 	}
-
+	c.lowerVMIExpectation(vmi)
 	c.enqueueVirtualMachine(vmi)
 }
 
