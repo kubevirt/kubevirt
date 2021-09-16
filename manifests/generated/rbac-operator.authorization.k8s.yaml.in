@@ -230,6 +230,16 @@ rules:
   verbs:
   - put
 - apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/pause
+  - virtualmachineinstances/unpause
+  - virtualmachineinstances/addvolume
+  - virtualmachineinstances/removevolume
+  verbs:
+  - update
+  - get
+- apiGroups:
   - ""
   resources:
   - namespaces
@@ -407,7 +417,6 @@ rules:
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
   verbs:
-  - get
   - update
 - apiGroups:
   - cdi.kubevirt.io
@@ -527,6 +536,9 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/userlist
   verbs:
   - get
 - apiGroups:
@@ -537,7 +549,6 @@ rules:
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
   verbs:
-  - get
   - update
 - apiGroups:
   - subresources.kubevirt.io
@@ -584,6 +595,9 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/userlist
   verbs:
   - get
 - apiGroups:
@@ -594,7 +608,6 @@ rules:
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
   verbs:
-  - get
   - update
 - apiGroups:
   - subresources.kubevirt.io
@@ -634,6 +647,14 @@ rules:
   - patch
   - list
   - watch
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/userlist
+  verbs:
+  - get
 - apiGroups:
   - kubevirt.io
   resources:
