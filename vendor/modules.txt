@@ -74,7 +74,7 @@ github.com/fsnotify/fsnotify
 # github.com/ghodss/yaml v1.0.0
 ## explicit
 github.com/ghodss/yaml
-# github.com/go-kit/kit v0.9.0 => github.com/go-kit/kit v0.3.0
+# github.com/go-kit/kit v0.9.0
 ## explicit
 github.com/go-kit/kit/endpoint
 github.com/go-kit/kit/log
@@ -1018,7 +1018,6 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit
 sigs.k8s.io/yaml
-# github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 # github.com/golang/glog => ./staging/src/github.com/golang/glog
 # github.com/onsi/ginkgo => github.com/onsi/ginkgo v1.12.1
 # github.com/onsi/gomega => github.com/onsi/gomega v1.10.1
