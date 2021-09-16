@@ -201,7 +201,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	disk.Driver = &api.DiskDriver{
 		Name:        "qemu",
 		Cache:       string(diskDevice.Cache),
-		IO:          string(diskDevice.IO),
+		IO:          diskDevice.IO,
 		ErrorPolicy: "stop",
 	}
 	if diskDevice.Disk != nil || diskDevice.LUN != nil {
@@ -437,7 +437,7 @@ func SetOptimalIOMode(disk *api.Disk) error {
 	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
 		// set native for block device or pre-allocateed image file
 		if (disk.Source.Dev != "") || isPreAllocated(disk.Source.File) {
-			disk.Driver.IO = string(v1.IONative)
+			disk.Driver.IO = v1.IONative
 		}
 	}
 	// For now we don't explicitly set io=threads even for sparse files as it's
@@ -1396,22 +1396,26 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		if useIOThreads {
-			ioThreadId := defaultIOThread
-			dedicatedThread := false
-			if disk.DedicatedIOThread != nil {
-				dedicatedThread = *disk.DedicatedIOThread
-			}
+			if _, ok := c.HotplugVolumes[disk.Name]; !ok {
+				ioThreadId := defaultIOThread
+				dedicatedThread := false
+				if disk.DedicatedIOThread != nil {
+					dedicatedThread = *disk.DedicatedIOThread
+				}
 
-			if dedicatedThread {
-				ioThreadId = currentDedicatedThread
-				currentDedicatedThread += 1
+				if dedicatedThread {
+					ioThreadId = currentDedicatedThread
+					currentDedicatedThread += 1
+				} else {
+					ioThreadId = currentAutoThread
+					// increment the threadId to be used next but wrap around at the thread limit
+					// the odd math here is because thread ID's start at 1, not 0
+					currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+				}
+				newDisk.Driver.IOThread = &ioThreadId
 			} else {
-				ioThreadId = currentAutoThread
-				// increment the threadId to be used next but wrap around at the thread limit
-				// the odd math here is because thread ID's start at 1, not 0
-				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+				newDisk.Driver.IO = v1.IOThreads
 			}
-			newDisk.Driver.IOThread = &ioThreadId
 		}
 
 		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
@@ -1521,11 +1525,18 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if needsSCSIControler(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
+		scsiController := api.Controller{
 			Type:  "scsi",
 			Index: "0",
 			Model: translateModel(c, "virtio"),
-		})
+		}
+		if useIOThreads {
+			scsiController.Driver = &api.ControllerDriver{
+				IOThread: &currentAutoThread,
+				Queues:   &vcpus,
+			}
+		}
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 
 	if vmi.Spec.Domain.Clock != nil {

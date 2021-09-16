@@ -1671,9 +1671,30 @@ var _ = Describe("Converter", func() {
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
 		})
 
-		It("should add a virtio-scsi controller if a scsci disk is present", func() {
+		It("should add a virtio-scsi controller if a scsci disk is present and iothreads set", func() {
+			one := uint(1)
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
+			dom := &api.Domain{}
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:  "scsi",
+				Index: "0",
+				Model: "virtio-non-transitional",
+				Driver: &api.ControllerDriver{
+					IOThread: &one,
+					Queues:   &one,
+				},
+			}))
+		})
+
+		It("should add a virtio-scsi controller if a scsci disk is present and iothreads NOT set", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
+			vmi.Spec.Domain.IOThreadsPolicy = nil
+			for i, _ := range vmi.Spec.Domain.Devices.Disks {
+				vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread = nil
+			}
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
