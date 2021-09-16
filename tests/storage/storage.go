@@ -675,7 +675,7 @@ var _ = SIGDescribe("Storage", func() {
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					obj := tests.RunVMIAndExpectLaunch(vmi, 120)
+					obj := tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
