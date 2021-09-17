@@ -1717,7 +1717,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 						return err
 					}
 
-					if handler.Status.CurrentNumberScheduled == handler.Status.NumberAvailable {
+					if handler.Status.DesiredNumberScheduled == handler.Status.NumberAvailable {
 						return nil
 					}
 					return fmt.Errorf("waiting for virt-handler pod to come back online")
