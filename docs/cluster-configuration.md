@@ -140,22 +140,26 @@ CPU HW perspective.
 Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/LibvirtXMLCPUModel)
 
 ### sriovLiveMigration Feature Gate
-Set the `sriovLiveMigration` feature gate in order to allow migrating a virtual machine with SRIOV interfaces.
-When enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability.
-This may degrade virt-launcher security.
+
+Set the `sriovLiveMigration` feature gate in order to allow migrating a virtual machine with SRIOV interfaces. When
+enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability. This may
+degrade virt-launcher security.
 
 **Default**: `true`
 
-### commonDataImportCronEnabled Feature Gate
-Set the `commonDataImportCronEnabled` feature gate to `true` in order to enable the common golden images in the cluster.
-For additional information, see here: https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md 
+### enableCommonBootImageImport Feature Gate
 
-**Note**: Custom golden images are enabled by adding them the [dataImportCronTemplates field](#configure-custom-golden-images),
-even if this feature gate is `false`.
+Set the `enableCommonBootImageImport` feature gate to `true` in order to enable the common golden images in the cluster.
+For additional information, see
+here: https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md
+
+**Note**: Custom golden images are enabled by adding them
+the [dataImportCronTemplates field](#configure-custom-golden-images), even if this feature gate is `false`.
 
 **Default**: `false`
 
 ### Feature Gates Example
+
 ```yaml
 apiVersion: hco.kubevirt.io/v1beta1
 kind: HyperConverged
@@ -167,7 +171,7 @@ spec:
   featureGates:
     withHostPassthroughCPU: true
     sriovLiveMigration: true
-    commonDataImportCronEnabled: false
+    enableCommonBootImageImport: false
 ```
 
 ## Live Migration Configurations
@@ -479,10 +483,11 @@ spec:
 Golden images are root disk images for commonly used operating systems. HCO provides several hard coded images, but it 
 is also possible to add custom golden images. For more details, see [the golden image documentation](https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md).
 
-To add a custom image, add a `DataImportCronTemplate` object to the `dataImportCronTemplates` under the `HyperConverged`'s
+To add a custom image, add a `DataImportCronTemplate` object to the `dataImportCronTemplates` under
+the `HyperConverged`'s
 `spec` field.
 
-**Note**: the commonDataImportCronEnabled feature does not block the custom golden images, but only the common ones. 
+**Note**: the `enableCommonBootImageImport` feature does not block the custom golden images, but only the common ones.
 
 ### Custom Golden Images example
 ```yaml

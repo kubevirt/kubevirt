@@ -193,7 +193,7 @@ func readDataImportCronTemplatesFromFile() error {
 func getDataImportCronTemplates(hc *hcov1beta1.HyperConverged) []sspv1beta1.DataImportCronTemplate {
 	var dataImportCronTemplateList []sspv1beta1.DataImportCronTemplate = nil
 
-	if hc.Spec.FeatureGates.CommonDataImportCronEnabled {
+	if hc.Spec.FeatureGates.EnableCommonBootImageImport {
 		dataImportCronTemplateList = append(dataImportCronTemplateList, dataImportCronTemplateHardCodedList...)
 	}
 	dataImportCronTemplateList = append(dataImportCronTemplateList, hc.Spec.DataImportCronTemplates...)

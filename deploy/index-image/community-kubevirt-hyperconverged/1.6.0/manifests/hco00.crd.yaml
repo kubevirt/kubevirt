@@ -52,7 +52,7 @@ spec:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
               featureGates:
-                commonDataImportCronEnabled: false
+                enableCommonBootImageImport: false
                 sriovLiveMigration: true
                 withHostPassthroughCPU: false
               liveMigrationConfig:
@@ -185,14 +185,14 @@ spec:
                 x-kubernetes-list-type: atomic
               featureGates:
                 default:
-                  commonDataImportCronEnabled: false
+                  enableCommonBootImageImport: false
                   sriovLiveMigration: true
                   withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
                 properties:
-                  commonDataImportCronEnabled:
+                  enableCommonBootImageImport:
                     default: false
                     description: 'Opt-in to automatic delivery/updates of the common
                       data import cron templates. There are two sources for the data

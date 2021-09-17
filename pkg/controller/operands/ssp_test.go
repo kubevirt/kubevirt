@@ -445,10 +445,10 @@ var _ = Describe("SSP Operands", func() {
 
 				It("should return an empty list if both the hard-coded list and the list from HC are empty", func() {
 					hcoWithEmptyList := commonTestUtils.NewHco()
-					hcoWithEmptyList.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hcoWithEmptyList.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hcoWithEmptyList.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{}
 					hcoWithNilList := commonTestUtils.NewHco()
-					hcoWithNilList.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hcoWithNilList.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hcoWithNilList.Spec.DataImportCronTemplates = nil
 
 					dataImportCronTemplateHardCodedList = nil
@@ -462,7 +462,7 @@ var _ = Describe("SSP Operands", func() {
 				It("Should add the CR list to the hard-coded list", func() {
 					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
 					goldenImageList := getDataImportCronTemplates(hco)
 					Expect(goldenImageList).To(HaveLen(4))
@@ -474,7 +474,7 @@ var _ = Describe("SSP Operands", func() {
 					By("CR list is nil")
 					dataImportCronTemplateHardCodedList = []sspv1beta1.DataImportCronTemplate{image1, image2}
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hco.Spec.DataImportCronTemplates = nil
 					goldenImageList := getDataImportCronTemplates(hco)
 					Expect(goldenImageList).To(HaveLen(2))
@@ -490,7 +490,7 @@ var _ = Describe("SSP Operands", func() {
 
 				It("Should return only the CR list, if the hard-coded list is empty", func() {
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
 
 					By("when dataImportCronTemplateHardCodedList is nil")
@@ -513,7 +513,7 @@ var _ = Describe("SSP Operands", func() {
 
 				It("should return an empty list if there is no file and no list in the HyperConverged CR", func() {
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					ssp := NewSSP(hco)
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(BeNil())
@@ -531,7 +531,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					ssp := NewSSP(hco)
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
@@ -550,7 +550,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
 					ssp := NewSSP(hco)
 
@@ -564,7 +564,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(dataImportCronTemplateHardCodedList).Should(BeEmpty())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.CommonDataImportCronEnabled = true
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = true
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
 					ssp := NewSSP(hco)
 
@@ -585,7 +585,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
 
 					hco := commonTestUtils.NewHco()
-					hco.Spec.FeatureGates.CommonDataImportCronEnabled = false
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = false
 					hco.Spec.DataImportCronTemplates = []sspv1beta1.DataImportCronTemplate{image3, image4}
 					ssp := NewSSP(hco)
 
