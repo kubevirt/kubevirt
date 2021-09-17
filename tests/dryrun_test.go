@@ -23,7 +23,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8sres "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -293,4 +295,108 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(vmim.Labels["key"]).ToNot(Equal("42"))
 		})
 	})
+
+	Context("VMI Presets", func() {
+		var preset *v1.VirtualMachineInstancePreset
+		resource := "virtualmachineinstancepresets"
+		presetLabelKey := "kubevirt.io/vmi-preset-test"
+		presetLabelVal := "test"
+
+		BeforeEach(func() {
+			preset = newVMIPreset("test-vmi-preset", presetLabelKey, presetLabelVal)
+		})
+
+		It("create a VMI preset", func() {
+			By("Make a Dry-Run request to create a VMI preset")
+			err = tests.DryRunCreate(restClient, resource, preset.Namespace, preset, nil)
+			Expect(err).To(BeNil())
+
+			By("Check that no VMI preset was actually created")
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("delete a VMI preset", func() {
+			By("Create a VMI preset")
+			_, err := virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			Expect(err).To(BeNil())
+
+			By("Make a Dry-Run request to delete a VMI preset")
+			deletePolicy := metav1.DeletePropagationForeground
+			opts := metav1.DeleteOptions{
+				DryRun:            []string{metav1.DryRunAll},
+				PropagationPolicy: &deletePolicy,
+			}
+			err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Delete(preset.Name, &opts)
+			Expect(err).To(BeNil())
+
+			By("Check that no VMI preset was actually deleted")
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("update a VMI preset", func() {
+			By("Create a VMI preset")
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			Expect(err).To(BeNil())
+
+			By("Make a Dry-Run request to update a VMI preset")
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+
+				preset.Labels = map[string]string{
+					"key": "42",
+				}
+				return tests.DryRunUpdate(restClient, resource, preset.Name, preset.Namespace, preset, nil)
+			})
+			Expect(err).To(BeNil())
+
+			By("Check that no update actually took place")
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(preset.Labels["key"]).ToNot(Equal("42"))
+		})
+
+		It("patch a VMI preset", func() {
+			By("Create a VMI preset")
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			Expect(err).To(BeNil())
+
+			By("Make a Dry-Run request to patch a VMI preset")
+			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
+			err = tests.DryRunPatch(restClient, resource, preset.Name, preset.Namespace, types.MergePatchType, patch, nil)
+			Expect(err).To(BeNil())
+
+			By("Check that no update actually took place")
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(preset.Labels["key"]).ToNot(Equal("42"))
+		})
+	})
 })
+
+func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstancePreset {
+	return &v1.VirtualMachineInstancePreset{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: util.NamespaceTestDefault,
+		},
+		Spec: v1.VirtualMachineInstancePresetSpec{
+			Domain: &v1.DomainSpec{
+				Resources: v1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: k8sres.MustParse("512Mi"),
+					},
+				},
+			},
+			Selector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					labelKey: labelValue,
+				},
+			},
+		},
+	}
+}
