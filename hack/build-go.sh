@@ -56,7 +56,8 @@ esac
 if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
         (
-            go ${target} -v ./cmd/...
+            # Ignoring container-disk-v2alpha since it is written in C, not in go
+            go ${target} -v --ignore=container-disk-v2alpha ./cmd/...
         )
         (
             go ${target} -v -race ./pkg/...
