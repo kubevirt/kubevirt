@@ -3167,6 +3167,52 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	return &pod
 }
 
+func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+
+	pod, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(ThisPod(pod), 180).Should(BeInPhase(k8sv1.PodRunning))
+
+	pod, err = ThisPod(pod)()
+	Expect(err).ToNot(HaveOccurred())
+	return pod
+}
+
+func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+
+	pod, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+
+	pod, err = ThisPod(pod)()
+	Expect(err).ToNot(HaveOccurred())
+	return pod
+}
+
+func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
+	dstPath = HostPathAlpine + "-nopriv"
+	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 644 %[1]s-nopriv/disk.img`, HostPathAlpine)}
+
+	By("creating an image with without qemu permissions")
+	pod := RenderHostPathPod("tmp-image-create-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+
+	nodeName = RunPodAndExpectCompletion(pod).Spec.NodeName
+	return
+}
+
+func DeleteAlpineWithNonQEMUPermissions() {
+	nonQemuAlpinePath := HostPathAlpine + "-nopriv"
+	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
+
+	pod := RenderHostPathPod("remove-tmp-image-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+
+	RunPodAndExpectCompletion(pod)
+}
+
 func renderContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
 	return k8sv1.Container{
 		Name:    name,
