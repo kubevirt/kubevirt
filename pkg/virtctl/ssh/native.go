@@ -20,10 +20,7 @@ func (o *SSH) prepareSSHClient(kind, namespace, name string) (*ssh.Client, error
 
 	conn := streamer.AsConn()
 	addr := fmt.Sprintf("%s/%s.%s:%d", kind, name, namespace, sshPort)
-	authMethods, err := o.getAuthMethods(kind, namespace, name)
-	if err != nil {
-		return nil, err
-	}
+	authMethods := o.getAuthMethods(kind, namespace, name)
 
 	hostKeyCallback := ssh.InsecureIgnoreHostKey()
 	if len(knownHostsFilePath) > 0 {
@@ -50,20 +47,11 @@ func (o *SSH) prepareSSHClient(kind, namespace, name string) (*ssh.Client, error
 	return ssh.NewClient(sshConn, chans, reqs), nil
 }
 
-func (o *SSH) getAuthMethods(kind, namespace, name string) ([]ssh.AuthMethod, error) {
-	var (
-		methods []ssh.AuthMethod
-		err     error
-	)
+func (o *SSH) getAuthMethods(kind, namespace, name string) []ssh.AuthMethod {
+	var methods []ssh.AuthMethod
 
-	if len(identityFilePath) < 1 {
-		methods = trySSHAgent(methods)
-	} else {
-		methods, err = usePrivateKey(methods)
-		if err != nil {
-			return nil, err
-		}
-	}
+	methods = trySSHAgent(methods)
+	methods = tryPrivateKey(methods)
 
 	methods = append(methods, ssh.PasswordCallback(func() (secret string, err error) {
 		password, err := readPassword(fmt.Sprintf("%s@%s/%s.%s's password: ", sshUsername, kind, name, namespace))
@@ -71,7 +59,7 @@ func (o *SSH) getAuthMethods(kind, namespace, name string) ([]ssh.AuthMethod, er
 		return string(password), err
 	}))
 
-	return methods, nil
+	return methods
 }
 
 func trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMethod {
@@ -81,7 +69,7 @@ func trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMethod {
 	}
 	conn, err := net.Dial("unix", socket)
 	if err != nil {
-		glog.Error(err)
+		glog.Error("no connection to ssh agent:", err)
 		return methods
 	}
 	agentClient := agent.NewClient(conn)
@@ -89,7 +77,7 @@ func trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMethod {
 	return append(methods, ssh.PublicKeysCallback(agentClient.Signers))
 }
 
-func usePrivateKey(methods []ssh.AuthMethod) ([]ssh.AuthMethod, error) {
+func tryPrivateKey(methods []ssh.AuthMethod) []ssh.AuthMethod {
 	callback := ssh.PublicKeysCallback(func() (signers []ssh.Signer, err error) {
 		key, err := ioutil.ReadFile(identityFilePath)
 		if err != nil {
@@ -106,7 +94,7 @@ func usePrivateKey(methods []ssh.AuthMethod) ([]ssh.AuthMethod, error) {
 		return []ssh.Signer{signer}, nil
 	})
 
-	return append(methods, callback), nil
+	return append(methods, callback)
 }
 
 func parsePrivateKeyWithPassphrase(key []byte) (ssh.Signer, error) {

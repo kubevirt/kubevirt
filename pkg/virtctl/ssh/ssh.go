@@ -69,9 +69,9 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		knownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "known_hosts")
 	}
 
-	cmd.Flags().StringVar(&sshUsername, usernameFlag, "",
-		fmt.Sprintf("--%s=jdoe: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag))
-	cmd.Flags().StringVarP(&identityFilePath, identityFilePathFlag, identityFilePathFlagShort, "",
+	cmd.Flags().StringVarP(&sshUsername, usernameFlag, usernameFlagShort, defaultUsername(),
+		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, defaultUsername()))
+	cmd.Flags().StringVarP(&identityFilePath, identityFilePathFlag, identityFilePathFlagShort, filepath.Join(homeDir, ".ssh", "id_rsa"),
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", identityFilePathFlag))
 	cmd.Flags().StringVar(&knownHostsFilePath, knownHostsFilePathFlag, knownHostsFilePathDefault,
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/known_hosts: Set the path to the known_hosts file; If not provided, the client will skip host checks", knownHostsFilePathFlag))
@@ -116,12 +116,6 @@ func (o *SSH) prepareCommand(args []string) (kind, namespace, name string, err e
 		if err != nil {
 			return
 		}
-	}
-
-	if len(sshUsername) > 0 && len(targetUsername) > 0 {
-		err = fmt.Errorf("only one userame must be specified, got --%s=%s and %s@",
-			usernameFlag, sshUsername, targetUsername)
-		return
 	}
 
 	if len(targetUsername) > 0 {
@@ -170,4 +164,18 @@ func usage() string {
 		usernameFlag,
 		wrapLocalSSHFlag,
 	)
+}
+
+func defaultUsername() string {
+	vars := []string{
+		"USER",     // linux
+		"USERNAME", // linux, windows
+		"LOGNAME",  // linux
+	}
+	for _, env := range vars {
+		if v := os.Getenv(env); v != "" {
+			return v
+		}
+	}
+	return ""
 }
