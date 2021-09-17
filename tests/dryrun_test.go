@@ -376,6 +376,85 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(preset.Labels["key"]).ToNot(Equal("42"))
 		})
 	})
+
+	Context("VMI ReplicaSets", func() {
+		var vmirs *v1.VirtualMachineInstanceReplicaSet
+		resource := "virtualmachineinstancereplicasets"
+
+		BeforeEach(func() {
+			vmirs = newVMIReplicaSet("test-vmi-rs")
+		})
+
+		It("create a VMI replicaset", func() {
+			By("Make a Dry-Run request to create a VMI replicaset")
+			err = tests.DryRunCreate(restClient, resource, vmirs.Namespace, vmirs, nil)
+			Expect(err).To(BeNil())
+
+			By("Check that no VMI replicaset was actually created")
+			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("delete a VMI replicaset", func() {
+			By("Create a VMI replicaset")
+			_, err := virtClient.ReplicaSet(vmirs.Namespace).Create(vmirs)
+			Expect(err).To(BeNil())
+
+			By("Make a Dry-Run request to delete a VMI replicaset")
+			deletePolicy := metav1.DeletePropagationForeground
+			opts := metav1.DeleteOptions{
+				DryRun:            []string{metav1.DryRunAll},
+				PropagationPolicy: &deletePolicy,
+			}
+			err = virtClient.ReplicaSet(vmirs.Namespace).Delete(vmirs.Name, &opts)
+			Expect(err).To(BeNil())
+
+			By("Check that no VMI replicaset was actually deleted")
+			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("update a VMI replicaset", func() {
+			By("Create a VMI replicaset")
+			_, err = virtClient.ReplicaSet(vmirs.Namespace).Create(vmirs)
+			Expect(err).To(BeNil())
+
+			By("Make a Dry-Run request to update a VMI replicaset")
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+
+				vmirs.Labels = map[string]string{
+					"key": "42",
+				}
+				return tests.DryRunUpdate(restClient, resource, vmirs.Name, vmirs.Namespace, vmirs, nil)
+			})
+			Expect(err).To(BeNil())
+
+			By("Check that no update actually took place")
+			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmirs.Labels["key"]).ToNot(Equal("42"))
+		})
+
+		It("patch a VMI replicaset", func() {
+			By("Create a VMI replicaset")
+			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Create(vmirs)
+			Expect(err).To(BeNil())
+
+			By("Make a Dry-Run request to patch a VMI replicaset")
+			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
+			err = tests.DryRunPatch(restClient, resource, vmirs.Name, vmirs.Namespace, types.MergePatchType, patch, nil)
+			Expect(err).To(BeNil())
+
+			By("Check that no update actually took place")
+			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmirs.Labels["key"]).ToNot(Equal("42"))
+		})
+	})
 })
 
 func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstancePreset {
@@ -396,6 +475,32 @@ func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstanceP
 				MatchLabels: map[string]string{
 					labelKey: labelValue,
 				},
+			},
+		},
+	}
+}
+
+func newVMIReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
+	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+
+	return &v1.VirtualMachineInstanceReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: util.NamespaceTestDefault,
+		},
+		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"kubevirt.io/testrs": "testrs",
+				},
+			},
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"kubevirt.io/testrs": "testrs",
+					},
+				},
+				Spec: vmi.Spec,
 			},
 		},
 	}
