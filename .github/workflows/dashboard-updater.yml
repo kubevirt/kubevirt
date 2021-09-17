@@ -21,7 +21,7 @@ jobs:
 
       - name: Check for update
         run: |
-          ./hco/automation/dashboard-updater/dashboard-updater.sh "./monitoring/dashboards" "./hco/assets/dashboards"
+          ./hco/automation/dashboard-updater/dashboard-updater.sh "./monitoring/dashboards/openshift" "./hco/assets/dashboards"
           cd hco
           git add --all
           if ! git diff HEAD --quiet --exit-code; then
