@@ -50,6 +50,9 @@ function up() {
             $kubectl create -f /opt/cnao/network-addons-config-example.cr.yaml
             $kubectl wait networkaddonsconfig cluster --for condition=Available --timeout=200s
         fi
+
+        # Install whereabouts on CNAO lanes
+        $kubectl create -f /opt/whereabouts
     fi
 
     if [ "$KUBEVIRT_DEPLOY_ISTIO" == "true" ] && [[ $KUBEVIRT_PROVIDER =~ k8s-1\.1.* ]]; then
