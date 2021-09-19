@@ -1657,7 +1657,7 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 		// First, ensure DataVolume exists
 		_, err := dataVolumeFunc(name, namespace)
 		if err != nil {
-			return false, false, services.DataVolumeNotFoundError{Err: err}
+			return false, false, services.DataVolumeNotFoundError{Reason: err.Error()}
 		}
 	}
 
@@ -1682,7 +1682,7 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 			}
 		}
 	} else {
-		return false, false, services.PvcNotFoundError{Err: fmt.Errorf("didn't find PVC %v", name)}
+		return false, false, services.PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", name)}
 	}
 	return ready, wffc, nil
 }
