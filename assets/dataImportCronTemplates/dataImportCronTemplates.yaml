@@ -1,0 +1,16 @@
+- metadata:
+    name: centos8-image-cron
+  spec:
+    schedule: "0 */12 * * *"
+    source:
+      registry:
+        url: docker://quay.io/kubevirt/centos8-container-disk-images
+    managedDataSource: centos8
+- metadata:
+    name: fedora-image-cron
+  spec:
+    schedule: "0 */12 * * *"
+    source:
+      registry:
+        url: docker://quay.io/kubevirt/fedora-container-disk-images
+    managedDataSource: fedora

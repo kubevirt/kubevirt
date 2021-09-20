@@ -3,5 +3,6 @@ FROM centos:7
 ENV KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION=v1
 
 COPY hyperconverged-cluster-webhook /usr/bin/
+COPY assets/dataImportCronTemplates dataImportCronTemplates/
 
 ENTRYPOINT /usr/bin/hyperconverged-cluster-webhook

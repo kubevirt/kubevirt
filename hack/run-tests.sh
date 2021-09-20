@@ -47,5 +47,8 @@ sleep 60
 # Check the defaulting mechanism
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_defaults.sh
 
+# check golden images
+KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_golden_images.sh
+
 # Check the webhook, to see if it allow deleteing of the HyperConverged CR
 ./hack/retry.sh 10 30 "${KUBECTL_BINARY} delete hco -n ${INSTALLED_NAMESPACE} kubevirt-hyperconverged"

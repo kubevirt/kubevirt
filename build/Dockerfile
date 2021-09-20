@@ -20,7 +20,7 @@ RUN mkdir -p ${HOME} && \
 
 COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/_out/hyperconverged-cluster-operator $OPERATOR
 COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/_out/csv-merger $CSV_MERGER
-COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/assets/dashboards/ dashboard/
+COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/assets/ ./
 ENTRYPOINT $OPERATOR
 USER ${USER_UID}
 
