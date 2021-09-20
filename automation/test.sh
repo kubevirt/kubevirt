@@ -257,11 +257,11 @@ timeout=300
 sample=30
 
 for i in ${namespaces[@]}; do
-  # Wait until kubevirt pods are running
+  # Wait until kubevirt pods are running or completed
   current_time=0
-  while [ -n "$(kubectl get pods -n $i --no-headers | grep -v Running)" ]; do
-    echo "Waiting for kubevirt pods to enter the Running state ..."
-    kubectl get pods -n $i --no-headers | >&2 grep -v Running || true
+  while [ -n "$(kubectl get pods -n $i --no-headers | grep -v -E 'Running|Completed')" ]; do
+    echo "Waiting for kubevirt pods to enter the Running/Completed state ..."
+    kubectl get pods -n $i --no-headers | >&2 grep -v -E 'Running|Completed' || true
     sleep $sample
 
     current_time=$((current_time + sample))
