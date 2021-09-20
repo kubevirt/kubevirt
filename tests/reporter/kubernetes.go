@@ -144,6 +144,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logNodes(virtCli, nodes)
 	r.logPods(virtCli, pods)
 	r.logVMs(virtCli)
+	r.logDVs(virtCli)
 
 	r.logAuditLogs(virtCli, nodesDir, nodesWithVirtLauncher, since)
 	r.logDMESG(virtCli, nodesDir, nodesWithVirtLauncher, since)
@@ -239,6 +240,30 @@ func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, vmis *v12.V
 	j, err := json.MarshalIndent(vmis, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal vmis")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logDVs(virtCli kubecli.KubevirtClient) {
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_dvs.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	dvs, err := virtCli.CdiClient().CdiV1beta1().DataVolumes(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch pvcs: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(dvs, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal dvs")
 		return
 	}
 	fmt.Fprintln(f, string(j))
