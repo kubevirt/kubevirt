@@ -455,6 +455,84 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(vmirs.Labels["key"]).ToNot(Equal("42"))
 		})
 	})
+
+	Context("KubeVirt CR", func() {
+		var kv *v1.KubeVirt
+		resource := "kubevirts"
+
+		BeforeEach(func() {
+			kv = util.GetCurrentKv(virtClient)
+		})
+
+		copyKV := func(kv *v1.KubeVirt) *v1.KubeVirt {
+			var kvCopy v1.KubeVirt
+
+			kvCopy.ObjectMeta = *kv.ObjectMeta.DeepCopy()
+			kvCopy.Spec = *kv.Spec.DeepCopy()
+			return &kvCopy
+		}
+
+		It("create a KubeVirt CR", func() {
+			kvCopy := copyKV(kv)
+			kvCopy.Name = "test-kubevirt-cr"
+
+			By("Make a Dry-Run request to create a KubeVirt CR")
+			err = tests.DryRunCreate(restClient, resource, kvCopy.Namespace, kvCopy, nil)
+			Expect(err).To(BeNil())
+
+			By("Check that no KubeVirt CR was actually created")
+			_, err = virtClient.KubeVirt(kvCopy.Namespace).Get(kvCopy.Name, &metav1.GetOptions{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("delete a KubeVirt CR", func() {
+			By("Make a Dry-Run request to delete a KubeVirt CR")
+			deletePolicy := metav1.DeletePropagationForeground
+			opts := metav1.DeleteOptions{
+				DryRun:            []string{metav1.DryRunAll},
+				PropagationPolicy: &deletePolicy,
+			}
+			err = virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &opts)
+			Expect(err).To(BeNil())
+
+			By("Check that no KubeVirt CR was actually deleted")
+			_, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("update a KubeVirt CR", func() {
+			By("Make a Dry-Run request to update a KubeVirt CR")
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				kv, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+
+				kv.Labels = map[string]string{
+					"key": "42",
+				}
+				return tests.DryRunUpdate(restClient, resource, kv.Name, kv.Namespace, kv, nil)
+			})
+			Expect(err).To(BeNil())
+
+			By("Check that no update actually took place")
+			kv, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Labels["key"]).ToNot(Equal("42"))
+		})
+
+		It("patch a KubeVirt CR", func() {
+			By("Make a Dry-Run request to patch a KubeVirt CR")
+			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
+			err = tests.DryRunPatch(restClient, resource, kv.Name, kv.Namespace, types.MergePatchType, patch, nil)
+			Expect(err).To(BeNil())
+
+			By("Check that no update actually took place")
+			kv, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Labels["key"]).ToNot(Equal("42"))
+		})
+	})
 })
 
 func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstancePreset {
