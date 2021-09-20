@@ -20,6 +20,8 @@
 package tests_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -32,7 +34,9 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/util"
@@ -533,6 +537,97 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(kv.Labels["key"]).ToNot(Equal("42"))
 		})
 	})
+
+	Context("VM Snapshots", func() {
+		var snap *v1alpha1.VirtualMachineSnapshot
+
+		BeforeEach(func() {
+			tests.EnableFeatureGate(virtconfig.SnapshotGate)
+
+			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			snap = newVMSnapshot(vm)
+		})
+
+		It("create a VM Snapshot", func() {
+			By("Make a Dry-Run request to create a VM Snapshot")
+			opts := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Create(context.Background(), snap, opts)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that no VM Snapshot was actually created")
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("delete a VM Snapshot", func() {
+			By("Create a VM Snapshot")
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Create(context.Background(), snap, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Make a Dry-Run request to delete a VM Snapshot")
+			deletePolicy := metav1.DeletePropagationForeground
+			opts := metav1.DeleteOptions{
+				DryRun:            []string{metav1.DryRunAll},
+				PropagationPolicy: &deletePolicy,
+			}
+			err = virtClient.VirtualMachineSnapshot(snap.Namespace).Delete(context.Background(), snap.Name, opts)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that no VM Snapshot was actually deleted")
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("update a VM Snapshot", func() {
+			By("Create a VM Snapshot")
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Create(context.Background(), snap, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Make a Dry-Run request to update a VM Snapshot")
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				snap, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+
+				snap.Labels = map[string]string{
+					"key": "42",
+				}
+
+				opts := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
+				_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Update(context.Background(), snap, opts)
+				return err
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that no update actually took place")
+			snap, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(snap.Labels["key"]).ToNot(Equal("42"))
+		})
+
+		It("patch a VM Snapshot", func() {
+			By("Create a VM Snapshot")
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Create(context.Background(), snap, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Make a Dry-Run request to patch a VM Snapshot")
+			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
+			opts := metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}}
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Patch(context.Background(), snap.Name, types.MergePatchType, patch, opts)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that no update actually took place")
+			snap, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(snap.Labels["key"]).ToNot(Equal("42"))
+		})
+	})
 })
 
 func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstancePreset {
@@ -579,6 +674,24 @@ func newVMIReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
 					},
 				},
 				Spec: vmi.Spec,
+			},
+		},
+	}
+}
+
+func newVMSnapshot(vm *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
+	group := vm.GroupVersionKind().Group
+
+	return &v1alpha1.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vm.Name + "-snapshot",
+			Namespace: util.NamespaceTestDefault,
+		},
+		Spec: v1alpha1.VirtualMachineSnapshotSpec{
+			Source: corev1.TypedLocalObjectReference{
+				APIGroup: &group,
+				Kind:     vm.GroupVersionKind().Kind,
+				Name:     vm.Name,
 			},
 		},
 	}
