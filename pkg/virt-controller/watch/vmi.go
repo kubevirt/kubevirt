@@ -581,10 +581,13 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 
 		if len(patchBytes) > 0 {
+			key := controller.VirtualMachineInstanceKey(vmi)
+			c.vmiExpectations.SetExpectations(key, 1, 0)
 			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patchBytes))
 			// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 			// So just retry like with any other errors
 			if err != nil {
+				c.vmiExpectations.LowerExpectations(key, 1, 0)
 				return fmt.Errorf("patching of vmi conditions and activePods failed: %v", err)
 			}
 		}

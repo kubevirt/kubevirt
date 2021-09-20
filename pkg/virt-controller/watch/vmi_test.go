@@ -1488,7 +1488,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			patch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "madeup" }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }]`
-
+			key := kvcontroller.VirtualMachineInstanceKey(vmi)
+			controller.vmiExpectations.LowerExpectations(key, 1, 0)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
 			controller.Execute()
@@ -1516,7 +1517,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			patch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "a" }, { "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {} }]`
-
+			key := kvcontroller.VirtualMachineInstanceKey(vmi)
+			controller.vmiExpectations.LowerExpectations(key, 1, 0)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
 			controller.Execute()
@@ -1534,6 +1536,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			patch := `[{ "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }]`
+			key := kvcontroller.VirtualMachineInstanceKey(vmi)
+			controller.vmiExpectations.LowerExpectations(key, 1, 0)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
 			controller.Execute()
@@ -1551,6 +1555,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
+			key := kvcontroller.VirtualMachineInstanceKey(vmi)
+			controller.vmiExpectations.LowerExpectations(key, 1, 0)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).DoAndReturn(func(_ string, _ interface{}, patchBytes []byte) (*v1.VirtualMachineInstance, error) {
 				patch, err := jsonpatch.DecodePatch(patchBytes)
 				Expect(err).ToNot(HaveOccurred())
@@ -1583,6 +1589,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			patch := `[{ "op": "test", "path": "/status/activePods", "value": {} }, { "op": "replace", "path": "/status/activePods", "value": {"someUID":"someHost"} }]`
+			key := kvcontroller.VirtualMachineInstanceKey(vmi)
+			controller.vmiExpectations.LowerExpectations(key, 1, 0)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
 			controller.Execute()
@@ -2439,6 +2447,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
 			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{},"hotplugVolume":{}}] }]`
+			key := kvcontroller.VirtualMachineInstanceKey(vmi)
+			controller.vmiExpectations.LowerExpectations(key, 1, 0)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -2529,6 +2539,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
 			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
+			key := kvcontroller.VirtualMachineInstanceKey(vmi)
+			controller.vmiExpectations.LowerExpectations(key, 1, 0)
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
