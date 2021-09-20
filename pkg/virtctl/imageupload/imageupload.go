@@ -58,7 +58,8 @@ const (
 	// PodReadyAnnotation tells whether the uploadserver pod is ready
 	PodReadyAnnotation = "cdi.kubevirt.io/storage.pod.ready"
 
-	uploadRequestAnnotation = "cdi.kubevirt.io/storage.upload.target"
+	uploadRequestAnnotation         = "cdi.kubevirt.io/storage.upload.target"
+	forceImmediateBindingAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
 
 	uploadReadyWaitInterval = 2 * time.Second
 
@@ -88,6 +89,7 @@ var (
 	blockVolume       bool
 	noCreate          bool
 	createPVC         bool
+	forceBind         bool
 )
 
 // HTTPClientCreator is a function that creates http clients
@@ -139,6 +141,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.MarkFlagRequired("image-path")
 	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
 	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", 300, "Seconds to wait for upload pod to start.")
+	cmd.Flags().BoolVar(&forceBind, "force-bind", false, "Force Bind the PVC, ignoring the WaitForFirstConsumer logic")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -522,10 +525,16 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 		return nil, err
 	}
 
+	annotations := map[string]string{}
+	if forceBind {
+		annotations[forceImmediateBindingAnnotation] = ""
+	}
+
 	dv := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
 		},
 		Spec: cdiv1.DataVolumeSpec{
 			Source: &cdiv1.DataVolumeSource{
@@ -582,13 +591,18 @@ func createUploadPVC(client kubernetes.Interface, namespace, name, size, storage
 		return nil, err
 	}
 
+	annotations := map[string]string{
+		uploadRequestAnnotation: "",
+	}
+	if forceBind {
+		annotations[forceImmediateBindingAnnotation] = ""
+	}
+
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Annotations: map[string]string{
-				uploadRequestAnnotation: "",
-			},
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
 		},
 		Spec: *pvcSpec,
 	}
