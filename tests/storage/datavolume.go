@@ -31,6 +31,7 @@ import (
 	expect "github.com/google/goexpect"
 	storagev1 "k8s.io/api/storage/v1"
 
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo"
@@ -44,6 +45,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 
@@ -73,6 +75,53 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
+
+		Context("[Serial]without fsgroup support", func() {
+
+			ipProtocol := k8sv1.IPv4Protocol
+			os := string(cd.ContainerDiskAlpine)
+			size := "5Gi"
+
+			AfterEach(func() {
+				tests.DeleteAlpineWithNonQEMUPermissions()
+			})
+
+			createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod) string {
+				pvName := fmt.Sprintf("test-nfs%s", rand.String(48))
+
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new NFS PV and PVC")
+				nfsIP := libnet.GetPodIpByFamily(nfsPod, ipFamily)
+				ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
+
+				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, size, nfsIP, os)
+				return pvName
+			}
+
+			It("should succesfully start", func() {
+
+				targetImage, nodeName := tests.CopyAlpineWithNonQEMUPermissions()
+
+				By("Starting an NFS POD")
+				nfsPod := storageframework.InitNFS(targetImage, nodeName)
+				pvName := createNFSPvAndPvc(ipProtocol, nfsPod)
+
+				// Create fake DV and new PV&PVC of that name. Otherwise VM can't be created
+				dv := tests.NewRandomDataVolumeWithPVCSource(util.NamespaceTestDefault, pvName, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
+				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).To(BeNil())
+				tests.CreateNFSPvAndPvc(dv.Name, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
+
+				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			})
+		})
 
 		Context("Alpine import", func() {
 			BeforeEach(func() {

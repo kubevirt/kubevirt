@@ -30,10 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
 	"kubevirt.io/kubevirt/tests/util"
-
-	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -82,19 +81,6 @@ var _ = SIGDescribe("Storage", func() {
 			vmi = nil
 			targetImagePath = tests.HostPathAlpine
 		})
-
-		initNFS := func(targetImage, nodeName string) *k8sv1.Pod {
-			// Prepare a NFS backed PV
-			By("Starting an NFS POD")
-			nfsPod := storageframework.RenderNFSServer("nfsserver", targetImage)
-			nfsPod.Spec.NodeName = nodeName
-			nfsPod, err = virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), nfsPod, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisPod(nfsPod), 180).Should(BeInPhase(k8sv1.PodRunning))
-			nfsPod, err = ThisPod(nfsPod)()
-			Expect(err).ToNot(HaveOccurred())
-			return nfsPod
-		}
 
 		createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod) string {
 			pvName := fmt.Sprintf("test-nfs%s", rand.String(48))
@@ -260,7 +246,7 @@ var _ = SIGDescribe("Storage", func() {
 						if !imageOwnedByQEMU {
 							targetImage, nodeName = tests.CopyAlpineWithNonQEMUPermissions()
 						}
-						nfsPod = initNFS(targetImage, nodeName)
+						nfsPod = storageframework.InitNFS(targetImage, nodeName)
 						pvName = createNFSPvAndPvc(family, nfsPod)
 						ignoreWarnings = true
 					} else {
@@ -549,7 +535,7 @@ var _ = SIGDescribe("Storage", func() {
 					var ignoreWarnings bool
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
-						nfsPod = initNFS(tests.HostPathAlpine, "")
+						nfsPod = storageframework.InitNFS(tests.HostPathAlpine, "")
 						pvName = createNFSPvAndPvc(family, nfsPod)
 						ignoreWarnings = true
 					} else {
