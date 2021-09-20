@@ -153,10 +153,18 @@ func isDataVolumeCrd(crd *extv1.CustomResourceDefinition) bool {
 	return false
 }
 
+func isDataSourceCrd(crd *extv1.CustomResourceDefinition) bool {
+	if crd.Spec.Names.Kind == "DataSource" {
+		return true
+	}
+
+	return false
+}
+
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	go c.GetConfig()
 	crd := obj.(*extv1.CustomResourceDefinition)
-	if !isDataVolumeCrd(crd) {
+	if !isDataVolumeCrd(crd) && !isDataSourceCrd(crd) {
 		return
 	}
 
@@ -607,6 +615,21 @@ func (c *ClusterConfig) GetConfigFromKubeVirtCR() *v1.KubeVirt {
 	} else {
 		return obj.(*v1.KubeVirt)
 	}
+}
+
+func (c *ClusterConfig) HasDataSourceAPI() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	objects := c.crdInformer.GetStore().List()
+	for _, obj := range objects {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+			if isDataSourceCrd(crd) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (c *ClusterConfig) HasDataVolumeAPI() bool {

@@ -124,8 +124,8 @@ type virtAPIApp struct {
 	reloadableRateLimiter        *ratelimiter.ReloadableRateLimiter
 	reloadableWebhookRateLimiter *ratelimiter.ReloadableRateLimiter
 
-	// indicates if controllers were started with or without CDI/DataVolume support
-	hasCDI bool
+	// indicates if controllers were started with or without CDI/DataSource support
+	hasCDIDataSource bool
 	// the channel used to trigger re-initialization.
 	reInitChan chan string
 }
@@ -894,13 +894,13 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
 	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, app.namespace)
-	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
+	app.hasCDIDataSource = app.clusterConfig.HasDataSourceAPI()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 
 	var dataSourceInformer cache.SharedIndexInformer
-	if app.hasCDI {
+	if app.hasCDIDataSource {
 		dataSourceInformer = kubeInformerFactory.DataSource()
 		log.Log.Infof("CDI detected, DataSource integration enabled")
 	} else {
@@ -944,12 +944,12 @@ func (app *virtAPIApp) Run() {
 // Detects if a config has been applied that requires
 // re-initializing virt-api.
 func (app *virtAPIApp) configModificationCallback() {
-	newHasCDI := app.clusterConfig.HasDataVolumeAPI()
-	if newHasCDI != app.hasCDI {
+	newHasCDI := app.clusterConfig.HasDataSourceAPI()
+	if newHasCDI != app.hasCDIDataSource {
 		if newHasCDI {
-			log.Log.Infof("Reinitialize virt-api, cdi api has been introduced")
+			log.Log.Infof("Reinitialize virt-api, cdi DataSource api has been introduced")
 		} else {
-			log.Log.Infof("Reinitialize virt-api, cdi api has been removed")
+			log.Log.Infof("Reinitialize virt-api, cdi DataSource api has been removed")
 		}
 		app.reInitChan <- "reinit due to CDI api change"
 	}
