@@ -3195,7 +3195,7 @@ func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
 
 func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	dstPath = HostPathAlpine + "-nopriv"
-	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 644 %[1]s-nopriv/disk.img`, HostPathAlpine)}
+	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, HostPathAlpine)}
 
 	By("creating an image with without qemu permissions")
 	pod := RenderHostPathPod("tmp-image-create-job", HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
