@@ -121,7 +121,13 @@ function _add_common_params() {
             params=" --enable-grafana $params"
         fi
     fi
+    if [ -n "$KUBEVIRT_HUGEPAGES_COUNT" ]; then
+        params=" --hugepages-count $KUBEVIRT_HUGEPAGES_COUNT $params"
+    fi
 
+    if [ -n "$KUBEVIRT_REALTIME_SCHEDULER" ]; then
+        params=" --enable-realtime-scheduler $params"
+    fi
     echo $params
 }
 
