@@ -728,6 +728,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				persistent, err := tests.LibvirtDomainIsPersistent(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should list libvirt domains successfully")
 				Expect(persistent).To(BeTrue(), "The VMI was not found in the list of libvirt persistent domains")
+				tests.EnsureNoMigrationMetadataInPersistentXML(vmi)
 
 				// delete VMI
 				By("Deleting the VMI")
