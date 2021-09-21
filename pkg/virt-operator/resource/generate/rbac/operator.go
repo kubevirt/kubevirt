@@ -75,23 +75,6 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
-			// Cluster-wide secret access is not needed anymore from kubevirt-0.28 on, but we need to keep it,
-			// so that rollbacks in case of update errors to older versions are still possible, where virt-api and
-			// virt-handler needed access to secrets.
-			// TODO: remove this at some point when we don't allow updaing from installs which are older than kubevirt-0.28
-			{
-				APIGroups: []string{
-					"",
-				},
-				Resources: []string{
-					"secrets",
-				},
-				Verbs: []string{
-					"create",
-					"get",
-					"update",
-				},
-			},
 			{
 				APIGroups: []string{
 					"kubevirt.io",
@@ -308,22 +291,6 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get", "list", "watch", "create", "delete", "update", "patch",
-				},
-			},
-			{
-				// this is needed for being able to update from older versions (<= v0.18), which included the removed
-				// "put" verb on subresources for admin and edit cluster roles.
-				// Remove this when upgrade path from v0.18 and earlier is not supported anymore
-				APIGroups: []string{
-					"subresources.kubevirt.io",
-				},
-				Resources: []string{
-					"virtualmachines/start",
-					"virtualmachines/stop",
-					"virtualmachines/restart",
-				},
-				Verbs: []string{
-					"put",
 				},
 			},
 			// Until v0.43 a `get` verb was granted to these resources, but there is no get endpoint.

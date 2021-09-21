@@ -160,14 +160,6 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
-          - ""
-          resources:
-          - secrets
-          verbs:
-          - create
-          - get
-          - update
-        - apiGroups:
           - kubevirt.io
           resources:
           - kubevirts
@@ -329,14 +321,6 @@ spec:
           - delete
           - update
           - patch
-        - apiGroups:
-          - subresources.kubevirt.io
-          resources:
-          - virtualmachines/start
-          - virtualmachines/stop
-          - virtualmachines/restart
-          verbs:
-          - put
         - apiGroups:
           - subresources.kubevirt.io
           resources:
