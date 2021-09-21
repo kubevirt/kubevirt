@@ -362,6 +362,23 @@ var _ = Describe("Disruptionbudget", func() {
 
 			controller.Execute()
 		})
+
+		It("should delete a PDB created by an old migration-controller", func() {
+			vmi := newVirtualMachine()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+
+			addVirtualMachine(vmi)
+			pdb := newPodDisruptionBudget(vmi, 2)
+			pdb.Name = "kubevirt-migration-pdb-" + vmi.Name
+			pdb.ObjectMeta.Labels = map[string]string{
+				v1.MigrationNameLabel: "testmigration",
+			}
+			pdbFeeder.Add(pdb)
+
+			shouldExpectPDBDeletion(pdb)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
+		})
 	})
 
 	AfterEach(func() {
