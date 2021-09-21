@@ -21,6 +21,8 @@ package tests_test
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -628,6 +630,102 @@ var _ = Describe("[sig-compute]Dry-Run requests", func() {
 			Expect(snap.Labels["key"]).ToNot(Equal("42"))
 		})
 	})
+
+	Context("VM Restores", func() {
+		var restore *v1alpha1.VirtualMachineRestore
+
+		BeforeEach(func() {
+			tests.EnableFeatureGate(virtconfig.SnapshotGate)
+
+			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			snap := newVMSnapshot(vm)
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Create(context.Background(), snap, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			restore = newVMRestore(vm, snap)
+			waitForSnapshotToBeReady(virtClient, snap, 120)
+		})
+
+		It("create a VM Restore", func() {
+			By("Make a Dry-Run request to create a VM Restore")
+			opts := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
+			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, opts)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that no VM Restore was actually created")
+			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("delete a VM Restore", func() {
+			By("Create a VM Restore")
+			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Make a Dry-Run request to delete a VM Restore")
+			deletePolicy := metav1.DeletePropagationForeground
+			opts := metav1.DeleteOptions{
+				DryRun:            []string{metav1.DryRunAll},
+				PropagationPolicy: &deletePolicy,
+			}
+			err = virtClient.VirtualMachineRestore(restore.Namespace).Delete(context.Background(), restore.Name, opts)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that no VM Restore was actually deleted")
+			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("update a VM Restore", func() {
+			By("Create a VM Restore")
+			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Make a Dry-Run request to update a VM Restore")
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+
+				restore.Labels = map[string]string{
+					"key": "42",
+				}
+
+				opts := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
+				_, err = virtClient.VirtualMachineRestore(restore.Namespace).Update(context.Background(), restore, opts)
+				return err
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that no update actually took place")
+			restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(restore.Labels["key"]).ToNot(Equal("42"))
+		})
+
+		It("patch a VM Restore", func() {
+			By("Create a VM Restore")
+			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Make a Dry-Run request to patch a VM Restore")
+			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
+			opts := metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}}
+			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Patch(context.Background(), restore.Name, types.MergePatchType, patch, opts)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that no update actually took place")
+			restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(restore.Labels["key"]).ToNot(Equal("42"))
+		})
+	})
 })
 
 func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstancePreset {
@@ -695,4 +793,32 @@ func newVMSnapshot(vm *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
 			},
 		},
 	}
+}
+
+func newVMRestore(vm *v1.VirtualMachine, snapshot *v1alpha1.VirtualMachineSnapshot) *v1alpha1.VirtualMachineRestore {
+	group := vm.GroupVersionKind().Group
+
+	return &v1alpha1.VirtualMachineRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vm.Name + "-restore",
+			Namespace: util.NamespaceTestDefault,
+		},
+		Spec: v1alpha1.VirtualMachineRestoreSpec{
+			Target: corev1.TypedLocalObjectReference{
+				APIGroup: &group,
+				Kind:     vm.GroupVersionKind().Kind,
+				Name:     vm.Name,
+			},
+			VirtualMachineSnapshotName: snapshot.Name,
+		},
+	}
+}
+
+func waitForSnapshotToBeReady(virtClient kubecli.KubevirtClient, snapshot *v1alpha1.VirtualMachineSnapshot, timeoutSec int) {
+	By(fmt.Sprintf("Waiting for snapshot %s to be ready to use", snapshot.Name))
+	EventuallyWithOffset(1, func() bool {
+		updatedSnap, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return updatedSnap.Status != nil && updatedSnap.Status.ReadyToUse != nil && *updatedSnap.Status.ReadyToUse
+	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), "Should be ready to use")
 }
