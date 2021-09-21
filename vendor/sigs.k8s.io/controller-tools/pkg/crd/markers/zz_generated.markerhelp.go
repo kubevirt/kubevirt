@@ -48,7 +48,7 @@ func (DeprecatedVersion) Help() *markers.DefinitionHelp {
 			Details: "",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
-			"Warning": markers.DetailedHelp{
+			"Warning": {
 				Summary: "message to be shown on the deprecated version",
 				Details: "",
 			},
@@ -440,6 +440,17 @@ func (XEmbeddedResource) Help() *markers.DefinitionHelp {
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "EmbeddedResource marks a fields as an embedded resource with apiVersion, kind and metadata fields. ",
 			Details: "An embedded resource is a value that has apiVersion, kind and metadata fields. They are validated implicitly according to the semantics of the currently running apiserver. It is not necessary to add any additional schema for these field, yet it is possible. This can be combined with PreserveUnknownFields.",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
+func (XIntOrString) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "IntOrString marks a fields as an IntOrString. ",
+			Details: "This is required when applying patterns or other validations to an IntOrString field. Knwon information about the type is applied during the collapse phase and as such is not normally available during marker application.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}

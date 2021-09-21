@@ -19,15 +19,15 @@ require (
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v1.1.0
 	github.com/operator-framework/api v0.10.5
-	github.com/operator-framework/operator-lib v0.6.0
+	github.com/operator-framework/operator-lib v0.7.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.50.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/tools v0.1.5
-	k8s.io/api v0.22.1
-	k8s.io/apiextensions-apiserver v0.22.1
-	k8s.io/apimachinery v0.22.1
+	golang.org/x/tools v0.1.6
+	k8s.io/api v0.22.2
+	k8s.io/apiextensions-apiserver v0.22.2
+	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20210817084001-7fbd8d59e5b8
 	kubevirt.io/client-go v0.45.0
@@ -35,7 +35,7 @@ require (
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.1
 	kubevirt.io/ssp-operator v0.13.0-rc.0
 	sigs.k8s.io/controller-runtime v0.9.6
-	sigs.k8s.io/controller-tools v0.6.2
+	sigs.k8s.io/controller-tools v0.7.0
 )
 
 require (
@@ -71,9 +71,9 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.18.1 // indirect
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023 // indirect
+	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d // indirect
 	golang.org/x/oauth2 v0.0.0-20210805134026-6f1e6394065a // indirect
-	golang.org/x/sys v0.0.0-20210806184541-e5e7981a1069 // indirect
+	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
@@ -85,9 +85,9 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/component-base v0.22.1 // indirect
+	k8s.io/component-base v0.22.2 // indirect
 	k8s.io/klog/v2 v2.9.0 // indirect
-	k8s.io/utils v0.0.0-20210722164352-7f3ee0f31471 // indirect
+	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
@@ -136,33 +136,33 @@ exclude k8s.io/metrics v0.0.0
 
 exclude k8s.io/sample-apiserver v0.0.0
 
-// Pinned to v0.22.1
+// Pinned to v0.22.2
 replace (
-	k8s.io/api => k8s.io/api v0.22.1
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.1
-	k8s.io/apimachinery => k8s.io/apimachinery v0.22.1
-	k8s.io/apiserver => k8s.io/apiserver v0.22.1
-	k8s.io/cli-runtime => k8s.io/cli-runtime v0.22.1
-	k8s.io/client-go => k8s.io/client-go v0.22.1
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.22.1
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.22.1
-	k8s.io/code-generator => k8s.io/code-generator v0.22.1
-	k8s.io/component-base => k8s.io/component-base v0.22.1
-	k8s.io/cri-api => k8s.io/cri-api v0.22.1
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.22.1
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.22.1
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.22.1
+	k8s.io/api => k8s.io/api v0.22.2
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.2
+	k8s.io/apimachinery => k8s.io/apimachinery v0.22.2
+	k8s.io/apiserver => k8s.io/apiserver v0.22.2
+	k8s.io/cli-runtime => k8s.io/cli-runtime v0.22.2
+	k8s.io/client-go => k8s.io/client-go v0.22.2
+	k8s.io/cloud-provider => k8s.io/cloud-provider v0.22.2
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.22.2
+	k8s.io/code-generator => k8s.io/code-generator v0.22.2
+	k8s.io/component-base => k8s.io/component-base v0.22.2
+	k8s.io/cri-api => k8s.io/cri-api v0.22.2
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.22.2
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.22.2
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.22.2
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.22.1
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.22.1
-	k8s.io/kubectl => k8s.io/kubectl v0.22.1
-	k8s.io/kubelet => k8s.io/kubelet v0.22.1
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.22.1
-	k8s.io/metrics => k8s.io/metrics v0.22.1
-	k8s.io/node-api => k8s.io/node-api v0.22.1
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.22.1
-	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.22.1
-	k8s.io/sample-controller => k8s.io/sample-controller v0.22.1
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.22.2
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.22.2
+	k8s.io/kubectl => k8s.io/kubectl v0.22.2
+	k8s.io/kubelet => k8s.io/kubelet v0.22.2
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.22.2
+	k8s.io/metrics => k8s.io/metrics v0.22.2
+	k8s.io/node-api => k8s.io/node-api v0.22.2
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.22.2
+	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.22.2
+	k8s.io/sample-controller => k8s.io/sample-controller v0.22.2
 )
 
 replace (
