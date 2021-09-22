@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,11 +23,13 @@ import (
 	"github.com/onsi/ginkgo/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v12 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	apicdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -246,6 +249,10 @@ func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, vmis *v12.V
 }
 
 func (r *KubernetesReporter) logDVs(virtCli kubecli.KubevirtClient) {
+	dvEnabled, _ := isDataVolumeEnabled(virtCli)
+	if !dvEnabled {
+		return
+	}
 
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_dvs.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -254,7 +261,6 @@ func (r *KubernetesReporter) logDVs(virtCli kubecli.KubevirtClient) {
 		return
 	}
 	defer f.Close()
-
 	dvs, err := virtCli.CdiClient().CdiV1beta1().DataVolumes(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pvcs: %v\n", err)
@@ -267,6 +273,25 @@ func (r *KubernetesReporter) logDVs(virtCli kubecli.KubevirtClient) {
 		return
 	}
 	fmt.Fprintln(f, string(j))
+}
+
+func isDataVolumeEnabled(clientset kubecli.KubevirtClient) (bool, error) {
+	apis, err := clientset.DiscoveryClient().ServerResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return false, err
+	}
+
+	for _, api := range apis {
+		if api.GroupVersion == apicdi.SchemeGroupVersion.String() {
+			for _, resource := range api.APIResources {
+				if resource.Name == "datavolumes" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir string, nodes []string, since time.Time) {
