@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -31,9 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
 	clientutil "kubevirt.io/client-go/util"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
@@ -85,24 +82,6 @@ type Informers struct {
 	VMIInformer             cache.SharedIndexInformer
 	VMRestoreInformer       cache.SharedIndexInformer
 	DataSourceInformer      cache.SharedIndexInformer
-}
-
-func newInformers() *Informers {
-	kubeClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
-	namespace, err := clientutil.GetNamespace()
-	if err != nil {
-		glog.Fatalf("Error searching for namespace: %v", err)
-	}
-	kubeInformerFactory := controller.NewKubeInformerFactory(kubeClient.RestClient(), kubeClient, nil, namespace)
-	return &Informers{
-		VMIInformer:             kubeInformerFactory.VMI(),
-		VMIPresetInformer:       kubeInformerFactory.VirtualMachinePreset(),
-		NamespaceLimitsInformer: kubeInformerFactory.LimitRanges(),
-		VMRestoreInformer:       kubeInformerFactory.VirtualMachineRestore(),
-	}
 }
 
 func IsKubeVirtServiceAccount(serviceAccount string) bool {
