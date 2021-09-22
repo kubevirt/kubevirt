@@ -33,6 +33,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
 	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
@@ -49,6 +50,7 @@ type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool
 type VMsAdmitter struct {
 	VMIInformer        cache.SharedIndexInformer
 	DataSourceInformer cache.SharedIndexInformer
+	PVCInformer        cache.SharedIndexInformer
 	ClusterConfig      *virtconfig.ClusterConfig
 	cloneAuthFunc      CloneAuthFunc
 }
@@ -61,12 +63,13 @@ func (p *sarProxy) Create(sar *authv1.SubjectAccessReview) (*authv1.SubjectAcces
 	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmiInformer cache.SharedIndexInformer, dataSourceInformer cache.SharedIndexInformer) *VMsAdmitter {
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmiInformer cache.SharedIndexInformer, dataSourceInformer cache.SharedIndexInformer, pvcInformer cache.SharedIndexInformer) *VMsAdmitter {
 	proxy := &sarProxy{client: client}
 
 	return &VMsAdmitter{
 		VMIInformer:        vmiInformer,
 		DataSourceInformer: dataSourceInformer,
+		PVCInformer:        pvcInformer,
 		ClusterConfig:      clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
@@ -123,8 +126,17 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	warnings, err := admitter.getVirtualMachineSpecWarnings(&vm)
+	if err != nil {
+		// an error thrown while calculating warnings should not result
+		// in the entire admission failing. Warnings are best effort only.
+		log.Log.Object(&vm).Infof("Error encountered while calculating warnings for vm")
+	}
+
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
+	reviewResponse.Warnings = warnings
+
 	return &reviewResponse
 }
 
@@ -234,7 +246,6 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
 	if len(spec.DataVolumeTemplates) > 0 {
-
 		for idx, dataVolume := range spec.DataVolumeTemplates {
 			if dataVolume.Name == "" {
 				causes = append(causes, metav1.StatusCause{
@@ -301,6 +312,31 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	}
 
 	return causes
+}
+
+func (admitter *VMsAdmitter) getVirtualMachineSpecWarnings(vm *v1.VirtualMachine) ([]string, error) {
+	warnings := []string{}
+
+	for _, dataVolume := range vm.Spec.DataVolumeTemplates {
+		cloneSource, err := typesutil.GetCloneSourceWithInformers(vm, &dataVolume.Spec, admitter.DataSourceInformer)
+		if err != nil {
+			return warnings, err
+		} else if cloneSource == nil {
+			continue
+		}
+		ns := cloneSource.Namespace
+		name := cloneSource.Name
+
+		key := fmt.Sprintf("%v/%v", ns, name)
+		_, exists, err := admitter.PVCInformer.GetStore().GetByKey(key)
+		if err != nil {
+			return warnings, err
+		} else if !exists {
+			warnings = append(warnings, fmt.Sprintf("Source PVC %s/%s not found for DataVolumeTemplate %s. VM will not start until source PVC %s/%s exists.", ns, name, dataVolume.Name, ns, name))
+		}
+	}
+
+	return warnings, nil
 }
 
 func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
