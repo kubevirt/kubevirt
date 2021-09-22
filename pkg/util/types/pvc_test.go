@@ -20,11 +20,22 @@
 package types
 
 import (
+	"time"
+
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+
 	kubev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/client-go/kubecli"
 )
 
 var _ = Describe("PVC utils test", func() {
@@ -98,4 +109,119 @@ var _ = Describe("PVC utils test", func() {
 		})
 	})
 
+	Context("PVC provisioning failure detection", func() {
+
+		var pvcCache cache.Store
+		var scCache cache.Store
+		var kubeClient *fake.Clientset
+		var virtClient *kubecli.MockKubevirtClient
+		var pvc *kubev1.PersistentVolumeClaim
+
+		BeforeEach(func() {
+			pvcCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			scCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+
+			kubeClient = fake.NewSimpleClientset()
+			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
+
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			pvc = &kubev1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "testnamespace",
+					Name:      "testpvc",
+				},
+				Status: kubev1.PersistentVolumeClaimStatus{
+					Phase: kubev1.ClaimPending,
+				},
+			}
+		})
+
+		It("should detect no provisioning failures when PVC is bound", func() {
+			pvc.Status.Phase = kubev1.ClaimBound
+			pvcCache.Add(pvc)
+
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+
+			Expect(failed).To(BeFalse())
+			Expect(message).To(BeZero())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		table.DescribeTable("should detect PVC provisioning failure events", func(eventReason string) {
+			pvcCache.Add(pvc)
+
+			kubeClient.Fake.PrependReactor("list", "events", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				return true, &kubev1.EventList{
+					Items: []kubev1.Event{
+						{
+							InvolvedObject: kubev1.ObjectReference{
+								APIVersion: pvc.APIVersion,
+								Kind:       pvc.Kind,
+								Namespace:  pvc.Namespace,
+								Name:       pvc.Name,
+							},
+							Reason: eventReason,
+						},
+					},
+				}, nil
+			})
+
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+
+			Expect(failed).To(BeTrue())
+			Expect(message).ToNot(BeZero())
+			Expect(err).ToNot(HaveOccurred())
+		},
+			table.Entry("ProvisioningFailed event", "ProvisioningFailed"),
+			table.Entry("FailedBinding event", "FailedBinding"),
+		)
+
+		It("Should detect PVC provisioning failure when pending for more than timeout threshold", func() {
+			pvc.CreationTimestamp = metav1.NewTime(time.Now().Add(-pendingPVCTimeoutThreshold * 2))
+			pvcCache.Add(pvc)
+
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+
+			Expect(failed).To(BeTrue())
+			Expect(message).ToNot(BeZero())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should detect no PVC provisioning failure when pending for less than timeout threshold", func() {
+			pvc.CreationTimestamp = metav1.NewTime(time.Now().Add(-pendingPVCTimeoutThreshold / 2))
+			pvcCache.Add(pvc)
+
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+
+			Expect(failed).To(BeFalse())
+			Expect(message).To(BeZero())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should detect no PVC provisioning failure when volume mode is WaitForFirstConsumer", func() {
+			wffcMode := storagev1.VolumeBindingWaitForFirstConsumer
+			sc := &storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "teststorageclass",
+				},
+				VolumeBindingMode: &wffcMode,
+			}
+			scCache.Add(sc)
+
+			pvc.CreationTimestamp = metav1.NewTime(time.Now().Add(-pendingPVCTimeoutThreshold * 2))
+			pvc.Spec.StorageClassName = &sc.Name
+			pvcCache.Add(pvc)
+
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+
+			Expect(failed).To(BeFalse())
+			Expect(message).To(BeZero())
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 })
