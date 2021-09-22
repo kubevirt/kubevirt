@@ -45,8 +45,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/pointer"
 
-	"kubevirt.io/kubevirt/tests/util"
-
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
@@ -57,6 +55,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -827,6 +826,67 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Should(Equal(v1.VirtualMachineStatusImagePullBackOff))
 			}
 		})
+
+		table.DescribeTable("should report an error status when PVC provisioning/binding errors are detected", func(pvc *k8sv1.PersistentVolumeClaim) {
+			vmi, _ := newVirtualMachineInstanceWithContainerDisk()
+			tests.AddPVCDisk(vmi, "disk2", "virtio", pvc.Name)
+
+			pvc.Namespace = vmi.Namespace
+			_, err := virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			defer virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.TODO(), pvc.Name, metav1.DeleteOptions{})
+
+			vm := createVirtualMachine(true, vmi)
+
+			vmPrintableStatus := func() v1.VirtualMachinePrintableStatus {
+				updatedVm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return updatedVm.Status.PrintableStatus
+			}
+
+			Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).
+				Should(Equal(v1.VirtualMachineStatusPvcNotBound))
+		},
+			table.Entry(
+				"Statically provisioned PVC with no matching PV",
+				func() *k8sv1.PersistentVolumeClaim {
+					storageClass := ""
+					return &k8sv1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "static-pending-pvc",
+						},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClass,
+							AccessModes:      []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+							Resources: k8sv1.ResourceRequirements{
+								Requests: k8sv1.ResourceList{
+									k8sv1.ResourceStorage: resource.MustParse("1000Ti"),
+								},
+							},
+						},
+					}
+				}(),
+			),
+			table.Entry(
+				"Dynamically provisioned PVC with no matching storage class",
+				func() *k8sv1.PersistentVolumeClaim {
+					storageClass := "no-such-storageclass"
+					return &k8sv1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "dynamic-pending-pvc",
+						},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClass,
+							AccessModes:      []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+							Resources: k8sv1.ResourceRequirements{
+								Requests: k8sv1.ResourceList{
+									k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					}
+				}(),
+			))
 
 		table.DescribeTable("should report an error status when a VM with a missing PVC/DV is started", func(vmiFunc func() *v1.VirtualMachineInstance, status v1.VirtualMachinePrintableStatus) {
 			vm := createVirtualMachine(true, vmiFunc())
