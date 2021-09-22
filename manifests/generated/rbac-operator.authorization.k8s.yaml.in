@@ -254,6 +254,13 @@ rules:
   - delete
   - patch
 - apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - list
+  - watch
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachines
