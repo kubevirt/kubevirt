@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -51,6 +52,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	var vmsAdmitter *VMsAdmitter
 	var vmiInformer cache.SharedIndexInformer
 	var dataSourceInformer cache.SharedIndexInformer
+	var pvcInformer cache.SharedIndexInformer
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
@@ -66,11 +68,13 @@ var _ = Describe("Validating VM Admitter", func() {
 	BeforeEach(func() {
 		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		ctrl = gomock.NewController(GinkgoT())
 		vmsAdmitter = &VMsAdmitter{
 			DataSourceInformer: dataSourceInformer,
 			VMIInformer:        vmiInformer,
 			ClusterConfig:      config,
+			PVCInformer:        pvcInformer,
 			cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 				return true, "", nil
 			},
@@ -1448,6 +1452,178 @@ var _ = Describe("Validating VM Admitter", func() {
 			vm.Status.Ready = true
 			return true
 		}),
+	)
+
+	table.DescribeTable("should calculate warnings for DataVolumeTemplates", func(dataVolumeTemplate *v1.DataVolumeTemplateSpec, dataSource *cdiv1.DataSource, expectedWarningSubstrings []string) {
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "testdisk",
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "testdisk",
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: dataVolumeTemplate.Name,
+				},
+			},
+		})
+
+		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: vmi.Namespace,
+			},
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		if dataSource != nil {
+			dataSourceInformer.GetIndexer().Add(dataSource)
+			dataVolumeTemplate.Spec.SourceRef.Namespace = &dataSource.Namespace
+		}
+
+		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolumeTemplate)
+		vmBytes, _ := json.Marshal(&vm)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachineGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: vmBytes,
+				},
+			},
+		}
+
+		if len(expectedWarningSubstrings) == 0 {
+			pvc := &k8sv1.PersistentVolumeClaim{}
+			if dataSource != nil {
+				pvc.Name = dataSource.Spec.Source.PVC.Name
+				pvc.Namespace = dataSource.Namespace
+			} else {
+				pvc.Name = dataVolumeTemplate.Spec.Source.PVC.Name
+				pvc.Namespace = dataVolumeTemplate.Spec.Source.PVC.Namespace
+			}
+			pvcInformer.GetIndexer().Add(pvc)
+		}
+
+		resp := vmsAdmitter.Admit(ar)
+
+		// warnings should not cause an admission error
+		Expect(resp.Allowed).To(BeTrue())
+
+		if len(expectedWarningSubstrings) == 0 {
+			Expect(len(resp.Warnings)).To(Equal(0))
+		} else {
+			Expect(len(resp.Warnings)).ToNot(Equal(0))
+			for _, substring := range expectedWarningSubstrings {
+				found := false
+				for _, warning := range resp.Warnings {
+					if strings.Contains(warning, substring) {
+						found = true
+					}
+				}
+				Expect(found).To(BeTrue())
+			}
+		}
+
+	},
+
+		table.Entry("should give a warning if DataVolumeTemplate references a source PVC that doesn't exist yet",
+			&v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
+							Name:      "my-pvc",
+							Namespace: "my-namespace",
+						},
+					},
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+				},
+			},
+			nil,
+			[]string{"not found for DataVolumeTemplate"}),
+
+		table.Entry("should give a warning if DataVolumeTemplate references a DataSource pointing to a PVC that doesn't exist yet",
+			&v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dv1",
+					Namespace: "my-namespace",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					SourceRef: &cdiv1.DataVolumeSourceRef{
+						Name: "my-ds",
+						Kind: "DataSource",
+					},
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+				},
+			},
+			&cdiv1.DataSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-ds",
+					Namespace: "my-namespace",
+				},
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
+							Name: "my-pvc",
+						},
+					},
+				},
+			},
+			[]string{"not found for DataVolumeTemplate"}),
+
+		table.Entry("should not give a warning when PVC reference exists",
+			&v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
+							Name:      "my-pvc",
+							Namespace: "my-namespace",
+						},
+					},
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+				},
+			},
+			nil,
+			[]string{}),
+		table.Entry("should not give a warning if DataVolumeTemplate references a DataSource pointing to a PVC exists",
+			&v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dv1",
+					Namespace: "my-namespace",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					SourceRef: &cdiv1.DataVolumeSourceRef{
+						Name: "my-ds",
+						Kind: "DataSource",
+					},
+					PVC: &k8sv1.PersistentVolumeClaimSpec{},
+				},
+			},
+			&cdiv1.DataSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-ds",
+					Namespace: "my-namespace",
+				},
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
+							Name: "my-pvc",
+						},
+					},
+				},
+			},
+			[]string{}),
 	)
 })
 
