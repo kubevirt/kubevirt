@@ -269,4 +269,64 @@ tests:
           exp_labels:
             severity: "info"
             annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
-
+  # Test recording rule
+  - interval: 1m
+    input_series:
+      # take all containers of running virt-launcher pods
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-x-y", resource="cpu", container="compute"}'
+        # time:  0   1   2   3   4   5
+        values: "0.1 0.1 0.1 0.1 0.1 0.1"
+      # take all containers of running virt-launcher pods
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-x-y", resource="cpu", container="volumecontainerdisk"}'
+        # time:  0    1    2    3    4    5
+        values: "0.01 0.01 0.01 0.01 0.01 0.01"
+      - series: 'kube_pod_labels{label_kubevirt_io="virt-launcher",pod="virt-launcher-x-y"}'
+        # time:  0 1 2 3 4 5
+        values: "1 1 1 1 1 1"
+      - series: 'kube_pod_status_phase{phase="Running", pod="virt-launcher-x-y"}'
+        # time:  0 1 2 3 4 5
+        values: "1 1 1 1 1 1"
+      # do not take containers of other pods
+      - series: 'kube_pod_container_resource_requests{pod="other-pod", resource="cpu", container="volumecontainerdisk"}'
+        # time:  0 1 2 3 4 5
+        values: "5 5 5 5 5 5"
+      - series: 'kube_pod_status_phase{phase="Running", pod="other-pod"}'
+        # time:  0 1 2 3 4 5
+        values: "1 1 1 1 1 1"
+      - series: 'kube_pod_labels{other_label="other-value",pod="other-pod"}'
+        # time:  0 1 2 3 4 5
+        values: "1 1 1 1 1 1"
+      # new VMIs can be created in time
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-new", resource="cpu", container="volumecontainerdisk"}'
+        # time:  0     1     2     3   4    5
+        values: "stale stale stale 0.01 0.01 0.01"
+      - series: 'kube_pod_labels{label_kubevirt_io="virt-launcher",pod="virt-launcher-new"}'
+        # time: 0      1     2     3 4 5
+        values: "stale stale stale 1 1 1"
+      - series: 'kube_pod_status_phase{phase="Running", pod="virt-launcher-new"}'
+        # time:  0     1     2     3 4 5
+        values: "stale stale stale 1 0 1"
+    promql_expr_test:
+      - expr: 'cluster:vmi_request_cpu_cores:sum'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'cluster:vmi_request_cpu_cores:sum{}'
+            value: 0.11
+      # update for new pods
+      - expr: 'cluster:vmi_request_cpu_cores:sum'
+        eval_time: 3m
+        exp_samples:
+          - labels: 'cluster:vmi_request_cpu_cores:sum{}'
+            value: 0.12
+      # virt-launcher-new is not running at 4m. must exclude it
+      - expr: 'cluster:vmi_request_cpu_cores:sum'
+        eval_time: 4m
+        exp_samples:
+          - labels: 'cluster:vmi_request_cpu_cores:sum{}'
+            value: 0.11
+      # virt-launcher-new is back at 5m. must include it
+      - expr: 'cluster:vmi_request_cpu_cores:sum'
+        eval_time: 5m
+        exp_samples:
+          - labels: 'cluster:vmi_request_cpu_cores:sum{}'
+            value: 0.12

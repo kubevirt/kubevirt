@@ -279,6 +279,11 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 						"severity": "info",
 					},
 				},
+				// Recording rules for openshift/cluster-monitoring-operator
+				{
+					Record: "cluster:vmi_request_cpu_cores:sum",
+					Expr:   intstr.FromString(`sum(kube_pod_container_resource_requests{resource="cpu"} and on (pod) kube_pod_status_phase{phase="Running"} * on (pod) group_left kube_pod_labels{ label_kubevirt_io="virt-launcher"} > 0)`),
+				},
 			},
 		}},
 	}
