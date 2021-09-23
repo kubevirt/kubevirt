@@ -20,8 +20,14 @@
 package webhooks
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
+
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +53,7 @@ func NewKubeVirtUpdateAdmitter(client kubecli.KubevirtClient) *KubeVirtUpdateAdm
 
 func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	// Get new and old KubeVirt from admission response
-	newKV, _, err := getAdmissionReviewKubeVirt(ar)
+	newKV, currKV, err := getAdmissionReviewKubeVirt(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -60,6 +66,20 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
+
+	if !reflect.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
+		if newKV.Spec.Infra != nil && newKV.Spec.Infra.NodePlacement != nil {
+			results = append(results,
+				validateInfraPlacement(newKV.Namespace, newKV.Spec.Infra.NodePlacement, admitter.Client)...)
+		}
+	}
+
+	if !reflect.DeepEqual(currKV.Spec.Workloads, newKV.Spec.Workloads) {
+		if newKV.Spec.Workloads != nil && newKV.Spec.Workloads.NodePlacement != nil {
+			results = append(results,
+				validateWorkloadPlacement(newKV.Namespace, newKV.Spec.Workloads.NodePlacement, admitter.Client)...)
+		}
+	}
 
 	return validating_webhooks.NewAdmissionResponse(results)
 }
@@ -157,6 +177,116 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("Certificate duration cannot exceed CA (spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)"),
+		})
+	}
+
+	return statuses
+}
+
+func validateWorkloadPlacement(namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
+	statuses := []metav1.StatusCause{}
+
+	const (
+		dsName    = "placement-validation-webhook"
+		mockLabel = "kubevirt.io/choose-me"
+		podName   = "placement-verification-pod"
+		mockUrl   = "test.only:latest"
+	)
+
+	mockDaemonSet := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dsName,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					mockLabel: "",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: podName,
+					Labels: map[string]string{
+						mockLabel: "",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  podName,
+							Image: mockUrl,
+						},
+					},
+					// Inject placement fields here
+					NodeSelector: placementConfig.NodeSelector,
+					Affinity:     placementConfig.Affinity,
+					Tolerations:  placementConfig.Tolerations,
+				},
+			},
+		},
+	}
+
+	_, err := client.AppsV1().DaemonSets(namespace).Create(context.Background(), mockDaemonSet, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+
+	if err != nil {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: err.Error(),
+		})
+	}
+	return statuses
+}
+
+func validateInfraPlacement(namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
+	statuses := []metav1.StatusCause{}
+
+	const (
+		deploymentName = "placement-validation-webhook"
+		mockLabel      = "kubevirt.io/choose-me"
+		podName        = "placement-verification-pod"
+		mockUrl        = "test.only:latest"
+	)
+
+	mockDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: deploymentName,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: pointer.Int32Ptr(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					mockLabel: "",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: podName,
+					Labels: map[string]string{
+						mockLabel: "",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  podName,
+							Image: mockUrl,
+						},
+					},
+					// Inject placement fields here
+					NodeSelector: placementConfig.NodeSelector,
+					Affinity:     placementConfig.Affinity,
+					Tolerations:  placementConfig.Tolerations,
+				},
+			},
+		},
+	}
+
+	_, err := client.AppsV1().Deployments(namespace).Create(context.Background(), mockDeployment, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+
+	if err != nil {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: err.Error(),
 		})
 	}
 
