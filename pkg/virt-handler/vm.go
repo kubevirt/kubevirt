@@ -166,7 +166,7 @@ func NewController(
 		recorder:                    recorder,
 		clientset:                   clientset,
 		host:                        host,
-		ipAddress:                   ipAddress,
+		migrationIpAddress:          ipAddress,
 		virtShareDir:                virtShareDir,
 		vmiSourceInformer:           vmiSourceInformer,
 		vmiTargetInformer:           vmiTargetInformer,
@@ -237,7 +237,7 @@ type VirtualMachineController struct {
 	recorder                 record.EventRecorder
 	clientset                kubecli.KubevirtClient
 	host                     string
-	ipAddress                string
+	migrationIpAddress       string
 	virtShareDir             string
 	virtPrivateDir           string
 	Queue                    workqueue.RateLimitingInterface
@@ -686,22 +686,24 @@ type NetworkStatus struct {
 }
 
 // Using the downward API, look for dedicated migration network migration0 and, if found, set migration IP to its IP
-func findMigrationIP(vmi *v1.VirtualMachineInstance, migrationIp *string) {
+func findMigrationIP(migrationIp *string) error {
 	var networkStatus []NetworkStatus
 
 	dat, err := ioutil.ReadFile("/etc/podinfo/network-status")
 	if err != nil {
-		return
+		return fmt.Errorf("failed to read network status from downwards API")
 	}
 	err = yaml.Unmarshal(dat, &networkStatus)
 	if err != nil {
-		return
+		return fmt.Errorf("failed to un-marshall network status")
 	}
 	for _, ns := range networkStatus {
 		if ns.Interface == "migration0" && len(ns.Ips) > 0 {
 			*migrationIp = ns.Ips[0]
 		}
 	}
+
+	return nil
 }
 
 func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domainExists bool) error {
@@ -730,21 +732,19 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		}
 
 		hostAddress := ""
-		migrationIpAddress := d.ipAddress
-		findMigrationIP(vmi, &migrationIpAddress)
 		// advertise the listener address to the source node
 		if vmi.Status.MigrationState != nil {
 			hostAddress = vmi.Status.MigrationState.TargetNodeAddress
 		}
-		if hostAddress != migrationIpAddress {
+		if hostAddress != d.migrationIpAddress {
 			portsList := make([]string, 0, len(destSrcPortsMap))
 
 			for k := range destSrcPortsMap {
 				portsList = append(portsList, k)
 			}
 			portsStrList := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(portsList)), ","), "[]")
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", migrationIpAddress, portsStrList))
-			vmiCopy.Status.MigrationState.TargetNodeAddress = migrationIpAddress
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", d.migrationIpAddress, portsStrList))
+			vmiCopy.Status.MigrationState.TargetNodeAddress = d.migrationIpAddress
 			vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
 		}
 	}
@@ -1456,6 +1456,12 @@ func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) bool {
 func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting virt-handler controller.")
+
+	err := findMigrationIP(&c.migrationIpAddress)
+	if err != nil {
+		log.Log.Reason(err)
+		return
+	}
 
 	go c.deviceManagerController.Run(stopCh)
 
