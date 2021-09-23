@@ -130,7 +130,7 @@ function delete_namespaces() {
             local timeout=180
             echo "Waiting for ${ns} namespace to disappear ..."
             set +x
-            while [ -n "$(_kubectl get ns | grep -w ${ns})" ]; do
+            while _kubectl get ns ${ns}; do
                 sleep $sample
                 current_time=$((current_time + sample))
                 if [[ $current_time -gt $timeout ]]; then
