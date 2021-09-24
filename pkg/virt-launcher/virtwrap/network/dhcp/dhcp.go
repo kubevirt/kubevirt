@@ -114,6 +114,10 @@ func prepareDHCPOptions(
 		dhcp.OptionInterfaceMTU:     mtuArray,
 	}
 
+	if len(routerIP) != 0 {
+		dhcpOptions[dhcp.OptionRouter] = routerIP.To4()
+	}
+
 	netRoutes := formClasslessRoutes(routes)
 
 	if netRoutes != nil {
