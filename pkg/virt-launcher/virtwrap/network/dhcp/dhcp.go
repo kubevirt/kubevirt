@@ -114,7 +114,7 @@ func prepareDHCPOptions(
 		dhcpOptions[dhcp.OptionSubnetMask] = clientMask
 	}
 	if len(routerIP) != 0 {
-		dhcpOptions[dhcp.OptionRouter] = routerIP
+		dhcpOptions[dhcp.OptionRouter] = routerIP.To4()
 	}
 
 	netRoutes := formClasslessRoutes(routes)
