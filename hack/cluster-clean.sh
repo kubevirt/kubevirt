@@ -25,20 +25,16 @@ source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
+function patch_remove_finalizers() {
+    _kubectl patch --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]' $@
+}
+
 function delete_kubevirt_cr() {
     # Delete KubeVirt CR, timeout after 10 seconds
     set +e
-    (
-        local cmdpid=$BASHPID
-        (
-            sleep 10
-            kill $cmdpid
-        ) &
-        _kubectl -n ${namespace} delete kv kubevirt
-    )
-    _kubectl -n ${namespace} patch kv kubevirt --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
-    _kubectl patch cdi cdi --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
-
+    _kubectl -n ${namespace} delete kv kubevirt --timeout=10s --ignore-not-found
+    patch_remove_finalizers -n ${namespace} kv kubevirt
+    patch_remove_finalizers cdi cdi
     set -e
 }
 
@@ -47,14 +43,14 @@ function remove_finalizers() {
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        _kubectl patch vmsnapshots $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+        patch_remove_finalizers -n $ns vmsnapshots $name
     done
 
     kubectl get vmsnapshotcontents --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshotcontent-protection | while read p; do
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        _kubectl patch vmsnapshotcontents $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+        patch_remove_finalizers -n $ns vmsnapshotcontents $name
     done
 
     # Remove finalizers from all running vmis, to not block the cleanup
@@ -62,14 +58,14 @@ function remove_finalizers() {
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        _kubectl patch vmi $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+        patch_remove_finalizers -n $ns vmi $name
     done
 
     _kubectl get vms --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep -e foregroundDeleteVirtualMachine -e orphan -e snapshot-source-protection | while read p; do
         local arr=($p)
         local name="${arr[0]}"
         local ns="${arr[1]}"
-        _kubectl patch vm $name -n $ns --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+        patch_remove_finalizers -n $ns vm $name
     done
 }
 
@@ -83,64 +79,20 @@ function delete_resources() {
     # Namespaced resources
     for i in ${namespaces[@]}; do
         for label in ${labels[@]}; do
-            _kubectl -n ${i} delete deployment -l ${label}
-            _kubectl -n ${i} delete ds -l ${label}
-            _kubectl -n ${i} delete rs -l ${label}
-            _kubectl -n ${i} delete pods -l ${label}
-            _kubectl -n ${i} delete services -l ${label}
-            _kubectl -n ${i} delete pvc -l ${label}
-            _kubectl -n ${i} delete rolebinding -l ${label}
-            _kubectl -n ${i} delete roles -l ${label}
-            _kubectl -n ${i} delete serviceaccounts -l ${label}
-            _kubectl -n ${i} delete configmaps -l ${label}
-            _kubectl -n ${i} delete secrets -l ${label}
-            _kubectl -n ${i} delete jobs -l ${label}
+            _kubectl -n ${i} delete deployment,ds,rs,pods,services,pvc,rolebinding,role,serviceaccounts,configmaps,secrets,jobs -l ${label}
         done
     done
 
     # Not namespaced resources
     for label in ${labels[@]}; do
-        _kubectl delete validatingwebhookconfiguration -l ${label}
-        _kubectl delete pv -l ${label}
-        _kubectl delete clusterrolebinding -l ${label}
-        _kubectl delete clusterroles -l ${label}
-        _kubectl delete customresourcedefinitions -l ${label}
-
-        # W/A for https://github.com/kubernetes/kubernetes/issues/65818
-        _kubectl delete apiservices -l ${label} --wait=false
-
-        _kubectl get apiservices -l ${label} -o=custom-columns=NAME:.metadata.name,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeletion | while read p; do
-            local arr=($p)
-            local name="${arr[0]}"
-            _kubectl -n ${i} patch apiservices $name --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
-        done
+        _kubectl delete apiservices,clusterroles,clusterrolebinding,customresourcedefinitions,pv,validatingwebhookconfiguration -l ${label}
     done
 }
 
 function delete_namespaces() {
     local managed_namespaces=("$@")
 
-    for ns in ${managed_namespaces[@]}; do
-        if [ -n "$(_kubectl get ns | grep "${ns} ")" ]; then
-            echo "Clean ${ns} namespace"
-            _kubectl delete ns ${ns}
-
-            local current_time=0
-            local sample=3
-            local timeout=180
-            echo "Waiting for ${ns} namespace to disappear ..."
-            set +x
-            while [ -n "$(_kubectl get ns | grep -w ${ns})" ]; do
-                sleep $sample
-                current_time=$((current_time + sample))
-                if [[ $current_time -gt $timeout ]]; then
-                    echo "Waiting for ${ns} namespace to disappear failed"
-                    exit 1
-                fi
-            done
-            set -x
-        fi
-    done
+    _kubectl delete ns ${managed_namespaces[@]} --timeout=180s --ignore-not-found
 }
 
 function main() {
