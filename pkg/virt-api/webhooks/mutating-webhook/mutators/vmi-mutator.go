@@ -31,6 +31,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -42,7 +43,9 @@ import (
 )
 
 type VMIsMutator struct {
-	ClusterConfig *virtconfig.ClusterConfig
+	ClusterConfig           *virtconfig.ClusterConfig
+	VMIPresetInformer       cache.SharedIndexInformer
+	NamespaceLimitsInformer cache.SharedIndexInformer
 }
 
 func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -64,10 +67,8 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 	// Patch the spec, metadata and status with defaults if we deal with a create operation
 	if ar.Request.Operation == admissionv1.Create {
-		informers := webhooks.GetInformers()
-
 		// Apply presets
-		err = applyPresets(newVMI, informers.VMIPresetInformer)
+		err = applyPresets(newVMI, mutator.VMIPresetInformer)
 		if err != nil {
 			return &admissionv1.AdmissionResponse{
 				Result: &metav1.Status{
@@ -78,7 +79,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		}
 
 		// Apply namespace limits
-		applyNamespaceLimitRangeValues(newVMI, informers.NamespaceLimitsInformer)
+		applyNamespaceLimitRangeValues(newVMI, mutator.NamespaceLimitsInformer)
 
 		// Set VMI defaults
 		log.Log.Object(newVMI).V(4).Info("Apply defaults")

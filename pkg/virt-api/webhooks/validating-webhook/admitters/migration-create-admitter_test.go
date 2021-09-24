@@ -30,6 +30,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -44,12 +45,13 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	// Mock VirtualMachineInstanceMigration
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
+	var vmiInformer cache.SharedIndexInformer
+	var migrationCreateAdmitter *MigrationCreateAdmitter
+
 	ctrl = gomock.NewController(GinkgoT())
 	migrationInterface := kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
 	virtClient = kubecli.NewMockKubevirtClient(ctrl)
 	virtClient.EXPECT().VirtualMachineInstanceMigration("default").Return(migrationInterface).AnyTimes()
-
-	migrationCreateAdmitter := &MigrationCreateAdmitter{ClusterConfig: config, VirtClient: virtClient}
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
@@ -61,6 +63,8 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	}
 
 	BeforeEach(func() {
+		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		migrationCreateAdmitter = &MigrationCreateAdmitter{ClusterConfig: config, VirtClient: virtClient, VMIInformer: vmiInformer}
 		migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).Times(1)
 	})
 
@@ -99,8 +103,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	It("should accept valid Migration spec on create", func() {
 		vmi := v1.NewMinimalVMI("testvmimigrate1")
 
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
+		migrationCreateAdmitter.VMIInformer.GetIndexer().Add(vmi)
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -130,8 +133,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	It("should reject valid Migration spec on create when feature gate isn't enabled", func() {
 		vmi := v1.NewMinimalVMI("testvmimigrate1")
 
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
+		migrationCreateAdmitter.VMIInformer.GetIndexer().Add(vmi)
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -203,8 +205,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			Failed:       false,
 		}
 
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
+		migrationCreateAdmitter.VMIInformer.GetIndexer().Add(vmi)
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -235,8 +236,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		vmi := v1.NewMinimalVMI("testmigratevmi3")
 		vmi.Status.Phase = v1.Succeeded
 
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
+		migrationCreateAdmitter.VMIInformer.GetIndexer().Add(vmi)
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -279,8 +279,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			},
 		}
 
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
+		migrationCreateAdmitter.VMIInformer.GetIndexer().Add(vmi)
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{

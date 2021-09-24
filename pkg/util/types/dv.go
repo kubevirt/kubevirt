@@ -21,8 +21,10 @@ package types
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -32,6 +34,48 @@ import (
 type CloneSource struct {
 	Namespace string
 	Name      string
+}
+
+func GetCloneSourceWithInformers(vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVolumeSpec, dataSourceInformer cache.SharedIndexInformer) (*CloneSource, error) {
+	var cloneSource *CloneSource
+	if dvSpec.Source != nil && dvSpec.Source.PVC != nil {
+		cloneSource = &CloneSource{
+			Namespace: dvSpec.Source.PVC.Namespace,
+			Name:      dvSpec.Source.PVC.Name,
+		}
+
+		if cloneSource.Namespace == "" {
+			cloneSource.Namespace = vm.Namespace
+		}
+	} else if dvSpec.SourceRef != nil && dvSpec.SourceRef.Kind == "DataSource" {
+		ns := vm.Namespace
+		if dvSpec.SourceRef.Namespace != nil {
+			ns = *dvSpec.SourceRef.Namespace
+		}
+
+		key := fmt.Sprintf("%v/%v", ns, dvSpec.SourceRef.Name)
+		obj, exists, err := dataSourceInformer.GetStore().GetByKey(key)
+		if err != nil {
+			return nil, err
+		} else if !exists {
+			return nil, fmt.Errorf("DataSource %s/%s does not exist", ns, dvSpec.SourceRef.Name)
+		}
+
+		ds := obj.(*cdiv1.DataSource)
+
+		if ds.Spec.Source.PVC != nil {
+			cloneSource = &CloneSource{
+				Namespace: ds.Spec.Source.PVC.Namespace,
+				Name:      ds.Spec.Source.PVC.Name,
+			}
+
+			if cloneSource.Namespace == "" {
+				cloneSource.Namespace = ns
+			}
+		}
+	}
+
+	return cloneSource, nil
 }
 
 func GetCloneSource(ctx context.Context, client kubecli.KubevirtClient, vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVolumeSpec) (*CloneSource, error) {

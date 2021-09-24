@@ -53,11 +53,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	})
 
 	It("should reject Migration on update if spec changes", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmiupdate")
-
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
-
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigrationthatchanged",
@@ -94,11 +89,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	})
 
 	It("should accept Migration on update if spec doesn't change", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmiupdate-nochange")
-
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
-
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigration",
@@ -133,9 +123,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 	It("should reject Migration on update if labels include our selector and are removed", func() {
 		vmi := v1.NewMinimalVMI("testmigratevmiupdate-labelsremoved")
-
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -180,9 +167,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	It("should reject Migration on update if our selector label is removed", func() {
 		vmi := v1.NewMinimalVMI("testmigratevmiupdate-selectorremoved")
 
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
-
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "somemigration",
@@ -225,9 +209,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 	It("should accept Migration on update if non-selector label is removed", func() {
 		vmi := v1.NewMinimalVMI("testmigratevmiupdate-otherremoved")
-
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{

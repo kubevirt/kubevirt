@@ -50,7 +50,6 @@ go_test(
     name = "go_default_test",
     srcs = [
         "admitters_suite_test.go",
-        "admitters_test.go",
         "migration-create-admitter_test.go",
         "migration-update-admitter_test.go",
         "pod-eviction-admitter_test.go",
@@ -73,7 +72,6 @@ go_test(
         "//pkg/virt-operator/resource/generate/rbac:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",

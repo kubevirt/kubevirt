@@ -36,10 +36,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
-	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -50,9 +49,8 @@ var _ = Describe("Validating VM Admitter", func() {
 	config, configMapInformer, crdInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	var ctrl *gomock.Controller
 	var vmsAdmitter *VMsAdmitter
-
-	var virtClient *kubecli.MockKubevirtClient
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
+	var vmiInformer cache.SharedIndexInformer
+	var dataSourceInformer cache.SharedIndexInformer
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
@@ -66,17 +64,17 @@ var _ = Describe("Validating VM Admitter", func() {
 	notRunning := false
 
 	BeforeEach(func() {
+		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		vmsAdmitter = &VMsAdmitter{
-			ClusterConfig: config,
+			DataSourceInformer: dataSourceInformer,
+			VMIInformer:        vmiInformer,
+			ClusterConfig:      config,
 			cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 				return true, "", nil
 			},
-			virtClient: virtClient,
 		}
-		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiInterface).AnyTimes()
 
 	})
 	AfterEach(func() {
@@ -167,6 +165,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: vmi.Namespace,
+			},
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -189,7 +191,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Return(vmi, nil)
+		vmsAdmitter.VMIInformer.GetIndexer().Add(vmi)
+
 		resp := vmsAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(Equal(false))
 	},
@@ -270,6 +273,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: vmi.Namespace,
+			},
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -307,7 +314,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Return(vmi, nil)
+		vmsAdmitter.VMIInformer.GetIndexer().Add(vmi)
+
 		resp := vmsAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(Equal(isValid))
 	},
@@ -473,6 +481,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: vmi.Namespace,
+			},
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -1194,8 +1206,15 @@ var _ = Describe("Validating VM Admitter", func() {
 			table.Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "ns3", "sa", "ns3", "ns2", "sa"),
 		)
 
-		table.DescribeTable("should successfully authorize clone from sourceRef", func(arNamespace, vmNamespace, sourceRefNamespace,
-			sourceNamespace, serviceAccount, expectedSourceNamespace, expectedTargetNamespace, expectedServiceAccount string) {
+		table.DescribeTable("should successfully authorize clone from sourceRef", func(arNamespace,
+			vmNamespace,
+			sourceRefNamespace,
+			sourceNamespace,
+			serviceAccount,
+			expectedSourceNamespace,
+			expectedTargetNamespace,
+			expectedServiceAccount string) {
+
 			sourceRefName := "sourceRef"
 			ds := &cdiv1.DataSource{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1258,18 +1277,19 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: arNamespace,
 			}
 
-			cdiClient := cdifake.NewSimpleClientset(ds)
-			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
+			vmsAdmitter.DataSourceInformer.GetIndexer().Add(ds)
 
-			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(expectedSourceNamespace, "whocares",
-				expectedTargetNamespace, expectedServiceAccount)
+			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(expectedSourceNamespace,
+				"whocares",
+				expectedTargetNamespace,
+				expectedServiceAccount)
+
 			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(ar, vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes).To(BeEmpty())
 		},
-			table.Entry("when source namespace suppied", "ns1", "", "", "ns3", "", "ns3", "ns1", "default"),
+			table.Entry("when source namespace suppied", "ns1", "", "ns2", "ns3", "", "ns3", "ns1", "default"),
 			table.Entry("when vm namespace suppied and source not", "ns1", "ns2", "", "", "", "ns2", "ns2", "default"),
-			table.Entry("when ar namespace suppied and vm/source not", "ns1", "", "", "", "", "ns1", "ns1", "default"),
 			table.Entry("when everything suppied with default service account", "ns1", "ns2", "", "ns3", "", "ns3", "ns2", "default"),
 			table.Entry("when everything suppied with 'sa' service account", "ns1", "ns2", "", "ns3", "sa", "ns3", "ns2", "sa"),
 			table.Entry("when source namespace and sourceRef namespace suppied", "ns1", "", "foo", "ns3", "", "ns3", "ns1", "default"),
