@@ -245,6 +245,13 @@ var _ = Describe("DHCP Server", func() {
 			Expect(options[240]).To(Equal([]byte("private.options.kubevirt.io")))
 		})
 
+		It("expects the gateway as an IPv4 addresses", func() {
+			gw := net.ParseIP("192.168.2.1")
+			options, err := prepareDHCPOptions(gw.DefaultMask(), gw, nil, nil, nil, 1500, "myhost", nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(options[dhcp4.OptionRouter]).To(Equal([]byte{192, 168, 2, 1}))
+		})
+
 		Context("Options set to invalid value", func() {
 			var (
 				err           error
