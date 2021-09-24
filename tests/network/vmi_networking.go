@@ -924,7 +924,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Checking if the migration happened, and over the right network")
 				vmi = tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
-				Expect(vmi.Status.MigrationState.TargetNodeAddress).To(HavePrefix("10.1.1."), "The migration did not appear to go over the dedicated migration network")
+				Expect(vmi.Status.MigrationState.TargetNodeAddress).To(HavePrefix("172.21.42."), "The migration did not appear to go over the dedicated migration network")
 
 				// delete VMI
 				By("Deleting the VMI")

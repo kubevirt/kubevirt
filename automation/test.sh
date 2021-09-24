@@ -43,6 +43,7 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
   export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_DEPLOY_CDI=false
+  export KUBEVIRT_NUM_SECONDARY_NICS=1
   if [[ $TARGET =~ k8s-1\.1.* ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
   fi
