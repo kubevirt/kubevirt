@@ -68,7 +68,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		MountCloudInitNoCloud     func(*v1.VirtualMachineInstance)
 		MountCloudInitConfigDrive func(*v1.VirtualMachineInstance)
 		CheckCloudInitFile        func(*v1.VirtualMachineInstance, string, string)
-		CheckCloudInitMetaData    func(*v1.VirtualMachineInstance, string, string)
 		CheckCloudInitIsoSize     func(vmi *v1.VirtualMachineInstance, source cloudinit.DataSourceType)
 	)
 
@@ -96,23 +95,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(console.SafeExpectBatch(vmi, commands, int(timeout.Seconds()))).To(Succeed())
 		}
 
-		mountCloudInitFunc := func(devName string) func(*v1.VirtualMachineInstance) {
-			return func(vmi *v1.VirtualMachineInstance) {
-				cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
-				err := console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo su -\n"},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: cmdCheck},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 15)
-				Expect(err).ToNot(HaveOccurred())
-			}
-		}
-
-		MountCloudInitNoCloud = mountCloudInitFunc("cidata")
-		MountCloudInitConfigDrive = mountCloudInitFunc("config-2")
+		MountCloudInitNoCloud = tests.MountCloudInitFunc("cidata")
+		MountCloudInitConfigDrive = tests.MountCloudInitFunc("config-2")
 
 		CheckCloudInitFile = func(vmi *v1.VirtualMachineInstance, testFile, testData string) {
 			cmdCheck := "cat /mnt/" + testFile + "\n"
@@ -123,18 +107,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				&expect.BExp{R: testData},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
-		}
-		CheckCloudInitMetaData = func(vmi *v1.VirtualMachineInstance, testFile, testData string) {
-			cmdCheck := "cat /mnt/" + testFile + "\n"
-			res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo su -\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: cmdCheck},
-				&expect.BExp{R: testData},
-			}, 15)
-			if err != nil {
-				Expect(res[1].Output).To(ContainSubstring(testData))
-			}
 		}
 		CheckCloudInitIsoSize = func(vmi *v1.VirtualMachineInstance, source cloudinit.DataSourceType) {
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -477,7 +449,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
 
 				By("checking cloudinit meta-data")
-				CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+				tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
 			})
 			It("[test_id:3185]should have cloud-init network-config with NetworkDataBase64 source", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(

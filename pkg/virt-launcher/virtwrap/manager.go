@@ -1344,16 +1344,16 @@ func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 }
 
 func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, devicesMetadata []cloudinit.DeviceData) []cloudinit.DeviceData {
-			pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
-			deviceData := cloudinit.DeviceData{
-				Type:    metadataType,
-				Bus:     address.Type,
-				Address: pciAddrStr,
-				MAC:     mac,
-				Tags:    []string{tag},
-			}
-			devicesMetadata = append(devicesMetadata, deviceData)
-			return devicesMetadata
+	pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+	deviceData := cloudinit.DeviceData{
+		Type:    metadataType,
+		Bus:     address.Type,
+		Address: pciAddrStr,
+		MAC:     mac,
+		Tags:    []string{tag},
+	}
+	devicesMetadata = append(devicesMetadata, deviceData)
+	return devicesMetadata
 }
 
 func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) ([]cloudinit.DeviceData, error) {
@@ -1380,21 +1380,22 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 				mac = nic.MAC.MAC
 			}
 			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
-							      nic.Address,
-					                      mac,
-					                      data.Tag,
-					                      devicesMetadata)
+				nic.Address,
+				mac,
+				data.Tag,
+				devicesMetadata)
 		}
 	}
 
 	hostDevices := devices.HostDevices
 	for _, dev := range hostDevices {
-		if data, exist := taggedInterfaces[dev.Alias.GetName()]; exist {
+		devAliasNoPrefix := strings.Replace(dev.Alias.GetName(), sriov.AliasPrefix, "", -1)
+		if data, exist := taggedInterfaces[devAliasNoPrefix]; exist {
 			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
-							      dev.Address,
-					                      "",
-					                      data.Tag,
-					                      devicesMetadata)
+				dev.Address,
+				"",
+				data.Tag,
+				devicesMetadata)
 		}
 	}
 	return devicesMetadata, nil
