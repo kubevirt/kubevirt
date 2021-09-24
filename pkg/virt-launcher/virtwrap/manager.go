@@ -1343,6 +1343,19 @@ func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 	return l.virConn.GetDomainStats(statsTypes, flags)
 }
 
+func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, devicesMetadata []cloudinit.DeviceData) []cloudinit.DeviceData {
+			pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+			deviceData := cloudinit.DeviceData{
+				Type:    metadataType,
+				Bus:     address.Type,
+				Address: pciAddrStr,
+				MAC:     mac,
+				Tags:    []string{tag},
+			}
+			devicesMetadata = append(devicesMetadata, deviceData)
+			return devicesMetadata
+}
+
 func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) ([]cloudinit.DeviceData, error) {
 	taggedInterfaces := make(map[string]v1.Interface)
 	var devicesMetadata []cloudinit.DeviceData
@@ -1358,23 +1371,30 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 	if err != nil {
 		return nil, err
 	}
+
 	interfaces := devices.Interfaces
 	for _, nic := range interfaces {
 		if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
-			address := nic.Address
 			var mac string
 			if nic.MAC != nil {
 				mac = nic.MAC.MAC
 			}
-			pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
-			deviceData := cloudinit.DeviceData{
-				Type:    cloudinit.NICMetadataType,
-				Bus:     nic.Address.Type,
-				Address: pciAddrStr,
-				MAC:     mac,
-				Tags:    []string{data.Tag},
-			}
-			devicesMetadata = append(devicesMetadata, deviceData)
+			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
+							      nic.Address,
+					                      mac,
+					                      data.Tag,
+					                      devicesMetadata)
+		}
+	}
+
+	hostDevices := devices.HostDevices
+	for _, dev := range hostDevices {
+		if data, exist := taggedInterfaces[dev.Alias.GetName()]; exist {
+			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
+							      dev.Address,
+					                      "",
+					                      data.Tag,
+					                      devicesMetadata)
 		}
 	}
 	return devicesMetadata, nil
