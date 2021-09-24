@@ -202,96 +202,16 @@ func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, vmis 
 }
 
 func (r *KubernetesReporter) logVMs(virtCli kubecli.KubevirtClient) {
-
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_vms.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	vms, err := virtCli.VirtualMachine(v1.NamespaceAll).List(&metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vms: %v\n", err)
 		return
 	}
-
-	j, err := json.MarshalIndent(vms, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal vms")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, vms, "vms")
 }
 
 func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, vmis *v12.VirtualMachineInstanceList) {
-
-	if vmis == nil {
-		fmt.Fprintf(os.Stderr, "vmi list is empty, skipping logVMIs\n")
-		return
-	}
-
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_vmis.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	j, err := json.MarshalIndent(vmis, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal vmis")
-		return
-	}
-	fmt.Fprintln(f, string(j))
-}
-
-func (r *KubernetesReporter) logDVs(virtCli kubecli.KubevirtClient) {
-	dvEnabled, _ := isDataVolumeEnabled(virtCli)
-	if !dvEnabled {
-		return
-	}
-
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_dvs.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-	dvs, err := virtCli.CdiClient().CdiV1beta1().DataVolumes(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch pvcs: %v\n", err)
-		return
-	}
-
-	j, err := json.MarshalIndent(dvs, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal dvs")
-		return
-	}
-	fmt.Fprintln(f, string(j))
-}
-
-func isDataVolumeEnabled(clientset kubecli.KubevirtClient) (bool, error) {
-	apis, err := clientset.DiscoveryClient().ServerResources()
-	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-		return false, err
-	}
-
-	for _, api := range apis {
-		if api.GroupVersion == apicdi.SchemeGroupVersion.String() {
-			for _, resource := range api.APIResources {
-				if resource.Name == "datavolumes" {
-					return true, nil
-				}
-			}
-		}
-	}
-
-	return false, nil
+	r.logObjects(virtCli, vmis, "vmis")
 }
 
 func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir string, nodes []string, since time.Time) {
@@ -610,60 +530,20 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 }
 
 func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, pods *v1.PodList) {
-
-	if pods == nil {
-		fmt.Fprintf(os.Stderr, "pod list is empty, skipping logPods\n")
-		return
-	}
-
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_pods.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	j, err := json.MarshalIndent(pods, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pods")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, pods, "pods")
 }
 
 func (r *KubernetesReporter) logServices(virtCli kubecli.KubevirtClient) {
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_services.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	services, err := virtCli.CoreV1().Services(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch services: %v\n", err)
 		return
 	}
 
-	j, err := json.MarshalIndent(services, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal services")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, services, "services")
 }
 
 func (r *KubernetesReporter) logAPIServices(virtCli kubecli.KubevirtClient) {
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_apiServices.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	result, err := virtCli.RestClient().Get().RequestURI("/apis/apiregistration.k8s.io/v1/").Resource("apiservices").Do(context.Background()).Raw()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch apiServices: %v\n", err)
@@ -675,179 +555,104 @@ func (r *KubernetesReporter) logAPIServices(virtCli kubecli.KubevirtClient) {
 		fmt.Fprintf(os.Stderr, "failed to unmarshal raw result to apiServicesList: %v\n", err)
 	}
 
-	j, err := json.MarshalIndent(apiServices, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal apiServices")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, apiServices, "apiServices")
 }
 
 func (r *KubernetesReporter) logEndpoints(virtCli kubecli.KubevirtClient) {
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_endpoints.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	endpoints, err := virtCli.CoreV1().Endpoints(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch endpointss: %v\n", err)
 		return
 	}
 
-	j, err := json.MarshalIndent(endpoints, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal endpoints")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, endpoints, "endpoints")
 }
 
 func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_configmaps.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	configmaps, err := virtCli.CoreV1().ConfigMaps(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch configmaps: %v\n", err)
 		return
 	}
 
-	j, err := json.MarshalIndent(configmaps, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal configmaps")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, configmaps, "configmaps")
 }
 
 func (r *KubernetesReporter) logKubeVirtCR(virtCli kubecli.KubevirtClient) {
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_kubevirtCR.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	kvs, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).List(&metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch kubevirts: %v\n", err)
 		return
 	}
 
-	j, err := json.MarshalIndent(kvs, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal kubevirt custom resource")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, kvs, "kubevirtCR")
 }
 
 func (r *KubernetesReporter) logSecrets(virtCli kubecli.KubevirtClient) {
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_secrets.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	secrets, err := virtCli.CoreV1().Secrets(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch secrets: %v\n", err)
 		return
 	}
 
-	j, err := json.MarshalIndent(secrets, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal secrets")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, secrets, "secrets")
 }
 
 func (r *KubernetesReporter) logNamespaces(virtCli kubecli.KubevirtClient) {
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_namespaces.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	namespaces, err := virtCli.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch Namespaces: %v\n", err)
 		return
 	}
 
-	j, err := json.MarshalIndent(namespaces, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal Namespaces")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, namespaces, "namespaces")
 }
 
 func (r *KubernetesReporter) logNodes(virtCli kubecli.KubevirtClient, nodes *v1.NodeList) {
-
-	if nodes == nil {
-		fmt.Fprintf(os.Stderr, "node list is empty, skipping logNodes\n")
-		return
-	}
-
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_nodes.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	j, err := json.MarshalIndent(nodes, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal nodes")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, nodes, "nodes")
 }
 
 func (r *KubernetesReporter) logPVs(virtCli kubecli.KubevirtClient) {
-
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_pvs.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pvs: %v\n", err)
 		return
 	}
 
-	j, err := json.MarshalIndent(pvs, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvs")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, pvs, "pvs")
 }
 
 func (r *KubernetesReporter) logPVCs(virtCli kubecli.KubevirtClient) {
+	pvcs, err := virtCli.CoreV1().PersistentVolumeClaims(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch pvcs: %v\n", err)
+		return
+	}
 
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_pvcs.log", r.failureCount)),
+	r.logObjects(virtCli, pvcs, "pvcs")
+}
+
+func (r *KubernetesReporter) logDVs(virtCli kubecli.KubevirtClient) {
+	dvEnabled, _ := isDataVolumeEnabled(virtCli)
+	if !dvEnabled {
+		return
+	}
+	dvs, err := virtCli.CdiClient().CdiV1beta1().DataVolumes(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch dvs: %v\n", err)
+		return
+	}
+
+	r.logObjects(virtCli, dvs, "dvs")
+}
+
+func (r *KubernetesReporter) logObjects(virtCli kubecli.KubevirtClient, elements interface{}, name string) {
+	if elements == nil {
+		fmt.Fprintf(os.Stderr, "%s list is empty, skipping\n", name)
+		return
+	}
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_%s.log", r.failureCount, name)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
@@ -855,15 +660,9 @@ func (r *KubernetesReporter) logPVCs(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	pvcs, err := virtCli.CoreV1().PersistentVolumeClaims(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	j, err := json.MarshalIndent(elements, "", "    ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch pvcs: %v\n", err)
-		return
-	}
-
-	j, err := json.MarshalIndent(pvcs, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvcs")
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal %s", name)
 		return
 	}
 	fmt.Fprintln(f, string(j))
@@ -989,15 +788,6 @@ func (r *KubernetesReporter) createPodsDir() string {
 }
 
 func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, since time.Time) {
-
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_events.log", r.failureCount)),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
 	events, err := virtCli.CoreV1().Events(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to fetch events")
@@ -1016,12 +806,7 @@ func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, since tim
 		}
 	}
 
-	j, err := json.MarshalIndent(eventsToPrint, "", "    ")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Failed to marshal events")
-		return
-	}
-	fmt.Fprintln(f, string(j))
+	r.logObjects(virtCli, eventsToPrint, "events")
 }
 
 func (r *KubernetesReporter) logSRIOVInfo(virtCli kubecli.KubevirtClient) {
@@ -1343,4 +1128,23 @@ func getVirtLauncherPID(virtCli kubecli.KubevirtClient, virtHandlerPod *v1.Pod, 
 	}
 
 	return strings.TrimSuffix(stdout, "\n"), nil
+}
+
+func isDataVolumeEnabled(clientset kubecli.KubevirtClient) (bool, error) {
+	apis, err := clientset.DiscoveryClient().ServerResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return false, err
+	}
+
+	for _, api := range apis {
+		if api.GroupVersion == apicdi.SchemeGroupVersion.String() {
+			for _, resource := range api.APIResources {
+				if resource.Name == "datavolumes" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
 }
