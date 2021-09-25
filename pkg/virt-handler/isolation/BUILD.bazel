@@ -15,6 +15,7 @@ go_library(
     deps = [
         "//pkg/container-disk:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/virt-chroot:go_default_library",

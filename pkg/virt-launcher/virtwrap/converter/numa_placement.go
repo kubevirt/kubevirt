@@ -42,7 +42,7 @@ func involvedCells(cpumap map[uint32]*cmdv1.Cell, cpuTune *api.CPUTune) (map[uin
 func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topology *cmdv1.Topology) error {
 	if topology == nil || len(topology.NumaCells) == 0 {
 		// If there is no numa topology reported, we don't do anything.
-		// this also means that emualted numa for e.g. memfd will keep intact
+		// this also means that emulated numa for e.g. memfd will keep intact
 		return nil
 	}
 	cpumap := cpuToCell(topology)
@@ -120,9 +120,13 @@ func numaMapping(vmi *v1.VirtualMachineInstance, domain *api.DomainSpec, topolog
 	}
 
 	if hugepagesEnabled && mod > 0 {
-		for i, _ := range domain.CPU.NUMA.Cells[:mod] {
+		for i := range domain.CPU.NUMA.Cells[:mod] {
 			domain.CPU.NUMA.Cells[i].Memory += hugepagesSize
 		}
+	}
+	if vmi.IsRealtimeEnabled() {
+		// RT settings when hugepages are enabled
+		domain.MemoryBacking.NoSharePages = &api.NoSharePages{}
 	}
 	return nil
 }

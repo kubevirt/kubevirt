@@ -142,6 +142,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCPUIsolatorThread(field, spec)...)
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
+	causes = append(causes, validateRealtime(field, spec)...)
 
 	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
 	if maxNumberOfInterfacesExceeded {
@@ -996,7 +997,7 @@ func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, con
 				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
 			})
 		}
-		if spec.Domain.CPU.DedicatedCPUPlacement == false {
+		if !spec.Domain.CPU.DedicatedCPUPlacement {
 			causes = append(causes, metav1.StatusCause{
 				Type: metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s must be set to true when NUMA topology strategy is set in %s",
@@ -1367,6 +1368,42 @@ func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1
 		if len(errors) != 0 {
 			causes = appendNewStatusCauseForHostNameNotConformingToDNSLabelRules(field, causes, errors)
 		}
+	}
+	return causes
+}
+
+func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.CPU != nil && spec.Domain.CPU.Realtime != nil {
+		causes = append(causes, validateCPURealtime(field, spec)...)
+		causes = append(causes, validateMemoryRealtime(field, spec)...)
+	}
+	return causes
+}
+
+func validateCPURealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if !spec.Domain.CPU.DedicatedCPUPlacement {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("%s must be set to true when %s is used",
+				field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+				field.Child("domain", "cpu", "realtime").String(),
+			),
+			Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+		})
+	}
+	return causes
+}
+
+func validateMemoryRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.CPU.NUMA == nil || spec.Domain.CPU.NUMA.GuestMappingPassthrough == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("%s must be defined when %s is used",
+				field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+				field.Child("domain", "cpu", "realtime").String(),
+			),
+			Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+		})
 	}
 	return causes
 }

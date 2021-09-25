@@ -8,15 +8,17 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
-const ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
-const RequestHeaderClientCAFileKey = "requestheader-client-ca-file"
-const VirtShareDir = "/var/run/kubevirt"
-const VirtPrivateDir = "/var/run/kubevirt-private"
-const VirtLibDir = "/var/lib/kubevirt"
-const KubeletPodsDir = "/var/lib/kubelet/pods"
-const HostRootMount = "/proc/1/root/"
-const CPUManagerOS3Path = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
-const CPUManagerPath = HostRootMount + "var/lib/kubelet/cpu_manager_state"
+const (
+	ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
+	RequestHeaderClientCAFileKey              = "requestheader-client-ca-file"
+	VirtShareDir                              = "/var/run/kubevirt"
+	VirtPrivateDir                            = "/var/run/kubevirt-private"
+	VirtLibDir                                = "/var/lib/kubevirt"
+	KubeletPodsDir                            = "/var/lib/kubelet/pods"
+	HostRootMount                             = "/proc/1/root/"
+	CPUManagerOS3Path                         = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
+	CPUManagerPath                            = HostRootMount + "var/lib/kubelet/cpu_manager_state"
+)
 
 const NonRootUID = 107
 const NonRootUserString = "qemu"

@@ -839,7 +839,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
-	memoryOverhead := getMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
+	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
@@ -1765,7 +1765,6 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 		capabilities = append(capabilities, CAP_SYS_ADMIN)
 		capabilities = append(capabilities, getVirtiofsCapabilities()...)
 	}
-
 	return capabilities
 }
 
@@ -1796,7 +1795,7 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 	return append(secrets, newsecret)
 }
 
-// getMemoryOverhead computes the estimation of total
+// GetMemoryOverhead computes the estimation of total
 // memory needed for the domain to operate properly.
 // This includes the memory needed for the guest and memory
 // for Qemu and OS overhead.
@@ -1805,7 +1804,7 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 //
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
-func getMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource.Quantity {
+func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 

@@ -24,6 +24,7 @@ package isolation
 import (
 	"fmt"
 	"net"
+	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -35,6 +36,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
@@ -116,8 +118,8 @@ func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolati
 }
 
 func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
-	// only VFIO attached domains require MEMLOCK adjustment
-	if !util.IsVFIOVMI(vm) {
+	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
+	if !util.IsVFIOVMI(vm) && !vm.IsRealtimeEnabled() {
 		return nil
 	}
 
@@ -145,13 +147,14 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		}
 
 		// make the best estimate for memory required by libvirt
-		memlockSize, err := getMemlockSize(vm)
+		memlockSize := services.GetMemoryOverhead(vm, runtime.GOARCH)
+		// Add base memory requested for the VM
+		vmiMemoryReq := vm.Spec.Domain.Resources.Requests.Memory()
+		memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
+
+		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
 		if err != nil {
-			return err
-		}
-		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize)
-		if err != nil {
-			return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", process.Pid(), memlockSize, err)
+			return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", process.Pid(), memlockSize.Value(), err)
 		}
 		// we assume a single process should match
 		break
@@ -161,9 +164,9 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 
 // AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
 // virt-launcher pod on the given VMI according to its spec.
-// Only VMI's with VFIO devices (e.g: SRIOV, GPU) require QEMU process MEMLOCK adjustment.
+// Only VMI's with VFIO devices (e.g: SRIOV, GPU) or RealTime workloads require QEMU process MEMLOCK adjustment.
 func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance) error {
-	if !util.IsVFIOVMI(vmi) {
+	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() {
 		return nil
 	}
 
@@ -182,16 +185,17 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	}
 	qemuProcessPid := qemuProcess.Pid()
 
-	memlockSize, err := getMemlockSize(vmi)
-	if err != nil {
-		return err
-	}
+	// make the best estimate for memory required by libvirt
+	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH)
+	// Add base memory requested for the VM
+	vmiMemoryReq := vmi.Spec.Domain.Resources.Requests.Memory()
+	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
 
-	if err := setProcessMemoryLockRLimit(qemuProcessPid, memlockSize); err != nil {
-		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessPid, memlockSize, err)
+	if err := setProcessMemoryLockRLimit(qemuProcessPid, memlockSize.Value()); err != nil {
+		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessPid, memlockSize.Value(), err)
 	}
-	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %d Max:%d",
-		qemuProcess, memlockSize, memlockSize)
+	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
+		qemuProcess, memlockSize.Value())
 
 	return nil
 }
@@ -225,7 +229,7 @@ func setProcessMemoryLockRLimit(pid int, size int64) error {
 		uintptr(unsafe.Pointer(&rlimit)), // #nosec used in unix RawSyscall6
 		0, 0, 0)
 	if errno != 0 {
-		return fmt.Errorf("Error setting prlimit: %v", errno)
+		return fmt.Errorf("error setting prlimit: %v", errno)
 	}
 
 	return nil
@@ -249,7 +253,7 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	}
 
 	if int(ucreds.Pid) == 0 {
-		return -1, fmt.Errorf("The detected PID is 0. Is the isolation detector running in the host PID namespace?")
+		return -1, fmt.Errorf("the detected PID is 0. Is the isolation detector running in the host PID namespace?")
 	}
 
 	return int(ucreds.Pid), nil
@@ -277,7 +281,7 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, 
 			if slice == "" {
 				slice = s
 			} else if slice != s {
-				err = fmt.Errorf("Process is part of more than one slice. Expected %s, found %s", slice, s)
+				err = fmt.Errorf("process is part of more than one slice. Expected %s, found %s", slice, s)
 				return
 			}
 			// Add controller
@@ -286,31 +290,8 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, 
 	}
 
 	if slice == "" {
-		err = fmt.Errorf("Could not detect slice of whitelisted controllers: %v", s.controller)
+		err = fmt.Errorf("could not detect slice of whitelisted controllers: %v", s.controller)
 	}
 
 	return
-}
-
-// consider reusing getMemoryOverhead()
-// This is not scientific, but neither what libvirtd does is. See details in:
-// https://www.redhat.com/archives/libvirt-users/2019-August/msg00051.html
-func getMemlockSize(vm *v1.VirtualMachineInstance) (int64, error) {
-	memlockSize := resource.NewQuantity(0, resource.DecimalSI)
-
-	// start with base memory requested for the VM
-	vmiMemoryReq := vm.Spec.Domain.Resources.Requests.Memory()
-	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
-
-	// allocate 1Gb for VFIO needs
-	memlockSize.Add(resource.MustParse("1G"))
-
-	// add some more memory for NUMA / CPU topology, platform memory alignment and other needs
-	memlockSize.Add(resource.MustParse("256M"))
-
-	bytes, ok := memlockSize.AsInt64()
-	if !ok {
-		return 0, fmt.Errorf("could not calculate memory lock size")
-	}
-	return bytes, nil
 }

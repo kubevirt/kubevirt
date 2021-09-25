@@ -148,17 +148,6 @@ var _ = Describe("Isolation Detector", func() {
 	})
 })
 
-var _ = Describe("getMemlockSize", func() {
-	vm := v1.NewMinimalVMIWithNS("default", "testvm")
-
-	It("Should return correct number of bytes for memlock limit", func() {
-		bytes, err := getMemlockSize(vm)
-		Expect(err).ToNot(HaveOccurred())
-		// 1Gb (static part for vfio VMs) + 256Mb (estimated overhead) + 8 Mb (VM)
-		Expect(int(bytes)).To(Equal(1264389000))
-	})
-})
-
 var _ = Describe("findIsolatedQemuProcess", func() {
 	const virtLauncherPid = 1
 	virtLauncherProc := ProcessStub{pid: virtLauncherPid, ppid: 0, binary: "virt-launcher"}

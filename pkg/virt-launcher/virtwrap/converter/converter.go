@@ -117,6 +117,7 @@ type ConverterContext struct {
 	EphemeraldiskCreator  ephemeraldisk.EphemeralDiskCreatorInterface
 	VolumesDiscardIgnore  []string
 	Topology              *cmdv1.Topology
+	CpuScheduler          *api.VCPUScheduler
 }
 
 func contains(volumes []string, name string) bool {
@@ -1626,8 +1627,19 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 					log.Log.Reason(err).Error("failed to format domain iothread pinning.")
 					return err
 				}
-
 			}
+			if vmi.IsRealtimeEnabled() {
+				// RT settings
+				// To be configured by manifest
+				// - CPU Model: Host Passthrough
+				// - VCPU (placement type and number)
+				// - VCPU Pin (DedicatedCPUPlacement)
+				// - USB controller should be disabled if no input type usb is found
+				// - Memballoning can be disabled when setting 'autoattachMemBalloon' to false
+				formatVCPUScheduler(domain, vmi)
+				domain.Spec.Features.PMU = &api.FeatureState{State: "off"}
+			}
+
 			if isNumaPassthrough(vmi) {
 				if err := numaMapping(vmi, &domain.Spec, c.Topology); err != nil {
 					log.Log.Reason(err).Error("failed to calculate passed through NUMA topology.")

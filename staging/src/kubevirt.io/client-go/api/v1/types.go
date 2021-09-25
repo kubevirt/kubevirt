@@ -387,6 +387,10 @@ func (v *VirtualMachineInstance) ShouldStartPaused() bool {
 	return v.Spec.StartStrategy != nil && *v.Spec.StartStrategy == StartStrategyPaused
 }
 
+func (v *VirtualMachineInstance) IsRealtimeEnabled() bool {
+	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.Realtime != nil
+}
+
 //
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceConditionType string

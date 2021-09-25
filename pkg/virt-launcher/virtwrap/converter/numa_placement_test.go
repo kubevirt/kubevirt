@@ -182,5 +182,11 @@ var _ = Describe("NumaPlacement", func() {
 			Expect(givenSpec.CPU).To(Equal(expectedSpec.CPU))
 			Expect(givenSpec.MemoryBacking).To(Equal(expectedMemoryBacking))
 		})
+		It("should process no shared pages when tuned for real time", func() {
+			givenVMI.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}}
+			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
+
+			Expect(givenSpec.MemoryBacking.NoSharePages).To(Equal(&api.NoSharePages{}))
+		})
 	})
 })
