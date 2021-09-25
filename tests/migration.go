@@ -7,8 +7,6 @@ import (
 	"io"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/util"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -73,7 +71,7 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 }
 
 func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
-	domXML := RunCommandOnVmiPod(vmi, []string{"cat", "/etc/libvirt/qemu/" + util.NamespaceTestDefault + "_" + vmi.Name + ".xml"})
+	domXML := RunCommandOnVmiPod(vmi, []string{"virsh", "dumpxml", "1"})
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(domXML)))
 
 	var location = make([]string, 0)

@@ -713,7 +713,11 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
+				if checks.HasFeature(virtconfig.NonRoot) {
+					Expect(err.Error()).To(And(ContainSubstring("VirtioFS"), ContainSubstring("session mode")))
+				} else {
+					Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
+				}
 			})
 		})
 
