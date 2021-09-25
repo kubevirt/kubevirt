@@ -46,9 +46,7 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	)
 
 	BeforeEach(func() {
-		if !RunPerfTests {
-			Skip("Performance tests are not enabled.")
-		}
+		skipIfNoPerformanceTests()
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		tests.BeforeTestCleanup()
