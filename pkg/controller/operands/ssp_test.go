@@ -340,12 +340,17 @@ var _ = Describe("SSP Operands", func() {
 			dir := path.Join(os.TempDir(), fmt.Sprint(time.Now().UTC().Unix()))
 			origFunc := getDataImportCronTemplatesFileLocation
 
+			url1 := "docker://someregistry/image1"
+			url2 := "docker://someregistry/image2"
+			url3 := "docker://someregistry/image3"
+			url4 := "docker://someregistry/image4"
+
 			image1 := sspv1beta1.DataImportCronTemplate{
 				ObjectMeta: metav1.ObjectMeta{Name: "image1"},
 				Spec: cdiv1beta1.DataImportCronSpec{
 					Schedule: "1 */12 * * *",
 					Source: cdiv1beta1.DataImportCronSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: "docker://someregistry/image1"},
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url1},
 					},
 					ManagedDataSource: "image1",
 				},
@@ -356,7 +361,7 @@ var _ = Describe("SSP Operands", func() {
 				Spec: cdiv1beta1.DataImportCronSpec{
 					Schedule: "2 */12 * * *",
 					Source: cdiv1beta1.DataImportCronSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: "docker://someregistry/image2"},
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url2},
 					},
 					ManagedDataSource: "image2",
 				},
@@ -367,7 +372,7 @@ var _ = Describe("SSP Operands", func() {
 				Spec: cdiv1beta1.DataImportCronSpec{
 					Schedule: "3 */12 * * *",
 					Source: cdiv1beta1.DataImportCronSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: "docker://someotherregistry/image3"},
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url3},
 					},
 					ManagedDataSource: "image3",
 				},
@@ -378,7 +383,7 @@ var _ = Describe("SSP Operands", func() {
 				Spec: cdiv1beta1.DataImportCronSpec{
 					Schedule: "4 */12 * * *",
 					Source: cdiv1beta1.DataImportCronSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: "docker://someotherregistry/image4"},
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url4},
 					},
 					ManagedDataSource: "image4",
 				},

@@ -152,13 +152,39 @@ type DataVolumeSourceS3 struct {
 
 // DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source
 type DataVolumeSourceRegistry struct {
-	//URL is the url of the Docker registry source
-	URL string `json:"url"`
+	//URL is the url of the registry source (starting with the scheme: docker, oci-archive)
+	// +optional
+	URL *string `json:"url,omitempty"`
+	//ImageStream is the name of image stream for import
+	// +optional
+	ImageStream *string `json:"imageStream,omitempty"`
+	//PullMethod can be either "pod" (default import), or "node" (node docker cache based import)
+	// +optional
+	PullMethod *RegistryPullMethod `json:"pullMethod,omitempty"`
 	//SecretRef provides the secret reference needed to access the Registry source
-	SecretRef string `json:"secretRef,omitempty"`
+	// +optional
+	SecretRef *string `json:"secretRef,omitempty"`
 	//CertConfigMap provides a reference to the Registry certs
-	CertConfigMap string `json:"certConfigMap,omitempty"`
+	// +optional
+	CertConfigMap *string `json:"certConfigMap,omitempty"`
 }
+
+const (
+	// RegistrySchemeDocker is docker scheme prefix
+	RegistrySchemeDocker = "docker"
+	// RegistrySchemeOci is oci-archive scheme prefix
+	RegistrySchemeOci = "oci-archive"
+)
+
+// RegistryPullMethod represents the registry import pull method
+type RegistryPullMethod string
+
+const (
+	// RegistryPullPod is the standard import
+	RegistryPullPod RegistryPullMethod = "pod"
+	// RegistryPullNode is the node docker cache based import
+	RegistryPullNode RegistryPullMethod = "node"
+)
 
 // DataVolumeSourceHTTP can be either an http or https endpoint, with an optional basic auth user name and password, and an optional configmap containing additional CAs
 type DataVolumeSourceHTTP struct {
@@ -338,6 +364,8 @@ type StorageProfile struct {
 
 //StorageProfileSpec defines specification for StorageProfile
 type StorageProfileSpec struct {
+	// CloneStrategy defines the preferred method for performing a CDI clone
+	CloneStrategy *CDICloneStrategy `json:"cloneStrategy,omitempty"`
 	// ClaimPropertySets is a provided set of properties applicable to PVC
 	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
 }
@@ -348,6 +376,8 @@ type StorageProfileStatus struct {
 	StorageClass *string `json:"storageClass,omitempty"`
 	// The Storage class provisioner plugin name
 	Provisioner *string `json:"provisioner,omitempty"`
+	// CloneStrategy defines the preferred method for performing a CDI clone
+	CloneStrategy *CDICloneStrategy `json:"cloneStrategy,omitempty"`
 	// ClaimPropertySets computed from the spec and detected in the system
 	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
 }
@@ -362,8 +392,6 @@ type ClaimPropertySet struct {
 	// Value of Filesystem is implied when not included in claim spec.
 	// +optional
 	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode,omitempty" protobuf:"bytes,6,opt,name=volumeMode,casttype=PersistentVolumeMode"`
-	// CloneStrategy defines the preferred method for performing a CDI clone
-	CloneStrategy *CDICloneStrategy `json:"cloneStrategy,omitempty"`
 }
 
 //StorageProfileList provides the needed parameters to request a list of StorageProfile from the system

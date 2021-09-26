@@ -82,9 +82,11 @@ func (DataVolumeSourceS3) SwaggerDoc() map[string]string {
 func (DataVolumeSourceRegistry) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":              "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
-		"url":           "URL is the url of the Docker registry source",
-		"secretRef":     "SecretRef provides the secret reference needed to access the Registry source",
-		"certConfigMap": "CertConfigMap provides a reference to the Registry certs",
+		"url":           "URL is the url of the registry source (starting with the scheme: docker, oci-archive)\n+optional",
+		"imageStream":   "ImageStream is the name of image stream for import\n+optional",
+		"pullMethod":    "PullMethod can be either \"pod\" (default import), or \"node\" (node docker cache based import)\n+optional",
+		"secretRef":     "SecretRef provides the secret reference needed to access the Registry source\n+optional",
+		"certConfigMap": "CertConfigMap provides a reference to the Registry certs\n+optional",
 	}
 }
 
@@ -157,6 +159,7 @@ func (StorageProfile) SwaggerDoc() map[string]string {
 func (StorageProfileSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "StorageProfileSpec defines specification for StorageProfile",
+		"cloneStrategy":     "CloneStrategy defines the preferred method for performing a CDI clone",
 		"claimPropertySets": "ClaimPropertySets is a provided set of properties applicable to PVC",
 	}
 }
@@ -166,16 +169,16 @@ func (StorageProfileStatus) SwaggerDoc() map[string]string {
 		"":                  "StorageProfileStatus provides the most recently observed status of the StorageProfile",
 		"storageClass":      "The StorageClass name for which capabilities are defined",
 		"provisioner":       "The Storage class provisioner plugin name",
+		"cloneStrategy":     "CloneStrategy defines the preferred method for performing a CDI clone",
 		"claimPropertySets": "ClaimPropertySets computed from the spec and detected in the system",
 	}
 }
 
 func (ClaimPropertySet) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "ClaimPropertySet is a set of properties applicable to PVC",
-		"accessModes":   "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+optional",
-		"volumeMode":    "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
-		"cloneStrategy": "CloneStrategy defines the preferred method for performing a CDI clone",
+		"":            "ClaimPropertySet is a set of properties applicable to PVC",
+		"accessModes": "AccessModes contains the desired access modes the volume should have.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1\n+optional",
+		"volumeMode":  "VolumeMode defines what type of volume is required by the claim.\nValue of Filesystem is implied when not included in claim spec.\n+optional",
 	}
 }
 

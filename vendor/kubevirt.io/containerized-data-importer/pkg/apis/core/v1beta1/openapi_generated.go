@@ -14809,13 +14809,6 @@ func schema_pkg_apis_core_v1beta1_ClaimPropertySet(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
-					"cloneStrategy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "CloneStrategy defines the preferred method for performing a CDI clone",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 			},
 		},
@@ -15714,8 +15707,21 @@ func schema_pkg_apis_core_v1beta1_DataVolumeSourceRegistry(ref common.ReferenceC
 				Properties: map[string]spec.Schema{
 					"url": {
 						SchemaProps: spec.SchemaProps{
-							Description: "URL is the url of the Docker registry source",
-							Default:     "",
+							Description: "URL is the url of the registry source (starting with the scheme: docker, oci-archive)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imageStream": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ImageStream is the name of image stream for import",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pullMethod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PullMethod can be either \"pod\" (default import), or \"node\" (node docker cache based import)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -15735,7 +15741,6 @@ func schema_pkg_apis_core_v1beta1_DataVolumeSourceRegistry(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"url"},
 			},
 		},
 	}
@@ -16384,6 +16389,13 @@ func schema_pkg_apis_core_v1beta1_StorageProfileSpec(ref common.ReferenceCallbac
 				Description: "StorageProfileSpec defines specification for StorageProfile",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"cloneStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CloneStrategy defines the preferred method for performing a CDI clone",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"claimPropertySets": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ClaimPropertySets is a provided set of properties applicable to PVC",
@@ -16423,6 +16435,13 @@ func schema_pkg_apis_core_v1beta1_StorageProfileStatus(ref common.ReferenceCallb
 					"provisioner": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The Storage class provisioner plugin name",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cloneStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CloneStrategy defines the preferred method for performing a CDI clone",
 							Type:        []string{"string"},
 							Format:      "",
 						},
