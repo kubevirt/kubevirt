@@ -722,7 +722,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 
 	It("should properly mount and unmount filesystem", func() {
 		sourcePodUID := "ghfjk"
-		path := filepath.Join(tempDir, sourcePodUID, "volumes")
+		path := filepath.Join(tempDir, sourcePodUID, "volumes", "disk.img")
 		err = os.MkdirAll(path, 0755)
 		sourcePodBasePath = func(podUID types.UID) string {
 			return path
@@ -733,9 +733,9 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
 			return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", path)), nil
 		}
-		targetFilePath := filepath.Join(targetPodPath, "testvolume")
+		targetFilePath := filepath.Join(targetPodPath, "testvolume.img")
 		mountCommand = func(sourcePath, targetPath string) ([]byte, error) {
-			Expect(sourcePath).To(Equal(path))
+			Expect(sourcePath).To(Equal(diskFile))
 			Expect(targetPath).To(Equal(targetFilePath))
 			return []byte("Success"), nil
 		}
@@ -890,7 +890,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 			return filepath.Join(tempDir, string(sourceUID), "volumeDevices")
 		}
 		blockDevicePath := filepath.Join(tempDir, string(sourcePodUID), "volumeDevices", "blockvolume")
-		fileSystemPath := filepath.Join(tempDir, string(sourcePodUID), "volumes")
+		fileSystemPath := filepath.Join(tempDir, string(sourcePodUID), "volumes", "disk.img")
 		isBlockDevice = func(path string) (bool, error) {
 			if strings.Contains(path, blockDevicePath) {
 				return true, nil
@@ -940,11 +940,10 @@ var _ = Describe("HotplugVolume volumes", func() {
 			Expect(os.MkdirAll(deviceName, 0755)).To(Succeed())
 			return []byte("Yay"), nil
 		}
-		fileSystemVolume := filepath.Join(targetPodPath, "filesystemvolume")
 		blockVolume := filepath.Join(targetPodPath, "blockvolume")
-		targetFilePath := filepath.Join(targetPodPath, "filesystemvolume")
+		targetFilePath := filepath.Join(targetPodPath, "filesystemvolume.img")
 		mountCommand = func(sourcePath, targetPath string) ([]byte, error) {
-			Expect(sourcePath).To(Equal(fileSystemPath))
+			Expect(sourcePath).To(Equal(filepath.Join(fileSystemPath, "disk.img")))
 			Expect(targetPath).To(Equal(targetFilePath))
 			return []byte("Success"), nil
 		}
@@ -954,7 +953,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 		record := &vmiMountTargetRecord{
 			MountTargetEntries: []vmiMountTargetEntry{
 				{
-					TargetFile: fileSystemVolume,
+					TargetFile: targetFilePath,
 				},
 				{
 					TargetFile: blockVolume,
@@ -966,7 +965,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 		bytes, err := ioutil.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(bytes).To(Equal(expectedBytes))
-		_, err = os.Stat(fileSystemVolume)
+		_, err = os.Stat(targetFilePath)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Stat(blockVolume)
 		Expect(err).ToNot(HaveOccurred())
@@ -980,8 +979,8 @@ var _ = Describe("HotplugVolume volumes", func() {
 		Expect(err).ToNot(HaveOccurred())
 		_, err = ioutil.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 		Expect(err).To(HaveOccurred(), "record file still exists %s", filepath.Join(tempDir, string(vmi.UID)))
-		_, err = os.Stat(fileSystemVolume)
-		Expect(err).To(HaveOccurred(), "filesystem volume file still exists %s", fileSystemVolume)
+		_, err = os.Stat(targetFilePath)
+		Expect(err).To(HaveOccurred(), "filesystem volume file still exists %s", targetFilePath)
 		_, err = os.Stat(blockVolume)
 		Expect(err).To(HaveOccurred(), "block device volume still exists %s", blockVolume)
 	})
@@ -1066,11 +1065,10 @@ var _ = Describe("HotplugVolume volumes", func() {
 		diskFile := filepath.Join(fileSystemPath, "disk.img")
 		_, err = os.Create(diskFile)
 		Expect(err).ToNot(HaveOccurred())
-		fileSystemVolume := filepath.Join(targetPodPath, "filesystemvolume")
 		blockVolume := filepath.Join(targetPodPath, "blockvolume")
-		targetFilePath := filepath.Join(targetPodPath, "filesystemvolume")
+		targetFilePath := filepath.Join(targetPodPath, "filesystemvolume.img")
 		mountCommand = func(sourcePath, targetPath string) ([]byte, error) {
-			Expect(sourcePath).To(Equal(fileSystemPath))
+			Expect(sourcePath).To(Equal(filepath.Join(fileSystemPath, "disk.img")))
 			Expect(targetPath).To(Equal(targetFilePath))
 			return []byte("Success"), nil
 		}
@@ -1080,7 +1078,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 		record := &vmiMountTargetRecord{
 			MountTargetEntries: []vmiMountTargetEntry{
 				{
-					TargetFile: fileSystemVolume,
+					TargetFile: targetFilePath,
 				},
 				{
 					TargetFile: blockVolume,
@@ -1092,15 +1090,15 @@ var _ = Describe("HotplugVolume volumes", func() {
 		bytes, err := ioutil.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(bytes).To(Equal(expectedBytes))
-		_, err = os.Stat(fileSystemVolume)
+		_, err = os.Stat(targetFilePath)
 		Expect(err).ToNot(HaveOccurred())
 
 		err = m.UnmountAll(vmi)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = ioutil.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 		Expect(err).To(HaveOccurred(), "record file still exists %s", filepath.Join(tempDir, string(vmi.UID)))
-		_, err = os.Stat(fileSystemVolume)
-		Expect(err).To(HaveOccurred(), "filesystem volume file still exists %s", fileSystemVolume)
+		_, err = os.Stat(targetFilePath)
+		Expect(err).To(HaveOccurred(), "filesystem volume file still exists %s", targetFilePath)
 		_, err = os.Stat(blockVolume)
 		Expect(err).To(HaveOccurred(), "block device volume still exists %s", blockVolume)
 	})
