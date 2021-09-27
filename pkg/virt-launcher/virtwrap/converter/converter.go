@@ -625,7 +625,7 @@ func GetFilesystemVolumePath(volumeName string) string {
 
 // GetHotplugFilesystemVolumePath returns the path and file name of a hotplug disk image
 func GetHotplugFilesystemVolumePath(volumeName string) string {
-	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName, "disk.img")
+	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", fmt.Sprintf("%s.img", volumeName))
 }
 
 func GetBlockDeviceVolumePath(volumeName string) string {
