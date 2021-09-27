@@ -504,7 +504,7 @@ var _ = Describe("Manager", func() {
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
-				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img"))
+				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1.img"))
 				return true, nil
 			}
 			domainSpec.Devices.Disks = []api.Disk{
@@ -531,7 +531,7 @@ var _ = Describe("Manager", func() {
 				Device: "disk",
 				Type:   "file",
 				Source: api.DiskSource{
-					File: "/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img",
+					File: "/var/run/kubevirt/hotplug-disks/hpvolume1.img",
 				},
 				Target: api.DiskTarget{
 					Bus:    "scsi",
@@ -636,7 +636,7 @@ var _ = Describe("Manager", func() {
 				Device: "disk",
 				Type:   "file",
 				Source: api.DiskSource{
-					File: "/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img",
+					File: "/var/run/kubevirt/hotplug-disks/hpvolume1.img",
 				},
 				Target: api.DiskTarget{
 					Bus:    "scsi",
@@ -743,7 +743,7 @@ var _ = Describe("Manager", func() {
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
-				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img"))
+				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1.img"))
 				return true, nil
 			}
 			mockConn.EXPECT().DomainDefineXML(string(xmlDomain)).Return(mockDomain, nil)
@@ -822,7 +822,7 @@ var _ = Describe("Manager", func() {
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
-				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img"))
+				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1.img"))
 				return false, nil
 			}
 			domainSpec.Devices.Disks = []api.Disk{
