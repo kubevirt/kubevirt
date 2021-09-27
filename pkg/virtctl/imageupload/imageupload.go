@@ -445,6 +445,8 @@ func waitDvUploadScheduled(client kubecli.KubevirtClient, namespace, name string
 		if dv.Status.Phase == cdiv1.WaitForFirstConsumer {
 			return false, fmt.Errorf("cannot upload to DataVolume in WaitForFirstConsumer state, make sure the PVC is Bound")
 		}
+		// TODO: can check Condition/Event here to provide user with some error messages
+
 		done := dv.Status.Phase == cdiv1.UploadReady
 		if !done && !loggedStatus {
 			fmt.Printf("Waiting for PVC %s upload pod to be ready...\n", name)
@@ -555,27 +557,11 @@ func createStorageSpec(client kubecli.KubevirtClient, size, storageClass, access
 		},
 	}
 
-	if storageClass == "" {
-		storageClass, err = getDefaultStorageClassName(client)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if storageClass != "" {
 		spec.StorageClassName = &storageClass
 	}
 
-	if accessMode == "" {
-		accessModeAvailable, err := profileSpecifiesCorrectAccessMode(client, storageClass)
-		if err != nil {
-			return nil, err
-		}
-		if !accessModeAvailable {
-			// fallback to safe Default
-			spec.AccessModes = []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce}
-		}
-	} else {
+	if accessMode != "" {
 		if accessMode == string(v1.ReadOnlyMany) {
 			return nil, fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
 		}
@@ -715,50 +701,5 @@ func getUploadProxyURL(client cdiClientset.Interface) (string, error) {
 	if cdiConfig.Status.UploadProxyURL != nil {
 		return *cdiConfig.Status.UploadProxyURL, nil
 	}
-	return "", nil
-}
-
-// check is accessMode from StorageProfile is set and is correct (not ReadOnly),
-func profileSpecifiesCorrectAccessMode(client kubecli.KubevirtClient, storageClass string) (bool, error) {
-	if storageClass == "" {
-		return false, nil
-	}
-
-	storageProfile, err := client.CdiClient().CdiV1beta1().StorageProfiles().Get(context.TODO(), storageClass, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return false, nil
-		}
-
-		return false, fmt.Errorf("accessMode not provided, cannot get storage class %s", err)
-	}
-
-	if len(storageProfile.Status.ClaimPropertySets) > 0 &&
-		len(storageProfile.Status.ClaimPropertySets[0].AccessModes) > 0 {
-		accessMode := storageProfile.Status.ClaimPropertySets[0].AccessModes[0]
-
-		if accessMode == v1.ReadOnlyMany {
-			return false,
-				fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
-		}
-		if accessMode == v1.ReadWriteOnce || accessMode == v1.ReadWriteMany {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func getDefaultStorageClassName(client kubecli.KubevirtClient) (string, error) {
-	storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return "", fmt.Errorf("unable to retrieve storage classes")
-	}
-	for _, storageClass := range storageClasses.Items {
-		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
-			return storageClass.Name, nil
-		}
-	}
-
 	return "", nil
 }
