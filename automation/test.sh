@@ -406,6 +406,10 @@ if [ -z "$KUBEVIRT_QUARANTINE" ]; then
     else
         export KUBEVIRT_E2E_SKIP="QUARANTINE"
     fi
+    # quarantine test_id:3145 only for nonroot lanes
+    if [[ $KUBEVIRT_NONROOT =~ true ]]; then
+        export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|test_id:3145"
+    fi
 fi
 
 # Prepare RHEL PV for Template testing
