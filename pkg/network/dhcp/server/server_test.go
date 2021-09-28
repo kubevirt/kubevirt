@@ -160,6 +160,11 @@ var _ = Describe("DHCP Server", func() {
 			Expect(isValidSearchDomain(dom)).To(BeFalse())
 		})
 
+		It("should reject domains that end with '-'", func() {
+			dom := "foo.com-"
+			Expect(isValidSearchDomain(dom)).To(BeFalse())
+		})
+
 		It("should reject domains with full length greater than 253 chars", func() {
 			b := append(createBytes(250), []byte(".com")...)
 			Expect(isValidSearchDomain(string(b))).To(BeFalse())
