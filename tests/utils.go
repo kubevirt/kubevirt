@@ -118,7 +118,6 @@ import (
 
 var Config *KubeVirtTestsConfiguration
 var KubeVirtDefaultConfig v1.KubeVirtConfiguration
-var CDIInsecureRegistryConfig *k8sv1.ConfigMap
 var Arch string
 
 type EventType string
@@ -145,7 +144,6 @@ const (
 )
 
 const SubresourceTestLabel = "subresource-access-test-pod"
-const insecureRegistryConfigName = "cdi-insecure-registries"
 
 // NamespaceTestAlternative is used to test controller-namespace independency.
 var NamespaceTestAlternative = "kubevirt-test-alternative"
@@ -758,15 +756,6 @@ func AdjustKubeVirtResource() {
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
 	util2.PanicOnError(err)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	CDIInsecureRegistryConfig, err = virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Get(context.Background(), insecureRegistryConfigName, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// force it to nil, independent of what the client returned
-			CDIInsecureRegistryConfig = nil
-		} else {
-			util2.PanicOnError(err)
-		}
-	}
 }
 
 func RestoreKubeVirtResource() {
@@ -4557,7 +4546,6 @@ func resetToDefaultConfig() {
 	}
 
 	UpdateKubeVirtConfigValueAndWait(KubeVirtDefaultConfig)
-	UpdateCDIConfigMap(CDIInsecureRegistryConfig)
 }
 
 type compare func(string, string) bool
