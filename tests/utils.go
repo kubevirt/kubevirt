@@ -151,10 +151,6 @@ var NamespaceTestAlternative = "kubevirt-test-alternative"
 // NamespaceTestOperator is used to test if namespaces can still be deleted when kubevirt is uninstalled
 var NamespaceTestOperator = "kubevirt-test-operator"
 
-const (
-	ISCSITargetName = "test-isci-target"
-)
-
 var TestNamespaces = []string{util2.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
 var schedulableNode = ""
 
@@ -942,18 +938,15 @@ func CreateHostPathPVC(os, size string) {
 	CreatePVC(os, size, Config.StorageClassHostPath, false)
 }
 
-func CreateHostPathPVConSeparateDevice(os, size string) {
-	CreatePVC(os, size, Config.StorageClassHostPathSeparateDevice, false)
-}
-
-func CreatePVC(os, size, storageClass string, recycledPV bool) {
+func CreatePVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVolumeClaim {
 	virtCli, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims((util2.NamespaceTestDefault)).Create(context.Background(), newPVC(os, size, storageClass, recycledPV), metav1.CreateOptions{})
+	pvc, err := virtCli.CoreV1().PersistentVolumeClaims((util2.NamespaceTestDefault)).Create(context.Background(), newPVC(os, size, storageClass, recycledPV), metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		util2.PanicOnError(err)
 	}
+	return pvc
 }
 
 func CreateRuntimeClass(name, handler string) (*nodev1.RuntimeClass, error) {
@@ -3749,142 +3742,6 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	Expect(err).ToNot(HaveOccurred())
 	_, _, err = ExecuteCommandOnPodV2(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", path})
 	Expect(err).ToNot(HaveOccurred())
-}
-
-func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) *k8sv1.Pod {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	image := fmt.Sprintf("%s/cdi-http-import-server:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag)
-	resources := k8sv1.ResourceRequirements{}
-	resources.Limits = make(k8sv1.ResourceList)
-	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("512M")
-	pod := &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: ISCSITargetName,
-			Labels: map[string]string{
-				v1.AppLabel: ISCSITargetName,
-			},
-		},
-		Spec: k8sv1.PodSpec{
-			RestartPolicy: k8sv1.RestartPolicyNever,
-			Containers: []k8sv1.Container{
-				{
-					Name:      ISCSITargetName,
-					Image:     image,
-					Resources: resources,
-				},
-			},
-		},
-	}
-	if containerDiskName == cd.ContainerDiskEmpty {
-		asEmpty := []k8sv1.EnvVar{
-			{
-				Name:  "AS_EMPTY",
-				Value: "true",
-			},
-		}
-		pod.Spec.Containers[0].Env = asEmpty
-	} else {
-		imageEnv := []k8sv1.EnvVar{
-			{
-				Name:  "AS_ISCSI",
-				Value: "true",
-			},
-			{
-				Name:  "IMAGE_NAME",
-				Value: fmt.Sprintf("%s", containerDiskName),
-			},
-		}
-		pod.Spec.Containers[0].Env = imageEnv
-	}
-
-	pod, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
-	util2.PanicOnError(err)
-
-	getStatus := func() k8sv1.PodPhase {
-		pod, err := virtClient.CoreV1().Pods(util2.NamespaceTestDefault).Get(context.Background(), pod.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return pod.Status.Phase
-	}
-	Eventually(getStatus, 120, 1).Should(Equal(k8sv1.PodRunning))
-
-	pod, err = virtClient.CoreV1().Pods(util2.NamespaceTestDefault).Get(context.Background(), pod.Name, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred(), "should get ISCSI target pod after phase changed to Running")
-
-	return pod
-}
-
-func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(context.Background(), NewISCSIPV(name, size, iscsiTargetIP, accessMode, volumeMode), metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-
-	_, err = virtCli.CoreV1().PersistentVolumeClaims((util2.NamespaceTestDefault)).Create(context.Background(), newISCSIPVC(name, size, accessMode, volumeMode), metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-}
-
-func NewISCSIPV(name, size, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolume {
-	quantity, err := resource.ParseQuantity(size)
-	util2.PanicOnError(err)
-
-	storageClass := Config.StorageClassLocal
-
-	return &k8sv1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				cleanup.TestLabelForNamespace(util2.NamespaceTestDefault): "",
-			},
-		},
-		Spec: k8sv1.PersistentVolumeSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
-			Capacity: k8sv1.ResourceList{
-				"storage": quantity,
-			},
-			StorageClassName: storageClass,
-			VolumeMode:       &volumeMode,
-			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				ISCSI: &k8sv1.ISCSIPersistentVolumeSource{
-					TargetPortal: iscsiTargetIP,
-					IQN:          "iqn.2018-01.io.kubevirt:wrapper",
-					Lun:          1,
-					ReadOnly:     false,
-				},
-			},
-		},
-	}
-}
-
-func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolumeClaim {
-	quantity, err := resource.ParseQuantity(size)
-	util2.PanicOnError(err)
-
-	storageClass := Config.StorageClassLocal
-
-	return &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: k8sv1.PersistentVolumeClaimSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
-			Resources: k8sv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					"storage": quantity,
-				},
-			},
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					cleanup.TestLabelForNamespace(util2.NamespaceTestDefault): "",
-				},
-			},
-			StorageClassName: &storageClass,
-			VolumeMode:       &volumeMode,
-		},
-	}
 }
 
 func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP string, os string) {

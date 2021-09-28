@@ -1060,30 +1060,12 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine ISCSI PVC (using ISCSI IPv4 address)", func() {
+		Context("[rook-ceph][rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine block volume PVC", func() {
 
-			pvName := fmt.Sprintf("test-iscsi-lun%s", rand.String(48))
-
-			BeforeEach(func() {
-				// Start a ISCSI POD and service
-				By("Creating a ISCSI POD")
-				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskAlpine)
-				iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
-				Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
-
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
-			})
-
-			AfterEach(func() {
-				// create a new PV and PVC (PVs can't be reused)
-				tests.DeletePvAndPvc(pvName)
-			})
-
-			// Not a candidate for NFS because these tests exercise ISCSI
 			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi = tests.NewRandomVMIWithPVC(pvName)
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 				By("Launching a VMI with PVC ")
 				tests.RunVMIAndExpectLaunch(vmi, 180)
 

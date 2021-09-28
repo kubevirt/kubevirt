@@ -995,28 +995,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with an Alpine shared ISCSI PVC (using ISCSI IPv4 address)", func() {
-			var pvName string
-			BeforeEach(func() {
-				pvName = "test-iscsi-lun" + rand.String(48)
-				// Start a ISCSI POD and service
-				By("Starting an iSCSI POD")
-				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskAlpine)
-				iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
-				Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
+		Context("[rook-ceph]with an Alpine shared block volume PVC", func() {
 
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
-			})
-
-			AfterEach(func() {
-				// create a new PV and PVC (PVs can't be reused)
-				tests.DeletePvAndPvc(pvName)
-			})
 			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
 				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
-				vmi := tests.NewRandomVMIWithPVC(pvName)
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 				image := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 				tests.AddEphemeralDisk(vmi, "myephemeral", "virtio", image)
 
@@ -1042,7 +1025,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.NewRandomVMIWithPVC(pvName)
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1063,28 +1046,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with an Cirros shared ISCSI PVC (using ISCSI IPv4 address)", func() {
-			var pvName string
-			BeforeEach(func() {
-				pvName = "test-iscsi-lun" + rand.String(48)
-				// Start a ISCSI POD and service
-				By("Starting an iSCSI POD")
-				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros)
-				iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
-				Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
+		Context("[rook-ceph]with an Cirros shared block volume PVC", func() {
 
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
-			})
-
-			AfterEach(func() {
-				// create a new PV and PVC (PVs can't be reused)
-				tests.DeletePvAndPvc(pvName)
-			})
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.NewRandomVMIWithPVC(pvName)
+
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -1778,28 +1745,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
-		Context("with an Cirros non-shared ISCSI PVC (using ISCSI IPv4 address)", func() {
-			var pvName string
-			BeforeEach(func() {
-				pvName = "test-iscsi-lun" + rand.String(48)
-				// Start a ISCSI POD and service
-				By("Starting an iSCSI POD")
-				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros)
-				iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
-				Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
+		Context("[rook-ceph]with an Cirros non-shared block volume PVC", func() {
 
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIPAddress, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
-			})
-
-			AfterEach(func() {
-				// create a new PV and PVC (PVs can't be reused)
-				tests.DeletePvAndPvc(pvName)
-			})
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.NewRandomVMIWithPVC(pvName)
+
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = string(cd.ContainerDiskCirros)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -1841,8 +1792,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			}
 
 			newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-				// It could have been cleaner to import cd.ContainerDiskFedoraTestTooling from cdi-http-server but that does
-				// not work so as a temporary workaround the following imports the image from an ISCSI target pod
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
@@ -1906,7 +1855,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
 				table.Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-				table.Entry("[sig-storage][rook-ceph][test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
+				table.Entry("[sig-storage][rook-ceph][test_id:2731] with OCS disk from block volume PVC", newVirtualMachineInstanceWithFedoraOCSDisk),
 			)
 			It("[sig-compute][test_id:3241]should be able to cancel a migration right after posting it", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
