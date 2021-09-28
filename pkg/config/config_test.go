@@ -23,11 +23,13 @@ import (
 	"os"
 	"path/filepath"
 
+	v1 "kubevirt.io/client-go/api/v1"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-func mockCreateISOImage(output string, _ string, _ []string) error {
+func mockCreateISOImage(output string, _ string, _ []string, _ v1.VirtualMachineInstanceIsoAlignmentMode) error {
 	_, err := os.Create(output)
 	if err != nil {
 		panic(err)
@@ -73,7 +75,7 @@ var _ = Describe("Creating config images", func() {
 
 		It("Should create an iso image", func() {
 			imgPath := filepath.Join(tempISODir, "volume1.iso")
-			err := createIsoConfigImage(imgPath, "", expectedLayout)
+			err := createIsoConfigImage(imgPath, "", expectedLayout, v1.IsoAlignmentModeOn)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = os.Stat(imgPath)
 			Expect(err).NotTo(HaveOccurred())

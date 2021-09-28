@@ -63,7 +63,7 @@ var _ = Describe("Manager", func() {
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 	ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
 
-	isoCreationFunc := func(isoOutFile, volumeID string, inDir string) error {
+	isoCreationFunc := func(isoOutFile, volumeID string, inDir string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 		_, err := os.Create(isoOutFile)
 		return err
 	}

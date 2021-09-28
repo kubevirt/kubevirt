@@ -74,7 +74,7 @@ var _ = Describe("CloudInit", func() {
 		if err != nil {
 			panic(err)
 		}
-		isoCreationFunc = func(isoOutFile, volumeID string, inDir string) error {
+		isoCreationFunc = func(isoOutFile, volumeID string, inDir string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 			switch volumeID {
 			case "cidata", "config-2":
 				// Valid volume IDs for nocloud and configdrive
@@ -160,7 +160,7 @@ var _ = Describe("CloudInit", func() {
 			timedOut := false
 
 			BeforeEach(func() {
-				isoCreationFunc = func(isoOutFile, volumeID string, inDir string) error {
+				isoCreationFunc = func(isoOutFile, volumeID string, inDir string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 					var args []string
 
 					args = append(args, "10")
@@ -199,7 +199,7 @@ var _ = Describe("CloudInit", func() {
 					UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 				}
 				cloudInitData, _ := readCloudInitNoCloudSource(source)
-				err := GenerateLocalData(domain, namespace, cloudInitData)
+				err := GenerateLocalData(domain, namespace, cloudInitData, v1.IsoAlignmentModeOn)
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(BeTrue())
 			})
@@ -219,7 +219,7 @@ var _ = Describe("CloudInit", func() {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
 
-				err := GenerateLocalData(domain, namespace, cloudInitData)
+				err := GenerateLocalData(domain, namespace, cloudInitData, v1.IsoAlignmentModeOn)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso is created
@@ -512,9 +512,9 @@ var _ = Describe("CloudInit", func() {
 			}
 			cloudInitData, err := readCloudInitNoCloudSource(source)
 			Expect(err).NotTo(HaveOccurred())
-			err = GenerateLocalData(domain, namespace, cloudInitData)
+			err = GenerateLocalData(domain, namespace, cloudInitData, v1.IsoAlignmentModeOn)
 			Expect(err).NotTo(HaveOccurred())
-			err = GenerateLocalData(domain, namespace, cloudInitData)
+			err = GenerateLocalData(domain, namespace, cloudInitData, v1.IsoAlignmentModeOn)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
