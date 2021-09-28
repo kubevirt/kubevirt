@@ -413,6 +413,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
+
 			if vmi.Status.TopologyHints == nil && c.topologyHinter.TopologyHintsRequiredForVMI(vmi) {
 				if topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
@@ -522,6 +523,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				// will set up a TCP proxy, as expected by a legacy virt-launcher.
 				if shouldSetMigrationTransport(pod) {
 					vmiCopy.Status.MigrationTransport = virtv1.MigrationTransportUnix
+				}
+
+				value, set := pod.Annotations[virtv1.IsoAlignmentModeAnnotation]
+				if set {
+					vmiCopy.Status.IsoAlignmentMode = virtv1.VirtualMachineInstanceIsoAlignmentMode(value)
 				}
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed

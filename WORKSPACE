@@ -1600,6 +1600,17 @@ rpm(
 )
 
 rpm(
+    name = "file-libs-0__5.38-4.fc32.aarch64",
+    sha256 = "c0d6f9b0061b94531edc07f88c0367d88607b5db3494a30fa00c8ba20509d7b6",
+    urls = [
+        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux//updates/32/Everything/aarch64/Packages/f/file-libs-5.38-4.fc32.aarch64.rpm",
+        "https://mirror.genesisadaptive.com/fedora/linux//updates/32/Everything/aarch64/Packages/f/file-libs-5.38-4.fc32.aarch64.rpm",
+        "https://mirror.atl.genesisadaptive.com/fedora/linux//updates/32/Everything/aarch64/Packages/f/file-libs-5.38-4.fc32.aarch64.rpm",
+        "https://fedora.mirror.constant.com/fedora/linux//updates/32/Everything/aarch64/Packages/f/file-libs-5.38-4.fc32.aarch64.rpm",
+    ],
+)
+
+rpm(
     name = "file-libs-0__5.38-4.fc32.x86_64",
     sha256 = "9b3d457f2950fcb0170d1608151ea27f0dd7c970d2d3ff53e2a6644398a6571c",
     urls = [
@@ -1764,6 +1775,17 @@ rpm(
         "https://mirror.23media.com/fedora/linux/updates/32/Everything/x86_64/Packages/g/gdisk-1.0.7-1.fc32.x86_64.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/g/gdisk-1.0.7-1.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/e06b782fb3e04800200d91b27594245383e43008ed67029745fdbe28f0d2e3a5",
+    ],
+)
+
+rpm(
+    name = "genisoimage-0__1.1.11-44.fc32.aarch64",
+    sha256 = "de45f67968488f4102f0fffe9edb63f7d811eaa2633eb8c731d41fdf63cd02aa",
+    urls = [
+        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux//releases/32/Everything/aarch64/os/Packages/g/genisoimage-1.1.11-44.fc32.aarch64.rpm",
+        "https://mirrors.xmission.com/fedora/linux//releases/32/Everything/aarch64/os/Packages/g/genisoimage-1.1.11-44.fc32.aarch64.rpm",
+        "https://mirror.atl.genesisadaptive.com/fedora/linux//releases/32/Everything/aarch64/os/Packages/g/genisoimage-1.1.11-44.fc32.aarch64.rpm",
+        "https://fedora.mirror.constant.com/fedora/linux//releases/32/Everything/aarch64/os/Packages/g/genisoimage-1.1.11-44.fc32.aarch64.rpm",
     ],
 )
 
@@ -4008,6 +4030,17 @@ rpm(
         "https://mirror.23media.com/fedora/linux/updates/32/Everything/x86_64/Packages/l/libunwind-1.3.1-7.fc32.x86_64.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libunwind-1.3.1-7.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/b5e581f7a60b4b4164b700bf3ba47c6de1fb74ef6102687c418c56b29b861e34",
+    ],
+)
+
+rpm(
+    name = "libusal-0__1.1.11-44.fc32.aarch64",
+    sha256 = "b1aa13933d976a785a8a0be8558a9d73c04f7e53a4a406e6a7daed50bcf3a1cd",
+    urls = [
+        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux//releases/32/Everything/aarch64/os/Packages/l/libusal-1.1.11-44.fc32.aarch64.rpm",
+        "https://mirrors.xmission.com/fedora/linux//releases/32/Everything/aarch64/os/Packages/l/libusal-1.1.11-44.fc32.aarch64.rpm",
+        "https://mirror.atl.genesisadaptive.com/fedora/linux//releases/32/Everything/aarch64/os/Packages/l/libusal-1.1.11-44.fc32.aarch64.rpm",
+        "https://fedora.mirror.constant.com/fedora/linux//releases/32/Everything/aarch64/os/Packages/l/libusal-1.1.11-44.fc32.aarch64.rpm",
     ],
 )
 

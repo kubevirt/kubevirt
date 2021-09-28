@@ -382,7 +382,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 	return l.startMigration(vmi, options)
 }
 
-func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain) error {
+func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 	var devicesMetadata []cloudinit.DeviceData
 	// this is the point where we need to build the devices metadata if it was requested.
 	// This metadata maps the user provided tag to the hypervisor assigned device address.
@@ -403,7 +403,7 @@ func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstan
 		if devicesMetadata != nil {
 			cloudInitDataStore.DevicesData = &devicesMetadata
 		}
-		err := cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitDataStore)
+		err := cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitDataStore, isoAlign)
 		if err != nil {
 			return fmt.Errorf("generating local cloud-init data failed: %v", err)
 		}
@@ -794,7 +794,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
-		err = l.generateCloudInitISO(vmi, &dom)
+		err = l.generateCloudInitISO(vmi, &dom, vmi.Status.IsoAlignmentMode)
 		if err != nil {
 			return nil, err
 		}

@@ -76,6 +76,7 @@ bazel run \
     libvirt-client-${LIBVIRT_VERSION} \
     qemu-kvm-core-${QEMU_VERSION} \
     seabios-${SEABIOS_VERSION} \
+    genisoimage \
     xorriso \
     selinux-policy selinux-policy-targeted \
     nftables \
@@ -92,6 +93,7 @@ bazel run \
     libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
     libvirt-client-${LIBVIRT_VERSION} \
     qemu-kvm-core-${QEMU_VERSION} \
+    genisoimage \
     xorriso \
     selinux-policy selinux-policy-targeted \
     nftables \
@@ -106,6 +108,7 @@ bazel run \
     //:bazeldnf -- rpmtree --public --arch=aarch64 --name handlerbase_aarch64 \
     $basesystem \
     qemu-img-${QEMU_VERSION} \
+    genisoimage \
     xorriso \
     nftables \
     findutils \
@@ -120,6 +123,7 @@ bazel run \
     //:bazeldnf -- rpmtree --public --name handlerbase_x86_64 \
     $basesystem \
     qemu-img-${QEMU_VERSION} \
+    genisoimage \
     xorriso \
     nftables \
     findutils \

@@ -210,6 +210,8 @@ type VirtualMachineInstanceStatus struct {
 	MigrationMethod VirtualMachineInstanceMigrationMethod `json:"migrationMethod,omitempty"`
 	// This represents the migration transport
 	MigrationTransport VirtualMachineInstanceMigrationTransport `json:"migrationTransport,omitempty"`
+	// Size alignment mode for generated ISOs, see xorrisofs -partition_cyl_align option for more info
+	IsoAlignmentMode VirtualMachineInstanceIsoAlignmentMode `json:"isoAlignmentMode,omitempty"`
 	// The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements
 	// See PodQOSClass type for available QOS classes
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
@@ -624,6 +626,15 @@ const (
 	LiveMigration VirtualMachineInstanceMigrationMethod = "LiveMigration"
 )
 
+//
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceIsoAlignmentMode string
+
+const (
+	// IsoAlignmentModeOn means ISOs will always be padded to be 4k-aligned
+	IsoAlignmentModeOn VirtualMachineInstanceIsoAlignmentMode = "on"
+)
+
 // VirtualMachineInstancePhase is a label for the condition of a VirtualMachineInstance at the current time.
 //
 // +k8s:openapi-gen=true
@@ -780,6 +791,9 @@ const (
 
 	// MigrationTransportUnixAnnotation means that the VMI will be migrated using the unix URI
 	MigrationTransportUnixAnnotation string = "kubevirt.io/migrationTransportUnix"
+
+	// IsoAlignmentModeAnnotation is used to specify which alignment mode to use for generated ISOs
+	IsoAlignmentModeAnnotation string = "kubevirt.io/isoAlignmentMode"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

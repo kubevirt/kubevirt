@@ -83,7 +83,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}
 
-	err = l.generateCloudInitISO(vmi, nil)
+	err = l.generateCloudInitISO(vmi, nil, vmi.Status.IsoAlignmentMode)
 	if err != nil {
 		return err
 	}

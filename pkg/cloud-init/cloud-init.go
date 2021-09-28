@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
-type IsoCreationFunc func(isoOutFile, volumeID string, inDir string) error
+type IsoCreationFunc func(isoOutFile, volumeID string, inDir string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error
 
 var cloudInitLocalDir = "/var/run/libvirt/cloud-init-dir"
 var cloudInitIsoFunc = defaultIsoFunc
@@ -365,7 +365,7 @@ func readCloudInitConfigDriveMetaData(uid, name, hostname, namespace string, key
 	}
 }
 
-func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
+func defaultIsoFunc(isoOutFile, volumeID string, inDir string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 
 	var args []string
 
@@ -375,11 +375,16 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 	args = append(args, volumeID)
 	args = append(args, "-joliet")
 	args = append(args, "-rock")
-	args = append(args, "-partition_cyl_align")
-	args = append(args, "on")
+	if isoAlign == v1.IsoAlignmentModeOn {
+		args = append(args, "-partition_cyl_align")
+		args = append(args, "on")
+	}
 	args = append(args, inDir)
 
 	isoBinary := "xorrisofs"
+	if isoAlign != v1.IsoAlignmentModeOn {
+		isoBinary = "genisoimage"
+	}
 
 	// #nosec No risk for attacket injection. Parameters are predefined strings
 	cmd := exec.Command(isoBinary, args...)
@@ -465,7 +470,7 @@ func removeLocalData(domain string, namespace string) error {
 	return err
 }
 
-func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) error {
+func GenerateLocalData(vmiName string, namespace string, data *CloudInitData, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(data)
 
@@ -561,9 +566,9 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 
 	switch data.DataSource {
 	case DataSourceNoCloud:
-		err = cloudInitIsoFunc(isoStaging, "cidata", dataBasePath)
+		err = cloudInitIsoFunc(isoStaging, "cidata", dataBasePath, isoAlign)
 	case DataSourceConfigDrive:
-		err = cloudInitIsoFunc(isoStaging, "config-2", dataBasePath)
+		err = cloudInitIsoFunc(isoStaging, "config-2", dataBasePath, isoAlign)
 	}
 	if err != nil {
 		return err

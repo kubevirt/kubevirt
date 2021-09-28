@@ -8070,6 +8070,10 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
             type: object
           type: array
+        isoAlignmentMode:
+          description: Size alignment mode for generated ISOs, see xorrisofs -partition_cyl_align
+            option for more info
+          type: string
         launcherContainerImageVersion:
           description: LauncherContainerImageVersion indicates what container image
             is currently active for the vmi.
