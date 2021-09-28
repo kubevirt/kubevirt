@@ -5159,3 +5159,31 @@ func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.V
 		return vmi
 	}
 }
+
+func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
+	cmdCheck := "cat /mnt/" + testFile + "\n"
+	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: "sudo su -\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: testData},
+	}, 15)
+	if err != nil {
+		Expect(res[1].Output).To(ContainSubstring(testData))
+	}
+}
+
+func MountCloudInitFunc(devName string) func(*v1.VirtualMachineInstance) {
+	return func(vmi *v1.VirtualMachineInstance) {
+		cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
+		err := console.SafeExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "sudo su -\n"},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: cmdCheck},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: "echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}

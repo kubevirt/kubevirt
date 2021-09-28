@@ -21,6 +21,8 @@ package network
 
 import (
 	"context"
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"net"
 	"os"
@@ -48,6 +50,8 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -701,11 +705,13 @@ var _ = Describe("[Serial]SRIOV", func() {
 	Context("VirtualMachineInstance with sriov plugin interface", func() {
 
 		getSriovVmi := func(networks []string, cloudInitNetworkData string) *v1.VirtualMachineInstance {
-
 			withVmiOptions := []libvmi.Option{
-				libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkData, false),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			}
+			if cloudInitNetworkData != "" {
+				cloudinitOption := libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkData, false)
+				withVmiOptions = append(withVmiOptions, cloudinitOption)
 			}
 			// sriov network interfaces
 			for _, name := range networks {
@@ -780,6 +786,64 @@ var _ = Describe("[Serial]SRIOV", func() {
 				_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim)
 				return err
 			}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
+		})
+		It("should have cloud-init meta_data with tagged sriov nics", func() {
+			Expect(createNetworkAttachementDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
+
+			noCloudInitNetworkData := ""
+			vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
+
+			tests.AddCloudInitConfigDriveData(vmi, "disk1", "", defaultCloudInitNetworkData(), false)
+
+			for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
+				if iface.Name == sriovnet1 {
+					iface.Tag = "specialNet"
+					vmi.Spec.Domain.Devices.Interfaces[idx] = iface
+				}
+			}
+			vmi = startVmi(vmi)
+			vmi = waitVmi(vmi)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			domSpec := &api.DomainSpec{}
+			Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
+			nic := domSpec.Devices.HostDevices[0]
+			// find the SRIOV interface
+			for _, iface := range domSpec.Devices.HostDevices {
+				if iface.Alias.GetName() == sriovnet1 {
+					nic = iface
+				}
+			}
+			address := nic.Address
+			pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+			deviceData := []cloudinit.DeviceData{
+				{
+					Type:    cloudinit.NICMetadataType,
+					Bus:     nic.Address.Type,
+					Address: pciAddrStr,
+					Tags:    []string{"specialNet"},
+				},
+			}
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			metadataStruct := cloudinit.ConfigDriveMetadata{
+				InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
+				Hostname:   dns.SanitizeHostname(vmi),
+				UUID:       string(vmi.UID),
+				Devices:    &deviceData,
+			}
+
+			buf, err := json.Marshal(metadataStruct)
+			Expect(err).To(BeNil())
+			By("mouting cloudinit iso")
+			mountCloudInitConfigDrive := tests.MountCloudInitFunc("config-2")
+			mountCloudInitConfigDrive(vmi)
+
+			By("checking cloudinit meta-data")
+			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
 		})
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
