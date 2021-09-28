@@ -61,7 +61,7 @@ elif [[ $TARGET =~ sig-storage ]]; then
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-operator/}  
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-operator/}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -184,13 +184,32 @@ fi
 kubectl() { KUBEVIRTCI_VERBOSE=false cluster-up/kubectl.sh "$@"; }
 cli() { cluster-up/cli.sh "$@"; }
 
+determine_cri_bin() {
+    if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
+        echo podman
+    elif [ "${KUBEVIRTCI_RUNTIME}" = "docker" ]; then
+        echo docker
+    else
+        if curl --unix-socket /${HOME}/podman.sock http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
+            echo podman
+        elif docker ps >/dev/null; then
+            echo docker
+        else
+            >&2 echo "no working container runtime found. Neither docker nor podman seems to work."
+            exit 1
+        fi
+    fi
+}
+
 collect_debug_logs() {
     local containers
 
-    containers=( $(docker ps -a --format '{{ .Names }}') )
+    local cri_bin="$(determine_cri_bin)"
+
+    containers=( $("${cri_bin}" ps -a --format '{{ .Names }}') )
     for container in "${containers[@]}"; do
         echo "======== $container ========"
-        docker logs "$container"
+        "${cri_bin}" logs "$container"
     done
 }
 
