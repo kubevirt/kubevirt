@@ -42,7 +42,7 @@ func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance) error {
 			}
 
 			disk := GetServiceAccountDiskPath()
-			if err := createIsoConfigImage(disk, "", filesPath); err != nil {
+			if err := createIsoConfigImage(disk, "", filesPath, vmi.Status.IsoAlignmentMode); err != nil {
 				return err
 			}
 

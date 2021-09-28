@@ -64,12 +64,12 @@ func validateAutounattendPresence(dirPath string) error {
 }
 
 // CreateSysprepDisks creates Sysprep iso disks which are attached to vmis from either ConfigMap or Secret as a source
-func CreateSysprepDisks(vmi *v1.VirtualMachineInstance) error {
+func CreateSysprepDisks(vmi *v1.VirtualMachineInstance, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if !shouldCreateSysprepDisk(volume.Sysprep) {
 			continue
 		}
-		if err := createSysprepDisk(volume.Name); err != nil {
+		if err := createSysprepDisk(volume.Name, isoAlign); err != nil {
 			return err
 		}
 	}
@@ -80,7 +80,7 @@ func shouldCreateSysprepDisk(volumeSysprep *v1.SysprepSource) bool {
 	return volumeSysprep != nil && sysprepVolumeHasContents(volumeSysprep)
 }
 
-func createSysprepDisk(volumeName string) error {
+func createSysprepDisk(volumeName string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 	sysprepSourcePath := GetSysprepSourcePath(volumeName)
 	if err := validateAutounattendPresence(sysprepSourcePath); err != nil {
 		return err
@@ -90,12 +90,12 @@ func createSysprepDisk(volumeName string) error {
 		return err
 	}
 
-	return createIsoImageAndSetFileOwnership(volumeName, filesPath)
+	return createIsoImageAndSetFileOwnership(volumeName, filesPath, isoAlign)
 }
 
-func createIsoImageAndSetFileOwnership(volumeName string, filesPath []string) error {
+func createIsoImageAndSetFileOwnership(volumeName string, filesPath []string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 	disk := GetSysprepDiskPath(volumeName)
-	if err := createIsoConfigImage(disk, sysprepVolumeLabel, filesPath); err != nil {
+	if err := createIsoConfigImage(disk, sysprepVolumeLabel, filesPath, isoAlign); err != nil {
 		return err
 	}
 	if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(disk); err != nil {

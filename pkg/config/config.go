@@ -23,13 +23,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	v1 "kubevirt.io/client-go/api/v1"
 )
 
 type (
 	// Type represents allowed config types like ConfigMap or Secret
 	Type string
 
-	isoCreationFunc func(output string, volID string, files []string) error
+	isoCreationFunc func(output string, volID string, files []string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error
 )
 
 const (
@@ -99,7 +101,7 @@ func getFilesLayout(dirPath string) ([]string, error) {
 	return filesPath, nil
 }
 
-func defaultCreateIsoImage(output string, volID string, files []string) error {
+func defaultCreateIsoImage(output string, volID string, files []string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
 
 	if volID == "" {
 		volID = "cfgdata"
@@ -114,11 +116,16 @@ func defaultCreateIsoImage(output string, volID string, files []string) error {
 	args = append(args, "-joliet")
 	args = append(args, "-rock")
 	args = append(args, "-graft-points")
-	args = append(args, "-partition_cyl_align")
+	if isoAlign == v1.IsoAlignmentModeOn {
+		args = append(args, "-partition_cyl_align")
+	}
 	args = append(args, "on")
 	args = append(args, files...)
 
 	isoBinary := "xorrisofs"
+	if isoAlign != v1.IsoAlignmentModeOn {
+		isoBinary = "genisoimage"
+	}
 
 	// #nosec No risk for attacket injection. Parameters are predefined strings
 	cmd := exec.Command(isoBinary, args...)
@@ -129,8 +136,8 @@ func defaultCreateIsoImage(output string, volID string, files []string) error {
 	return nil
 }
 
-func createIsoConfigImage(output string, volID string, files []string) error {
-	err := createISOImage(output, volID, files)
+func createIsoConfigImage(output string, volID string, files []string, isoAlign v1.VirtualMachineInstanceIsoAlignmentMode) error {
+	err := createISOImage(output, volID, files, isoAlign)
 	if err != nil {
 		return err
 	}

@@ -48,7 +48,7 @@ func CreateSecretDisks(vmi *v1.VirtualMachineInstance) error {
 			}
 
 			disk := GetSecretDiskPath(volume.Name)
-			if err := createIsoConfigImage(disk, volume.Secret.VolumeLabel, filesPath); err != nil {
+			if err := createIsoConfigImage(disk, volume.Secret.VolumeLabel, filesPath, vmi.Status.IsoAlignmentMode); err != nil {
 				return err
 			}
 

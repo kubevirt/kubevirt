@@ -491,7 +491,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// create Sysprep disks if they exists
-	if err := config.CreateSysprepDisks(vmi); err != nil {
+	if err := config.CreateSysprepDisks(vmi, vmi.Status.IsoAlignmentMode); err != nil {
 		return domain, fmt.Errorf("creating sysprep disks failed: %v", err)
 	}
 
