@@ -20,6 +20,8 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
+const APPLIANCE_FILES string = "README.fixed, initrd, kernel, root"
+
 type fakeAttacher struct {
 	done chan bool
 }
@@ -83,13 +85,19 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			return pod.Status.Phase
 		}, 90*time.Second, 2*time.Second).Should(Equal(k8sv1.PodRunning))
 		// Verify that the appliance has been extracted before running any tests
+		// We check that all files are present and tar is not running
 		Eventually(func() bool {
-			output, _, err := execCommandLibguestfsPod(podName, []string{"ls", "/usr/local/lib/guestfs/appliance"})
+			output, _, err := execCommandLibguestfsPod(podName, []string{"ls", "-m", "/usr/local/lib/guestfs/appliance"})
 			Expect(err).ToNot(HaveOccurred())
-			if strings.Contains(output, "kernel") {
-				return true
+			if !strings.Contains(output, APPLIANCE_FILES) {
+				return false
 			}
-			return false
+			output, _, err = execCommandLibguestfsPod(podName, []string{"ps", "-e", "-o", "comm="})
+			Expect(err).ToNot(HaveOccurred())
+			if strings.Contains(output, "tar") {
+				return false
+			}
+			return true
 		}, 30*time.Second, 2*time.Second).Should(BeTrue())
 
 	}
