@@ -97,13 +97,6 @@ export KUBEVIRT_MEMORY_SIZE=8192M # node has 8GB memory size
 make cluster-up
 ```
 
-To skip CDI installation when running make cluster-sync locally please export KUBEVIRT_DEPLOY_CDI=false.
-
-```bash
-export KUBEVIRT_DEPLOY_CDI=false
-make cluster-sync
-```
-
 **Note:** If you see the error below, 
 check if the MTU of the container and the host are the same. 
 If not, try to adjust them to be the same. 
