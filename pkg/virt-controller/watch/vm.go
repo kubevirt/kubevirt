@@ -493,6 +493,41 @@ func (c *VMController) arePVCVolumesReady(vm *virtv1.VirtualMachine) bool {
 	return true
 }
 
+func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.DataVolume == nil {
+			continue
+		}
+
+		dvKey := fmt.Sprintf("%s/%s", vm.Namespace, volume.DataVolume.Name)
+		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
+			continue
+		}
+		if !exists {
+			continue
+		}
+
+		dv := dvObj.(*cdiv1.DataVolume)
+
+		if dv.Status.Phase == cdiv1.Failed {
+			log.Log.Object(vm).Errorf("DataVolume %s is in Failed phase", dvKey)
+			return true
+		}
+
+		dvRunningCond := controller.NewDataVolumeConditionManager().GetCondition(dv, cdiv1.DataVolumeRunning)
+		if dvRunningCond != nil &&
+			dvRunningCond.Status == k8score.ConditionFalse &&
+			dvRunningCond.Reason == "Error" {
+			log.Log.Object(vm).Errorf("DataVolume %s importer has stopped running due to an error: %v", dvKey, dvRunningCond.Message)
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if len(vm.Status.VolumeRequests) == 0 {
 		return nil
@@ -1624,6 +1659,7 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
 		{virtv1.VirtualMachineStatusPvcNotFound, c.isVirtualMachineStatusPvcNotFound},
 		{virtv1.VirtualMachineStatusDataVolumeNotFound, c.isVirtualMachineStatusDataVolumeNotFound},
+		{virtv1.VirtualMachineStatusDataVolumeError, c.isVirtualMachineStatusDataVolumeError},
 		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
 		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
@@ -1763,6 +1799,11 @@ func (c *VMController) isVirtualMachineStatusDataVolumeNotFound(vm *virtv1.Virtu
 		virtv1.VirtualMachineInstanceSynchronized,
 		k8score.ConditionFalse,
 		FailedDataVolumeNotFoundReason)
+}
+
+// isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"
+func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return c.hasDataVolumeErrors(vm)
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {

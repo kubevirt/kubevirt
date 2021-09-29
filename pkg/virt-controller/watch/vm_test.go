@@ -1825,8 +1825,40 @@ var _ = Describe("VirtualMachine", func() {
 					table.Entry("DataVolume is in Pending phase", cdiv1.Pending),
 					table.Entry("DataVolume is in ImportScheduled phase", cdiv1.ImportScheduled),
 					table.Entry("DataVolume is in ImportInProgress phase", cdiv1.ImportInProgress),
-					table.Entry("DataVolume is in Failed phase", cdiv1.Failed),
 					table.Entry("DataVolume is in WaitForFirstConsumer phase", cdiv1.WaitForFirstConsumer),
+				)
+
+				table.DescribeTable("Should set a DataVolumeError status when DataVolume reports an error", func(dvFunc func(*cdiv1.DataVolume)) {
+					addVirtualMachine(vm)
+
+					dv := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+					dvFunc(dv)
+					dataVolumeFeeder.Add(dv)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*v1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusDataVolumeError))
+					})
+
+					controller.Execute()
+				},
+
+					table.Entry(
+						"DataVolume is in Failed phase",
+						func(dv *cdiv1.DataVolume) {
+							dv.Status.Phase = cdiv1.Failed
+						},
+					),
+					table.Entry(
+						"DataVolume Running condition is in error",
+						func(dv *cdiv1.DataVolume) {
+							dv.Status.Conditions = append(dv.Status.Conditions, cdiv1.DataVolumeCondition{
+								Type:   cdiv1.DataVolumeRunning,
+								Status: k8sv1.ConditionFalse,
+								Reason: "Error",
+							})
+						},
+					),
 				)
 
 				It("Should set a Provisioning status when one DataVolume is ready and another isn't", func() {
