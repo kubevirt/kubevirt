@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -67,6 +68,7 @@ type CloudInitData struct {
 	UserData            string
 	NetworkData         string
 	DevicesData         *[]DeviceData
+	VolumeName          string
 }
 
 type PublicSSHKey struct {
@@ -117,6 +119,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
 			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace)
+			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
 		if volume.CloudInitConfigDrive != nil {
@@ -128,6 +131,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
 			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace, keys)
+			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
 	}
@@ -463,6 +467,57 @@ func removeLocalData(domain string, namespace string) error {
 		return nil
 	}
 	return err
+}
+
+func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, size int64) error {
+	precond.MustNotBeEmpty(vmiName)
+	precond.MustNotBeNil(data)
+
+	var err error
+	var isoStaging, iso string
+
+	switch data.DataSource {
+	case DataSourceNoCloud, DataSourceConfigDrive:
+		iso = GetIsoFilePath(data.DataSource, vmiName, namespace)
+	default:
+		return fmt.Errorf("invalid cloud-init data source: '%v'", data.DataSource)
+	}
+	isoStaging = fmt.Sprintf("%s.staging", iso)
+
+	err = diskutils.RemoveFilesIfExist(isoStaging)
+	if err != nil {
+		return err
+	}
+
+	err = util.MkdirAllWithNosec(path.Dir(isoStaging))
+	if err != nil {
+		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", path.Dir(isoStaging))
+		return err
+	}
+
+	f, err := os.Create(isoStaging)
+	if err != nil {
+		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
+	}
+
+	err = f.Truncate(size)
+	if err != nil {
+		f.Close()
+		return fmt.Errorf("failed to inflate empty iso: '%s'", isoStaging)
+	}
+	f.Close()
+
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStaging); err != nil {
+		return err
+	}
+	err = os.Rename(isoStaging, iso)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
+		return err
+	}
+
+	log.Log.V(2).Infof("generated empty iso file %s", iso)
+	return nil
 }
 
 func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) error {

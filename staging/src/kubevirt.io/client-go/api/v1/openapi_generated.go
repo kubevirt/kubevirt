@@ -25900,6 +25900,13 @@ func schema_kubevirtio_client_go_api_v1_VolumeStatus(ref common.ReferenceCallbac
 							Ref:         ref("kubevirt.io/client-go/api/v1.HotplugVolumeStatus"),
 						},
 					},
+					"size": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Represents the size of the volume",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 				Required: []string{"name", "target"},
 			},

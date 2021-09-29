@@ -8251,6 +8251,10 @@ var CRDsValidation map[string]string = map[string]string{
                 description: Reason is a brief description of why we are in the current
                   hotplug volume phase
                 type: string
+              size:
+                description: Represents the size of the volume
+                format: int64
+                type: integer
               target:
                 description: 'Target is the target name used when adding the volume
                   to the VM, eg: vda'

@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/config"
+
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 
 	nodelabellerapi "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
@@ -1156,6 +1158,55 @@ func (d *VirtualMachineController) updateFSFreezeStatus(vmi *v1.VirtualMachineIn
 
 }
 
+func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineInstance) {
+	var podUID string
+	if vmi.Status.Phase != v1.Running {
+		return
+	}
+
+	for k, v := range vmi.Status.ActivePods {
+		if v == vmi.Status.NodeName {
+			podUID = string(k)
+			break
+		}
+	}
+	if podUID == "" {
+		return
+	}
+
+	basepath := path.Join(util.KubeletPodsDir, string(podUID), "volumes/kubernetes.io~empty-dir/")
+	for _, volume := range vmi.Spec.Volumes {
+		var volPath string
+		if volume.CloudInitNoCloud != nil {
+			volPath = path.Join(basepath, "ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
+		} else if volume.CloudInitConfigDrive != nil {
+			volPath = path.Join(basepath, "ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
+		} else if volume.ConfigMap != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
+		} else if volume.DownwardAPI != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
+		} else if volume.Secret != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.SecretDisksDir), volume.Name+".iso")
+		} else if volume.ServiceAccount != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
+		} else if volume.Sysprep != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.SysprepDisksDir), volume.Name+".iso")
+		} else {
+			continue
+		}
+		stats, err := os.Stat(volPath)
+		if err != nil {
+			continue
+		}
+		for _, vs := range vmi.Status.VolumeStatus {
+			if vs.Name == volume.Name {
+				vs.Size = stats.Size()
+				continue
+			}
+		}
+	}
+}
+
 func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
@@ -1174,6 +1225,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	oldStatus := *vmi.Status.DeepCopy()
 
 	// Update VMI status fields based on what is reported on the domain
+	d.updateIsoSizeStatus(vmi)
 	d.setMigrationProgressStatus(vmi, domain)
 	d.updateGuestInfoFromDomain(vmi, domain)
 	d.updateVolumeStatusesFromDomain(vmi, domain)
