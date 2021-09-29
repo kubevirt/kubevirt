@@ -86,6 +86,9 @@ func phaseTransitionTimeBuckets() []float64 {
 		(3 * time.Minute).Seconds(),
 		(5 * time.Minute).Seconds(),
 		(10 * time.Minute).Seconds(),
+		(20 * time.Minute).Seconds(),
+		(30 * time.Minute).Seconds(),
+		(1 * time.Hour).Seconds(),
 	}
 }
 
