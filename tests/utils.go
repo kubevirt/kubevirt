@@ -253,7 +253,7 @@ type WarningsPolicy struct {
 func (wp *WarningsPolicy) shouldIgnoreWarning(event *k8sv1.Event) bool {
 	if event.Type == string(WarningEvent) {
 		for _, message := range wp.WarningsIgnoreList {
-			if message == event.Message {
+			if strings.Contains(event.Message, message) {
 				return true
 			}
 		}
