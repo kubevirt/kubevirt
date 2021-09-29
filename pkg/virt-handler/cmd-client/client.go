@@ -82,7 +82,7 @@ type LauncherClient interface {
 	UnpauseVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	FreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error
-	SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error
+	SyncMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
@@ -470,8 +470,8 @@ func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachin
 	return c.genericSendVMICmd("CancelMigration", c.v1client.CancelVirtualMachineMigration, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
-func (c *VirtLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("SyncMigrationTarget", c.v1client.SyncMigrationTarget, vmi, &cmdv1.VirtualMachineOptions{})
+func (c *VirtLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	return c.genericSendVMICmd("SyncMigrationTarget", c.v1client.SyncMigrationTarget, vmi, options)
 }
 
 func (c *VirtLauncherClient) SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error {

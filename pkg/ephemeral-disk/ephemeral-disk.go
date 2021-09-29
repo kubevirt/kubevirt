@@ -32,10 +32,11 @@ import (
 
 const (
 	ephemeralDiskPVCBaseDir = "/var/run/kubevirt-private/vmi-disks"
+	ephemeralDiskFormat     = "raw"
 )
 
 type EphemeralDiskCreatorInterface interface {
-	CreateBackedImageForVolume(volume v1.Volume, backingFile string) error
+	CreateBackedImageForVolume(volume v1.Volume, backingFile string, backingFormat string) error
 	CreateEphemeralImages(vmi *v1.VirtualMachineInstance) error
 	GetFilePath(volumeName string) string
 	Init() error
@@ -44,7 +45,7 @@ type EphemeralDiskCreatorInterface interface {
 type ephemeralDiskCreator struct {
 	mountBaseDir   string
 	pvcBaseDir     string
-	discCreateFunc func(filePath string, size string) ([]byte, error)
+	discCreateFunc func(backingFile string, backingFormat string, imagePath string) ([]byte, error)
 }
 
 func NewEphemeralDiskCreator(mountBaseDir string) *ephemeralDiskCreator {
@@ -83,7 +84,7 @@ func (c *ephemeralDiskCreator) GetFilePath(volumeName string) string {
 	return filepath.Join(volumeMountDir, "disk.qcow2")
 }
 
-func (c *ephemeralDiskCreator) CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
+func (c *ephemeralDiskCreator) CreateBackedImageForVolume(volume v1.Volume, backingFile string, backingFormat string) error {
 	err := c.createVolumeDirectory(volume.Name)
 	if err != nil {
 		return err
@@ -97,7 +98,7 @@ func (c *ephemeralDiskCreator) CreateBackedImageForVolume(volume v1.Volume, back
 		return err
 	}
 
-	output, err := c.discCreateFunc(backingFile, imagePath)
+	output, err := c.discCreateFunc(backingFile, backingFormat, imagePath)
 
 	// Cleanup of previous images isn't really necessary as they're all on EmptyDir.
 	if err != nil {
@@ -120,7 +121,7 @@ func (c *ephemeralDiskCreator) CreateEphemeralImages(vmi *v1.VirtualMachineInsta
 	// for each disk that requires it.
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.Ephemeral != nil {
-			if err := c.CreateBackedImageForVolume(volume, c.getBackingFilePath(volume.Name)); err != nil {
+			if err := c.CreateBackedImageForVolume(volume, c.getBackingFilePath(volume.Name), ephemeralDiskFormat); err != nil {
 				return err
 			}
 		}
@@ -129,7 +130,7 @@ func (c *ephemeralDiskCreator) CreateEphemeralImages(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
-func createBackingDisk(backingFile string, imagePath string) ([]byte, error) {
+func createBackingDisk(backingFile string, backingFormat string, imagePath string) ([]byte, error) {
 	// #nosec No risk for attacket injection. Parameters are predefined strings
 	cmd := exec.Command("qemu-img",
 		"create",
@@ -137,6 +138,8 @@ func createBackingDisk(backingFile string, imagePath string) ([]byte, error) {
 		"qcow2",
 		"-b",
 		backingFile,
+		"-F",
+		backingFormat,
 		imagePath,
 	)
 	return cmd.CombinedOutput()

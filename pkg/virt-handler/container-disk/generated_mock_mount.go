@@ -9,6 +9,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	container_disk "kubevirt.io/kubevirt/pkg/container-disk"
 )
 
 // Mock of Mounter interface
@@ -43,14 +44,15 @@ func (_mr *_MockMounterRecorder) ContainerDisksReady(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerDisksReady", arg0, arg1)
 }
 
-func (_m *MockMounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
-	ret := _m.ctrl.Call(_m, "Mount", vmi, verify)
-	ret0, _ := ret[0].(error)
-	return ret0
+func (_m *MockMounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*container_disk.DiskInfo, error) {
+	ret := _m.ctrl.Call(_m, "MountAndVerify", vmi)
+	ret0, _ := ret[0].(map[string]*container_disk.DiskInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-func (_mr *_MockMounterRecorder) Mount(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Mount", arg0, arg1)
+func (_mr *_MockMounterRecorder) MountAndVerify(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MountAndVerify", arg0)
 }
 
 func (_m *MockMounter) MountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bool) error {

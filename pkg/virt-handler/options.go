@@ -2,22 +2,32 @@ package virthandler
 
 import (
 	v1 "kubevirt.io/client-go/api/v1"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 )
 
-func virtualMachineOptions(smbios *v1.SMBiosConfiguration, period uint32, preallocatedVolumes []string, capabilities *api.Capabilities) *cmdv1.VirtualMachineOptions {
+func virtualMachineOptions(
+	smbios *v1.SMBiosConfiguration,
+	period uint32,
+	preallocatedVolumes []string,
+	capabilities *api.Capabilities,
+	disksInfo map[string]*containerdisk.DiskInfo,
+) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
-		VirtualMachineSMBios: &cmdv1.SMBios{
+		MemBalloonStatsPeriod: period,
+		PreallocatedVolumes:   preallocatedVolumes,
+		Topology:              topologyToTopology(capabilities),
+		DisksInfo:             disksInfoToDisksInfo(disksInfo),
+	}
+	if smbios != nil {
+		options.VirtualMachineSMBios = &cmdv1.SMBios{
 			Family:       smbios.Family,
 			Product:      smbios.Product,
 			Manufacturer: smbios.Manufacturer,
 			Sku:          smbios.Sku,
 			Version:      smbios.Version,
-		},
-		MemBalloonStatsPeriod: period,
-		PreallocatedVolumes:   preallocatedVolumes,
-		Topology:              topologyToTopology(capabilities),
+		}
 	}
 	return options
 }
@@ -78,4 +88,19 @@ func cpuToCPU(cpu api.CPU) *cmdv1.CPU {
 		Id:       cpu.ID,
 		Siblings: cpu.Siblings,
 	}
+}
+
+func disksInfoToDisksInfo(disksInfo map[string]*containerdisk.DiskInfo) map[string]*cmdv1.DiskInfo {
+	info := map[string]*cmdv1.DiskInfo{}
+	for k, v := range disksInfo {
+		if v != nil {
+			info[k] = &cmdv1.DiskInfo{
+				Format:      v.Format,
+				BackingFile: v.BackingFile,
+				ActualSize:  uint64(v.ActualSize),
+				VirtualSize: uint64(v.VirtualSize),
+			}
+		}
+	}
+	return info
 }

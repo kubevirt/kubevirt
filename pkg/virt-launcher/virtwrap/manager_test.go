@@ -1300,7 +1300,7 @@ var _ = Describe("Manager", func() {
 			}
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
-			err := manager.PrepareMigrationTarget(vmi, true)
+			err := manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})
 			Expect(err).To(BeNil())
 		})
 		It("should verify that migration failure is set in the monitor thread", func() {
