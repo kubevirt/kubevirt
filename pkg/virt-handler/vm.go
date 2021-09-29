@@ -29,6 +29,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -36,6 +37,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/util"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -491,6 +495,55 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
+func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineInstance) {
+	var podUID string
+	if vmi.Status.Phase != v1.Running {
+		return
+	}
+
+	for k, v := range vmi.Status.ActivePods {
+		if v == vmi.Status.NodeName {
+			podUID = string(k)
+			break
+		}
+	}
+	if podUID == "" {
+		return
+	}
+
+	basepath := path.Join(util.KubeletPodsDir, string(podUID), "volumes/kubernetes.io~empty-dir/")
+	for _, volume := range vmi.Spec.Volumes {
+		var volPath string
+		if volume.CloudInitNoCloud != nil {
+			volPath = path.Join(basepath, "ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
+		} else if volume.CloudInitConfigDrive != nil {
+			volPath = path.Join(basepath, "ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
+		} else if volume.ConfigMap != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
+		} else if volume.DownwardAPI != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
+		} else if volume.Secret != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.SecretDisksDir), volume.Name+".iso")
+		} else if volume.ServiceAccount != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
+		} else if volume.Sysprep != nil {
+			volPath = path.Join(basepath, "private", path.Base(config.SysprepDisksDir), volume.Name+".iso")
+		} else {
+			continue
+		}
+		stats, err := os.Stat(volPath)
+		if err != nil {
+			continue
+		}
+		for _, vs := range vmi.Status.VolumeStatus {
+			if vs.Name == volume.Name {
+				vs.Size = stats.Size()
+				continue
+			}
+		}
+	}
+}
+
 func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	hasHotplug := false
@@ -505,6 +558,8 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	}
 
 	oldStatus := vmi.DeepCopy().Status
+
+	d.updateIsoSizeStatus(vmi)
 
 	if domain != nil {
 		if vmi.Status.GuestOSInfo.Name != domain.Status.OSInfo.Name {
@@ -933,6 +988,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
 	}
+
 	if _, ok := syncError.(*virtLauncherCriticalSecurebootError); ok {
 		log.Log.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed

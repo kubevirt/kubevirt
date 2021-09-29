@@ -64,7 +64,7 @@ func validateAutounattendPresence(dirPath string) error {
 }
 
 // CreateSysprepDisks creates Sysprep iso disks which are attached to vmis from either ConfigMap or Secret as a source
-func CreateSysprepDisks(vmi *v1.VirtualMachineInstance) error {
+func CreateSysprepDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.Sysprep != nil {
 			if sysprepVolumeHasContents(*volume.Sysprep) {
@@ -82,7 +82,11 @@ func CreateSysprepDisks(vmi *v1.VirtualMachineInstance) error {
 				}
 
 				disk := GetSysprepDiskPath(volume.Name)
-				if err := createIsoConfigImage(disk, sysprepVolumeLabel, filesPath); err != nil {
+				size, err := findIsoSize(vmi, &volume, emptyIso)
+				if err != nil {
+					return err
+				}
+				if err := createIsoConfigImage(disk, sysprepVolumeLabel, filesPath, size); err != nil {
 					return err
 				}
 
