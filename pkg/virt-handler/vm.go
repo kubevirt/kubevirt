@@ -1156,6 +1156,40 @@ func (d *VirtualMachineController) updateFSFreezeStatus(vmi *v1.VirtualMachineIn
 
 }
 
+func (d *VirtualMachineController) updateCloudInitSizeStatus(vmi *v1.VirtualMachineInstance) {
+	var podUID string
+
+	if vmi.Status.Phase != v1.Running || len(vmi.Status.ActivePods) != 1 {
+		return
+	}
+
+	for k, _ := range vmi.Status.ActivePods {
+		podUID = string(k)
+		break
+	}
+
+	basepath := path.Join(util.KubeletPodsDir, string(podUID), "volumes/kubernetes.io~empty-dir/ephemeral-disks")
+	for _, volume := range vmi.Spec.Volumes {
+		var isoName string
+		if volume.CloudInitNoCloud != nil {
+			isoName = "noCloud.iso"
+		} else if volume.CloudInitConfigDrive != nil {
+			isoName = "configdrive.iso"
+		} else {
+			continue
+		}
+		volPath := path.Join(basepath, "cloud-init-data", vmi.Namespace, vmi.Name, isoName)
+		stats, err := os.Stat(volPath)
+		if err != nil {
+			continue
+		}
+		if vmi.Status.CloudInitSizes == nil {
+			vmi.Status.CloudInitSizes = make(map[string]int64)
+		}
+		vmi.Status.CloudInitSizes[isoName] = stats.Size()
+	}
+}
+
 func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
@@ -1178,6 +1212,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	d.updateGuestInfoFromDomain(vmi, domain)
 	d.updateVolumeStatusesFromDomain(vmi, domain)
 	d.updateFSFreezeStatus(vmi, domain)
+	d.updateCloudInitSizeStatus(vmi)
 	err = d.updateInterfacesFromDomain(vmi, domain)
 	if err != nil {
 		return err

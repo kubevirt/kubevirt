@@ -13009,6 +13009,14 @@
        "type": "string"
       }
      },
+     "cloudInitSizes": {
+      "description": "Reprensents the size of the cloud-init isos associated with the VMI",
+      "type": "object",
+      "additionalProperties": {
+       "type": "integer",
+       "format": "int64"
+      }
+     },
      "conditions": {
       "description": "Conditions are specific points in VirtualMachineInstance's pod runtime.",
       "type": "array",
