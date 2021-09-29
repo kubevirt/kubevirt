@@ -26,7 +26,7 @@ FGDEFAULTS='{"enableCommonBootImageImport":false,"sriovLiveMigration":true,"with
 LMDEFAULTS='{"bandwidthPerMigration":"64Mi","completionTimeoutPerGiB":800,"parallelMigrationsPerCluster":5,"parallelOutboundMigrationsPerNode":2,"progressTimeout":150}'
 PERMITTED_HOST_DEVICES_DEFAULT1='{"pciDeviceSelector":"10DE:1DB6","resourceName":"nvidia.com/GV100GL_Tesla_V100"}'
 PERMITTED_HOST_DEVICES_DEFAULT2='{"pciDeviceSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}'
-WORKLOAD_UPDATE_STRATEGY_DEFAULT='{"batchEvictionInterval":"1m0s","batchEvictionSize":10,"workloadUpdateMethods":["LiveMigrate","Evict"]}'
+WORKLOAD_UPDATE_STRATEGY_DEFAULT='{"batchEvictionInterval":"1m0s","batchEvictionSize":10,"workloadUpdateMethods":["LiveMigrate"]}'
 
 CERTCONFIGPATHS=(
     "/spec/certConfig/ca/duration"

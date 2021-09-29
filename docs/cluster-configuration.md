@@ -444,7 +444,7 @@ The `workloadUpdateStrategy` fields are:
   
   An empty list defaults to no automated workload updating.
 
-  The default values are `LiveMigrate` and `Evict`.
+  The default values is `LiveMigrate`; `Evict` is not enabled by default being potentially disruptive for the existing workloads. 
 
 ### workloadUpdateStrategy example
 ```yaml

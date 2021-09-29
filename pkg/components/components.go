@@ -643,7 +643,7 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 				ProgressTimeout:                   &progressTimeout,
 			},
 			WorkloadUpdateStrategy: &hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
-				WorkloadUpdateMethods: stringListToSlice("LiveMigrate", "Evict"),
+				WorkloadUpdateMethods: stringListToSlice("LiveMigrate"),
 				BatchEvictionSize:     &batchEvictionSize,
 				BatchEvictionInterval: &batchEvictionInterval,
 			},

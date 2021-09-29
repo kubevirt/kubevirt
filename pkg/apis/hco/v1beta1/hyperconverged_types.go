@@ -88,7 +88,7 @@ type HyperConvergedSpec struct {
 	StorageImport *StorageImportConfig `json:"storageImport,omitempty"`
 
 	// WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates
-	// +kubebuilder:default={"workloadUpdateMethods": {"LiveMigrate", "Evict"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m0s"}
+	// +kubebuilder:default={"workloadUpdateMethods": {"LiveMigrate"}, "batchEvictionSize": 10, "batchEvictionInterval": "1m0s"}
 	// +optional
 	WorkloadUpdateStrategy *HyperConvergedWorkloadUpdateStrategy `json:"workloadUpdateStrategy,omitempty"`
 
@@ -305,7 +305,7 @@ type HyperConvergedWorkloadUpdateStrategy struct {
 	// An empty list defaults to no automated workload updating.
 	//
 	// +listType=atomic
-	// +kubebuilder:default={"LiveMigrate", "Evict"}
+	// +kubebuilder:default={"LiveMigrate"}
 	// +optional
 	WorkloadUpdateMethods []string `json:"workloadUpdateMethods,omitempty"`
 

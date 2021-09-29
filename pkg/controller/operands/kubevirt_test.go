@@ -1747,11 +1747,10 @@ Version: 1.2.3`)
 				kvUpdateStrategy := foundResource.Spec.WorkloadUpdateStrategy
 				Expect(kvUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("1m0s"))
 				Expect(*kvUpdateStrategy.BatchEvictionSize).Should(Equal(defaultBatchEvictionSize))
-				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(2))
+				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(1))
 				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(
 					ContainElements(
 						kubevirtv1.WorkloadUpdateMethodLiveMigrate,
-						kubevirtv1.WorkloadUpdateMethodEvict,
 					),
 				)
 

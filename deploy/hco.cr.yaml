@@ -27,5 +27,4 @@ spec:
     batchEvictionSize: 10
     workloadUpdateMethods:
     - LiveMigrate
-    - Evict
   workloads: {}
