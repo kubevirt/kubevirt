@@ -637,7 +637,9 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 			vmis := []*v1.VirtualMachineInstance{}
 			for i := 0; i < num; i++ {
-				vmis = append(vmis, tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddCloudInitConfigDriveData(vmi, "configdrive", "user test", "network test", false)
+				vmis = append(vmis, vmi)
 			}
 
 			return vmis
