@@ -561,13 +561,13 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		// This is not the node the pod is running on.
 		return nil
 	}
-	targetPath, err := m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, true)
+	targetDisk, err := m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, true)
 	if err != nil {
 		return err
 	}
 
-	if isMounted, err := isMounted(targetPath); err != nil {
-		return fmt.Errorf("failed to determine if %s is already mounted: %v", targetPath, err)
+	if isMounted, err := isMounted(targetDisk); err != nil {
+		return fmt.Errorf("failed to determine if %s is already mounted: %v", targetDisk, err)
 	} else if !isMounted {
 		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
 		if err != nil {
@@ -576,10 +576,10 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 			// to get mounted on the node, and this will error until the volume is mounted.
 			return nil
 		}
-		if err := m.writePathToMountRecord(targetPath, vmi, record); err != nil {
+		if err := m.writePathToMountRecord(targetDisk, vmi, record); err != nil {
 			return err
 		}
-		if out, err := mountCommand(sourcePath, targetPath); err != nil {
+		if out, err := mountCommand(filepath.Join(sourcePath, "disk.img"), targetDisk); err != nil {
 			return fmt.Errorf("failed to bindmount hotplug-disk %v: %v : %v", volume, string(out), err)
 		}
 	} else {
@@ -801,5 +801,5 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		isBlockExists, _ := isBlockDevice(deviceName)
 		return isBlockExists, nil
 	}
-	return isMounted(filepath.Join(targetPath, volume))
+	return isMounted(filepath.Join(targetPath, fmt.Sprintf("%s.img", volume)))
 }
