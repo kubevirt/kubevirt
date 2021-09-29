@@ -872,71 +872,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}, 240*time.Second, 1*time.Second).Should(Succeed())
 			})
 		})
-		Context("with a shared ISCSI Filesystem PVC (using ISCSI IPv4 address)", func() {
-			BeforeEach(func() {
-				tests.BeforeTestCleanup()
 
-				if !tests.HasCDI() {
-					Skip("Skip DataVolume tests when CDI is not present")
-				}
-
-				// set unsafe migration flag
-				cfg := getCurrentKv()
-				unsafeMigrationOverride := true
-				cfg.MigrationConfiguration.UnsafeMigrationOverride = &unsafeMigrationOverride
-				tests.UpdateKubeVirtConfigValueAndWait(cfg)
-			})
-
-			It("[test_id:3238]should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
-				// Normally, live migration with a shared volume that contains
-				// a non-clustered filesystem will be prevented for disk safety reasons.
-				// This test sets a UNSAFE_MIGRATION flag and a migration with an ext4 filesystem
-				// should succeed.
-
-				pvName := "test-iscsi-dv" + rand.String(48)
-				// Start a ISCSI POD and service
-				By("Starting an iSCSI POD")
-				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskEmpty)
-				iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
-				Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
-
-				_, err = virtClient.CoreV1().PersistentVolumes().Create(context.Background(), tests.NewISCSIPV(pvName, "2Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteMany)
-				volMode := k8sv1.PersistentVolumeFilesystem
-				dataVolume.Spec.PVC.VolumeMode = &volMode
-				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(ThisDV(dataVolume), 340).Should(Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
-
-				vmi = runVMIAndExpectLaunch(vmi, 240)
-
-				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
-				// after being restarted multiple times
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
-
-				// execute a migration, wait for finalized state
-				By("Starting the Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-
-				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
-
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-
-				Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
-			})
-		})
 		Context("with an Alpine DataVolume", func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
