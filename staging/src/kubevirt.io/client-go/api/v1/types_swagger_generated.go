@@ -86,6 +86,7 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 		"reason":        "Reason is a brief description of why we are in the current hotplug volume phase",
 		"message":       "Message is a detailed message about the current hotplug volume phase",
 		"hotplugVolume": "If the volume is hotplug, this will contain the hotplug status.",
+		"size":          "Represents the size of the volume",
 	}
 }
 
