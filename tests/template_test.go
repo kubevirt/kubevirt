@@ -264,7 +264,7 @@ var _ = Describe("[Serial][sig-compute]Templates", func() {
 
 		Context("with Fedora Template", func() {
 			BeforeEach(func() {
-				AssertTemplateSetupSuccess(vmsgen.GetTemplateFedoraWithContainerDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)), nil)
+				AssertTemplateSetupSuccess(vmsgen.GetTemplateFedoraWithContainerDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)), nil)()
 			})
 
 			AssertTemplateTestSuccess()
