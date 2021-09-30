@@ -78,7 +78,7 @@ func (_mr *_MockCmdClientRecorder) UnpauseVirtualMachine(arg0, arg1 interface{},
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVirtualMachine", _s...)
 }
 
-func (_m *MockCmdClient) FreezeVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+func (_m *MockCmdClient) FreezeVirtualMachine(ctx context.Context, in *FreezeRequest, opts ...grpc.CallOption) (*Response, error) {
 	_s := []interface{}{ctx, in}
 	for _, _x := range opts {
 		_s = append(_s, _x)
@@ -420,7 +420,7 @@ func (_mr *_MockCmdServerRecorder) UnpauseVirtualMachine(arg0, arg1 interface{})
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVirtualMachine", arg0, arg1)
 }
 
-func (_m *MockCmdServer) FreezeVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+func (_m *MockCmdServer) FreezeVirtualMachine(_param0 context.Context, _param1 *FreezeRequest) (*Response, error) {
 	ret := _m.ctrl.Call(_m, "FreezeVirtualMachine", _param0, _param1)
 	ret0, _ := ret[0].(*Response)
 	ret1, _ := ret[1].(error)

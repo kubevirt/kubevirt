@@ -7,7 +7,7 @@ service Cmd {
   rpc SyncVirtualMachine(VMIRequest) returns (Response) {}
   rpc PauseVirtualMachine(VMIRequest) returns (Response) {}
   rpc UnpauseVirtualMachine(VMIRequest) returns (Response) {}
-  rpc FreezeVirtualMachine(VMIRequest) returns (Response) {}
+  rpc FreezeVirtualMachine(FreezeRequest) returns (Response) {}
   rpc UnfreezeVirtualMachine(VMIRequest) returns (Response) {}
   rpc ShutdownVirtualMachine(VMIRequest) returns (Response) {}
   rpc KillVirtualMachine(VMIRequest) returns (Response) {}
@@ -149,4 +149,9 @@ message GuestPingRequest {
 
 message GuestPingResponse {
   Response response = 1;
+}
+
+message FreezeRequest {
+  VMI vmi = 1;
+  string unfreezeTimeout = 2;
 }
