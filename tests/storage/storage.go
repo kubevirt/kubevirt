@@ -1092,7 +1092,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component] With not existing PVC", func() {
+		Context("[rfe_id:2288][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component] With not existing PVC", func() {
 			// Not a candidate for NFS because the PVC in question doesn't actually exist
 			It("[test_id:1040] should get unschedulable condition", func() {
 				// Start the VirtualMachineInstance

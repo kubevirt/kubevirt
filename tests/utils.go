@@ -119,6 +119,7 @@ import (
 var Config *KubeVirtTestsConfiguration
 var KubeVirtDefaultConfig v1.KubeVirtConfiguration
 var CDIInsecureRegistryConfig *k8sv1.ConfigMap
+var Arch string
 
 type EventType string
 
@@ -678,6 +679,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
 	Config, err = loadConfig()
+	Arch = getArch()
 	Expect(err).ToNot(HaveOccurred())
 
 	// Customize host disk paths
@@ -2123,7 +2125,13 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 			Masquerade: &v1.InterfaceMasquerade{}}}}}
 
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+	if isARM64() {
+		// Cirros image need 256M to boot on ARM64,
+		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
+	} else {
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+	}
 
 	return vmi
 }
@@ -4323,6 +4331,24 @@ func HasDataVolumeCRD() bool {
 
 func HasCDI() bool {
 	return HasDataVolumeCRD()
+}
+
+func getArch() string {
+	virtCli, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+	nodes := util2.GetAllSchedulableNodes(virtCli).Items
+	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
+	return nodes[0].Status.NodeInfo.Architecture
+}
+
+func isARM64() bool {
+	return Arch == "arm64"
+}
+
+func SkipIfARM64(message string) {
+	if isARM64() {
+		Skip("Skip test on arm64: " + message)
+	}
 }
 
 func HasBindingModeWaitForFirstConsumer() bool {
