@@ -734,11 +734,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			// Running multi sriov jobs with Kind, DinD is resource extensive, causing DeadlineExceeded transient warning
-			// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
-			// see https://github.com/kubevirt/kubevirt/issues/5027
-			warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
-			tests.WaitUntilVMIReadyIgnoreSelectedWarnings(vmi, console.LoginToFedora, warningsIgnoreList)
+			tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 360)
+			vmi = tests.LoginToVM(vmi, console.LoginToFedora)
+
 			tests.WaitAgentConnected(virtClient, vmi)
 			return vmi
 		}
