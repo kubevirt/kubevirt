@@ -3045,7 +3045,7 @@ var _ = Describe("Converter", func() {
 					expectedDisk.Source.Dev = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", volumeName)
 				} else {
 					expectedDisk.Type = "file"
-					expectedDisk.Source.File = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s/disk.img", volumeName)
+					expectedDisk.Source.File = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s.img", volumeName)
 				}
 				if !ignoreDiscard {
 					expectedDisk.Driver.Discard = "unmap"
