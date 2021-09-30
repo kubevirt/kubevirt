@@ -152,7 +152,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			Expect(slowDuration.Seconds()).To(BeNumerically(">", 2*fastDuration.Seconds()))
 		})
 
-		It("on the virt handler rate limiter should lead to delayed VMI running states", func() {
+		It("[QUARANTINE]on the virt handler rate limiter should lead to delayed VMI running states", func() {
 			By("first getting the basetime for a replicaset")
 			targetNode := util.GetAllSchedulableNodes(virtClient).Items[0]
 			vmi := libvmi.NewCirros(
