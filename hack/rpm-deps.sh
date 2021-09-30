@@ -25,12 +25,12 @@ bazel run \
     $basesystem \
     qemu-img \
     which \
-    nginx \
-    scsi-target-utils \
     procps-ng \
     nmap-ncat \
     iputils \
-    e2fsprogs
+    e2fsprogs \
+    device-mapper \
+    util-linux
 
 bazel run \
     --config=${ARCHITECTURE} \
@@ -38,12 +38,12 @@ bazel run \
     $basesystem \
     qemu-img \
     which \
-    nginx \
-    scsi-target-utils \
     procps-ng \
     nmap-ncat \
     iputils \
-    e2fsprogs
+    e2fsprogs \
+    device-mapper \
+    util-linux
 
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
 bazel run \
