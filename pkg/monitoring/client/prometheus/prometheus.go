@@ -19,6 +19,7 @@ limitations under the License.
 package prometheus
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -101,7 +102,7 @@ type latencyAdapter struct {
 	m *prometheus.HistogramVec
 }
 
-func (l *latencyAdapter) Observe(verb string, u url.URL, latency time.Duration) {
+func (l *latencyAdapter) Observe(ctx context.Context, verb string, u url.URL, latency time.Duration) {
 	l.m.WithLabelValues(verb, u.String()).Observe(latency.Seconds())
 }
 
