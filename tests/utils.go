@@ -41,6 +41,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -269,6 +270,10 @@ func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
 func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher {
 	w.timeout = &duration
 	return w
+}
+
+func (w *ObjectEventWatcher) GetWarningsPolicy() WarningsPolicy {
+	return w.warningPolicy
 }
 
 func (w *ObjectEventWatcher) SetWarningsPolicy(wp WarningsPolicy) *ObjectEventWatcher {
@@ -2980,6 +2985,13 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 	objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
 	if wp.FailOnWarnings == true {
 		objectEventWatcher.SetWarningsPolicy(wp)
+		debug.PrintStack()
+		panic("DBG problem 1")
+	} else {
+		xyz := objectEventWatcher.GetWarningsPolicy()
+		if xyz.FailOnWarnings {
+			panic("DBG problem 2")
+		}
 	}
 
 	go func() {

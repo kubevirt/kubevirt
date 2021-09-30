@@ -1048,106 +1048,107 @@ var _ = Describe("[Serial]SRIOV", func() {
 			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
-		Context("With VLAN", func() {
-			const (
-				cidrVlaned1          = "192.168.0.1/24"
-				sriovVlanNetworkName = "sriov-vlan"
-			)
-			var ipVlaned1 string
+		/*
+			Context("With VLAN", func() {
+				const (
+					cidrVlaned1          = "192.168.0.1/24"
+					sriovVlanNetworkName = "sriov-vlan"
+				)
+				var ipVlaned1 string
 
-			BeforeEach(func() {
-				var err error
-				ipVlaned1, err = cidrToIP(cidrVlaned1)
-				Expect(err).ToNot(HaveOccurred())
-				createNetworkAttachementDefinition(sriovVlanNetworkName, util.NamespaceTestDefault, sriovConfVlanCRD)
-			})
-
-			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
-				_, vlanedVMI2 := createSriovVMs(sriovVlanNetworkName, sriovVlanNetworkName, cidrVlaned1, "192.168.0.2/24")
-
-				By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vlanedVMI2, ipVlaned1)
-				}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
-			})
-
-			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
-				Expect(createNetworkAttachementDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).To((Succeed()), "should successfully create the network")
-
-				_, nonVlanedVMI := createSriovVMs(sriovVlanNetworkName, sriovnet3, cidrVlaned1, "192.168.0.3/24")
-
-				By("pinging between nonVlanedVMIand the anonymous vmi")
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(nonVlanedVMI, ipVlaned1)
-				}, 15*time.Second, time.Second).Should(HaveOccurred())
-			})
-		})
-
-		Context("migration", func() {
-
-			BeforeEach(func() {
-				if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
-					Skip("Migration tests require at least 2 nodes: " + err.Error())
-				}
-			})
-
-			BeforeEach(func() {
-				tests.EnableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
-			})
-
-			AfterEach(func() {
-				tests.DisableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
-			})
-
-			var vmi *v1.VirtualMachineInstance
-
-			const mac = "de:ad:00:00:be:ef"
-
-			BeforeEach(func() {
-				Expect(createNetworkAttachementDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
-
-				// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
-				vmi = getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
-				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
-
-				vmi = startVmi(vmi)
-				vmi = waitVmi(vmi)
-
-				var interfaceName string
-
-				// It may take some time for the VMI interface status to be updated with the information reported by
-				// the guest-agent.
-				Eventually(func() error {
+				BeforeEach(func() {
 					var err error
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					interfaceName, err = getInterfaceNameByMAC(vmi, mac)
-					return err
-				}, 30*time.Second, 5*time.Second).Should(Succeed())
+					ipVlaned1, err = cidrToIP(cidrVlaned1)
+					Expect(err).ToNot(HaveOccurred())
+					createNetworkAttachementDefinition(sriovVlanNetworkName, util.NamespaceTestDefault, sriovConfVlanCRD)
+				})
 
-				Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
+				It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
+					_, vlanedVMI2 := createSriovVMs(sriovVlanNetworkName, sriovVlanNetworkName, cidrVlaned1, "192.168.0.2/24")
+
+					By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
+					Eventually(func() error {
+						return libnet.PingFromVMConsole(vlanedVMI2, ipVlaned1)
+					}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
+				})
+
+				It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
+					Expect(createNetworkAttachementDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).To((Succeed()), "should successfully create the network")
+
+					_, nonVlanedVMI := createSriovVMs(sriovVlanNetworkName, sriovnet3, cidrVlaned1, "192.168.0.3/24")
+
+					By("pinging between nonVlanedVMIand the anonymous vmi")
+					Eventually(func() error {
+						return libnet.PingFromVMConsole(nonVlanedVMI, ipVlaned1)
+					}, 15*time.Second, time.Second).Should(HaveOccurred())
+				})
 			})
 
-			It("should be successful with a running VMI on the target", func() {
-				By("starting the migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			Context("migration", func() {
 
-				// It may take some time for the VMI interface status to be updated with the information reported by
-				// the guest-agent.
-				Eventually(func() error {
-					updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
-					if err != nil {
-						return err
+				BeforeEach(func() {
+					if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
+						Skip("Migration tests require at least 2 nodes: " + err.Error())
 					}
-					return checkMacAddress(updatedVMI, interfaceName, mac)
-				}, 30*time.Second, 5*time.Second).Should(Succeed(),
-					"SR-IOV VF is expected to exist in the guest after migration")
-			})
-		})
+				})
+
+				BeforeEach(func() {
+					tests.EnableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+				})
+
+				AfterEach(func() {
+					tests.DisableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+				})
+
+				var vmi *v1.VirtualMachineInstance
+
+				const mac = "de:ad:00:00:be:ef"
+
+				BeforeEach(func() {
+					Expect(createNetworkAttachementDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
+
+					// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
+					vmi = getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+					vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
+
+					vmi = startVmi(vmi)
+					vmi = waitVmi(vmi)
+
+					var interfaceName string
+
+					// It may take some time for the VMI interface status to be updated with the information reported by
+					// the guest-agent.
+					Eventually(func() error {
+						var err error
+						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						Expect(err).NotTo(HaveOccurred())
+						interfaceName, err = getInterfaceNameByMAC(vmi, mac)
+						return err
+					}, 30*time.Second, 5*time.Second).Should(Succeed())
+
+					Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
+				})
+
+				It("should be successful with a running VMI on the target", func() {
+					By("starting the migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+					// It may take some time for the VMI interface status to be updated with the information reported by
+					// the guest-agent.
+					Eventually(func() error {
+						updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						Expect(err).NotTo(HaveOccurred())
+						interfaceName, err := getInterfaceNameByMAC(updatedVMI, mac)
+						if err != nil {
+							return err
+						}
+						return checkMacAddress(updatedVMI, interfaceName, mac)
+					}, 30*time.Second, 5*time.Second).Should(Succeed(),
+						"SR-IOV VF is expected to exist in the guest after migration")
+				})
+			})*/
 
 	})
 })
