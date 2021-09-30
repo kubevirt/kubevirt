@@ -4131,7 +4131,6 @@ func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualM
 
 	vmi, err = virtClient.VirtualMachineInstance(util2.NamespaceTestDefault).Create(vmi)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	WaitForSuccessfulVMIStart(vmi)
 	return vmi
 }
 
