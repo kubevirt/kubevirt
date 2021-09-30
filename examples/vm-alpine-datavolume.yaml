@@ -20,7 +20,7 @@ spec:
         storageClassName: local
       source:
         http:
-          url: http://cdi-http-import-server.kubevirt/images/alpine.iso
+          url: docker://registry:5000/kubevirt/alpine-container-disk-demo:devel
   running: false
   template:
     metadata:

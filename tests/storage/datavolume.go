@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -55,8 +56,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
-const DummyFilePath = "/usr/share/nginx/html/dummy.file"
+const InvalidDataVolumeUrl = "docker://127.0.0.1/invalid:latest"
 
 var _ = SIGDescribe("DataVolume Integration", func() {
 
@@ -94,7 +94,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
-				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -130,7 +130,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				dvs := make([]*cdiv1.DataVolume, 0, numVmis)
 
 				for idx := 0; idx < numVmis; idx++ {
-					dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+					dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
 					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -154,7 +154,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
-				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -204,7 +204,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
 
-				dv := tests.NewRandomDataVolumeWithHttpImportInStorageClass(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce)
+				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce)
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
@@ -250,7 +250,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("[Serial][test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
-				dv := tests.NewRandomDataVolumeWithHttpImportInStorageClass(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce)
+				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, storageClass.Name, k8sv1.ReadWriteOnce)
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
@@ -307,33 +307,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 			}
 
-			deleteDummyFile := func(fileName string) {
-				httpPod, err := tests.GetRunningPodByLabel("cdi-http-import-server", "kubevirt.io", flags.KubeVirtInstallNamespace, "")
-				Expect(err).ToNot(HaveOccurred())
-				By("Deleting dummy file")
-				_, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					httpPod,
-					httpPod.Spec.Containers[0].Name,
-					[]string{"rm", fileName},
-				)
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			createDummyFile := func(fileName string, sizeInMB string) {
-				httpPod, err := tests.GetRunningPodByLabel("cdi-http-import-server", "kubevirt.io", flags.KubeVirtInstallNamespace, "")
-				Expect(err).ToNot(HaveOccurred())
-				_, _, err = tests.ExecuteCommandOnPodV2(
-					virtClient,
-					httpPod,
-					httpPod.Spec.Containers[0].Name,
-					[]string{"dd", "if=/dev/urandom", "of=" + fileName, "bs=1M", "count=" + sizeInMB},
-				)
-				Expect(err).ToNot(HaveOccurred())
-			}
-
 			It("shold be possible to stop VM if datavolume is crashing", func() {
-				dataVolume := tests.NewRandomDataVolumeWithHttpImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMIWithDataVolume(dataVolume.Name), true)
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -355,7 +330,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:3190]should correctly handle invalid DataVolumes", func() {
 				// Don't actually create the DataVolume since it's invalid.
-				dataVolume := tests.NewRandomDataVolumeWithHttpImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(InvalidDataVolumeUrl, util.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				//  Add the invalid DataVolume to a VMI
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 				// Create a VM for this VMI
@@ -369,7 +344,20 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Pending))
 			})
 			It("[test_id:3190]should correctly handle eventually consistent DataVolumes", func() {
-				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.DummyFileHttpUrl),
+				realRegistryName := flags.KubeVirtUtilityRepoPrefix
+				realRegistryPort := ""
+				if strings.Contains(flags.KubeVirtUtilityRepoPrefix, ":") {
+					realRegistryName = strings.Split(flags.KubeVirtUtilityRepoPrefix, ":")[0]
+					realRegistryPort = strings.Split(flags.KubeVirtUtilityRepoPrefix, ":")[1]
+				}
+
+				fakeRegistryName := "fakeregistry"
+				fakeRegistryWithPort := fakeRegistryName
+				if realRegistryPort != "" {
+					fakeRegistryWithPort = fmt.Sprintf("%s:%s", fakeRegistryName, realRegistryPort)
+				}
+
+				dataVolume := tests.NewRandomDataVolumeWithRegistryImport(cd.DataVolumeImportUrlFromRegistryForContainerDisk(fakeRegistryWithPort, cd.ContainerDiskCirros),
 					util.NamespaceTestDefault,
 					k8sv1.ReadWriteOnce,
 				)
@@ -389,9 +377,16 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Pending))
 
-				By("Fix DataVolume URL")
-				createDummyFile(DummyFilePath, "1")
-				defer deleteDummyFile(DummyFilePath)
+				By("Creating a service which makes the registry reachable")
+				virtClient.CoreV1().Services(vm.Namespace).Create(context.Background(), &k8sv1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fakeRegistryName,
+					},
+					Spec: k8sv1.ServiceSpec{
+						Type:         k8sv1.ServiceTypeExternalName,
+						ExternalName: realRegistryName,
+					},
+				}, metav1.CreateOptions{})
 
 				By("Wait for DataVolume to complete")
 				Eventually(ThisDV(dataVolume), 160).Should(HaveSucceeded())
@@ -415,7 +410,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			running := true
 
-			vm = tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault)
+			vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 			vm.Spec.Running = &running
 
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
@@ -519,7 +514,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		Context("using Alpine http import", func() {
 			It("a DataVolume with preallocation shouldn't have discard=unmap", func() {
 				var vm *v1.VirtualMachine
-				vm = tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault)
+				vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 				preallocation := true
 				vm.Spec.DataVolumeTemplates[0].Spec.Preallocation = &preallocation
 
@@ -540,7 +535,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			table.DescribeTable("[test_id:3191]should be successfully started and stopped multiple times", func(isHTTP bool) {
 				var vm *v1.VirtualMachine
 				if isHTTP {
-					vm = tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault)
+					vm = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 				} else {
 					url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
 					vm = tests.NewRandomVMWithRegistryDataVolume(url, util.NamespaceTestDefault)
@@ -572,7 +567,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
 				tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
 
-				vm := tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault)
+				vm := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault)
 				vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -605,7 +600,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("Skip OCS tests when Ceph is not present")
 				}
 				var err error
-				dv := tests.NewRandomDataVolumeWithHttpImportInStorageClass(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce)
+				dv := tests.NewRandomDataVolumeWithRegistryImportInStorageClass(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisDV(dataVolume), 90).Should(HaveSucceeded())

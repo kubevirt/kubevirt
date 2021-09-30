@@ -2027,7 +2027,7 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 					Spec: cdiv1.DataVolumeSpec{
 						Source: &cdiv1.DataVolumeSource{
 							HTTP: &cdiv1.DataVolumeSourceHTTP{
-								URL: "http://cdi-http-import-server.kubevirt/images/alpine.iso",
+								URL: "http://random-url/images/alpine.iso",
 							},
 						},
 						PVC: &corev1.PersistentVolumeClaimSpec{

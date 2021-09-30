@@ -199,7 +199,6 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)fedora-with-test-tooling-container-disk:$(container_tag)": "//containerimages:fedora-with-test-tooling",
         # testing images
         "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
-        "$(container_prefix)/$(image_prefix)cdi-http-import-server:$(container_tag)": "//images/cdi-http-import-server:cdi-http-import-server-image",
         "$(container_prefix)/$(image_prefix)nfs-server:$(container_tag)": "//images/nfs-server:nfs-server-image",
         "$(container_prefix)/$(image_prefix)vm-killer:$(container_tag)": "//images/vm-killer:vm-killer-image",
         "$(container_prefix)/$(image_prefix)winrmcli:$(container_tag)": "//images/winrmcli:winrmcli-image",

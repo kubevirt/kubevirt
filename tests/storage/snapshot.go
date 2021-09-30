@@ -777,7 +777,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 				running := false
 				vm = tests.NewRandomVMWithDataVolumeInStorageClass(
-					tests.GetUrl(tests.AlpineHttpUrl),
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					util.NamespaceTestDefault,
 					sc,
 				)

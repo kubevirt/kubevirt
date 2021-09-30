@@ -3,8 +3,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"time"
@@ -12,6 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -46,28 +46,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	})
 
 	BeforeEach(func() {
-		By("Getting CDI HTTP import server pod")
-		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=cdi-http-import-server"})
+		By("Getting the disk image provider pod")
+		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=disks-images-provider"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pods.Items).ToNot(BeEmpty())
 
-		stopChan := make(chan struct{})
-		err = tests.ForwardPorts(&pods.Items[0], []string{"65432:80"}, stopChan, 10*time.Second)
+		stderr, err := tests.CopyFromPod(virtClient, &pods.Items[0], "target", "/images/alpine/disk.img", imagePath)
+		log.DefaultLogger().Info(stderr)
 		Expect(err).ToNot(HaveOccurred())
-
-		By("Downloading alpine image")
-		r, err := http.Get("http://localhost:65432/images/alpine.iso")
-		Expect(err).ToNot(HaveOccurred())
-		defer r.Body.Close()
-
-		file, err := os.Create(imagePath)
-		Expect(err).ToNot(HaveOccurred())
-		defer file.Close()
-
-		_, err = io.Copy(file, r.Body)
-		Expect(err).ToNot(HaveOccurred())
-
-		close(stopChan)
 
 		config, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())

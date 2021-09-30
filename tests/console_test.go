@@ -116,11 +116,11 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				}
 
 				newVirtualMachineInstanceWithAlpineOCSFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
 				}
 
 				newVirtualMachineInstanceWithAlpineOCSBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
+					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 				}
 
 				table.DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
