@@ -23,9 +23,11 @@ import (
 	"net"
 
 	"github.com/krolaw/dhcp4"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
@@ -155,48 +157,28 @@ var _ = Describe("DHCP Server", func() {
 			return b
 		}
 
-		It("should reject domains that start with '-'", func() {
-			dom := "-foo.com"
-			Expect(isValidSearchDomain(dom)).To(BeFalse())
-		})
+		DescribeTable("should *REJECT* domains", func(domaintToTest string) {
+			Expect(isValidSearchDomain(domaintToTest)).To(BeFalse())
+		},
+			Entry("that start with '-'", "-foo.com"),
+			Entry("that end with '-'", "foo.com-"),
+			Entry("with full length greater than 253 chars", string(append(createBytes(250), []byte(".com")...))),
+			Entry("that have labels longer than 63 chars", string(append(createBytes(64), []byte(".com")...))),
+			Entry("with invalid characters", "foo\n.com"),
+		)
 
-		It("should reject domains with full length greater than 253 chars", func() {
-			b := append(createBytes(250), []byte(".com")...)
-			Expect(isValidSearchDomain(string(b))).To(BeFalse())
-		})
+		DescribeTable("should *ACCEPT* domains", func(domaintToTest string) {
+			Expect(isValidSearchDomain(domaintToTest)).To(BeTrue())
+		},
+			Entry("that have 63 character labels", string(append(createBytes(63), []byte(".com")...))),
+			Entry("with a valid domain name", "example.default.svc.cluster.local"),
+			Entry("with a valid FQDN", "example.default.svc.cluster.local."),
+			Entry("with a partial search domain", "local"),
+		)
 
-		It("should accept domains with full length of 253 chars", func() {
+		XIt("should accept domains with full length of 253 chars", func() {
 			b := append(createBytes(249), []byte(".com")...)
-			Expect(isValidSearchDomain(string(b))).To(BeFalse())
-		})
-
-		It("should reject domains that have labels longer than 63 chars", func() {
-			b := append(createBytes(64), []byte(".com")...)
-			Expect(isValidSearchDomain(string(b))).To(BeFalse())
-		})
-
-		It("should accept domains that have 63 character labels", func() {
-			b := append(createBytes(63), []byte(".com")...)
 			Expect(isValidSearchDomain(string(b))).To(BeTrue())
-		})
-
-		It("should reject domains with invalid characters", func() {
-			dom := "foo\n.com"
-			Expect(isValidSearchDomain(dom)).To(BeFalse())
-		})
-
-		It("should accept a valid domain", func() {
-			dom := "example.default.svc.cluster.local"
-			Expect(isValidSearchDomain(dom)).To(BeTrue())
-		})
-
-		It("should accept a valid FQDN", func() {
-			dom := "example.default.svc.cluster.local."
-			Expect(isValidSearchDomain(dom)).To(BeTrue())
-		})
-
-		It("should accept a partial search domain", func() {
-			Expect(isValidSearchDomain("local")).To(BeTrue())
 		})
 	})
 
