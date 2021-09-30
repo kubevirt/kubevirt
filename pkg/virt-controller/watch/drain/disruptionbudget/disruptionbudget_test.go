@@ -1,12 +1,14 @@
 package disruptionbudget_test
 
 import (
+	"fmt"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	v12 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -18,6 +20,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	ctrl_util "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 )
@@ -62,6 +65,16 @@ var _ = Describe("Disruptionbudget", func() {
 		mockQueue.Wait()
 	}
 
+	addMigration := func(vmim *v1.VirtualMachineInstanceMigration) {
+		err := vmimInformer.GetIndexer().Add(vmim)
+		Expect(err).To(BeNil())
+	}
+
+	addPod := func(pod *corev1.Pod) {
+		err := podInformer.GetIndexer().Add(pod)
+		Expect(err).To(BeNil())
+	}
+
 	shouldExpectPDBDeletion := func(pdb *v1beta1.PodDisruptionBudget) {
 		// Expect pod deletion
 		kubeClient.Fake.PrependReactor("delete", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -85,6 +98,20 @@ var _ = Describe("Disruptionbudget", func() {
 		})
 	}
 
+	shouldExpectPDBPatch := func(vmi *v1.VirtualMachineInstance) {
+		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patch, ok := action.(testing.PatchAction)
+			Expect(ok).To(BeTrue())
+			Expect(patch.GetName()).To(Equal("pdb-" + vmi.Name))
+			Expect(patch.GetPatchType()).To(Equal(types.JSONPatchType))
+
+			expectedPatch := fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
+				ctrl_util.EscapeJSONPointer(v1.MigrationNameLabel))
+			Expect(string(patch.GetPatch())).To(Equal(expectedPatch))
+			return true, &v1beta1.PodDisruptionBudget{}, nil
+		})
+	}
+
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
@@ -94,7 +121,7 @@ var _ = Describe("Disruptionbudget", func() {
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		pdbInformer, pdbSource = testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
 		vmimInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
-		podInformer, _ = testutils.NewFakeInformerFor(&v12.Pod{})
+		podInformer, _ = testutils.NewFakeInformerFor(&corev1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
@@ -105,7 +132,7 @@ var _ = Describe("Disruptionbudget", func() {
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
 		// Set up mock client
-		virtClient.EXPECT().VirtualMachineInstance(v12.NamespaceDefault).Return(vmiInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(corev1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
@@ -129,7 +156,7 @@ var _ = Describe("Disruptionbudget", func() {
 		It("should remove the pdb, if it is added to the cache", func() {
 			vmi := newVirtualMachine()
 			addVirtualMachine(vmi)
-			pdb := newPodDisruptionBudget(vmi)
+			pdb := newPodDisruptionBudget(vmi, 1)
 			pdbFeeder.Add(pdb)
 
 			shouldExpectPDBDeletion(pdb)
@@ -144,7 +171,7 @@ var _ = Describe("Disruptionbudget", func() {
 			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
-			pdb := newPodDisruptionBudget(vmi)
+			pdb := newPodDisruptionBudget(vmi, 1)
 			pdbFeeder.Add(pdb)
 
 			controller.Execute()
@@ -154,7 +181,7 @@ var _ = Describe("Disruptionbudget", func() {
 			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
-			pdb := newPodDisruptionBudget(vmi)
+			pdb := newPodDisruptionBudget(vmi, 1)
 			pdbFeeder.Add(pdb)
 
 			controller.Execute()
@@ -168,7 +195,7 @@ var _ = Describe("Disruptionbudget", func() {
 		It("should remove the pdb if VMI doesn't exist", func() {
 			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
-			pdb := newPodDisruptionBudget(vmi)
+			pdb := newPodDisruptionBudget(vmi, 1)
 			pdbFeeder.Add(pdb)
 
 			shouldExpectPDBDeletion(pdb)
@@ -180,7 +207,7 @@ var _ = Describe("Disruptionbudget", func() {
 			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
-			pdb := newPodDisruptionBudget(vmi)
+			pdb := newPodDisruptionBudget(vmi, 1)
 			pdbFeeder.Add(pdb)
 
 			controller.Execute()
@@ -202,7 +229,7 @@ var _ = Describe("Disruptionbudget", func() {
 		It("should delete a PDB which belongs to an old VMI", func() {
 			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
-			pdb := newPodDisruptionBudget(vmi)
+			pdb := newPodDisruptionBudget(vmi, 1)
 			pdbFeeder.Add(pdb)
 			// new UID means new VMI
 			vmi.UID = "changed"
@@ -216,7 +243,7 @@ var _ = Describe("Disruptionbudget", func() {
 		It("should not create a PDB for VMIs which are already marked for deletion", func() {
 			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
-			now := v13.Now()
+			now := metav1.Now()
 			vmi.DeletionTimestamp = &now
 			addVirtualMachine(vmi)
 
@@ -230,7 +257,7 @@ var _ = Describe("Disruptionbudget", func() {
 			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
-			pdb := newPodDisruptionBudget(vmi)
+			pdb := newPodDisruptionBudget(vmi, 1)
 			pdbFeeder.Add(pdb)
 
 			controller.Execute()
@@ -256,7 +283,7 @@ var _ = Describe("Disruptionbudget", func() {
 			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
-			pdb := newPodDisruptionBudget(vmi)
+			pdb := newPodDisruptionBudget(vmi, 1)
 			pdbFeeder.Add(pdb)
 			controller.Execute()
 
@@ -270,7 +297,7 @@ var _ = Describe("Disruptionbudget", func() {
 			vmi := newVirtualMachine()
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
-			pdb := newPodDisruptionBudget(vmi)
+			pdb := newPodDisruptionBudget(vmi, 1)
 			pdbFeeder.Add(pdb)
 			controller.Execute()
 
@@ -280,6 +307,77 @@ var _ = Describe("Disruptionbudget", func() {
 			pdbFeeder.Modify(newPdb)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulCreatePodDisruptionBudgetReason)
+		})
+
+		It("should shrink the PDB after migration has completed", func() {
+			vmi := newVirtualMachine()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+			vmim := newMigration("testmigration", vmi, v1.MigrationSucceeded)
+			pod := newVMIPod(vmi, corev1.PodRunning)
+
+			addVirtualMachine(vmi)
+			pdb := newPodDisruptionBudget(vmi, 2)
+			pdb.ObjectMeta.Labels = map[string]string{
+				v1.MigrationNameLabel: vmim.Name,
+			}
+			pdbFeeder.Add(pdb)
+			addMigration(vmim)
+			addPod(pod)
+
+			shouldExpectPDBPatch(vmi)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulUpdatePodDisruptionBudgetReason)
+		})
+
+		It("should shrink the PDB after migration object is gone", func() {
+			vmi := newVirtualMachine()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+
+			addVirtualMachine(vmi)
+			pdb := newPodDisruptionBudget(vmi, 2)
+			pdb.ObjectMeta.Labels = map[string]string{
+				v1.MigrationNameLabel: "testmigration",
+			}
+			pdbFeeder.Add(pdb)
+
+			shouldExpectPDBPatch(vmi)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulUpdatePodDisruptionBudgetReason)
+		})
+
+		It("should not shrink the PDB while migration is running", func() {
+			vmi := newVirtualMachine()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+			vmim := newMigration("testmigration", vmi, v1.MigrationRunning)
+
+			addVirtualMachine(vmi)
+			pdb := newPodDisruptionBudget(vmi, 2)
+			pdb.ObjectMeta.Labels = map[string]string{
+				v1.MigrationNameLabel: vmim.Name,
+			}
+			pdbFeeder.Add(pdb)
+			addMigration(vmim)
+
+			controller.Execute()
+		})
+
+		It("should delete a PDB created by an old migration-controller", func() {
+			vmi := newVirtualMachine()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+
+			addVirtualMachine(vmi)
+			pdb := newPodDisruptionBudget(vmi, 2)
+			pdb.Name = "kubevirt-migration-pdb-" + vmi.Name
+			pdb.ObjectMeta.Labels = map[string]string{
+				v1.MigrationNameLabel: "testmigration",
+			}
+			pdbFeeder.Add(pdb)
+
+			shouldExpectPDBDeletion(pdb)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
 		})
 	})
 
@@ -291,26 +389,55 @@ var _ = Describe("Disruptionbudget", func() {
 	})
 })
 
+func newVMIPod(vmi *v1.VirtualMachineInstance, phase corev1.PodPhase) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: vmi.Namespace,
+			Name:      vmi.Name,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: phase,
+		},
+	}
+}
+
+func newMigration(name string, vmi *v1.VirtualMachineInstance, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
+	migration := &v1.VirtualMachineInstanceMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: vmi.Namespace,
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: vmi.Name,
+		},
+	}
+	migration.Status.Phase = phase
+	return migration
+}
+
 func newVirtualMachine() *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMI("testvm")
-	vmi.Namespace = v12.NamespaceDefault
+	vmi.Namespace = corev1.NamespaceDefault
 	vmi.UID = "1234"
 	return vmi
 }
 
-func newPodDisruptionBudget(vmi *v1.VirtualMachineInstance) *v1beta1.PodDisruptionBudget {
-	one := intstr.FromInt(1)
+func newPodDisruptionBudget(vmi *v1.VirtualMachineInstance, pods int) *v1beta1.PodDisruptionBudget {
+	minAvailable := intstr.FromInt(pods)
 	return &v1beta1.PodDisruptionBudget{
-		ObjectMeta: v13.ObjectMeta{
-			OwnerReferences: []v13.OwnerReference{
-				*v13.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
+		ObjectMeta: metav1.ObjectMeta{
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
 			},
-			GenerateName: "kubevirt-disruption-budget-",
-			Namespace:    vmi.Namespace,
+			Name:      "pdb-" + vmi.Name,
+			Namespace: vmi.Namespace,
 		},
 		Spec: v1beta1.PodDisruptionBudgetSpec{
-			MinAvailable: &one,
-			Selector: &v13.LabelSelector{
+			MinAvailable: &minAvailable,
+			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					v1.CreatedByLabel: string(vmi.UID),
 				},

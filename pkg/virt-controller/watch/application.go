@@ -140,6 +140,8 @@ type VirtControllerApp struct {
 
 	clusterConfig *virtconfig.ClusterConfig
 
+	pdbInformer cache.SharedIndexInformer
+
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
 
@@ -309,7 +311,7 @@ func Execute() {
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
 
-	app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
+	app.pdbInformer = app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
@@ -520,6 +522,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.migrationInformer,
 		vca.nodeInformer,
 		vca.persistentVolumeClaimInformer,
+		vca.pdbInformer,
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.clusterConfig,
@@ -550,7 +553,7 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
 	vca.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(
 		vca.vmiInformer,
-		vca.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer(),
+		vca.pdbInformer,
 		vca.allPodInformer,
 		vca.migrationInformer,
 		recorder,

@@ -35,6 +35,7 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -43,6 +44,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/api/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -62,6 +64,7 @@ var _ = Describe("Migration watcher", func() {
 	var podInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
 	var nodeInformer cache.SharedIndexInformer
+	var pdbInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
@@ -86,7 +89,6 @@ var _ = Describe("Migration watcher", func() {
 			update, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
-			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.MigrationJobLabel]).To(Equal(string(migrationUid)))
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.MigrationJobLabel]).To(Equal(string(migrationUid)))
 
 			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity).ToNot(BeNil())
@@ -116,6 +118,24 @@ var _ = Describe("Migration watcher", func() {
 			Expect(len(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)).To(Equal(1))
 
 			return true, update.GetObject(), nil
+		})
+	}
+
+	shouldExpectPDBPatch := func(vmi *v1.VirtualMachineInstance, vmim *v1.VirtualMachineInstanceMigration) {
+		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+			patch, ok := action.(testing.PatchAction)
+			Expect(ok).To(BeTrue())
+			Expect(patch.GetPatchType()).To(Equal(types.StrategicMergePatchType))
+
+			expectedPatch := fmt.Sprintf(`{"spec":{"minAvailable": 2},"metadata":{"labels":{"%s": "%s"}}}`, v1.MigrationNameLabel, vmim.Name)
+			Expect(string(patch.GetPatch())).To(Equal(expectedPatch))
+
+			pdb := newPDB(patch.GetName(), vmi, 2)
+			pdb.Labels = map[string]string{
+				v1.MigrationNameLabel: vmim.Name,
+			}
+
+			return true, pdb, nil
 		})
 	}
 
@@ -170,12 +190,14 @@ var _ = Describe("Migration watcher", func() {
 		go podInformer.Run(stop)
 		go migrationInformer.Run(stop)
 		go nodeInformer.Run(stop)
+		go pdbInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			podInformer.HasSynced,
 			migrationInformer.HasSynced,
-			nodeInformer.HasSynced)).To(BeTrue())
+			nodeInformer.HasSynced,
+			pdbInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -188,6 +210,7 @@ var _ = Describe("Migration watcher", func() {
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		pdbInformer, _ = testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
@@ -202,6 +225,7 @@ var _ = Describe("Migration watcher", func() {
 			migrationInformer,
 			nodeInformer,
 			pvcInformer,
+			pdbInformer,
 			recorder,
 			virtClient,
 			config,
@@ -216,6 +240,7 @@ var _ = Describe("Migration watcher", func() {
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(migrationInterface).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
 		networkClient = fakenetworkclient.NewSimpleClientset()
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 
@@ -223,11 +248,6 @@ var _ = Describe("Migration watcher", func() {
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			Expect(action).To(BeNil())
 			return true, nil, nil
-		})
-
-		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
-		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			return true, &v1beta1.PodDisruptionBudget{}, nil
 		})
 
 		syncCaches(stop)
@@ -257,6 +277,11 @@ var _ = Describe("Migration watcher", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
+	addPDB := func(pdb *v1beta1.PodDisruptionBudget) {
+		err := pdbInformer.GetIndexer().Add(pdb)
+		Expect(err).ShouldNot(HaveOccurred())
+	}
+
 	Context("Migration with hotplug volumes", func() {
 		var (
 			vmi           *v1.VirtualMachineInstance
@@ -283,7 +308,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
 
 		It("should set migration state to scheduling if attachment pod exists", func() {
@@ -343,8 +368,7 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 
 			controller.Execute()
-
-			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason, successfulCreatePodDisruptionBudgetReason)
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
 		})
 		It("should not create target pod if multiple pods exist in a non finalized state for VMI", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
@@ -393,7 +417,7 @@ var _ = Describe("Migration watcher", func() {
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
-			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason, successfulCreatePodDisruptionBudgetReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
 
 		It("should not overload the cluster and only run 5 migrations in parallel", func() {
@@ -469,7 +493,7 @@ var _ = Describe("Migration watcher", func() {
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
-			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason, successfulCreatePodDisruptionBudgetReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
 
 		It("should not overload the node and only run 2 outbound migrations in parallel", func() {
@@ -547,7 +571,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason, successfulCreatePodDisruptionBudgetReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
 
 		It("should place migration in scheduling state if pod exists", func() {
@@ -1012,13 +1036,76 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
-			testutils.ExpectEvent(recorder, successfulCreatePodDisruptionBudgetReason) // for temporal migration PDB
 		},
 			table.Entry("host-model should be targeted only to nodes which support the model", true),
 			table.Entry("non-host-model should not be targeted to nodes which support the model", false),
 		)
 	})
+
+	Context("Migration with protected VMI (PDB)", func() {
+		It("should update PDB before starting the migration", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			evictionStrategy := virtv1.EvictionStrategyLiveMigrate
+			vmi.Spec.EvictionStrategy = &evictionStrategy
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			pdb := newPDB("pdb-test", vmi, 1)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPDB(pdb)
+
+			shouldExpectPDBPatch(vmi, migration)
+			controller.Execute()
+
+			testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
+		})
+		It("should create the target Pod after the k8s PDB controller processed the PDB mutation", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			evictionStrategy := virtv1.EvictionStrategyLiveMigrate
+			vmi.Spec.EvictionStrategy = &evictionStrategy
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			pdb := newPDB("pdb-test", vmi, 2)
+			pdb.Generation = 42
+			pdb.Status.DesiredHealthy = int32(pdb.Spec.MinAvailable.IntValue())
+			pdb.Status.ObservedGeneration = pdb.Generation
+			pdb.Labels = map[string]string{
+				v1.MigrationNameLabel: migration.Name,
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPDB(pdb)
+
+			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
+
+			controller.Execute()
+
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+		})
+	})
 })
+
+func newPDB(name string, vmi *v1.VirtualMachineInstance, pods int) *v1beta1.PodDisruptionBudget {
+	minAvailable := intstr.FromInt(pods)
+
+	return &v1beta1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
+			},
+			Name:      name,
+			Namespace: vmi.Namespace,
+		},
+		Spec: v1beta1.PodDisruptionBudgetSpec{
+			MinAvailable: &minAvailable,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					virtv1.CreatedByLabel: string(vmi.UID),
+				},
+			},
+		},
+	}
+}
 
 func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
 
