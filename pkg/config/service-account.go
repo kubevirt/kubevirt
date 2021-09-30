@@ -32,7 +32,7 @@ func GetServiceAccountDiskPath() string {
 }
 
 // CreateServiceAccountDisk creates the ServiceAccount iso disk which is attached to vmis
-func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance) error {
+func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.ServiceAccount != nil {
 			var filesPath []string
@@ -42,7 +42,11 @@ func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance) error {
 			}
 
 			disk := GetServiceAccountDiskPath()
-			if err := createIsoConfigImage(disk, "", filesPath); err != nil {
+			var vmiIsoSizes *v1.VirtualMachineInstanceIsoSizes
+			if emptyIso {
+				vmiIsoSizes = &vmi.Status.IsoSizes
+			}
+			if err := createIsoConfigImage(disk, "", filesPath, vmiIsoSizes); err != nil {
 				return err
 			}
 

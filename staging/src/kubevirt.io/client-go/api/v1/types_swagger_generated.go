@@ -67,7 +67,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"migrationState":                "Represents the status of a live migration",
 		"migrationMethod":               "Represents the method using which the vmi can be migrated: live migration or block migration",
 		"migrationTransport":            "This represents the migration transport",
-		"cloudInitSizes":                "Reprensents the size of the cloud-init isos associated with the VMI",
+		"isoSizes":                      "Reprensents the size of the cloud-init isos associated with the VMI",
 		"qosClass":                      "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
 		"launcherContainerImageVersion": "LauncherContainerImageVersion indicates what container image is currently active for the vmi.",
 		"evacuationNodeName":            "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want\nto evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.\n+optional",

@@ -466,9 +466,10 @@ func removeLocalData(domain string, namespace string) error {
 	return err
 }
 
-func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, sizes *v1.VirtualMachineInstanceCloudInitSizes) error {
+func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, sizes *v1.VirtualMachineInstanceIsoSizes) error {
 	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(data)
+	precond.MustNotBeNil(sizes)
 
 	var err error
 	var isoStaging, iso string
@@ -486,20 +487,26 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 		return err
 	}
 
+	err = util.MkdirAllWithNosec(path.Dir(isoStaging))
+	if err != nil {
+		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", path.Dir(isoStaging))
+		return err
+	}
+
 	f, err := os.Create(isoStaging)
 	if err != nil {
-		return fmt.Errorf("failed to create iso: '%s'", isoStaging)
+		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
 	}
 
 	isoSize, exists := (*sizes)[path.Base(iso)]
 	if !exists {
 		f.Close()
-		return fmt.Errorf("failed to find the size for iso: '%s'", iso)
+		return fmt.Errorf("failed to find the size for empty iso: '%s'", iso)
 	}
 	err = f.Truncate(isoSize)
 	if err != nil {
 		f.Close()
-		return fmt.Errorf("failed to inflate iso: '%s'", isoStaging)
+		return fmt.Errorf("failed to inflate empty iso: '%s'", isoStaging)
 	}
 	f.Close()
 

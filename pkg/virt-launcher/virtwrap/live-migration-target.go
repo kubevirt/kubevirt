@@ -83,7 +83,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
-	dom, err := l.preStartHook(vmi, domain)
+	dom, err := l.preStartHook(vmi, domain, true)
 	if err != nil {
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}

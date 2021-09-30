@@ -388,7 +388,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 	return l.startMigration(vmi, options)
 }
 
-func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain, sizes *v1.VirtualMachineInstanceCloudInitSizes) error {
+func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain, sizes *v1.VirtualMachineInstanceIsoSizes) error {
 	var devicesMetadata []cloudinit.DeviceData
 	// this is the point where we need to build the devices metadata if it was requested.
 	// This metadata maps the user provided tag to the hypervisor assigned device address.
@@ -427,7 +427,7 @@ func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstan
 }
 
 func (l *LibvirtDomainManager) generateCloudInitEmptyISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain) error {
-	return l.generateSomeCloudInitISO(vmi, domPtr, &vmi.Status.CloudInitSizes)
+	return l.generateSomeCloudInitISO(vmi, domPtr, &vmi.Status.IsoSizes)
 }
 
 // All local environment setup that needs to occur before VirtualMachineInstance starts
@@ -440,7 +440,7 @@ func (l *LibvirtDomainManager) generateCloudInitEmptyISO(vmi *v1.VirtualMachineI
 //
 // The Domain.Spec can be alterned in this function and any changes
 // made to the domain will get set in libvirt after this function exits.
-func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain) (*api.Domain, error) {
+func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain, generateEmptyIsos bool) (*api.Domain, error) {
 	logger := log.Log.Object(vmi)
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
@@ -512,25 +512,25 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)
 	}
 	// create ConfigMap disks if they exists
-	if err := config.CreateConfigMapDisks(vmi); err != nil {
+	if err := config.CreateConfigMapDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating config map disks failed: %v", err)
 	}
 	// create Secret disks if they exists
-	if err := config.CreateSecretDisks(vmi); err != nil {
+	if err := config.CreateSecretDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating secret disks failed: %v", err)
 	}
 
 	// create Sysprep disks if they exists
-	if err := config.CreateSysprepDisks(vmi); err != nil {
+	if err := config.CreateSysprepDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating sysprep disks failed: %v", err)
 	}
 
 	// create DownwardAPI disks if they exists
-	if err := config.CreateDownwardAPIDisks(vmi); err != nil {
+	if err := config.CreateDownwardAPIDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating DownwardAPI disks failed: %v", err)
 	}
 	// create ServiceAccount disk if exists
-	if err := config.CreateServiceAccountDisk(vmi); err != nil {
+	if err := config.CreateServiceAccountDisk(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating service account disk failed: %v", err)
 	}
 	// create downwardMetric disk if exists
@@ -791,7 +791,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
-			domain, err = l.preStartHook(vmi, domain)
+			domain, err = l.preStartHook(vmi, domain, false)
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err

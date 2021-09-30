@@ -7980,13 +7980,6 @@ var CRDsValidation map[string]string = map[string]string{
           description: ActivePods is a mapping of pod UID to node name. It is possible
             for multiple pods to be running for a single VMI during migration.
           type: object
-        cloudInitSizes:
-          additionalProperties:
-            format: int64
-            type: integer
-          description: Reprensents the size of the cloud-init isos associated with
-            the VMI
-          type: object
         conditions:
           description: Conditions are specific points in VirtualMachineInstance's
             pod runtime.
@@ -8077,6 +8070,13 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
             type: object
           type: array
+        isoSizes:
+          additionalProperties:
+            format: int64
+            type: integer
+          description: Reprensents the size of the cloud-init isos associated with
+            the VMI
+          type: object
         launcherContainerImageVersion:
           description: LauncherContainerImageVersion indicates what container image
             is currently active for the vmi.

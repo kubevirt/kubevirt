@@ -73,7 +73,7 @@ var _ = Describe("Creating config images", func() {
 
 		It("Should create an iso image", func() {
 			imgPath := filepath.Join(tempISODir, "volume1.iso")
-			err := createIsoConfigImage(imgPath, "", expectedLayout)
+			err := createIsoConfigImage(imgPath, "", expectedLayout, nil)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = os.Stat(imgPath)
 			Expect(err).NotTo(HaveOccurred())

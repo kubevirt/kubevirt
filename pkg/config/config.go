@@ -20,16 +20,21 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+
+	v1 "kubevirt.io/client-go/api/v1"
 )
 
 type (
 	// Type represents allowed config types like ConfigMap or Secret
 	Type string
 
-	isoCreationFunc func(output string, volID string, files []string) error
+	isoCreationFunc      func(output string, volID string, files []string) error
+	emptyIsoCreationFunc func(output string, size int64) error
 )
 
 const (
@@ -78,12 +83,18 @@ var (
 	// ServiceAccountDiskName represents the name of the ServiceAccount iso image
 	ServiceAccountDiskName = "service-account.iso"
 
-	createISOImage = defaultCreateIsoImage
+	createISOImage      = defaultCreateIsoImage
+	createEmptyISOImage = defaultCreateEmptyIsoImage
 )
 
 // The unit test suite uses this function
 func setIsoCreationFunction(isoFunc isoCreationFunc) {
 	createISOImage = isoFunc
+}
+
+// The unit test suite uses this function
+func setEmptyIsoCreationFunction(emptyIsoFunc emptyIsoCreationFunc) {
+	createEmptyISOImage = emptyIsoFunc
 }
 
 func getFilesLayout(dirPath string) ([]string, error) {
@@ -129,8 +140,30 @@ func defaultCreateIsoImage(output string, volID string, files []string) error {
 	return nil
 }
 
-func createIsoConfigImage(output string, volID string, files []string) error {
-	err := createISOImage(output, volID, files)
+func defaultCreateEmptyIsoImage(output string, size int64) error {
+	f, err := os.Create(output)
+	if err != nil {
+		return fmt.Errorf("failed to create empty iso: '%s'", output)
+	}
+	err = f.Truncate(size)
+	defer f.Close()
+	if err != nil {
+		return fmt.Errorf("failed to inflate empty iso: '%s'", output)
+	}
+	return nil
+}
+
+func createIsoConfigImage(output string, volID string, files []string, sizes *v1.VirtualMachineInstanceIsoSizes) error {
+	var err error
+	if sizes == nil {
+		err = createISOImage(output, volID, files)
+	} else {
+		size, exists := (*sizes)[path.Base(output)]
+		if !exists {
+			return fmt.Errorf("no size is defined for iso '%s", output)
+		}
+		err = createEmptyISOImage(output, size)
+	}
 	if err != nil {
 		return err
 	}

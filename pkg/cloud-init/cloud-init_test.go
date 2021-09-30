@@ -502,6 +502,7 @@ var _ = Describe("CloudInit", func() {
 			})
 		})
 	})
+
 	Describe("GenerateLocalData", func() {
 		It("should cleanly run twice", func() {
 			namespace := "fake-namespace"
@@ -517,7 +518,38 @@ var _ = Describe("CloudInit", func() {
 			err = GenerateLocalData(domain, namespace, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
 		})
+	})
 
+	Describe("GenerateEmptyIso", func() {
+		It("should error when size is missing", func() {
+			namespace := "fake-namespace"
+			domain := "fake-domain"
+			userData := "fake\nuser\ndata\n"
+			source := &v1.CloudInitNoCloudSource{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+			}
+			cloudInitData, err := readCloudInitNoCloudSource(source)
+			Expect(err).NotTo(HaveOccurred())
+
+			var sizes v1.VirtualMachineInstanceIsoSizes = make(v1.VirtualMachineInstanceIsoSizes)
+			err = GenerateEmptyIso(domain, namespace, cloudInitData, &sizes)
+			Expect(err.Error()).To(ContainSubstring("failed to find the size for empty iso: "))
+		})
+		It("should succeed when size is present", func() {
+			namespace := "fake-namespace"
+			domain := "fake-domain"
+			userData := "fake\nuser\ndata\n"
+			source := &v1.CloudInitNoCloudSource{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+			}
+			cloudInitData, err := readCloudInitNoCloudSource(source)
+			Expect(err).NotTo(HaveOccurred())
+
+			var sizes v1.VirtualMachineInstanceIsoSizes = make(v1.VirtualMachineInstanceIsoSizes)
+			sizes[noCloudFile] = 42
+			err = GenerateEmptyIso(domain, namespace, cloudInitData, &sizes)
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 
 	Describe("PrepareLocalPath", func() {

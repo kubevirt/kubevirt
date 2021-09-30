@@ -211,7 +211,7 @@ type VirtualMachineInstanceStatus struct {
 	// This represents the migration transport
 	MigrationTransport VirtualMachineInstanceMigrationTransport `json:"migrationTransport,omitempty"`
 	// Reprensents the size of the cloud-init isos associated with the VMI
-	CloudInitSizes VirtualMachineInstanceCloudInitSizes `json:"cloudInitSizes,omitempty"`
+	IsoSizes VirtualMachineInstanceIsoSizes `json:"isoSizes,omitempty"`
 	// The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements
 	// See PodQOSClass type for available QOS classes
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
@@ -617,7 +617,7 @@ const (
 
 //
 // +k8s:openapi-gen=true
-type VirtualMachineInstanceCloudInitSizes map[string]int64
+type VirtualMachineInstanceIsoSizes map[string]int64
 
 //
 // +k8s:openapi-gen=true

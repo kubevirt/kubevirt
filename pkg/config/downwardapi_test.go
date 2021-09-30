@@ -70,7 +70,7 @@ var _ = Describe("DownwardAPI", func() {
 			},
 		})
 
-		err := CreateDownwardAPIDisks(vmi)
+		err := CreateDownwardAPIDisks(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = os.Stat(filepath.Join(DownwardAPIDisksDir, "downwardapi-volume.iso"))
 		Expect(err).NotTo(HaveOccurred())

@@ -20249,7 +20249,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Format:      "",
 						},
 					},
-					"cloudInitSizes": {
+					"isoSizes": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Reprensents the size of the cloud-init isos associated with the VMI",
 							Type:        []string{"object"},
