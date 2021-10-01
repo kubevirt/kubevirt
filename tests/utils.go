@@ -241,7 +241,7 @@ type WarningsPolicy struct {
 func (wp *WarningsPolicy) shouldIgnoreWarning(event *k8sv1.Event) bool {
 	if event.Type == string(WarningEvent) {
 		for _, message := range wp.WarningsIgnoreList {
-			if message == event.Message {
+			if strings.Contains(event.Message, message) {
 				return true
 			}
 		}
@@ -1550,7 +1550,11 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 	By("Waiting until the DataVolume is ready")
 	Eventually(ThisDV(dv), timeout).Should(HaveSucceeded())
 	By("Waiting until the VirtualMachineInstance will start")
-	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	warningsIgnoreList := []string{"didn't find PVC associated with DataVolume"}
+	wp := WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
+	_ = waitForVMIStart(ctx, obj, timeout, wp)
 	return obj
 }
 
