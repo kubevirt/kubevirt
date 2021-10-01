@@ -82,15 +82,15 @@ func (h *hotplugDiskManager) GetFileSystemDiskTargetPathFromHostView(virtlaunche
 	if err != nil {
 		return targetPath, err
 	}
-	diskPath := filepath.Join(targetPath, volumeName)
-	exists, _ := diskutils.FileExists(diskPath)
+	diskFile := filepath.Join(targetPath, fmt.Sprintf("%s.img", volumeName))
+	exists, _ := diskutils.FileExists(diskFile)
 	if !exists && create {
-		err = os.Mkdir(diskPath, 0750)
+		file, err := os.Create(diskFile)
 		if err != nil {
-			return diskPath, err
+			return diskFile, err
 		}
+		defer file.Close()
 	}
-	diskFile := filepath.Join(targetPath, volumeName)
 	return diskFile, err
 }
 
