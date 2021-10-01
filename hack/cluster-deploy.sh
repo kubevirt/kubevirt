@@ -22,6 +22,7 @@ set -ex pipefail
 DOCKER_TAG=${DOCKER_TAG:-devel}
 
 source hack/common.sh
+# shellcheck disable=SC1090
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
@@ -34,7 +35,7 @@ function dump_kubevirt() {
 
 function _deploy_infra_for_tests() {
     if [[ "$KUBEVIRT_DEPLOY_CDI" == "false" ]]; then
-        rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-* ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml \
+        rm -f ${MANIFESTS_OUT_DIR}/testing/uploadproxy-nodeport.yaml \
             ${MANIFESTS_OUT_DIR}/testing/local-block-storage.yaml ${MANIFESTS_OUT_DIR}/testing/disks-images-provider.yaml
     fi
 
@@ -43,20 +44,11 @@ function _deploy_infra_for_tests() {
 }
 
 function _ensure_cdi_deployment() {
-    _kubectl apply -f - <<EOF
----
-apiVersion: cdi.kubevirt.io/v1beta1
-kind: CDI
-metadata:
-  name: ${cdi_namespace}
-spec:
-  config:
-    featureGates:
-    - HonorWaitForFirstConsumer
-    insecureRegistries:
-    - registry:5000
-    - fakeregistry:5000
-EOF
+    # enable featuregate
+    _kubectl patch cdi ${cdi_namespace:?} --type merge -p '{"spec": {"config": {"featureGates": [ "HonorWaitForFirstConsumer" ]}}}'
+
+    # add insecure registries
+    _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"insecureRegistries": [ "registry:5000", "fakeregistry:5000" ]}}}'
 
     # Configure uploadproxy override for virtctl imageupload
     host_port=$(${KUBEVIRT_PATH}cluster-up/cli.sh ports uploadproxy | xargs)
@@ -74,7 +66,7 @@ _kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ${namespace}
+  name: ${namespace:?}
 EOF
 
 if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then

@@ -132,7 +132,7 @@ manifests:
 	  KUBEVIRT_INSTALLED_NAMESPACE=${KUBEVIRT_INSTALLED_NAMESPACE} ./hack/build-manifests.sh"
 
 cluster-up:
-	./cluster-up/up.sh
+	./hack/cluster-up.sh
 
 cluster-down:
 	./cluster-up/down.sh
