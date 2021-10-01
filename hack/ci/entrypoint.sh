@@ -2,7 +2,7 @@
 set -exuo pipefail
 
 gcsweb_base_url="https://gcsweb.ci.kubevirt.io/gcs/kubevirt-prow"
-testing_resources=( disks-images-provider.yaml local-block-storage.yaml rbac-for-testing.yaml uploadproxy-nodeport.yaml )
+testing_resources=(disks-images-provider.yaml local-block-storage.yaml rbac-for-testing.yaml uploadproxy-nodeport.yaml)
 
 function test_kubevirt_release() {
     release="$(get_release_tag_for_xy "$1")"
@@ -39,6 +39,8 @@ function deploy_release() {
 
     tagged_release_url="https://github.com/kubevirt/kubevirt/releases/download/${release}"
 
+    oc create -f ./hack/ci/resources/disk-rhel.yaml
+
     curl -Lo "$BIN_DIR/tests.test" "${tagged_release_url}/tests.test"
     chmod +x "$BIN_DIR/tests.test"
 
@@ -60,6 +62,8 @@ function undeploy_release() {
 
     tagged_release_url="https://github.com/kubevirt/kubevirt/releases/download/${release}"
 
+    oc delete --ignore-not-found=true -f ./hack/ci/resources/disk-rhel.yaml
+
     testing_infra_url="$gcsweb_base_url/devel/release/kubevirt/kubevirt/${release}/manifests/testing"
     for testing_resource in "${testing_resources[@]}"; do
         curl -L "${testing_infra_url}/${testing_resource}" | oc delete --ignore-not-found=true -f -
@@ -69,6 +73,8 @@ function undeploy_release() {
 
     curl -L "${tagged_release_url}/kubevirt-cr.yaml" | oc delete --ignore-not-found=true -f - || true
     curl -L "${tagged_release_url}/kubevirt-operator.yaml" | oc delete --ignore-not-found=true -f -
+
+    oc delete --ignore-not-found=true -f ./hack/ci/resources/disk-rhel.yaml
 }
 
 function test_kubevirt_nightly() {
@@ -88,6 +94,8 @@ function deploy_kubevirt_nightly_test_setup() {
     local release_url
     release_date=$(get_latest_release_date_for_kubevirt_nightly)
     release_url="$(get_release_url_for_kubevirt_nightly "$release_date")"
+
+    oc create -f ./hack/ci/resources/disk-rhel.yaml
 
     curl -Lo "$BIN_DIR/tests.test" "${release_url}/testing/tests.test"
     chmod +x "$BIN_DIR/tests.test"
@@ -117,6 +125,8 @@ function undeploy_kubevirt_nightly_test_setup() {
     release_date=$(get_latest_release_date_for_kubevirt_nightly)
     release_url="$(get_release_url_for_kubevirt_nightly "$release_date")"
 
+    oc delete --ignore-not-found=true -f ./hack/ci/resources/disk-rhel.yaml
+
     for testing_resource in "${testing_resources[@]}"; do
         oc delete --ignore-not-found=true -f "${release_url}/testing/${testing_resource}"
     done
@@ -125,6 +135,8 @@ function undeploy_kubevirt_nightly_test_setup() {
 
     oc delete --ignore-not-found=true -f "${release_url}/kubevirt-cr.yaml"
     oc delete --ignore-not-found=true -f "${release_url}/kubevirt-operator.yaml"
+
+    oc delete --ignore-not-found=true -f ./hack/ci/resources/disk-rhel.yaml
 }
 
 function get_release_tag_for_kubevirt_nightly() {
@@ -173,9 +185,30 @@ function run_tests() {
     elif [ -n "$KUBEVIRT_TESTS_FOCUS" ]; then
         additional_test_args="$KUBEVIRT_TESTS_FOCUS"
     fi
+    kubevirt_testing_configuration=${KUBEVIRT_TESTING_CONFIGURATION:-./hack/ci/resources/kubevirt-testing-configuration.json}
     set -u
 
-    tests.test -v=5 -kubeconfig=${KUBECONFIG} -container-tag=${DOCKER_TAG} -container-tag-alt= -container-prefix=${DOCKER_PREFIX} -image-prefix-alt=-kv -oc-path=${OC_PATH} -kubectl-path=${KUBECTL_PATH} -gocli-path=$(pwd)/cluster-up/cli.sh -test.timeout 420m -ginkgo.noColor -ginkgo.succinct -ginkgo.slowSpecThreshold=60 ${additional_test_args} -junit-output=${ARTIFACT_DIR}/junit.functest.xml -installed-namespace=kubevirt -previous-release-tag= -previous-release-registry=quay.io/kubevirt -deploy-testing-infra=false
+    tests.test -v=5 \
+        -config=${kubevirt_testing_configuration} \
+        -kubeconfig=${KUBECONFIG} \
+        -container-tag=${DOCKER_TAG} \
+        -container-tag-alt= \
+        -container-prefix=${DOCKER_PREFIX} \
+        -image-prefix-alt=-kv \
+        -oc-path=${OC_PATH} \
+        -kubectl-path=${KUBECTL_PATH} \
+        -gocli-path=$(pwd)/cluster-up/cli.sh \
+        -test.timeout 420m \
+        -ginkgo.noColor \
+        -ginkgo.succinct \
+        -ginkgo.slowSpecThreshold=60 \
+        ${additional_test_args} \
+        -junit-output=${ARTIFACT_DIR}/junit.functest.xml \
+        -installed-namespace=kubevirt \
+        -previous-release-tag= \
+        -previous-release-registry=quay.io/kubevirt \
+        -deploy-testing-infra=false \
+        -apply-default-e2e-configuration=true
 }
 
 export PATH="$BIN_DIR:$PATH"

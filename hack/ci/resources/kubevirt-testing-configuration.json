@@ -1,0 +1,9 @@
+{
+  "storageClassLocal": "managed-premium",
+  "storageClassHostPath": "managed-premium",
+  "storageClassRhel": "managed-premium",
+  "storageClassWindows": "managed-premium",
+  "storageClassBlockVolume": "managed-premium",
+  "storageClassHostPathSeparateDevice": "managed-premium",
+  "manageStorageClasses": true
+}

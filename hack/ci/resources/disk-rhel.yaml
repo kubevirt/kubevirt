@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: disk-rhel
+  labels:
+    kubevirt.io/test: "rhel"
+spec:
+  capacity:
+    storage: 15Gi
+  accessModes:
+  - ReadWriteOnce
+  nfs:
+    server: "nfs"
+    path: /
+  storageClassName: managed-premium
