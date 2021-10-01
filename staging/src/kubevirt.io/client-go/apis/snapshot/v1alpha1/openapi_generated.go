@@ -314,6 +314,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/core/v1.CustomizeComponentsPatch":                              schema_client_go_apis_core_v1_CustomizeComponentsPatch(ref),
 		"kubevirt.io/client-go/apis/core/v1.DHCPOptions":                                           schema_client_go_apis_core_v1_DHCPOptions(ref),
 		"kubevirt.io/client-go/apis/core/v1.DHCPPrivateOptions":                                    schema_client_go_apis_core_v1_DHCPPrivateOptions(ref),
+		"kubevirt.io/client-go/apis/core/v1.DaemonSetUpdateConfiguration":                          schema_client_go_apis_core_v1_DaemonSetUpdateConfiguration(ref),
 		"kubevirt.io/client-go/apis/core/v1.DataVolumeSource":                                      schema_client_go_apis_core_v1_DataVolumeSource(ref),
 		"kubevirt.io/client-go/apis/core/v1.DataVolumeTemplateDummyStatus":                         schema_client_go_apis_core_v1_DataVolumeTemplateDummyStatus(ref),
 		"kubevirt.io/client-go/apis/core/v1.DataVolumeTemplateSpec":                                schema_client_go_apis_core_v1_DataVolumeTemplateSpec(ref),
@@ -422,6 +423,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/core/v1.Timer":                                                 schema_client_go_apis_core_v1_Timer(ref),
 		"kubevirt.io/client-go/apis/core/v1.TokenBucketRateLimiter":                                schema_client_go_apis_core_v1_TokenBucketRateLimiter(ref),
 		"kubevirt.io/client-go/apis/core/v1.TopologyHints":                                         schema_client_go_apis_core_v1_TopologyHints(ref),
+		"kubevirt.io/client-go/apis/core/v1.UpdateConfiguration":                                   schema_client_go_apis_core_v1_UpdateConfiguration(ref),
 		"kubevirt.io/client-go/apis/core/v1.UserPasswordAccessCredential":                          schema_client_go_apis_core_v1_UserPasswordAccessCredential(ref),
 		"kubevirt.io/client-go/apis/core/v1.UserPasswordAccessCredentialPropagationMethod":         schema_client_go_apis_core_v1_UserPasswordAccessCredentialPropagationMethod(ref),
 		"kubevirt.io/client-go/apis/core/v1.UserPasswordAccessCredentialSource":                    schema_client_go_apis_core_v1_UserPasswordAccessCredentialSource(ref),
@@ -14720,6 +14722,26 @@ func schema_client_go_apis_core_v1_DHCPPrivateOptions(ref common.ReferenceCallba
 	}
 }
 
+func schema_client_go_apis_core_v1_DaemonSetUpdateConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"maxUnavailable": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/util/intstr.IntOrString"),
+						},
+					},
+				},
+				Required: []string{"maxUnavailable"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/util/intstr.IntOrString"},
+	}
+}
+
 func schema_client_go_apis_core_v1_DataVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16769,6 +16791,11 @@ func schema_client_go_apis_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref: ref("kubevirt.io/client-go/apis/core/v1.SMBiosConfiguration"),
 						},
 					},
+					"updateConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/core/v1.UpdateConfiguration"),
+						},
+					},
 					"supportedGuestAgentVersions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "deprecated",
@@ -16849,7 +16876,7 @@ func schema_client_go_apis_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/apis/core/v1.DeveloperConfiguration", "kubevirt.io/client-go/apis/core/v1.MediatedDevicesConfiguration", "kubevirt.io/client-go/apis/core/v1.MigrationConfiguration", "kubevirt.io/client-go/apis/core/v1.NetworkConfiguration", "kubevirt.io/client-go/apis/core/v1.PermittedHostDevices", "kubevirt.io/client-go/apis/core/v1.ReloadableComponentConfiguration", "kubevirt.io/client-go/apis/core/v1.SMBiosConfiguration"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/apis/core/v1.DeveloperConfiguration", "kubevirt.io/client-go/apis/core/v1.MediatedDevicesConfiguration", "kubevirt.io/client-go/apis/core/v1.MigrationConfiguration", "kubevirt.io/client-go/apis/core/v1.NetworkConfiguration", "kubevirt.io/client-go/apis/core/v1.PermittedHostDevices", "kubevirt.io/client-go/apis/core/v1.ReloadableComponentConfiguration", "kubevirt.io/client-go/apis/core/v1.SMBiosConfiguration", "kubevirt.io/client-go/apis/core/v1.UpdateConfiguration"},
 	}
 }
 
@@ -18695,6 +18722,26 @@ func schema_client_go_apis_core_v1_TopologyHints(ref common.ReferenceCallback) c
 				},
 			},
 		},
+	}
+}
+
+func schema_client_go_apis_core_v1_UpdateConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "UpdateConfiguration holds update settings",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"daemonSets": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/core/v1.DaemonSetUpdateConfiguration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/apis/core/v1.DaemonSetUpdateConfiguration"},
 	}
 }
 

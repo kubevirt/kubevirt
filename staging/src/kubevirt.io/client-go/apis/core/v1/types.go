@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	intstr "k8s.io/apimachinery/pkg/util/intstr"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
@@ -2013,6 +2014,7 @@ type KubeVirtConfiguration struct {
 	SELinuxLauncherType    string                  `json:"selinuxLauncherType,omitempty"`
 	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
+	UpdateConfiguration    *UpdateConfiguration    `json:"updateConfiguration,omitempty"`
 	// deprecated
 	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
 	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`
@@ -2176,4 +2178,15 @@ type FlavorMatcher struct {
 	// Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.
 	// +optional
 	Profile string `json:"profile,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type DaemonSetUpdateConfiguration struct {
+	MaxUnavailable intstr.IntOrString `json:"maxUnavailable"`
+}
+
+// UpdateConfiguration holds update settings
+// +k8s:openapi-gen=true
+type UpdateConfiguration struct {
+	DaemonSets *DaemonSetUpdateConfiguration `json:"daemonSets,omitempty"`
 }

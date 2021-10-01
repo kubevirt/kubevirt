@@ -732,3 +732,15 @@ func (FlavorMatcher) SwaggerDoc() map[string]string {
 		"profile": "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.\n+optional",
 	}
 }
+
+func (DaemonSetUpdateConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (UpdateConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "UpdateConfiguration holds update settings\n+k8s:openapi-gen=true",
+	}
+}

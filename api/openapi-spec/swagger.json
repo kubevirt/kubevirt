@@ -11313,6 +11313,17 @@
      }
     }
    },
+   "v1.DaemonSetUpdateConfiguration": {
+    "type": "object",
+    "required": [
+     "maxUnavailable"
+    ],
+    "properties": {
+     "maxUnavailable": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.util.intstr.IntOrString"
+     }
+    }
+   },
    "v1.DataVolumeSource": {
     "type": "object",
     "required": [
@@ -12428,6 +12439,9 @@
        "type": "string"
       }
      },
+     "updateConfiguration": {
+      "$ref": "#/definitions/v1.UpdateConfiguration"
+     },
      "virtualMachineInstancesPerNode": {
       "type": "integer",
       "format": "int32"
@@ -13358,6 +13372,15 @@
      "tscFrequency": {
       "type": "integer",
       "format": "int64"
+     }
+    }
+   },
+   "v1.UpdateConfiguration": {
+    "description": "UpdateConfiguration holds update settings",
+    "type": "object",
+    "properties": {
+     "daemonSets": {
+      "$ref": "#/definitions/v1.DaemonSetUpdateConfiguration"
      }
     }
    },

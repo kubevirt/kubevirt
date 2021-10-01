@@ -821,6 +821,20 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+            updateConfiguration:
+              description: UpdateConfiguration holds update settings
+              properties:
+                daemonSets:
+                  properties:
+                    maxUnavailable:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      x-kubernetes-int-or-string: true
+                  required:
+                  - maxUnavailable
+                  type: object
+              type: object
             virtualMachineInstancesPerNode:
               type: integer
             webhookConfiguration:
