@@ -1088,6 +1088,51 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 	})
 
+	Context("iothreads", func() {
+		var (
+			vm *kubevirtv1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			template := libvmi.NewCirros()
+			policy := v1.IOThreadsPolicyShared
+			template.Spec.Domain.IOThreadsPolicy = &policy
+			vm = createVirtualMachine(true, template)
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Ready
+			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+		}, 120)
+
+		It("should allow adding and removing hotplugged volumes", func() {
+			dv := tests.NewRandomBlankDataVolume(util.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
+			Expect(err).To(BeNil())
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+
+			By("Adding volume to running VM")
+			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", dv.Name, "scsi")
+
+			By("Verifying the volume and disk are in the VM and VMI")
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
+			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+
+			getVmiConsoleAndLogin(vmi)
+			targets := getTargetsFromVolumeStatus(vmi, "testvolume")
+			verifyVolumeAccessible(vmi, targets[0])
+			verifySingleAttachmentPod(vmi)
+			By("removing volume from VM")
+			removeVolumeVMI(vm.Name, vm.Namespace, "testvolume")
+			verifyVolumeNolongerAccessible(vmi, targets[0])
+		})
+	})
+
 	Context("hostpath-separate-device", func() {
 		var (
 			vm *kubevirtv1.VirtualMachine
