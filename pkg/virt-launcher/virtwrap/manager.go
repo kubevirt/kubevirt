@@ -63,7 +63,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
-	kutil "kubevirt.io/kubevirt/pkg/util"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -131,11 +130,6 @@ type LibvirtDomainManager struct {
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker          converter.DirectIOChecker
 	disksInfo                map[string]*cmdv1.DiskInfo
-}
-
-type hostDeviceTypePrefix struct {
-	Type   converter.HostDeviceType
-	Prefix string
 }
 
 type pausedVMIs struct {
@@ -539,91 +533,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	return domain, err
-}
-
-// This function parses variables that are set by SR-IOV device plugin listing
-// PCI IDs for devices allocated to the pod. It also parses variables that
-// virt-controller sets mapping network names to their respective resource
-// names (if any).
-//
-// Format for PCI ID variables set by SR-IOV DP is:
-// "": for no allocated devices
-// PCIDEVICE_<resourceName>="0000:81:11.1": for a single device
-// PCIDEVICE_<resourceName>="0000:81:11.1 0000:81:11.2[ ...]": for multiple devices
-//
-// Since special characters in environment variable names are not allowed,
-// resourceName is mutated as follows:
-// 1. All dots and slashes are replaced with underscore characters.
-// 2. The result is upper cased.
-//
-// Example: PCIDEVICE_INTEL_COM_SRIOV_TEST=... for intel.com/sriov_test resources.
-//
-// Format for network to resource mapping variables is:
-// KUBEVIRT_RESOURCE_NAME_<networkName>=<resourceName>
-//
-func updateDeviceResourcesMap(supportedDevice hostDeviceTypePrefix, resourceToAddressesMap map[string]converter.HostDevicesList, resourceName string) {
-	varName := kutil.ResourceNameToEnvVar(supportedDevice.Prefix, resourceName)
-	addrString, isSet := os.LookupEnv(varName)
-	if isSet {
-		addrs := parseDeviceAddress(addrString)
-		device := converter.HostDevicesList{
-			Type:     supportedDevice.Type,
-			AddrList: addrs,
-		}
-		resourceToAddressesMap[resourceName] = device
-	} else {
-		log.DefaultLogger().Warningf("%s not set for device %s", varName, resourceName)
-	}
-}
-
-// There is an overlap between HostDevices and GPUs. Both can provide PCI devices and MDEVs
-// However, both will be mapped to a hostdev struct with some differences.
-func getDevicesForAssignment(devices v1.Devices) map[string]converter.HostDevicesList {
-	supportedHostDeviceTypes := []hostDeviceTypePrefix{
-		{
-			Type:   converter.HostDevicePCI,
-			Prefix: PCI_RESOURCE_PREFIX,
-		},
-		{
-			Type:   converter.HostDeviceMDEV,
-			Prefix: MDEV_RESOURCE_PREFIX,
-		},
-	}
-	resourceToAddressesMap := make(map[string]converter.HostDevicesList)
-
-	for _, supportedHostDeviceType := range supportedHostDeviceTypes {
-		for _, hostDev := range devices.HostDevices {
-			updateDeviceResourcesMap(
-				supportedHostDeviceType,
-				resourceToAddressesMap,
-				hostDev.DeviceName,
-			)
-		}
-		for _, gpu := range devices.GPUs {
-			updateDeviceResourcesMap(
-				supportedHostDeviceType,
-				resourceToAddressesMap,
-				gpu.DeviceName,
-			)
-		}
-	}
-	return resourceToAddressesMap
-
-}
-
-func parseDeviceAddress(addrString string) []string {
-	addrs := strings.Split(addrString, ",")
-	naddrs := len(addrs)
-	if naddrs > 0 {
-		if addrs[naddrs-1] == "" {
-			addrs = addrs[:naddrs-1]
-		}
-	}
-
-	for index, element := range addrs {
-		addrs[index] = strings.TrimSpace(element)
-	}
-	return addrs
 }
 
 func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {

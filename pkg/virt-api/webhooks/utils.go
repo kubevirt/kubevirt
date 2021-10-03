@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
-var webhookInformers *Informers
 var Arch = runtime.GOARCH
 
 var Validator = openapi.CreateOpenAPIValidator(rest.ComposeAPIDefinitions())

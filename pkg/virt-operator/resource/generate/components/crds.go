@@ -49,15 +49,6 @@ var (
 	PreserveUnknownFieldsFalse       = false
 )
 
-func getVersion(crd *extv1.CustomResourceDefinition, version string) (*extv1.CustomResourceDefinitionVersion, error) {
-	for i := range crd.Spec.Versions {
-		if version == crd.Spec.Versions[i].Name {
-			return &crd.Spec.Versions[i], nil
-		}
-	}
-	return nil, fmt.Errorf("version %s not found in CustomResourceDefinition: %v", version, crd.Name)
-}
-
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
 	for _, field := range fields {
 		switch v := field.(type) {

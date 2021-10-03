@@ -13,8 +13,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-var clientOnly bool
-
 func NewListPermittedDevices(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "permitted-devices",

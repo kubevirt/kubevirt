@@ -34,7 +34,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -44,13 +43,6 @@ import (
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
-
-// Only used for testing, migration proxy ports are 'well-known' ports and should not be randomized in production
-var osChosenMigrationProxyPort = false
-
-func setOSChosenMigrationProxyPort(val bool) {
-	osChosenMigrationProxyPort = val
-}
 
 type migrationDisks struct {
 	shared    map[string]bool
@@ -728,29 +720,6 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 
 func isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Status.MigrationMethod == v1.BlockMigration)
-}
-
-func (l *LibvirtDomainManager) generateMigrationProxies(vmi *v1.VirtualMachineInstance) []migrationproxy.MigrationProxyListener {
-	// create local migration proxies.
-	//
-	// This creates a tcp server for each additional direct migration connections
-	// that will be proxied to the destination pod
-	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
-
-	proxies := []migrationproxy.MigrationProxyListener{}
-
-	loopbackAddress := ip.GetLoopbackAddress()
-	// Create a tcp server for each direct connection proxy
-	for _, port := range migrationPortsRange {
-		if osChosenMigrationProxyPort {
-			// this is only set to 0 during unit tests
-			port = 0
-		}
-		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
-		newProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key), string(vmi.UID))
-		proxies = append(proxies, newProxy)
-	}
-	return proxies
 }
 
 func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string) (*libvirt.DomainMigrateParameters, error) {

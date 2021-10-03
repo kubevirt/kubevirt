@@ -96,14 +96,3 @@ func newContainerVolume(name, image string) kvirtv1.Volume {
 		},
 	}
 }
-
-func newDataVolume(name, diskName string) kvirtv1.Volume {
-	return kvirtv1.Volume{
-		Name: diskName,
-		VolumeSource: kvirtv1.VolumeSource{
-			DataVolume: &kvirtv1.DataVolumeSource{
-				Name: name,
-			},
-		},
-	}
-}

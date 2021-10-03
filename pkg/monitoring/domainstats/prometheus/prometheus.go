@@ -488,11 +488,6 @@ type prometheusScraper struct {
 	ch chan<- prometheus.Metric
 }
 
-type vmiStatsInfo struct {
-	vmiSpec  *k6tv1.VirtualMachineInstance
-	vmiStats *stats.DomainStats
-}
-
 func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineInstance) {
 	ts := time.Now()
 	cli, err := cmdclient.NewClient(socketFile)

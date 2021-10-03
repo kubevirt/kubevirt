@@ -78,11 +78,6 @@ var _ = Describe("Manager", func() {
 		defer os.RemoveAll(tmpDir)
 		ephemeraldiskutils.MockDefaultOwnershipManager()
 		cloudinit.SetIsoCreationFunction(isoCreationFunc)
-		setOSChosenMigrationProxyPort(true)
-	})
-
-	AfterSuite(func() {
-		setOSChosenMigrationProxyPort(false)
 	})
 
 	BeforeEach(func() {

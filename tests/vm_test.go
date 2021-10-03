@@ -1966,14 +1966,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	})
 })
 
-func isKubemacpoolDeployed(virtClient kubecli.KubevirtClient) (bool, error) {
-	podList, err := virtClient.CoreV1().Pods(k8smetav1.NamespaceAll).List(context.Background(), k8smetav1.ListOptions{LabelSelector: "app=kubemacpool"})
-	if err != nil {
-		return false, err
-	}
-	return len(podList.Items) > 0, nil
-}
-
 func getExpectedPodName(vm *v1.VirtualMachine) string {
 	maxNameLength := 63
 	podNamePrefix := "virt-launcher-"
