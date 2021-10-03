@@ -211,7 +211,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		// Arbitrarily select one compute node in the cluster, on which it is possible to create a VMI
 		// (i.e. a schedulable node).
 		nodeName := nodes.Items[0].Name
-		tests.StartVmOnNode(vmi, nodeName)
+		tests.CreateVmiOnNode(vmi, nodeName)
 
 		return vmi
 	}
@@ -446,7 +446,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", ptpSubnetIP2+ptpSubnetMask), false))
-				vmiTwo = tests.StartVmOnNode(vmiTwo, nodes.Items[0].Name)
+				vmiTwo = tests.CreateVmiOnNode(vmiTwo, nodes.Items[0].Name)
 
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
 				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterface
@@ -457,7 +457,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, ptpSubnetIP1+ptpSubnetMask), false))
-				vmiOne = tests.StartVmOnNode(vmiOne, nodes.Items[0].Name)
+				vmiOne = tests.CreateVmiOnNode(vmiOne, nodes.Items[0].Name)
 
 				vmiOne = tests.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
 				tests.WaitAgentConnected(virtClient, vmiOne)
@@ -994,8 +994,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
 			Expect(sriovNodes).ToNot(BeEmpty())
 			sriovNode := sriovNodes[0].Name
-			vmi1 = tests.StartVmOnNode(vmi1, sriovNode)
-			vmi2 = tests.StartVmOnNode(vmi2, sriovNode)
+			vmi1 = tests.CreateVmiOnNode(vmi1, sriovNode)
+			vmi2 = tests.CreateVmiOnNode(vmi2, sriovNode)
 
 			vmi1 = waitVmi(vmi1)
 			vmi2 = waitVmi(vmi2)
@@ -1221,7 +1221,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 			vmi = newCirrosVMIWithMacvtapNetwork(networkName)
 		}
 		vmi = tests.WaitUntilVMIReady(
-			tests.StartVmOnNode(vmi, nodeName),
+			tests.CreateVmiOnNode(vmi, nodeName),
 			console.LoginToCirros)
 		// configure the client VMI
 		Expect(configVMIInterfaceWithSudo(vmi, ifaceName, ipCIDR)).To(Succeed())

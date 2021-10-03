@@ -4110,8 +4110,8 @@ func SkipIfMigrationIsNotPossible() {
 	}
 }
 
-// StartVmOnNode starts a VMI on the specified node
-func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
+// CreateVmiOnNode creates a VMI on the specified node
+func CreateVmiOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
 	virtClient, err := kubecli.GetKubevirtClient()
 	util2.PanicOnError(err)
 
