@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"reflect"
 	"strings"
 	"time"
@@ -266,6 +267,14 @@ func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures cpuFeatures
 	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
 	newLabels[kubevirtv1.HostModelCPULabel+hostCpuModel.name] = "true"
 
+	capable, err := isNodeRealtimeCapable()
+	if err != nil {
+		n.logger.Reason(err).Error("failed to identify if a node is capable of running realtime workloads")
+	}
+	if capable {
+		newLabels[kubevirtv1.RealtimeLabel] = ""
+	}
+
 	return newLabels
 }
 
@@ -290,7 +299,8 @@ func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 			strings.Contains(label, kubevirtv1.CPUFeatureLabel) ||
 			strings.Contains(label, kubevirtv1.CPUModelLabel) ||
 			strings.Contains(label, kubevirtv1.CPUTimerLabel) ||
-			strings.Contains(label, kubevirtv1.HypervLabel) {
+			strings.Contains(label, kubevirtv1.HypervLabel) ||
+			strings.Contains(label, kubevirtv1.RealtimeLabel) {
 			delete(node.Labels, label)
 		}
 	}
@@ -300,4 +310,20 @@ func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 			delete(node.Annotations, annotation)
 		}
 	}
+}
+
+const kernelSchedRealtimeRuntimeInMicrosecods = "kernel.sched_rt_runtime_us"
+
+// isNodeRealtimeCapable Checks if a node is capable of running realtime workloads. Currently by validating if the kernel system setting value
+// for `kernel.sched_rt_runtime_us` is set to allow running realtime scheduling with unlimited time (==-1)
+// TODO: This part should be improved to validate against key attributes that determine best if a host is able to run realtime
+// workloads at peak performance.
+
+func isNodeRealtimeCapable() (bool, error) {
+	ret, err := exec.Command("sysctl", kernelSchedRealtimeRuntimeInMicrosecods).CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+	st := strings.Trim(string(ret), "\n")
+	return fmt.Sprintf("%s = -1", kernelSchedRealtimeRuntimeInMicrosecods) == st, nil
 }

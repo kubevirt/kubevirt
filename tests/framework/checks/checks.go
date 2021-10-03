@@ -23,6 +23,16 @@ func IsCPUManagerPresent(node *v1.Node) bool {
 	return nodeHaveCpuManagerLabel
 }
 
+func IsRealtimeCapable(node *v1.Node) bool {
+	gomega.Expect(node).ToNot(gomega.BeNil())
+	for label, _ := range node.Labels {
+		if label == v12.RealtimeLabel {
+			return true
+		}
+	}
+	return false
+}
+
 func Has2MiHugepages(node *v1.Node) bool {
 	gomega.Expect(node).ToNot(gomega.BeNil())
 	_, exists := node.Status.Capacity[v1.ResourceHugePagesPrefix+"2Mi"]

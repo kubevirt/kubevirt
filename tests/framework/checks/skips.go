@@ -49,3 +49,18 @@ func SkipTestIfNoCPUManagerWith2MiHugepages() {
 	}
 	ginkgo.Skip("no node with CPUManager and 2Mi hugepages detected", 1)
 }
+
+func SkipTestIfNotRealtimeCapable() {
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+	nodes := util.GetAllSchedulableNodes(virtClient)
+
+	for _, node := range nodes.Items {
+		if IsRealtimeCapable(&node) && IsCPUManagerPresent(&node) && Has2MiHugepages(&node) {
+			return
+		}
+	}
+	ginkgo.Skip("no node capable of running realtime workloads detected", 1)
+
+}

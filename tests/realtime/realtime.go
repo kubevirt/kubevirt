@@ -74,7 +74,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 		Expect(err).ToNot(HaveOccurred())
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNoFeatureGate(virtconfig.CPUManager)
-		checks.SkipTestIfNoCPUManagerWith2MiHugepages()
+		checks.SkipTestIfNotRealtimeCapable()
 		tests.BeforeTestCleanup()
 
 	})

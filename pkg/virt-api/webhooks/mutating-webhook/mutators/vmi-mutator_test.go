@@ -941,4 +941,22 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		})
 	})
 
+	It("should add realtime node label selector with realtime workload", func() {
+		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.NodeSelector).NotTo(BeNil())
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.RealtimeLabel: ""}))
+	})
+	It("should not add realtime node label selector when no realtime workload", func() {
+		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: nil}
+		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true"}))
+	})
+	It("should not overwrite existing node label selectors with realtime workload", func() {
+		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}}
+		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.RealtimeLabel: ""}))
+	})
 })

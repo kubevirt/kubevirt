@@ -116,6 +116,11 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 				log.Log.V(2).Infof("Failed to setting for Arm64: %s", err)
 			}
 		}
+		if newVMI.IsRealtimeEnabled() {
+			log.Log.V(4).Info("Add realtime node label selector")
+			addRealtimeNodeSelector(newVMI)
+		}
+
 		// Add foreground finalizer
 		newVMI.Finalizers = append(newVMI.Finalizers, v1.VirtualMachineInstanceFinalizer)
 
@@ -355,4 +360,12 @@ func canBeNonRoot(vmi *v1.VirtualMachineInstance) error {
 		return fmt.Errorf("SRIOV doesn't work with nonroot")
 	}
 	return nil
+}
+
+// AddRealtimeNodeSelector adds the realtime node selector
+func addRealtimeNodeSelector(vmi *v1.VirtualMachineInstance) {
+	if vmi.Spec.NodeSelector == nil {
+		vmi.Spec.NodeSelector = map[string]string{}
+	}
+	vmi.Spec.NodeSelector[v1.RealtimeLabel] = ""
 }
