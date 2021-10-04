@@ -208,6 +208,8 @@ type VirtualMachineInstanceStatus struct {
 	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 	// Represents the method using which the vmi can be migrated: live migration or block migration
 	MigrationMethod VirtualMachineInstanceMigrationMethod `json:"migrationMethod,omitempty"`
+	// This represents the migration transport
+	MigrationTransport VirtualMachineInstanceMigrationTransport `json:"migrationTransport,omitempty"`
 	// The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements
 	// See PodQOSClass type for available QOS classes
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
@@ -604,6 +606,15 @@ const (
 
 //
 // +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationTransport string
+
+const (
+	// MigrationTransportUnix means that the VMI will be migrated using the unix URI
+	MigrationTransportUnix VirtualMachineInstanceMigrationTransport = "Unix"
+)
+
+//
+// +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationMethod string
 
 const (
@@ -766,6 +777,9 @@ const (
 
 	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
 	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
+
+	// MigrationTransportUnixAnnotation means that the VMI will be migrated using the unix URI
+	MigrationTransportUnixAnnotation string = "kubevirt.io/migrationTransportUnix"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -2097,4 +2111,14 @@ type NetworkConfiguration struct {
 // GuestAgentPing configures the guest-agent based ping probe
 // +k8s:openapi-gen=true
 type GuestAgentPing struct {
+}
+
+// +k8s:openapi-gen=true
+type ProfilerResult struct {
+	PprofData map[string][]byte `json:"pprofData,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type ClusterProfilerResults struct {
+	ComponentResults map[string]ProfilerResult `json:"componentResults"`
 }

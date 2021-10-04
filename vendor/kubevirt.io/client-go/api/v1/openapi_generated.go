@@ -405,6 +405,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ClockOffsetUTC":                                            schema_kubevirtio_client_go_api_v1_ClockOffsetUTC(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource":                                schema_kubevirtio_client_go_api_v1_CloudInitConfigDriveSource(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitNoCloudSource":                                    schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref),
+		"kubevirt.io/client-go/api/v1.ClusterProfilerResults":                                    schema_kubevirtio_client_go_api_v1_ClusterProfilerResults(ref),
 		"kubevirt.io/client-go/api/v1.ComponentConfig":                                           schema_kubevirtio_client_go_api_v1_ComponentConfig(ref),
 		"kubevirt.io/client-go/api/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation":        schema_kubevirtio_client_go_api_v1_ConfigDriveSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                                     schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
@@ -495,6 +496,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                                schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                      schema_kubevirtio_client_go_api_v1_Port(ref),
 		"kubevirt.io/client-go/api/v1.Probe":                                                     schema_kubevirtio_client_go_api_v1_Probe(ref),
+		"kubevirt.io/client-go/api/v1.ProfilerResult":                                            schema_kubevirtio_client_go_api_v1_ProfilerResult(ref),
 		"kubevirt.io/client-go/api/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation":     schema_kubevirtio_client_go_api_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.QemuGuestAgentUserPasswordAccessCredentialPropagation":     schema_kubevirtio_client_go_api_v1_QemuGuestAgentUserPasswordAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.RESTClientConfiguration":                                   schema_kubevirtio_client_go_api_v1_RESTClientConfiguration(ref),
@@ -19283,6 +19285,34 @@ func schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref common.Refere
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_ClusterProfilerResults(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentResults": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.ProfilerResult"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"componentResults"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.ProfilerResult"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_ComponentConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22809,6 +22839,32 @@ func schema_kubevirtio_client_go_api_v1_Probe(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_ProfilerResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"pprofData": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "byte",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -25124,6 +25180,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 					"migrationMethod": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the method using which the vmi can be migrated: live migration or block migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"migrationTransport": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This represents the migration transport",
 							Type:        []string{"string"},
 							Format:      "",
 						},

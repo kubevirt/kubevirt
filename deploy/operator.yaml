@@ -54,7 +54,7 @@ spec:
         - name: HCO_KV_IO_VERSION
           value: 1.6.0
         - name: KUBEVIRT_VERSION
-          value: v0.45.0
+          value: v0.46.0-rc.0
         - name: CDI_VERSION
           value: v1.40.0
         - name: NETWORK_ADDONS_VERSION
@@ -343,24 +343,24 @@ spec:
         - "2"
         env:
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/virt-operator@sha256:1b05c88d691942997842672f614463c016cdf5b2b813b55614ca19f5342e5942
+          value: quay.io/kubevirt/virt-operator@sha256:e9bde4034b670854c369e81d8dee4cc01b199dd8cba80f8ecc827f07cdcc16c7
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.targetNamespaces']
         - name: KUBEVIRT_VERSION
-          value: v0.45.0
+          value: v0.46.0-rc.0
         - name: VIRT_API_SHASUM
-          value: sha256:f48b242847eb3952fbe054a21a4bdc42fec4d090f1fdb31a905ddb8fb5b1163a
+          value: sha256:453b10037e7e4cefcfbf7aa3f732e2ba5c59da60cae0944b26b5c3e54b6cd585
         - name: VIRT_CONTROLLER_SHASUM
-          value: sha256:c8f9f04dedd3291a1574a440fc8aa31c7e2f4e71239d9e3ea326d37bc4b5a518
+          value: sha256:31ab14727dc7331bdc186636b2210c5e564d595cb32a886ec11195b10c89fc9d
         - name: VIRT_HANDLER_SHASUM
-          value: sha256:6ed571ff38b6831fef7311bef5dd7aba84bf34ca43fc0d3a1e3d4227135098e7
+          value: sha256:7a3dbd727f30e1a7d95e724015b0260184b2c6e46cecf482aa1d9c230c1062bc
         - name: VIRT_LAUNCHER_SHASUM
-          value: sha256:58106a76841a41bafb38006745020c1be0ae2fd0dc92052f654be408347eb13d
+          value: sha256:d8d8a3235b38c5e9bfcee191203ff15588282071f35b6e922280919ff446a2a3
         - name: GS_SHASUM
-          value: sha256:00954f58e03a50b63ed6855e020315e41c864ecb3b65490a2c8d90e8b431bdbf
-        image: quay.io/kubevirt/virt-operator@sha256:1b05c88d691942997842672f614463c016cdf5b2b813b55614ca19f5342e5942
+          value: sha256:8072273a374aadf655c8f11c2673675fe637711d774bc15802dfc3fa0b02e8f4
+        image: quay.io/kubevirt/virt-operator@sha256:e9bde4034b670854c369e81d8dee4cc01b199dd8cba80f8ecc827f07cdcc16c7
         imagePullPolicy: IfNotPresent
         name: virt-operator
         ports:
@@ -385,6 +385,8 @@ spec:
         - mountPath: /etc/virt-operator/certificates
           name: kubevirt-operator-certs
           readOnly: true
+        - mountPath: /profile-data
+          name: profile-data
       priorityClassName: kubevirt-cluster-critical
       securityContext:
         runAsNonRoot: true
@@ -397,6 +399,8 @@ spec:
         secret:
           optional: true
           secretName: kubevirt-operator-certs
+      - emptyDir: {}
+        name: profile-data
 ---
 apiVersion: apps/v1
 kind: Deployment

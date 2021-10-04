@@ -66,6 +66,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"guestOSInfo":                   "Guest OS Information",
 		"migrationState":                "Represents the status of a live migration",
 		"migrationMethod":               "Represents the method using which the vmi can be migrated: live migration or block migration",
+		"migrationTransport":            "This represents the migration transport",
 		"qosClass":                      "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
 		"launcherContainerImageVersion": "LauncherContainerImageVersion indicates what container image is currently active for the vmi.",
 		"evacuationNodeName":            "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want\nto evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.\n+optional",
@@ -693,5 +694,17 @@ func (NetworkConfiguration) SwaggerDoc() map[string]string {
 func (GuestAgentPing) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "GuestAgentPing configures the guest-agent based ping probe\n+k8s:openapi-gen=true",
+	}
+}
+
+func (ProfilerResult) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (ClusterProfilerResults) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
 	}
 }
