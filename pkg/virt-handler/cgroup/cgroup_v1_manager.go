@@ -53,7 +53,7 @@ func (v *v1Manager) Set(r *runc_configs.Resources) error {
 		return err
 	})
 
-	return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingOtherRules, err)
+	return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingNonDeviceRules, err)
 }
 
 func (v *v1Manager) GetCgroupVersion() string {
@@ -69,7 +69,7 @@ func (v *v1Manager) GetCgroupVersion() string {
 // 2) {Minor: 222, Major: 222, Allow: true}
 //
 // And we get a request to enable the following rule: {Minor: 222, Major: 222, Allow: false}
-// Than we expect rule (1) to stay unchanged. Not adding it to our request will automatically delete it.
+// Than we expect rule (1) to stay unchanged.
 func (v *v1Manager) addCurrentRules(deviceRules []*devices.Rule) ([]*devices.Rule, error) {
 	devicesPath, ok := v.GetPaths()["devices"]
 	if !ok {

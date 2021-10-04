@@ -24,9 +24,9 @@ const (
 
 // Templates for logging / error messages
 const (
-	errApplyingDeviceRule = "error occurred while applying device rule: %v"
-	errApplyingOtherRules = "error occurred while applying rules (that are not device rules): %v"
-	settingDeviceRule     = "setting device rule for cgroup %s: %v"
+	errApplyingDeviceRule     = "error occurred while applying device rule: %v"
+	errApplyingNonDeviceRules = "error occurred while applying non-device rules: %v"
+	settingDeviceRule         = "setting device rule for cgroup %s: %v"
 
 	v1Str = "v1"
 	v2Str = "v2"

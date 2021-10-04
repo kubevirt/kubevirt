@@ -50,7 +50,7 @@ func (v *v2Manager) Set(r *runc_configs.Resources) error {
 	}
 
 	err := v.Manager.Set(&resourcesWithoutDevices)
-	return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingOtherRules, err)
+	return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingNonDeviceRules, err)
 }
 
 func (v *v2Manager) setDevices(deviceRules []*devices.Rule) error {
