@@ -89,8 +89,20 @@ func (v *ClusterProfiler) Stop() error {
 	return v.restClient.Get().RequestURI(uri).Do(context.Background()).Error()
 }
 
-func (v *ClusterProfiler) Dump() (*v1.ClusterProfilerResults, error) {
+// Dump returns at most cpRequest.PageSize profiler results. To fetch results from all kubevirt pods
+// Dump should be called with Continue fields set to Continue field value from the response to a previous request.
+// This should be repeated until Continue or ComponentsResult field in ClusterProfilerResponse is empty.
+func (v *ClusterProfiler) Dump(cpRequest *v1.ClusterProfilerRequest) (*v1.ClusterProfilerResults, error) {
 	preferredVersion, err := v.preferredVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	if cpRequest == nil {
+		return nil, fmt.Errorf("request body can't be nil")
+	}
+
+	bytes, err := json.Marshal(cpRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +112,7 @@ func (v *ClusterProfiler) Dump() (*v1.ClusterProfilerResults, error) {
 
 	var profileResults v1.ClusterProfilerResults
 
-	result := v.restClient.Get().RequestURI(uri).Do(context.Background())
+	result := v.restClient.Get().RequestURI(uri).Body(bytes).Do(context.Background())
 	if data, err := result.Raw(); err != nil {
 		connErr, isConnectionErr := err.(*url.Error)
 
@@ -109,8 +121,11 @@ func (v *ClusterProfiler) Dump() (*v1.ClusterProfilerResults, error) {
 		}
 
 		return nil, err
+	} else if len(data) == 0 {
+		return &profileResults, nil
 	} else if err = json.Unmarshal(data, &profileResults); err != nil {
 		return nil, err
 	}
+
 	return &profileResults, nil
 }

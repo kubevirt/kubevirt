@@ -30,18 +30,25 @@ import (
 	"sync"
 	"time"
 
-	restful "github.com/emicklei/go-restful"
-
-	v1 "kubevirt.io/client-go/apis/core/v1"
-	"kubevirt.io/client-go/log"
+	"github.com/emicklei/go-restful"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
+	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 )
 
-func (app *SubresourceAPIApp) getAllComponentPods() ([]*k8sv1.Pod, error) {
+const (
+	// NOTE: We are limiting the maximum page size, as virt-api memory usage grows linearly with the page size,
+	// as virt-api stores in memory profiling results. Based on experiments, profile data of one pod can grow to at least ~10Mb.
+	maxClusterProfilerResultsPageSize     = 20
+	defaultClusterProfilerResultsPageSize = 10
+)
+
+func (app *SubresourceAPIApp) getAllComponentPods() ([]k8sv1.Pod, error) {
 	namespace, err := clientutil.GetNamespace()
 	if err != nil {
 		return nil, err
@@ -52,15 +59,61 @@ func (app *SubresourceAPIApp) getAllComponentPods() ([]*k8sv1.Pod, error) {
 		return nil, err
 	}
 
-	var pods []*k8sv1.Pod
-
+	pods := podList.Items[:0]
 	for _, pod := range podList.Items {
 		if podIsReadyComponent(&pod) {
-			pods = append(pods, pod.DeepCopy())
+			pods = append(pods, pod)
 		}
 	}
 
 	return pods, nil
+}
+
+func (app *SubresourceAPIApp) unmarshalClusterProfilerRequest(request *restful.Request) (*v1.ClusterProfilerRequest, error) {
+	cpRequest := &v1.ClusterProfilerRequest{}
+	if request.Request.Body == nil {
+		return nil, fmt.Errorf("empty request body")
+	}
+	return cpRequest, json.NewDecoder(request.Request.Body).Decode(cpRequest)
+}
+
+func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerRequest) (pods []k8sv1.Pod, cont string, err error) {
+	var (
+		listOptions = metav1.ListOptions{}
+		namespace   string
+		podList     *k8sv1.PodList
+	)
+
+	if selector, err := labels.Parse(cpRequest.LabelSelector); err != nil {
+		return nil, "", err
+	} else {
+		listOptions.LabelSelector = selector.String()
+	}
+
+	listOptions.Continue = cpRequest.Continue
+	listOptions.Limit = cpRequest.PageSize
+	if listOptions.Limit <= 0 {
+		listOptions.Limit = defaultClusterProfilerResultsPageSize
+	} else if listOptions.Limit > maxClusterProfilerResultsPageSize {
+		listOptions.Limit = maxClusterProfilerResultsPageSize
+	}
+
+	if namespace, err = clientutil.GetNamespace(); err != nil {
+		return nil, "", err
+	}
+
+	if podList, err = app.virtCli.CoreV1().Pods(namespace).List(context.Background(), listOptions); err != nil {
+		return nil, "", err
+	}
+
+	pods = podList.Items[:0]
+	for _, pod := range podList.Items {
+		if podIsReadyComponent(&pod) {
+			pods = append(pods, pod)
+		}
+	}
+
+	return pods, podList.Continue, nil
 }
 
 func podIsReadyComponent(pod *k8sv1.Pod) bool {
@@ -183,40 +236,47 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 		response.WriteErrorString(http.StatusForbidden, "Unable to dump profiler results. \"ClusterProfiler\" feature gate must be enabled")
 		return
 	}
-	pods, err := app.getAllComponentPods()
+
+	cpRequest, err := app.unmarshalClusterProfilerRequest(request)
 	if err != nil {
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error while looking up component pods for profiling: %v", err))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to parse cluster profiler request: %v", err))
+		return
+	}
+
+	pods, cont, err := app.getPodsNextPage(cpRequest)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Internal error while looking up component pods for profiling: %v", err))
 		return
 	}
 
 	if len(pods) == 0 {
-		response.WriteErrorString(http.StatusInternalServerError, "Internal error, no component pods found")
+		response.WriteHeaderAndJson(http.StatusNoContent, v1.ClusterProfilerResults{}, restful.MIME_JSON)
 		return
 	}
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
+	const command = "dump"
+	var (
+		tr = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
+		client = http.Client{
+			Timeout:   5 * time.Second,
+			Transport: tr,
+		}
+		results = v1.ClusterProfilerResults{
+			ComponentResults: make(map[string]v1.ProfilerResult),
+			Continue:         cont,
+		}
 
-	client := http.Client{
-		Timeout:   time.Duration(5 * time.Second),
-		Transport: tr,
-	}
+		resultsLock = sync.Mutex{}
+		wg          = sync.WaitGroup{}
+		errorChan   = make(chan error, len(pods))
+	)
 
-	command := "dump"
-
-	wg := sync.WaitGroup{}
 	wg.Add(len(pods))
-
-	errorChan := make(chan error, len(pods))
 	defer close(errorChan)
-
-	results := v1.ClusterProfilerResults{
-		ComponentResults: make(map[string]v1.ProfilerResult),
-	}
-	resultsLock := sync.Mutex{}
 
 	go func() {
 		for _, pod := range pods {
@@ -236,8 +296,7 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 				defer resp.Body.Close()
 
 				if resp.StatusCode != http.StatusOK {
-
-					errorChan <- fmt.Errorf("Encountered [%d] status code while contacting url [%s] for pod [%s]", resp.StatusCode, url, name)
+					errorChan <- fmt.Errorf("encountered [%d] status code while contacting url [%s] for pod [%s]", resp.StatusCode, url, name)
 					return
 
 				}

@@ -1561,7 +1561,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				err = virtClient.ClusterProfiler().Stop()
 				Expect(err).ToNot(BeNil())
 
-				_, err = virtClient.ClusterProfiler().Dump()
+				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
 				Expect(err).ToNot(BeNil())
 			})
 			It("is enabled it should allow subresource access", func() {
@@ -1573,7 +1573,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				err = virtClient.ClusterProfiler().Stop()
 				Expect(err).To(BeNil())
 
-				_, err = virtClient.ClusterProfiler().Dump()
+				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
 				Expect(err).To(BeNil())
 			})
 		})
