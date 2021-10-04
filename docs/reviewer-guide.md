@@ -40,3 +40,26 @@ Make a few passes over the code you want to review.
 * When creating kubernetes events, make sure the code path issuing the event doesn't cause the event to fire every time the object is reconciled. For example, if we want to fire an event when a vmi moves to the running phase, we should compare the old phase with the new phase and only fire the event when the phase transition is occurring. A bad example would be to fire the event every time the reconcile loop sees the vmi's phase is Running. This would cause an unnecessary amount of duplicate events to be sent to the api-server.
 * List ordering on CRD APIs matter. If two components need to update a list on the same object, make sure both components do it in a way that preserves the order of the list. For example, both virt-handler and virt-controller need to modify conditions on the VMI status. If both virt-handler and virt-controller are constantly changing the order of the conditions list, that will cause an update storm where both components are competing with one another to write changes.
 * Privileged node-level operations should be added to virt-handler and not virt-launcher to keep the privileges on virt-launcher at a minimum.
+
+## When is a PR good enough?
+
+For defining the lowest acceptable standards the project relies on automation.
+People have to pass the automated check and they have to add unit tests and
+end-to-end tests for their features and fixes. All tests are run and required
+to pass on each PR.
+Maintainers are allowed to take in code with varying quality for as long as the
+project's maintainability is not at stake and all required criterias are met
+(especially the testing and architectural criterias) to be open and inclusive.
+
+The lowest bar for acceptable **coding styles** is enforced via automation:
+* [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) to enforce a common coding style for go code.
+* [shfmt](https://github.com/mvdan/sh) to enforce a common coding style for bash scripts.
+
+The lowest bar for acceptable golang **coding standards** (anti-patterns, coding errors, ...) is enforce via automation:
+* [nogo](https://github.com/bazelbuild/rules_go/blob/master/go/nogo.rst) from
+  bazel is used and applies a [huge set](https://github.com/kubevirt/kubevirt/blob/main/nogo_config.json) of code
+  analyzers when one builds kubevirt. If a check fails the build fails.
+
+The lowest **testing bar** to pass:
+* New code requires new unit tests.
+* New fetures and bug fixes require at least on e2e test (the core case must be tested).
