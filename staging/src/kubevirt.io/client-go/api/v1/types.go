@@ -210,8 +210,6 @@ type VirtualMachineInstanceStatus struct {
 	MigrationMethod VirtualMachineInstanceMigrationMethod `json:"migrationMethod,omitempty"`
 	// This represents the migration transport
 	MigrationTransport VirtualMachineInstanceMigrationTransport `json:"migrationTransport,omitempty"`
-	// Reprensents the size of the cloud-init isos associated with the VMI
-	IsoSizes VirtualMachineInstanceIsoSizes `json:"isoSizes,omitempty"`
 	// The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements
 	// See PodQOSClass type for available QOS classes
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
@@ -289,6 +287,8 @@ type VolumeStatus struct {
 	PersistentVolumeClaimInfo *PersistentVolumeClaimInfo `json:"persistentVolumeClaimInfo,omitempty"`
 	// If the volume is hotplug, this will contain the hotplug status.
 	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
+	// Represents the size of the volume
+	Size int64 `json:"size,omitempty"`
 }
 
 // HotplugVolumeStatus represents the hotplug status of the volume
@@ -614,10 +614,6 @@ const (
 	// MigrationTransportUnix means that the VMI will be migrated using the unix URI
 	MigrationTransportUnix VirtualMachineInstanceMigrationTransport = "Unix"
 )
-
-//
-// +k8s:openapi-gen=true
-type VirtualMachineInstanceIsoSizes map[string]int64
 
 //
 // +k8s:openapi-gen=true

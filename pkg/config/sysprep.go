@@ -69,11 +69,11 @@ func CreateSysprepDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
 		if !shouldCreateSysprepDisk(volume.Sysprep) {
 			continue
 		}
-		var vmiIsoSizes *v1.VirtualMachineInstanceIsoSizes
-		if emptyIso {
-			vmiIsoSizes = &vmi.Status.IsoSizes
+		vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
+		if err != nil {
+			return err
 		}
-		if err := createSysprepDisk(volume.Name, vmiIsoSizes); err != nil {
+		if err := createSysprepDisk(volume.Name, vmiIsoSize); err != nil {
 			return err
 		}
 	}
@@ -84,7 +84,7 @@ func shouldCreateSysprepDisk(volumeSysprep *v1.SysprepSource) bool {
 	return volumeSysprep != nil && sysprepVolumeHasContents(volumeSysprep)
 }
 
-func createSysprepDisk(volumeName string, sizes *v1.VirtualMachineInstanceIsoSizes) error {
+func createSysprepDisk(volumeName string, size int64) error {
 	sysprepSourcePath := GetSysprepSourcePath(volumeName)
 	if err := validateAutounattendPresence(sysprepSourcePath); err != nil {
 		return err
@@ -94,12 +94,12 @@ func createSysprepDisk(volumeName string, sizes *v1.VirtualMachineInstanceIsoSiz
 		return err
 	}
 
-	return createIsoImageAndSetFileOwnership(volumeName, filesPath, sizes)
+	return createIsoImageAndSetFileOwnership(volumeName, filesPath, size)
 }
 
-func createIsoImageAndSetFileOwnership(volumeName string, filesPath []string, sizes *v1.VirtualMachineInstanceIsoSizes) error {
+func createIsoImageAndSetFileOwnership(volumeName string, filesPath []string, size int64) error {
 	disk := GetSysprepDiskPath(volumeName)
-	if err := createIsoConfigImage(disk, sysprepVolumeLabel, filesPath, sizes); err != nil {
+	if err := createIsoConfigImage(disk, sysprepVolumeLabel, filesPath, size); err != nil {
 		return err
 	}
 	if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(disk); err != nil {

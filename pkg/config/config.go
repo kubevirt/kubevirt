@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -153,19 +152,27 @@ func defaultCreateEmptyIsoImage(output string, size int64) error {
 	return nil
 }
 
-func createIsoConfigImage(output string, volID string, files []string, sizes *v1.VirtualMachineInstanceIsoSizes) error {
+func createIsoConfigImage(output string, volID string, files []string, size int64) error {
 	var err error
-	if sizes == nil {
+	if size == 0 {
 		err = createISOImage(output, volID, files)
 	} else {
-		size, exists := (*sizes)[path.Base(output)]
-		if !exists {
-			return fmt.Errorf("no size is defined for iso '%s", output)
-		}
 		err = createEmptyISOImage(output, size)
 	}
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func findIsoSize(vmi *v1.VirtualMachineInstance, volume *v1.Volume, emptyIso bool) (int64, error) {
+	if emptyIso {
+		for _, vs := range vmi.Status.VolumeStatus {
+			if vs.Name == volume.Name {
+				return vs.Size, nil
+			}
+		}
+		return 0, fmt.Errorf("failed to find the status of volume %s", volume.Name)
+	}
+	return 0, nil
 }

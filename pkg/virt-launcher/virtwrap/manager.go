@@ -388,7 +388,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 	return l.startMigration(vmi, options)
 }
 
-func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain, sizes *v1.VirtualMachineInstanceIsoSizes) error {
+func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain, size int64) error {
 	var devicesMetadata []cloudinit.DeviceData
 	// this is the point where we need to build the devices metadata if it was requested.
 	// This metadata maps the user provided tag to the hypervisor assigned device address.
@@ -410,8 +410,8 @@ func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineIn
 			cloudInitDataStore.DevicesData = &devicesMetadata
 		}
 		var err error
-		if sizes != nil {
-			err = cloudinit.GenerateEmptyIso(vmi.Name, vmi.Namespace, cloudInitDataStore, sizes)
+		if size != 0 {
+			err = cloudinit.GenerateEmptyIso(vmi.Name, vmi.Namespace, cloudInitDataStore, size)
 		} else {
 			err = cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitDataStore)
 		}
@@ -423,11 +423,19 @@ func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineIn
 }
 
 func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain) error {
-	return l.generateSomeCloudInitISO(vmi, domPtr, nil)
+	return l.generateSomeCloudInitISO(vmi, domPtr, 0)
 }
 
 func (l *LibvirtDomainManager) generateCloudInitEmptyISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain) error {
-	return l.generateSomeCloudInitISO(vmi, domPtr, &vmi.Status.IsoSizes)
+	if l.cloudInitDataStore == nil {
+		return nil
+	}
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.Name == l.cloudInitDataStore.VolumeName {
+			return l.generateSomeCloudInitISO(vmi, domPtr, vs.Size)
+		}
+	}
+	return fmt.Errorf("failed to find the status of volume %s", l.cloudInitDataStore.VolumeName)
 }
 
 // All local environment setup that needs to occur before VirtualMachineInstance starts

@@ -1198,10 +1198,12 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 		if err != nil {
 			continue
 		}
-		if vmi.Status.IsoSizes == nil {
-			vmi.Status.IsoSizes = make(v1.VirtualMachineInstanceIsoSizes)
+		for _, vs := range vmi.Status.VolumeStatus {
+			if vs.Name == volume.Name {
+				vs.Size = stats.Size()
+				continue
+			}
 		}
-		vmi.Status.IsoSizes[path.Base(volPath)] = stats.Size()
 	}
 }
 

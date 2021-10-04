@@ -68,6 +68,7 @@ type CloudInitData struct {
 	UserData            string
 	NetworkData         string
 	DevicesData         *[]DeviceData
+	VolumeName          string
 }
 
 type PublicSSHKey struct {
@@ -118,6 +119,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
 			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace)
+			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
 		if volume.CloudInitConfigDrive != nil {
@@ -129,6 +131,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
 			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace, keys)
+			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
 	}
@@ -466,10 +469,9 @@ func removeLocalData(domain string, namespace string) error {
 	return err
 }
 
-func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, sizes *v1.VirtualMachineInstanceIsoSizes) error {
+func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, size int64) error {
 	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(data)
-	precond.MustNotBeNil(sizes)
 
 	var err error
 	var isoStaging, iso string
@@ -498,12 +500,7 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
 	}
 
-	isoSize, exists := (*sizes)[path.Base(iso)]
-	if !exists {
-		f.Close()
-		return fmt.Errorf("failed to find the size for empty iso: '%s'", iso)
-	}
-	err = f.Truncate(isoSize)
+	err = f.Truncate(size)
 	if err != nil {
 		f.Close()
 		return fmt.Errorf("failed to inflate empty iso: '%s'", isoStaging)

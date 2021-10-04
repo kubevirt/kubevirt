@@ -42,11 +42,11 @@ func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance, emptyIso bool) err
 			}
 
 			disk := GetServiceAccountDiskPath()
-			var vmiIsoSizes *v1.VirtualMachineInstanceIsoSizes
-			if emptyIso {
-				vmiIsoSizes = &vmi.Status.IsoSizes
+			vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
+			if err != nil {
+				return err
 			}
-			if err := createIsoConfigImage(disk, "", filesPath, vmiIsoSizes); err != nil {
+			if err := createIsoConfigImage(disk, "", filesPath, vmiIsoSize); err != nil {
 				return err
 			}
 

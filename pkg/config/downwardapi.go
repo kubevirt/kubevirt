@@ -48,11 +48,11 @@ func CreateDownwardAPIDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error
 			}
 
 			disk := GetDownwardAPIDiskPath(volume.Name)
-			var vmiIsoSizes *v1.VirtualMachineInstanceIsoSizes
-			if emptyIso {
-				vmiIsoSizes = &vmi.Status.IsoSizes
+			vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
+			if err != nil {
+				return err
 			}
-			if err := createIsoConfigImage(disk, volume.DownwardAPI.VolumeLabel, filesPath, vmiIsoSizes); err != nil {
+			if err := createIsoConfigImage(disk, volume.DownwardAPI.VolumeLabel, filesPath, vmiIsoSize); err != nil {
 				return err
 			}
 
