@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	runc_fs2 "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
+	runcFs2 "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/devices"
 
@@ -284,7 +284,7 @@ func setCgroupDeviceRules(vmiPidFromHostView uint64, cgroupDirPath string, devic
 		Resources: &configs.Resources{},
 	}
 
-	cgroupV2Manager, err := runc_fs2.NewManager(config, cgroupDirPath, isRootless)
+	cgroupV2Manager, err := runcFs2.NewManager(config, cgroupDirPath, isRootless)
 	if err != nil {
 		return fmt.Errorf("cannot create cgroups v2 manager from pid %d. err: %v", vmiPidFromHostView, err)
 	}
