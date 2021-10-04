@@ -58,22 +58,29 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 		var vmiSpecNetwork *v1.Network
 		var vmiSpecIface *v1.Interface
 
-		generateExpectedConfig := func(vmiSpecNetwork *v1.Network, macString *string, mtu int, ifaceName string) cache.DHCPConfig {
+		generateExpectedConfigIPv6Disabled := func(vmiSpecNetwork *v1.Network, macString *string, mtu int, ifaceName string) cache.DHCPConfig {
 			ipv4Gateway, ipv4, _ := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork, iptables.ProtocolIPv4)
-			ipv6Gateway, ipv6, _ := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork, iptables.ProtocolIPv6)
 			expectedConfig := cache.DHCPConfig{Name: ifaceName,
-				IP:                  *ipv4,
-				IPv6:                *ipv6,
-				Mtu:                 uint16(mtu),
-				AdvertisingIPAddr:   ipv4Gateway.IP.To4(),
-				AdvertisingIPv6Addr: ipv6Gateway.IP.To16(),
-				Gateway:             ipv4Gateway.IP.To4(),
+				IP:                *ipv4,
+				Mtu:               uint16(mtu),
+				AdvertisingIPAddr: ipv4Gateway.IP.To4(),
+				Gateway:           ipv4Gateway.IP.To4(),
 			}
 
 			if macString != nil {
 				mac, _ := net.ParseMAC(*macString)
 				expectedConfig.MAC = mac
 			}
+
+			return expectedConfig
+		}
+
+		generateExpectedConfigIPv6Enabled := func(vmiSpecNetwork *v1.Network, macString *string, mtu int, ifaceName string) cache.DHCPConfig {
+			expectedConfig := generateExpectedConfigIPv6Disabled(vmiSpecNetwork, macString, mtu, ifaceName)
+			ipv6Gateway, ipv6, _ := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork, iptables.ProtocolIPv6)
+			expectedConfig.IPv6 = *ipv6
+			expectedConfig.AdvertisingIPv6Addr = ipv6Gateway.IP.To16()
+
 			return expectedConfig
 		}
 
@@ -95,11 +102,29 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 		BeforeEach(func() {
 			mockHandler.EXPECT().LinkByName(ifaceName).Return(iface, nil)
 		})
-		It("Should return the dhcp configuration", func() {
-			config, err := generator.Generate()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(*config).To(Equal(generateExpectedConfig(vmiSpecNetwork, nil, mtu, ifaceName)))
+
+		When("IPv6 is enabled", func() {
+			BeforeEach(func() {
+				mockHandler.EXPECT().IsIpv6Enabled(ifaceName).Return(true, nil)
+			})
+			It("Should return the dhcp configuration", func() {
+				config, err := generator.Generate()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*config).To(Equal(generateExpectedConfigIPv6Enabled(vmiSpecNetwork, nil, mtu, ifaceName)))
+			})
 		})
+
+		When("IPv6 is disabled", func() {
+			BeforeEach(func() {
+				mockHandler.EXPECT().IsIpv6Enabled(ifaceName).Return(false, nil)
+			})
+			It("Should return the dhcp configuration without IPv6", func() {
+				config, err := generator.Generate()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*config).To(Equal(generateExpectedConfigIPv6Disabled(vmiSpecNetwork, nil, mtu, ifaceName)))
+			})
+		})
+
 		It("Should return an error if the config discovering fails", func() {
 			vmiSpecNetwork.Pod.VMNetworkCIDR = "abc"
 
