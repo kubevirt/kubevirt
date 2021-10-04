@@ -70,9 +70,9 @@ const (
 )
 
 const (
-	sriovnet1 = "sriov"
-	sriovnet2 = "sriov2"
-	sriovnet3 = "sriov3"
+	sriovnet1           = "sriov"
+	sriovnet2           = "sriov2"
+	sriovnetLinkEnabled = "sriov-link-enabled"
 )
 
 const (
@@ -1059,7 +1059,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		Context("Connected to link-enabled SRIOV network", func() {
 			BeforeEach(func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).
+				Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).
 					To(Succeed(), "should successfully create the network")
 			})
 
@@ -1072,7 +1072,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				//create two vms on the same sriov network
-				vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
+				vmi1, vmi2 := createSriovVMs(sriovnetLinkEnabled, sriovnetLinkEnabled, cidrA, cidrB)
 
 				Eventually(func() error {
 					return libnet.PingFromVMConsole(vmi1, ipB)
@@ -1091,7 +1091,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				//create two vms on the same sriov network
-				vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, vmi1CIDR, vmi2CIDR)
+				vmi1, vmi2 := createSriovVMs(sriovnetLinkEnabled, sriovnetLinkEnabled, vmi1CIDR, vmi2CIDR)
 
 				Eventually(func() error {
 					return libnet.PingFromVMConsole(vmi1, vmi2IP)
@@ -1103,8 +1103,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			Context("With VLAN", func() {
 				const (
-					cidrVlaned1          = "192.168.0.1/24"
-					sriovVlanNetworkName = "sriov-vlan"
+					cidrVlaned1     = "192.168.0.1/24"
+					sriovnetVlanned = "sriov-vlan"
 				)
 				var ipVlaned1 string
 
@@ -1112,11 +1112,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 					var err error
 					ipVlaned1, err = cidrToIP(cidrVlaned1)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(createSriovNetworkAttachmentDefinition(sriovVlanNetworkName, util.NamespaceTestDefault, sriovConfVlanCRD)).To(Succeed())
+					Expect(createSriovNetworkAttachmentDefinition(sriovnetVlanned, util.NamespaceTestDefault, sriovConfVlanCRD)).To(Succeed())
 				})
 
 				It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
-					_, vlanedVMI2 := createSriovVMs(sriovVlanNetworkName, sriovVlanNetworkName, cidrVlaned1, "192.168.0.2/24")
+					_, vlanedVMI2 := createSriovVMs(sriovnetVlanned, sriovnetVlanned, cidrVlaned1, "192.168.0.2/24")
 
 					By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
 					Eventually(func() error {
@@ -1125,7 +1125,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				})
 
 				It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
-					_, nonVlanedVMI := createSriovVMs(sriovVlanNetworkName, sriovnet3, cidrVlaned1, "192.168.0.3/24")
+					_, nonVlanedVMI := createSriovVMs(sriovnetVlanned, sriovnetLinkEnabled, cidrVlaned1, "192.168.0.3/24")
 
 					By("pinging between nonVlanedVMIand the anonymous vmi")
 					Eventually(func() error {
