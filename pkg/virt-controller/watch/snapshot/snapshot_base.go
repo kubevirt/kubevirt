@@ -395,7 +395,8 @@ func (ctrl *VMSnapshotController) handleVM(obj interface{}) {
 	}
 
 	if vm, ok := obj.(*kubevirtv1.VirtualMachine); ok {
-		keys, err := ctrl.VMSnapshotInformer.GetIndexer().IndexKeys("vm", vm.Name)
+		k, _ := cache.MetaNamespaceKeyFunc(vm)
+		keys, err := ctrl.VMSnapshotInformer.GetIndexer().IndexKeys("vm", k)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
@@ -420,7 +421,8 @@ func (ctrl *VMSnapshotController) handleVMI(obj interface{}) {
 	}
 
 	if vmi, ok := obj.(*kubevirtv1.VirtualMachineInstance); ok {
-		keys, err := ctrl.VMSnapshotInformer.GetIndexer().IndexKeys("vm", vmi.Name)
+		k, _ := cache.MetaNamespaceKeyFunc(vmi)
+		keys, err := ctrl.VMSnapshotInformer.GetIndexer().IndexKeys("vm", k)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
@@ -483,7 +485,8 @@ func (ctrl *VMSnapshotController) handleVolumeSnapshot(obj interface{}) {
 	}
 
 	if volumeSnapshot, ok := obj.(*vsv1beta1.VolumeSnapshot); ok {
-		keys, err := ctrl.VMSnapshotContentInformer.GetIndexer().IndexKeys("volumeSnapshot", volumeSnapshot.Name)
+		k, _ := cache.MetaNamespaceKeyFunc(volumeSnapshot)
+		keys, err := ctrl.VMSnapshotContentInformer.GetIndexer().IndexKeys("volumeSnapshot", k)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return

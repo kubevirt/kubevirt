@@ -284,7 +284,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					if vms.Spec.Source.APIGroup != nil &&
 						*vms.Spec.Source.APIGroup == core.GroupName &&
 						vms.Spec.Source.Kind == "VirtualMachine" {
-						return []string{vms.Spec.Source.Name}, nil
+						return []string{vms.Namespace + "/" + vms.Spec.Source.Name}, nil
 					}
 					return nil, nil
 				},
@@ -295,7 +295,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					var volumeSnapshots []string
 					for _, v := range vmsc.Spec.VolumeBackups {
 						if v.VolumeSnapshotName != nil {
-							volumeSnapshots = append(volumeSnapshots, *v.VolumeSnapshotName)
+							volumeSnapshots = append(volumeSnapshots, vmsc.Namespace+"/"+*v.VolumeSnapshotName)
 						}
 					}
 					return volumeSnapshots, nil

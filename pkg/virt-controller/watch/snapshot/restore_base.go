@@ -179,7 +179,8 @@ func (ctrl *VMRestoreController) handleVM(obj interface{}) {
 	}
 
 	if vm, ok := obj.(*kubevirtv1.VirtualMachine); ok {
-		keys, err := ctrl.VMRestoreInformer.GetIndexer().IndexKeys("vm", vm.Name)
+		k, _ := cache.MetaNamespaceKeyFunc(vm)
+		keys, err := ctrl.VMRestoreInformer.GetIndexer().IndexKeys("vm", k)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
