@@ -110,8 +110,6 @@ func processWorkItem(queue workqueue.RateLimitingInterface, handler func(string)
 			return nil
 		}
 
-		log.Log.V(3).Infof("processing key [%s]", key)
-
 		if requeueAfter, err := handler(key); requeueAfter > 0 || err != nil {
 			if requeueAfter > 0 {
 				queue.AddAfter(key, requeueAfter)

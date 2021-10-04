@@ -235,7 +235,7 @@ var _ = Describe("Restore controlleer", func() {
 					if vmr.Spec.Target.APIGroup != nil &&
 						*vmr.Spec.Target.APIGroup == core.GroupName &&
 						vmr.Spec.Target.Kind == "VirtualMachine" {
-						return []string{vmr.Spec.Target.Name}, nil
+						return []string{vmr.Namespace + "/" + vmr.Spec.Target.Name}, nil
 					}
 					return nil, nil
 				},
