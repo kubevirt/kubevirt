@@ -82,6 +82,8 @@ var (
 	isolationDetector = func(path string) isolation.PodIsolationDetector {
 		return isolation.NewSocketBasedIsolationDetector(path)
 	}
+
+	defaultDeviceRules []*devices.Rule
 )
 
 type volumeMounter struct {
@@ -475,10 +477,30 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 		Allow:       allow,
 	}
 
+	rules := append(generateDefaultDeviceRules(), deviceRule)
+	err = manager.Set(&configs.Resources{
+		Devices: rules,
+	})
+
+	if err != nil {
+		log.Log.Infof("cgroup %s had failed to set device rule. error: %v. rule: %+v", manager.GetCgroupVersion(), err, *deviceRule)
+	} else {
+		log.Log.Infof("cgroup %s device rule is set successfully. rule: %+v", manager.GetCgroupVersion(), *deviceRule)
+	}
+
+	return err
+}
+
+func generateDefaultDeviceRules() []*devices.Rule {
+	if len(defaultDeviceRules) > 0 {
+		// To avoid re-computing default device rules
+		return defaultDeviceRules
+	}
+
 	const permissions = "rwm"
 	const toAllow = true
+
 	defaultRules := []*devices.Rule{
-		deviceRule,
 		{ // /dev/ptmx (PTY master multiplex)
 			Type:        devices.CharDevice,
 			Major:       5,
@@ -493,26 +515,27 @@ func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, allow bool, ma
 			Permissions: permissions,
 			Allow:       toAllow,
 		},
-		{ // /dev/pts/... (PTY slaves)
-			Type:        devices.CharDevice,
-			Major:       136,
-			Minor:       -1,
-			Permissions: permissions,
-			Allow:       toAllow,
-		},
 	}
 
-	err = manager.Set(&configs.Resources{
-		Devices: defaultRules,
-	})
+	// Add PTY slaves. See this for more info:
+	// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/admin-guide/devices.txt?h=v5.14#n2084
+	const ptyFirstMajor int64 = 136
+	const ptyMajors int64 = 16
 
-	if err != nil {
-		log.Log.Infof("cgroup %s had failed to set device rule. error: %v. rule: %+v", manager.GetCgroupVersion(), err, *deviceRule)
-	} else {
-		log.Log.Infof("cgroup %s device rule is set successfully. rule: %+v", manager.GetCgroupVersion(), *deviceRule)
+	for i := int64(0); i < ptyMajors; i++ {
+		defaultRules = append(defaultRules,
+			&devices.Rule{
+				Type:        devices.CharDevice,
+				Major:       ptyFirstMajor + i,
+				Minor:       -1,
+				Permissions: permissions,
+				Allow:       toAllow,
+			})
 	}
 
-	return err
+	defaultDeviceRules = defaultRules
+
+	return defaultRules
 }
 
 func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor int64, blockDevicePermissions string) (string, error) {
