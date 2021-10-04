@@ -137,7 +137,8 @@ func initIsolationDetectorIfNil() {
 	isolationDetector = &detector
 }
 
-// detectVMIsolation detects VM's isolation. Socket is optional and makes the execution faster
+// detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.
+// Socket is optional and makes the execution faster
 func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationRes isolation.IsolationResult, err error) {
 	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
 	initIsolationDetectorIfNil()
