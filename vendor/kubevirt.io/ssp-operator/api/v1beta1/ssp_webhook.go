@@ -85,13 +85,6 @@ func (r *SSP) ValidateCreate() error {
 func (r *SSP) ValidateUpdate(old runtime.Object) error {
 	ssplog.Info("validate update", "name", r.Name)
 
-	oldSsp := old.(*SSP)
-	if r.Spec.CommonTemplates.Namespace != oldSsp.Spec.CommonTemplates.Namespace {
-		return fmt.Errorf("commonTemplates.namespace cannot be changed. Attempting to change from: %v to %v",
-			oldSsp.Spec.CommonTemplates.Namespace,
-			r.Spec.CommonTemplates.Namespace)
-	}
-
 	if err := validatePlacement(r); err != nil {
 		return errors.Wrap(err, "placement api validation error")
 	}
