@@ -66,7 +66,7 @@ const (
 	testNewVolume2 = "some-new-volume2"
 )
 
-var _ = FDescribe("Hotplug", func() {
+var _ = SIGDescribe("Hotplug", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -803,7 +803,7 @@ var _ = FDescribe("Hotplug", func() {
 				table.Entry("[Serial] with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
-			FIt("should permanently add hotplug volume when added to VM, but still unpluggable after restart", func() {
+			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
