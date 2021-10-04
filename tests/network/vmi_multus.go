@@ -798,9 +798,12 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 
 		Context("Connected to single SRIOV network", func() {
-			It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
+			BeforeEach(func() {
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).
+					To(Succeed(), "should successfully create the network")
+			})
 
+			It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on but SRIOVLiveMigration is off", func() {
 				tests.EnableFeatureGate(virtconfig.LiveMigrationGate)
 				defer tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
 
@@ -816,8 +819,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("should have cloud-init meta_data with tagged sriov nics", func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
 				noCloudInitNetworkData := ""
 				vmi := getSriovVmi([]string{sriovnet1}, noCloudInitNetworkData)
 
@@ -875,8 +876,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("[test_id:1754]should create a virtual machine with sriov interface", func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
 				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi = startVmi(vmi)
 				vmi = waitVmi(vmi)
@@ -895,8 +894,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
 				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Annotations = map[string]string{
 					v1.PlacePCIDevicesOnRootComplex: "true",
@@ -924,8 +921,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
 				checks.SkipTestIfNoCPUManager()
 				// In addition to verifying that we can start a VMI with CPU pinning
 				// this also tests if we've correctly calculated the overhead for VFIO devices.
@@ -947,8 +942,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
 				const mac = "de:ad:00:00:be:ef"
 				vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
@@ -992,8 +985,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 				const mac = "de:ad:00:00:be:ef"
 
 				BeforeEach(func() {
-					Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
-
 					// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
 					vmi = getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 					vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
@@ -1039,10 +1030,12 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 
 		Context("Connected to two SRIOV networks", func() {
-			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
+			BeforeEach(func() {
 				Expect(createSriovNetworkAttachmentDefinition(sriovnet1, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
 				Expect(createSriovNetworkAttachmentDefinition(sriovnet2, util.NamespaceTestDefault, sriovConfCRD)).To(Succeed(), "should successfully create the network")
+			})
 
+			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
 				sriovNetworks := []string{sriovnet1, sriovnet2}
 				vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
 				vmi = startVmi(vmi)
@@ -1065,9 +1058,12 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 
 		Context("Connected to link-enabled SRIOV network", func() {
-			It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).To(Succeed(), "should successfully create the network")
+			BeforeEach(func() {
+				Expect(createSriovNetworkAttachmentDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).
+					To(Succeed(), "should successfully create the network")
+			})
 
+			It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
 				cidrA := "192.168.1.1/24"
 				cidrB := "192.168.1.2/24"
 				ipA, err := cidrToIP(cidrA)
@@ -1087,8 +1083,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 			})
 
 			It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
-				Expect(createSriovNetworkAttachmentDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).To(Succeed(), "should successfully create the network")
-
 				vmi1CIDR := "fc00::1/64"
 				vmi2CIDR := "fc00::2/64"
 				vmi1IP, err := cidrToIP(vmi1CIDR)
@@ -1131,8 +1125,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 				})
 
 				It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
-					Expect(createSriovNetworkAttachmentDefinition(sriovnet3, util.NamespaceTestDefault, sriovLinkEnableConfCRD)).To(Succeed(), "should successfully create the network")
-
 					_, nonVlanedVMI := createSriovVMs(sriovVlanNetworkName, sriovnet3, cidrVlaned1, "192.168.0.3/24")
 
 					By("pinging between nonVlanedVMIand the anonymous vmi")
