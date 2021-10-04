@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
 	"syscall"
 
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
@@ -59,6 +60,10 @@ func areResourcesEmpty(r runc_configs.Resources) bool {
 // runs toRun function. When the function finishes, changes back the root directory
 // to the original one that
 func RunWithChroot(newPath string, toRun func() error) error { // ihol3 bad place to define func
+	// Ensure no other goroutines are effected by this
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	originalRoot, err := os.Open("/")
 	if err != nil {
 		return fmt.Errorf("failed to run with chroot - failed to open root directory. error: %v", err)
