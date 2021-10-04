@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["devicefilter.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/opencontainers/runc/libcontainer/cgroups/cgroups/ebpf/devicefilter",
+    importpath = "github.com/opencontainers/runc/libcontainer/cgroups/cgroups/ebpf/devicefilter",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/cilium/ebpf/asm:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library",
+        "//vendor/github.com/pkg/errors:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["devicefilter_test.go"],
+    embed = [":go_default_library"],
+    deps = ["//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library"],
+)
