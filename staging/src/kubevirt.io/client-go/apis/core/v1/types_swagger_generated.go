@@ -711,6 +711,12 @@ func (ClusterProfilerResults) SwaggerDoc() map[string]string {
 	}
 }
 
+func (ClusterProfilerRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
 func (FlavorMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":        "FlavorMatcher references a flavor that is used to fill fields in the VMI template.\n+k8s:openapi-gen=true",

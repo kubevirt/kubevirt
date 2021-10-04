@@ -2140,6 +2140,14 @@ type ProfilerResult struct {
 // +k8s:openapi-gen=true
 type ClusterProfilerResults struct {
 	ComponentResults map[string]ProfilerResult `json:"componentResults"`
+	Continue         string                    `json:"continue,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type ClusterProfilerRequest struct {
+	LabelSelector string `json:"labelSelector,omitempty"`
+	Continue      string `json:"continue,omitempty"`
+	PageSize      int64  `json:"pageSize"`
 }
 
 // FlavorMatcher references a flavor that is used to fill fields in the VMI template.
