@@ -667,7 +667,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, sriovNad)
 	}
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
