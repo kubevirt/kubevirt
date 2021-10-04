@@ -161,7 +161,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, ptpNad)
 	}
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 
@@ -176,12 +176,8 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		// Create ptp crds with tuning plugin enabled in two different namespaces
 		Expect(createPtpNetworkAttachmentDefinition(util.NamespaceTestDefault, ptpConf1, ptpSubnet)).To(Succeed())
 		Expect(createPtpNetworkAttachmentDefinition(tests.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
-	})
 
-	BeforeEach(func() {
 		// Multus tests need to ensure that old VMIs are gone
-		Expect(virtClient.RestClient().Delete().Namespace(util.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
 		Eventually(func() int {
 			list1, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
