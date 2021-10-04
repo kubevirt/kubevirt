@@ -186,8 +186,8 @@ var _ = Describe("Mediated Device", func() {
 			fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 			By("creating an empty device controller")
-			deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig, clientTest.CoreV1())
-			deviceController.devicePlugins = make(map[string]ControlledDevice)
+			var noDevices []GenericDevice
+			deviceController := NewDeviceController("master", noDevices, fakeClusterConfig, clientTest.CoreV1())
 
 			By("adding a host device to the cluster config")
 			kvConfig := kv.DeepCopy()
@@ -211,7 +211,9 @@ var _ = Describe("Mediated Device", func() {
 			Expect(len(disabledDevicePlugins)).To(Equal(0))
 			Ω(enabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))
 			// Manually adding the enabled plugin, since the device controller is not actually running
-			deviceController.devicePlugins[fakeMdevResourceName] = enabledDevicePlugins[fakeMdevResourceName]
+			deviceController.startedPlugins[fakeMdevResourceName] = controlledDevice{
+				devicePlugin: enabledDevicePlugins[fakeMdevResourceName],
+			}
 
 			By("deletting the device from the configmap")
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{}

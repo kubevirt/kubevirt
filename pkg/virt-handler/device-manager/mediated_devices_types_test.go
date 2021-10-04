@@ -400,7 +400,8 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			addNode(clientTest, node)
 
 			By("creating an empty device controller")
-			deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig, clientTest.CoreV1())
+			var noDevices []GenericDevice
+			deviceController := NewDeviceController("master", noDevices, fakeClusterConfig, clientTest.CoreV1())
 			deviceController.refreshMediatedDevicesTypes()
 			By("creating the desired mdev types")
 			desiredDevicesToConfigure := make(map[string]struct{})
