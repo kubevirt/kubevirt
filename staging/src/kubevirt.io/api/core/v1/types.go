@@ -764,6 +764,10 @@ const (
 
 	// RealtimeLabel marks the node as capable of running realtime workloads
 	RealtimeLabel string = "kubevirt.io/realtime"
+
+	// VirtualMachineUnpaused is a custom pod condition set for the virt-launcher pod.
+	// It's used as a readiness gate to prevent paused VMs from being marked as ready.
+	VirtualMachineUnpaused k8sv1.PodConditionType = "kubevirt.io/virtual-machine-unpaused"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
