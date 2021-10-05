@@ -20,6 +20,7 @@
 set -ex pipefail
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
+KUBEVIRT_DEPLOY_CDI=${KUBEVIRT_DEPLOY_CDI:-true}
 
 source hack/common.sh
 # shellcheck disable=SC1090
