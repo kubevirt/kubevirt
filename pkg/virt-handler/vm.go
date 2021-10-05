@@ -2514,7 +2514,11 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 	}
 
-	if err := client.SyncMigrationTarget(vmi); err != nil {
+	options := virtualMachineOptions(d.clusterConfig.GetSMBIOS(),
+		d.clusterConfig.GetMemBalloonStatsPeriod(),
+		preallocatedVolumesForVMI(vmi.DeepCopy()),
+		d.capabilities)
+	if err := client.SyncMigrationTarget(vmi, options); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
 
 	}
@@ -2534,12 +2538,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 	vmi := origVMI.DeepCopy()
 	// Find preallocated volumes
-	var preallocatedVolumes []string
-	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
-			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)
-		}
-	}
+	preallocatedVolumes := preallocatedVolumesForVMI(vmi)
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
@@ -2884,4 +2883,14 @@ func nodeHasHostModelLabel(node *k8sv1.Node) bool {
 		}
 	}
 	return false
+}
+
+func preallocatedVolumesForVMI(vmi *v1.VirtualMachineInstance) []string {
+	var preallocatedVolumes []string
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
+			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)
+		}
+	}
+	return preallocatedVolumes
 }
