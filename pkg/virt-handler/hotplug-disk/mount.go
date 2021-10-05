@@ -87,7 +87,6 @@ var (
 )
 
 type volumeMounter struct {
-	cgroupManager      cgroup.Manager
 	mountStateDir      string
 	mountRecords       map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock   sync.Mutex
