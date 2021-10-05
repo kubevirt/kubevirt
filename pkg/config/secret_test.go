@@ -61,7 +61,7 @@ var _ = Describe("Secret", func() {
 			},
 		})
 
-		err := CreateSecretDisks(vmi)
+		err := CreateSecretDisks(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = os.Stat(filepath.Join(SecretDisksDir, "secret-volume.iso"))
 		Expect(err).NotTo(HaveOccurred())

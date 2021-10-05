@@ -51,6 +51,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"k8s.io/utils/pointer"
 
@@ -637,7 +638,35 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 			vmis := []*v1.VirtualMachineInstance{}
 			for i := 0; i < num; i++ {
-				vmis = append(vmis, tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				configMapName := "configmap-" + rand.String(5)
+				secretName := "secret-" + rand.String(5)
+				downwardAPIName := "downwardapi-" + rand.String(5)
+
+				config_data := map[string]string{
+					"config1": "value1",
+					"config2": "value2",
+				}
+
+				secret_data := map[string]string{
+					"user":     "admin",
+					"password": "community",
+				}
+
+				tests.CreateConfigMap(configMapName, config_data)
+				tests.CreateSecret(secretName, secret_data)
+
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
+				tests.AddSecretDisk(vmi, secretName, secretName)
+				tests.AddServiceAccountDisk(vmi, "default")
+				// In case there are no existing labels add labels to add some data to the downwardAPI disk
+				if vmi.ObjectMeta.Labels == nil {
+					vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
+				}
+				tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
+
+				vmis = append(vmis, vmi)
 			}
 
 			return vmis
