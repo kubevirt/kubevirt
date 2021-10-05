@@ -206,8 +206,7 @@ var _ = Describe("Apply Apps", func() {
 		})
 	})
 
-	Context("setting virt-handler maxDevices flag ", func() {
-
+	Describe("apply KubeVirt Spec Configuration", func() {
 		var daemonSet *appsv1.DaemonSet
 		var err error
 		var clientset *kubecli.MockKubevirtClient
@@ -216,10 +215,8 @@ var _ = Describe("Apply Apps", func() {
 		var stores util.Stores
 		var mockDSCacheStore *MockStore
 		var dsClient *fake.Clientset
-
 		var ctrl *gomock.Controller
-
-		vmiPerNode := 10
+		var r *Reconciler
 
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
@@ -243,6 +240,13 @@ var _ = Describe("Apply Apps", func() {
 				},
 			}
 
+			r = &Reconciler{
+				clientset:    clientset,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
+			}
+
 			daemonSet, err = components.NewHandlerDaemonSet(Namespace, Registry, "", Version, "", "", "", corev1.PullIfNotPresent, "verbosity", map[string]string{})
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -251,98 +255,89 @@ var _ = Describe("Apply Apps", func() {
 			ctrl.Finish()
 		})
 
-		It("should create with maxDevices Set", func() {
-			kv.Spec.Configuration.VirtualMachineInstancesPerNode = &vmiPerNode
-			created := false
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: expectations,
-				stores:       stores,
-			}
+		Context("setting virt-handler maxDevices flag ", func() {
+			vmiPerNode := 10
 
-			dsClient.Fake.PrependReactor("create", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				created = true
+			It("should create with maxDevices Set", func() {
+				kv.Spec.Configuration.VirtualMachineInstancesPerNode = &vmiPerNode
+				created := false
 
-				ds := update.GetObject().(*appsv1.DaemonSet)
+				dsClient.Fake.PrependReactor("create", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					update, ok := action.(testing.CreateAction)
+					Expect(ok).To(BeTrue())
+					created = true
 
-				command := ds.Spec.Template.Spec.Containers[0].Command
-				Expect(strings.Join(command, " ")).To(ContainSubstring("--maxDevices 10"))
+					ds := update.GetObject().(*appsv1.DaemonSet)
 
-				return true, update.GetObject(), nil
-			})
-
-			err = r.syncDaemonSet(daemonSet)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(created).To(BeTrue())
-		})
-
-		It("should patch DS with maxDevices and then remove it", func() {
-			mockDSCacheStore.get = daemonSet
-			SetGeneration(&kv.Status.Generations, daemonSet)
-			patched := false
-			containMaxDeviceFlag := false
-
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: expectations,
-				stores:       stores,
-			}
-
-			// add VirtualMachineInstancesPerNode configuration
-			kv.Spec.Configuration.VirtualMachineInstancesPerNode = &vmiPerNode
-			containMaxDeviceFlag = true
-			kv.SetGeneration(2)
-
-			dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				a, ok := action.(testing.PatchAction)
-				Expect(ok).To(BeTrue())
-				patched = true
-
-				patches := []utiltypes.PatchOperation{}
-				json.Unmarshal(a.GetPatch(), &patches)
-
-				var dsSpec *appsv1.DaemonSetSpec
-				for _, v := range patches {
-					if v.Path == "/spec" && v.Op == "replace" {
-						dsSpec = &appsv1.DaemonSetSpec{}
-						template, err := json.Marshal(v.Value)
-						Expect(err).ToNot(HaveOccurred())
-						json.Unmarshal(template, dsSpec)
-					}
-				}
-
-				Expect(dsSpec).ToNot(BeNil())
-
-				command := dsSpec.Template.Spec.Containers[0].Command
-				if containMaxDeviceFlag {
+					command := ds.Spec.Template.Spec.Containers[0].Command
 					Expect(strings.Join(command, " ")).To(ContainSubstring("--maxDevices 10"))
-				} else {
-					Expect(strings.Join(command, " ")).ToNot(ContainSubstring("--maxDevices 10"))
-				}
 
-				return true, &appsv1.DaemonSet{}, nil
+					return true, update.GetObject(), nil
+				})
+
+				err = r.syncDaemonSet(daemonSet)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(created).To(BeTrue())
 			})
 
-			err = r.syncDaemonSet(daemonSet)
+			It("should patch DS with maxDevices and then remove it", func() {
+				mockDSCacheStore.get = daemonSet
+				SetGeneration(&kv.Status.Generations, daemonSet)
+				patched := false
+				containMaxDeviceFlag := false
 
-			Expect(patched).To(BeTrue())
-			Expect(err).ToNot(HaveOccurred())
+				// add VirtualMachineInstancesPerNode configuration
+				kv.Spec.Configuration.VirtualMachineInstancesPerNode = &vmiPerNode
+				containMaxDeviceFlag = true
+				kv.SetGeneration(2)
 
-			// remove VirtualMachineInstancesPerNode configuration
-			patched = false
-			kv.Spec.Configuration.VirtualMachineInstancesPerNode = nil
-			containMaxDeviceFlag = false
-			kv.SetGeneration(3)
+				dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					a, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					patched = true
 
-			err = r.syncDaemonSet(daemonSet)
+					patches := []utiltypes.PatchOperation{}
+					json.Unmarshal(a.GetPatch(), &patches)
 
-			Expect(patched).To(BeTrue())
-			Expect(err).ToNot(HaveOccurred())
+					var dsSpec *appsv1.DaemonSetSpec
+					for _, v := range patches {
+						if v.Path == "/spec" && v.Op == "replace" {
+							dsSpec = &appsv1.DaemonSetSpec{}
+							template, err := json.Marshal(v.Value)
+							Expect(err).ToNot(HaveOccurred())
+							json.Unmarshal(template, dsSpec)
+						}
+					}
+
+					Expect(dsSpec).ToNot(BeNil())
+
+					command := dsSpec.Template.Spec.Containers[0].Command
+					if containMaxDeviceFlag {
+						Expect(strings.Join(command, " ")).To(ContainSubstring("--maxDevices 10"))
+					} else {
+						Expect(strings.Join(command, " ")).ToNot(ContainSubstring("--maxDevices 10"))
+					}
+
+					return true, &appsv1.DaemonSet{}, nil
+				})
+
+				err = r.syncDaemonSet(daemonSet)
+
+				Expect(patched).To(BeTrue())
+				Expect(err).ToNot(HaveOccurred())
+
+				// remove VirtualMachineInstancesPerNode configuration
+				patched = false
+				kv.Spec.Configuration.VirtualMachineInstancesPerNode = nil
+				containMaxDeviceFlag = false
+				kv.SetGeneration(3)
+
+				err = r.syncDaemonSet(daemonSet)
+
+				Expect(patched).To(BeTrue())
+				Expect(err).ToNot(HaveOccurred())
+			})
 		})
 	})
 
