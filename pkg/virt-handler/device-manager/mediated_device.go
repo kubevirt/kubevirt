@@ -57,7 +57,7 @@ type MediatedDevicePlugin struct {
 	devs           []*pluginapi.Device
 	server         *grpc.Server
 	socketPath     string
-	stop           chan struct{}
+	stop           <-chan struct{}
 	health         chan string
 	devicePath     string
 	deviceName     string
@@ -120,7 +120,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 }
 
 // Start starts the device plugin
-func (dpi *MediatedDevicePlugin) Start(stop chan struct{}) (err error) {
+func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
 	dpi.done = make(chan struct{})
@@ -140,7 +140,7 @@ func (dpi *MediatedDevicePlugin) Start(stop chan struct{}) (err error) {
 	defer dpi.stopDevicePlugin()
 
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-	err = dpi.Register()
+	err = dpi.register()
 	if err != nil {
 		return fmt.Errorf("error registering with device plugin manager: %v", err)
 	}
@@ -151,7 +151,7 @@ func (dpi *MediatedDevicePlugin) Start(stop chan struct{}) (err error) {
 		errChan <- dpi.server.Serve(sock)
 	}()
 
-	err = waitForGrpcServer(dpi.socketPath, connectionTimeout)
+	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
 	if err != nil {
 		return fmt.Errorf("error starting the GRPC server: %v", err)
 	}
@@ -195,7 +195,7 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 				allocatedDevices = append(allocatedDevices, mdevUUID)
 				formattedVFIO := formatVFIODeviceSpecs(devID)
 				log.DefaultLogger().Infof("Allocate: formatted vfio: %v", formattedVFIO)
-				deviceSpecs = append(deviceSpecs, formatVFIODeviceSpecs(devID)...)
+				deviceSpecs = append(deviceSpecs, formattedVFIO...)
 			}
 		}
 		envVar := make(map[string]string)
@@ -235,8 +235,8 @@ func (dpi *MediatedDevicePlugin) stopDevicePlugin() error {
 }
 
 // Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *MediatedDevicePlugin) Register() error {
-	conn, err := connect(pluginapi.KubeletSocket, connectionTimeout)
+func (dpi *MediatedDevicePlugin) register() error {
+	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
 	if err != nil {
 		return err
 	}

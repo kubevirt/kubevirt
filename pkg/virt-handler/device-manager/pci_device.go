@@ -57,7 +57,7 @@ type PCIDevicePlugin struct {
 	devs          []*pluginapi.Device
 	server        *grpc.Server
 	socketPath    string
-	stop          chan struct{}
+	stop          <-chan struct{}
 	health        chan string
 	devicePath    string
 	deviceName    string
@@ -116,7 +116,7 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 }
 
 // Start starts the device plugin
-func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
+func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
 	dpi.done = make(chan struct{})
@@ -136,7 +136,7 @@ func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
 	defer dpi.stopDevicePlugin()
 
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-	err = dpi.Register()
+	err = dpi.register()
 	if err != nil {
 		return fmt.Errorf("error registering with device plugin manager: %v", err)
 	}
@@ -147,7 +147,7 @@ func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
 		errChan <- dpi.server.Serve(sock)
 	}()
 
-	err = waitForGrpcServer(dpi.socketPath, connectionTimeout)
+	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
 	if err != nil {
 		return fmt.Errorf("error starting the GRPC server: %v", err)
 	}
@@ -205,24 +205,6 @@ func (dpi *PCIDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DeviceP
 	}
 	close(dpi.deregistered)
 	return nil
-}
-
-func formatVFIODeviceSpecs(devID string) []*pluginapi.DeviceSpec {
-	// always add /dev/vfio/vfio device as well
-	devSpecs := make([]*pluginapi.DeviceSpec, 0)
-	devSpecs = append(devSpecs, &pluginapi.DeviceSpec{
-		HostPath:      vfioMount,
-		ContainerPath: vfioMount,
-		Permissions:   "mrw",
-	})
-
-	vfioDevice := filepath.Join(vfioDevicePath, devID)
-	devSpecs = append(devSpecs, &pluginapi.DeviceSpec{
-		HostPath:      vfioDevice,
-		ContainerPath: vfioDevice,
-		Permissions:   "mrw",
-	})
-	return devSpecs
 }
 
 func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
@@ -355,8 +337,8 @@ func (dpi *PCIDevicePlugin) stopDevicePlugin() error {
 }
 
 // Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *PCIDevicePlugin) Register() error {
-	conn, err := connect(pluginapi.KubeletSocket, connectionTimeout)
+func (dpi *PCIDevicePlugin) register() error {
+	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
 	if err != nil {
 		return err
 	}

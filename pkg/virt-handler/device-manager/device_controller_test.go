@@ -26,7 +26,7 @@ type FakePlugin struct {
 	Error      error
 }
 
-func (fp *FakePlugin) Start(_ chan struct{}) (err error) {
+func (fp *FakePlugin) Start(_ <-chan struct{}) (err error) {
 	atomic.AddInt32(&fp.Starts, 1)
 	return fp.Error
 }
@@ -100,7 +100,7 @@ var _ = Describe("Device Controller", func() {
 
 	Context("Basic Tests", func() {
 		It("Should indicate if node has device", func() {
-			var noDevices []GenericDevice
+			var noDevices []Device
 			deviceController := NewDeviceController(host, noDevices, fakeConfigMap, clientTest.CoreV1())
 			devicePath := path.Join(workDir, "fake-device")
 			res := deviceController.NodeHasDevice(devicePath)
@@ -137,7 +137,7 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		It("should start the device plugin immediately without delays", func() {
-			initialDevices := []GenericDevice{plugin2}
+			initialDevices := []Device{plugin2}
 			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, clientTest.CoreV1())
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 10 * time.Second}
 
@@ -151,7 +151,7 @@ var _ = Describe("Device Controller", func() {
 		It("should restart the device plugin with delays if it returns errors", func() {
 			plugin2 = NewFakePlugin("fake-device2", devicePath2)
 			plugin2.Error = fmt.Errorf("failing")
-			initialDevices := []GenericDevice{plugin2}
+			initialDevices := []Device{plugin2}
 
 			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, clientTest.CoreV1())
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 300 * time.Millisecond}
@@ -164,7 +164,7 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		It("Should not block on other plugins", func() {
-			initialDevices := []GenericDevice{plugin1, plugin2}
+			initialDevices := []Device{plugin1, plugin2}
 			deviceController := NewDeviceController(host, initialDevices, fakeConfigMap, clientTest.CoreV1())
 
 			go deviceController.Run(stop)
@@ -185,7 +185,7 @@ var _ = Describe("Device Controller", func() {
 			emptyConfigMap, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
 
-			initialDevices := []GenericDevice{plugin1, plugin2}
+			initialDevices := []Device{plugin1, plugin2}
 			deviceController := NewDeviceController(host, initialDevices, emptyConfigMap, clientTest.CoreV1())
 
 			go deviceController.Run(stop)

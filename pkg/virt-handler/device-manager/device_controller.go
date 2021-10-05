@@ -37,7 +37,7 @@ import (
 var defaultBackoffTime = []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second}
 
 type controlledDevice struct {
-	devicePlugin GenericDevice
+	devicePlugin Device
 	started      bool
 	stopChan     chan struct{}
 	backoff      []time.Duration
@@ -100,7 +100,7 @@ func (c *controlledDevice) GetName() string {
 	return c.devicePlugin.GetDeviceName()
 }
 
-func PermanentHostDevicePlugins(maxDevices int, permissions string) []GenericDevice {
+func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
 	var permanentDevicePluginPaths = map[string]string{
 		"kvm":       "/dev/kvm",
 		"tun":       "/dev/net/tun",
@@ -108,7 +108,7 @@ func PermanentHostDevicePlugins(maxDevices int, permissions string) []GenericDev
 		"sev":       "/dev/sev",
 	}
 
-	ret := make([]GenericDevice, 0, len(permanentDevicePluginPaths))
+	ret := make([]Device, 0, len(permanentDevicePluginPaths))
 	for name, path := range permanentDevicePluginPaths {
 		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, (name != "kvm")))
 	}
@@ -121,7 +121,7 @@ type DeviceControllerInterface interface {
 }
 
 type DeviceController struct {
-	permanentPlugins    map[string]GenericDevice
+	permanentPlugins    map[string]Device
 	startedPlugins      map[string]controlledDevice
 	startedPluginsMutex sync.Mutex
 	host                string
@@ -132,8 +132,8 @@ type DeviceController struct {
 	clientset           k8scli.CoreV1Interface
 }
 
-func NewDeviceController(host string, permanentPlugins []GenericDevice, clusterConfig *virtconfig.ClusterConfig, clientset k8scli.CoreV1Interface) *DeviceController {
-	permanentPluginsMap := make(map[string]GenericDevice, len(permanentPlugins))
+func NewDeviceController(host string, permanentPlugins []Device, clusterConfig *virtconfig.ClusterConfig, clientset k8scli.CoreV1Interface) *DeviceController {
+	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
 	for i := range permanentPlugins {
 		permanentPluginsMap[permanentPlugins[i].GetDeviceName()] = permanentPlugins[i]
 	}
@@ -159,8 +159,8 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 
 // updatePermittedHostDevicePlugins will return a map of device plugins for permitted devices which are present on the node
 // and a map of restricted devices that should be removed
-func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]GenericDevice, map[string]struct{}) {
-	devicePluginsToRun := make(map[string]GenericDevice)
+func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Device, map[string]struct{}) {
+	devicePluginsToRun := make(map[string]Device)
 	devicePluginsToStop := make(map[string]struct{})
 	// generate a map of currently started device plugins
 	for resourceName := range c.startedPlugins {
@@ -289,7 +289,7 @@ func (c *DeviceController) refreshPermittedDevices() {
 	logger.Infof("disabled device-plugins for: %v", debugDevRemoved)
 }
 
-func (c *DeviceController) startDevice(resourceName string, dev GenericDevice) {
+func (c *DeviceController) startDevice(resourceName string, dev Device) {
 	c.stopDevice(resourceName)
 	controlledDev := controlledDevice{
 		devicePlugin: dev,
