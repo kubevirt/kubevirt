@@ -1013,6 +1013,15 @@ var updateHostsFile = func(entry string) (err error) {
 	return nil
 }
 
+func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Annotations == nil {
+		return false
+	}
+
+	_, shouldBlock := vmi.Annotations[v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation]
+	return shouldBlock
+}
+
 // Prepares the target pod environment by executing the preStartHook
 func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
 
@@ -1104,6 +1113,10 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	loopbackAddress := ip.GetLoopbackAddress()
 	if err := updateHostsFile(fmt.Sprintf("%s %s\n", loopbackAddress, vmi.Status.MigrationState.TargetPod)); err != nil {
 		return fmt.Errorf("failed to update the hosts file: %v", err)
+	}
+
+	if shouldBlockMigrationTargetPreparation(vmi) {
+		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
 	}
 
 	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
