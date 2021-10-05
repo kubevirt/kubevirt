@@ -55,7 +55,7 @@ type GenericDevicePlugin struct {
 	server       *grpc.Server
 	socketPath   string
 	stop         <-chan struct{}
-	health       chan string
+	health       chan deviceHealth
 	devicePath   string
 	deviceName   string
 	resourceName string
@@ -73,7 +73,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 	dpi := &GenericDevicePlugin{
 		devs:         []*pluginapi.Device{},
 		socketPath:   serverSock,
-		health:       make(chan string),
+		health:       make(chan deviceHealth),
 		deviceName:   deviceName,
 		devicePath:   devicePath,
 		deviceRoot:   util.HostRootMount,
@@ -215,11 +215,11 @@ func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.Dev
 	done := false
 	for {
 		select {
-		case health := <-dpi.health:
+		case devHealth := <-dpi.health:
 			// There's only one shared generic device
 			// so update each plugin device to reflect overall device health
 			for _, dev := range dpi.devs {
-				dev.Health = health
+				dev.Health = devHealth.Health
 			}
 			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 		case <-dpi.stop:
@@ -302,7 +302,7 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 			return fmt.Errorf("could not stat the device: %v", err)
 		}
 		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.devicePath)
-		dpi.health <- pluginapi.Unhealthy
+		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
 	}
 	logger.Infof("device '%s' is present.", dpi.devicePath)
 
@@ -329,10 +329,10 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
 					logger.Infof("monitored device %s appeared", dpi.deviceName)
-					dpi.health <- pluginapi.Healthy
+					dpi.health <- deviceHealth{Health: pluginapi.Healthy}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
 					logger.Infof("monitored device %s disappeared", dpi.deviceName)
-					dpi.health <- pluginapi.Unhealthy
+					dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)

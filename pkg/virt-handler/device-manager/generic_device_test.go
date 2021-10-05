@@ -73,7 +73,7 @@ var _ = Describe("Generic Device", func() {
 
 		By("waiting for healthcheck to send Unhealthy message")
 		Eventually(func() string {
-			return <-dpi.health
+			return (<-dpi.health).Health
 		}, 5*time.Second).Should(Equal(pluginapi.Unhealthy))
 
 		By("Creating a new (fake) device node")
@@ -83,7 +83,7 @@ var _ = Describe("Generic Device", func() {
 
 		By("waiting for healthcheck to send Healthy message")
 		Eventually(func() string {
-			return <-dpi.health
+			return (<-dpi.health).Health
 		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
 	})
 })

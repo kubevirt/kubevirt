@@ -259,3 +259,8 @@ func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
 	})
 	return devSpecs
 }
+
+type deviceHealth struct {
+	DevId  string
+	Health string
+}
