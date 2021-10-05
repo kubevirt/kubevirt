@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
@@ -336,6 +337,122 @@ var _ = Describe("Apply Apps", func() {
 				err = r.syncDaemonSet(daemonSet)
 
 				Expect(patched).To(BeTrue())
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("should inject UpdateConfiguration settings", func() {
+			It("should create with MaxUnavailable set", func() {
+				kv.Spec.Configuration.UpdateConfiguration = &v1.UpdateConfiguration{
+					DaemonSets: &v1.DaemonSetUpdateConfiguration{
+						MaxUnavailable: intstr.FromString("10%"),
+					},
+				}
+
+				dsClient.Fake.PrependReactor("create", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					update, ok := action.(testing.CreateAction)
+					Expect(ok).To(BeTrue())
+
+					ds := update.GetObject().(*appsv1.DaemonSet)
+
+					updateStrategy := ds.Spec.UpdateStrategy
+					Expect(updateStrategy).ToNot(BeNil())
+					Expect(updateStrategy.RollingUpdate).ToNot(BeNil())
+					Expect(updateStrategy.RollingUpdate.MaxUnavailable).ToNot(BeNil())
+					Expect(updateStrategy.RollingUpdate.MaxUnavailable.String()).To(Equal("10%"))
+
+					return true, update.GetObject(), nil
+				})
+
+				err = r.syncDaemonSet(daemonSet)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should patch DaemonSet with MaxUnavailable", func() {
+				mockDSCacheStore.get = daemonSet
+				SetGeneration(&kv.Status.Generations, daemonSet)
+
+				kv.Spec.Configuration.UpdateConfiguration = &v1.UpdateConfiguration{
+					DaemonSets: &v1.DaemonSetUpdateConfiguration{
+						MaxUnavailable: intstr.FromString("10%"),
+					},
+				}
+
+				dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					a, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+
+					patches := []utiltypes.PatchOperation{}
+					json.Unmarshal(a.GetPatch(), &patches)
+
+					var dsSpec *appsv1.DaemonSetSpec
+					for _, v := range patches {
+						if v.Path == "/spec" && v.Op == "replace" {
+							dsSpec = &appsv1.DaemonSetSpec{}
+							template, err := json.Marshal(v.Value)
+							Expect(err).ToNot(HaveOccurred())
+							json.Unmarshal(template, dsSpec)
+						}
+					}
+
+					Expect(dsSpec).ToNot(BeNil())
+
+					updateStrategy := dsSpec.UpdateStrategy
+					Expect(updateStrategy).ToNot(BeNil())
+					Expect(updateStrategy.RollingUpdate).ToNot(BeNil())
+					Expect(updateStrategy.RollingUpdate.MaxUnavailable).ToNot(BeNil())
+					Expect(updateStrategy.RollingUpdate.MaxUnavailable.String()).To(Equal("10%"))
+
+					return true, &appsv1.DaemonSet{Spec: *dsSpec}, nil
+				})
+
+				err = r.syncDaemonSet(daemonSet)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should remove MaxUnavailable setting from DaemonSet", func() {
+				maxUnavailable := intstr.FromString("10%")
+				daemonSet.Spec.UpdateStrategy = appsv1.DaemonSetUpdateStrategy{
+					Type: appsv1.RollingUpdateDaemonSetStrategyType,
+					RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+						MaxUnavailable: &maxUnavailable,
+					},
+				}
+				mockDSCacheStore.get = daemonSet
+				SetGeneration(&kv.Status.Generations, daemonSet)
+
+				kv.Spec.Configuration.UpdateConfiguration = &v1.UpdateConfiguration{}
+
+				dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					a, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+
+					patches := []utiltypes.PatchOperation{}
+					json.Unmarshal(a.GetPatch(), &patches)
+
+					var dsSpec *appsv1.DaemonSetSpec
+					for _, v := range patches {
+						fmt.Println(v.Op, v.Value)
+						if v.Path == "/spec" && v.Op == "replace" {
+							dsSpec = &appsv1.DaemonSetSpec{}
+							template, err := json.Marshal(v.Value)
+							Expect(err).ToNot(HaveOccurred())
+							json.Unmarshal(template, dsSpec)
+						}
+					}
+
+					Expect(dsSpec).ToNot(BeNil())
+
+					updateStrategy := dsSpec.UpdateStrategy
+					fmt.Printf("%+v\n", updateStrategy)
+					Expect(updateStrategy).ToNot(BeNil())
+					Expect(updateStrategy.RollingUpdate).ToNot(BeNil())
+					Expect(updateStrategy.RollingUpdate.MaxUnavailable).To(BeNil())
+
+					return true, &appsv1.DaemonSet{Spec: *dsSpec}, nil
+				})
+
+				err = r.syncDaemonSet(daemonSet)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})

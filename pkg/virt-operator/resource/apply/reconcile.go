@@ -37,6 +37,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
@@ -211,6 +212,22 @@ func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 		for _, toleration := range nodePlacement.Tolerations {
 			podSpec.Tolerations = append(podSpec.Tolerations, toleration)
 		}
+	}
+}
+
+func injectUpdateConfiguration(kv *v1.KubeVirt, ds *appsv1.DaemonSet) {
+	var maxUnavailable *intstr.IntOrString
+
+	conf := kv.Spec.Configuration
+	if conf.UpdateConfiguration != nil && conf.UpdateConfiguration.DaemonSets != nil {
+		maxUnavailable = &conf.UpdateConfiguration.DaemonSets.MaxUnavailable
+	}
+
+	ds.Spec.UpdateStrategy = appsv1.DaemonSetUpdateStrategy{
+		Type: appsv1.RollingUpdateDaemonSetStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+			MaxUnavailable: maxUnavailable,
+		},
 	}
 }
 

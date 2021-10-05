@@ -98,6 +98,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
 	injectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec)
+	injectUpdateConfiguration(kv, daemonSet)
 
 	if daemonSet.GetName() == "virt-handler" {
 		setMaxDevices(r.kv, daemonSet)
