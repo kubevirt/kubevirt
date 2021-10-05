@@ -49,10 +49,6 @@ var (
 		return fmt.Sprintf("pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks/hp.sock", string(podUID))
 	}
 
-	//cgroupsBasePath = func() string {
-	//	return filepath.Join("/proc/1/root", cgroup.ControllerPath("devices"))
-	//}
-
 	statCommand = func(fileName string) ([]byte, error) {
 		return exec.Command("/usr/bin/stat", fileName, "-L", "-c%t,%T,%a,%F").CombinedOutput()
 	}
