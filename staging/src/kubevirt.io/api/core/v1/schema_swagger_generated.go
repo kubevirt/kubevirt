@@ -356,10 +356,8 @@ func (LaunchSecurity) SwaggerDoc() map[string]string {
 
 func (SEV) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "+k8s:openapi-gen=true",
-		"cbitpos":         "CBit Position",
-		"reducedPhysBits": "No. of physical bits in address space",
-		"policy":          "Guest SEV policy\n+listType=set",
+		"":       "+k8s:openapi-gen=true",
+		"policy": "Guest SEV policy\n+listType=set",
 	}
 }
 

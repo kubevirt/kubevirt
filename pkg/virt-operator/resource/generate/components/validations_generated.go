@@ -4742,18 +4742,12 @@ var CRDsValidation map[string]string = map[string]string{
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV)
                           properties:
-                            cbitpos:
-                              description: CBit Position
-                              type: integer
                             policy:
                               description: Guest SEV policy
                               items:
                                 type: string
                               type: array
                               x-kubernetes-list-type: set
-                            reducedPhysBits:
-                              description: No. of physical bits in address space
-                              type: integer
                           type: object
                       type: object
                     machine:
@@ -7742,18 +7736,12 @@ var CRDsValidation map[string]string = map[string]string{
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV)
                   properties:
-                    cbitpos:
-                      description: CBit Position
-                      type: integer
                     policy:
                       description: Guest SEV policy
                       items:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
-                    reducedPhysBits:
-                      description: No. of physical bits in address space
-                      type: integer
                   type: object
               type: object
             machine:
@@ -9836,18 +9824,12 @@ var CRDsValidation map[string]string = map[string]string{
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV)
                   properties:
-                    cbitpos:
-                      description: CBit Position
-                      type: integer
                     policy:
                       description: Guest SEV policy
                       items:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
-                    reducedPhysBits:
-                      description: No. of physical bits in address space
-                      type: integer
                   type: object
               type: object
             machine:
@@ -11708,18 +11690,12 @@ var CRDsValidation map[string]string = map[string]string{
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV)
                           properties:
-                            cbitpos:
-                              description: CBit Position
-                              type: integer
                             policy:
                               description: Guest SEV policy
                               items:
                                 type: string
                               type: array
                               x-kubernetes-list-type: set
-                            reducedPhysBits:
-                              description: No. of physical bits in address space
-                              type: integer
                           type: object
                       type: object
                     machine:
@@ -15022,22 +14998,12 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: AMD Secure Encrypted Virtualization
                                     (SEV)
                                   properties:
-                                    cbitpos:
-                                      description: CBit Position
-                                      type: integer
                                     policy:
                                       description: Guest SEV policy
                                       items:
                                         type: string
                                       type: array
                                       x-kubernetes-list-type: set
-                                    reducedPhysBits:
-                                      description: No. of physical bits in address
-                                        space
-                                      type: integer
-                                  required:
-                                  - cbitpos
-                                  - reducedPhysBits
                                   type: object
                               type: object
                             machine:
@@ -18679,19 +18645,12 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: AMD Secure Encrypted Virtualization
                                         (SEV)
                                       properties:
-                                        cbitpos:
-                                          description: CBit Position
-                                          type: integer
                                         policy:
                                           description: Guest SEV policy
                                           items:
                                             type: string
                                           type: array
                                           x-kubernetes-list-type: set
-                                        reducedPhysBits:
-                                          description: No. of physical bits in address
-                                            space
-                                          type: integer
                                       type: object
                                   type: object
                                 machine:

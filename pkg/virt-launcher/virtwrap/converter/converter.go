@@ -121,7 +121,6 @@ type ConverterContext struct {
 	CpuScheduler          *api.VCPUScheduler
 	ExpandDisksEnabled    bool
 	UseLaunchSecurity     bool
-	SEVConfiguration      *launchsecurity.SEVConfiguration
 }
 
 func contains(volumes []string, name string) bool {
@@ -1265,17 +1264,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if err != nil {
 			return err
 		}
+		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
 		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
-			Type:            "sev",
-			Cbitpos:         c.SEVConfiguration.Cbitpos,
-			ReducedPhysBits: c.SEVConfiguration.ReducedPhysBits,
-			Policy:          "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-		}
-		if vmi.Spec.Domain.LaunchSecurity.SEV.Cbitpos != nil {
-			domain.Spec.LaunchSecurity.Cbitpos = strconv.FormatUint(uint64(*vmi.Spec.Domain.LaunchSecurity.SEV.Cbitpos), 10)
-		}
-		if vmi.Spec.Domain.LaunchSecurity.SEV.ReducedPhysBits != nil {
-			domain.Spec.LaunchSecurity.ReducedPhysBits = strconv.FormatUint(uint64(*vmi.Spec.Domain.LaunchSecurity.SEV.ReducedPhysBits), 10)
+			Type:   "sev",
+			Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
 		}
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",

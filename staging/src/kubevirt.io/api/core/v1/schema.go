@@ -611,10 +611,6 @@ type LaunchSecurity struct {
 //
 // +k8s:openapi-gen=true
 type SEV struct {
-	// CBit Position
-	Cbitpos *uint `json:"cbitpos,omitempty"`
-	// No. of physical bits in address space
-	ReducedPhysBits *uint `json:"reducedPhysBits,omitempty"`
 	// Guest SEV policy
 	// +listType=set
 	Policy []SEVPolicy `json:"policy,omitempty"`

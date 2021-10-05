@@ -54,7 +54,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -62,7 +61,6 @@ var _ = Describe("Manager", func() {
 	var mockConn *cli.MockConnection
 	var mockDomain *cli.MockVirDomain
 	var mockDirectIOChecker *converter.MockDirectIOChecker
-	var mockVirsh *launchsecurity.MockVirsh
 	var ctrl *gomock.Controller
 	var testVirtShareDir, tmpDir string
 	testVmName := "testvmi"
@@ -97,7 +95,6 @@ var _ = Describe("Manager", func() {
 		mockDirectIOChecker = converter.NewMockDirectIOChecker(ctrl)
 		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(true, nil)
 		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(true, nil)
-		mockVirsh = launchsecurity.NewMockVirsh(ctrl)
 	})
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
@@ -487,7 +484,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain), nil)
-			manager, _ := newLibvirtDomainManager(mockConn, "fake", nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, mockVirsh)
+			manager, _ := newLibvirtDomainManager(mockConn, "fake", nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{
 				VirtualMachineSMBios: &cmdv1.SMBios{},
 				PreallocatedVolumes:  []string{"permvolume1"},
@@ -619,7 +616,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockDomain.EXPECT().AttachDevice(strings.ToLower(string(attachBytes)))
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain2), nil)
-			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, mockVirsh)
+			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
@@ -729,7 +726,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockDomain.EXPECT().DetachDevice(strings.ToLower(string(detachBytes)))
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain), nil)
-			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, mockVirsh)
+			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
@@ -808,7 +805,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain), nil)
-			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, mockVirsh)
+			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
@@ -909,7 +906,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain2), nil)
-			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, mockVirsh)
+			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())

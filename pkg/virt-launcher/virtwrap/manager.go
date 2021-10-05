@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -146,8 +145,6 @@ type LibvirtDomainManager struct {
 	directIOChecker          converter.DirectIOChecker
 	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
-	virsh                    launchsecurity.Virsh
-	sevConfiguration         *launchsecurity.SEVConfiguration
 }
 
 type pausedVMIs struct {
@@ -175,11 +172,10 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	virsh := launchsecurity.NewVirsh()
-	return newLibvirtDomainManager(connection, virtShareDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, virsh)
+	return newLibvirtDomainManager(connection, virtShareDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
 }
 
-func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, virsh launchsecurity.Virsh) (DomainManager, error) {
+func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:      connection,
 		virtShareDir: virtShareDir,
@@ -193,7 +189,6 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, age
 		directIOChecker:          directIOChecker,
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan: make(chan struct{}),
-		virsh:                    virsh,
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
@@ -719,17 +714,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 
-	useLaunchSecurity := kutil.IsSEVVMI(vmi)
-	if useLaunchSecurity && l.sevConfiguration == nil {
-		if l.sevConfiguration, err = launchsecurity.QuerySEVConfiguration(l.virsh); err != nil {
-			return nil, fmt.Errorf("failed to query SEV configuration: %v", err)
-		}
-		if l.sevConfiguration.Supported != "yes" {
-			return nil, fmt.Errorf("SEV is not configured on this host")
-		}
-		logger.Infof("SEV configuration: %v", *l.sevConfiguration)
-	}
-
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
 		Architecture:          runtime.GOARCH,
@@ -742,8 +726,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
-		UseLaunchSecurity:     useLaunchSecurity,
-		SEVConfiguration:      l.sevConfiguration,
+		UseLaunchSecurity:     kutil.IsSEVVMI(vmi),
 	}
 
 	if options != nil {

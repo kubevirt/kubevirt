@@ -18777,20 +18777,6 @@ func schema_kubevirtio_api_core_v1_SEV(ref common.ReferenceCallback) common.Open
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"cbitpos": {
-						SchemaProps: spec.SchemaProps{
-							Description: "CBit Position",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"reducedPhysBits": {
-						SchemaProps: spec.SchemaProps{
-							Description: "No. of physical bits in address space",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
 					"policy": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{

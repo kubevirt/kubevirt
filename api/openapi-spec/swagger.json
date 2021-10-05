@@ -14687,11 +14687,6 @@
    "v1.SEV": {
     "type": "object",
     "properties": {
-     "cbitpos": {
-      "description": "CBit Position",
-      "type": "integer",
-      "format": "int32"
-     },
      "policy": {
       "description": "Guest SEV policy",
       "type": "array",
@@ -14699,11 +14694,6 @@
        "type": "string"
       },
       "x-kubernetes-list-type": "set"
-     },
-     "reducedPhysBits": {
-      "description": "No. of physical bits in address space",
-      "type": "integer",
-      "format": "int32"
      }
     }
    },

@@ -44,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 
 	v1 "kubevirt.io/api/core/v1"
 	kvapi "kubevirt.io/client-go/api"
@@ -3193,15 +3192,6 @@ var _ = Describe("Converter", func() {
 			c   *ConverterContext
 		)
 
-		sevConfiguration := launchsecurity.SEVConfiguration{
-			Cbitpos:         "5",
-			ReducedPhysBits: "3",
-		}
-
-		uintPtr := func(val uint) *uint {
-			return &val
-		}
-
 		BeforeEach(func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -3232,7 +3222,6 @@ var _ = Describe("Converter", func() {
 				AllowEmulation:    true,
 				EFIConfiguration:  &EFIConfiguration{},
 				UseLaunchSecurity: true,
-				SEVConfiguration:  &sevConfiguration,
 			}
 		})
 
@@ -3280,47 +3269,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Rom).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces[1].Rom.Enabled).To(Equal("no"))
 		})
-
-		table.DescribeTable("convertion", func(expectErr bool, sev *v1.SEV, expectation *api.LaunchSecurity) {
-			domain := &api.Domain{}
-			vmi.Spec.Domain.LaunchSecurity.SEV = sev
-			if expectErr {
-				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).ToNot(Succeed())
-				Expect(domain.Spec.LaunchSecurity).To(BeNil())
-			} else {
-				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
-				Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
-				Expect(*domain.Spec.LaunchSecurity).To(Equal(*expectation))
-			}
-		},
-			table.Entry("should succeed with default values", false,
-				&v1.SEV{},
-				&api.LaunchSecurity{
-					Type:            "sev",
-					Cbitpos:         sevConfiguration.Cbitpos,
-					ReducedPhysBits: sevConfiguration.ReducedPhysBits,
-					Policy:          "0x0",
-				}),
-			table.Entry("should succeed with correct values", false,
-				&v1.SEV{
-					Cbitpos:         uintPtr(1),
-					ReducedPhysBits: uintPtr(2),
-					Policy:          []v1.SEVPolicy{v1.SEVPolicyNoDebug, v1.SEVPolicyNoKeysSharing},
-				},
-				&api.LaunchSecurity{
-					Type:            "sev",
-					Cbitpos:         "1",
-					ReducedPhysBits: "2",
-					Policy:          "0x3",
-				}),
-			table.Entry("should fail with wrong values", true,
-				&v1.SEV{
-					Cbitpos:         uintPtr(1),
-					ReducedPhysBits: uintPtr(2),
-					Policy:          []v1.SEVPolicy{v1.SEVPolicy("WrongPolicy")},
-				},
-				nil),
-		)
 	})
 })
 

@@ -20,33 +20,10 @@
 package launchsecurity
 
 import (
-	"encoding/xml"
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
 )
-
-type Features struct {
-	SEV SEVConfiguration `xml:"features>sev"`
-}
-
-type SEVConfiguration struct {
-	Supported       string `xml:"supported,attr"`
-	Cbitpos         string `xml:"cbitpos"`
-	ReducedPhysBits string `xml:"reducedPhysBits"`
-}
-
-func QuerySEVConfiguration(virsh Virsh) (*SEVConfiguration, error) {
-	out, err := virsh.Domcapabilities()
-	if err != nil {
-		return nil, fmt.Errorf("failed to query domain capabilities: %v", err)
-	}
-	features := &Features{}
-	if err := xml.Unmarshal(out, features); err != nil {
-		return nil, fmt.Errorf("failed to parse domain capabilities: %v", err)
-	}
-	return &features.SEV, nil
-}
 
 func SEVPolicyToBits(policy []v1.SEVPolicy) (uint, error) {
 	sevPolicyToBitMap := map[v1.SEVPolicy]uint{
