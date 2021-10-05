@@ -1113,8 +1113,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	if util.IsSEVVMI(vmi) {
-		// privileged is required for memory locking
-		privileged = true
 		requestResource(&resources, SevDevice)
 	}
 
@@ -1909,6 +1907,12 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	}
 
 	addProbeOverheads(vmi, overhead)
+
+	// Consider memory overhead for SEV guests.
+	// Additional information can be found here: https://libvirt.org/kbase/launch_security_sev.html#memory
+	if util.IsSEVVMI(vmi) {
+		overhead.Add(resource.MustParse("256Mi"))
+	}
 
 	return overhead
 }

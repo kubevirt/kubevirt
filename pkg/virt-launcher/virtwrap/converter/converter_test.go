@@ -3262,13 +3262,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Ballooning.Driver.IOMMU).To(Equal("on"))
 		})
 
-		It("should set Locked attribute of the MemoryBacking", func() {
-			domain := &api.Domain{}
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
-			Expect(domain.Spec.MemoryBacking).ToNot(BeNil())
-			Expect(domain.Spec.MemoryBacking.Locked).ToNot(BeNil())
-		})
-
 		It("should set IOMMU attribute of the virtio-net driver", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())

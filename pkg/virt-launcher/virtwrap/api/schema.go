@@ -406,7 +406,6 @@ type MemoryBacking struct {
 	Access       *MemoryBackingAccess `xml:"access,omitempty"`
 	Allocation   *MemoryAllocation    `xml:"allocation,omitempty"`
 	NoSharePages *NoSharePages        `xml:"nosharepages,omitempty"`
-	Locked       *MemoryBackingLocked `xml:"locked,omitempty"`
 }
 
 type MemoryAllocationMode string
@@ -421,9 +420,6 @@ type MemoryAllocation struct {
 
 type MemoryBackingSource struct {
 	Type string `xml:"type,attr"`
-}
-
-type MemoryBackingLocked struct {
 }
 
 // HugePages mirroring libvirt XML under memoryBacking

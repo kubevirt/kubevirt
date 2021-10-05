@@ -1382,14 +1382,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	// Lock encrypted pages in host memory for SEV: https://libvirt.org/kbase/launch_security_sev.html#memory
-	if c.UseLaunchSecurity {
-		if domain.Spec.MemoryBacking == nil {
-			domain.Spec.MemoryBacking = &api.MemoryBacking{}
-		}
-		domain.Spec.MemoryBacking.Locked = &api.MemoryBackingLocked{}
-	}
-
 	volumeIndices := map[string]int{}
 	volumes := map[string]*v1.Volume{}
 	for i, volume := range vmi.Spec.Volumes {
