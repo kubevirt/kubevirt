@@ -568,9 +568,11 @@ func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
 	panicOnError(crdmarkers.Register(reg))
 
 	parser := &crdgen.Parser{
-		Collector: &markers.Collector{Registry: reg},
-		Checker:   &loader.TypeChecker{},
+		Collector:                  &markers.Collector{Registry: reg},
+		Checker:                    &loader.TypeChecker{},
+		GenerateEmbeddedObjectMeta: true,
 	}
+
 	crdgen.AddKnownTypes(parser)
 	if len(pkgs) == 0 {
 		panic("Failed identifying packages")
