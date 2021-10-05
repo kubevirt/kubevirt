@@ -28,8 +28,9 @@ import (
 	"strings"
 	"sync"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
-
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
@@ -2699,6 +2700,57 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			table.Entry("[test_id:6983]hugepages-2Mi", "2Mi", "64Mi"),
 			table.Entry("[test_id:6984]hugepages-1Gi", "1Gi", "1Gi"),
 		)
+	})
+
+	Context("with CPU pinning and huge pages", func() {
+		It("should not make migrations fail", func() {
+			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
+			var err error
+			cpuVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+			cpuVMI.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 3,
+				DedicatedCPUPlacement: true,
+			}
+			cpuVMI.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{PageSize: "2Mi"},
+			}
+
+			By("Starting a VirtualMachineInstance")
+			cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVMI)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(cpuVMI)
+
+			By("Performing a migration")
+			migration := tests.NewRandomMigration(cpuVMI.Name, cpuVMI.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+		})
+		Context("and NUMA passthrough", func() {
+			It("should not make migrations fail", func() {
+				checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
+				checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
+				var err error
+				cpuVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+				cpuVMI.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 3,
+					DedicatedCPUPlacement: true,
+					NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
+				}
+				cpuVMI.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{PageSize: "2Mi"},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(cpuVMI)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(cpuVMI)
+
+				By("Performing a migration")
+				migration := tests.NewRandomMigration(cpuVMI.Name, cpuVMI.Namespace)
+				tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			})
+		})
 	})
 })
 
