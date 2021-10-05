@@ -94,6 +94,10 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("failed to update the hosts file: %v", err)
 	}
 
+	if shouldBlockMigrationTargetPreparation(vmi) {
+		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
+	}
+
 	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
 	for _, port := range migrationPortsRange {
 		// Prepare the direct migration proxy
