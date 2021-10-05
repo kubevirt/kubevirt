@@ -292,6 +292,7 @@ func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.Depl
 						},
 					},
 				},
+				PriorityClassName: "system-cluster-critical",
 			},
 		},
 	}

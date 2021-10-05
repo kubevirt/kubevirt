@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
-    createdAt: "2021-10-04 21:12:02"
+    createdAt: "2021-10-05 09:52:07"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -2006,6 +2006,7 @@ spec:
                   requests:
                     cpu: 10m
                     memory: 96Mi
+              priorityClassName: system-cluster-critical
       - label:
           app.kubernetes.io/component: network
           app.kubernetes.io/managed-by: olm
