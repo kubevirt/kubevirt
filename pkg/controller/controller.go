@@ -61,8 +61,8 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		options.FieldSelector = fieldSelector.String()
 		options.LabelSelector = labelSelector.String()
+		options.Watch = true
 		return c.Get().
-			Prefix("watch").
 			Namespace(namespace).
 			Resource(resource).
 			VersionedParams(&options, metav1.ParameterCodec).
