@@ -32,10 +32,11 @@ import (
 )
 
 const (
-	commandName             = "image-upload"
-	uploadRequestAnnotation = "cdi.kubevirt.io/storage.upload.target"
-	podPhaseAnnotation      = "cdi.kubevirt.io/storage.pod.phase"
-	podReadyAnnotation      = "cdi.kubevirt.io/storage.pod.ready"
+	commandName                     = "image-upload"
+	uploadRequestAnnotation         = "cdi.kubevirt.io/storage.upload.target"
+	forceImmediateBindingAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
+	podPhaseAnnotation              = "cdi.kubevirt.io/storage.pod.phase"
+	podReadyAnnotation              = "cdi.kubevirt.io/storage.pod.ready"
 )
 
 const (
@@ -299,19 +300,31 @@ var _ = Describe("ImageUpload", func() {
 		validatePVCArgs(v1.PersistentVolumeBlock)
 	}
 
-	validateDataVolumeArgs := func(mode v1.PersistentVolumeMode) {
-		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
-		Expect(err).To(BeNil())
-
+	validateDataVolumeArgs := func(dv *cdiv1.DataVolume, mode v1.PersistentVolumeMode) {
 		validateDvStorageSpec(dv.Spec, mode)
 	}
 
 	validateDataVolume := func() {
-		validateDataVolumeArgs(v1.PersistentVolumeFilesystem)
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+
+		validateDataVolumeArgs(dv, v1.PersistentVolumeFilesystem)
 	}
 
 	validateBlockDataVolume := func() {
-		validateDataVolumeArgs(v1.PersistentVolumeBlock)
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+
+		validateDataVolumeArgs(dv, v1.PersistentVolumeBlock)
+	}
+
+	validateDataVolumeWithForceBind := func() {
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+		_, ok := dv.Annotations[forceImmediateBindingAnnotation]
+		Expect(ok).To(BeTrue(), "storage.bind.immediate.requested annotation")
+
+		validateDataVolumeArgs(dv, v1.PersistentVolumeFilesystem)
 	}
 
 	expectedStorageClassMatchesActual := func(storageClass string) {
@@ -439,6 +452,16 @@ var _ = Describe("ImageUpload", func() {
 			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
 			validatePVC()
 			validateDataVolume()
+		})
+
+		It("DV does not exist --force-bind", func() {
+			testInit(http.StatusOK)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--pvc-size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--force-bind")
+			Expect(cmd()).To(BeNil())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
+			validatePVC()
+			validateDataVolumeWithForceBind()
 		})
 
 		It("DV does not exist and --no-create", func() {
