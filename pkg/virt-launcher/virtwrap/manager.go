@@ -941,10 +941,6 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 
 	logger := log.Log.Object(vmi)
 
-	if shouldBlockMigrationTargetPreparation(vmi) {
-		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
-	}
-
 	var emulatorThreadCpu *int
 	domain := &api.Domain{}
 	podCPUSet, err := util.GetPodCPUSet()
@@ -1031,6 +1027,10 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	loopbackAddress := ip.GetLoopbackAddress()
 	if err := updateHostsFile(fmt.Sprintf("%s %s\n", loopbackAddress, vmi.Status.MigrationState.TargetPod)); err != nil {
 		return fmt.Errorf("failed to update the hosts file: %v", err)
+	}
+
+	if shouldBlockMigrationTargetPreparation(vmi) {
+		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
 	}
 
 	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)

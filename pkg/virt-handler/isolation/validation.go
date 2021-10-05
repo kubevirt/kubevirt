@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 )
@@ -33,4 +34,16 @@ func GetImageInfo(imagePath string, context IsolationResult) (*containerdisk.Dis
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
 	return info, err
+}
+
+func GetFileSize(imagePath string, context IsolationResult) (int, error) {
+	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
+	out, err := exec.Command(
+		"/usr/bin/virt-chroot", "--user", "qemu", "--memory", "1200", "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
+		"/usr/bin/stat", "--printf=%s", imagePath,
+	).Output()
+	if err == nil {
+		return strconv.Atoi(string(out))
+	}
+	return -1, err
 }
