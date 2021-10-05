@@ -141,7 +141,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.MarkFlagRequired("image-path")
 	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
 	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", 300, "Seconds to wait for upload pod to start.")
-	cmd.Flags().BoolVar(&forceBind, "force-bind", false, "Force Bind the PVC, ignoring the WaitForFirstConsumer logic")
+	cmd.Flags().BoolVar(&forceBind, "force-bind", false, "Force bind the PVC, ignoring the WaitForFirstConsumer logic.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
