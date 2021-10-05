@@ -57,10 +57,6 @@ func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool 
 func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
 	logger := log.Log.Object(vmi)
 
-	if shouldBlockMigrationTargetPreparation(vmi) {
-		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
-	}
-
 	c, err := l.generateConverterContext(vmi, useEmulation, nil, true)
 	if err != nil {
 		return fmt.Errorf("Failed to generate libvirt domain from VMI spec: %v", err)
@@ -94,6 +90,10 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("failed to update the hosts file: %v", err)
 	}
 
+	if shouldBlockMigrationTargetPreparation(vmi) {
+		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
+	}
+
 	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
 	for _, port := range migrationPortsRange {
 		// Prepare the direct migration proxy
@@ -103,6 +103,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
 
 		err := migrationProxy.Start()
+
 		if err != nil {
 			logger.Reason(err).Errorf("proxy listening failed, socket %s", unixSocketPath)
 			return err
