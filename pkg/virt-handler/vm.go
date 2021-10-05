@@ -1158,6 +1158,31 @@ func (d *VirtualMachineController) updateFSFreezeStatus(vmi *v1.VirtualMachineIn
 
 }
 
+func IsoGuestVolumePath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (string, bool) {
+	var volPath string
+
+	basepath := "/var/run"
+	if volume.CloudInitNoCloud != nil {
+		volPath = path.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
+	} else if volume.CloudInitConfigDrive != nil {
+		volPath = path.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
+	} else if volume.ConfigMap != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
+	} else if volume.DownwardAPI != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
+	} else if volume.Secret != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.SecretDisksDir), volume.Name+".iso")
+	} else if volume.ServiceAccount != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
+	} else if volume.Sysprep != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.SysprepDisksDir), volume.Name+".iso")
+	} else {
+		return "", false
+	}
+
+	return volPath, true
+}
+
 func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineInstance) {
 	var podUID string
 	if vmi.Status.Phase != v1.Running {
@@ -1171,36 +1196,29 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 		}
 	}
 	if podUID == "" {
+		log.DefaultLogger().V(2).Warningf("failed to find pod UID for VMI %s", vmi.Name)
 		return
 	}
 
-	basepath := path.Join(util.KubeletPodsDir, string(podUID), "volumes/kubernetes.io~empty-dir/")
 	for _, volume := range vmi.Spec.Volumes {
-		var volPath string
-		if volume.CloudInitNoCloud != nil {
-			volPath = path.Join(basepath, "ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
-		} else if volume.CloudInitConfigDrive != nil {
-			volPath = path.Join(basepath, "ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
-		} else if volume.ConfigMap != nil {
-			volPath = path.Join(basepath, "private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
-		} else if volume.DownwardAPI != nil {
-			volPath = path.Join(basepath, "private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
-		} else if volume.Secret != nil {
-			volPath = path.Join(basepath, "private", path.Base(config.SecretDisksDir), volume.Name+".iso")
-		} else if volume.ServiceAccount != nil {
-			volPath = path.Join(basepath, "private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
-		} else if volume.Sysprep != nil {
-			volPath = path.Join(basepath, "private", path.Base(config.SysprepDisksDir), volume.Name+".iso")
-		} else {
+		volPath, found := IsoGuestVolumePath(vmi, &volume)
+		if !found {
 			continue
 		}
-		stats, err := os.Stat(volPath)
+		res, err := d.podIsolationDetector.Detect(vmi)
 		if err != nil {
+			log.DefaultLogger().V(2).Warningf("failed to detect VMI %s", vmi.Name)
 			continue
 		}
-		for _, vs := range vmi.Status.VolumeStatus {
-			if vs.Name == volume.Name {
-				vs.Size = stats.Size()
+		size, err := isolation.GetFileSize(volPath, res, d.clusterConfig.GetDiskVerification())
+		if err != nil {
+			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
+			continue
+		}
+
+		for i, _ := range vmi.Status.VolumeStatus {
+			if vmi.Status.VolumeStatus[i].Name == volume.Name {
+				vmi.Status.VolumeStatus[i].Size = int64(size)
 				continue
 			}
 		}
