@@ -33,7 +33,7 @@ func SkipTestIfNoFeatureGate(featureGate string) {
 	}
 }
 
-func SkipTestIfNoCPUManagerWith2MiHugepages() {
+func SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(nodeCount int) {
 	if !HasFeature(virtconfig.CPUManager) {
 		ginkgo.Skip("the CPUManager feature gate is not enabled.")
 	}
@@ -42,12 +42,21 @@ func SkipTestIfNoCPUManagerWith2MiHugepages() {
 	util.PanicOnError(err)
 	nodes := util.GetAllSchedulableNodes(virtClient)
 
+	found := 0
 	for _, node := range nodes.Items {
 		if IsCPUManagerPresent(&node) && Has2MiHugepages(&node) {
-			return
+			found++
 		}
 	}
-	ginkgo.Skip("no node with CPUManager and 2Mi hugepages detected", 1)
+
+	if found < nodeCount {
+		msg := fmt.Sprintf(
+			"not enough node with CPUManager and 2Mi hugepages detected: expected %v nodes, but got %v",
+			nodeCount,
+			found,
+		)
+		ginkgo.Skip(msg, 1)
+	}
 }
 
 func SkipTestIfNotRealtimeCapable() {

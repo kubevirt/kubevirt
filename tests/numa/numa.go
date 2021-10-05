@@ -39,7 +39,7 @@ var _ = Describe("[sig-compute][serial]NUMA", func() {
 
 	It("topology should be mapped to the guest and hugepages should be allocated", func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
-		checks.SkipTestIfNoCPUManagerWith2MiHugepages()
+		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		var err error
 		cpuVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
