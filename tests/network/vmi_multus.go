@@ -42,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -1068,6 +1069,65 @@ var _ = Describe("[Serial]SRIOV", func() {
 					return libnet.PingFromVMConsole(nonVlanedVMI, ipVlaned1)
 				}, 15*time.Second, time.Second).Should(HaveOccurred())
 			})
+
+			When("vmi is continuously recreated", func() {
+				var (
+					vlanedVMI2 *v1.VirtualMachineInstance
+					vmrs       *v1.VirtualMachineInstanceReplicaSet
+				)
+
+				const (
+					numberOfRecreations = 7
+					numberOfVMIs        = 1
+					replicasetLabelKey  = "name"
+				)
+
+				BeforeEach(func() {
+					_, vlanedVMI2 = createSriovVMs(sriovVlanNetworkName, sriovVlanNetworkName, cidrVlaned1, "192.168.0.4/24")
+					nodeName := vlanedVMI2.Status.NodeName
+					decorateVMISpecWithNodeAffinity(vlanedVMI2, nodeName)
+					vmrs = tests.NewRandomReplicaSetFromVMI(vlanedVMI2, int32(numberOfVMIs))
+					By("Start the replica set")
+					vmrs, err = virtClient.ReplicaSet(util.NamespaceTestDefault).Create(vmrs)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = virtClient.VirtualMachineInstance(vlanedVMI2.Namespace).Delete(vlanedVMI2.Name, &metav1.DeleteOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Eventually(matcher.ThisVMIWith(vlanedVMI2.Namespace, vlanedVMI2.Name), 120).Should(matcher.BeGone())
+				})
+
+				It("should be able to ping between two VMIs with the same VLAN after a continues VMI recreation", func() {
+					for i := 0; i < numberOfRecreations; i++ {
+						Eventually(func() int {
+							vmrs, err = virtClient.ReplicaSet(vmrs.Namespace).Get(vmrs.Name, metav1.GetOptions{})
+							Expect(err).ToNot(HaveOccurred())
+							return int(vmrs.Status.ReadyReplicas)
+						}, 15*time.Second, time.Second).Should(Equal(numberOfVMIs))
+
+						var vms *v1.VirtualMachineInstanceList
+						Eventually(func() int {
+							vms, err = virtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(&metav1.ListOptions{
+								LabelSelector: replicasetLabelKey + "=" + vmrs.Spec.Selector.MatchLabels[replicasetLabelKey],
+							})
+							Expect(err).ToNot(HaveOccurred())
+							return len(vms.Items)
+						}, 15*time.Second, time.Second).ShouldNot(BeZero())
+						// only one VM is recreated in this test
+						vlanedVMI2 = &vms.Items[0]
+						err := console.LoginToFedora(vlanedVMI2)
+						Expect(err).ToNot(HaveOccurred())
+
+						By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
+						Eventually(func() error {
+							return libnet.PingFromVMConsole(vlanedVMI2, ipVlaned1)
+						}, 15*time.Second, time.Second).ShouldNot(HaveOccurred(), "failed to ping at the %dth vmi recreation", i)
+
+						err = virtClient.VirtualMachineInstance(vlanedVMI2.Namespace).Delete(vlanedVMI2.Name, &metav1.DeleteOptions{})
+						Expect(err).NotTo(HaveOccurred())
+						Eventually(matcher.ThisVMIWith(vlanedVMI2.Namespace, vlanedVMI2.Name), 120).Should(matcher.BeGone())
+					}
+				})
+			})
 		})
 
 		Context("migration", func() {
@@ -1566,4 +1626,22 @@ func activateDHCPOnVMInterfaces(vmi *v1.VirtualMachineInstance, ifacesNames ...s
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
+}
+
+func decorateVMISpecWithNodeAffinity(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
+	vmi.Spec.Affinity = &k8sv1.Affinity{
+		NodeAffinity: &k8sv1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+					{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeName}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return vmi
 }
