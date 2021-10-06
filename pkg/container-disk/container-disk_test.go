@@ -262,6 +262,55 @@ var _ = Describe("ContainerDisk", func() {
 				})
 			})
 		})
+
+		Context("should use the right containerID", func() {
+			It("for a new migration pod with two containerDisks", func() {
+				vmi := v1.NewMinimalVMI("myvmi")
+				appendContainerDisk(vmi, "disk1")
+				appendNonContainerDisk(vmi, "disk3")
+				appendContainerDisk(vmi, "disk2")
+
+				pod := &k8sv1.Pod{Status: k8sv1.PodStatus{}}
+				containers := GenerateContainers(vmi, nil, "a-name", "something")
+				for idx, container := range containers {
+					pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, k8sv1.ContainerStatus{Name: container.Name, ImageID: fmt.Sprintf("finalimg:%v", idx)})
+				}
+
+				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
+				Expect(imageIDs).To(HaveKeyWithValue("disk1", "finalimg:0"))
+				Expect(imageIDs).To(HaveKeyWithValue("disk2", "finalimg:1"))
+				Expect(imageIDs).To(HaveLen(2))
+
+				newContainers := GenerateContainers(vmi, imageIDs, "a-name", "something")
+				Expect(newContainers[0].Image).To(Equal("finalimg:0"))
+				Expect(newContainers[1].Image).To(Equal("finalimg:1"))
+			})
+			It("for a new migration pod with a containerDisk and a kernel image", func() {
+				vmi := v1.NewMinimalVMI("myvmi")
+				appendContainerDisk(vmi, "disk1")
+				appendNonContainerDisk(vmi, "disk3")
+
+				vmi.Spec.Domain.Firmware = &v1.Firmware{KernelBoot: &v1.KernelBoot{Container: &v1.KernelBootContainer{Image: "myimage"}}}
+
+				pod := &k8sv1.Pod{Status: k8sv1.PodStatus{}}
+				containdiskContainers := GenerateContainers(vmi, nil, "a-name", "something")
+				bootContainer := GenerateKernelBootContainer(vmi, nil, "a-name", "something")
+				for idx, container := range append(containdiskContainers, *bootContainer) {
+					pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, k8sv1.ContainerStatus{Name: container.Name, ImageID: fmt.Sprintf("finalimg:%v", idx)})
+				}
+
+				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
+				Expect(imageIDs).To(HaveKeyWithValue("disk1", "finalimg:0"))
+				Expect(imageIDs).To(HaveKeyWithValue("kernel-boot-volume", "finalimg:1"))
+				Expect(imageIDs).To(HaveLen(2))
+
+				newContainers := GenerateContainers(vmi, imageIDs, "a-name", "something")
+				newBootContainer := GenerateKernelBootContainer(vmi, imageIDs, "a-name", "something")
+				newContainers = append(newContainers, *newBootContainer)
+				Expect(newContainers[0].Image).To(Equal("finalimg:0"))
+				Expect(newContainers[1].Image).To(Equal("finalimg:1"))
+			})
+		})
 	})
 })
 
@@ -279,6 +328,20 @@ func appendContainerDisk(vmi *v1.VirtualMachineInstance, diskName string) {
 				Image:           "someimage:v1.2.3.4",
 				ImagePullPolicy: k8sv1.PullAlways,
 			},
+		},
+	})
+}
+func appendNonContainerDisk(vmi *v1.VirtualMachineInstance, diskName string) {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name: diskName,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{},
+		},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: diskName,
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{},
 		},
 	})
 }
