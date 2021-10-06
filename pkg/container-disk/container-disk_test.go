@@ -183,7 +183,7 @@ var _ = Describe("ContainerDisk", func() {
 						k8sv1.ResourceMemory: resource.MustParse("64M"),
 					},
 				}
-				containers := GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+				containers := GenerateContainers(vmi, nil, "libvirt-runtime", "/var/run/libvirt")
 
 				containerResourceSpecs := []k8sv1.ResourceList{containers[0].Resources.Limits, containers[0].Resources.Requests}
 
@@ -195,7 +195,7 @@ var _ = Describe("ContainerDisk", func() {
 
 				vmi := v1.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r0")
-				containers := GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+				containers := GenerateContainers(vmi, nil, "libvirt-runtime", "/var/run/libvirt")
 
 				expectedEphemeralStorageRequest := resource.MustParse(ephemeralStorageOverheadSize)
 
@@ -212,7 +212,7 @@ var _ = Describe("ContainerDisk", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r1")
 				appendContainerDisk(vmi, "r0")
-				containers := GenerateContainers(vmi, "libvirt-runtime", "bin-volume")
+				containers := GenerateContainers(vmi, nil, "libvirt-runtime", "bin-volume")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(containers)).To(Equal(2))
