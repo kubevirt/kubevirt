@@ -109,7 +109,7 @@ func GetEphemeralBackingSourceBlockDevices(domain *api.Domain) map[string]bool {
 	isDevEphemeralBackingSource := make(map[string]bool)
 	for _, disk := range domain.Spec.Devices.Disks {
 		if disk.BackingStore != nil && disk.BackingStore.Source != nil {
-			if disk.BackingStore.Source.Dev != "" && disk.BackingStore.Source.Name != "" {
+			if disk.BackingStore.Type == "block" && disk.BackingStore.Source.Dev != "" && disk.BackingStore.Source.Name != "" {
 				isDevEphemeralBackingSource[disk.BackingStore.Source.Name] = true
 			}
 		}
