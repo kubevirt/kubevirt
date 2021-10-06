@@ -1622,6 +1622,8 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusMigrating, c.isVirtualMachineStatusMigrating},
 		{virtv1.VirtualMachineStatusPaused, c.isVirtualMachineStatusPaused},
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
+		{virtv1.VirtualMachineStatusPvcNotFound, c.isVirtualMachineStatusPvcNotFound},
+		{virtv1.VirtualMachineStatusDataVolumeNotFound, c.isVirtualMachineStatusDataVolumeNotFound},
 		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
 		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
@@ -1745,6 +1747,22 @@ func (c *VMController) isVirtualMachineStatusErrImagePull(vm *virtv1.VirtualMach
 func (c *VMController) isVirtualMachineStatusImagePullBackOff(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	syncCond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
 	return syncCond != nil && syncCond.Status == k8score.ConditionFalse && syncCond.Reason == ImagePullBackOffReason
+}
+
+// isVirtualMachineStatusPvcNotFound determines whether the VM status field should be set to "FailedPvcNotFound".
+func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
+		virtv1.VirtualMachineInstanceSynchronized,
+		k8score.ConditionFalse,
+		FailedPvcNotFoundReason)
+}
+
+// isVirtualMachineStatusDataVolumeNotFound determines whether the VM status field should be set to "FailedDataVolumeNotFound".
+func (c *VMController) isVirtualMachineStatusDataVolumeNotFound(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
+		virtv1.VirtualMachineInstanceSynchronized,
+		k8score.ConditionFalse,
+		FailedDataVolumeNotFoundReason)
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {

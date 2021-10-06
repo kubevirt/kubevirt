@@ -98,6 +98,9 @@ const (
 	// FailedPvcNotFoundReason is added in an event
 	// when a PVC for a volume was not found.
 	FailedPvcNotFoundReason = "FailedPvcNotFound"
+	// FailedDataVolumeNotFoundReason is added in an event
+	// when a DataVolume for a volume was not found.
+	FailedDataVolumeNotFoundReason = "FailedDataVolumeNotFound"
 	// SuccessfulMigrationReason is added when a migration attempt completes successfully
 	SuccessfulMigrationReason = "SuccessfulMigration"
 	// FailedMigrationReason is added when a migration attempt fails
@@ -442,7 +445,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					}
 				}
 			}
-			if syncErr != nil && syncErr.Reason() == FailedPvcNotFoundReason {
+			if syncErr != nil &&
+				(syncErr.Reason() == FailedPvcNotFoundReason || syncErr.Reason() == FailedDataVolumeNotFoundReason) {
 				condition := virtv1.VirtualMachineInstanceCondition{
 					Type:    virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
 					Reason:  k8sv1.PodReasonUnschedulable,
@@ -982,6 +986,9 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 				// Keep existing behavior of missing PVC = ready. This in turn triggers template render, which sets conditions and events, and fails appropriately
 				if _, ok := err.(services.PvcNotFoundError); ok {
 					continue
+				} else if _, ok := err.(services.DataVolumeNotFoundError); ok {
+					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeNotFoundReason, "DataVolume is referenced by VMI but doesn't exist: %v", err)
+					return false, false, &syncErrorImpl{fmt.Errorf("DataVolume is referenced by VMI but doesn't exist: %v", err), FailedDataVolumeNotFoundReason}
 				} else {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "Error determining if volume is ready: %v", err)
 					return false, false, &syncErrorImpl{fmt.Errorf("Error determining if volume is ready %v", err), FailedDataVolumeImportReason}
@@ -1643,6 +1650,17 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 	} else if volume.PersistentVolumeClaim != nil {
 		name = volume.PersistentVolumeClaim.ClaimName
 	}
+
+	dataVolumeFunc := dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes)
+
+	if volume.DataVolume != nil {
+		// First, ensure DataVolume exists
+		_, err := dataVolumeFunc(name, namespace)
+		if err != nil {
+			return false, false, services.DataVolumeNotFoundError{Reason: err.Error()}
+		}
+	}
+
 	wffc := false
 	ready := false
 	// err is always nil
@@ -1650,12 +1668,12 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 	if pvcExists {
 		var err error
 		pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
-		ready, err = cdiv1.IsPopulated(pvc, dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes))
+		ready, err = cdiv1.IsPopulated(pvc, dataVolumeFunc)
 		if err != nil {
 			return false, false, err
 		}
 		if !ready {
-			waitsForFirstConsumer, err := cdiv1.IsWaitForFirstConsumerBeforePopulating(pvc, dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes))
+			waitsForFirstConsumer, err := cdiv1.IsWaitForFirstConsumerBeforePopulating(pvc, dataVolumeFunc)
 			if err != nil {
 				return false, false, err
 			}
@@ -1664,7 +1682,7 @@ func (c *VMIController) volumeReadyToAttachToNode(namespace string, volume virtv
 			}
 		}
 	} else {
-		return false, false, services.PvcNotFoundError(fmt.Errorf("didn't find PVC %v", name))
+		return false, false, services.PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", name)}
 	}
 	return ready, wffc, nil
 }
