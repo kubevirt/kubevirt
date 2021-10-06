@@ -126,7 +126,7 @@ func (c *ephemeralDiskCreator) CreateEphemeralImages(vmi *v1.VirtualMachineInsta
 	isBlockVolumes := diskutils.GetEphemeralBackingSourceBlockDevices(domain)
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.Ephemeral != nil {
-			if err := c.CreateBackedImageForVolume(volume, c.getBackingFilePath(volume.Name, isBlockVolume[volume.Name]), ephemeralDiskFormat); err != nil {
+			if err := c.CreateBackedImageForVolume(volume, c.getBackingFilePath(volume.Name, isBlockVolumes[volume.Name]), ephemeralDiskFormat); err != nil {
 				return err
 			}
 		}

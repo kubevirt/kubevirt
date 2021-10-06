@@ -2062,11 +2062,22 @@ var _ = Describe("Template", func() {
 				err := pvcCache.Add(&pvc)
 				Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
 				volumeName := "pvc-volume"
+				ephemeralVolumeName := "ephemeral-volume"
 				volumes := []v1.Volume{
 					{
 						Name: volumeName,
 						VolumeSource: v1.VolumeSource{
 							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
+						},
+					},
+					{
+						Name: ephemeralVolumeName,
+						VolumeSource: v1.VolumeSource{
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvcName,
+								},
+							},
 						},
 					},
 				}
@@ -2085,14 +2096,15 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
 
 				Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeEmpty(), "Found some devices for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeDevices)).To(Equal(1), "Found 1 device for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeDevices)).To(Equal(2), "Found 1 device for 1st container")
 				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
+				Expect(pod.Spec.Containers[0].VolumeDevices[1].Name).To(Equal(ephemeralVolumeName), "Found device for 1st container with correct name")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
 				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6), "Found 6 mounts in manifest for 1st container")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(8), "Found 8 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(9), "Found 9 volumes in manifest")
 				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
