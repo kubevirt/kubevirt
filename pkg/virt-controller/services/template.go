@@ -394,7 +394,7 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	return t.renderLaunchManifest(vmi, nil, false)
+	return t.renderLaunchManifest(vmi, containerdisk.ExtractImageIDsFromSourcePod(vmi, pod), false)
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {

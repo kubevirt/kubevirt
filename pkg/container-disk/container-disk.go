@@ -25,6 +25,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"kubevirt.io/client-go/log"
 
@@ -266,7 +267,7 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, imageIDs map[st
 	}
 
 	volumeMountDir := GetVolumeMountDirOnGuest(vmi)
-	diskContainerName := fmt.Sprintf("volume%s", volume.Name)
+	diskContainerName := toContainerName(volume.Name)
 	diskContainerImage := volume.ContainerDisk.Image
 	if img, exists := imageIDs[volume.Name]; exists {
 		diskContainerImage = img
@@ -363,4 +364,45 @@ func CreateEphemeralImages(
 
 func getContainerDiskSocketBasePath(baseDir, podUID string) string {
 	return fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, podUID)
+}
+
+// ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,
+// which is recorded in the status section of a started pod.
+// It returns a map where the key is the vlume name and the value is the imageID
+func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod) (imageIDs map[string]string) {
+	imageIDs = map[string]string{}
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk == nil {
+			continue
+		}
+		imageIDs[volume.Name] = ""
+	}
+
+	if util.HasKernelBootContainerImage(vmi) {
+		imageIDs[KernelBootVolumeName] = ""
+	}
+
+	for _, status := range sourcePod.Status.ContainerStatuses {
+		if !isImageVolume(status.Name) {
+			continue
+		}
+		key := toVolumeName(status.Name)
+		if _, exists := imageIDs[key]; !exists {
+			continue
+		}
+		imageIDs[key] = status.ImageID
+	}
+	return
+}
+
+func isImageVolume(containerName string) bool {
+	return strings.HasPrefix(containerName, "volume")
+}
+
+func toContainerName(volumeName string) string {
+	return fmt.Sprintf("volume%s", volumeName)
+}
+
+func toVolumeName(containerName string) string {
+	return strings.TrimPrefix(containerName, "volume")
 }
