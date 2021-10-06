@@ -112,6 +112,8 @@ func (h *genericOperand) handleExistingCr(req *common.HcoRequest, key client.Obj
 	}
 
 	if updated {
+		// update resourceVersions of objects in relatedObjects
+		req.StatusDirty = true
 		return res.SetUpdated().SetOverwritten(overwritten)
 	}
 

@@ -294,6 +294,60 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 			})
 
+			It("should update resource versions of objects in relatedObjects", func() {
+
+				expected := getBasicDeployment()
+				cl := expected.initClient()
+
+				r := initReconciler(cl, nil)
+
+				// Reconcile to get all related objects under HCO's status
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				// Update Kubevirt (an example of secondary CR)
+				foundKubevirt := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.kv.Name, Namespace: expected.kv.Namespace},
+						foundKubevirt),
+				).To(BeNil())
+				foundKubevirt.Labels = map[string]string{"key": "value"}
+				Expect(cl.Update(context.TODO(), foundKubevirt)).To(BeNil())
+
+				// mock a reconciliation triggered by a change in secondary CR
+				ph, err := getSecondaryCRPlaceholder()
+				Expect(err).To(BeNil())
+				rq := request
+				rq.NamespacedName = ph
+
+				// Reconcile again to update HCO's status
+				res, err = r.Reconcile(context.TODO(), request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				// Get the latest objects
+				latestHCO := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						latestHCO),
+				).To(BeNil())
+
+				latestKubevirt := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.kv.Name, Namespace: expected.kv.Namespace},
+						latestKubevirt),
+				).To(BeNil())
+
+				kubevirtRef, err := reference.GetReference(cl.Scheme(), latestKubevirt)
+				Expect(err).To(BeNil())
+				// This fails when resource versions are not up-to-date
+				Expect(latestHCO.Status.RelatedObjects).To(ContainElement(*kubevirtRef))
+			})
+
 			It("should set different template namespace to ssp CR", func() {
 				expected := getBasicDeployment()
 				expected.hco.Spec.CommonTemplatesNamespace = &expected.hco.Namespace
