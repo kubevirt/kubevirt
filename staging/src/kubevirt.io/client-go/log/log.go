@@ -374,6 +374,17 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 	pos := strings.TrimSpace(fragments[3])
 	msg := strings.TrimSpace(fragments[4])
 
+	//TODO: implement proper behavior for unsupported GA commands
+	// by either considering the GA version as unsupported or just don't
+	// send commands which not supported
+	if strings.Contains(msg, "unable to execute QEMU agent command") {
+		if logger.verbosityLevel < 4 {
+			return
+		}
+
+		severity = LogLevelNames[WARNING]
+	}
+
 	// check if we really got a position
 	isPos := false
 	if split := strings.Split(pos, ":"); len(split) == 2 {
