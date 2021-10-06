@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@bazeldnf//:deps.bzl", "xattrs")
 
 go_library(
     name = "go_default_library",
@@ -46,14 +47,6 @@ go_binary(
     x_defs = version_x_defs(),
 )
 
-genrule(
-    name = "setcaps",
-    srcs = [":virt-launcher"],
-    outs = ["virt-launcher.tar.gz"],
-    cmd = "path=$$(readlink -f $(location virt-launcher)) && cp $$path virt-launcher && setcap 'cap_net_bind_service+eip'  virt-launcher && (chcon -t container_file_t virt-launcher || true) &&  tar --xattrs -czvf virt-launcher.tar.gz virt-launcher && mv virt-launcher.tar.gz $@",
-    visibility = ["//visibility:public"],
-)
-
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
@@ -61,6 +54,31 @@ load(
 load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "virt-launcher-tar",
+    srcs = [
+        "node-labeller/node-labeller.sh",
+        ":virt-launcher",
+        "//cmd/container-disk-v2alpha:container-disk",
+        "//cmd/virt-freezer",
+        "//cmd/virt-probe",
+    ],
+    package_dir = "/usr/bin",
+)
+
+xattrs(
+    name = "setcaps",
+    capabilities = {
+        "/usr/bin/virt-launcher": [
+            "cap_net_bind_service",
+        ],
+    },
+    selinux_labels = {
+        "/usr/bin/virt-launcher": "system_u:object_r:container_file_t:s0",
+    },
+    tar = ":virt-launcher-tar",
+)
 
 passwd_entry(
     name = "root-user",
@@ -129,6 +147,15 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
+pkg_tar(
+    name = "nsswitch-tar",
+    srcs = [
+        ":nsswitch.conf",
+    ],
+    mode = "0644",
+    package_dir = "/etc",
+)
+
 container_image(
     name = "version-container",
     directory = "/",
@@ -137,11 +164,13 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             ":libvirt-config",
             ":passwd-tar",
+            ":nsswitch-tar",
             "//rpm:launcherbase_aarch64",
         ],
         "//conditions:default": [
             ":libvirt-config",
             ":passwd-tar",
+            ":nsswitch-tar",
             "//rpm:launcherbase_x86_64",
         ],
     }),
@@ -154,14 +183,7 @@ container_image(
         "//conditions:default": "amd64",
     }),
     base = ":version-container",
-    directory = "/usr/bin",
     entrypoint = ["/usr/bin/virt-launcher"],
-    files = [
-        "node-labeller/node-labeller.sh",
-        "//cmd/container-disk-v2alpha:container-disk",
-        "//cmd/virt-freezer",
-        "//cmd/virt-probe",
-    ],
     tars = [":setcaps"],
     visibility = ["//visibility:public"],
 )

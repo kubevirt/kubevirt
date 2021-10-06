@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+# Source common without doing any bootstrap work at this stage
+# Bootstrapping should be done inside the build container
 source $(dirname "$0")/common.sh
 
 if [ "${KUBEVIRT_RUN_UNNESTED}" == "true" ]; then
@@ -22,7 +24,7 @@ if [ -z ${KUBEVIRT_CRI} ]; then
     fi
 fi
 
-KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2108311443-370e711b8"
+KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2109081533-c2a4c43a6"
 
 SYNC_OUT=${SYNC_OUT:-true}
 

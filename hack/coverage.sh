@@ -2,6 +2,7 @@
 set -e
 
 source hack/common.sh
+source hack/bootstrap.sh
 
 if [ "${CI}" == "true" ]; then
     cat >>ci.bazelrc <<EOF
