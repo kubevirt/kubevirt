@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -2751,6 +2752,56 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 			})
 		})
+	})
+
+	It("should replace containerdisk and kernel boot images with their reproducible digest during migration", func() {
+
+		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		vmi.Spec.Domain.Firmware = utils.GetVMIKernelBoot().Spec.Domain.Firmware
+
+		By("Starting a VirtualMachineInstance")
+		vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+		Expect(err).ToNot(HaveOccurred())
+		tests.WaitForSuccessfulVMIStart(vmi)
+
+		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		By("Verifying that all relevant images are without the digest on the source")
+		for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
+			if container.Name == "container-disk-binary" || container.Name == "compute" {
+				continue
+			}
+			Expect(container.Image).ToNot(ContainSubstring("@sha256:"), "image:%s should not contain the container digest for container %s", container.Image, container.Name)
+		}
+
+		digestRegex := regexp.MustCompile(`sha256:[a-zA-Z0-9]+`)
+
+		By("Collecting digest information from the container statuses")
+		imageIDs := map[string]string{}
+		for _, status := range append(pod.Status.ContainerStatuses, pod.Status.InitContainerStatuses...) {
+			if status.Name == "container-disk-binary" || status.Name == "compute" {
+				continue
+			}
+			digest := digestRegex.FindString(status.ImageID)
+			Expect(digest).ToNot(BeEmpty())
+			imageIDs[status.Name] = digest
+		}
+
+		By("Performing a migration")
+		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+		tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+		By("Verifying that all imageIDs are in a reproducible form on the target")
+		pod = tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+
+		for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
+			if container.Name == "container-disk-binary" || container.Name == "compute" {
+				continue
+			}
+			digest := digestRegex.FindString(container.Image)
+			Expect(container.Image).To(ContainSubstring(digest), "image:%s should contain the container digest for container %s", container.Image, container.Name)
+			Expect(digest).ToNot(BeEmpty())
+			Expect(imageIDs).To(HaveKeyWithValue(container.Name, digest), "expected image:%s for container %s to be the same like on the source pod but got %s", container.Image, container.Name, imageIDs[container.Name])
+		}
 	})
 })
 
