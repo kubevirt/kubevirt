@@ -62,6 +62,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
@@ -753,6 +754,23 @@ func AdjustKubeVirtResource() {
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
 	util2.PanicOnError(err)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	if checks.HasFeature(virtconfig.CPUManager) && len(nodes.Items) > 1 {
+		// CPUManager is not enabled in the control-plane node
+		waitForSchedulableNodeWithCPUManager()
+	}
+}
+
+func waitForSchedulableNodeWithCPUManager() {
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+	Eventually(func() bool {
+		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
+		Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
+		return len(nodes.Items) != 0
+	}, 360, 1*time.Second).Should(BeTrue())
 }
 
 func RestoreKubeVirtResource() {

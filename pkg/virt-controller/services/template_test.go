@@ -2324,7 +2324,7 @@ var _ = Describe("Template", func() {
 				arch := config.GetClusterCPUArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*getMemoryOverhead(vmi, arch))
+				expectedMemory.Add(*GetMemoryOverhead(vmi, arch))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
@@ -2352,7 +2352,7 @@ var _ = Describe("Template", func() {
 				arch := config.GetClusterCPUArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*getMemoryOverhead(vmi1, arch))
+				expectedMemory.Add(*GetMemoryOverhead(vmi1, arch))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 				Expect(pod1.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
@@ -3153,6 +3153,39 @@ var _ = Describe("Template", func() {
 			}
 		})
 
+		Context("With a realtime workload", func() {
+			It("should calculate the overhead memory including the requested memory", func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+				vmi := newMinimalWithContainerDisk("testvmi")
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("1G"),
+						kubev1.ResourceCPU:    resource.MustParse("1"),
+					},
+					Limits: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("1G"),
+						kubev1.ResourceCPU:    resource.MustParse("1"),
+					},
+				}
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 1,
+					Sockets:               1,
+					Threads:               1,
+					DedicatedCPUPlacement: true,
+					NUMA:                  &v1.NUMA{},
+					IsolateEmulatorThread: true,
+					Realtime:              &v1.Realtime{},
+				}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				arch := config.GetClusterCPUArch()
+				Expect(err).ToNot(HaveOccurred())
+				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
+				expectedMemory.Add(*GetMemoryOverhead(vmi, arch))
+				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
+			})
+		})
 	})
 
 	Describe("ServiceAccountName", func() {

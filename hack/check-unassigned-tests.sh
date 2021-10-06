@@ -1,7 +1,7 @@
 #!/bin/bash
 
 main() {
-    skip="SRIOV|GPU|\\[sig-operator\\]|\\[sig-network\\]|\\[sig-storage\\]|\\[sig-compute\\]|\\[sig-performance\\]"
+    skip="SRIOV|GPU|\\[sig-operator\\]|\\[sig-network\\]|\\[sig-storage\\]|\\[sig-compute\\]|\\[sig-performance\\]|\\[sig-compute-realtime\\]"
     result=$(FUNC_TEST_ARGS="-dryRun -skip=${skip}" make functest)
     total_tests=$(echo "${result}" | grep "Ran[[:space:]].*of" | awk '{print $2}')
     if [ "${total_tests}" != "0" ]; then

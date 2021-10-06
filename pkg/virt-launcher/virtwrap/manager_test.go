@@ -1207,7 +1207,7 @@ var _ = Describe("Manager", func() {
 				return false
 			}, 20*time.Second, 2).Should(BeTrue(), "migration cancelled result wasn't set")
 		})
-		It("migration failure should be finilized even if we missed status update", func() {
+		It("migration failure should be finalized even if we missed status update", func() {
 			isMigrationFailedSet := make(chan bool, 1)
 			defer close(isMigrationFailedSet)
 

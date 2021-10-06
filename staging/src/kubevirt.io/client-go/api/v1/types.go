@@ -389,6 +389,10 @@ func (v *VirtualMachineInstance) ShouldStartPaused() bool {
 	return v.Spec.StartStrategy != nil && *v.Spec.StartStrategy == StartStrategyPaused
 }
 
+func (v *VirtualMachineInstance) IsRealtimeEnabled() bool {
+	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.Realtime != nil
+}
+
 //
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceConditionType string
@@ -782,6 +786,9 @@ const (
 
 	// MigrationTransportUnixAnnotation means that the VMI will be migrated using the unix URI
 	MigrationTransportUnixAnnotation string = "kubevirt.io/migrationTransportUnix"
+
+	// RealtimeLabel marks the node as capable of running realtime workloads
+	RealtimeLabel string = "kubevirt.io/realtime"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

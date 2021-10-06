@@ -94,6 +94,9 @@ conformance:
 perftest: build-functests
 	hack/perftests.sh
 
+realtime-perftest: build-functests
+	hack/realtime-perftests.sh
+
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
 	hack/dockerized "bazel clean --expunge"
@@ -213,4 +216,5 @@ fossa:
 	coverage \
 	goveralls \
 	build-functests \
-	fossa
+	fossa \
+	realtime-perftest

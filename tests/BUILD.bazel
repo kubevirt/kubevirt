@@ -213,6 +213,7 @@ go_test(
         "//tests/network:go_default_library",
         "//tests/numa:go_default_library",
         "//tests/performance:go_default_library",
+        "//tests/realtime:go_default_library",
         "//tests/reporter:go_default_library",
         "//tests/storage:go_default_library",
         "//tests/util:go_default_library",

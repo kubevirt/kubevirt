@@ -129,3 +129,17 @@ container_image(
     tars = [":alpine-image-tar"],
     visibility = ["//visibility:public"],
 )
+
+container_image(
+    name = "fedora-realtime",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_realtime_aarch64//image",
+        "//conditions:default": "@fedora_realtime//image",
+    }),
+    mode = "444",
+    visibility = ["//visibility:public"],
+)

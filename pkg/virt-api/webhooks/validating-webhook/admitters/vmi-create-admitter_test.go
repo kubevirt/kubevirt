@@ -3467,6 +3467,36 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(1))
 		})
 	})
+
+	Context("with realtime", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}, Cores: 4}
+			enableFeatureGate(virtconfig.NUMAFeatureGate)
+		})
+		It("should reject the realtime knob without DedicatedCPUPlacement", func() {
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
+			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(BeNumerically(">=", 1))
+			Expect(causes).To(ContainElement(metav1.StatusCause{Type: metav1.CauseTypeFieldValueRequired, Field: "fake.domain.cpu.dedicatedCpuPlacement", Message: "fake.domain.cpu.dedicatedCpuPlacement must be set to true when fake.domain.cpu.realtime is used"}))
+		})
+		It("should reject the realtime knob when NUMA Guest Mapping Passthrough is not defined", func() {
+			vmi.Spec.Domain.CPU.DedicatedCPUPlacement = true
+			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes).To(ContainElement(metav1.StatusCause{Type: metav1.CauseTypeFieldValueRequired, Field: "fake.domain.cpu.numa.guestMappingPassthrough", Message: "fake.domain.cpu.numa.guestMappingPassthrough must be defined when fake.domain.cpu.realtime is used"}))
+		})
+		It("should reject the realtime knob when NUMA is nil", func() {
+			vmi.Spec.Domain.CPU.DedicatedCPUPlacement = true
+			vmi.Spec.Domain.CPU.NUMA = nil
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes).To(ContainElement(metav1.StatusCause{Type: metav1.CauseTypeFieldValueRequired, Field: "fake.domain.cpu.numa.guestMappingPassthrough", Message: "fake.domain.cpu.numa.guestMappingPassthrough must be defined when fake.domain.cpu.realtime is used"}))
+		})
+	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
@@ -3885,5 +3915,4 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
 		Expect(len(causes)).To(Equal(0))
 	})
-
 })

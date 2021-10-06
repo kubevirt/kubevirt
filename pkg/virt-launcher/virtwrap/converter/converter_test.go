@@ -2864,6 +2864,53 @@ var _ = Describe("Converter", func() {
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedNumberQueues),
 				"should be capped to the maximum number of queues on tap devices")
 		})
+
+	})
+	Context("Realtime", func() {
+		var vmi *v1.VirtualMachineInstance
+		var rtContext *ConverterContext
+		BeforeEach(func() {
+			rtContext = &ConverterContext{
+				AllowEmulation: true,
+				CPUSet:         []int{0, 1, 2, 3, 4},
+				Topology: &cmdv1.Topology{
+					NumaCells: []*cmdv1.Cell{
+						{Id: 0,
+							Memory:    &cmdv1.Memory{Amount: 10737418240, Unit: "G"},
+							Pages:     []*cmdv1.Pages{{Count: 5, Unit: "G", Size: 1073741824}},
+							Distances: []*cmdv1.Sibling{{Id: 0, Value: 1}},
+							Cpus:      []*cmdv1.CPU{{Id: 0}, {Id: 1}, {Id: 2}}}}},
+			}
+
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 2,
+				Sockets:               1,
+				Threads:               1,
+				Realtime:              &v1.Realtime{},
+				DedicatedCPUPlacement: true,
+			}
+		})
+		It("should configure the VCPU scheduler information utilizing all pinned vcpus when realtime is enabled", func() {
+			domain := vmiToDomain(vmi, rtContext)
+			Expect(domain.Spec.CPUTune.VCPUScheduler).NotTo(BeNil())
+			Expect(domain.Spec.CPUTune.VCPUScheduler).To(BeEquivalentTo(&api.VCPUScheduler{VCPUs: "0-1", Scheduler: api.SchedulerFIFO, Priority: uint(1)}))
+		})
+
+		It("should configure the VCPU scheduler information with specific vcpu mask when realtime is enabled and mask is defined", func() {
+			vmi.Spec.Domain.CPU.Cores = 3
+			vmi.Spec.Domain.CPU.Realtime.Mask = "0-2,^1"
+
+			domain := vmiToDomain(vmi, rtContext)
+			Expect(domain.Spec.CPUTune.VCPUScheduler).NotTo(BeNil())
+			Expect(domain.Spec.CPUTune.VCPUScheduler).To(BeEquivalentTo(&api.VCPUScheduler{VCPUs: "0-2,^1", Scheduler: api.SchedulerFIFO, Priority: uint(1)}))
+		})
 	})
 
 	Context("Bootloader", func() {

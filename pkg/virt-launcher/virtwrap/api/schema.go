@@ -92,8 +92,9 @@ const (
 
 	UserAliasPrefix = "ua-"
 
-	FSThawed = "thawed"
-	FSFrozen = "frozen"
+	FSThawed      = "thawed"
+	FSFrozen      = "frozen"
+	SchedulerFIFO = "fifo"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -201,9 +202,10 @@ type DomainSpec struct {
 }
 
 type CPUTune struct {
-	VCPUPin     []CPUTuneVCPUPin     `xml:"vcpupin"`
-	IOThreadPin []CPUTuneIOThreadPin `xml:"iothreadpin,omitempty"`
-	EmulatorPin *CPUEmulatorPin      `xml:"emulatorpin"`
+	VCPUPin       []CPUTuneVCPUPin     `xml:"vcpupin"`
+	IOThreadPin   []CPUTuneIOThreadPin `xml:"iothreadpin,omitempty"`
+	EmulatorPin   *CPUEmulatorPin      `xml:"emulatorpin"`
+	VCPUScheduler *VCPUScheduler       `xml:"vcpusched,omitempty"`
 }
 
 type NUMATune struct {
@@ -234,6 +236,12 @@ type CPUTuneIOThreadPin struct {
 
 type CPUEmulatorPin struct {
 	CPUSet string `xml:"cpuset,attr"`
+}
+
+type VCPUScheduler struct {
+	Scheduler string `xml:"scheduler,attr"`
+	Priority  uint   `xml:"priority,attr"`
+	VCPUs     string `xml:"vcpus,attr"`
 }
 
 type VCPU struct {
@@ -279,6 +287,7 @@ type Features struct {
 	SMM        *FeatureEnabled    `xml:"smm,omitempty"`
 	KVM        *FeatureKVM        `xml:"kvm,omitempty"`
 	PVSpinlock *FeaturePVSpinlock `xml:"pvspinlock,omitempty"`
+	PMU        *FeatureState      `xml:"pmu,omitempty"`
 }
 
 type FeatureHyperv struct {
@@ -388,10 +397,11 @@ type Memory struct {
 
 // MemoryBacking mirroring libvirt XML under https://libvirt.org/formatdomain.html#elementsMemoryBacking
 type MemoryBacking struct {
-	HugePages  *HugePages           `xml:"hugepages,omitempty"`
-	Source     *MemoryBackingSource `xml:"source,omitempty"`
-	Access     *MemoryBackingAccess `xml:"access,omitempty"`
-	Allocation *MemoryAllocation    `xml:"allocation,omitempty"`
+	HugePages    *HugePages           `xml:"hugepages,omitempty"`
+	Source       *MemoryBackingSource `xml:"source,omitempty"`
+	Access       *MemoryBackingAccess `xml:"access,omitempty"`
+	Allocation   *MemoryAllocation    `xml:"allocation,omitempty"`
+	NoSharePages *NoSharePages        `xml:"nosharepages,omitempty"`
 }
 
 type MemoryAllocationMode string
@@ -422,6 +432,9 @@ type HugePage struct {
 
 type MemoryBackingAccess struct {
 	Mode string `xml:"mode,attr"`
+}
+
+type NoSharePages struct {
 }
 
 type Devices struct {
