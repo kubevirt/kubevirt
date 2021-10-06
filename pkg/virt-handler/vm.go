@@ -2064,37 +2064,8 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 
 	// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
 	if isACPIEnabled(vmi, domain) {
-		expired, timeLeft := d.hasGracePeriodExpired(domain)
-		if !expired {
-			if domain.Status.Status != api.Shutdown {
-				err = client.ShutdownVirtualMachine(vmi)
-				if err != nil && !cmdclient.IsDisconnected(err) {
-					// Only report err if it wasn't the result of a disconnect.
-					return err
-				}
-
-				log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
-
-				// Make sure that we don't hot-loop in case we send the first domain notification
-				if timeLeft == -1 {
-					timeLeft = 5
-					if vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds < timeLeft {
-						timeLeft = *vmi.Spec.TerminationGracePeriodSeconds
-					}
-				}
-				// In case we have a long grace period, we want to resend the graceful shutdown every 5 seconds
-				// That's important since a booting OS can miss ACPI signals
-				if timeLeft > 5 {
-					timeLeft = 5
-				}
-
-				// pending graceful shutdown.
-				d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(timeLeft)*time.Second)
-				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
-			} else {
-				log.Log.V(4).Object(vmi).Infof("%s is already shutting down.", vmi.GetObjectMeta().GetName())
-			}
-			return nil
+		if expired, timeLeft := d.hasGracePeriodExpired(domain); !expired {
+			return d.handleVMIShutdown(vmi, domain, client, timeLeft)
 		}
 		log.Log.Object(vmi).Infof("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
 	} else {
@@ -2114,6 +2085,47 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 
 	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Deleted.String(), VMIStopping)
 
+	return nil
+}
+
+func (d *VirtualMachineController) handleVMIShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain, client cmdclient.LauncherClient, timeLeft int64) error {
+	if domain.Status.Status != api.Shutdown {
+		return d.shutdownVMI(vmi, client, timeLeft)
+	}
+	log.Log.V(4).Object(vmi).Infof("%s is already shutting down.", vmi.GetObjectMeta().GetName())
+	return nil
+}
+
+func (d *VirtualMachineController) shutdownVMI(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient, timeLeft int64) error {
+	err := client.ShutdownVirtualMachine(vmi)
+	if err != nil && !cmdclient.IsDisconnected(err) {
+		// Only report err if it wasn't the result of a disconnect.
+		//
+		// Both virt-launcher and virt-handler are trying to destroy
+		// the VirtualMachineInstance at the same time. It's possible the client may get
+		// disconnected during the kill request, which shouldn't be
+		// considered an error.
+		return err
+	}
+
+	log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
+
+	// Make sure that we don't hot-loop in case we send the first domain notification
+	if timeLeft == -1 {
+		timeLeft = 5
+		if vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds < timeLeft {
+			timeLeft = *vmi.Spec.TerminationGracePeriodSeconds
+		}
+	}
+	// In case we have a long grace period, we want to resend the graceful shutdown every 5 seconds
+	// That's important since a booting OS can miss ACPI signals
+	if timeLeft > 5 {
+		timeLeft = 5
+	}
+
+	// pending graceful shutdown.
+	d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(timeLeft)*time.Second)
+	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
 	return nil
 }
 
