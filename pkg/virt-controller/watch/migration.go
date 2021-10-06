@@ -479,9 +479,9 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	return nil
 }
 
-func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 
-	templatePod, err := c.templateService.RenderLaunchManifest(vmi)
+	templatePod, err := c.templateService.RenderMigrationManifest(vmi, sourcePod)
 	if err != nil {
 		return fmt.Errorf("failed to render launch manifest: %v", err)
 	}
@@ -672,7 +672,7 @@ func filterOutOldPDBs(pdbList []*v1beta1.PodDisruptionBudget) []*v1beta1.PodDisr
 	return filteredPdbs
 }
 
-func (c *MigrationController) handleTargetPodCreation(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+func (c *MigrationController) handleTargetPodCreation(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 
 	c.migrationStartLock.Lock()
 	defer c.migrationStartLock.Unlock()
@@ -742,7 +742,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 				return nil
 			}
 		}
-		return c.createTargetPod(migration, vmi)
+		return c.createTargetPod(migration, vmi, sourcePod)
 	}
 	return nil
 }
@@ -818,7 +818,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 	switch migration.Status.Phase {
 	case virtv1.MigrationPending:
 		if !podExists {
-			return c.handleTargetPodCreation(key, migration, vmi)
+			return c.handleTargetPodCreation(key, migration, vmi, pod)
 		} else if isPodReady(pod) {
 			if controller.VMIHasHotplugVolumes(vmi) {
 				attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)

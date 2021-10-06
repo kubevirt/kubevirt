@@ -204,23 +204,23 @@ func GetImage(root string, imagePath string) (string, error) {
 	return imagePath, nil
 }
 
-func GenerateInitContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
-	return generateContainersHelper(vmi, podVolumeName, binVolumeName, true)
+func GenerateInitContainers(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string) []kubev1.Container {
+	return generateContainersHelper(vmi, imageIDs, podVolumeName, binVolumeName, true)
 }
 
-func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
-	return generateContainersHelper(vmi, podVolumeName, binVolumeName, false)
+func GenerateContainers(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string) []kubev1.Container {
+	return generateContainersHelper(vmi, imageIDs, podVolumeName, binVolumeName, false)
 }
 
-func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) *kubev1.Container {
-	return generateKernelBootContainerHelper(vmi, podVolumeName, binVolumeName, false)
+func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string) *kubev1.Container {
+	return generateKernelBootContainerHelper(vmi, imageIDs, podVolumeName, binVolumeName, false)
 }
 
-func GenerateKernelBootInitContainer(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) *kubev1.Container {
-	return generateKernelBootContainerHelper(vmi, podVolumeName, binVolumeName, true)
+func GenerateKernelBootInitContainer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string) *kubev1.Container {
+	return generateKernelBootContainerHelper(vmi, imageIDs, podVolumeName, binVolumeName, true)
 }
 
-func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string, isInit bool) *kubev1.Container {
+func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) *kubev1.Container {
 	if !util.HasKernelBootContainerImage(vmi) {
 		return nil
 	}
@@ -240,12 +240,12 @@ func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, podVolume
 	}
 
 	const fakeVolumeIdx = 0 // volume index makes no difference for kernel-boot container
-	return generateContainerFromVolume(vmi, podVolumeName, binVolumeName, isInit, true, &kernelBootVolume, fakeVolumeIdx)
+	return generateContainerFromVolume(vmi, imageIDs, podVolumeName, binVolumeName, isInit, true, &kernelBootVolume, fakeVolumeIdx)
 }
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string, isInit bool) []kubev1.Container {
+func generateContainersHelper(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) []kubev1.Container {
 	var containers []kubev1.Container
 
 	// Make VirtualMachineInstance Image Wrapper Containers
@@ -253,14 +253,14 @@ func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName stri
 		if volume.Name == KernelBootVolumeName {
 			continue
 		}
-		if container := generateContainerFromVolume(vmi, podVolumeName, binVolumeName, isInit, false, &volume, index); container != nil {
+		if container := generateContainerFromVolume(vmi, imageIDs, podVolumeName, binVolumeName, isInit, false, &volume, index); container != nil {
 			containers = append(containers, *container)
 		}
 	}
 	return containers
 }
 
-func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, podVolumeName, binVolumeName string, isInit, isKernelBoot bool, volume *v1.Volume, volumeIdx int) *kubev1.Container {
+func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName, binVolumeName string, isInit, isKernelBoot bool, volume *v1.Volume, volumeIdx int) *kubev1.Container {
 	if volume.ContainerDisk == nil {
 		return nil
 	}
@@ -268,6 +268,10 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, podVolumeName, 
 	volumeMountDir := GetVolumeMountDirOnGuest(vmi)
 	diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 	diskContainerImage := volume.ContainerDisk.Image
+	if img, exists := imageIDs[volume.Name]; exists {
+		diskContainerImage = img
+	}
+
 	resources := kubev1.ResourceRequirements{}
 	resources.Limits = make(kubev1.ResourceList)
 	resources.Requests = make(kubev1.ResourceList)
