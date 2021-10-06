@@ -50,6 +50,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
@@ -2212,6 +2213,29 @@ spec:
 			}
 			errMsg := fmt.Sprintf("Unsupported value: \"%s\"", incorrectOperator)
 			patchKvWorkloads(&incorrectWorkload, true, errMsg)
+		})
+
+		It("[test_id:TODO]should place components only on linux nodes", func() {
+			// Only below mentioned components have nodeSelector specified
+			labelReq, err := labels.NewRequirement(v1.AppLabel, selection.In, []string{
+				components.VirtAPIName,
+				components.VirtControllerName,
+				components.VirtHandlerName,
+			})
+			if err != nil {
+				panic(err)
+			}
+
+			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labels.NewSelector().Add(
+					*labelReq,
+				).String(),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pods.Items).NotTo(BeEmpty())
+			for _, pod := range pods.Items {
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/os", "linux"), fmt.Sprintf("pod %s does not have linux node selector", pod.Name))
+			}
 		})
 	})
 
