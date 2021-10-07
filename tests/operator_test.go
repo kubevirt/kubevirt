@@ -639,10 +639,6 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			vmis := []*v1.VirtualMachineInstance{}
 			for i := 0; i < num; i++ {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				if vmi.Labels == nil {
-					vmi.Labels = make(map[string]string)
-				}
-				vmi.Labels["logVerbosity"] = "6"
 				configMapName := "configmap-" + rand.String(5)
 				secretName := "secret-" + rand.String(5)
 				downwardAPIName := "downwardapi-" + rand.String(5)
