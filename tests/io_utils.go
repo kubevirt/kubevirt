@@ -38,6 +38,18 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
+func createVirtChrootCMD(args ...string) []string {
+	base_args := []string{
+		"/usr/bin/virt-chroot",
+		"--mount",
+		"/proc/1/ns/mnt",
+		"exec",
+		"--",
+	}
+
+	return append(base_args, args...)
+}
+
 func NodeNameWithHandler() string {
 	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -76,10 +88,11 @@ func CreateErrorDisk(nodeName string) (address string, device string) {
 func CreateSCSIDisk(nodeName string, opts []string) (address string, device string) {
 	args := []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/modprobe", "scsi_debug"}
 	args = append(args, opts...)
+
 	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create faulty disk")
 
-	args = []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/bin/lsscsi"}
+	args = createVirtChrootCMD("/usr/bin/lsscsi")
 	stdout, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to find out address of  SCSI disk")
 
@@ -107,7 +120,7 @@ func RemoveSCSIDisk(nodeName, address string) {
 	_, err := ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 
-	args = []string{"/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/modprobe", "-r", "scsi_debug"}
+	args = createVirtChrootCMD("/usr/sbin/modprobe", "-r", "scsi_debug")
 	_, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to disable scsi disk")
 }
