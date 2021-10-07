@@ -20,14 +20,11 @@
 package types
 
 import (
-	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
@@ -62,43 +59,6 @@ func GetCloneSourceWithInformers(vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVo
 		}
 
 		ds := obj.(*cdiv1.DataSource)
-
-		if ds.Spec.Source.PVC != nil {
-			cloneSource = &CloneSource{
-				Namespace: ds.Spec.Source.PVC.Namespace,
-				Name:      ds.Spec.Source.PVC.Name,
-			}
-
-			if cloneSource.Namespace == "" {
-				cloneSource.Namespace = ns
-			}
-		}
-	}
-
-	return cloneSource, nil
-}
-
-func GetCloneSource(ctx context.Context, client kubecli.KubevirtClient, vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVolumeSpec) (*CloneSource, error) {
-	var cloneSource *CloneSource
-	if dvSpec.Source != nil && dvSpec.Source.PVC != nil {
-		cloneSource = &CloneSource{
-			Namespace: dvSpec.Source.PVC.Namespace,
-			Name:      dvSpec.Source.PVC.Name,
-		}
-
-		if cloneSource.Namespace == "" {
-			cloneSource.Namespace = vm.Namespace
-		}
-	} else if dvSpec.SourceRef != nil && dvSpec.SourceRef.Kind == "DataSource" {
-		ns := vm.Namespace
-		if dvSpec.SourceRef.Namespace != nil {
-			ns = *dvSpec.SourceRef.Namespace
-		}
-
-		ds, err := client.CdiClient().CdiV1beta1().DataSources(ns).Get(ctx, dvSpec.SourceRef.Name, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
 
 		if ds.Spec.Source.PVC != nil {
 			cloneSource = &CloneSource{

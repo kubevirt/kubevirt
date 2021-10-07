@@ -75,6 +75,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	flaovrMethods flavor.Methods,
+	dataSourceInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient) *VMController {
 
@@ -88,6 +89,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		pvcInformer:            pvcInformer,
 		crInformer:             crInformer,
 		flavorMethods:          flaovrMethods,
+		dataSourceInformer:     dataSourceInformer,
 		recorder:               recorder,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -136,6 +138,7 @@ type VMController struct {
 	pvcInformer            cache.SharedIndexInformer
 	crInformer             cache.SharedIndexInformer
 	flavorMethods          flavor.Methods
+	dataSourceInformer     cache.SharedIndexInformer
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
@@ -343,7 +346,7 @@ func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1
 	return dataVolumes, nil
 }
 
-func createDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) (*cdiv1.DataVolume, error) {
+func (c *VMController) createDataVolumeManifest(dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) (*cdiv1.DataVolume, error) {
 
 	newDataVolume := &cdiv1.DataVolume{}
 
@@ -372,7 +375,7 @@ func createDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTempla
 		newDataVolume.Spec.PriorityClassName = vm.Spec.Template.Spec.PriorityClassName
 	}
 
-	cloneSource, err := typesutil.GetCloneSource(context.TODO(), clientset, vm, &newDataVolume.Spec)
+	cloneSource, err := typesutil.GetCloneSourceWithInformers(vm, &dataVolume.Spec, c.dataSourceInformer)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +443,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		if !exists {
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
-			newDataVolume, err := createDataVolumeManifest(c.clientset, &vm.Spec.DataVolumeTemplates[i], vm)
+			newDataVolume, err := c.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[i], vm)
 			if err != nil {
 				return ready, fmt.Errorf("unable to create DataVolume manifest: %v", err)
 			}
