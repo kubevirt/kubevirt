@@ -313,12 +313,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	}
 
 	getLibvirtdPid := func(pod *k8sv1.Pod) string {
-		stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "compute",
+		stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "compute",
 			[]string{
 				"ps",
 				"-x",
 			})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), `"ps -x" failed with stdout="`+stdout+`" and stderr="`+stderr+`"`)
 
 		pid := ""
 		for _, str := range strings.Split(stdout, "\n") {
