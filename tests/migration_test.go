@@ -1812,6 +1812,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 									if !found {
 										continue
 									}
+									// Wait for the iso to be created
+									Eventually(func() string {
+										output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "[[ -f " + volPath + " ]] && echo found || true"})
+										Expect(err).ToNot(HaveOccurred())
+										return output
+									}, 30*time.Second, time.Second).Should(ContainSubstring("found"), volPath+" never appeared")
 									output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "/usr/bin/stat --printf=%s " + volPath})
 									Expect(err).ToNot(HaveOccurred())
 									Expect(strconv.Atoi(output)).To(Equal(int(volStatus.Size)), "ISO file for volume %s is not empty", volume.Name)
