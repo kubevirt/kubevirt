@@ -1278,6 +1278,13 @@ func renderLaunchManifestVolumes(t *templateService, vmi *v1.VirtualMachineInsta
 	var imagePullSecrets []k8sv1.LocalObjectReference
 	serviceAccountName := ""
 
+	// This detects hotplug volumes for a started but not ready VMI
+	for _, volume := range vmi.Spec.Volumes {
+		if (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) {
+			hotplugVolumes[volume.Name] = true
+		}
+	}
+
 	for _, volume := range vmi.Spec.Volumes {
 		if hotplugVolumes[volume.Name] {
 			continue
@@ -1579,13 +1586,6 @@ func renderLaunchManifestVolumes(t *templateService, vmi *v1.VirtualMachineInsta
 		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 			Name: t.imagePullSecret,
 		})
-	}
-
-	// This detects hotplug volumes for a started but not ready VMI
-	for _, volume := range vmi.Spec.Volumes {
-		if (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) {
-			hotplugVolumes[volume.Name] = true
-		}
 	}
 
 	return volumes, volumeDevices, volumeMounts, imagePullSecrets, serviceAccountName, nil
