@@ -257,36 +257,6 @@ func getPPid(pid int) (int, error) {
 	return process.PPid(), nil
 }
 
-func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, slice string, err error) {
-	return
-
-	//slices, err := s.cgroupParser.Parse(pid)
-	//if err != nil {
-	//	return
-	//}
-	//
-	//// Skip not supported cgroup controller
-	//for _, c := range s.controller {
-	//	if s, ok := slices[c]; ok {
-	//		// Set and check cgroup slice
-	//		if slice == "" {
-	//			slice = s
-	//		} else if slice != s {
-	//			err = fmt.Errorf("Process is part of more than one slice. Expected %s, found %s", slice, s)
-	//			return
-	//		}
-	//		// Add controller
-	//		controllers = append(controllers, c)
-	//	}
-	//}
-	//
-	//if slice == "" {
-	//	err = fmt.Errorf("Could not detect slice of whitelisted controllers: %v", s.controller)
-	//}
-	//
-	//return
-}
-
 // consider reusing getMemoryOverhead()
 // This is not scientific, but neither what libvirtd does is. See details in:
 // https://www.redhat.com/archives/libvirt-users/2019-August/msg00051.html
