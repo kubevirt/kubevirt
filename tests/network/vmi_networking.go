@@ -146,22 +146,17 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 			tests.StartTCPServer(inboundVMI, testPort)
 		})
 
-		table.DescribeTable("should be able to reach", func(destination string) {
+		table.DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
 			var cmdCheck, addrShow, addr string
-
-			if destination == "InboundVMIWithCustomMacAddress" {
-				tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
-			}
-
-			switch destination {
-			case "Internet":
+			if vmiRef == nil {
 				addr = "kubevirt.io"
-			case "InboundVMI":
-				addr = inboundVMI.Status.Interfaces[0].IP
-			case "InboundVMIWithPodNetworkSet":
-				addr = inboundVMIWithPodNetworkSet.Status.Interfaces[0].IP
-			case "InboundVMIWithCustomMacAddress":
-				addr = inboundVMIWithCustomMacAddress.Status.Interfaces[0].IP
+			} else {
+				vmi := *vmiRef
+				if vmiHasCustomMacAddress(vmi) {
+					tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
+				}
+
+				addr = vmi.Status.Interfaces[0].IP
 			}
 
 			payloadSize := 0
@@ -232,10 +227,10 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", "InboundVMI"),
-			table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
-			table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
-			table.Entry("[test_id:1542]the internet", "Internet"),
+			table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
+			table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
+			table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
+			table.Entry("[test_id:1542]the internet", nil),
 		)
 
 		table.DescribeTable("should be reachable via the propagated IP from a Pod", func(op v12.NodeSelectorOperator, hostNetwork bool) {
@@ -1136,4 +1131,9 @@ func gatewayIPFromCIDR(cidr string) string {
 	oct := len(ip) - 1
 	ip[oct]++
 	return ip.String()
+}
+
+func vmiHasCustomMacAddress(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Devices.Interfaces != nil &&
+		vmi.Spec.Domain.Devices.Interfaces[0].MacAddress != ""
 }
