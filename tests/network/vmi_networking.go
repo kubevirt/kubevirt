@@ -119,41 +119,22 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
-			// Prepare inbound and outbound VMI definitions
+			inboundVMI = libvmi.NewCirros()
+			outboundVMI = libvmi.NewCirros()
 
-			// inboundVMI expects implicitly to be added to the pod network
-			inboundVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			// Remove the masquerade interface to use the default bridge one
-			inboundVMI.Spec.Domain.Devices.Interfaces = nil
-			inboundVMI.Spec.Networks = nil
+			inboundVMIWithPodNetworkSet = libvmi.NewCirros(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()))
 
-			// outboundVMI is used to connect to other vms
-			outboundVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			// Remove the masquerade interface to use the default bridge one
-			outboundVMI.Spec.Domain.Devices.Interfaces = nil
-			outboundVMI.Spec.Networks = nil
-
-			// inboudnVMIWithPodNetworkSet adds itself in an explicit fashion to the pod network
-			inboundVMIWithPodNetworkSet = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			// Remove the masquerade interface to use the default bridge one
-			inboundVMIWithPodNetworkSet.Spec.Domain.Devices.Interfaces = nil
-			inboundVMIWithPodNetworkSet.Spec.Networks = nil
-			v1.SetDefaults_NetworkInterface(inboundVMIWithPodNetworkSet)
-			Expect(inboundVMIWithPodNetworkSet.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
-
-			// inboundVMIWithCustomMacAddress specifies a custom MAC address
-			inboundVMIWithCustomMacAddress = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			// Remove the masquerade interface to use the default bridge one
-			inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces = nil
-			inboundVMIWithCustomMacAddress.Spec.Networks = nil
-			v1.SetDefaults_NetworkInterface(inboundVMIWithCustomMacAddress)
-			Expect(inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
-			inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+			inboundVMIWithCustomMacAddress = libvmi.NewCirros(
+				libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), "de:ad:00:00:be:af")),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()))
 
 			// Create VMIs
 			for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI, inboundVMIWithPodNetworkSet, inboundVMIWithCustomMacAddress} {
-				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(networkVMI)
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(networkVMI)
 				Expect(err).ToNot(HaveOccurred())
+				*networkVMI = *vmi
 			}
 
 			// Wait for VMIs to become ready
