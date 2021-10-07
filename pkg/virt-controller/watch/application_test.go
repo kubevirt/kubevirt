@@ -91,6 +91,7 @@ var _ = Describe("Application", func() {
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		crInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		crdInformer, _ := testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
@@ -123,6 +124,7 @@ var _ = Describe("Application", func() {
 			pvcInformer,
 			crInformer,
 			flavorMethods,
+			dataSourceInformer,
 			recorder,
 			virtClient)
 		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),

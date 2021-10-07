@@ -52,6 +52,7 @@ var _ = Describe("VirtualMachine", func() {
 		var vmiInformer cache.SharedIndexInformer
 		var vmInformer cache.SharedIndexInformer
 		var dataVolumeInformer cache.SharedIndexInformer
+		var dataSourceInformer cache.SharedIndexInformer
 		var dataVolumeSource *framework.FakeControllerSource
 		var pvcInformer cache.SharedIndexInformer
 		var crInformer cache.SharedIndexInformer
@@ -70,6 +71,7 @@ var _ = Describe("VirtualMachine", func() {
 			go vmiInformer.Run(stop)
 			go vmInformer.Run(stop)
 			go dataVolumeInformer.Run(stop)
+			go dataSourceInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, vmInformer.HasSynced)).To(BeTrue())
 		}
 
@@ -82,6 +84,7 @@ var _ = Describe("VirtualMachine", func() {
 			generatedInterface := fake.NewSimpleClientset()
 
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
@@ -108,6 +111,7 @@ var _ = Describe("VirtualMachine", func() {
 				pvcInformer,
 				crInformer,
 				flavorMethods,
+				dataSourceInformer,
 				recorder,
 				virtClient)
 
@@ -1093,13 +1097,6 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 				if ds != nil {
-					cdiClient.PrependReactor("get", "datasources", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-						ga := action.(testing.GetAction)
-						Expect(ga.GetNamespace()).To(Equal(ds.Namespace))
-						Expect(ga.GetName()).To(Equal(ds.Name))
-						return true, ds, nil
-					})
-
 					cdiClient.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 						ca := action.(testing.CreateAction)
 						dv := ca.GetObject().(*cdiv1.DataVolume)
@@ -1110,6 +1107,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(dv.Spec.Source.PVC.Name).To(Equal(ds.Spec.Source.PVC.Name))
 						return false, ds, nil
 					})
+					dataSourceInformer.GetStore().Add(ds)
 				}
 
 				controller.cloneAuthFunc = func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {

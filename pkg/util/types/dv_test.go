@@ -20,24 +20,22 @@
 package types
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	"github.com/golang/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
-	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
-	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("DataVolume utils test", func() {
 	Context("with VM", func() {
+		var dsInformer cache.SharedIndexInformer
+
 		vm := &virtv1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "vmnamespace",
@@ -45,13 +43,9 @@ var _ = Describe("DataVolume utils test", func() {
 			},
 		}
 
-		createClient := func(cdiObjects ...runtime.Object) kubecli.KubevirtClient {
-			ctrl := gomock.NewController(GinkgoT())
-			virtClient := kubecli.NewMockKubevirtClient(ctrl)
-			cdiClient := cdifake.NewSimpleClientset(cdiObjects...)
-			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
-			return virtClient
-		}
+		BeforeEach(func() {
+			dsInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		})
 
 		It("should ignore DataVolume with no clone operation", func() {
 			dv := &cdiv1.DataVolumeSpec{
@@ -60,7 +54,7 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(), vm, dv)
+			cs, err := GetCloneSourceWithInformers(vm, dv, dsInformer)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).To(BeNil())
 		})
@@ -76,7 +70,9 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(), vm, dv)
+			//dataSourceInformer.GetStore().Add(ds)
+
+			cs, err := GetCloneSourceWithInformers(vm, dv, dsInformer)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).ToNot(BeNil())
 			Expect(cs.Namespace).To(Equal(expectedNamespace))
@@ -96,7 +92,7 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(), vm, dv)
+			cs, err := GetCloneSourceWithInformers(vm, dv, dsInformer)
 			Expect(err).To(HaveOccurred())
 			Expect(cs).To(BeNil())
 		})
@@ -132,7 +128,9 @@ var _ = Describe("DataVolume utils test", func() {
 				dv.SourceRef.Namespace = &sourceRefNamespace
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(ref), vm, dv)
+			dsInformer.GetStore().Add(ref)
+
+			cs, err := GetCloneSourceWithInformers(vm, dv, dsInformer)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).ToNot(BeNil())
 			Expect(cs.Namespace).To(Equal(expectedNamespace))
