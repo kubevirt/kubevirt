@@ -261,7 +261,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 
 		vmStatus, err = readNewStatus(stdout, vmStatus, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusPaused), readyConditionTrue),
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusPaused), MatchRegexp(vmReadyRegex)),
 			"VM should be in the %s status", v12.VirtualMachineStatusPaused)
 
 		By("Unpausing the VirtualMachine")
@@ -270,7 +270,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 
 		vmStatus, err = readNewStatus(stdout, vmStatus, statusChangeTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning), readyConditionTrue),
+		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), string(v12.VirtualMachineStatusRunning), MatchRegexp(vmReadyRegex)),
 			"VM should be in the %s status", v12.VirtualMachineStatusRunning)
 
 		// The previous tests would be done, once succeed the following tests would be skipped on the Arm64 cluster
