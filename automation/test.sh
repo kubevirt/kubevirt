@@ -369,7 +369,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   fi
 
   if ! [[ $TARGET =~ sig-storage ]]; then
-    if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" || "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
+    if [[ "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
         export KUBEVIRT_E2E_FOCUS=rook-ceph
     fi
   fi
