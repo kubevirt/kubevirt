@@ -194,10 +194,6 @@ func (m *MetricClient) getResourceRequestCountsByOperation(r *audit_api.Result) 
 		return err
 	}
 
-	type ops struct {
-		verbCounts map[string]float64
-	}
-
 	for _, result := range results {
 		if result.value < 1 {
 			continue

@@ -520,10 +520,3 @@ func nodeHasTaint(taint *k8sv1.Taint, node *k8sv1.Node) bool {
 	}
 	return false
 }
-
-type notolerate struct {
-	VMI                *virtv1.VirtualMachineInstance
-	NotTolerated       []k8sv1.Taint
-	TemporaryTolerated []k8sv1.Taint
-	FirstReque         *time.Time
-}

@@ -178,7 +178,6 @@ go_test(
         "//pkg/hooks/v1alpha1:go_default_library",
         "//pkg/hooks/v1alpha2:go_default_library",
         "//pkg/testutils:go_default_library",
-        "//pkg/util:go_default_library",
         "//pkg/util/cluster:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/migrations:go_default_library",
