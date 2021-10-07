@@ -500,7 +500,7 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 	if err != nil {
 		return err
 	}
-	err = f.Close()
+	util.CloseIOAndCheckErr(f, &err)
 	if err != nil {
 		return err
 	}
