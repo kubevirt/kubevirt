@@ -1407,11 +1407,19 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = "default"
 
 			vm := v1.VirtualMachine{}
+			vmi := v1.VirtualMachineInstance{}
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
@@ -1426,9 +1434,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
 
-			vm := v1.VirtualMachine{
-				Status: v1.VirtualMachineStatus{
-					Ready: true,
+			vm := v1.VirtualMachine{}
+
+			vmi := v1.VirtualMachineInstance{
+				Status: v1.VirtualMachineInstanceStatus{
+					Phase: v1.Running,
 				},
 			}
 
@@ -1436,6 +1446,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
@@ -1456,9 +1473,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
 
-			vm := v1.VirtualMachine{
-				Status: v1.VirtualMachineStatus{
-					Ready: true,
+			vm := v1.VirtualMachine{}
+
+			vmi := v1.VirtualMachineInstance{
+				Status: v1.VirtualMachineInstanceStatus{
+					Phase: v1.Running,
 				},
 			}
 
@@ -1466,6 +1485,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 

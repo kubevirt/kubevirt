@@ -228,7 +228,13 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	if !vm.Status.Ready {
+	vmi, err := app.FetchVirtualMachineInstance(namespace, name)
+	if err != nil {
+		writeError(err, response)
+		return
+	}
+
+	if vmi.Status.Phase != v1.Running {
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is not running")), response)
 		return
 	}
