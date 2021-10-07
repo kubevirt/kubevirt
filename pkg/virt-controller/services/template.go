@@ -451,10 +451,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
-	var imagePullSecrets []k8sv1.LocalObjectReference
-
-	volumes, volumeDevices, volumeMounts, hotplugVolumes := renderLaunchManifestInitDefaultVolumes(t, vmi)
-
 	var userId int64 = util.RootUser
 	privileged := false
 
@@ -468,8 +464,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		privileged = true
 	}
 
-	serviceAccountName := ""
-	volumes, volumeDevices, volumeMounts, imagePullSecrets, serviceAccountName, err = renderLaunchManifestVolumes(t, vmi, volumes, volumeDevices, volumeMounts, hotplugVolumes, namespace)
+	volumes, volumeDevices, volumeMounts, imagePullSecrets, serviceAccountName, err := renderLaunchManifestVolumes(t, vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -1274,9 +1269,12 @@ func renderLaunchManifestInitDefaultVolumes(t *templateService, vmi *v1.VirtualM
 	return
 }
 
-func renderLaunchManifestVolumes(t *templateService, vmi *v1.VirtualMachineInstance, volumes []k8sv1.Volume, volumeDevices []k8sv1.VolumeDevice, volumeMounts []k8sv1.VolumeMount, hotplugVolumes map[string]bool, namespace string) ([]k8sv1.Volume, []k8sv1.VolumeDevice, []k8sv1.VolumeMount, []k8sv1.LocalObjectReference, string, error) {
+func renderLaunchManifestVolumes(t *templateService, vmi *v1.VirtualMachineInstance) ([]k8sv1.Volume, []k8sv1.VolumeDevice, []k8sv1.VolumeMount, []k8sv1.LocalObjectReference, string, error) {
 	var imagePullSecrets []k8sv1.LocalObjectReference
 	serviceAccountName := ""
+	namespace := vmi.GetNamespace()
+
+	volumes, volumeDevices, volumeMounts, hotplugVolumes := renderLaunchManifestInitDefaultVolumes(t, vmi)
 
 	// This detects hotplug volumes for a started but not ready VMI
 	for _, volume := range vmi.Spec.Volumes {
