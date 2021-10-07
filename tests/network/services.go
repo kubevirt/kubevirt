@@ -35,13 +35,13 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
+	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -160,7 +160,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			BeforeEach(func() {
 				serviceName = "myservice"
 
-				service := buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+				service := netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -196,7 +196,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			BeforeEach(func() {
 				serviceName = inboundVMI.Spec.Subdomain
 
-				service := buildHeadlessServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+				service := netservice.BuildHeadlessSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -270,9 +270,9 @@ var _ = SIGDescribe("[Serial]Services", func() {
 						libnet.SkipWhenNotDualStackCluster(virtClient)
 
 						serviceName = serviceName + "v6"
-						service = buildIPv6ServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+						service = netservice.BuildIPv6Spec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 					} else {
-						service = buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+						service = netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 					}
 
 					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
@@ -310,33 +310,3 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		})
 	})
 })
-
-func buildHeadlessServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
-	service := buildServiceSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
-	service.Spec.ClusterIP = k8sv1.ClusterIPNone
-	return service
-}
-
-func buildIPv6ServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
-	service := buildServiceSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
-	ipv6Family := k8sv1.IPv6Protocol
-	service.Spec.IPFamilies = []k8sv1.IPFamily{ipv6Family}
-
-	return service
-}
-
-func buildServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
-	return &k8sv1.Service{
-		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: serviceName,
-		},
-		Spec: k8sv1.ServiceSpec{
-			Selector: map[string]string{
-				selectorKey: selectorValue,
-			},
-			Ports: []k8sv1.ServicePort{
-				{Protocol: k8sv1.ProtocolTCP, Port: int32(portToExpose), TargetPort: intstr.FromInt(exposedPort)},
-			},
-		},
-	}
-}
