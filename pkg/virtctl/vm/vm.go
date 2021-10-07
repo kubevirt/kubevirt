@@ -306,6 +306,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
 	}
+	fmt.Printf("Successfully submitted add volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil
 }
 
@@ -321,8 +322,9 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 		})
 	}
 	if err != nil {
-		return fmt.Errorf("Error removing volume, %v", err)
+		return fmt.Errorf("error removing volume, %v", err)
 	}
+	fmt.Printf("Successfully submitted remove volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil
 }
 
