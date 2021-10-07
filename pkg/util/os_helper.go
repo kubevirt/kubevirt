@@ -20,7 +20,9 @@
 package util
 
 import (
+	"fmt"
 	"io"
+	"os"
 
 	"kubevirt.io/client-go/log"
 )
@@ -37,4 +39,33 @@ func CloseIOAndCheckErr(c io.Closer, err *error) {
 			*err = ferr
 		}
 	}
+}
+
+func WriteBytes(f *os.File, c byte, n int64) error {
+	var err error
+	var i, total int64
+	buf := make([]byte, 1<<12)
+
+	for i = 0; i < 1<<12; i++ {
+		buf[i] = c
+	}
+
+	for i = 0; i < n>>12; i++ {
+		x, err := f.Write(buf)
+		total += int64(x)
+		if err != nil {
+			return err
+		}
+	}
+
+	x, err := f.Write(buf[:n&(1<<12-1)])
+	total += int64(x)
+	if err != nil {
+		return err
+	}
+	if total != n {
+		return fmt.Errorf("wrote %d bytes instead of %d", total, n)
+	}
+
+	return nil
 }
