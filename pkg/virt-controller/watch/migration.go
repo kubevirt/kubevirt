@@ -521,6 +521,10 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 		}
 	}
 
+	if len(migration.Spec.TargetNode) > 0 {
+		templatePod.Spec.NodeSelector["kubernetes.io/hostname"] = migration.Spec.TargetNode
+	}
+
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
 	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})

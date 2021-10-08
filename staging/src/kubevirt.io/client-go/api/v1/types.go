@@ -1035,6 +1035,8 @@ type VirtualMachineInstanceMigrationList struct {
 type VirtualMachineInstanceMigrationSpec struct {
 	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
 	VMIName string `json:"vmiName,omitempty" valid:"required"`
+	// The target node that the VMI is moving to
+	TargetNode string `json:"targetNode,omitempty"`
 }
 
 // VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.
