@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 
+	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
+
 	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 
@@ -1740,6 +1742,94 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}, 120*time.Second, time.Second).Should(Succeed(), "vmi's migration state should be finalized as failed after target pod exits")
 
 				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+			It("Migration should generate empty isos of the right size on the target", func() {
+				By("Creating a VMI with cloud-init and config maps")
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				configMapName := "configmap-" + rand.String(5)
+				secretName := "secret-" + rand.String(5)
+				downwardAPIName := "downwardapi-" + rand.String(5)
+				config_data := map[string]string{
+					"config1": "value1",
+					"config2": "value2",
+				}
+				secret_data := map[string]string{
+					"user":     "admin",
+					"password": "community",
+				}
+				tests.CreateConfigMap(configMapName, config_data)
+				tests.CreateSecret(secretName, secret_data)
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
+				tests.AddSecretDisk(vmi, secretName, secretName)
+				tests.AddServiceAccountDisk(vmi, "default")
+				// In case there are no existing labels add labels to add some data to the downwardAPI disk
+				if vmi.ObjectMeta.Labels == nil {
+					vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
+				}
+				tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
+
+				// this annotation causes virt launcher to immediately fail a migration
+				vmi.Annotations = map[string]string{v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation: ""}
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// execute a migration
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for Migration to reach Preparing Target Phase")
+				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					phase := migration.Status.Phase
+					Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
+					return phase
+				}, 120, 1*time.Second).Should(Equal(v1.MigrationPreparingTarget))
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.MigrationState).ToNot(BeNil())
+				Expect(vmi.Status.MigrationState.TargetPod).ToNot(Equal(""))
+
+				By("Sanity checking the volume status size and the actual virt-launcher file")
+				for _, volume := range vmi.Spec.Volumes {
+					for _, volType := range []string{"cloud-init", "configmap-", "default-", "downwardapi-", "secret-"} {
+						if strings.HasPrefix(volume.Name, volType) {
+							for _, volStatus := range vmi.Status.VolumeStatus {
+								if volStatus.Name == volume.Name {
+									Expect(volStatus.Size).To(BeNumerically(">", 0), "Size of volume %s is 0", volume.Name)
+									volPath, found := virthandler.IsoGuestVolumePath(vmi, &volume)
+									if !found {
+										continue
+									}
+									// Wait for the iso to be created
+									Eventually(func() string {
+										output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "[[ -f " + volPath + " ]] && echo found || true"})
+										Expect(err).ToNot(HaveOccurred())
+										return output
+									}, 30*time.Second, time.Second).Should(ContainSubstring("found"), volPath+" never appeared")
+									output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "/usr/bin/stat --printf=%s " + volPath})
+									Expect(err).ToNot(HaveOccurred())
+									Expect(strconv.Atoi(output)).To(Equal(int(volStatus.Size)), "ISO file for volume %s is not empty", volume.Name)
+									output, err = tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", fmt.Sprintf(`/usr/bin/cmp -n %d %s /dev/zero || true`, volStatus.Size, volPath)})
+									Expect(err).ToNot(HaveOccurred())
+									Expect(output).ToNot(ContainSubstring("differ"), "ISO file for volume %s is not empty", volume.Name)
+								}
+							}
+						}
+					}
+				}
+
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 

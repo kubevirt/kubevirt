@@ -25,6 +25,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"kubevirt.io/kubevirt/pkg/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
@@ -144,12 +146,12 @@ func defaultCreateEmptyIsoImage(output string, size int64) error {
 	if err != nil {
 		return fmt.Errorf("failed to create empty iso: '%s'", output)
 	}
-	err = f.Truncate(size)
-	defer f.Close()
+	err = util.WriteBytes(f, 0, size)
 	if err != nil {
-		return fmt.Errorf("failed to inflate empty iso: '%s'", output)
+		return err
 	}
-	return nil
+	util.CloseIOAndCheckErr(f, &err)
+	return err
 }
 
 func createIsoConfigImage(output string, volID string, files []string, size int64) error {

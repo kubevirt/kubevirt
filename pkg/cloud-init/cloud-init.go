@@ -500,12 +500,14 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
 	}
 
-	err = f.Truncate(size)
+	err = util.WriteBytes(f, 0, size)
 	if err != nil {
-		f.Close()
-		return fmt.Errorf("failed to inflate empty iso: '%s'", isoStaging)
+		return err
 	}
-	f.Close()
+	util.CloseIOAndCheckErr(f, &err)
+	if err != nil {
+		return err
+	}
 
 	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStaging); err != nil {
 		return err
