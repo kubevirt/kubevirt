@@ -23,6 +23,7 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
@@ -53,12 +54,20 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 	dhcpConfig.AdvertisingIPAddr = ipv4Gateway.IP.To4()
 	dhcpConfig.Gateway = ipv4Gateway.IP.To4()
 
-	ipv6Gateway, ipv6, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, iptables.ProtocolIPv6)
+	ipv6Enabled, err := d.handler.IsIpv6Enabled(d.podInterfaceName)
 	if err != nil {
+		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", d.podInterfaceName)
 		return nil, err
 	}
-	dhcpConfig.IPv6 = *ipv6
-	dhcpConfig.AdvertisingIPv6Addr = ipv6Gateway.IP.To16()
+
+	if ipv6Enabled {
+		ipv6Gateway, ipv6, err := virtnetlink.GenerateMasqueradeGatewayAndVmIPAddrs(d.vmiSpecNetwork, iptables.ProtocolIPv6)
+		if err != nil {
+			return nil, err
+		}
+		dhcpConfig.IPv6 = *ipv6
+		dhcpConfig.AdvertisingIPv6Addr = ipv6Gateway.IP.To16()
+	}
 
 	return dhcpConfig, nil
 }
