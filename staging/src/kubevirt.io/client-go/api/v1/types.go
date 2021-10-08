@@ -260,6 +260,8 @@ type VolumeStatus struct {
 	Message string `json:"message,omitempty"`
 	// If the volume is hotplug, this will contain the hotplug status.
 	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
+	// Represents the size of the volume
+	Size int64 `json:"size,omitempty"`
 }
 
 // HotplugVolumeStatus represents the hotplug status of the volume

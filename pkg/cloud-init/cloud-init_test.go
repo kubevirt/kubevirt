@@ -502,6 +502,7 @@ var _ = Describe("CloudInit", func() {
 			})
 		})
 	})
+
 	Describe("GenerateLocalData", func() {
 		It("should cleanly run twice", func() {
 			namespace := "fake-namespace"
@@ -517,7 +518,6 @@ var _ = Describe("CloudInit", func() {
 			err = GenerateLocalData(domain, namespace, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
 		})
-
 	})
 
 	Describe("PrepareLocalPath", func() {
