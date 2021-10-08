@@ -350,6 +350,7 @@ var _ = SIGDescribe("Storage", func() {
 			var pvc = "empty-pvc1"
 
 			BeforeEach(func() {
+				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 				tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
 				tests.CreateHostPathPVC(pvc, "1G")
 			}, 120)
@@ -402,6 +403,7 @@ var _ = SIGDescribe("Storage", func() {
 		Context("Run a VMI with VirtIO-FS and a datavolume", func() {
 			var dataVolume *cdiv1.DataVolume
 			BeforeEach(func() {
+				checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
