@@ -394,7 +394,11 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	return t.renderLaunchManifest(vmi, containerdisk.ExtractImageIDsFromSourcePod(vmi, pod), false)
+	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, pod)
+	if err != nil {
+		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
+	}
+	return t.renderLaunchManifest(vmi, reproducibleImageIDs, false)
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
