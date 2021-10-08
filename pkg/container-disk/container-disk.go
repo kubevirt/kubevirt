@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -52,6 +53,8 @@ const KernelBootName = "kernel-boot"
 const KernelBootVolumeName = KernelBootName + "-volume"
 
 const ephemeralStorageOverheadSize = "50M"
+
+var digestRegex = regexp.MustCompile(`sha256:([a-zA-Z0-9]+)`)
 
 func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
@@ -369,7 +372,7 @@ func getContainerDiskSocketBasePath(baseDir, podUID string) string {
 // ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,
 // which is recorded in the status section of a started pod.
 // It returns a map where the key is the vlume name and the value is the imageID
-func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod) (imageIDs map[string]string) {
+func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod) (imageIDs map[string]string, err error) {
 	imageIDs = map[string]string{}
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk == nil {
@@ -390,9 +393,28 @@ func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kub
 		if _, exists := imageIDs[key]; !exists {
 			continue
 		}
-		imageIDs[key] = status.ImageID
+		imageID, err := toImageWithDigest(status.Image, status.ImageID)
+		if err != nil {
+			return nil, err
+		}
+		imageIDs[key] = imageID
 	}
 	return
+}
+
+func toImageWithDigest(image string, imageID string) (string, error) {
+	baseImage := image
+	if strings.LastIndex(image, "@sha256:") != -1 {
+		baseImage = strings.Split(image, "@sha256:")[0]
+	} else if colonIndex := strings.LastIndex(image, ":"); colonIndex > strings.LastIndex(image, "/") {
+		baseImage = image[:colonIndex]
+	}
+
+	digestMatches := digestRegex.FindStringSubmatch(imageID)
+	if len(digestMatches) < 2 {
+		return "", fmt.Errorf("failed to identify image digest for container %q with id %q", image, imageID)
+	}
+	return fmt.Sprintf("%s@sha256:%s", baseImage, digestMatches[1]), nil
 }
 
 func isImageVolume(containerName string) bool {
