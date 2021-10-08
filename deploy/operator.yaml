@@ -64,7 +64,7 @@ spec:
         - name: NMO_VERSION
           value: v0.10.0
         - name: HPPO_VERSION
-          value: v0.9.0
+          value: v0.10.0
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -661,10 +661,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.labels['app.kubernetes.io/version']
-        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:14e92a179bd52e5f1edbdb400410828c3259605468781b3a0e169523d8006f05
+        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:8934a54ffbc40dee9cc0cff528a4c3e5a7eab3fdd31e8f6346cee638c73abea7
         imagePullPolicy: IfNotPresent
         name: hostpath-provisioner-operator
-        resources: {}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 150Mi
+      priorityClassName: openshift-user-critical
       serviceAccountName: hostpath-provisioner-operator
 ---
 apiVersion: v1

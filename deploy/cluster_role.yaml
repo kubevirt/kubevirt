@@ -165,6 +165,14 @@ rules:
   - get
   - watch
   - create
+- apiGroups:
+  - apps
+  resourceNames:
+  - hostpath-provisioner
+  - hostpath-provisioner-csi
+  resources:
+  - daemonsets
+  verbs:
   - delete
   - update
 - apiGroups:
@@ -185,7 +193,74 @@ rules:
   resources:
   - serviceaccounts
   verbs:
+  - list
+  - get
+  - create
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - hostpath-provisioner-admin
+  - hostpath-provisioner-admin-csi
+  resources:
+  - serviceaccounts
+  verbs:
+  - update
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
   - '*'
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - csistoragecapacities
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - list
+  - create
+  - get
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - hostpath-provisioner
+  - hostpath-provisioner-admin
+  - hostpath-provisioner-admin-csi
+  - hostpath-provisioner-health-check
+  resources:
+  - rolebindings
+  verbs:
+  - update
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - list
+  - create
+  - get
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - hostpath-provisioner
+  - hostpath-provisioner-admin
+  - hostpath-provisioner-admin-csi
+  - hostpath-provisioner-health-check
+  resources:
+  - roles
+  verbs:
+  - update
+  - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1781,6 +1856,7 @@ rules:
   resources:
   - events
   verbs:
+  - get
   - list
   - watch
   - create
@@ -1790,6 +1866,9 @@ rules:
   - rbac.authorization.k8s.io
   resourceNames:
   - hostpath-provisioner
+  - hostpath-provisioner-admin
+  - hostpath-provisioner-admin-csi
+  - hostpath-provisioner-health-check
   resources:
   - clusterrolebindings
   verbs:
@@ -1808,6 +1887,9 @@ rules:
   - rbac.authorization.k8s.io
   resourceNames:
   - hostpath-provisioner
+  - hostpath-provisioner-admin
+  - hostpath-provisioner-admin-csi
+  - hostpath-provisioner-health-check
   resources:
   - clusterroles
   verbs:
@@ -1868,3 +1950,54 @@ rules:
   - nodes
   verbs:
   - get
+  - list
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - csinodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - csidrivers
+  verbs:
+  - list
+  - create
+  - get
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resourceNames:
+  - kubevirt.io.hostpath-provisioner
+  resources:
+  - csidrivers
+  verbs:
+  - update
+  - delete
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - volumeattachments
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - volumeattachments/status
+  verbs:
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
