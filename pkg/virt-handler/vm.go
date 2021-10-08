@@ -26,6 +26,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -33,6 +34,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/config"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 
@@ -852,6 +855,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	vmi := origVMI.DeepCopy()
 	oldStatus := *vmi.Status.DeepCopy()
 
+	d.updateIsoSizeStatus(vmi)
 	vmi = d.setMigrationProgressStatus(vmi, domain)
 
 	if domain != nil {
@@ -1163,6 +1167,73 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	}
 
 	return nil
+}
+
+func IsoGuestVolumePath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (string, bool) {
+	var volPath string
+
+	basepath := "/var/run"
+	if volume.CloudInitNoCloud != nil {
+		volPath = path.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
+	} else if volume.CloudInitConfigDrive != nil {
+		volPath = path.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
+	} else if volume.ConfigMap != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
+	} else if volume.DownwardAPI != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
+	} else if volume.Secret != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.SecretDisksDir), volume.Name+".iso")
+	} else if volume.ServiceAccount != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
+	} else if volume.Sysprep != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.SysprepDisksDir), volume.Name+".iso")
+	} else {
+		return "", false
+	}
+
+	return volPath, true
+}
+
+func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineInstance) {
+	var podUID string
+	if vmi.Status.Phase != v1.Running {
+		return
+	}
+
+	for k, v := range vmi.Status.ActivePods {
+		if v == vmi.Status.NodeName {
+			podUID = string(k)
+			break
+		}
+	}
+	if podUID == "" {
+		log.DefaultLogger().V(2).Warningf("failed to find pod UID for VMI %s", vmi.Name)
+		return
+	}
+
+	for _, volume := range vmi.Spec.Volumes {
+		volPath, found := IsoGuestVolumePath(vmi, &volume)
+		if !found {
+			continue
+		}
+		res, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			log.DefaultLogger().V(2).Warningf("failed to detect VMI %s", vmi.Name)
+			continue
+		}
+		size, err := isolation.GetFileSize(volPath, res)
+		if err != nil {
+			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
+			continue
+		}
+
+		for i, _ := range vmi.Status.VolumeStatus {
+			if vmi.Status.VolumeStatus[i].Name == volume.Name {
+				vmi.Status.VolumeStatus[i].Size = int64(size)
+				continue
+			}
+		}
+	}
 }
 
 func _guestAgentCommandSubsetSupported(requiredCommands []string, commands []v1.GuestAgentCommandInfo) bool {
