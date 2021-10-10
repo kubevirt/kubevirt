@@ -37,7 +37,7 @@ var _ = Describe("[sig-compute][serial]NUMA", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	It("topology should be mapped to the guest and hugepages should be allocated", func() {
+	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNoCPUManagerWith2MiHugepages()
 		var err error
