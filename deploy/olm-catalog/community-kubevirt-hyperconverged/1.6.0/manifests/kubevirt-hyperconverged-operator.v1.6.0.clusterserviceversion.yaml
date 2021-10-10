@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
-    createdAt: "2021-10-09 05:12:05"
+    createdAt: "2021-10-10 05:12:11"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -1937,7 +1937,7 @@ spec:
                 - name: NMO_VERSION
                   value: v0.10.0
                 - name: HPPO_VERSION
-                  value: v0.10.0
+                  value: v0.10.1
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -2474,7 +2474,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.labels['app.kubernetes.io/version']
-                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:8934a54ffbc40dee9cc0cff528a4c3e5a7eab3fdd31e8f6346cee638c73abea7
+                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:97e4f5b01051bde5d78bad46b2265275d59f445d99e819d67b1b900187be1929
                 imagePullPolicy: IfNotPresent
                 name: hostpath-provisioner-operator
                 resources:
@@ -2770,7 +2770,7 @@ spec:
     name: cni-default-plugins
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:12fea4b3c6fe5c98b7887d31c3af8e6693a336ff20be8d6b4dd6ff9de60f0da9
     name: hostpath-provisioner
-  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:8934a54ffbc40dee9cc0cff528a4c3e5a7eab3fdd31e8f6346cee638c73abea7
+  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:97e4f5b01051bde5d78bad46b2265275d59f445d99e819d67b1b900187be1929
     name: hostpath-provisioner-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-operator:1.6.0-unstable
     name: hyperconverged-cluster-operator
