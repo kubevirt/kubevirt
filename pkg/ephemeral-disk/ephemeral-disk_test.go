@@ -37,6 +37,7 @@ var _ = Describe("ContainerDisk", func() {
 	var imageTempDirPath string
 	var backingTempDirPath string
 	var pvcBaseTempDirPath string
+	var blockDevBaseDir string
 	var creator *ephemeralDiskCreator
 
 	createBackingImageForPVC := func(volumeName string, isBlock bool) {
@@ -69,7 +70,7 @@ var _ = Describe("ContainerDisk", func() {
 		// Test the test infra itself: make sure that the backing file has been created.
 		var err error
 		if backingDiskIsblock {
-			_, err = os.Stat(filepath.Join(pvcBaseTempDirPath, diskName))
+			_, err = os.Stat(filepath.Join(blockDevBaseDir, diskName))
 		} else {
 			_, err = os.Stat(filepath.Join(pvcBaseTempDirPath, diskName, "disk.img"))
 		}
@@ -88,10 +89,14 @@ var _ = Describe("ContainerDisk", func() {
 		pvcBaseTempDirPath, err = ioutil.TempDir("", "pvc-base-dir-path")
 		Expect(err).NotTo(HaveOccurred())
 
+		blockDevBaseDir, err = ioutil.TempDir("", "block-dev-base-dir-path")
+		Expect(err).NotTo(HaveOccurred())
+
 		creator = &ephemeralDiskCreator{
-			mountBaseDir:   imageTempDirPath,
-			pvcBaseDir:     pvcBaseTempDirPath,
-			discCreateFunc: fakeCreateBackingDisk,
+			mountBaseDir:    imageTempDirPath,
+			pvcBaseDir:      pvcBaseTempDirPath,
+			blockDevBaseDir: blockDevBaseDir,
+			discCreateFunc:  fakeCreateBackingDisk,
 		}
 	})
 
@@ -169,7 +174,7 @@ var _ = Describe("ContainerDisk", func() {
 									BackingStore: &api.BackingStore{
 										Type: "block",
 										Source: &api.DiskSource{
-											Dev:  "dev/fake-disk",
+											Dev:  filepath.Join(creator.blockDevBaseDir, "fake-disk"),
 											Name: "fake-disk",
 										},
 									},

@@ -32,8 +32,9 @@ import (
 )
 
 const (
-	ephemeralDiskPVCBaseDir = "/var/run/kubevirt-private/vmi-disks"
-	ephemeralDiskFormat     = "raw"
+	ephemeralDiskPVCBaseDir         = "/var/run/kubevirt-private/vmi-disks"
+	ephemeralDiskBlockDeviceBaseDir = "/dev"
+	ephemeralDiskFormat             = "raw"
 )
 
 type EphemeralDiskCreatorInterface interface {
@@ -44,16 +45,18 @@ type EphemeralDiskCreatorInterface interface {
 }
 
 type ephemeralDiskCreator struct {
-	mountBaseDir   string
-	pvcBaseDir     string
-	discCreateFunc func(backingFile string, backingFormat string, imagePath string) ([]byte, error)
+	mountBaseDir    string
+	pvcBaseDir      string
+	blockDevBaseDir string
+	discCreateFunc  func(backingFile string, backingFormat string, imagePath string) ([]byte, error)
 }
 
 func NewEphemeralDiskCreator(mountBaseDir string) *ephemeralDiskCreator {
 	return &ephemeralDiskCreator{
-		mountBaseDir:   mountBaseDir,
-		pvcBaseDir:     ephemeralDiskPVCBaseDir,
-		discCreateFunc: createBackingDisk,
+		mountBaseDir:    mountBaseDir,
+		pvcBaseDir:      ephemeralDiskPVCBaseDir,
+		blockDevBaseDir: ephemeralDiskBlockDeviceBaseDir,
+		discCreateFunc:  createBackingDisk,
 	}
 }
 
@@ -67,7 +70,7 @@ func (c *ephemeralDiskCreator) generateVolumeMountDir(volumeName string) string 
 
 func (c *ephemeralDiskCreator) getBackingFilePath(volumeName string, isBlockVolume bool) string {
 	if isBlockVolume {
-		return filepath.Join(string(filepath.Separator), "dev", volumeName)
+		return filepath.Join(c.blockDevBaseDir, volumeName)
 	}
 	return filepath.Join(c.pvcBaseDir, volumeName, "disk.img")
 }
