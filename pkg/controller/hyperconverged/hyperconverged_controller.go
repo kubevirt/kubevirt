@@ -1058,7 +1058,12 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 		return false, err
 	}
 
-	return kvConfigModified || cdiConfigModified, nil
+	defaultsAmended, err := r.amendBadDefaults(req)
+	if err != nil {
+		return false, err
+	}
+
+	return kvConfigModified || cdiConfigModified || defaultsAmended, nil
 }
 
 func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest) (bool, error) {
@@ -1097,6 +1102,17 @@ func (r ReconcileHyperConverged) migrateCdiConfigurations(req *common.HcoRequest
 	}
 
 	return adoptCdiConfigs(req, cdi.Spec.Config), nil
+}
+
+func (r ReconcileHyperConverged) amendBadDefaults(req *common.HcoRequest) (bool, error) {
+	modified := false
+	if req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration != nil && *req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration == "64Mi" {
+		req.Logger.Info("rejecting spec.livemigrationconfig.bandwidthpermigration==64Mi because it was a bad default value")
+		req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration = nil
+		modified = true
+		req.Dirty = true
+	}
+	return modified, nil
 }
 
 func (r *ReconcileHyperConverged) removeConfigMap(req *common.HcoRequest, cm *corev1.ConfigMap, cmName string) error {

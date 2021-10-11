@@ -45,7 +45,7 @@ type HyperConvergedSpec struct {
 
 	// Live migration limits and timeouts are applied so that migration processes do not
 	// overwhelm the cluster.
-	// +kubebuilder:default={"bandwidthPerMigration": "64Mi", "completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}
+	// +kubebuilder:default={"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}
 	// +optional
 	LiveMigrationConfig LiveMigrationConfigurations `json:"liveMigrationConfig,omitempty"`
 
@@ -171,7 +171,6 @@ type LiveMigrationConfigurations struct {
 
 	// Bandwidth limit of each migration, in MiB/s.
 	// +optional
-	// +kubebuilder:default="64Mi"
 	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
 	BandwidthPerMigration *string `json:"bandwidthPerMigration,omitempty"`
 
@@ -437,7 +436,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": false}, "liveMigrationConfig": {"bandwidthPerMigration": "64Mi", "completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "sriovLiveMigration": true, "enableCommonBootImageImport": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150}}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

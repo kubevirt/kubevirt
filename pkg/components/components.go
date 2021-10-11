@@ -606,7 +606,6 @@ func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
 }
 
 func GetOperatorCR() *hcov1beta1.HyperConverged {
-	bandwidthPerMigration := "64Mi"
 	completionTimeoutPerGiB := int64(800)
 	parallelMigrationsPerCluster := uint32(5)
 	parallelOutboundMigrationsPerNode := uint32(2)
@@ -639,7 +638,6 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 				SRIOVLiveMigration:     true,
 			},
 			LiveMigrationConfig: hcov1beta1.LiveMigrationConfigurations{
-				BandwidthPerMigration:             &bandwidthPerMigration,
 				CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
 				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,

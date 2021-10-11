@@ -56,7 +56,6 @@ spec:
                 sriovLiveMigration: true
                 withHostPassthroughCPU: false
               liveMigrationConfig:
-                bandwidthPerMigration: 64Mi
                 completionTimeoutPerGiB: 800
                 parallelMigrationsPerCluster: 5
                 parallelOutboundMigrationsPerNode: 2
@@ -1208,7 +1207,6 @@ spec:
                 type: object
               liveMigrationConfig:
                 default:
-                  bandwidthPerMigration: 64Mi
                   completionTimeoutPerGiB: 800
                   parallelMigrationsPerCluster: 5
                   parallelOutboundMigrationsPerNode: 2
@@ -1217,7 +1215,6 @@ spec:
                   migration processes do not overwhelm the cluster.
                 properties:
                   bandwidthPerMigration:
-                    default: 64Mi
                     description: Bandwidth limit of each migration, in MiB/s.
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     type: string

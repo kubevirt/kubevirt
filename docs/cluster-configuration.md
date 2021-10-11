@@ -180,9 +180,9 @@ Set the live migration configurations by modifying the fields in the `liveMigrat
 
 ### bandwidthPerMigration
 
-Bandwidth limit of each migration, in MiB/s. The format is a number and with the `Mi` suffix, e.g. `64Mi`.
+Bandwidth limit of each migration, in MiB/s. The format is a number and with the `Mi` suffix, e.g. `2048Mi`.
 
-**default**: 64Mi
+**default**: unset
 
 ### completionTimeoutPerGiB
 
@@ -220,7 +220,6 @@ metadata:
   name: kubevirt-hyperconverged
 spec:
   liveMigrationConfig:
-    bandwidthPerMigration: 64Mi
     completionTimeoutPerGiB: 800
     parallelMigrationsPerCluster: 5
     parallelOutboundMigrationsPerNode: 2

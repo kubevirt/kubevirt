@@ -17,7 +17,6 @@ spec:
     withHostPassthroughCPU: false
   infra: {}
   liveMigrationConfig:
-    bandwidthPerMigration: 64Mi
     completionTimeoutPerGiB: 800
     parallelMigrationsPerCluster: 5
     parallelOutboundMigrationsPerNode: 2

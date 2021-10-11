@@ -192,7 +192,7 @@ Version: 1.2.3`)
 			// LiveMigration Configurations
 			mc := foundResource.Spec.Configuration.MigrationConfiguration
 			Expect(mc).ToNot(BeNil())
-			Expect(*mc.BandwidthPerMigration).Should(Equal(resource.MustParse("64Mi")))
+			Expect(mc.BandwidthPerMigration).Should(BeNil())
 			Expect(*mc.CompletionTimeoutPerGiB).Should(Equal(int64(800)))
 			Expect(*mc.ParallelMigrationsPerCluster).Should(Equal(uint32(5)))
 			Expect(*mc.ParallelOutboundMigrationsPerNode).Should(Equal(uint32(2)))
@@ -328,7 +328,7 @@ Version: 1.2.3`)
 			// LiveMigration Configurations
 			mc := foundResource.Spec.Configuration.MigrationConfiguration
 			Expect(mc).ToNot(BeNil())
-			Expect(*mc.BandwidthPerMigration).Should(Equal(resource.MustParse("64Mi")))
+			Expect(mc.BandwidthPerMigration).Should(BeNil())
 			Expect(*mc.CompletionTimeoutPerGiB).Should(Equal(int64(800)))
 			Expect(*mc.ParallelMigrationsPerCluster).Should(Equal(uint32(5)))
 			Expect(*mc.ParallelOutboundMigrationsPerNode).Should(Equal(uint32(2)))
