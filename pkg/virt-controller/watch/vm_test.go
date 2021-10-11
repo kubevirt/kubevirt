@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	appsv1 "k8s.io/api/apps/v1"
+	k8score "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -1480,6 +1481,101 @@ var _ = Describe("VirtualMachine", func() {
 			table.Entry("VMI Ready condition is False", markAsNonReady, k8sv1.ConditionFalse),
 			table.Entry("VMI Ready condition doesn't exist", unmarkReady, k8sv1.ConditionFalse),
 		)
+
+		It("should sync VMI conditions", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
+
+			cm := virtcontroller.NewVirtualMachineInstanceConditionManager()
+			cmVM := virtcontroller.NewVirtualMachineConditionManager()
+
+			addCondList := []virtv1.VirtualMachineInstanceConditionType{
+				virtv1.VirtualMachineInstanceProvisioning,
+				virtv1.VirtualMachineInstanceSynchronized,
+				virtv1.VirtualMachineInstancePaused,
+			}
+
+			removeCondList := []virtv1.VirtualMachineInstanceConditionType{
+				virtv1.VirtualMachineInstanceAgentConnected,
+				virtv1.VirtualMachineInstanceAccessCredentialsSynchronized,
+				virtv1.VirtualMachineInstanceUnsupportedAgent,
+			}
+
+			updateCondList := []virtv1.VirtualMachineInstanceConditionType{
+				virtv1.VirtualMachineInstanceIsMigratable,
+			}
+
+			now := metav1.Now()
+			for _, condName := range addCondList {
+				cm.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+					Type:               condName,
+					Status:             k8score.ConditionTrue,
+					Reason:             "fakereason",
+					Message:            "fakemsg",
+					LastProbeTime:      now,
+					LastTransitionTime: now,
+				})
+			}
+
+			for _, condName := range updateCondList {
+				// Set to true on VMI
+				cm.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+					Type:               condName,
+					Status:             k8score.ConditionTrue,
+					Reason:             "fakereason",
+					Message:            "fakemsg",
+					LastProbeTime:      now,
+					LastTransitionTime: now,
+				})
+
+				// Set to false on VM, expect sync to update it to true
+				cmVM.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+					Type:               virtv1.VirtualMachineConditionType(condName),
+					Status:             k8score.ConditionFalse,
+					Reason:             "fakereason",
+					Message:            "fakemsg",
+					LastProbeTime:      now,
+					LastTransitionTime: now,
+				})
+			}
+
+			for _, condName := range removeCondList {
+				cmVM.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+					Type:               virtv1.VirtualMachineConditionType(condName),
+					Status:             k8score.ConditionTrue,
+					Reason:             "fakereason",
+					Message:            "fakemsg",
+					LastProbeTime:      now,
+					LastTransitionTime: now,
+				})
+			}
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+				objVM := obj.(*v1.VirtualMachine)
+				// these conditions should be added
+				for _, condName := range addCondList {
+					cond := cmVM.GetCondition(objVM, virtv1.VirtualMachineConditionType(condName))
+					Expect(cond).ToNot(BeNil())
+					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+				}
+				// these conditions shouldn't exist anymore
+				for _, condName := range removeCondList {
+					cond := cmVM.GetCondition(objVM, virtv1.VirtualMachineConditionType(condName))
+					Expect(cond).To(BeNil())
+				}
+				// these conditsion should be updated
+				for _, condName := range updateCondList {
+					cond := cmVM.GetCondition(objVM, virtv1.VirtualMachineConditionType(condName))
+					Expect(cond).ToNot(BeNil())
+					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+				}
+			}).Return(vm, nil)
+
+			controller.Execute()
+		})
 
 		It("should add ready condition when VMI doesn't exists", func() {
 			vm, vmi := DefaultVirtualMachine(true)
