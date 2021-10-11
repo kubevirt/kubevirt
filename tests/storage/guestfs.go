@@ -124,7 +124,7 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		})
 
 		// libguestfs-test-tool verifies the setup to run libguestfs-tools
-		It("Should successfully run libguestfs-test-tool", func() {
+		It("[QUARANTINE]Should successfully run libguestfs-test-tool", func() {
 			f := createFakeAttacher()
 			defer f.closeChannel()
 			pvcClaim = "pvc-verify"
