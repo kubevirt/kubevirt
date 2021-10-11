@@ -65,18 +65,7 @@ func IsPVCFailedProvisioning(pvcStore cache.Store, storageClassStore cache.Store
 		return true, fmt.Sprintf("PVC %s/%s has lost its underlying PersistentVolume (%s)",
 			namespace, claimName, pvc.Spec.VolumeName), nil
 	case k8sv1.ClaimPending:
-		// Attempt to detect Kubernetes events that conventionally indicate of some PVC provisioning failure.
-		event, err := hasPVCProvisioningFailureEvent(pvc, client)
-		if err != nil {
-			return false, "", err
-		}
-		if event != nil {
-			return true, fmt.Sprintf("'%s' event detected while provisioning PVC %s/%s: %s",
-				event.Reason, namespace, claimName, event.Message), nil
-		}
-
-		// If no events are detected, we fallback to a time-based mechanism,
-		// where PVCs which are pending for >5 minutes are considered as failed.
+		// PVCs which are pending for >5 minutes are considered as failed.
 		if hasPVCProvisioningTimeout(pvc) {
 			isWFFC, err := isWaitForFirstConsumer(pvc, storageClassStore)
 			if err != nil {
@@ -91,6 +80,17 @@ func IsPVCFailedProvisioning(pvcStore cache.Store, storageClassStore cache.Store
 			return true,
 				fmt.Sprintf("PVC %s/%s is pending for over %s", namespace, claimName, pendingPVCTimeoutThreshold),
 				nil
+		}
+
+		// If no timeout is detected, attempt to detect Kubernetes events
+		// that conventionally indicate of some PVC provisioning failure.
+		event, err := hasPVCProvisioningFailureEvent(pvc, client)
+		if err != nil {
+			return false, "", err
+		}
+		if event != nil {
+			return true, fmt.Sprintf("'%s' event detected while provisioning PVC %s/%s: %s",
+				event.Reason, namespace, claimName, event.Message), nil
 		}
 	}
 
