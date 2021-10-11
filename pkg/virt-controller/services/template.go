@@ -469,7 +469,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	// Pad the virt-launcher grace period.
 	// Ideally we want virt-handler to handle tearing down
 	// the vmi without virt-launcher's termination forcing
 	// the vmi down.
@@ -477,6 +476,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
+	// Pad the virt-launcher grace period.
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
