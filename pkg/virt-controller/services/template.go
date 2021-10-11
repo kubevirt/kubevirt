@@ -532,10 +532,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	allowEmulation := t.clusterConfig.AllowEmulation()
 	imagePullPolicy := t.clusterConfig.GetImagePullPolicy()
 
-	if resources.Limits == nil {
-		resources.Limits = make(k8sv1.ResourceList)
-	}
-
 	extraResources := getRequiredResources(vmi, allowEmulation)
 	for key, val := range extraResources {
 		resources.Limits[key] = val
