@@ -775,8 +775,8 @@ github.com/kubernetes-csi/csi-lib-utils v0.7.0/go.mod h1:bze+2G9+cmoHxN6+WyG1qT4
 github.com/kubernetes-csi/csi-test v2.0.0+incompatible/go.mod h1:YxJ4UiuPWIhMBkxUKY5c267DyA0uDZ/MtAimhx/2TA0=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1/go.mod h1:dV5oB3U62KBdlf9ADWkMmjGd3USauqQtwIm2OZb5mqI=
 github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17/go.mod h1:enH0BVV+4+DAgWdwSlMefG8bBzTfVMTr1lApzdLZ/cc=
-github.com/kubevirt/cluster-network-addons-operator v0.59.0 h1:lY0KxHO4S60aonEc7MDAET3iHc6uWiKzEgRZ6DPxbrM=
-github.com/kubevirt/cluster-network-addons-operator v0.59.0/go.mod h1:3BniMmLj/mx1NzFyrmKyatrKKxo7f27QdqnXTt5jrG4=
+github.com/kubevirt/cluster-network-addons-operator v0.60.0 h1:s6kdJzqkOed8brDmhWVOa8vULuJN2qZdMfq5jLS6fkk=
+github.com/kubevirt/cluster-network-addons-operator v0.60.0/go.mod h1:WKUZ4J2KmwkWIszkqTUnaJT3siHlase9yUjRHYknheA=
 github.com/kylelemons/godebug v0.0.0-20160406211939-eadb3ce320cb/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
