@@ -446,6 +446,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 					},
 					Annotations: map[string]string{
 						"scheduler.alpha.kubernetes.io/critical-pod": "",
+						"workload.openshift.io/management":           "{\"effect\": \"PreferredDuringScheduling\"}",
 					},
 					Name: VirtOperatorName,
 				},
