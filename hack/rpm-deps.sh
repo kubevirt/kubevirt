@@ -146,6 +146,7 @@ launcherbase_aarch64="
   edk2-aarch64-${EDK2_VERSION}
 "
 launcherbase_extra="
+  ethtool
   findutils
   iptables
   nftables
