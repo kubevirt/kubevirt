@@ -1736,6 +1736,79 @@ var _ = Describe("Manager", func() {
 			})
 		})
 	})
+	It("executes generateCloudInitEmptyISO and succeeds", func() {
+		agentStore := agentpoller.NewAsyncAgentStore()
+		agentStore.Store(agentpoller.GET_FILESYSTEM, []api.Filesystem{
+			{
+				Name:       "test",
+				Mountpoint: "/mnt/whatever",
+				Type:       "fs",
+				UsedBytes:  0,
+				TotalBytes: 0,
+			},
+		})
+
+		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, &agentStore, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+		// we need the non-typecast object to make the function we want to test available
+		libvirtmanager := manager.(*LibvirtDomainManager)
+
+		vmi := newVMI(testNamespace, testVmName)
+		vmi.Status.VolumeStatus = make([]v1.VolumeStatus, 1)
+		vmi.Status.VolumeStatus[0] = v1.VolumeStatus{
+			Name: "test1",
+			Size: 42,
+		}
+
+		userData := "fake\nuser\ndata\n"
+		networkData := "FakeNetwork"
+		addCloudInitDisk(vmi, userData, networkData)
+		libvirtmanager.cloudInitDataStore = &cloudinit.CloudInitData{
+			DataSource: cloudinit.DataSourceNoCloud,
+			VolumeName: "test1",
+		}
+
+		err := libvirtmanager.generateCloudInitEmptyISO(vmi, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		isoPath := cloudinit.GetIsoFilePath(libvirtmanager.cloudInitDataStore.DataSource, vmi.Name, vmi.Namespace)
+		stats, err := os.Stat(isoPath)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(stats.Size()).To(Equal(int64(42)))
+	})
+
+	It("executes generateCloudInitEmptyISO and fails", func() {
+		agentStore := agentpoller.NewAsyncAgentStore()
+		agentStore.Store(agentpoller.GET_FILESYSTEM, []api.Filesystem{
+			{
+				Name:       "test",
+				Mountpoint: "/mnt/whatever",
+				Type:       "fs",
+				UsedBytes:  0,
+				TotalBytes: 0,
+			},
+		})
+
+		manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, 0, &agentStore, "/usr/share/OVMF", ephemeralDiskCreatorMock)
+
+		// we need the non-typecast object to make the function we want to test available
+		libvirtmanager := manager.(*LibvirtDomainManager)
+
+		vmi := newVMI(testNamespace, testVmName)
+		vmi.Status.VolumeStatus = make([]v1.VolumeStatus, 1)
+
+		userData := "fake\nuser\ndata\n"
+		networkData := "FakeNetwork"
+		addCloudInitDisk(vmi, userData, networkData)
+		libvirtmanager.cloudInitDataStore = &cloudinit.CloudInitData{
+			DataSource: cloudinit.DataSourceNoCloud,
+			VolumeName: "test1",
+		}
+
+		err := libvirtmanager.generateCloudInitEmptyISO(vmi, nil)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to find the status of volume test1"))
+	})
 
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
 
@@ -1776,7 +1849,6 @@ var _ = Describe("getEnvAddressListByPrefix with vgpu prefix", func() {
 		Expect(len(addrs)).To(Equal(1))
 		Expect(addrs[0]).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73123"))
 	})
-
 	It("returns multiple  Mdev Uuid", func() {
 		os.Setenv("VGPU_PASSTHROUGH_DEVICES_SOME_VENDOR", "aa618089-8b16-4d01-a136-25a0f3c73123,aa618089-8b16-4d01-a136-25a0f3c73124")
 		addrs := getEnvAddressListByPrefix(vgpuEnvPrefix)
