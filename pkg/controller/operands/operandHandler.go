@@ -85,6 +85,10 @@ func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, isOpenshiftC
 	}
 }
 
+func (h *OperandHandler) GetQuickStartNames() []string {
+	return quickstartNames
+}
+
 type GetHandler func(logger log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error)
 
 func (h *OperandHandler) addOperands(scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged, getHandler GetHandler) {

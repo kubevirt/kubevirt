@@ -22,7 +22,7 @@ fi
 # when the tests are run in a pod, in-cluster config will be used
 KUBECONFIG_FLAG=""
 if [[ -n "${KUBECONFIG-}" ]]; then
-  KUBECONFIG_FLAG="-kubeconfig="${KUBECONFIG}""
+  KUBECONFIG_FLAG="-kubeconfig=${KUBECONFIG}"
 fi
 
 source ./hack/check_operator_condition.sh
@@ -34,8 +34,8 @@ ${TEST_OUT_PATH}/func-tests.test -ginkgo.v -installed-namespace="${INSTALLED_NAM
 sleep 60
 
 # Check the webhook, to see if it allow updating of the HyperConverged CR
-${KUBECTL_BINARY} patch hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -p '{"spec":{"infra":{"nodePlacement":{"tolerations":[{"effect":"NoSchedule","key":"key","operator":"Equal","value":"value"}]}}}}' --type=merge
-${KUBECTL_BINARY} patch hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -p '{"spec":{"workloads":{"nodePlacement":{"tolerations":[{"effect":"NoSchedule","key":"key","operator":"Equal","value":"value"}]}}}}' --type=merge
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} kubevirt-hyperconverged -p '{\"spec\":{\"infra\":{\"nodePlacement\":{\"tolerations\":[{\"effect\":\"NoSchedule\",\"key\":\"key\",\"operator\":\"Equal\",\"value\":\"value\"}]}}}}' --type=merge"
+./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} kubevirt-hyperconverged -p '{\"spec\":{\"workloads\":{\"nodePlacement\":{\"tolerations\":[{\"effect\":\"NoSchedule\",\"key\":\"key\",\"operator\":\"Equal\",\"value\":\"value\"}]}}}}' --type=merge"
 # Read the HyperConverged CR
 ${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o yaml
 

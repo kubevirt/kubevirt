@@ -103,6 +103,7 @@ var _ = Describe("QuickStart tests", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(handlers).To(HaveLen(1))
+				Expect(quickstartNames).To(ContainElements("test-quick-start"))
 			})
 		})
 
@@ -138,6 +139,7 @@ var _ = Describe("QuickStart tests", func() {
 			handlers, err := getQuickStartHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
+			Expect(quickstartNames).To(ContainElement("test-quick-start"))
 
 			{ // for the next test
 				handler, ok := handlers[0].(*genericOperand)
@@ -173,6 +175,7 @@ var _ = Describe("QuickStart tests", func() {
 			handlers, err := getQuickStartHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
+			Expect(quickstartNames).To(ContainElement("test-quick-start"))
 
 			hco := commonTestUtils.NewHco()
 			By("apply the quickstart CRs", func() {

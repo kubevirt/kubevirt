@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	consolev1 "github.com/openshift/api/console/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -2014,6 +2015,43 @@ progressTimeout: 150`,
 
 			})
 
+			Context("remove old quickstart guides", func() {
+				It("should drop old quickstart guide", func() {
+					const oldQSName = "old-quickstart-guide"
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+
+					oldQs := &consolev1.ConsoleQuickStart{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: oldQSName,
+							Labels: map[string]string{
+								hcoutil.AppLabel:          expected.hco.Name,
+								hcoutil.AppLabelManagedBy: hcoutil.OperatorName,
+							},
+						},
+					}
+
+					oldQsRef, err := reference.GetReference(commonTestUtils.GetScheme(), oldQs)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *oldQsRef)).ToNot(HaveOccurred())
+
+					resources := append(expected.toArray(), oldQs)
+
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, metav1.ConditionTrue)
+
+					foundOldQs := &consolev1.ConsoleQuickStart{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "old-quickstart-guide",
+						},
+					}
+					Expect(cl.Get(context.Background(), client.ObjectKeyFromObject(oldQs), foundOldQs)).To(HaveOccurred())
+
+					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConsoleQuickStart", oldQSName)).To(BeFalse())
+				})
+
+			})
 		})
 
 		Context("Aggregate Negative Conditions", func() {

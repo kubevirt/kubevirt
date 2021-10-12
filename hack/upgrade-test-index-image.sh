@@ -262,7 +262,7 @@ else
     echo "The test VM survived the upgrade process."
 fi
 
-~/virtctl stop testvm -n ${VMS_NAMESPACE}
+./hack/retry.sh 5 30 "~/virtctl stop testvm -n ${VMS_NAMESPACE}"
 ${CMD} delete vm -n ${VMS_NAMESPACE} testvm
 
 KUBECTL_BINARY=${CMD} ./hack/test_quick_start.sh

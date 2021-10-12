@@ -28,6 +28,8 @@ const (
 	quickStartDefaultManifestLocation = "./quickStart"
 )
 
+var quickstartNames []string
+
 func newQuickStartHandler(Client client.Client, Scheme *runtime.Scheme, required *consolev1.ConsoleQuickStart) Operand {
 	h := &genericOperand{
 		Client: Client,
@@ -133,6 +135,8 @@ func getQuickStartHandlers(logger log.Logger, Client client.Client, Scheme *runt
 
 func createQuickstartHandlersFromFiles(logger log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged, filesLocation string) ([]Operand, error) {
 	var handlers []Operand
+	quickstartNames = []string{}
+
 	err := filepath.Walk(filesLocation, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -167,6 +171,7 @@ func processQuickstartFile(path string, info os.FileInfo, logger log.Logger, hc 
 			logger.Error(err, "Can't generate a ConsoleQuickStart object from yaml file", "file name", path)
 		} else {
 			qs.Labels = getLabels(hc, util.AppComponentCompute)
+			quickstartNames = append(quickstartNames, qs.Name)
 			return newQuickStartHandler(Client, Scheme, qs), nil
 		}
 	}

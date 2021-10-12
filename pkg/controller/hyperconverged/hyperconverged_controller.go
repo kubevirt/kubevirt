@@ -378,10 +378,10 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 		crdStatusUpdated, err := r.updateCrdStoredVersions(req)
 		if err != nil {
 			return reconcile.Result{Requeue: true}, err
-		} else {
-			if crdStatusUpdated {
-				return reconcile.Result{Requeue: true}, nil
-			}
+		}
+
+		if crdStatusUpdated {
+			return reconcile.Result{Requeue: true}, nil
 		}
 
 		// Attempt to remove old CRDs and related objects:
@@ -607,6 +607,9 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reco
 		req.Dirty = true
 		requeue = requeue || finDropped
 	}
+
+	// should never happen - we are dropping the wrong finalizer in checkFinalizers, that always called before this
+	// function
 	if hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
 		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
 		req.Dirty = true
@@ -922,7 +925,7 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 		NumOfChanges := 0
 		jsonPatch, exists := req.Instance.ObjectMeta.Annotations[jpa]
 		if exists {
-			if NumOfChanges = getNumOfChangesJsonPatch(jsonPatch); NumOfChanges > 0 {
+			if NumOfChanges = getNumOfChangesJSONPatch(jsonPatch); NumOfChanges > 0 {
 				tainted = true
 			}
 		}
@@ -954,7 +957,7 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 	}
 }
 
-func getNumOfChangesJsonPatch(jsonPatch string) int {
+func getNumOfChangesJSONPatch(jsonPatch string) int {
 	patches, err := jsonpatch.DecodePatch([]byte(jsonPatch))
 	if err != nil {
 		return 0
@@ -1023,7 +1026,7 @@ func (r *ReconcileHyperConverged) updateCrdStoredVersions(req *common.HcoRequest
 	}
 
 	needsUpdate := false
-	newStoredVersions := []string{}
+	var newStoredVersions []string
 	for _, vToBeRemoved := range versionsToBeRemoved {
 		for _, sVersion := range found.Status.StoredVersions {
 			if vToBeRemoved != sVersion {
@@ -1063,6 +1066,8 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 		return false, err
 	}
 
+	removeOldQuickStartGuides(req, r.client, r.operandHandler.GetQuickStartNames())
+
 	return kvConfigModified || cdiConfigModified || defaultsAmended, nil
 }
 
@@ -1081,7 +1086,7 @@ func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest)
 	modified := adoptOldKvConfigs(req, cm)
 
 	if !modified {
-		err = r.removeConfigMap(req, cm, kvCmName)
+		err = r.removeConfigMap(req, cm)
 		if err != nil {
 			return false, err
 		}
@@ -1115,25 +1120,16 @@ func (r ReconcileHyperConverged) amendBadDefaults(req *common.HcoRequest) (bool,
 	return modified, nil
 }
 
-func (r *ReconcileHyperConverged) removeConfigMap(req *common.HcoRequest, cm *corev1.ConfigMap, cmName string) error {
+func (r *ReconcileHyperConverged) removeConfigMap(req *common.HcoRequest, cm *corev1.ConfigMap) error {
 	req.Logger.Info("removing the kubevirt configMap")
 	err := hcoutil.ComponentResourceRemoval(req.Ctx, r.client, cm, req.Name, req.Logger, false, true)
 	if err != nil {
 		return err
 	}
 
-	r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed ConfigMap %s", cmName))
+	r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed ConfigMap %s", cm.Name))
 
-	refs := make([]corev1.ObjectReference, 0, len(req.Instance.Status.RelatedObjects))
-	for _, obj := range req.Instance.Status.RelatedObjects {
-		if obj.Kind == "ConfigMap" && obj.Name == cmName {
-			continue
-		}
-		refs = append(refs, obj)
-	}
-
-	req.Instance.Status.RelatedObjects = refs
-	req.StatusDirty = true
+	removeRelatedObject(req, "ConfigMap", cm.Name, cm.Namespace)
 
 	return nil
 }
@@ -1259,6 +1255,53 @@ func kvConfigMapToHyperConvergedCr(req *common.HcoRequest, kvCmLMConfig hcov1bet
 	}
 }
 
+func removeOldQuickStartGuides(req *common.HcoRequest, cl client.Client, requiredQSList []string) {
+	existingQSList := &consolev1.ConsoleQuickStartList{}
+	req.Logger.Info("reading quickstart guides")
+	err := cl.List(req.Ctx, existingQSList, client.MatchingLabels{hcoutil.AppLabelManagedBy: hcoutil.OperatorName})
+	if err != nil {
+		req.Logger.Error(err, "failed to read list of quickstart guides")
+		return
+	}
+
+	var existingQSNames map[string]consolev1.ConsoleQuickStart
+	if len(existingQSList.Items) > 0 {
+		existingQSNames = make(map[string]consolev1.ConsoleQuickStart)
+		for _, qs := range existingQSList.Items {
+			existingQSNames[qs.Name] = qs
+		}
+
+		for name, existQs := range existingQSNames {
+			if !hcoutil.ContainsString(requiredQSList, name) {
+				req.Logger.Info("deleting ConsoleQuickStart", "name", name)
+				if err = hcoutil.EnsureDeleted(req.Ctx, cl, &existQs, req.Instance.Name, req.Logger, false, false); err != nil {
+					req.Logger.Error(err, "failed to delete ConsoleQuickStart", "name", name)
+				}
+
+				removeRelatedObject(req, "ConsoleQuickStart", name, "")
+			}
+		}
+
+	}
+}
+
+func removeRelatedObject(req *common.HcoRequest, kind, name, namespace string) {
+	refs := make([]corev1.ObjectReference, 0, len(req.Instance.Status.RelatedObjects))
+	found := false
+	for _, obj := range req.Instance.Status.RelatedObjects {
+		if obj.Kind == kind && obj.Name == name && obj.Namespace == namespace {
+			found = true
+			continue
+		}
+		refs = append(refs, obj)
+	}
+
+	if found {
+		req.Instance.Status.RelatedObjects = refs
+		req.StatusDirty = true
+	}
+}
+
 // getHyperConvergedNamespacedName returns the name/namespace of the HyperConverged resource
 func getHyperConvergedNamespacedName() (types.NamespacedName, error) {
 	hco := types.NamespacedName{
@@ -1292,7 +1335,7 @@ func getSecondaryCRPlaceholder() (types.NamespacedName, error) {
 }
 
 func drop(slice []string, s string) ([]string, bool) {
-	newSlice := []string{}
+	var newSlice []string
 	dropped := false
 	for _, element := range slice {
 		if element != s {
