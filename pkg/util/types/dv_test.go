@@ -54,7 +54,7 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSourceWithInformers(vm, dv, dsInformer)
+			cs, err := GetCloneSourceFromCache(vm, dv, dsInformer.GetStore())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).To(BeNil())
 		})
@@ -72,7 +72,7 @@ var _ = Describe("DataVolume utils test", func() {
 
 			//dataSourceInformer.GetStore().Add(ds)
 
-			cs, err := GetCloneSourceWithInformers(vm, dv, dsInformer)
+			cs, err := GetCloneSourceFromCache(vm, dv, dsInformer.GetStore())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).ToNot(BeNil())
 			Expect(cs.Namespace).To(Equal(expectedNamespace))
@@ -92,7 +92,7 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSourceWithInformers(vm, dv, dsInformer)
+			cs, err := GetCloneSourceFromCache(vm, dv, dsInformer.GetStore())
 			Expect(err).To(HaveOccurred())
 			Expect(cs).To(BeNil())
 		})
@@ -130,7 +130,7 @@ var _ = Describe("DataVolume utils test", func() {
 
 			dsInformer.GetStore().Add(ref)
 
-			cs, err := GetCloneSourceWithInformers(vm, dv, dsInformer)
+			cs, err := GetCloneSourceFromCache(vm, dv, dsInformer.GetStore())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).ToNot(BeNil())
 			Expect(cs.Namespace).To(Equal(expectedNamespace))

@@ -375,7 +375,7 @@ func (c *VMController) createDataVolumeManifest(dataVolumeTemplate *virtv1.DataV
 		newDataVolume.Spec.PriorityClassName = vm.Spec.Template.Spec.PriorityClassName
 	}
 
-	cloneSource, err := typesutil.GetCloneSourceWithInformers(vm, &dataVolume.Spec, c.dataSourceInformer)
+	cloneSource, err := typesutil.GetCloneSourceFromCache(vm, &newDataVolume.Spec, c.dataSourceInformer.GetStore())
 	if err != nil {
 		return nil, err
 	}

@@ -281,7 +281,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
-			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume.Namespace = "default"
 			dataVolumeFeeder.Add(existingDataVolume)
 
@@ -489,11 +489,11 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			addVirtualMachine(vm)
 
-			existingDataVolume1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
 
-			existingDataVolume2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
@@ -542,11 +542,11 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			addVirtualMachine(vm)
 
-			existingDataVolume1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
 
-			existingDataVolume2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
@@ -591,13 +591,13 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			addVirtualMachine(vm)
 
-			existingDataVolume1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
 			// explicitly delete the annotations field
 			existingDataVolume1.Annotations = nil
 
-			existingDataVolume2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 			existingDataVolume2.Annotations = nil
@@ -629,7 +629,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
@@ -666,7 +666,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.WaitForFirstConsumer
@@ -702,7 +702,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
@@ -1387,7 +1387,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+			dv, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 			dv.Status.Phase = cdiv1.Succeeded
 
 			orphanDV := dv.DeepCopy()
@@ -1834,7 +1834,7 @@ var _ = Describe("VirtualMachine", func() {
 				table.DescribeTable("Should set a Provisioning status when DataVolume exists but unready", func(dvPhase cdiv1.DataVolumePhase) {
 					addVirtualMachine(vm)
 
-					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+					dv, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 					dv.Status.Phase = dvPhase
 					dataVolumeFeeder.Add(dv)
 
@@ -1859,7 +1859,7 @@ var _ = Describe("VirtualMachine", func() {
 				table.DescribeTable("Should set a DataVolumeError status when DataVolume reports an error", func(dvFunc func(*cdiv1.DataVolume)) {
 					addVirtualMachine(vm)
 
-					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+					dv, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 					dvFunc(dv)
 					dataVolumeFeeder.Add(dv)
 
@@ -1893,7 +1893,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Status.PrintableStatus = v1.VirtualMachineStatusDataVolumeError
 					addVirtualMachine(vm)
 
-					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+					dv, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 					dv.Status.Phase = cdiv1.CloneInProgress
 					dataVolumeFeeder.Add(dv)
 
@@ -1924,9 +1924,9 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					dv1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+					dv1, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 					dv1.Status.Phase = cdiv1.Succeeded
-					dv2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
+					dv2, _ := controller.createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
 					dv2.Status.Phase = cdiv1.ImportInProgress
 
 					dataVolumeFeeder.Add(dv1)

@@ -33,7 +33,7 @@ type CloneSource struct {
 	Name      string
 }
 
-func GetCloneSourceWithInformers(vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVolumeSpec, dataSourceInformer cache.SharedIndexInformer) (*CloneSource, error) {
+func GetCloneSourceFromCache(vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVolumeSpec, dataSourceCache cache.Store) (*CloneSource, error) {
 	var cloneSource *CloneSource
 	if dvSpec.Source != nil && dvSpec.Source.PVC != nil {
 		cloneSource = &CloneSource{
@@ -51,7 +51,7 @@ func GetCloneSourceWithInformers(vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVo
 		}
 
 		key := fmt.Sprintf("%v/%v", ns, dvSpec.SourceRef.Name)
-		obj, exists, err := dataSourceInformer.GetStore().GetByKey(key)
+		obj, exists, err := dataSourceCache.GetByKey(key)
 		if err != nil {
 			return nil, err
 		} else if !exists {

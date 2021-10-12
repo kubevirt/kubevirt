@@ -202,7 +202,7 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.Admissi
 	var causes []metav1.StatusCause
 
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
-		cloneSource, err := typesutil.GetCloneSourceWithInformers(vm, &dataVolume.Spec, admitter.DataSourceInformer)
+		cloneSource, err := typesutil.GetCloneSourceFromCache(vm, &dataVolume.Spec, admitter.DataSourceInformer.GetStore())
 		if err != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeUnexpectedServerResponse,
