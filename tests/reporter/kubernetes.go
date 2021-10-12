@@ -392,6 +392,11 @@ func (r *KubernetesReporter) logVirtLauncherPrivilegedCommands(virtCli kubecli.K
 		return
 	}
 
+	if virtHandlerPods == nil {
+		fmt.Fprintf(os.Stderr, "virt-handler pod list is empty, skipping logVirtLauncherPrivilegedCommands\n")
+		return
+	}
+
 	nodeMap := map[string]v1.Pod{}
 	for _, virtHandlerPod := range virtHandlerPods.Items {
 		if virtHandlerPod.Status.Phase != "Running" {
