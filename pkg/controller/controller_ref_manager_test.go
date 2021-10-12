@@ -73,12 +73,13 @@ func newVirtualMachine(virtualmachineName string, label map[string]string, owner
 
 func TestClaimObject(t *testing.T) {
 
-	matcher := func(b bool) func(obj metav1.Object) bool {
-		return func(obj metav1.Object) bool {
+	matchMock := func(b bool) func(obj metav1.Object) bool {
+		return func(_ metav1.Object) bool {
 			return b
 		}
 	}
-	adoptReleaser := func(err error) func(metav1.Object) error {
+
+	handlerMock := func(err error) func(metav1.Object) error {
 		return func(_ metav1.Object) error {
 			return err
 		}
@@ -88,7 +89,7 @@ func TestClaimObject(t *testing.T) {
 	type test struct {
 		name           string
 		manager        *VirtualMachineControllerRefManager
-		virtualmachine *virtv1.VirtualMachineInstance
+		virtualMachine *virtv1.VirtualMachineInstance
 		match          bool
 		release        error
 		adopt          error
@@ -111,7 +112,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller2),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, &controller2),
 				match:          false,
 				adopt:          nil,
 				release:        nil,
@@ -129,7 +130,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
 				match:          true,
 				adopt:          nil,
 				release:        nil,
@@ -149,7 +150,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
 				match:          false,
 				adopt:          nil,
 				release:        nil,
@@ -168,7 +169,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
 				match:          false,
 				adopt:          nil,
 				release:        apierr.NewNotFound(schema.GroupResource{}, "test"),
@@ -187,7 +188,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
 				match:          false,
 				adopt:          nil,
 				release:        errors.New("release error out"),
@@ -206,7 +207,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
 				match:          false,
 				adopt:          nil,
 				release:        nil,
@@ -226,7 +227,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
 				match:          false,
 				adopt:          nil,
 				release:        nil,
@@ -246,7 +247,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
 				match:          true,
 				adopt:          nil,
 				release:        nil,
@@ -266,7 +267,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: vm,
+				virtualMachine: vm,
 				match:          true,
 				adopt:          nil,
 				release:        nil,
@@ -284,7 +285,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
 				match:          true,
 				adopt:          apierr.NewNotFound(schema.GroupResource{}, "test"),
 				release:        nil,
@@ -302,7 +303,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
 				match:          true,
 				adopt:          errors.New("adopt error out"),
 				release:        nil,
@@ -320,7 +321,7 @@ func TestClaimObject(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				virtualMachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
 				match:          true,
 				adopt:          nil,
 				release:        nil,
@@ -330,13 +331,13 @@ func TestClaimObject(t *testing.T) {
 		}(),
 	}
 	for _, test := range tests {
-		wasClaimed, err := test.manager.ClaimObject(test.virtualmachine, matcher(test.match), adoptReleaser(test.adopt), adoptReleaser(test.release))
+		actualValue, err := test.manager.ClaimObject(test.virtualMachine, matchMock(test.match), handlerMock(test.adopt), handlerMock(test.release))
 		if test.expectError && err == nil {
 			t.Errorf("Test case `%s`, expected error but got nil", test.name)
 		} else if !test.expectError && err != nil {
 			t.Errorf("Test case `%s`, not expected error but got %v", test.name, err)
-		} else if wasClaimed != test.expectedValue {
-			t.Errorf("Test case `%s`, expected %v, got %v", test.name, test.expectedValue, wasClaimed)
+		} else if actualValue != test.expectedValue {
+			t.Errorf("Test case `%s`, expected %v, got %v", test.name, test.expectedValue, actualValue)
 		}
 	}
 }

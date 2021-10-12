@@ -74,56 +74,83 @@ func (m *BaseControllerRefManager) CanAdopt() error {
 func (m *BaseControllerRefManager) ClaimObject(obj metav1.Object, match func(metav1.Object) bool, adopt, release func(metav1.Object) error) (bool, error) {
 	controllerRef := metav1.GetControllerOf(obj)
 	if controllerRef != nil {
-		if controllerRef.UID != m.Controller.GetUID() {
-			// Owned by someone else. Ignore.
-			return false, nil
-		}
-		if match(obj) {
-			// We already own it and the selector matches.
-			// Return true (successfully claimed) before checking deletion timestamp.
-			// We're still allowed to claim things we already own while being deleted
-			// because doing so requires taking no actions.
-			return true, nil
-		}
-		// Owned by us but selector doesn't match.
-		// Try to release, unless we're being deleted.
-		if m.Controller.GetDeletionTimestamp() != nil {
-			return false, nil
-		}
-		if err := release(obj); err != nil {
-			// If the object no longer exists, ignore the error.
-			if errors.IsNotFound(err) {
-				return false, nil
-			}
-			// Either someone else released it, or there was a transient error.
-			// The controller should requeue and try again if it's still stale.
-			return false, err
-		}
-		// Successfully released.
-		return false, nil
+		return m.shouldClaimObject(obj, controllerRef, match, release)
 	}
 
-	// It's an orphan.
-	if m.Controller.GetDeletionTimestamp() != nil || !match(obj) {
+	return m.shouldClaimOrphanObject(obj, match, adopt)
+}
+
+type Matcher = func(metav1.Object) bool
+type ClaimHandler = func(metav1.Object) error
+
+func (m *BaseControllerRefManager) shouldClaimOrphanObject(
+	obj metav1.Object,
+	match Matcher,
+	adopt ClaimHandler) (bool, error) {
+	var err error
+	if m.isControllerDeleted() || !match(obj) {
 		// Ignore if we're being deleted or selector doesn't match.
 		return false, nil
 	}
-	if obj.GetDeletionTimestamp() != nil {
-		// Ignore if the object is being deleted
-		return false, nil
-	}
-	// Selector matches. Try to adopt.
-	if err := adopt(obj); err != nil {
-		// If the object no longer exists, ignore the error.
-		if errors.IsNotFound(err) {
-			return false, nil
+
+	if !isObjectDeleted(obj) {
+		// Selector matches. Try to adopt.
+		if err = adopt(obj); err == nil {
+			// Successfully adopted.
+			return true, nil
 		}
-		// Either someone else claimed it first, or there was a transient error.
-		// The controller should requeue and try again if it's still orphaned.
-		return false, err
+
+		err = ignoreNotFound(err)
 	}
-	// Successfully adopted.
-	return true, nil
+
+	// Either someone else claimed it first, or there was a transient error.
+	// The controller should requeue and try again if it's still orphaned.
+	return false, err
+}
+
+func (m *BaseControllerRefManager) shouldClaimObject(
+	obj metav1.Object,
+	controllerRef *metav1.OwnerReference,
+	match Matcher,
+	release ClaimHandler) (bool, error) {
+
+	var err error
+	if m.isOwnerOf(controllerRef) && match(obj) {
+		// We already own it and the selector matches.
+		// Return true (successfully claimed) before checking deletion timestamp.
+		// We're still allowed to claim things we already own while being deleted
+		// because doing so requires taking no actions.
+		return true, nil
+	}
+
+	if !m.isControllerDeleted() {
+		// Try to release, unless we're being deleted.
+		if err = release(obj); err != nil {
+			err = ignoreNotFound(err)
+		}
+	}
+
+	// Successfully released.
+	return false, err
+}
+
+func ignoreNotFound(err error) error {
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+func (m *BaseControllerRefManager) isControllerDeleted() bool {
+	return m.Controller.GetDeletionTimestamp() != nil
+}
+
+func (m *BaseControllerRefManager) isOwnerOf(ref *metav1.OwnerReference) bool {
+	return m.Controller.GetUID() == ref.UID
+}
+
+func isObjectDeleted(obj metav1.Object) bool {
+	return obj.GetDeletionTimestamp() != nil
 }
 
 type VirtualMachineControllerRefManager struct {
