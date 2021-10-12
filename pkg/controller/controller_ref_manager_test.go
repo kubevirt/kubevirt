@@ -18,6 +18,7 @@ limitations under the License.
 package controller
 
 import (
+	"errors"
 	"reflect"
 	"sync"
 	"testing"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	virtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
@@ -67,6 +69,276 @@ func newVirtualMachine(virtualmachineName string, label map[string]string, owner
 		vmi.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
 	}
 	return vmi
+}
+
+func TestClaimObject(t *testing.T) {
+
+	matcher := func(b bool) func(obj metav1.Object) bool {
+		return func(obj metav1.Object) bool {
+			return b
+		}
+	}
+	adoptReleaser := func(err error) func(metav1.Object) error {
+		return func(_ metav1.Object) error {
+			return err
+		}
+	}
+
+	controllerKind := schema.GroupVersionKind{}
+	type test struct {
+		name           string
+		manager        *VirtualMachineControllerRefManager
+		virtualmachine *virtv1.VirtualMachineInstance
+		match          bool
+		release        error
+		adopt          error
+		expectedValue  bool
+		expectError    bool
+	}
+
+	var tests = []test{
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+
+			controller2 := v1.ReplicationController{}
+			controller.UID = types.UID("321")
+
+			return test{
+				name: "claim with different controller UID",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller2),
+				match:          false,
+				adopt:          nil,
+				release:        nil,
+				expectedValue:  false,
+				expectError:    false,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			return test{
+				name: "claim with same controller UID and match obj",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				match:          true,
+				adopt:          nil,
+				release:        nil,
+				expectedValue:  true,
+				expectError:    false,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			now := metav1.Now()
+			controller.DeletionTimestamp = &now
+			return test{
+				name: "claim with same controller UID and match obj and deletion timestamp not nil",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				match:          false,
+				adopt:          nil,
+				release:        nil,
+				expectedValue:  false,
+				expectError:    false,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			controller.DeletionTimestamp = nil
+			return test{
+				name: "claim with same controller UID and match obj and deletion timestamp nil and release err is not found",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				match:          false,
+				adopt:          nil,
+				release:        apierr.NewNotFound(schema.GroupResource{}, "test"),
+				expectedValue:  false,
+				expectError:    false,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			controller.DeletionTimestamp = nil
+			return test{
+				name: "claim with same controller UID and match obj and deletion timestamp nil and release errors",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				match:          false,
+				adopt:          nil,
+				release:        errors.New("release error out"),
+				expectedValue:  false,
+				expectError:    true,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			controller.DeletionTimestamp = nil
+			return test{
+				name: "Claim with controller ref not nil",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, &controller),
+				match:          false,
+				adopt:          nil,
+				release:        nil,
+				expectedValue:  false,
+				expectError:    false,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			now := metav1.Now()
+			controller.DeletionTimestamp = &now
+			return test{
+				name: "Claim with controllerRef nil and refManager's controller deletionTimestamp not nil",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				match:          false,
+				adopt:          nil,
+				release:        nil,
+				expectedValue:  false,
+				expectError:    false,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			now := metav1.Now()
+			controller.DeletionTimestamp = &now
+			return test{
+				name: "Claim with controllerRef nil and refManager's controller deletionTimestamp not nil",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				match:          true,
+				adopt:          nil,
+				release:        nil,
+				expectedValue:  false,
+				expectError:    false,
+			}
+		}(), func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			now := metav1.Now()
+			vm := newVirtualMachine("virtualmachine1", productionLabel, nil)
+			vm.DeletionTimestamp = &now
+			return test{
+				name: "Claim with controllerRef nil and obj deletion is not nil",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: vm,
+				match:          true,
+				adopt:          nil,
+				release:        nil,
+				expectedValue:  false,
+				expectError:    false,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			return test{
+				name: "Claim with controllerRef nil and adopt errors but result error is nil",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				match:          true,
+				adopt:          apierr.NewNotFound(schema.GroupResource{}, "test"),
+				release:        nil,
+				expectedValue:  false,
+				expectError:    false,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			return test{
+				name: "Claim with controllerRef nil and adopt error not nil",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				match:          true,
+				adopt:          errors.New("adopt error out"),
+				release:        nil,
+				expectedValue:  false,
+				expectError:    true,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			return test{
+				name: "Claim with controllerRef nil and adopt error is nil",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				virtualmachine: newVirtualMachine("virtualmachine1", productionLabel, nil),
+				match:          true,
+				adopt:          nil,
+				release:        nil,
+				expectedValue:  true,
+				expectError:    false,
+			}
+		}(),
+	}
+	for _, test := range tests {
+		wasClaimed, err := test.manager.ClaimObject(test.virtualmachine, matcher(test.match), adoptReleaser(test.adopt), adoptReleaser(test.release))
+		if test.expectError && err == nil {
+			t.Errorf("Test case `%s`, expected error but got nil", test.name)
+		} else if !test.expectError && err != nil {
+			t.Errorf("Test case `%s`, not expected error but got %v", test.name, err)
+		} else if wasClaimed != test.expectedValue {
+			t.Errorf("Test case `%s`, expected %v, got %v", test.name, test.expectedValue, wasClaimed)
+		}
+	}
 }
 
 func TestClaimVirtualMachine(t *testing.T) {
