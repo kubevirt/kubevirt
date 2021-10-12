@@ -1061,24 +1061,11 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 			_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-			output := tests.RunCommandOnVmiPod(vmi, []string{"python3", "-c", `import array
-import fcntl
-import socket
-import struct
-SIOCETHTOOL     = 0x8946
-ETHTOOL_GTXCSUM = 0x00000016
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sockfd = sock.fileno()
-ecmd = array.array('B', struct.pack('I39s', ETHTOOL_GTXCSUM, b'\x00'*39))
-ifreq = struct.pack('16sP', str.encode('k6t-eth0'), ecmd.buffer_info()[0])
-fcntl.ioctl(sockfd, SIOCETHTOOL, ifreq)
-res = ecmd.tostring()
-print(res[4])
-sock = None
-sockfd = None`})
-
-			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("0"))
+			output := tests.RunCommandOnVmiPod(
+				vmi,
+				[]string{"/bin/bash", "-c", "/usr/sbin/ethtool -k k6t-eth0|grep tx-checksumming|awk '{ printf $2 }'"},
+			)
+			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("off"))
 		})
 	})
 
