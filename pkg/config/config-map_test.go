@@ -64,7 +64,7 @@ var _ = Describe("ConfigMap", func() {
 			},
 		})
 
-		err := CreateConfigMapDisks(vmi)
+		err := CreateConfigMapDisks(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = os.Stat(filepath.Join(ConfigMapDisksDir, "configmap-volume.iso"))
 		Expect(err).NotTo(HaveOccurred())

@@ -98,6 +98,7 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 		"message":                   "Message is a detailed message about the current hotplug volume phase",
 		"persistentVolumeClaimInfo": "PersistentVolumeClaimInfo is information about the PVC that handler requires during start flow",
 		"hotplugVolume":             "If the volume is hotplug, this will contain the hotplug status.",
+		"size":                      "Represents the size of the volume",
 	}
 }
 
