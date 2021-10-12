@@ -1845,35 +1845,11 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 	}
 }
 
-func (c *VMController) syncPausedConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-	vmCondManager := controller.NewVirtualMachineConditionManager()
-
-	vmiCondManager := controller.NewVirtualMachineInstanceConditionManager()
-	if vmiCondManager.HasCondition(vmi, virtv1.VirtualMachineInstancePaused) {
-		if !vmCondManager.HasCondition(vm, virtv1.VirtualMachinePaused) {
-			log.Log.Object(vm).V(3).Info("Adding paused condition")
-			now := v1.NewTime(time.Now())
-			vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
-				Type:               virtv1.VirtualMachinePaused,
-				Status:             k8score.ConditionTrue,
-				LastProbeTime:      now,
-				LastTransitionTime: now,
-				Reason:             "PausedByUser",
-				Message:            "VMI was paused by user",
-			})
-		}
-	} else if vmCondManager.HasCondition(vm, virtv1.VirtualMachinePaused) {
-		log.Log.Object(vm).V(3).Info("Removing paused condition")
-		vmCondManager.RemoveCondition(vm, virtv1.VirtualMachinePaused)
-	}
-}
-
 func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) {
 	cm := controller.NewVirtualMachineConditionManager()
 
 	// ready condition is handled differently as it persists regardless if vmi exists or not
 	c.syncReadyConditionFromVMI(vm, vmi)
-	c.syncPausedConditionFromVMI(vm, vmi)
 	errMatch := (createErr != nil) == cm.HasCondition(vm, virtv1.VirtualMachineFailure)
 	if !(errMatch) {
 		c.processFailureCondition(vm, vmi, createErr)
@@ -1887,7 +1863,6 @@ func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 	// sync VMI conditions, ignore list represents conditions that are not synced generically
 	syncIgnoreMap := map[string]interface{}{
 		string(virtv1.VirtualMachineReady):   nil,
-		string(virtv1.VirtualMachinePaused):  nil,
 		string(virtv1.VirtualMachineFailure): nil,
 	}
 	vmiCondMap := make(map[string]interface{})
