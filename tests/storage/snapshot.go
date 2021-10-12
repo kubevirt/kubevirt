@@ -1084,17 +1084,24 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	if len(volumeSnapshotClasses.Items) > 0 {
-		storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return "", err
+	if len(volumeSnapshotClasses.Items) == 0 {
+		return "", nil
+	}
+	defaultSnapClass := volumeSnapshotClasses.Items[0]
+	for _, snapClass := range volumeSnapshotClasses.Items {
+		if snapClass.Annotations["snapshot.storage.kubernetes.io/is-default-class"] == "true" {
+			defaultSnapClass = snapClass
 		}
+	}
 
-		for _, sc := range storageClasses.Items {
-			if sc.Provisioner == volumeSnapshotClasses.Items[0].Driver {
-				return sc.Name, nil
-			}
+	storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	for _, sc := range storageClasses.Items {
+		if sc.Provisioner == defaultSnapClass.Driver {
+			return sc.Name, nil
 		}
 	}
 
