@@ -57,10 +57,6 @@ func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool 
 func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInstance, allowEmulation bool) error {
 	logger := log.Log.Object(vmi)
 
-	if shouldBlockMigrationTargetPreparation(vmi) {
-		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
-	}
-
 	c, err := l.generateConverterContext(vmi, allowEmulation, nil, true)
 	if err != nil {
 		return fmt.Errorf("Failed to generate libvirt domain from VMI spec: %v", err)
@@ -71,12 +67,12 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
-	dom, err := l.preStartHook(vmi, domain)
+	dom, err := l.preStartHook(vmi, domain, true)
 	if err != nil {
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}
 
-	err = l.generateCloudInitISO(vmi, nil)
+	err = l.generateCloudInitEmptyISO(vmi, nil)
 	if err != nil {
 		return err
 	}
@@ -87,6 +83,10 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 	_, err = hooksManager.OnDefineDomain(&dom.Spec, vmi)
 	if err != nil {
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
+	}
+
+	if shouldBlockMigrationTargetPreparation(vmi) {
+		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
 	}
 
 	loopbackAddress := ip.GetLoopbackAddress()
