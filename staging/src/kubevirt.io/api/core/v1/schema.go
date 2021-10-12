@@ -569,6 +569,9 @@ type Disk struct {
 	// If specified, the virtual disk will be presented with the given block sizes.
 	// +optional
 	BlockSize *BlockSize `json:"blockSize,omitempty"`
+	// If specified the disk is made sharable and multiple write from different VMs are permitted
+	// +optional
+	Shareable *bool `json:"shareable,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.

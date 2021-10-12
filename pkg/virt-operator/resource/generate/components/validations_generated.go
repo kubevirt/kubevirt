@@ -5015,6 +5015,10 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
                                 type: string
+                              shareable:
+                                description: If specified the disk is made sharable
+                                  and multiple write from different VMs are permitted
+                                type: boolean
                               tag:
                                 description: If specified, disk address and its tag
                                   will be provided to the guest via config drive metadata
@@ -6645,6 +6649,10 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
                         type: string
+                      shareable:
+                        description: If specified the disk is made sharable and multiple
+                          write from different VMs are permitted
+                        type: boolean
                       tag:
                         description: If specified, disk address and its tag will be
                           provided to the guest via config drive metadata
@@ -8266,6 +8274,10 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
                         type: string
+                      shareable:
+                        description: If specified the disk is made sharable and multiple
+                          write from different VMs are permitted
+                        type: boolean
                       tag:
                         description: If specified, disk address and its tag will be
                           provided to the guest via config drive metadata
@@ -10379,6 +10391,10 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
                         type: string
+                      shareable:
+                        description: If specified the disk is made sharable and multiple
+                          write from different VMs are permitted
+                        type: boolean
                       tag:
                         description: If specified, disk address and its tag will be
                           provided to the guest via config drive metadata
@@ -12450,6 +12466,10 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
                                 type: string
+                              shareable:
+                                description: If specified the disk is made sharable
+                                  and multiple write from different VMs are permitted
+                                type: boolean
                               tag:
                                 description: If specified, disk address and its tag
                                   will be provided to the guest via config drive metadata
@@ -16057,6 +16077,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: Serial provides the ability to
                                           specify a serial number for the disk device.
                                         type: string
+                                      shareable:
+                                        description: If specified the disk is made
+                                          sharable and multiple write from different
+                                          VMs are permitted
+                                        type: boolean
                                       tag:
                                         description: If specified, disk address and
                                           its tag will be provided to the guest via
@@ -20043,6 +20068,11 @@ var CRDsValidation map[string]string = map[string]string{
                                               to specify a serial number for the disk
                                               device.
                                             type: string
+                                          shareable:
+                                            description: If specified the disk is
+                                              made sharable and multiple write from
+                                              different VMs are permitted
+                                            type: boolean
                                           tag:
                                             description: If specified, disk address
                                               and its tag will be provided to the
@@ -21826,6 +21856,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: Serial provides the ability to specify
                                       a serial number for the disk device.
                                     type: string
+                                  shareable:
+                                    description: If specified the disk is made sharable
+                                      and multiple write from different VMs are permitted
+                                    type: boolean
                                   tag:
                                     description: If specified, disk address and its
                                       tag will be provided to the guest via config
