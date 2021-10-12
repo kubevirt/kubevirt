@@ -20,9 +20,9 @@
 package types
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -30,12 +30,7 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-
-	"kubevirt.io/client-go/kubecli"
 )
 
 var _ = Describe("PVC utils test", func() {
@@ -113,18 +108,19 @@ var _ = Describe("PVC utils test", func() {
 
 		var pvcCache cache.Store
 		var scCache cache.Store
-		var kubeClient *fake.Clientset
-		var virtClient *kubecli.MockKubevirtClient
+		var eventsIndexer cache.Indexer
 		var pvc *kubev1.PersistentVolumeClaim
 
 		BeforeEach(func() {
 			pvcCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 			scCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 
-			kubeClient = fake.NewSimpleClientset()
-			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
-
-			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+			eventsIndexer = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
+				"pvc": func(obj interface{}) ([]string, error) {
+					event, _ := obj.(*kubev1.Event)
+					return []string{fmt.Sprintf("%s/%s", event.InvolvedObject.Namespace, event.InvolvedObject.Name)}, nil
+				},
+			})
 
 			pvc = &kubev1.PersistentVolumeClaim{
 				TypeMeta: metav1.TypeMeta{
@@ -145,7 +141,7 @@ var _ = Describe("PVC utils test", func() {
 			pvc.Status.Phase = kubev1.ClaimBound
 			pvcCache.Add(pvc)
 
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
 
 			Expect(failed).To(BeFalse())
 			Expect(message).To(BeZero())
@@ -154,24 +150,17 @@ var _ = Describe("PVC utils test", func() {
 
 		table.DescribeTable("should detect PVC provisioning failure events", func(eventReason string) {
 			pvcCache.Add(pvc)
-
-			kubeClient.Fake.PrependReactor("list", "events", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-				return true, &kubev1.EventList{
-					Items: []kubev1.Event{
-						{
-							InvolvedObject: kubev1.ObjectReference{
-								APIVersion: pvc.APIVersion,
-								Kind:       pvc.Kind,
-								Namespace:  pvc.Namespace,
-								Name:       pvc.Name,
-							},
-							Reason: eventReason,
-						},
-					},
-				}, nil
+			eventsIndexer.Add(&kubev1.Event{
+				InvolvedObject: kubev1.ObjectReference{
+					APIVersion: pvc.APIVersion,
+					Kind:       pvc.Kind,
+					Namespace:  pvc.Namespace,
+					Name:       pvc.Name,
+				},
+				Reason: eventReason,
 			})
 
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
 
 			Expect(failed).To(BeTrue())
 			Expect(message).ToNot(BeZero())
@@ -185,7 +174,7 @@ var _ = Describe("PVC utils test", func() {
 			pvc.CreationTimestamp = metav1.NewTime(time.Now().Add(-pendingPVCTimeoutThreshold * 2))
 			pvcCache.Add(pvc)
 
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
 
 			Expect(failed).To(BeTrue())
 			Expect(message).ToNot(BeZero())
@@ -196,7 +185,7 @@ var _ = Describe("PVC utils test", func() {
 			pvc.CreationTimestamp = metav1.NewTime(time.Now().Add(-pendingPVCTimeoutThreshold / 2))
 			pvcCache.Add(pvc)
 
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
 
 			Expect(failed).To(BeFalse())
 			Expect(message).To(BeZero())
@@ -217,7 +206,7 @@ var _ = Describe("PVC utils test", func() {
 			pvc.Spec.StorageClassName = &sc.Name
 			pvcCache.Add(pvc)
 
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, virtClient, pvc.Namespace, pvc.Name)
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
 
 			Expect(failed).To(BeFalse())
 			Expect(message).To(BeZero())

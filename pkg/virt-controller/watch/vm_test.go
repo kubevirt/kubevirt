@@ -56,6 +56,7 @@ var _ = Describe("VirtualMachine", func() {
 		var dataVolumeSource *framework.FakeControllerSource
 		var crInformer cache.SharedIndexInformer
 		var pvcInformer cache.SharedIndexInformer
+		var pvcEventInformer cache.SharedIndexInformer
 		var storageClassInformer cache.SharedIndexInformer
 		var flavorMethods *testutils.MockFlavorMethods
 		var stop chan struct{}
@@ -86,6 +87,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			pvcEventInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Event{})
 			storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
@@ -108,6 +110,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInformer,
 				dataVolumeInformer,
 				pvcInformer,
+				pvcEventInformer,
 				storageClassInformer,
 				crInformer,
 				flavorMethods,

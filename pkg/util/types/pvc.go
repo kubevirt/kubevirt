@@ -26,11 +26,9 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -42,8 +40,11 @@ const (
 // IsPVCFailedProvisioning detects whether a failure has occurred while provisioning a PersistentVolumeClaim.
 // If such failure is detected, 'true' is returned alongside the failure message, and 'false' otherwise.
 // If an error occurs during detection, a non-nil err will be returned.
+//
+// The pvcEventIndexer argument should contain an index named "pvc" which indexes PVCs according to their
+// involved object of type PersistentVolumeClaim.
 func IsPVCFailedProvisioning(pvcStore cache.Store, storageClassStore cache.Store,
-	client kubecli.KubevirtClient, namespace, claimName string) (failed bool, message string, err error) {
+	pvcEventIndexer cache.Indexer, namespace, claimName string) (failed bool, message string, err error) {
 
 	obj, exists, err := pvcStore.GetByKey(namespace + "/" + claimName)
 	if err != nil {
@@ -84,7 +85,7 @@ func IsPVCFailedProvisioning(pvcStore cache.Store, storageClassStore cache.Store
 
 		// If no timeout is detected, attempt to detect Kubernetes events
 		// that conventionally indicate of some PVC provisioning failure.
-		event, err := hasPVCProvisioningFailureEvent(pvc, client)
+		event, err := hasPVCProvisioningFailureEvent(pvc, pvcEventIndexer)
 		if err != nil {
 			return false, "", err
 		}
@@ -98,7 +99,7 @@ func IsPVCFailedProvisioning(pvcStore cache.Store, storageClassStore cache.Store
 	return false, "", nil
 }
 
-func hasPVCProvisioningFailureEvent(pvc *k8sv1.PersistentVolumeClaim, client kubecli.KubevirtClient) (*k8sv1.Event, error) {
+func hasPVCProvisioningFailureEvent(pvc *k8sv1.PersistentVolumeClaim, pvcEventIndexer cache.Indexer) (*k8sv1.Event, error) {
 	// Kubernetes doesn't have a formal API to determine whether the PVC is pending because
 	// the binding (or provisioning for a dynamically provisioned volume) is still ongoing,
 	// or some failure has occurred.
@@ -110,17 +111,23 @@ func hasPVCProvisioningFailureEvent(pvc *k8sv1.PersistentVolumeClaim, client kub
 	// sigs.k8s.io/sig-storage-lib-external-provisioner library which is a common base library for implementing
 	// external provisioners.
 
-	events, err := client.CoreV1().Events(pvc.Namespace).Search(scheme.Scheme, pvc)
+	pvcKey := fmt.Sprintf("%s/%s", pvc.Namespace, pvc.Name)
+	eventObjs, err := pvcEventIndexer.ByIndex("pvc", pvcKey)
 	if err != nil {
 		return nil, err
 	}
 
 	var latestEvent *k8sv1.Event
-	for _, event := range events.Items {
+	for _, eventObj := range eventObjs {
+		event, ok := eventObj.(*k8sv1.Event)
+		if !ok {
+			return nil, fmt.Errorf("failed converting object to event: object is of type %T", eventObj)
+		}
+
 		switch event.Reason {
 		case "FailedBinding", "ProvisioningFailed":
 			if latestEvent == nil || latestEvent.LastTimestamp.Time.After(event.LastTimestamp.Time) {
-				latestEvent = &event
+				latestEvent = event
 			}
 		}
 	}

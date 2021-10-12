@@ -73,6 +73,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	pvcEventInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	flaovrMethods flavor.Methods,
@@ -87,6 +88,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		vmInformer:             vmInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
+		pvcEventInformer:       pvcEventInformer,
 		storageClassInformer:   storageClassInformer,
 		crInformer:             crInformer,
 		flavorMethods:          flaovrMethods,
@@ -136,6 +138,7 @@ type VMController struct {
 	vmInformer             cache.SharedIndexInformer
 	dataVolumeInformer     cache.SharedIndexInformer
 	pvcInformer            cache.SharedIndexInformer
+	pvcEventInformer       cache.SharedIndexInformer
 	storageClassInformer   cache.SharedIndexInformer
 	crInformer             cache.SharedIndexInformer
 	flavorMethods          flavor.Methods
@@ -152,7 +155,14 @@ func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting VirtualMachine controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmInformer.HasSynced, c.dataVolumeInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh,
+		c.vmiInformer.HasSynced,
+		c.vmInformer.HasSynced,
+		c.dataVolumeInformer.HasSynced,
+		c.pvcInformer.HasSynced,
+		c.pvcEventInformer.HasSynced,
+		c.storageClassInformer.HasSynced,
+		c.crInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -548,8 +558,11 @@ func (c *VMController) hasPVCBindingErrors(vm *virtv1.VirtualMachine) bool {
 			continue
 		}
 
-		failed, message, err := typesutil.IsPVCFailedProvisioning(c.pvcInformer.GetStore(), c.storageClassInformer.GetStore(),
-			c.clientset, vm.Namespace, claimName)
+		failed, message, err := typesutil.IsPVCFailedProvisioning(
+			c.pvcInformer.GetStore(),
+			c.storageClassInformer.GetStore(),
+			c.pvcEventInformer.GetIndexer(),
+			vm.Namespace, claimName)
 
 		if err != nil {
 			log.Log.Object(vm).Errorf("Error detecting volume provisioning status: %v", err)
