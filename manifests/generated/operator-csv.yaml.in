@@ -844,6 +844,7 @@ spec:
             metadata:
               annotations:
                 scheduler.alpha.kubernetes.io/critical-pod: ""
+                workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
               labels:
                 kubevirt.io: virt-operator
                 prometheus.kubevirt.io: ""
