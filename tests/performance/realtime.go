@@ -76,7 +76,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
-		checks.SkipTestIfNoCPUManagerWith2MiHugepages()
+		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		tests.BeforeTestCleanup()
 	})
 
