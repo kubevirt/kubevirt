@@ -220,6 +220,10 @@ func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, imageIDs map[st
 	return generateKernelBootContainerHelper(vmi, imageIDs, podVolumeName, binVolumeName, false)
 }
 
+func GenerateKernelBootInitContainer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string) *kubev1.Container {
+	return generateKernelBootContainerHelper(vmi, imageIDs, podVolumeName, binVolumeName, true)
+}
+
 func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) *kubev1.Container {
 	if !util.HasKernelBootContainerImage(vmi) {
 		return nil
