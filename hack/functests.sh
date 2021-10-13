@@ -51,7 +51,7 @@ function functest() {
         KUBEVIRT_FUNC_TEST_SUITE_ARGS="-skip-dual-stack-test ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     fi
 
-    _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}
+    eval _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}
 }
 
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
@@ -60,17 +60,17 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     serial_test_args=""
 
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-        parallel_test_args="${parallel_test_args} --skip=\\[Serial\\]|${KUBEVIRT_E2E_SKIP}"
-        serial_test_args="${serial_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
+        parallel_test_args="${parallel_test_args} --skip=\"\\[Serial\\]|(${KUBEVIRT_E2E_SKIP})\""
+        serial_test_args="${serial_test_args} --skip=\"${KUBEVIRT_E2E_SKIP}\""
     else
-        parallel_test_args="${parallel_test_args} --skip=\\[Serial\\]"
+        parallel_test_args="${parallel_test_args} --skip=\"\\[Serial\\]\""
     fi
 
     if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
-        parallel_test_args="${parallel_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
-        serial_test_args="${serial_test_args} --focus=\\[Serial\\].*(${KUBEVIRT_E2E_FOCUS})|(${KUBEVIRT_E2E_FOCUS}).*\\[Serial\\]"
+        parallel_test_args="${parallel_test_args} --focus=\"${KUBEVIRT_E2E_FOCUS}\""
+        serial_test_args="${serial_test_args} --focus=\"\\[Serial\\].*(${KUBEVIRT_E2E_FOCUS})|(${KUBEVIRT_E2E_FOCUS}).*\\[Serial\\]\""
     else
-        serial_test_args="${serial_test_args} --focus=\\[Serial\\]"
+        serial_test_args="${serial_test_args} --focus=\"\\[Serial\\]\""
     fi
 
     return_value=0
@@ -87,11 +87,11 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
 else
     additional_test_args=""
     if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-        additional_test_args="${additional_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
+        additional_test_args="${additional_test_args} --skip=\"${KUBEVIRT_E2E_SKIP}\""
     fi
 
     if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
-        additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
+        additional_test_args="${additional_test_args} --focus=\"${KUBEVIRT_E2E_FOCUS}\""
     fi
 
     functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}
