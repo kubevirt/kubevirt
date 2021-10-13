@@ -212,9 +212,9 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, bi
 	return generateContainersHelper(vmi, podVolumeName, binVolumeName, false)
 }
 
-func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) *kubev1.Container {
+func GenerateKernelBootContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) (container, initContainer *kubev1.Container) {
 	if !util.HasKernelBootContainerImage(vmi) {
-		return nil
+		return nil, nil
 	}
 
 	kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
@@ -232,7 +232,10 @@ func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, podVolumeName s
 	}
 
 	const fakeVolumeIdx = 0 // volume index makes no difference for kernel-boot container
-	return generateContainerFromVolume(vmi, podVolumeName, binVolumeName, false, true, &kernelBootVolume, fakeVolumeIdx)
+	createContainer := func(isInit bool) *kubev1.Container {
+		return generateContainerFromVolume(vmi, podVolumeName, binVolumeName, isInit, true, &kernelBootVolume, fakeVolumeIdx)
+	}
+	return createContainer(false), createContainer(true)
 }
 
 // The controller uses this function to generate the container
