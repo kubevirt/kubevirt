@@ -44,12 +44,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 					TLSConfig: &v1.TLSConfig{
 						InsecureSkipVerify: insecureSkipVerify,
 					},
-					RelabelConfigs: []*v1.RelabelConfig{
-						{
-							Regex:  "namespace",
-							Action: "labeldrop",
-						},
-					},
+					HonorLabels: true,
 				},
 			},
 		},
