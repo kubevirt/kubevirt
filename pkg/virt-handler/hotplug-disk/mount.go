@@ -510,6 +510,20 @@ func generateDefaultDeviceRules() []*devices.Rule {
 			Permissions: permissions,
 			Allow:       toAllow,
 		},
+		{ // /dev/kvm (hardware virtualization extensions)
+			Type:        devices.CharDevice,
+			Major:       10,
+			Minor:       232,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
+		{ // /dev/net/tun (TAP/TUN network device)
+			Type:        devices.CharDevice,
+			Major:       10,
+			Minor:       200,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
 	}
 
 	// Add PTY slaves. See this for more info:
