@@ -381,6 +381,7 @@ rules:
   - events
   verbs:
   - list
+  - watch
   - update
   - create
   - patch
