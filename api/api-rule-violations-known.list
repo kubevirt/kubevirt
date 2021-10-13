@@ -175,6 +175,8 @@ API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachin
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachineStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachineStatus,StateChangeRequests
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachineStatus,VolumeSnapshotStatuses
+API rule violation: list_type_missing,kubevirt.io/client-go/apis/flavor/v1alpha1,VirtualMachineClusterFlavorList,Items
+API rule violation: list_type_missing,kubevirt.io/client-go/apis/flavor/v1alpha1,VirtualMachineFlavorList,Items
 API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineRestoreList,Items
 API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineRestoreStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineRestoreStatus,DeletedDataVolumes

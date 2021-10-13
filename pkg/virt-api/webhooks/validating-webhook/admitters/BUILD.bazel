@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "flavor-admitter.go",
         "migration-create-admitter.go",
         "migration-update-admitter.go",
         "pod-eviction-admitter.go",
@@ -19,6 +20,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/flavor:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/util/hardware:go_default_library",
@@ -29,6 +31,7 @@ go_library(
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/apis/flavor/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/k8s.io/api/admission/v1:go_default_library",
@@ -50,6 +53,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "admitters_suite_test.go",
+        "flavor-admitter_test.go",
         "migration-create-admitter_test.go",
         "migration-update-admitter_test.go",
         "pod-eviction-admitter_test.go",
@@ -63,6 +67,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/flavor:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/webhooks:go_default_library",
@@ -71,6 +76,7 @@ go_test(
         "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-operator/resource/generate/rbac:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/apis/flavor/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",

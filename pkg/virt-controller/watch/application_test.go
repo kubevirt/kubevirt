@@ -96,6 +96,7 @@ var _ = Describe("Application", func() {
 		crdInformer, _ := testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 		vmRestoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		flavorMethods := testutils.NewMockFlavorMethods()
 
 		var qemuGid int64 = 107
 
@@ -116,7 +117,14 @@ var _ = Describe("Application", func() {
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", nil),
 		)
 		app.rsController = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
-		app.vmController = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, pvcInformer, crInformer, recorder, virtClient)
+		app.vmController = NewVMController(vmiInformer,
+			vmInformer,
+			dataVolumeInformer,
+			pvcInformer,
+			crInformer,
+			flavorMethods,
+			recorder,
+			virtClient)
 		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
 			podInformer,

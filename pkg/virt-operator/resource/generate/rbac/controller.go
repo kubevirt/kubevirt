@@ -292,6 +292,18 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"flavor.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachineflavors",
+					"virtualmachineclusterflavors",
+				},
+				Verbs: []string{
+					"list", "watch",
+				},
+			},
 		},
 	}
 }

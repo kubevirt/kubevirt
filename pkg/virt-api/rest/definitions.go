@@ -31,12 +31,25 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 )
 
 func ComposeAPIDefinitions() []*restful.WebService {
+	var result []*restful.WebService
+	for _, f := range []func() []*restful.WebService{
+		kubevirtApiServiceDefinitions,
+		snapshotApiServiceDefinitions,
+		flavorApiServiceDefinitions,
+	} {
+		result = append(result, f()...)
+	}
 
+	return result
+}
+
+func kubevirtApiServiceDefinitions() []*restful.WebService {
 	vmiGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstances"}
 	vmirsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancereplicasets"}
 	vmipGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancepresets"}
@@ -44,75 +57,105 @@ func ComposeAPIDefinitions() []*restful.WebService {
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancemigrations"}
 	kubeVirtGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "kubevirt"}
 
-	vmsGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
-	vmscGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
-	vmrGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinerestores")
-
 	ws, err := GroupVersionProxyBase(v1.GroupVersion)
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, kubeVirtGVR, &v1.KubeVirt{}, v1.KubeVirtGroupVersionKind.Kind, &v1.KubeVirtList{})
+	ws, err = GenericNamespacedResourceProxy(ws, kubeVirtGVR, &v1.KubeVirt{}, v1.KubeVirtGroupVersionKind.Kind, &v1.KubeVirtList{})
 	if err != nil {
 		panic(err)
 	}
-	ws, err = GenericResourceProxy(ws, vmiGVR, &v1.VirtualMachineInstance{}, v1.VirtualMachineInstanceGroupVersionKind.Kind, &v1.VirtualMachineInstanceList{})
-	if err != nil {
-		panic(err)
-	}
-
-	ws, err = GenericResourceProxy(ws, vmirsGVR, &v1.VirtualMachineInstanceReplicaSet{}, v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineInstanceReplicaSetList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmiGVR, &v1.VirtualMachineInstance{}, v1.VirtualMachineInstanceGroupVersionKind.Kind, &v1.VirtualMachineInstanceList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, vmipGVR, &v1.VirtualMachineInstancePreset{}, v1.VirtualMachineInstancePresetGroupVersionKind.Kind, &v1.VirtualMachineInstancePresetList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmirsGVR, &v1.VirtualMachineInstanceReplicaSet{}, v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineInstanceReplicaSetList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmipGVR, &v1.VirtualMachineInstancePreset{}, v1.VirtualMachineInstancePresetGroupVersionKind.Kind, &v1.VirtualMachineInstancePresetList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = GenericResourceProxy(ws, migrationGVR, &v1.VirtualMachineInstanceMigration{}, v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind, &v1.VirtualMachineInstanceMigrationList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws1, err := ResourceProxyAutodiscovery(vmiGVR)
+	ws, err = GenericNamespacedResourceProxy(ws, migrationGVR, &v1.VirtualMachineInstanceMigration{}, v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind, &v1.VirtualMachineInstanceMigrationList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err := GroupVersionProxyBase(schema.GroupVersion{Group: snapshotv1.SchemeGroupVersion.Group, Version: snapshotv1.SchemeGroupVersion.Version})
+	ws2, err := ResourceProxyAutodiscovery(vmiGVR)
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err = GenericResourceProxy(ws2, vmsGVR, &snapshotv1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1.VirtualMachineSnapshotList{})
+	return []*restful.WebService{ws, ws2}
+}
+
+func snapshotApiServiceDefinitions() []*restful.WebService {
+	vmsGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
+	vmscGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
+	vmrGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinerestores")
+
+	ws, err := GroupVersionProxyBase(schema.GroupVersion{Group: snapshotv1.SchemeGroupVersion.Group, Version: snapshotv1.SchemeGroupVersion.Version})
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err = GenericResourceProxy(ws2, vmscGVR, &snapshotv1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1.VirtualMachineSnapshotContentList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmsGVR, &snapshotv1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1.VirtualMachineSnapshotList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err = GenericResourceProxy(ws2, vmrGVR, &snapshotv1.VirtualMachineRestore{}, "VirtualMachineRestore", &snapshotv1.VirtualMachineRestoreList{})
+	ws, err = GenericNamespacedResourceProxy(ws, vmscGVR, &snapshotv1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1.VirtualMachineSnapshotContentList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws3, err := ResourceProxyAutodiscovery(vmsGVR)
+	ws, err = GenericNamespacedResourceProxy(ws, vmrGVR, &snapshotv1.VirtualMachineRestore{}, "VirtualMachineRestore", &snapshotv1.VirtualMachineRestoreList{})
 	if err != nil {
 		panic(err)
 	}
 
-	return []*restful.WebService{ws, ws1, ws2, ws3}
+	ws2, err := ResourceProxyAutodiscovery(vmsGVR)
+	if err != nil {
+		panic(err)
+	}
+	return []*restful.WebService{ws, ws2}
+}
+
+func flavorApiServiceDefinitions() []*restful.WebService {
+	flavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineflavors")
+	clusterFlavorGVR := flavorv1alpha1.SchemeGroupVersion.WithResource("virtualmachineclusterflavors")
+
+	ws, err := GroupVersionProxyBase(flavorv1alpha1.SchemeGroupVersion)
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericNamespacedResourceProxy(ws, flavorGVR, &flavorv1alpha1.VirtualMachineFlavor{}, "VirtualMachineFlavor", &flavorv1alpha1.VirtualMachineFlavorList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericClusterResourceProxy(ws, clusterFlavorGVR, &flavorv1alpha1.VirtualMachineClusterFlavor{}, "VirtualMachineClusterFlavor", &flavorv1alpha1.VirtualMachineClusterFlavorList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err := ResourceProxyAutodiscovery(flavorGVR)
+	if err != nil {
+		panic(err)
+	}
+
+	return []*restful.WebService{ws, ws2}
 }
 
 func GroupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) {
@@ -131,122 +174,129 @@ func GroupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) 
 	return ws, nil
 }
 
-func GenericResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
+func GenericNamespacedResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
 
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
 	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
 
-	ws.Route(addPostParams(
-		ws.POST(ResourceBasePath(gvr)).
-			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+	ws.Route(addNamespaceParam(ws,
+		createOperation(ws, NamespacedResourceBasePath(gvr), objExample).
 			Operation("createNamespaced"+objKind).
-			To(Noop).Reads(objExample).Writes(objExample).
-			Doc("Create a "+objKind+" object.").
-			Returns(http.StatusOK, "OK", objExample).
-			Returns(http.StatusCreated, "Created", objExample).
-			Returns(http.StatusAccepted, "Accepted", objExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
+			Doc("Create a "+objKind+" object."),
 	))
 
-	ws.Route(addPutParams(
-		ws.PUT(ResourcePath(gvr)).
-			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+	ws.Route(addNamespaceParam(ws,
+		replaceOperation(ws, NamespacedResourcePath(gvr), objExample).
 			Operation("replaceNamespaced"+objKind).
-			To(Noop).Reads(objExample).Writes(objExample).
-			Doc("Update a "+objKind+" object.").
-			Returns(http.StatusOK, "OK", objExample).
-			Returns(http.StatusCreated, "Create", objExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
+			Doc("Update a "+objKind+" object."),
 	))
 
-	ws.Route(addDeleteParams(
-		ws.DELETE(ResourcePath(gvr)).
-			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+	ws.Route(addNamespaceParam(ws,
+		deleteOperation(ws, NamespacedResourcePath(gvr)).
 			Operation("deleteNamespaced"+objKind).
-			To(Noop).
-			Reads(metav1.DeleteOptions{}).Writes(metav1.Status{}).
-			Doc("Delete a "+objKind+" object.").
-			Returns(http.StatusOK, "OK", metav1.Status{}).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
+			Doc("Delete a "+objKind+" object."),
 	))
 
-	ws.Route(addGetParams(
-		ws.GET(ResourcePath(gvr)).
-			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
+	ws.Route(addNamespaceParam(ws,
+		readOperation(ws, NamespacedResourcePath(gvr), objExample).
 			Operation("readNamespaced"+objKind).
-			To(Noop).Writes(objExample).
-			Doc("Get a "+objKind+" object.").
-			Returns(http.StatusOK, "OK", objExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
+			Doc("Get a "+objKind+" object."),
 	))
 
-	ws.Route(addGetAllNamespacesListParams(
-		ws.GET(gvr.Resource).
-			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
-			Operation("list"+objKind+"ForAllNamespaces").
-			To(Noop).Writes(listExample).
-			Doc("Get a list of all "+objKind+" objects.").
-			Returns(http.StatusOK, "OK", listExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
-	))
+	ws.Route(
+		listOperation(ws, gvr.Resource, listExample).
+			Operation("list" + objKind + "ForAllNamespaces").
+			Doc("Get a list of all " + objKind + " objects."),
+	)
 
-	ws.Route(addPatchParams(
-		ws.PATCH(ResourcePath(gvr)).
-			Consumes(mime.MIME_JSON_PATCH, mime.MIME_MERGE_PATCH).
-			Produces(mime.MIME_JSON).
+	ws.Route(addNamespaceParam(ws,
+		patchOperation(ws, NamespacedResourcePath(gvr), objExample).
 			Operation("patchNamespaced"+objKind).
-			To(Noop).
-			Writes(objExample).Reads(metav1.Patch{}).
-			Doc("Patch a "+objKind+" object.").
-			Returns(http.StatusOK, "OK", objExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
+			Doc("Patch a "+objKind+" object."),
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
-	ws.Route(addWatchGetListParams(
-		ws.GET("/watch/"+gvr.Resource).
-			Produces(mime.MIME_JSON).
-			Operation("watch"+objKind+"ListForAllNamespaces").
-			To(Noop).Writes(metav1.WatchEvent{}).
-			Doc("Watch a "+objKind+"List object.").
-			Returns(http.StatusOK, "OK", metav1.WatchEvent{}).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
-	))
+	ws.Route(
+		watchOperation(ws, "/watch/"+gvr.Resource).
+			Operation("watch" + objKind + "ListForAllNamespaces").
+			Doc("Watch a " + objKind + "List object."),
+	)
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
-	ws.Route(addWatchNamespacedGetListParams(
-		ws.GET("/watch"+ResourceBasePath(gvr)).
+	ws.Route(addNamespaceParam(ws,
+		watchOperation(ws, "/watch"+NamespacedResourceBasePath(gvr)).
 			Operation("watchNamespaced"+objKind).
-			Produces(mime.MIME_JSON).
-			To(Noop).Writes(metav1.WatchEvent{}).
-			Doc("Watch a "+objKind+" object.").
-			Returns(http.StatusOK, "OK", metav1.WatchEvent{}).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
+			Doc("Watch a "+objKind+" object."),
 	))
 
-	ws.Route(addGetNamespacedListParams(
-		ws.GET(ResourceBasePath(gvr)).
-			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
+	ws.Route(addNamespaceParam(ws,
+		listOperation(ws, NamespacedResourceBasePath(gvr), listExample).
 			Operation("listNamespaced"+objKind).
-			Writes(listExample).
-			To(Noop).
-			Doc("Get a list of "+objKind+" objects.").
-			Returns(http.StatusOK, "OK", listExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
+			Doc("Get a list of "+objKind+" objects."),
 	))
 
-	ws.Route(addDeleteListParams(
-		ws.DELETE(ResourceBasePath(gvr)).
-			Operation("deleteCollectionNamespaced"+objKind).
-			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			To(Noop).Writes(metav1.Status{}).
-			Doc("Delete a collection of "+objKind+" objects.").
-			Returns(http.StatusOK, "OK", metav1.Status{}).
-			Returns(http.StatusUnauthorized, "Unauthorized", ""), ws,
-	))
+	ws.Route(
+		deleteCollectionOperation(ws, NamespacedResourceBasePath(gvr)).
+			Operation("deleteCollectionNamespaced" + objKind).
+			Doc("Delete a collection of " + objKind + " objects."),
+	)
+
+	return ws, nil
+}
+
+func GenericClusterResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
+
+	objExample := reflect.ValueOf(objPointer).Elem().Interface()
+	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
+
+	ws.Route(
+		createOperation(ws, ClusterResourceBasePath(gvr), objExample).
+			Operation("create" + objKind).
+			Doc("Create a " + objKind + " object."),
+	)
+
+	ws.Route(
+		replaceOperation(ws, ClusterResourcePath(gvr), objExample).
+			Operation("replace" + objKind).
+			Doc("Update a " + objKind + " object."),
+	)
+
+	ws.Route(
+		deleteOperation(ws, ClusterResourcePath(gvr)).
+			Operation("delete" + objKind).
+			Doc("Delete a " + objKind + " object."),
+	)
+
+	ws.Route(
+		readOperation(ws, ClusterResourcePath(gvr), objExample).
+			Operation("read" + objKind).
+			Doc("Get a " + objKind + " object."),
+	)
+
+	ws.Route(
+		listOperation(ws, gvr.Resource, listExample).
+			Operation("list" + objKind).
+			Doc("Get a list of " + objKind + " objects."),
+	)
+
+	ws.Route(
+		patchOperation(ws, ClusterResourcePath(gvr), objExample).
+			Operation("patch" + objKind).
+			Doc("Patch a " + objKind + " object."),
+	)
+
+	// TODO, implement watch. For now it is here to provide swagger doc only
+	ws.Route(
+		watchOperation(ws, "/watch/"+gvr.Resource).
+			Operation("watch" + objKind + "ListForAllNamespaces").
+			Doc("Watch a " + objKind + "List object."),
+	)
+
+	ws.Route(
+		deleteCollectionOperation(ws, ClusterResourceBasePath(gvr)).
+			Operation("deleteCollection" + objKind).
+			Doc("Delete a collection of " + objKind + " objects."),
+	)
 
 	return ws, nil
 }
@@ -264,7 +314,94 @@ func ResourceProxyAutodiscovery(gvr schema.GroupVersionResource) (*restful.WebSe
 	return ws, nil
 }
 
-func addCollectionParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+func createOperation(ws *restful.WebService, subPath string, objExample interface{}) *restful.RouteBuilder {
+	return ws.POST(subPath).
+		Produces(mime.MIME_JSON, mime.MIME_YAML).
+		Consumes(mime.MIME_JSON, mime.MIME_YAML).
+		To(Noop).Reads(objExample).Writes(objExample).
+		Returns(http.StatusOK, "OK", objExample).
+		Returns(http.StatusCreated, "Created", objExample).
+		Returns(http.StatusAccepted, "Accepted", objExample).
+		Returns(http.StatusUnauthorized, "Unauthorized", "")
+}
+
+func replaceOperation(ws *restful.WebService, subPath string, objExample interface{}) *restful.RouteBuilder {
+	return addPutParams(ws,
+		ws.PUT(subPath).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+			To(Noop).Reads(objExample).Writes(objExample).
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusCreated, "Create", objExample).
+			Returns(http.StatusUnauthorized, "Unauthorized", ""),
+	)
+}
+
+func patchOperation(ws *restful.WebService, subPath string, objExample interface{}) *restful.RouteBuilder {
+	return addPatchParams(ws,
+		ws.PATCH(subPath).
+			Consumes(mime.MIME_JSON_PATCH, mime.MIME_MERGE_PATCH).
+			Produces(mime.MIME_JSON).
+			To(Noop).
+			Writes(objExample).Reads(metav1.Patch{}).
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusUnauthorized, "Unauthorized", ""),
+	)
+}
+
+func deleteOperation(ws *restful.WebService, subPath string) *restful.RouteBuilder {
+	return addDeleteParams(ws,
+		ws.DELETE(subPath).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+			To(Noop).
+			Reads(metav1.DeleteOptions{}).Writes(metav1.Status{}).
+			Returns(http.StatusOK, "OK", metav1.Status{}).
+			Returns(http.StatusUnauthorized, "Unauthorized", ""),
+	)
+}
+
+func deleteCollectionOperation(ws *restful.WebService, subPath string) *restful.RouteBuilder {
+	return addDeleteListParams(ws,
+		ws.DELETE(subPath).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			To(Noop).Writes(metav1.Status{}).
+			Returns(http.StatusOK, "OK", metav1.Status{}).
+			Returns(http.StatusUnauthorized, "Unauthorized", ""),
+	)
+}
+
+func readOperation(ws *restful.WebService, subPath string, objExample interface{}) *restful.RouteBuilder {
+	return addGetParams(ws,
+		ws.GET(subPath).
+			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
+			To(Noop).Writes(objExample).
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusUnauthorized, "Unauthorized", ""),
+	)
+}
+
+func listOperation(ws *restful.WebService, subPath string, listExample interface{}) *restful.RouteBuilder {
+	return addGetListParams(ws,
+		ws.GET(subPath).
+			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
+			To(Noop).Writes(listExample).
+			Returns(http.StatusOK, "OK", listExample).
+			Returns(http.StatusUnauthorized, "Unauthorized", ""),
+	)
+}
+
+func watchOperation(ws *restful.WebService, subPath string) *restful.RouteBuilder {
+	return addWatchGetListParams(ws,
+		ws.GET(subPath).
+			Produces(mime.MIME_JSON).
+			To(Noop).Writes(metav1.WatchEvent{}).
+			Returns(http.StatusOK, "OK", metav1.WatchEvent{}).
+			Returns(http.StatusUnauthorized, "Unauthorized", ""),
+	)
+}
+
+func addCollectionParams(ws *restful.WebService, builder *restful.RouteBuilder) *restful.RouteBuilder {
 	return builder.Param(continueParam(ws)).
 		Param(fieldSelectorParam(ws)).
 		Param(includeUninitializedParam(ws)).
@@ -275,50 +412,41 @@ func addCollectionParams(builder *restful.RouteBuilder, ws *restful.WebService) 
 		Param(watchParam(ws))
 }
 
-func addWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return addCollectionParams(builder, ws)
+func addNamespaceParam(ws *restful.WebService, builder *restful.RouteBuilder) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws))
 }
 
-func addWatchNamespacedGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return addWatchGetListParams(builder.Param(NamespaceParam(ws)), ws)
+func addWatchGetListParams(ws *restful.WebService, builder *restful.RouteBuilder) *restful.RouteBuilder {
+	return addCollectionParams(ws, builder)
 }
 
-func addGetAllNamespacesListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return addCollectionParams(builder, ws)
+func addGetListParams(ws *restful.WebService, builder *restful.RouteBuilder) *restful.RouteBuilder {
+	return addCollectionParams(ws, builder)
 }
 
-func addDeleteListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return addCollectionParams(builder, ws)
+func addDeleteListParams(ws *restful.WebService, builder *restful.RouteBuilder) *restful.RouteBuilder {
+	return addCollectionParams(ws, builder)
 }
 
-func addGetParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+func addGetParams(ws *restful.WebService, builder *restful.RouteBuilder) *restful.RouteBuilder {
 	return builder.Param(NameParam(ws)).
-		Param(NamespaceParam(ws)).
 		Param(exactParam(ws)).
 		Param(exportParam(ws))
 }
 
-func addGetNamespacedListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return addCollectionParams(builder.Param(NamespaceParam(ws)), ws)
+func addPutParams(ws *restful.WebService, builder *restful.RouteBuilder) *restful.RouteBuilder {
+	return builder.Param(NameParam(ws))
 }
 
-func addPostParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(NamespaceParam(ws))
-}
-
-func addPutParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
-}
-
-func addDeleteParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws)).
+func addDeleteParams(ws *restful.WebService, builder *restful.RouteBuilder) *restful.RouteBuilder {
+	return builder.Param(NameParam(ws)).
 		Param(gracePeriodSecondsParam(ws)).
 		Param(orphanDependentsParam(ws)).
 		Param(propagationPolicyParam(ws))
 }
 
-func addPatchParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
+func addPatchParams(ws *restful.WebService, builder *restful.RouteBuilder) *restful.RouteBuilder {
+	return builder.Param(NameParam(ws))
 }
 
 const (
@@ -394,12 +522,20 @@ func GroupVersionBasePath(gvr schema.GroupVersion) string {
 	return fmt.Sprintf("/apis/%s/%s", gvr.Group, gvr.Version)
 }
 
-func ResourceBasePath(gvr schema.GroupVersionResource) string {
+func NamespacedResourceBasePath(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s", gvr.Resource)
 }
 
-func ResourcePath(gvr schema.GroupVersionResource) string {
+func NamespacedResourcePath(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
+}
+
+func ClusterResourceBasePath(gvr schema.GroupVersionResource) string {
+	return gvr.Resource
+}
+
+func ClusterResourcePath(gvr schema.GroupVersionResource) string {
+	return fmt.Sprintf("%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
 }
 
 func SubResourcePath(subResource string) string {

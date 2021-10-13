@@ -434,6 +434,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - flavor.kubevirt.io
+          resources:
+          - virtualmachineflavors
+          - virtualmachineclusterflavors
+          verbs:
+          - list
+          - watch
+        - apiGroups:
           - ""
           resources:
           - configmaps
@@ -599,6 +607,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - flavor.kubevirt.io
+          resources:
+          - virtualmachineflavors
+          - virtualmachineclusterflavors
+          verbs:
+          - list
+          - watch
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachineinstances
@@ -723,6 +739,20 @@ spec:
           - watch
           - deletecollection
         - apiGroups:
+          - flavor.kubevirt.io
+          resources:
+          - virtualmachineflavors
+          - virtualmachineclusterflavors
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
           - subresources.kubevirt.io
           resources:
           - virtualmachineinstances/console
@@ -782,6 +812,19 @@ spec:
           - list
           - watch
         - apiGroups:
+          - flavor.kubevirt.io
+          resources:
+          - virtualmachineflavors
+          - virtualmachineclusterflavors
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
           - kubevirt.io
           resources:
           - kubevirts
@@ -814,6 +857,15 @@ spec:
           - virtualmachinesnapshots
           - virtualmachinesnapshotcontents
           - virtualmachinerestores
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - flavor.kubevirt.io
+          resources:
+          - virtualmachineflavors
+          - virtualmachineclusterflavors
           verbs:
           - get
           - list

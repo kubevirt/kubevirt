@@ -39,7 +39,7 @@ func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request, clusterConfig *
 
 func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
 
-	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers.VMIInformer, informers.DataSourceInformer))
+	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers))
 }
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
@@ -66,9 +66,21 @@ func ServeVMRestores(resp http.ResponseWriter, req *http.Request, clusterConfig 
 	validating_webhooks.Serve(resp, req, admitters.NewVMRestoreAdmitter(clusterConfig, virtCli, informers.VMRestoreInformer))
 }
 
-func ServeStatusValidation(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
+func ServeVmFlavors(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, &admitters.FlavorAdmitter{})
+}
+
+func ServeVmClusterFlavors(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, &admitters.ClusterFlavorAdmitter{})
+}
+
+func ServeStatusValidation(resp http.ResponseWriter,
+	req *http.Request,
+	clusterConfig *virtconfig.ClusterConfig,
+	virtCli kubecli.KubevirtClient,
+	informers *webhooks.Informers) {
 	validating_webhooks.Serve(resp, req, &admitters.StatusAdmitter{
-		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, informers.VMIInformer, informers.DataSourceInformer),
+		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, informers),
 	})
 }
 

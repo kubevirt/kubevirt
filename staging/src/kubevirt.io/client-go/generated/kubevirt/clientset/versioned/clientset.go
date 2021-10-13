@@ -25,11 +25,13 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
+	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	snapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	FlavorV1alpha1() flavorv1alpha1.FlavorV1alpha1Interface
 	SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface
 }
 
@@ -37,7 +39,13 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
+	flavorV1alpha1   *flavorv1alpha1.FlavorV1alpha1Client
 	snapshotV1alpha1 *snapshotv1alpha1.SnapshotV1alpha1Client
+}
+
+// FlavorV1alpha1 retrieves the FlavorV1alpha1Client
+func (c *Clientset) FlavorV1alpha1() flavorv1alpha1.FlavorV1alpha1Interface {
+	return c.flavorV1alpha1
 }
 
 // SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
@@ -66,6 +74,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
+	cs.flavorV1alpha1, err = flavorv1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 	cs.snapshotV1alpha1, err = snapshotv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -82,6 +94,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
+	cs.flavorV1alpha1 = flavorv1alpha1.NewForConfigOrDie(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
@@ -91,6 +104,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.flavorV1alpha1 = flavorv1alpha1.New(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

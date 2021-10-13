@@ -339,6 +339,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.FilesystemVirtiofs":                                    schema_kubevirtio_client_go_api_v1_FilesystemVirtiofs(ref),
 		"kubevirt.io/client-go/api/v1.Firmware":                                              schema_kubevirtio_client_go_api_v1_Firmware(ref),
 		"kubevirt.io/client-go/api/v1.Flags":                                                 schema_kubevirtio_client_go_api_v1_Flags(ref),
+		"kubevirt.io/client-go/api/v1.FlavorMatcher":                                         schema_kubevirtio_client_go_api_v1_FlavorMatcher(ref),
 		"kubevirt.io/client-go/api/v1.FloppyTarget":                                          schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
 		"kubevirt.io/client-go/api/v1.GPU":                                                   schema_kubevirtio_client_go_api_v1_GPU(ref),
 		"kubevirt.io/client-go/api/v1.GenerationStatus":                                      schema_kubevirtio_client_go_api_v1_GenerationStatus(ref),
@@ -465,6 +466,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.VolumeStatus":                                          schema_kubevirtio_client_go_api_v1_VolumeStatus(ref),
 		"kubevirt.io/client-go/api/v1.Watchdog":                                              schema_kubevirtio_client_go_api_v1_Watchdog(ref),
 		"kubevirt.io/client-go/api/v1.WatchdogDevice":                                        schema_kubevirtio_client_go_api_v1_WatchdogDevice(ref),
+		"kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineClusterFlavor":             schema_client_go_apis_flavor_v1alpha1_VirtualMachineClusterFlavor(ref),
+		"kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineClusterFlavorList":         schema_client_go_apis_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref),
+		"kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineFlavor":                    schema_client_go_apis_flavor_v1alpha1_VirtualMachineFlavor(ref),
+		"kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineFlavorList":                schema_client_go_apis_flavor_v1alpha1_VirtualMachineFlavorList(ref),
+		"kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineFlavorProfile":             schema_client_go_apis_flavor_v1alpha1_VirtualMachineFlavorProfile(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition":                             schema_client_go_apis_snapshot_v1alpha1_Condition(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.Error":                                 schema_client_go_apis_snapshot_v1alpha1_Error(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.PersistentVolumeClaim":                 schema_client_go_apis_snapshot_v1alpha1_PersistentVolumeClaim(ref),
@@ -15792,6 +15798,41 @@ func schema_kubevirtio_client_go_api_v1_Flags(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_FlavorMatcher(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FlavorMatcher references a flavor that is used to fill fields in the VMI template.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind specifies which flavor resource is referenced. Allowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\". If not specified, \"VirtualMachineClusterFlavor\" is used by default.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"profile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_FloppyTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20450,6 +20491,12 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"flavor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FlavorMatcher references a flavor that is used to fill fields in Template",
+							Ref:         ref("kubevirt.io/client-go/api/v1.FlavorMatcher"),
+						},
+					},
 					"template": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Template is the direct specification of VirtualMachineInstance",
@@ -20474,7 +20521,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec"},
+			"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec", "kubevirt.io/client-go/api/v1.FlavorMatcher", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 
@@ -21048,6 +21095,245 @@ func schema_kubevirtio_client_go_api_v1_WatchdogDevice(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.I6300ESBWatchdog"},
+	}
+}
+
+func schema_client_go_apis_flavor_v1alpha1_VirtualMachineClusterFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClusterFlavor is a cluster scoped version of VirtualMachineFlavor resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"profiles": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineFlavorProfile"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"profiles"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineFlavorProfile"},
+	}
+}
+
+func schema_client_go_apis_flavor_v1alpha1_VirtualMachineClusterFlavorList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClusterFlavorList is a list of VirtualMachineClusterFlavor resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineClusterFlavor"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineClusterFlavor"},
+	}
+}
+
+func schema_client_go_apis_flavor_v1alpha1_VirtualMachineFlavor(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineFlavor resource contains common VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"profiles": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineFlavorProfile"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"profiles"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineFlavorProfile"},
+	}
+}
+
+func schema_client_go_apis_flavor_v1alpha1_VirtualMachineFlavorList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineFlavorList is a list of VirtualMachineFlavor resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineFlavor"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/client-go/apis/flavor/v1alpha1.VirtualMachineFlavor"},
+	}
+}
+
+func schema_client_go_apis_flavor_v1alpha1_VirtualMachineFlavorProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineFlavorProfile contains definitions that will be applied to VirtualMachine.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name specifies the name of this custom profile.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"default": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Default specifies if this VirtualMachineFlavorProfile is the default for the VirtualMachineFlavor. Zero or one profile can be set to default.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.CPU"),
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.CPU"},
 	}
 }
 

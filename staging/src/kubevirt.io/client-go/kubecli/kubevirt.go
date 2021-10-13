@@ -45,6 +45,7 @@ import (
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	flavorv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/flavor/v1alpha1"
 	vmsnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
@@ -60,6 +61,8 @@ type KubevirtClient interface {
 	VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface
 	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
+	VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface
+	VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface
 	ServerVersion() *ServerVersion
 	ClusterProfiler() *ClusterProfiler
 	GuestfsVersion() *GuestfsVersion
@@ -140,6 +143,14 @@ func (k kubevirt) VirtualMachineSnapshotContent(namespace string) vmsnapshotv1al
 
 func (k kubevirt) VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface {
 	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineRestores(namespace)
+}
+
+func (k kubevirt) VirtualMachineFlavor(namespace string) flavorv1alpha1.VirtualMachineFlavorInterface {
+	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachineFlavors(namespace)
+}
+
+func (k kubevirt) VirtualMachineClusterFlavor() flavorv1alpha1.VirtualMachineClusterFlavorInterface {
+	return k.generatedKubeVirtClient.FlavorV1alpha1().VirtualMachineClusterFlavors()
 }
 
 func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
