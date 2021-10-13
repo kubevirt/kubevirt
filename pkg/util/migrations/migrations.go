@@ -57,3 +57,8 @@ func MigrationFailed(vmi *v1.VirtualMachineInstance) bool {
 
 	return false
 }
+
+func MigrationNeedsProtection(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.EvictionStrategy != nil &&
+		*vmi.Spec.EvictionStrategy == v1.EvictionStrategyLiveMigrate
+}
