@@ -1418,7 +1418,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			// vmiFeeder.Add(vmi)
 
-			vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, fmt.Errorf("failure"))
+			vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, fmt.Errorf("some random failure"))
 
 			// We should see the failed condition, replicas should stay at 0
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
@@ -1427,7 +1427,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond).To(Not(BeNil()))
 				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedCreate"))
-				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Message).To(ContainSubstring("some random failure"))
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			}).Return(vm, nil)
 
@@ -1442,7 +1442,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
+			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("some random failure"))
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
 				objVM := obj.(*v1.VirtualMachine)
@@ -1450,7 +1450,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond).To(Not(BeNil()))
 				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
-				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Message).To(ContainSubstring("some random failure"))
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
@@ -1644,7 +1644,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
+			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("some random failure"))
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
 				objVM := obj.(*v1.VirtualMachine)
@@ -1652,7 +1652,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond).To(Not(BeNil()))
 				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
-				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Message).To(ContainSubstring("some random failure"))
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
@@ -2374,7 +2374,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(Equal(errorMessage))
+					Expect(cond.Message).To(ContainSubstring(errorMessage))
 				}).Return(vm, nil)
 
 				controller.Execute()
@@ -2400,7 +2400,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(HavePrefix("VMI conflicts with flavor"))
+					Expect(cond.Message).To(ContainSubstring("VMI conflicts with flavor"))
 					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 				}).Return(vm, nil)
 
