@@ -16,6 +16,8 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
+var rulesPerPid = make(map[string][]*devices.Rule)
+
 type v2Manager struct {
 	runc_cgroups.Manager
 	pid        int
@@ -40,7 +42,13 @@ func (v *v2Manager) GetBasePathToHostSubsystem(_ string) (string, error) {
 }
 
 func (v *v2Manager) Set(r *runc_configs.Resources) error {
-	if err := v.setDevices(r.Devices); err != nil {
+	rulesToSet, err := addCurrentRules(rulesPerPid[v.dirPath], r.Devices)
+	if err != nil {
+		return err
+	}
+	rulesPerPid[v.dirPath] = rulesToSet
+
+	if err := v.setDevices(rulesToSet); err != nil {
 		return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingDeviceRule, err)
 	}
 
@@ -49,7 +57,7 @@ func (v *v2Manager) Set(r *runc_configs.Resources) error {
 		return nil
 	}
 
-	err := v.Manager.Set(&resourcesWithoutDevices)
+	err = v.Manager.Set(&resourcesWithoutDevices)
 	return logAndReturnErrorWithSprintfIfNotNil(err, errApplyingNonDeviceRules, err)
 }
 

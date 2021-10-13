@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/opencontainers/runc/libcontainer/devices"
+
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
 
 	"kubevirt.io/client-go/log"
@@ -91,4 +93,40 @@ func RunWithChroot(newPath string, toRun func() error) error { // ihol3 bad plac
 
 	err = toRun()
 	return err
+}
+
+// addCurrentRules gets a slice of rules as a parameter and returns a new slice that contains all given rules
+// and all of the rules that are currently set. This way rules that are already defined won't be deleted by this
+// current request. Every old rule that is part of the new request will be overridden.
+//
+// For example, if the following rules are defined:
+// 1) {Minor: 111, Major: 111, Allow: true}
+// 2) {Minor: 222, Major: 222, Allow: true}
+//
+// And we get a request to enable the following rule: {Minor: 222, Major: 222, Allow: false}
+// Than we expect rule (1) to stay unchanged.
+func addCurrentRules(currentRules, newRules []*devices.Rule) ([]*devices.Rule, error) {
+	if currentRules == nil {
+		return newRules, nil
+	}
+	if newRules == nil {
+		return nil, fmt.Errorf("new rules cannot be nil")
+	}
+
+	isCurrentRulePartOfRequestedRules := func(rule *devices.Rule, rulesSlice []*devices.Rule) bool {
+		for _, ruleInSlice := range rulesSlice {
+			if rule.Type == ruleInSlice.Type && rule.Minor == ruleInSlice.Minor && rule.Major == ruleInSlice.Major {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, currentRule := range currentRules {
+		if !isCurrentRulePartOfRequestedRules(currentRule, newRules) {
+			newRules = append(newRules, currentRule)
+		}
+	}
+
+	return newRules, nil
 }
