@@ -1189,7 +1189,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	containersDisks := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
 	containers = append(containers, containersDisks...)
 
-	kernelBootContainer := containerdisk.GenerateKernelBootContainer(vmi, "container-disks", "virt-bin-share-dir")
+	kernelBootContainer, kernelBootInitContainer := containerdisk.GenerateKernelBootContainers(vmi, "container-disks", "virt-bin-share-dir")
 	if kernelBootContainer != nil {
 		log.Log.Object(vmi).Infof("kernel boot container generated")
 		containers = append(containers, *kernelBootContainer)
@@ -1368,6 +1368,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 
 		// this causes containerDisks to be pre-pulled before virt-launcher starts.
 		initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, "container-disks", "virt-bin-share-dir")...)
+
+		if kernelBootInitContainer != nil {
+			initContainers = append(initContainers, *kernelBootInitContainer)
+		}
 	}
 
 	// TODO use constants for podLabels
