@@ -10,9 +10,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+
 	"github.com/pborman/uuid"
+
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,6 +57,7 @@ var _ = Describe("VirtualMachine", func() {
 		var dataVolumeInformer cache.SharedIndexInformer
 		var dataVolumeSource *framework.FakeControllerSource
 		var pvcInformer cache.SharedIndexInformer
+		var scInformer cache.SharedIndexInformer
 		var crInformer cache.SharedIndexInformer
 		var flavorMethods *testutils.MockFlavorMethods
 		var stop chan struct{}
@@ -84,6 +88,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			scInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
@@ -105,6 +110,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInformer,
 				dataVolumeInformer,
 				pvcInformer,
+				scInformer,
 				crInformer,
 				flavorMethods,
 				recorder,
@@ -1846,6 +1852,58 @@ var _ = Describe("VirtualMachine", func() {
 					table.Entry("DataVolume is in WaitForFirstConsumer phase", cdiv1.WaitForFirstConsumer),
 				)
 
+				It("Should not set a Provisioning status when DataVolume is in WFFC phase and VM is stopped", func() {
+					running := false
+					vm.Spec.Running = &running
+					addVirtualMachine(vm)
+
+					dv := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+					dv.Status.Phase = cdiv1.WaitForFirstConsumer
+					dataVolumeFeeder.Add(dv)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*v1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
+					})
+
+					controller.Execute()
+				})
+
+				It("Should set a Provisioning status when one DataVolume is ready and another isn't", func() {
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "test2",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: "dv2",
+							},
+						},
+					})
+
+					vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "dv2",
+							Namespace: vm.Namespace,
+						},
+					})
+
+					addVirtualMachine(vm)
+
+					dv1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+					dv1.Status.Phase = cdiv1.Succeeded
+					dv2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+					dv2.Status.Phase = cdiv1.ImportInProgress
+
+					dataVolumeFeeder.Add(dv1)
+					dataVolumeFeeder.Add(dv2)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*v1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+					})
+
+					controller.Execute()
+				})
+
 				table.DescribeTable("Should set a DataVolumeError status when DataVolume reports an error", func(dvFunc func(*cdiv1.DataVolume)) {
 					addVirtualMachine(vm)
 
@@ -1894,41 +1952,6 @@ var _ = Describe("VirtualMachine", func() {
 
 					controller.Execute()
 				})
-
-				It("Should set a Provisioning status when one DataVolume is ready and another isn't", func() {
-					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-						Name: "test2",
-						VolumeSource: v1.VolumeSource{
-							DataVolume: &v1.DataVolumeSource{
-								Name: "dv2",
-							},
-						},
-					})
-
-					vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "dv2",
-							Namespace: vm.Namespace,
-						},
-					})
-
-					addVirtualMachine(vm)
-
-					dv1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
-					dv1.Status.Phase = cdiv1.Succeeded
-					dv2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
-					dv2.Status.Phase = cdiv1.ImportInProgress
-
-					dataVolumeFeeder.Add(dv1)
-					dataVolumeFeeder.Add(dv2)
-
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
-					})
-
-					controller.Execute()
-				})
 			})
 
 			Context("VM with PersistentVolumeClaims", func() {
@@ -1946,36 +1969,68 @@ var _ = Describe("VirtualMachine", func() {
 					})
 
 					addVirtualMachine(vm)
+				})
 
+				It("Should set a Provisioning status when PersistentVolumeClaim doesn't exist", func() {
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 						objVM := obj.(*v1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
 					})
-				})
 
-				It("Should set a Provisioning status when PersistentVolumeClaim doesn't exist", func() {
 					controller.Execute()
 				})
 
-				table.DescribeTable("Should set a Provisioning status when PersistentVolumeClaim exists but unready", func(pvcPhase k8sv1.PersistentVolumeClaimPhase) {
+				It("Should set a Provisioning status when PersistentVolumeClaim is in Pending phase", func() {
 					pvc := k8sv1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "pvc1",
 							Namespace: vm.Namespace,
 						},
 						Status: k8sv1.PersistentVolumeClaimStatus{
-							Phase: pvcPhase,
+							Phase: k8sv1.ClaimPending,
 						},
 					}
-					pvcInformer.GetStore().Add(pvc)
+					pvcInformer.GetStore().Add(&pvc)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*v1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+					})
 
 					controller.Execute()
-				},
+				})
 
-					table.Entry("PersistentVolumeClaim is in Pending phase", k8sv1.ClaimPending),
-					table.Entry("PersistentVolumeClaim is in Lost phase", k8sv1.ClaimLost),
-				)
+				It("Should not set a Provisioning status when PersistentVolumeClaim is in WFFC state and VM is stopped", func() {
+					bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
+					sc := storagev1.StorageClass{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "sc1",
+						},
+						VolumeBindingMode: &bindingMode,
+					}
+					scInformer.GetStore().Add(&sc)
 
+					pvc := k8sv1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "pvc1",
+							Namespace: vm.Namespace,
+						},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							StorageClassName: &sc.Name,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimPending,
+						},
+					}
+					pvcInformer.GetStore().Add(&pvc)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*v1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
+					})
+
+					controller.Execute()
+				})
 			})
 
 			It("should set a Running status when VMI is running but not paused", func() {

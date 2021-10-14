@@ -73,6 +73,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	storageClassInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	flaovrMethods flavor.Methods,
 	recorder record.EventRecorder,
@@ -86,6 +87,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		vmInformer:             vmInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
+		storageClassInformer:   storageClassInformer,
 		crInformer:             crInformer,
 		flavorMethods:          flaovrMethods,
 		recorder:               recorder,
@@ -134,6 +136,7 @@ type VMController struct {
 	vmInformer             cache.SharedIndexInformer
 	dataVolumeInformer     cache.SharedIndexInformer
 	pvcInformer            cache.SharedIndexInformer
+	storageClassInformer   cache.SharedIndexInformer
 	crInformer             cache.SharedIndexInformer
 	flavorMethods          flavor.Methods
 	recorder               record.EventRecorder
@@ -149,7 +152,11 @@ func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting VirtualMachine controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmInformer.HasSynced, c.dataVolumeInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh,
+		c.vmiInformer.HasSynced,
+		c.vmInformer.HasSynced,
+		c.dataVolumeInformer.HasSynced,
+		c.storageClassInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -443,10 +450,9 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 	return ready, nil
 }
 
-// areDataVolumesReady determines whether all DataVolumes specified for a VM
-// have been successfully provisioned, and are ready for consumption.
-// Note that DataVolumes in WaitForFirstConsumer phase are not regarded as ready.
-func (c *VMController) areDataVolumesReady(vm *virtv1.VirtualMachine) bool {
+// areDataVolumesProvisioning determines whether any DataVolume specified for a VM is still being provisioned.
+// Note that DataVolumes in WaitForFirstConsumer phase are considered as being provisioned only if the VM is not stopped.
+func (c *VMController) areDataVolumesProvisioning(vm *virtv1.VirtualMachine, vmStopped bool) bool {
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
 		if volume.DataVolume == nil {
 			continue
@@ -456,24 +462,33 @@ func (c *VMController) areDataVolumesReady(vm *virtv1.VirtualMachine) bool {
 		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
 		if err != nil {
 			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
-			return false
+			continue
 		}
 		if !exists {
-			return false
+			return true
 		}
 
 		dv := dvObj.(*cdiv1.DataVolume)
-		if dv.Status.Phase != cdiv1.Succeeded {
-			return false
+		switch dv.Status.Phase {
+		case cdiv1.Succeeded:
+			continue
+		case cdiv1.WaitForFirstConsumer:
+			if vmStopped {
+				continue
+			}
+			return true
+		default:
+			return true
 		}
 	}
 
-	return true
+	return false
 }
 
-// arePVCVolumesReady determines whether all PersistentVolumeClaims specified for a VM
-// have been successfully provisioned, and are ready for consumption.
-func (c *VMController) arePVCVolumesReady(vm *virtv1.VirtualMachine) bool {
+// arePVCVolumesProvisioning determines whether any PersistentVolumeClaim specified for a VM is still being provisioned.
+// Note that PersistentVolumeClaim with WaitForFirstConsumer StorageClasses are considered as being provisioned only if the
+// VM is not stopped.
+func (c *VMController) arePVCVolumesProvisioning(vm *virtv1.VirtualMachine, vmStopped bool) bool {
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
 		if volume.PersistentVolumeClaim == nil {
 			continue
@@ -483,19 +498,29 @@ func (c *VMController) arePVCVolumesReady(vm *virtv1.VirtualMachine) bool {
 		pvcObj, exists, err := c.pvcInformer.GetStore().GetByKey(pvcKey)
 		if err != nil {
 			log.Log.Object(vm).Errorf("Error fetching PersistentVolumeClaim %s: %v", pvcKey, err)
-			return false
+			continue
 		}
 		if !exists {
-			return false
+			return true
 		}
 
 		pvc := pvcObj.(*k8score.PersistentVolumeClaim)
-		if pvc.Status.Phase != k8score.ClaimBound {
-			return false
+		if pvc.Status.Phase == k8score.ClaimPending {
+			if !vmStopped {
+				return true
+			}
+			isWFFC, err := typesutil.IsWaitForFirstConsumer(pvc, c.storageClassInformer.GetStore())
+			if err != nil {
+				log.Log.Object(vm).Errorf("Error determining if PersistentVolumeClaim %s is a WaitForFirstConsumer volume: %v", pvcKey, err)
+				continue
+			}
+			if !isWFFC {
+				return true
+			}
 		}
 	}
 
-	return true
+	return false
 }
 
 func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
@@ -1743,7 +1768,8 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return !c.areDataVolumesReady(vm) || !c.arePVCVolumesReady(vm)
+	isStopped := c.isVirtualMachineStatusStopped(vm, vmi)
+	return c.areDataVolumesProvisioning(vm, isStopped) || c.arePVCVolumesProvisioning(vm, isStopped)
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
