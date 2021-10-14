@@ -222,9 +222,6 @@ function _add_worker_extra_mounts() {
     if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* || "$KUBEVIRT_PROVIDER" =~ vgpu.* ]]; then
         cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
   extraMounts:
-  - containerPath: /lib/modules
-    hostPath: /lib/modules
-    readOnly: true
   - containerPath: /dev/vfio/
     hostPath: /dev/vfio/
 EOF
