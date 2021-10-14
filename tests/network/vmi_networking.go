@@ -1030,7 +1030,7 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 			tests.BeforeTestCleanup()
 		})
 
-		It("[test_id:1781]should get turned off for interfaces that serve dhcp", func() {
+		It("[test_id:1781]should have tx checksumming disabled on interface serving dhcp", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\necho")
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
