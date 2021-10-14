@@ -704,24 +704,6 @@ rpm(
 )
 
 rpm(
-    name = "checkpolicy-0__2.9-1.el8.aarch64",
-    sha256 = "01b89be34e48d345ba14a3856bba0d1ff94e79798b5f7529a6a0803b97adca15",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/checkpolicy-2.9-1.el8.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/01b89be34e48d345ba14a3856bba0d1ff94e79798b5f7529a6a0803b97adca15",
-    ],
-)
-
-rpm(
-    name = "checkpolicy-0__2.9-1.el8.x86_64",
-    sha256 = "d5c283da0d2666742635754626263f6f78e273cd46d83d2d66ed43730a731685",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/checkpolicy-2.9-1.el8.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/d5c283da0d2666742635754626263f6f78e273cd46d83d2d66ed43730a731685",
-    ],
-)
-
-rpm(
     name = "chkconfig-0__1.19.1-1.el8.aarch64",
     sha256 = "be370bfc2f375cdbfc1079b19423142236770cf67caf74cdb12a7aef8a29c8c5",
     urls = [
@@ -4127,18 +4109,6 @@ rpm(
 )
 
 rpm(
-    name = "policycoreutils-python-utils-0__2.9-16.el8.aarch64",
-    sha256 = "64a35814fe2fd8f4f5c8b4aba89d40556eaf9cf5fa0ff6a10e6b25b7b0f49f1d",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/policycoreutils-python-utils-2.9-16.el8.noarch.rpm"],
-)
-
-rpm(
-    name = "policycoreutils-python-utils-0__2.9-16.el8.x86_64",
-    sha256 = "64a35814fe2fd8f4f5c8b4aba89d40556eaf9cf5fa0ff6a10e6b25b7b0f49f1d",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/policycoreutils-python-utils-2.9-16.el8.noarch.rpm"],
-)
-
-rpm(
     name = "polkit-0__0.115-12.el8.aarch64",
     sha256 = "cbd709de63c28a95b78bb32e8da27cf062a2008a47c8d799a8d8bb82a00a33e3",
     urls = [
@@ -4238,24 +4208,6 @@ rpm(
 )
 
 rpm(
-    name = "python3-audit-0__3.0-0.17.20191104git1c2f876.el8.aarch64",
-    sha256 = "122fe05bd35778f2887e7f5cad32e8e93247fbbd71bd3da5ed78f788d529d028",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/python3-audit-3.0-0.17.20191104git1c2f876.el8.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/122fe05bd35778f2887e7f5cad32e8e93247fbbd71bd3da5ed78f788d529d028",
-    ],
-)
-
-rpm(
-    name = "python3-audit-0__3.0-0.17.20191104git1c2f876.el8.x86_64",
-    sha256 = "addf80c52d794aed47874eb9d5ddbbaa90cb248fda1634d793054a41da0d92d7",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/python3-audit-3.0-0.17.20191104git1c2f876.el8.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/addf80c52d794aed47874eb9d5ddbbaa90cb248fda1634d793054a41da0d92d7",
-    ],
-)
-
-rpm(
     name = "python3-libs-0__3.6.8-42.el8.aarch64",
     sha256 = "5c4f6c3636499a2b381816963ce4a28a50339c6a484934495c6c4f5bd56ccebf",
     urls = [
@@ -4270,42 +4222,6 @@ rpm(
     urls = [
         "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/python3-libs-3.6.8-42.el8.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/e936e0f2200b62dba5d662975d696b4dfb9aafbd8dca49881f5d1012d85d459c",
-    ],
-)
-
-rpm(
-    name = "python3-libselinux-0__2.9-5.el8.aarch64",
-    sha256 = "1a39d5db45d7e97f0a9b564b263ae22d20433bd2f40a6298b8e3ca6a80875da3",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/python3-libselinux-2.9-5.el8.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/1a39d5db45d7e97f0a9b564b263ae22d20433bd2f40a6298b8e3ca6a80875da3",
-    ],
-)
-
-rpm(
-    name = "python3-libselinux-0__2.9-5.el8.x86_64",
-    sha256 = "59ba5bf69953a5a2e902b0f08b7187b66d84968852d46a3579a059477547d1a0",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/python3-libselinux-2.9-5.el8.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/59ba5bf69953a5a2e902b0f08b7187b66d84968852d46a3579a059477547d1a0",
-    ],
-)
-
-rpm(
-    name = "python3-libsemanage-0__2.9-6.el8.aarch64",
-    sha256 = "bc96ccd4671ee6a42d4ad5bbfbbd67ad397d276e29b4353ca6d67ae9705924a7",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/python3-libsemanage-2.9-6.el8.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/bc96ccd4671ee6a42d4ad5bbfbbd67ad397d276e29b4353ca6d67ae9705924a7",
-    ],
-)
-
-rpm(
-    name = "python3-libsemanage-0__2.9-6.el8.x86_64",
-    sha256 = "451d0cb6e2284578e3279b4cbb5ec98e9d98a687556c6b424adf8f1282d4ef58",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/python3-libsemanage-2.9-6.el8.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/451d0cb6e2284578e3279b4cbb5ec98e9d98a687556c6b424adf8f1282d4ef58",
     ],
 )
 
@@ -4342,36 +4258,6 @@ rpm(
     urls = [
         "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/python3-pip-wheel-9.0.3-20.el8.noarch.rpm",
         "https://storage.googleapis.com/builddeps/6c9dfb73e199975275633f05d31388cd61c5a77dec5678db958b4e6624eb21ba",
-    ],
-)
-
-rpm(
-    name = "python3-policycoreutils-0__2.9-16.el8.aarch64",
-    sha256 = "7a3c06827dcbc0d25af67771caa855af09ef4fd247434da9b484ca7c675baf24",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/python3-policycoreutils-2.9-16.el8.noarch.rpm"],
-)
-
-rpm(
-    name = "python3-policycoreutils-0__2.9-16.el8.x86_64",
-    sha256 = "7a3c06827dcbc0d25af67771caa855af09ef4fd247434da9b484ca7c675baf24",
-    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/python3-policycoreutils-2.9-16.el8.noarch.rpm"],
-)
-
-rpm(
-    name = "python3-setools-0__4.3.0-2.el8.aarch64",
-    sha256 = "bd4efc248eee5517821027c94e937c69f92bac82243dc7798456fcef51521766",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/python3-setools-4.3.0-2.el8.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/bd4efc248eee5517821027c94e937c69f92bac82243dc7798456fcef51521766",
-    ],
-)
-
-rpm(
-    name = "python3-setools-0__4.3.0-2.el8.x86_64",
-    sha256 = "f56992135d789147285215cb062960fedcdf4b3296c62658fa430caa2c20165c",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/python3-setools-4.3.0-2.el8.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/f56992135d789147285215cb062960fedcdf4b3296c62658fa430caa2c20165c",
     ],
 )
 
