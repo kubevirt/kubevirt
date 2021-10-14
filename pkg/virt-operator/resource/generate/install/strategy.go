@@ -484,10 +484,7 @@ func mostRecentConfigMap(configMaps []*corev1.ConfigMap) *corev1.ConfigMap {
 	// choose the most recent configmap if multiple match.
 	mostRecentTime := metav1.Time{}
 	for _, config := range configMaps {
-		if configMap == nil {
-			configMap = config
-			mostRecentTime = config.ObjectMeta.CreationTimestamp
-		} else if mostRecentTime.Before(&config.ObjectMeta.CreationTimestamp) {
+		if configMap == nil || mostRecentTime.Before(&config.ObjectMeta.CreationTimestamp) {
 			configMap = config
 			mostRecentTime = config.ObjectMeta.CreationTimestamp
 		}
