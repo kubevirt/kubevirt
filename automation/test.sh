@@ -259,6 +259,12 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
+ssh="cluster-up/ssh.sh"
+$ssh node01 "sudo setenforce 0"
+$ssh node01 "sudo getenforce"
+$ssh node02 "sudo setenforce 0"
+$ssh node02 "sudo getenforce"
+
 make cluster-sync
 
 # OpenShift is running important containers under default namespace
