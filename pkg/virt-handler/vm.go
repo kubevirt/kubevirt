@@ -1567,7 +1567,7 @@ func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 		log.Log.Object(vmi).Info("Processing vmi migration target update")
 
 		// prepare the POD for the migration
-		err := d.processVmUpdate(vmi)
+		err := d.processVmUpdate(vmi, domainExists)
 		if err != nil {
 			return err
 		}
@@ -1767,7 +1767,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		syncErr = d.processVmCleanup(vmi)
 	case shouldUpdate:
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")
-		syncErr = d.processVmUpdate(vmi)
+		syncErr = d.processVmUpdate(vmi, domainExists)
 	default:
 		log.Log.Object(vmi).V(3).Info("No update processing required")
 	}
@@ -2541,7 +2541,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 	return nil
 }
-func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMachineInstance, domainExists bool) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
 		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
@@ -2654,7 +2654,11 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 		return err
 	}
-	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance defined.")
+
+	if !domainExists {
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), VMIDefined)
+	}
+
 	if vmi.IsRunning() {
 		// Umount any disks no longer mounted
 		if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
@@ -2664,7 +2668,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	return nil
 }
 
-func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance, domainExists bool) error {
 
 	isUnresponsive, isInitialized, err := d.isLauncherClientUnresponsive(vmi)
 	if err != nil {
@@ -2684,7 +2688,7 @@ func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 	} else if d.isMigrationSource(vmi) {
 		return d.vmUpdateHelperMigrationSource(vmi)
 	} else {
-		return d.vmUpdateHelperDefault(vmi)
+		return d.vmUpdateHelperDefault(vmi, domainExists)
 	}
 }
 
