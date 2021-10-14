@@ -37,7 +37,7 @@ func GetSecretDiskPath(volumeName string) string {
 }
 
 // CreateSecretDisks creates Secret iso disks which are attached to vmis
-func CreateSecretDisks(vmi *v1.VirtualMachineInstance) error {
+func CreateSecretDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.Secret != nil {
 
@@ -48,7 +48,11 @@ func CreateSecretDisks(vmi *v1.VirtualMachineInstance) error {
 			}
 
 			disk := GetSecretDiskPath(volume.Name)
-			if err := createIsoConfigImage(disk, volume.Secret.VolumeLabel, filesPath); err != nil {
+			vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
+			if err != nil {
+				return err
+			}
+			if err := createIsoConfigImage(disk, volume.Secret.VolumeLabel, filesPath, vmiIsoSize); err != nil {
 				return err
 			}
 
