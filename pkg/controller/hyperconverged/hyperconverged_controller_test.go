@@ -2030,6 +2030,10 @@ progressTimeout: 150`,
 						},
 					}
 
+					kvRef, err := reference.GetReference(commonTestUtils.GetScheme(), expected.kv)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvRef)).ToNot(HaveOccurred())
+
 					oldQsRef, err := reference.GetReference(commonTestUtils.GetScheme(), oldQs)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *oldQsRef)).ToNot(HaveOccurred())

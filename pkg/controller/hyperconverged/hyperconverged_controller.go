@@ -1277,11 +1277,10 @@ func removeOldQuickStartGuides(req *common.HcoRequest, cl client.Client, require
 				if err = hcoutil.EnsureDeleted(req.Ctx, cl, &existQs, req.Instance.Name, req.Logger, false, false); err != nil {
 					req.Logger.Error(err, "failed to delete ConsoleQuickStart", "name", name)
 				}
-
-				removeRelatedObject(req, "ConsoleQuickStart", name, "")
 			}
 		}
 
+		removeRelatedQSObjects(req, requiredQSList)
 	}
 }
 
@@ -1300,6 +1299,28 @@ func removeRelatedObject(req *common.HcoRequest, kind, name, namespace string) {
 		req.Instance.Status.RelatedObjects = refs
 		req.StatusDirty = true
 	}
+}
+
+// removeRelatedQSObjects removes old quickstart from the related object list
+// can't use the removeRelatedObject function because the status not get updated during each reconcile loop,
+// but the old qs already removed (above) so you loos track of it. That why we must re-check all the qs names
+func removeRelatedQSObjects(req *common.HcoRequest, requiredNames []string) {
+	refs := make([]corev1.ObjectReference, 0, len(req.Instance.Status.RelatedObjects))
+	foundOldQs := false
+
+	for _, obj := range req.Instance.Status.RelatedObjects {
+		if obj.Kind == "ConsoleQuickStart" && !hcoutil.ContainsString(requiredNames, obj.Name) {
+			foundOldQs = true
+			continue
+		}
+		refs = append(refs, obj)
+	}
+
+	if foundOldQs {
+		req.Instance.Status.RelatedObjects = refs
+		req.StatusDirty = true
+	}
+
 }
 
 // getHyperConvergedNamespacedName returns the name/namespace of the HyperConverged resource
