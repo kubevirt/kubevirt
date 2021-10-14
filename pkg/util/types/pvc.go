@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
@@ -96,4 +97,74 @@ func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespa
 		volumeNamesPVCMap[volume.Name] = pvc
 	}
 	return volumeNamesPVCMap, nil
+}
+
+// IsWaitForFirstConsumer determines whether the given PersistentVolumeClaim has a binding mode of WaitForFirstConsumer.
+func IsWaitForFirstConsumer(pvc *k8sv1.PersistentVolumeClaim, storageClassStore cache.Store) (bool, error) {
+	sc, err := GetStorageClass(pvc, storageClassStore)
+	if err != nil {
+		return false, err
+	}
+
+	if sc == nil {
+		// Statically provisioned volume
+		return false, nil
+	}
+
+	isWFFC := sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
+	return isWFFC, nil
+}
+
+// IsStaticallyProvisioned determines whether the PersistentVolumeClaim is a statically provisioned volume.
+func IsStaticallyProvisioned(pvc *k8sv1.PersistentVolumeClaim) bool {
+	return pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName == ""
+}
+
+// IsDynamicallyProvisioned determines whether the PersistentVolumeClaim is a dynamically provisioned volume.
+func IsDynamicallyProvisioned(pvc *k8sv1.PersistentVolumeClaim) bool {
+	return pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName != ""
+}
+
+// GetStorageClass returns the StorageClass associated with the given PersistentVolumeClaim,
+// or nil if it's a statically provisioned volume, with no StorageClass associated.
+func GetStorageClass(pvc *k8sv1.PersistentVolumeClaim, storageClassStore cache.Store) (*storagev1.StorageClass, error) {
+	if IsStaticallyProvisioned(pvc) {
+		return nil, nil
+	}
+
+	if pvc.Spec.StorageClassName == nil {
+		return getDefaultStorageClass(storageClassStore)
+	}
+
+	obj, exists, err := storageClassStore.GetByKey(*pvc.Spec.StorageClassName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("StorageClass %s does not exists", *pvc.Spec.StorageClassName)
+	}
+
+	sc, ok := obj.(*storagev1.StorageClass)
+	if !ok {
+		return nil, fmt.Errorf("failed converting %s to a StorageClass: object is of type %T", *pvc.Spec.StorageClassName, obj)
+	}
+
+	return sc, nil
+}
+
+// getDefaultStorageClass returns the default StorageClass associated with a cluster,
+// or nil if no default StorageClass is configured.
+func getDefaultStorageClass(storageClassStore cache.Store) (*storagev1.StorageClass, error) {
+	for _, obj := range storageClassStore.List() {
+		sc, ok := obj.(*storagev1.StorageClass)
+		if !ok {
+			return nil, fmt.Errorf("failed converting object to a StorageClass: object is of type %T", obj)
+		}
+
+		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			return sc, nil
+		}
+	}
+
+	return nil, nil
 }

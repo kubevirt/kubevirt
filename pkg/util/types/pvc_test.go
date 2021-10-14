@@ -22,9 +22,12 @@ package types
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	kubev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("PVC utils test", func() {
@@ -98,4 +101,94 @@ var _ = Describe("PVC utils test", func() {
 		})
 	})
 
+	Context("StorageClasses", func() {
+
+		var scCache cache.Store
+		var sc *storagev1.StorageClass
+		var pvc *kubev1.PersistentVolumeClaim
+
+		BeforeEach(func() {
+			scCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+
+			sc = &storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "teststorageclass",
+				},
+			}
+
+			scCache.Add(sc)
+
+			pvc = &kubev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "testnamespace",
+					Name:      "testpvc",
+				},
+			}
+		})
+
+		It("should return StorageClass if explicitly specified", func() {
+			pvc.Spec.StorageClassName = &sc.Name
+
+			foundSc, err := GetStorageClass(pvc, scCache)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(foundSc).To(Equal(sc))
+		})
+
+		It("should return StorageClass if is configured as default", func() {
+			sc.Annotations = map[string]string{
+				"storageclass.kubernetes.io/is-default-class": "true",
+			}
+
+			foundSc, err := GetStorageClass(pvc, scCache)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(foundSc).To(Equal(sc))
+		})
+
+		It("should return no StorageClass if no default is configured and none is specified", func() {
+			foundSc, err := GetStorageClass(pvc, scCache)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(foundSc).To(BeNil())
+		})
+
+		It("should return no StorageClass if a default is configured and is a statically provisioned volume", func() {
+			sc.Annotations = map[string]string{
+				"storageclass.kubernetes.io/is-default-class": "true",
+			}
+			pvc.Spec.StorageClassName = pointer.StringPtr("")
+
+			foundSc, err := GetStorageClass(pvc, scCache)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(foundSc).To(BeNil())
+		})
+
+		Context("WaitForFirstConsumer detection", func() {
+			BeforeEach(func() {
+				pvc.Spec.StorageClassName = &sc.Name
+			})
+
+			It("should detect WaitForFirstConsumer when binding mode is explicitly specified", func() {
+				bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
+				sc.VolumeBindingMode = &bindingMode
+
+				isWFFC, err := IsWaitForFirstConsumer(pvc, scCache)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(isWFFC).To(BeTrue())
+			})
+
+			It("should not detect WaitForFirstConsumer when binding mode is specified to something else", func() {
+				bindingMode := storagev1.VolumeBindingImmediate
+				sc.VolumeBindingMode = &bindingMode
+
+				isWFFC, err := IsWaitForFirstConsumer(pvc, scCache)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(isWFFC).To(BeFalse())
+			})
+
+			It("should not detect WaitForFirstConsumer when binding mode is not specified", func() {
+				isWFFC, err := IsWaitForFirstConsumer(pvc, scCache)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(isWFFC).To(BeFalse())
+			})
+		})
+	})
 })
