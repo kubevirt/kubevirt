@@ -1861,6 +1861,22 @@ var _ = Describe("VirtualMachine", func() {
 					),
 				)
 
+				It("Should clear a DataVolumeError status when the DataVolume error is gone", func() {
+					vm.Status.PrintableStatus = v1.VirtualMachineStatusDataVolumeError
+					addVirtualMachine(vm)
+
+					dv := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+					dv.Status.Phase = cdiv1.CloneInProgress
+					dataVolumeFeeder.Add(dv)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*v1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+					})
+
+					controller.Execute()
+				})
+
 				It("Should set a Provisioning status when one DataVolume is ready and another isn't", func() {
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "test2",
