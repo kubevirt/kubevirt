@@ -585,8 +585,14 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		const servicePort = "27017"
 		const serviceNamePrefix = "cluster-ip-vm"
 		var vm *v1.VirtualMachine
+		var serviceName string
 
 		var vmExposeArgs []string
+
+		BeforeEach(func() {
+			vm, err = createStoppedVM(virtClient, util.NamespaceTestDefault)
+			Expect(err).NotTo(HaveOccurred(), "should create a stopped VM.")
+		})
 
 		startVMIFromVMTemplate := func(virtClient kubecli.KubevirtClient, name string, namespace string) *v1.VirtualMachineInstance {
 			By("Calling the start command")
@@ -611,16 +617,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			return vmi
 		}
 
-		createStoppedVM := func(virtClient kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
-			By("Creating an VM object")
-			template := newLabeledVMI("vm", virtClient, false)
-			vm := tests.NewRandomVirtualMachine(template, false)
-
-			By("Creating the VM")
-			vm, err = virtClient.VirtualMachine(namespace).Create(vm)
-			return vm, err
-		}
-
 		startVMWithServer := func(virtClient kubecli.KubevirtClient, protocol string, port int) *v1.VirtualMachineInstance {
 			By("Calling the start command on the stopped VM")
 			vmi := startVMIFromVMTemplate(virtClient, vm.GetName(), vm.GetNamespace())
@@ -631,13 +627,114 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			return vmi
 		}
 
-		Context("Expose a VM as a ClusterIP service.", func() {
-			var serviceName string
-
+		Context("Expose a VM as a NodePort service.", func() {
 			BeforeEach(func() {
-				vm, err = createStoppedVM(virtClient, util.NamespaceTestDefault)
-				Expect(err).NotTo(HaveOccurred(), "should create a stopped VM.")
+				serviceName = randomizeName(serviceNamePrefix)
+				vmExposeArgs = libnet.NewVMExposeArgs(vm,
+					libnet.WithPort(servicePort),
+					libnet.WithServiceName(serviceName),
+					libnet.WithTargetPort(strconv.Itoa(testPort)),
+					libnet.WithType("NodePort"),
+				)
 			})
+
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.", func(ipFamily ipFamily) {
+				skipIfNotSupportedCluster(ipFamily)
+				vmExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmExposeArgs)
+
+				By("Exposing the service via virtctl command")
+				Expect(executeVirtctlExposeCommand(vmExposeArgs)).To(Succeed(), "should expose a service via `virtctl expose ...`")
+
+				vmi := startVMWithServer(virtClient, "tcp", testPort)
+				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
+
+				vmObj := vm
+
+				By("Getting the service")
+				svc, err := getService(vmObj.Namespace, serviceName)
+				Expect(err).ToNot(HaveOccurred())
+
+				nodePort := svc.Spec.Ports[0].NodePort
+				Expect(nodePort).To(BeNumerically(">", 0))
+
+				By("Getting the node IP from all nodes")
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodes.Items).ToNot(BeEmpty())
+
+				for _, node := range nodes.Items {
+					if ipFamily != ipv6 {
+						By("Connecting to IPv4 node IP")
+						err = runJobsAgainstNodePortServiceOnIPv4(runHelloWorldJob, node, vmi, nodePort)
+						assert.XFail(xfailError, func() {
+							Expect(err).ToNot(HaveOccurred(), "failed to run jobs for IP family", ipFamily)
+						}, ipFamily == dualIPv6Primary, errorShouldBeXfailed(err, "failed to run job"))
+					}
+					if doesSupportIpv6(ipFamily) {
+						By("Connecting to IPv6 node IP")
+						err = runJobsAgainstNodePortServiceOnIPv6(runHelloWorldJob, node, vmi, nodePort)
+						assert.XFail(xfailError, func() {
+							Expect(err).ToNot(HaveOccurred())
+						}, ipFamily == dualIPv4Primary, errorShouldBeXfailed(err, "failed to run job"))
+					}
+				}
+
+				// Retrieve the current VMI UID, to be compared with the new UID after restart.
+				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
+
+				By("Restarting the running VM by deleting It's launcher pod.")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				virtClient.CoreV1().Pods(vmiPod.Namespace).Delete(context.Background(), vmiPod.Name, metav1.DeleteOptions{})
+
+				By("Verifying the VMI is back up AFTER restart (in Running status with new UID).")
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return false
+					}
+					Expect(err).ToNot(HaveOccurred())
+					vmiUIdAfterRestart := vmi.GetObjectMeta().GetUID()
+					newUId := vmiUIdAfterRestart != vmiUIdBeforeRestart
+					return vmi.Status.Phase == v1.Running && newUId
+				}, 120*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("Creating a TCP server on the VM.")
+				tests.GenerateHelloWorldServer(vmi, testPort, "tcp")
+
+				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
+
+				By("Getting the node IP from all nodes")
+				nodes, err = virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodes.Items).ToNot(BeEmpty())
+
+				for _, node := range nodes.Items {
+					if ipFamily != ipv6 {
+						By("Connecting to IPv4 node IP")
+						err = runJobsAgainstNodePortServiceOnIPv4(runHelloWorldJob, node, vmi, nodePort)
+						assert.XFail(xfailError, func() {
+							Expect(err).ToNot(HaveOccurred(), "failed to run jobs for IP family", ipFamily)
+						}, ipFamily == dualIPv6Primary, errorShouldBeXfailed(err, "failed to run job"))
+					}
+					if doesSupportIpv6(ipFamily) {
+						By("Connecting to IPv6 node IP")
+						err = runJobsAgainstNodePortServiceOnIPv6(runHelloWorldJob, node, vmi, nodePort)
+						assert.XFail(xfailError, func() {
+							Expect(err).ToNot(HaveOccurred(), "failed to run jobs for IP family", ipFamily)
+						}, ipFamily == dualIPv4Primary, errorShouldBeXfailed(err, "failed to run job"))
+					}
+				}
+			},
+				table.Entry("[test_id:345] over default IPv4 IP family", ipv4),
+				table.Entry("over IPv6 IP family", ipv6),
+				table.Entry("over dual stack, primary ipv4", dualIPv4Primary),
+				table.Entry("over dual stack, primary ipv6", dualIPv6Primary),
+			)
+		})
+
+		Context("Expose a VM as a ClusterIP service.", func() {
 
 			BeforeEach(func() {
 				serviceName = randomizeName(serviceNamePrefix)
