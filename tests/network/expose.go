@@ -50,6 +50,17 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 	return
 }
 
+type ipFamily string
+
+const (
+	ipv4            ipFamily = "ipv4"
+	ipv6            ipFamily = "ipv6"
+	dualIPv4Primary ipFamily = "ipv4,ipv6"
+	dualIPv6Primary ipFamily = "ipv6,ipv4"
+
+	xfailError = "Secondary ip on dual stack service is not working. Tracking issue - https://github.com/kubevirt/kubevirt/issues/5477"
+)
+
 var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
 
 	var virtClient kubecli.KubevirtClient
@@ -57,41 +68,15 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 	const testPort = 1500
 
-	type ipFamily string
-	const (
-		ipv4            ipFamily = "ipv4"
-		ipv6            ipFamily = "ipv6"
-		dualIPv4Primary ipFamily = "ipv4,ipv6"
-		dualIPv6Primary ipFamily = "ipv6,ipv4"
-	)
-
 	isDualStack := func(ipFamily ipFamily) bool {
 		return ipFamily == dualIPv4Primary || ipFamily == dualIPv6Primary
 	}
-
-	doesSupportIpv6 := func(ipFamily ipFamily) bool {
-		return ipFamily != ipv4
-	}
-
-	const xfailError = "Secondary ip on dual stack service is not working. Tracking issue - https://github.com/kubevirt/kubevirt/issues/5477"
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 		virtClient, err = kubecli.GetKubevirtClient()
 		util.PanicOnError(err)
 	})
-
-	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJob(host, port), metav1.CreateOptions{})
-		ExpectWithOffset(2, err).ToNot(HaveOccurred())
-		return job
-	}
-
-	runHelloWorldJobUDP := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobUDP(host, port), metav1.CreateOptions{})
-		ExpectWithOffset(2, err).ToNot(HaveOccurred())
-		return job
-	}
 
 	runHelloWorldJobHttp := func(host, port, namespace string) *batchv1.Job {
 		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobHTTP(host, port), metav1.CreateOptions{})
@@ -131,14 +116,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmiExposeArgs = append(vmiExposeArgs, "--ip-family", string(ipFamily))
 		}
 		return vmiExposeArgs
-	}
-
-	createAndWaitForJobToSucceed := func(helloWorldJobCreator func(host, port, namespace string) *batchv1.Job, namespace, ip, port, viaMessage string) error {
-		By(fmt.Sprintf("Starting a job which tries to reach the VMI via the %s", viaMessage))
-		job := helloWorldJobCreator(ip, port, namespace)
-
-		By("Waiting for the job to report a successful connection attempt")
-		return tests.WaitForJobToSucceed(job, time.Duration(120)*time.Second)
 	}
 
 	executeVirtctlExposeCommand := func(ExposeArgs []string) error {
@@ -398,29 +375,19 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
 				for _, node := range nodes.Items {
-					Expect(node.Status.Addresses).ToNot(BeEmpty())
-					nodeIP := node.Status.Addresses[0].Address
-					var ipv6NodeIP string
-
 					if ipFamily != ipv6 {
 						By("Connecting to IPv4 node IP")
+						err = runJobsAgainstNodePortServiceOnIPv4(runHelloWorldJob, node, tcpVM, nodePort)
 						assert.XFail(xfailError, func() {
-							Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
-						}, ipFamily == dualIPv6Primary)
+							Expect(err).ToNot(HaveOccurred(), "failed to run jobs for IP family", ipFamily)
+						}, ipFamily == dualIPv6Primary, errorShouldBeXfailed(err, "failed to run job"))
 					}
 					if doesSupportIpv6(ipFamily) {
-						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
-							virtClient,
-							libvmi.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
-							node,
-							k8sv1.IPv6Protocol)
-						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
-						Expect(ipv6NodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
-
 						By("Connecting to IPv6 node IP")
+						err = runJobsAgainstNodePortServiceOnIPv6(runHelloWorldJob, node, tcpVM, nodePort)
 						assert.XFail(xfailError, func() {
-							Expect(createAndWaitForJobToSucceed(runHelloWorldJob, tcpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
-						}, ipFamily == dualIPv4Primary)
+							Expect(err).ToNot(HaveOccurred(), "failed to run jobs for IP family", ipFamily)
+						}, ipFamily == dualIPv4Primary, errorShouldBeXfailed(err, "failed to run job"))
 					}
 				}
 			},
@@ -519,31 +486,17 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
 				for _, node := range nodes.Items {
-					Expect(node.Status.Addresses).ToNot(BeEmpty())
-					nodeIP := node.Status.Addresses[0].Address
-
-					var ipv6NodeIP string
-					if doesSupportIpv6(ipFamily) {
-						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
-							virtClient,
-							libvmi.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
-							node,
-							k8sv1.IPv6Protocol)
-						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
-						Expect(ipv6NodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
-					}
-
 					if ipFamily != ipv6 {
 						By("Connecting to IPv4 node IP")
 						assert.XFail(xfailError, func() {
-							Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv4 address")).To(Succeed())
-						}, ipFamily == dualIPv6Primary)
+							Expect(runJobsAgainstNodePortServiceOnIPv4(runHelloWorldJobUDP, node, udpVM, nodePort), "failed to run jobs for IP family", ipFamily)
+						}, ipFamily == dualIPv6Primary, errorShouldBeXfailed(err, "failed to run job"))
 					}
 					if doesSupportIpv6(ipFamily) {
 						By("Connecting to IPv6 node IP")
 						assert.XFail(xfailError, func() {
-							Expect(createAndWaitForJobToSucceed(runHelloWorldJobUDP, udpVM.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)), "NodePort ipv6 address")).To(Succeed())
-						}, ipFamily == dualIPv4Primary)
+							Expect(runJobsAgainstNodePortServiceOnIPv6(runHelloWorldJobUDP, node, udpVM, nodePort))
+						}, ipFamily == dualIPv4Primary, errorShouldBeXfailed(err, "failed to run job"))
 					}
 				}
 			},
@@ -912,4 +865,105 @@ func resolveNodeIPAddrByFamily(virtClient kubecli.KubevirtClient, sourcePod *k8s
 		return "", fmt.Errorf("could not get node hostname")
 	}
 	return resolveNodeIp(virtClient, sourcePod, *hostname, ipFamily)
+}
+
+func createStoppedVM(virtClient kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
+	By("Creating an VM object")
+	template := newLabeledVMI("vm", virtClient, false)
+	vm := tests.NewRandomVirtualMachine(template, false)
+
+	By("Creating the VM")
+	vm, err := virtClient.VirtualMachine(namespace).Create(vm)
+	return vm, err
+}
+
+type job func(host, port, namespace string) *batchv1.Job
+
+func runJobsAgainstNodePortServiceOnIPv4(job job, node k8sv1.Node, vmi *v1.VirtualMachineInstance, nodePort int32) error {
+
+	if len(node.Status.Addresses) == 0 {
+		return fmt.Errorf("no IP addresses configured for node %s", node.Name)
+	}
+	nodeIP := node.Status.Addresses[0].Address
+
+	By("Connecting to IPv4 node IP")
+	err := createAndWaitForJobToSucceed(job, vmi.Namespace, nodeIP, strconv.Itoa(int(nodePort)),
+		"NodePort using IPv4")
+	if err != nil {
+		return fmt.Errorf("failed to run job on vmi %s exposed by NodePort"+
+			" service using IPv4 with error: %v", vmi.Name, err)
+	}
+
+	return nil
+}
+
+func runJobsAgainstNodePortServiceOnIPv6(job job, node k8sv1.Node, vmi *v1.VirtualMachineInstance, nodePort int32) error {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return fmt.Errorf("failed to get client with error: %v", err)
+	}
+
+	if len(node.Status.Addresses) == 0 {
+		return fmt.Errorf("no IP addresses configured for node %s", node.Name)
+	}
+
+	ipv6NodeIP, err := resolveNodeIPAddrByFamily(
+		virtClient,
+		libvmi.GetPodByVirtualMachineInstance(vmi, vmi.GetNamespace()),
+		node,
+		k8sv1.IPv6Protocol)
+	if err != nil {
+		return fmt.Errorf("failed to resolve node %s IPv6 with error: %v", node.Name, err)
+	}
+	if len(ipv6NodeIP) == 0 {
+		return fmt.Errorf("no IPv6 was resolved for node %s", node.Name)
+	}
+
+	By("Connecting to IPv6 node IP")
+	err = createAndWaitForJobToSucceed(job, vmi.Namespace, ipv6NodeIP, strconv.Itoa(int(nodePort)),
+		"NodePort using IPv6 node ip")
+	if err != nil {
+		return fmt.Errorf("failed to run job on vmi %s exposed by NodePort"+
+			" service using node IPv6 with error: %v", vmi.Name, err)
+	}
+
+	return nil
+}
+
+func createAndWaitForJobToSucceed(helloWorldJobCreator func(host, port, namespace string) *batchv1.Job, namespace, ip, port, viaMessage string) error {
+	By(fmt.Sprintf("Starting a job which tries to reach the VMI via the %s", viaMessage))
+	job := helloWorldJobCreator(ip, port, namespace)
+
+	By("Waiting for the job to report a successful connection attempt")
+	return tests.WaitForJobToSucceed(job, time.Duration(120)*time.Second)
+}
+
+func doesSupportIpv6(ipFamily ipFamily) bool {
+	return ipFamily != ipv4
+}
+
+func runHelloWorldJob(host, port, namespace string) *batchv1.Job {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+
+	job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJob(host, port), metav1.CreateOptions{})
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
+	return job
+}
+
+func runHelloWorldJobUDP(host, port, namespace string) *batchv1.Job {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+
+	job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJobUDP(host, port), metav1.CreateOptions{})
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
+	return job
+}
+
+func errorShouldBeXfailed(err error, msg string) bool {
+	if err == nil {
+		return true
+	}
+
+	return strings.Contains(err.Error(), msg)
 }
