@@ -329,7 +329,8 @@ func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1
 
 	for _, template := range vm.Spec.DataVolumeTemplates {
 		// get DataVolume from cache for each templated dataVolume
-		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vm.Namespace, template.Name))
+		dvKey := controller.NamespacedKey(vm.Namespace, template.Name)
+		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
 
 		if err != nil {
 			return dataVolumes, err
@@ -451,7 +452,7 @@ func (c *VMController) areDataVolumesReady(vm *virtv1.VirtualMachine) bool {
 			continue
 		}
 
-		dvKey := fmt.Sprintf("%s/%s", vm.Namespace, volume.DataVolume.Name)
+		dvKey := controller.NamespacedKey(vm.Namespace, volume.DataVolume.Name)
 		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
 		if err != nil {
 			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
@@ -478,7 +479,7 @@ func (c *VMController) arePVCVolumesReady(vm *virtv1.VirtualMachine) bool {
 			continue
 		}
 
-		pvcKey := fmt.Sprintf("%s/%s", vm.Namespace, volume.PersistentVolumeClaim.ClaimName)
+		pvcKey := controller.NamespacedKey(vm.Namespace, volume.PersistentVolumeClaim.ClaimName)
 		pvcObj, exists, err := c.pvcInformer.GetStore().GetByKey(pvcKey)
 		if err != nil {
 			log.Log.Object(vm).Errorf("Error fetching PersistentVolumeClaim %s: %v", pvcKey, err)
@@ -495,6 +496,41 @@ func (c *VMController) arePVCVolumesReady(vm *virtv1.VirtualMachine) bool {
 	}
 
 	return true
+}
+
+func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.DataVolume == nil {
+			continue
+		}
+
+		dvKey := controller.NamespacedKey(vm.Namespace, volume.DataVolume.Name)
+		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
+			continue
+		}
+		if !exists {
+			continue
+		}
+
+		dv := dvObj.(*cdiv1.DataVolume)
+
+		if dv.Status.Phase == cdiv1.Failed {
+			log.Log.Object(vm).Errorf("DataVolume %s is in Failed phase", dvKey)
+			return true
+		}
+
+		dvRunningCond := controller.NewDataVolumeConditionManager().GetCondition(dv, cdiv1.DataVolumeRunning)
+		if dvRunningCond != nil &&
+			dvRunningCond.Status == k8score.ConditionFalse &&
+			dvRunningCond.Reason == "Error" {
+			log.Log.Object(vm).Errorf("DataVolume %s importer has stopped running due to an error: %v", dvKey, dvRunningCond.Message)
+			return true
+		}
+	}
+
+	return false
 }
 
 func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
@@ -780,7 +816,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(vmi)
 	if err != nil {
-		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
+		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s", controller.NamespacedKey(vmi.Namespace, vmi.Name))
 		c.expectations.CreationObserved(vmKey)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
 		return err
@@ -944,7 +980,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	}
 
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
-	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s/%s with phase %s", vmi.Namespace, vmi.Name, vmi.Status.Phase)
+	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s with phase %s", controller.NamespacedKey(vmi.Namespace, vmi.Name), vmi.Status.Phase)
 
 	return nil
 }
@@ -1653,6 +1689,7 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
 		{virtv1.VirtualMachineStatusPvcNotFound, c.isVirtualMachineStatusPvcNotFound},
 		{virtv1.VirtualMachineStatusDataVolumeNotFound, c.isVirtualMachineStatusDataVolumeNotFound},
+		{virtv1.VirtualMachineStatusDataVolumeError, c.isVirtualMachineStatusDataVolumeError},
 		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
 		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
@@ -1792,6 +1829,11 @@ func (c *VMController) isVirtualMachineStatusDataVolumeNotFound(vm *virtv1.Virtu
 		virtv1.VirtualMachineInstanceSynchronized,
 		k8score.ConditionFalse,
 		FailedDataVolumeNotFoundReason)
+}
+
+// isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"
+func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return c.hasDataVolumeErrors(vm)
 }
 
 func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {

@@ -8,6 +8,7 @@ go_library(
         "controller_ref.go",
         "controller_ref_manager.go",
         "expectations.go",
+        "keys.go",
         "virtinformers.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/controller",
