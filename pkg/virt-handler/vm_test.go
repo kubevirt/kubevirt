@@ -766,7 +766,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
 		It("should maintain unsupported user agent condition when it's already set", func() {
@@ -820,7 +819,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
 		It("should remove guest agent condition when there is no channel connected", func() {
@@ -876,7 +874,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
 		It("should add access credential synced condition when credentials report success", func() {
@@ -1073,8 +1070,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIDefined)
-			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
@@ -1268,7 +1263,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 
 				controller.Execute()
-				testutils.ExpectEvent(recorder, VMIDefined)
 			})
 
 			It("should call mount, fail if mount fails", func() {
@@ -2982,7 +2976,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				}
 			}).Return(vmi, nil)
 			controller.Execute()
-			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 	})
 
