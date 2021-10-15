@@ -29,6 +29,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -36,6 +37,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/config"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -501,6 +504,71 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
+func IsoGuestVolumePath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (string, bool) {
+	var volPath string
+
+	basepath := "/var/run"
+	if volume.CloudInitNoCloud != nil {
+		volPath = path.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
+	} else if volume.CloudInitConfigDrive != nil {
+		volPath = path.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
+	} else if volume.ConfigMap != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
+	} else if volume.DownwardAPI != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
+	} else if volume.Secret != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.SecretDisksDir), volume.Name+".iso")
+	} else if volume.ServiceAccount != nil {
+		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
+	} else {
+		return "", false
+	}
+
+	return volPath, true
+}
+
+func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineInstance) {
+	var podUID string
+	if vmi.Status.Phase != v1.Running {
+		return
+	}
+
+	for k, v := range vmi.Status.ActivePods {
+		if v == vmi.Status.NodeName {
+			podUID = string(k)
+			break
+		}
+	}
+	if podUID == "" {
+		log.DefaultLogger().V(2).Warningf("failed to find pod UID for VMI %s", vmi.Name)
+		return
+	}
+
+	for _, volume := range vmi.Spec.Volumes {
+		volPath, found := IsoGuestVolumePath(vmi, &volume)
+		if !found {
+			continue
+		}
+		res, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			log.DefaultLogger().V(2).Warningf("failed to detect VMI %s", vmi.Name)
+			continue
+		}
+		size, err := isolation.GetFileSize(volPath, res)
+		if err != nil {
+			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
+			continue
+		}
+
+		for i, _ := range vmi.Status.VolumeStatus {
+			if vmi.Status.VolumeStatus[i].Name == volume.Name {
+				vmi.Status.VolumeStatus[i].Size = int64(size)
+				continue
+			}
+		}
+	}
+}
+
 func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	hasHotplug := false
@@ -515,6 +583,8 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	}
 
 	oldStatus := vmi.DeepCopy().Status
+
+	d.updateIsoSizeStatus(vmi)
 
 	if domain != nil {
 		if vmi.Status.GuestOSInfo.Name != domain.Status.OSInfo.Name {
