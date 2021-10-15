@@ -30,6 +30,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 )
 
@@ -45,6 +46,7 @@ var (
 	VIRTUALMACHINEINSTANCEREPLICASET = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
 	VIRTUALMACHINEINSTANCEMIGRATION  = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
 	KUBEVIRT                         = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
+	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
 	PreserveUnknownFieldsFalse       = false
@@ -352,6 +354,37 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 
 	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = VIRTUALMACHINEPOOL
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: poolv1.SchemeGroupVersion.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    poolv1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: "Namespaced",
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinepools",
+			Singular:   "virtualmachinepool",
+			Kind:       "VirtualMachinePool",
+			ShortNames: []string{"vmpool", "vmpools"},
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil
