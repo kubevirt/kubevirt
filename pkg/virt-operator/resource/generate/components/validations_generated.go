@@ -4963,6 +4963,10 @@ var CRDsValidation map[string]string = map[string]string{
                     scheduler. If not specified, the VMI will be dispatched by default
                     scheduler.
                   type: string
+                setHostnameAsFQDN:
+                  description: 'If true the vmi''s hostname will be configured as
+                    the vmi''s FQDN, rather than the leaf name. More info: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-sethostnameasfqdn-field'
+                  type: boolean
                 startStrategy:
                   description: StartStrategy can be set to "Paused" if Virtual Machine
                     should be started in paused state.
@@ -7888,6 +7892,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: If specified, the VMI will be dispatched by specified scheduler.
             If not specified, the VMI will be dispatched by default scheduler.
           type: string
+        setHostnameAsFQDN:
+          description: 'If true the vmi''s hostname will be configured as the vmi''s
+            FQDN, rather than the leaf name. More info: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-sethostnameasfqdn-field'
+          type: boolean
         startStrategy:
           description: StartStrategy can be set to "Paused" if Virtual Machine should
             be started in paused state.
@@ -11769,6 +11777,10 @@ var CRDsValidation map[string]string = map[string]string{
                     scheduler. If not specified, the VMI will be dispatched by default
                     scheduler.
                   type: string
+                setHostnameAsFQDN:
+                  description: 'If true the vmi''s hostname will be configured as
+                    the vmi''s FQDN, rather than the leaf name. More info: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-sethostnameasfqdn-field'
+                  type: boolean
                 startStrategy:
                   description: StartStrategy can be set to "Paused" if Virtual Machine
                     should be started in paused state.
@@ -15367,6 +15379,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 by specified scheduler. If not specified, the VMI
                                 will be dispatched by default scheduler.
                               type: string
+                            setHostnameAsFQDN:
+                              description: 'If true the vmi''s hostname will be configured
+                                as the vmi''s FQDN, rather than the leaf name. More
+                                info: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-sethostnameasfqdn-field'
+                              type: boolean
                             startStrategy:
                               description: StartStrategy can be set to "Paused" if
                                 Virtual Machine should be started in paused state.

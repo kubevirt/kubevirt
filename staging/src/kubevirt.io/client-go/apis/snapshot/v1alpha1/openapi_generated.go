@@ -20338,6 +20338,13 @@ func schema_client_go_apis_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							Ref:         ref("kubevirt.io/client-go/apis/core/v1.Probe"),
 						},
 					},
+					"setHostnameAsFQDN": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If true the vmi's hostname will be configured as the vmi's FQDN, rather than the leaf name. More info: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-sethostnameasfqdn-field",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"hostname": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",

@@ -137,6 +137,10 @@ type VirtualMachineInstanceSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
 	// +optional
 	ReadinessProbe *Probe `json:"readinessProbe,omitempty"`
+	// If true the vmi's hostname will be configured as the vmi's FQDN, rather than the leaf name.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-sethostnameasfqdn-field
+	// +optional
+	SetHostnameAsFQDN bool `json:"setHostnameAsFQDN,omitempty"`
 	// Specifies the hostname of the vmi
 	// If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.
 	// +optional

@@ -1396,8 +1396,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			},
 		},
 		Spec: k8sv1.PodSpec{
-			Hostname:  hostName,
-			Subdomain: vmi.Spec.Subdomain,
+			SetHostnameAsFQDN: &vmi.Spec.SetHostnameAsFQDN,
+			Hostname:          hostName,
+			Subdomain:         vmi.Spec.Subdomain,
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: &userId,
 			},
