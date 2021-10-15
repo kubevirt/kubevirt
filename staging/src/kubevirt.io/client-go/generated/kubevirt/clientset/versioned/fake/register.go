@@ -26,6 +26,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 )
 
@@ -34,6 +35,7 @@ var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
 	flavorv1alpha1.AddToScheme,
+	poolv1alpha1.AddToScheme,
 	snapshotv1alpha1.AddToScheme,
 }
 

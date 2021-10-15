@@ -179,6 +179,7 @@ API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineStat
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineStatus,VolumeSnapshotStatuses
 API rule violation: list_type_missing,kubevirt.io/api/flavor/v1alpha1,VirtualMachineClusterFlavorList,Items
 API rule violation: list_type_missing,kubevirt.io/api/flavor/v1alpha1,VirtualMachineFlavorList,Items
+API rule violation: list_type_missing,kubevirt.io/api/pool/v1alpha1,VirtualMachinePoolList,Items
 API rule violation: list_type_missing,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineRestoreList,Items
 API rule violation: list_type_missing,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineRestoreStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineRestoreStatus,DeletedDataVolumes
