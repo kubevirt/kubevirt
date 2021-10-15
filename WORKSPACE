@@ -376,6 +376,7 @@ container_pull(
     repository = "kubevirt/alpine-ext-kernel-boot-demo",
 )
 
+# TODO build fedora_realtime for multi-arch
 container_pull(
     name = "fedora_realtime",
     digest = "sha256:437f4e02986daf0058239f4a282d32304dcac629d5d1b4c75a74025f1ce22811",
