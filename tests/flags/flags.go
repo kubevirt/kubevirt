@@ -51,6 +51,8 @@ var ApplyDefaulte2eConfiguration bool
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
+var DNSServiceName = ""
+var DNSServiceNamespace = ""
 
 func init() {
 	kubecli.Init()
@@ -78,6 +80,8 @@ func init() {
 	flag.StringVar(&IPV6ConnectivityCheckAddress, "conn-check-ipv6-address", "", "Address that is used for testing IPV6 connectivity to the outside world")
 	flag.StringVar(&ConnectivityCheckDNS, "conn-check-dns", "", "dns that is used for testing connectivity to the outside world")
 	flag.BoolVar(&ApplyDefaulte2eConfiguration, "apply-default-e2e-configuration", false, "Apply the default e2e test configuration (feature gates, selinux contexts, ...)")
+	flag.StringVar(&DNSServiceName, "dns-service-name", "kube-dns", "cluster DNS service name")
+	flag.StringVar(&DNSServiceNamespace, "dns-service-namespace", "kube-system", "cluster DNS service namespace")
 }
 
 func NormalizeFlags() {
