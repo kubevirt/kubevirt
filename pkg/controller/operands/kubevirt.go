@@ -13,9 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -509,9 +511,9 @@ func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Cl
 	}
 
 	if req.HCOTriggered {
-		req.Logger.Info("Updating existing KubeVirt's Spec to new opinionated values")
+		req.Logger.Info("Updating existing PriorityClass's Spec to new opinionated values")
 	} else {
-		req.Logger.Info("Reconciling an externally updated KubeVirt's Spec to its opinionated values")
+		req.Logger.Info("Reconciling an externally updated PriorityClass's Spec to its opinionated values")
 	}
 
 	// something was changed but since we can't patch a priority class object, we remove it
@@ -524,6 +526,12 @@ func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Cl
 	err = Client.Create(req.Ctx, pc, &client.CreateOptions{})
 	if err != nil {
 		return false, false, err
+	}
+
+	// update found object for object references
+	err = Client.Get(req.Ctx, types.NamespacedName{Name: found.Name, Namespace: found.Namespace}, found)
+	if err != nil {
+		return true, !req.HCOTriggered, err
 	}
 
 	return true, !req.HCOTriggered, nil

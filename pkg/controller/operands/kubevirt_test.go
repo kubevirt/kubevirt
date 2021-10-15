@@ -17,8 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -84,6 +85,10 @@ var _ = Describe("KubeVirt Operand", func() {
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Value).To(Equal(expectedResource.Value))
 			Expect(foundResource.GlobalDefault).To(Equal(expectedResource.GlobalDefault))
+
+			newReference, err := reference.GetReference(cl.Scheme(), foundResource)
+			Expect(err).To(BeNil())
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*newReference))
 		},
 			Entry("with modified value",
 				&schedulingv1.PriorityClass{
@@ -111,6 +116,52 @@ var _ = Describe("KubeVirt Operand", func() {
 					GlobalDefault: true,
 					Description:   "",
 				}),
+		)
+
+		DescribeTable("should return error when there is something wrong", func(initiateErrors func(testClient *commonTestUtils.HcoTestClient) error) {
+			modifiedResource := NewKubeVirtPriorityClass(hco)
+			modifiedResource.Labels = map[string]string{"foo": "bar"}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{modifiedResource})
+			expectedError := initiateErrors(cl)
+
+			handler := (*genericOperand)(newKvPriorityClassHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(Equal(expectedError))
+		},
+			Entry("creation error", func(testClient *commonTestUtils.HcoTestClient) error {
+				expectedError := fmt.Errorf("fake PriorityClass creation error")
+				testClient.InitiateCreateErrors(func(obj client.Object) error {
+					if _, ok := obj.(*schedulingv1.PriorityClass); ok {
+						return expectedError
+					}
+					return nil
+				})
+				return expectedError
+			}),
+			Entry("deletion error", func(testClient *commonTestUtils.HcoTestClient) error {
+				expectedError := fmt.Errorf("fake PriorityClass deletion error")
+				testClient.InitiateDeleteErrors(func(obj client.Object) error {
+					if _, ok := obj.(*schedulingv1.PriorityClass); ok {
+						return expectedError
+					}
+					return nil
+				})
+
+				return expectedError
+			}),
+			Entry("get error", func(testClient *commonTestUtils.HcoTestClient) error {
+				expectedError := fmt.Errorf("fake PriorityClass get error")
+				testClient.InitiateGetErrors(func(key client.ObjectKey) error {
+					if key.Name == "kubevirt-cluster-critical" {
+						return expectedError
+					}
+					return nil
+				})
+
+				return expectedError
+			}),
 		)
 
 	})
