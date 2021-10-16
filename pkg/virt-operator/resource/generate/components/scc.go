@@ -81,7 +81,6 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 		"NET_BIND_SERVICE",
 	}
 	scc.AllowHostDirVolumePlugin = true
-	scc.AllowHostNetwork = true
 	scc.Users = []string{fmt.Sprintf("system:serviceaccount:%s:kubevirt-controller", namespace)}
 
 	return scc

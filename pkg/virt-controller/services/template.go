@@ -1564,7 +1564,6 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 				},
 			},
-			HostNetwork:                   true,
 			TerminationGracePeriodSeconds: &zero,
 		},
 	}
@@ -1709,7 +1708,6 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					},
 				},
 			},
-			HostNetwork:                   true,
 			TerminationGracePeriodSeconds: &zero,
 		},
 	}
