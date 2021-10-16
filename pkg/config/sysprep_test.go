@@ -87,7 +87,7 @@ var _ = Describe("SysprepConfigMap", func() {
 		})
 
 		It("Should fail on creating config map iso disk", func() {
-			err := CreateSysprepDisks(vmiConfigMap)
+			err := CreateSysprepDisks(vmiConfigMap, false)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -99,14 +99,14 @@ var _ = Describe("SysprepConfigMap", func() {
 		})
 
 		It("Should create a new config map iso disk", func() {
-			err := CreateSysprepDisks(vmiConfigMap)
+			err := CreateSysprepDisks(vmiConfigMap, false)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = os.Stat(filepath.Join(SysprepDisksDir, "sysprep-volume.iso"))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("Should create a new secret iso disk", func() {
-			err := CreateSysprepDisks(vmiSecret)
+			err := CreateSysprepDisks(vmiSecret, false)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = os.Stat(filepath.Join(SysprepDisksDir, "sysprep-volume.iso"))
 			Expect(err).NotTo(HaveOccurred())
