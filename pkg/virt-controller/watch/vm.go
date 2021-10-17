@@ -73,7 +73,6 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
-	pvcEventInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	flaovrMethods flavor.Methods,
@@ -88,7 +87,6 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		vmInformer:             vmInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
-		pvcEventInformer:       pvcEventInformer,
 		storageClassInformer:   storageClassInformer,
 		crInformer:             crInformer,
 		flavorMethods:          flaovrMethods,
@@ -138,7 +136,6 @@ type VMController struct {
 	vmInformer             cache.SharedIndexInformer
 	dataVolumeInformer     cache.SharedIndexInformer
 	pvcInformer            cache.SharedIndexInformer
-	pvcEventInformer       cache.SharedIndexInformer
 	storageClassInformer   cache.SharedIndexInformer
 	crInformer             cache.SharedIndexInformer
 	flavorMethods          flavor.Methods
@@ -160,7 +157,6 @@ func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 		c.vmInformer.HasSynced,
 		c.dataVolumeInformer.HasSynced,
 		c.pvcInformer.HasSynced,
-		c.pvcEventInformer.HasSynced,
 		c.storageClassInformer.HasSynced,
 		c.crInformer.HasSynced)
 
@@ -561,7 +557,6 @@ func (c *VMController) hasPVCBindingErrors(vm *virtv1.VirtualMachine) bool {
 		failed, message, err := typesutil.IsPVCFailedProvisioning(
 			c.pvcInformer.GetStore(),
 			c.storageClassInformer.GetStore(),
-			c.pvcEventInformer.GetIndexer(),
 			vm.Namespace, claimName)
 
 		if err != nil {

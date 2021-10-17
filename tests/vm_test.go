@@ -844,7 +844,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				return updatedVm.Status.PrintableStatus
 			}
 
-			Eventually(vmPrintableStatus, 300*time.Second, 1*time.Second).
+			Eventually(vmPrintableStatus, 60*time.Second, 10*time.Second).
 				Should(Equal(v1.VirtualMachineStatusPvcNotBound))
 		},
 			table.Entry(

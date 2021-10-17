@@ -20,11 +20,9 @@
 package types
 
 import (
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	kubev1 "k8s.io/api/core/v1"
@@ -108,19 +106,11 @@ var _ = Describe("PVC utils test", func() {
 
 		var pvcCache cache.Store
 		var scCache cache.Store
-		var eventsIndexer cache.Indexer
 		var pvc *kubev1.PersistentVolumeClaim
 
 		BeforeEach(func() {
 			pvcCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 			scCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-
-			eventsIndexer = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
-				"pvc": func(obj interface{}) ([]string, error) {
-					event, _ := obj.(*kubev1.Event)
-					return []string{fmt.Sprintf("%s/%s", event.InvolvedObject.Namespace, event.InvolvedObject.Name)}, nil
-				},
-			})
 
 			pvc = &kubev1.PersistentVolumeClaim{
 				TypeMeta: metav1.TypeMeta{
@@ -141,40 +131,18 @@ var _ = Describe("PVC utils test", func() {
 			pvc.Status.Phase = kubev1.ClaimBound
 			pvcCache.Add(pvc)
 
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, pvc.Namespace, pvc.Name)
 
 			Expect(failed).To(BeFalse())
 			Expect(message).To(BeZero())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		table.DescribeTable("should detect PVC provisioning failure events", func(eventReason string) {
-			pvcCache.Add(pvc)
-			eventsIndexer.Add(&kubev1.Event{
-				InvolvedObject: kubev1.ObjectReference{
-					APIVersion: pvc.APIVersion,
-					Kind:       pvc.Kind,
-					Namespace:  pvc.Namespace,
-					Name:       pvc.Name,
-				},
-				Reason: eventReason,
-			})
-
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
-
-			Expect(failed).To(BeTrue())
-			Expect(message).ToNot(BeZero())
-			Expect(err).ToNot(HaveOccurred())
-		},
-			table.Entry("ProvisioningFailed event", "ProvisioningFailed"),
-			table.Entry("FailedBinding event", "FailedBinding"),
-		)
-
 		It("Should detect PVC provisioning failure when pending for more than timeout threshold", func() {
 			pvc.CreationTimestamp = metav1.NewTime(time.Now().Add(-pendingPVCTimeoutThreshold * 2))
 			pvcCache.Add(pvc)
 
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, pvc.Namespace, pvc.Name)
 
 			Expect(failed).To(BeTrue())
 			Expect(message).ToNot(BeZero())
@@ -185,7 +153,7 @@ var _ = Describe("PVC utils test", func() {
 			pvc.CreationTimestamp = metav1.NewTime(time.Now().Add(-pendingPVCTimeoutThreshold / 2))
 			pvcCache.Add(pvc)
 
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, pvc.Namespace, pvc.Name)
 
 			Expect(failed).To(BeFalse())
 			Expect(message).To(BeZero())
@@ -206,7 +174,7 @@ var _ = Describe("PVC utils test", func() {
 			pvc.Spec.StorageClassName = &sc.Name
 			pvcCache.Add(pvc)
 
-			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, eventsIndexer, pvc.Namespace, pvc.Name)
+			failed, message, err := IsPVCFailedProvisioning(pvcCache, scCache, pvc.Namespace, pvc.Name)
 
 			Expect(failed).To(BeFalse())
 			Expect(message).To(BeZero())

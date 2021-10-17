@@ -132,9 +132,6 @@ type KubeInformerFactory interface {
 	// Watches for PersistentVolumeClaim objects
 	PersistentVolumeClaim() cache.SharedIndexInformer
 
-	// Watches for Events involving a PersistentVolumeClaim object
-	PersistentVolumeClaimEvent() cache.SharedIndexInformer
-
 	// Watches for ControllerRevision objects
 	ControllerRevision() cache.SharedIndexInformer
 
@@ -580,25 +577,6 @@ func (f *kubeInformerFactory) PersistentVolumeClaim() cache.SharedIndexInformer 
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "persistentvolumeclaims", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.PersistentVolumeClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	})
-}
-
-func (f *kubeInformerFactory) PersistentVolumeClaimEvent() cache.SharedIndexInformer {
-	return f.getInformer("persistentVolumeClaimEventInformer", func() cache.SharedIndexInformer {
-		restClient := f.clientSet.CoreV1().RESTClient()
-		fieldSelector := fields.OneTermEqualSelector("involvedObject.kind", "PersistentVolumeClaim")
-		lw := cache.NewListWatchFromClient(restClient, "events", k8sv1.NamespaceAll, fieldSelector)
-		return cache.NewSharedIndexInformer(lw, &k8sv1.Event{}, f.defaultResync, cache.Indexers{
-			"pvc": func(obj interface{}) ([]string, error) {
-				event, ok := obj.(*corev1.Event)
-				if !ok {
-					return nil, unexpectedObjectError
-				}
-
-				pvcKey := fmt.Sprintf("%s/%s", event.InvolvedObject.Namespace, event.InvolvedObject.Name)
-				return []string{pvcKey}, nil
-			},
-		})
 	})
 }
 

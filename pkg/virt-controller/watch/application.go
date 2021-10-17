@@ -147,8 +147,6 @@ type VirtControllerApp struct {
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
 
-	persistentVolumeClaimEventInformer cache.SharedIndexInformer
-
 	rsController *VMIReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
@@ -317,8 +315,6 @@ func Execute() {
 
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
-
-	app.persistentVolumeClaimEventInformer = app.informerFactory.PersistentVolumeClaimEvent()
 
 	app.pdbInformer = app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
 
@@ -556,7 +552,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.vmInformer,
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
-		vca.persistentVolumeClaimEventInformer,
 		vca.storageClassInformer,
 		vca.controllerRevisionInformer,
 		flavor.NewMethods(vca.flavorInformer.GetStore(), vca.clusterFlavorInformer.GetStore()),
