@@ -104,7 +104,7 @@ func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 
 			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
 			// append the ports from all the interfaces connected to the same network
-			err := createSlirpNetwork(iface, *net, domain)
+			err := createSlirpNetwork(iface, *net, domain, vmi.Spec.Subdomain)
 			if err != nil {
 				return nil, err
 			}
@@ -161,7 +161,7 @@ func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
 	return netsByName
 }
 
-func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Domain) error {
+func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Domain, subdomain string) error {
 	qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 	err := configVMCIDR(&qemuArg, network)
@@ -169,7 +169,7 @@ func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Doma
 		return err
 	}
 
-	err = configDNSSearchName(&qemuArg)
+	err = configDNSSearchName(&qemuArg, subdomain)
 	if err != nil {
 		return err
 	}
@@ -241,8 +241,8 @@ func configVMCIDR(qemuArg *api.Arg, network v1.Network) error {
 	return nil
 }
 
-func configDNSSearchName(qemuArg *api.Arg) error {
-	_, dnsDoms, err := GetResolvConfDetailsFromPod()
+func configDNSSearchName(qemuArg *api.Arg, subdomain string) error {
+	_, dnsDoms, err := GetResolvConfDetailsFromPod(subdomain)
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func configDNSSearchName(qemuArg *api.Arg) error {
 }
 
 // returns nameservers [][]byte, searchdomains []string, error
-func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
+func GetResolvConfDetailsFromPod(subdomain string) ([][]byte, []string, error) {
 	// #nosec No risk for path injection. resolvConf is static "/etc/resolve.conf"
 	b, err := ioutil.ReadFile(resolvConf)
 	if err != nil {
@@ -270,6 +270,7 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	searchDomains = dns.AddSubdomainSearchDomain(searchDomains, subdomain)
 
 	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
 	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))

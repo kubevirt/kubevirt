@@ -77,4 +77,39 @@ var _ = Describe("Resolveconf", func() {
 			Expect(err).To(BeNil())
 		})
 	})
+
+	Context("Function AddSubdomainSearchDomain()", func() {
+		It("should add subdomain search domain", func() {
+			searchDomains := []string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+
+			subdomain := "subdomain"
+			searchDomains = AddSubdomainSearchDomain(searchDomains, subdomain)
+			Expect(searchDomains).To(Equal([]string{subdomain + ".default.svc.cluster.local",
+				"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}))
+		})
+
+		It("should not add subdomain search domain if subdomain is empty", func() {
+			searchDomains := []string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+
+			subdomain := ""
+			searchDomains = AddSubdomainSearchDomain(searchDomains, subdomain)
+			Expect(searchDomains).To(Equal([]string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}))
+		})
+
+		It("should not add subdomain search domain if no expected search domain was found", func() {
+			searchDomains := []string{"svc.cluster.local", "cluster.local"}
+
+			subdomain := "subdomain"
+			searchDomains = AddSubdomainSearchDomain(searchDomains, subdomain)
+			Expect(searchDomains).To(Equal([]string{"svc.cluster.local", "cluster.local"}))
+		})
+
+		It("should add subdomain search domain even if the longest valid existing search domain isn't the first", func() {
+			searchDomains := []string{"svc.cluster.local", "cluster.local", "default.svc.cluster.local"}
+
+			subdomain := "subdomain"
+			searchDomains = AddSubdomainSearchDomain(searchDomains, subdomain)
+			Expect(searchDomains).To(Equal([]string{subdomain + ".default.svc.cluster.local", "svc.cluster.local", "cluster.local", "default.svc.cluster.local"}))
+		})
+	})
 })

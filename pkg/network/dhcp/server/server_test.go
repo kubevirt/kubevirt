@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
 var _ = Describe("DHCP Server", func() {
@@ -143,7 +144,7 @@ var _ = Describe("DHCP Server", func() {
 				"14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
 				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
 			}
-			domain := getDomainName(searchDomains)
+			domain := dns.GetDomainName(searchDomains)
 			Expect(domain).To(Equal("14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com"))
 		})
 	})

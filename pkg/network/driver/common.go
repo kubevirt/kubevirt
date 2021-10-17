@@ -338,7 +338,7 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
-	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod()
+	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod(nic.Subdomain)
 	if err != nil {
 		return fmt.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 	}

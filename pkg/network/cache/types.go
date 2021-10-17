@@ -35,6 +35,7 @@ type DHCPConfig struct {
 	Mtu                 uint16
 	IPAMDisabled        bool
 	Gateway             net.IP
+	Subdomain           string
 }
 
 func (d DHCPConfig) String() string {

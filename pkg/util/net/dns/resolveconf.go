@@ -72,3 +72,29 @@ func ParseSearchDomains(content string) ([]string, error) {
 
 	return searchDomains, nil
 }
+
+func AddSubdomainSearchDomain(searchDomains []string, subdomain string) []string {
+	// workaround of https://github.com/kubernetes/kubernetes/issues/48019
+	if subdomain == "" {
+		return searchDomains
+	}
+
+	domainName := GetDomainName(searchDomains)
+	if !strings.Contains(domainName, subdomain) && strings.Contains(domainName, ".svc.") {
+		domainName = subdomain + "." + domainName
+		searchDomains = append([]string{domainName}, searchDomains...)
+	}
+
+	return searchDomains
+}
+
+//GetDomainName returns the longest search domain entry, which is the most exact equivalent to a domain
+func GetDomainName(searchDomains []string) string {
+	selected := ""
+	for _, d := range searchDomains {
+		if len(d) > len(selected) {
+			selected = d
+		}
+	}
+	return selected
+}
