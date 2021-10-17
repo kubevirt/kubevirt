@@ -91,4 +91,38 @@ var _ = Describe("Resolveconf", func() {
 			Expect(domain).To(Equal("14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com"))
 		})
 	})
+
+	Context("subdomain", func() {
+		It("should be added to the longest domain", func() {
+			searchDomains := []string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+
+			const subdomain = "subdomain"
+			domain := DomainNameWithSubdomain(searchDomains, subdomain)
+			Expect(domain).To(Equal(subdomain + "." + searchDomains[0]))
+		})
+
+		It("should not be added if subdomain is empty", func() {
+			searchDomains := []string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+
+			const subdomain = ""
+			domain := DomainNameWithSubdomain(searchDomains, subdomain)
+			Expect(domain).To(Equal(""))
+		})
+
+		It("should be added even if the longest existing domain isn't the first", func() {
+			searchDomains := []string{"svc.cluster.local", "cluster.local", "default.svc.cluster.local"}
+
+			const subdomain = "subdomain"
+			domain := DomainNameWithSubdomain(searchDomains, subdomain)
+			Expect(domain).To(Equal(subdomain + "." + searchDomains[2]))
+		})
+
+		It("should not be added if the longest existing domain already has it", func() {
+			searchDomains := []string{"svc.cluster.local", "cluster.local", "subdomain.default.svc.cluster.local"}
+
+			const subdomain = "subdomain"
+			domain := DomainNameWithSubdomain(searchDomains, subdomain)
+			Expect(domain).To(Equal(""))
+		})
+	})
 })
