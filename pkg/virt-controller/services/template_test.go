@@ -3046,11 +3046,9 @@ var _ = Describe("Template", func() {
 				containers := pod.Spec.Containers
 				initContainers := pod.Spec.InitContainers
 
-				for _, containerArray := range [][]kubev1.Container{initContainers, containers} {
-					Expect(containerArray).Should(HaveLen(2))
-					Expect(hasContainerWithName(containerArray, "kernel-boot")).To(BeTrue())
-				}
 				Expect(hasContainerWithName(initContainers, "container-disk-binary")).To(BeTrue())
+				Expect(hasContainerWithName(initContainers, "kernel-boot")).To(BeTrue())
+				Expect(hasContainerWithName(containers, "kernel-boot")).To(BeTrue())
 			})
 		})
 
