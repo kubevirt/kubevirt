@@ -107,7 +107,7 @@ func IsWaitForFirstConsumer(pvc *k8sv1.PersistentVolumeClaim, storageClassStore 
 	}
 
 	if sc == nil {
-		// Statically provisioned volume
+		// No StorageClass requested, so can't specify WFFC mode.
 		return false, nil
 	}
 
@@ -115,20 +115,11 @@ func IsWaitForFirstConsumer(pvc *k8sv1.PersistentVolumeClaim, storageClassStore 
 	return isWFFC, nil
 }
 
-// IsStaticallyProvisioned determines whether the PersistentVolumeClaim is a statically provisioned volume.
-func IsStaticallyProvisioned(pvc *k8sv1.PersistentVolumeClaim) bool {
-	return pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName == ""
-}
-
-// IsDynamicallyProvisioned determines whether the PersistentVolumeClaim is a dynamically provisioned volume.
-func IsDynamicallyProvisioned(pvc *k8sv1.PersistentVolumeClaim) bool {
-	return pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName != ""
-}
-
 // GetStorageClass returns the StorageClass associated with the given PersistentVolumeClaim,
-// or nil if it's a statically provisioned volume, with no StorageClass associated.
+// or nil if it has no StorageClass associated.
 func GetStorageClass(pvc *k8sv1.PersistentVolumeClaim, storageClassStore cache.Store) (*storagev1.StorageClass, error) {
-	if IsStaticallyProvisioned(pvc) {
+	if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName == "" {
+		// No StorageClass requested
 		return nil, nil
 	}
 
