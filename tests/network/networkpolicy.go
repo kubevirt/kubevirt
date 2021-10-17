@@ -22,7 +22,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -282,21 +281,6 @@ func skipNetworkPolicyRunningOnKindInfra() {
 	}
 }
 
-func newVMICirros(namespace string, labels map[string]string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-	vmi.Labels = labels
-	vmi.Namespace = namespace
-
-	// Clean up interfaces since we configure them with `libvmi.Option`
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{}
-
-	for _, opt := range opts {
-		opt(vmi)
-	}
-
-	return vmi
-}
-
 func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
 	ConsistentlyWithOffset(1, func() error {
 		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
@@ -417,9 +401,10 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
-	clientVMI := newVMICirros(namespace, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
-
-	clientVMI, err := virtClient.VirtualMachineInstance(namespace).Create(clientVMI)
+	clientVMI := libvmi.NewCirros(libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+	var err error
+	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(clientVMI)
 	if err != nil {
 		return nil, err
 	}
@@ -429,9 +414,7 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 }
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
-	serverVMI := newVMICirros(
-		namespace,
-		serverVMILabels,
+	serverVMI := libvmi.NewCirros(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(
 			v1.Port{
 				Name:     "http80",
@@ -444,7 +427,9 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 				Protocol: "TCP",
 			},
 		)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
+	serverVMI.Labels = serverVMILabels
 	serverVMI, err := virtClient.VirtualMachineInstance(namespace).Create(serverVMI)
 	if err != nil {
 		return nil, err
