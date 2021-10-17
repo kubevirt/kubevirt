@@ -79,6 +79,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
+	var cdiInformer cache.SharedIndexInformer
 	var cdiConfigInformer cache.SharedIndexInformer
 	var dataVolumeFeeder *testutils.DataVolumeFeeder
 	var qemuGid int64 = 107
@@ -211,6 +212,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		controller = NewVMIController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
@@ -221,6 +223,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			recorder,
 			virtClient,
 			dataVolumeInformer,
+			cdiInformer,
 			cdiConfigInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", nil),
