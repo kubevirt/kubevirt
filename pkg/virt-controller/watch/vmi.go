@@ -125,6 +125,8 @@ const (
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 
+var failedToFindCdi error = errors.New("No CDIConfig named config")
+
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
@@ -133,6 +135,7 @@ func NewVMIController(templateService services.TemplateService,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer,
+	cdiInformer cache.SharedIndexInformer,
 	cdiConfigInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
@@ -150,6 +153,7 @@ func NewVMIController(templateService services.TemplateService,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeInformer: dataVolumeInformer,
+		cdiInformer:        cdiInformer,
 		cdiConfigInformer:  cdiConfigInformer,
 		clusterConfig:      clusterConfig,
 		topologyHinter:     topologyHinter,
@@ -211,6 +215,7 @@ type VMIController struct {
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	vmiExpectations    *controller.UIDTrackingControllerExpectations
 	dataVolumeInformer cache.SharedIndexInformer
+	cdiInformer        cache.SharedIndexInformer
 	cdiConfigInformer  cache.SharedIndexInformer
 	clusterConfig      *virtconfig.ClusterConfig
 }
@@ -221,7 +226,7 @@ func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting vmi controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced, c.cdiConfigInformer.HasSynced, c.cdiInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -1987,9 +1992,13 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					Preallocated: kubevirttypes.IsPreallocated(pvc.ObjectMeta.Annotations),
 				}
 				filesystemOverhead, err := c.getFilesystemOverhead(pvc)
-				if err != nil {
-					status.PersistentVolumeClaimInfo.FilesystemOverhead = &filesystemOverhead
+				if errors.Is(err, failedToFindCdi) {
+					log.Log.V(3).Object(pvc).Infof("Didn't find CDI, continuing normally without filesystem overhead")
+				} else if err != nil {
+					log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", vmi.Namespace, pvcName)
+					return err
 				}
+				status.PersistentVolumeClaimInfo.FilesystemOverhead = &filesystemOverhead
 			}
 		}
 
@@ -2021,9 +2030,13 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 }
 
 func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
-	cdiConfigInterface, cdiConfigExists, _ := c.cdiConfigInformer.GetStore().GetByKey("config")
-	if !cdiConfigExists {
-		return "0", fmt.Errorf("No CDIConfig named config")
+	_, cdiExists, _ := c.cdiInformer.GetStore().GetByKey("cdi")
+	if !cdiExists {
+		return "0", failedToFindCdi
+	}
+	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey("config")
+	if !cdiConfigExists || err != nil {
+		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
 	}
 	cdiConfig, ok := cdiConfigInterface.(*cdiv1.CDIConfig)
 	if !ok {

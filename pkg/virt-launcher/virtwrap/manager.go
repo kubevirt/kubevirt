@@ -608,14 +608,14 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		log.DefaultLogger().Error("Failed to convert capacity to int64")
 		return 0, false
 	}
-	var filesystemOverhead float64
-	filesystemOverhead = 0
-	if disk.FilesystemOverhead != nil {
-		filesystemOverhead, err = strconv.ParseFloat(string(*disk.FilesystemOverhead), 64)
-		if err != nil {
-			log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
-			return 0, false
-		}
+	if disk.FilesystemOverhead == nil {
+		log.DefaultLogger().Errorf("No filesystem overhead found for disk %v", disk)
+		return 0, false
+	}
+	filesystemOverhead, err := strconv.ParseFloat(string(*disk.FilesystemOverhead), 64)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
+		return 0, false
 	}
 	return int64((1 - filesystemOverhead) * float64(capacity)), true
 }
@@ -1033,8 +1033,8 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 }
 
 func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
-	log.DefaultLogger().Infof("shouldExpandOnline disk %v", disk)
 	if !disk.ExpandDisksEnabled {
+		log.DefaultLogger().V(3).Infof("Not expanding disks, ExpandDisks featuregate disabled")
 		return false
 	}
 	blockInfo, err := dom.GetBlockInfo(getSourceFile(disk), 0)
