@@ -409,6 +409,32 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 	return fmt.Sprintf("%ds", timeout)
 }
 
+func (t *templateService) addPVCToLaunchManifest(volume v1.Volume, claimName string, namespace string, volumeMounts *[]k8sv1.VolumeMount, volumeDevices *[]k8sv1.VolumeDevice) error {
+	logger := log.DefaultLogger()
+	_, exists, isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, claimName)
+	if err != nil {
+		logger.Errorf("error getting PVC: %v", claimName)
+		return err
+	} else if !exists {
+		logger.Errorf("didn't find PVC %v", claimName)
+		return PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", claimName)}
+	} else if isBlock {
+		devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
+		device := k8sv1.VolumeDevice{
+			Name:       volume.Name,
+			DevicePath: devicePath,
+		}
+		*volumeDevices = append(*volumeDevices, device)
+	} else {
+		volumeMount := k8sv1.VolumeMount{
+			Name:      volume.Name,
+			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
+		}
+		*volumeMounts = append(*volumeMounts, volumeMount)
+	}
+	return nil
+}
+
 func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, tempPod bool) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -515,29 +541,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		if hotplugVolumes[volume.Name] {
 			continue
 		}
-		volumeMount := k8sv1.VolumeMount{
-			Name:      volume.Name,
-			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
-		}
 		if volume.PersistentVolumeClaim != nil {
-			logger := log.DefaultLogger()
 			claimName := volume.PersistentVolumeClaim.ClaimName
-			_, exists, isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, claimName)
-			if err != nil {
-				logger.Errorf("error getting PVC: %v", claimName)
+			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
 				return nil, err
-			} else if !exists {
-				logger.Errorf("didn't find PVC %v", claimName)
-				return nil, PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", claimName)}
-			} else if isBlock {
-				devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
-				device := k8sv1.VolumeDevice{
-					Name:       volume.Name,
-					DevicePath: devicePath,
-				}
-				volumeDevices = append(volumeDevices, device)
-			} else {
-				volumeMounts = append(volumeMounts, volumeMount)
 			}
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
@@ -550,7 +557,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			})
 		}
 		if volume.Ephemeral != nil {
-			volumeMounts = append(volumeMounts, volumeMount)
+			claimName := volume.Ephemeral.PersistentVolumeClaim.ClaimName
+			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
+				return nil, err
+			}
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
@@ -588,26 +598,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			})
 		}
 		if volume.DataVolume != nil {
-			logger := log.DefaultLogger()
 			claimName := volume.DataVolume.Name
-			_, exists, isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, claimName)
-			if err != nil {
-				logger.Errorf("error getting PVC associated with DataVolume: %v", claimName)
+			if err := t.addPVCToLaunchManifest(volume, claimName, namespace, &volumeMounts, &volumeDevices); err != nil {
 				return nil, err
-			} else if !exists {
-				logger.Errorf("didn't find PVC associated with DataVolume: %v", claimName)
-				return nil, PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC associated with DataVolume: %v", claimName)}
-			} else if isBlock {
-				devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
-				device := k8sv1.VolumeDevice{
-					Name:       volume.Name,
-					DevicePath: devicePath,
-				}
-				volumeDevices = append(volumeDevices, device)
-			} else {
-				volumeMounts = append(volumeMounts, volumeMount)
 			}
-
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{

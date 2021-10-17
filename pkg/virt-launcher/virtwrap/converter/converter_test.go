@@ -637,13 +637,13 @@ var _ = Describe("Converter", func() {
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/pvc_block_test"></source>
+      <source dev="/dev/pvc_block_test" name="pvc_block_test"></source>
       <target bus="sata" dev="sdg"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/dv_block_test"></source>
+      <source dev="/dev/dv_block_test" name="dv_block_test"></source>
       <target bus="sata" dev="sdh"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
@@ -852,13 +852,13 @@ var _ = Describe("Converter", func() {
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/pvc_block_test"></source>
+      <source dev="/dev/pvc_block_test" name="pvc_block_test"></source>
       <target bus="sata" dev="sdg"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/dv_block_test"></source>
+      <source dev="/dev/dv_block_test" name="dv_block_test"></source>
       <target bus="sata" dev="sdh"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
@@ -1070,13 +1070,13 @@ var _ = Describe("Converter", func() {
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/pvc_block_test"></source>
+      <source dev="/dev/pvc_block_test" name="pvc_block_test"></source>
       <target bus="sata" dev="sdg"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/dv_block_test"></source>
+      <source dev="/dev/dv_block_test" name="dv_block_test"></source>
       <target bus="sata" dev="sdh"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
@@ -1296,13 +1296,13 @@ var _ = Describe("Converter", func() {
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/pvc_block_test"></source>
+      <source dev="/dev/pvc_block_test" name="pvc_block_test"></source>
       <target bus="sata" dev="sdg"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/dv_block_test"></source>
+      <source dev="/dev/dv_block_test" name="dv_block_test"></source>
       <target bus="sata" dev="sdh"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
@@ -1438,6 +1438,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = arch
+			fmt.Println(vmiToDomainXML(vmi, c))
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
 			table.Entry("for amd64", "amd64", convertedDomain),
