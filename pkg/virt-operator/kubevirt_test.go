@@ -2740,6 +2740,9 @@ func injectMetadata(objectMeta *metav1.ObjectMeta, config *util.KubeVirtDeployme
 	objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = "1"
 
 	objectMeta.Labels[v1.AppComponentLabel] = v1.AppComponent
+	if config.GetProductComponent() != "" {
+		objectMeta.Labels[v1.AppComponentLabel] = config.GetProductComponent()
+	}
 }
 
 func shouldExpectHCOConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus, progressing k8sv1.ConditionStatus, degraded k8sv1.ConditionStatus) {

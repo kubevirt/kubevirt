@@ -94,6 +94,10 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	}
 	objectMeta.Labels[v1.AppComponentLabel] = v1.AppComponent
 
+	if kv.Spec.ProductComponent != "" && util.IsValidLabel(kv.Spec.ProductComponent) {
+		objectMeta.Labels[v1.AppComponentLabel] = kv.Spec.ProductComponent
+	}
+
 	objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
 
 	if objectMeta.Annotations == nil {
