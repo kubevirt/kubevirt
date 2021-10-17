@@ -34,6 +34,7 @@ type MasqueradeConfigGenerator struct {
 	vmiSpecIface     *v1.Interface
 	vmiSpecNetwork   *v1.Network
 	podInterfaceName string
+	subdomain        string
 }
 
 func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
@@ -67,6 +68,7 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 		}
 		dhcpConfig.IPv6 = *ipv6
 		dhcpConfig.AdvertisingIPv6Addr = ipv6Gateway.IP.To16()
+		dhcpConfig.Subdomain = d.subdomain
 	}
 
 	return dhcpConfig, nil

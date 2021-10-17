@@ -12,6 +12,7 @@ go_library(
         "//pkg/network/cache:go_default_library",
         "//pkg/network/dhcp/server:go_default_library",
         "//pkg/network/dhcp/serverv6:go_default_library",
+        "//pkg/network/dns:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/util/sysctl:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",

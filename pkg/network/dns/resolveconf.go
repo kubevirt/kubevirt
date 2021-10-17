@@ -83,3 +83,23 @@ func GetDomainName(searchDomains []string) string {
 	}
 	return selected
 }
+
+//DomainNameWithSubdomain returns the DNS domain according subdomain.
+//In case subdomain already exists in the domain, returns empty string, as nothing should be added.
+//In case subdomain is empty, returns empty string, as nothing should be added.
+//The motivation is that glibc prior to 2.26 had 6 domain / 256 bytes limit,
+//Due to this limitation subdomain.namespace.svc.cluster.local DNS was not added by k8s to the pod /etc/resolv.conf.
+//This function calculates the missing domain, which will be added by kubevirt.
+//see https://github.com/kubernetes/kubernetes/issues/48019 for more details.
+func DomainNameWithSubdomain(searchDomains []string, subdomain string) string {
+	if subdomain == "" {
+		return ""
+	}
+
+	domainName := GetDomainName(searchDomains)
+	if !strings.Contains(domainName, subdomain) {
+		return subdomain + "." + domainName
+	}
+
+	return ""
+}
