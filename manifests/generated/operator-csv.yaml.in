@@ -544,6 +544,18 @@ spec:
           verbs:
           - '*'
         - apiGroups:
+          - pool.kubevirt.io
+          resources:
+          - virtualmachinepools
+          verbs:
+          - watch
+          - list
+          - create
+          - delete
+          - update
+          - patch
+          - get
+        - apiGroups:
           - kubevirt.io
           resources:
           - '*'
