@@ -304,7 +304,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			foundVolume := 0
 			for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
 				log.Log.Infof("Volume Status, name: %s, target [%s], phase:%s, reason: %s", volumeStatus.Name, volumeStatus.Target, volumeStatus.Phase, volumeStatus.Reason)
-				if _, ok := nameMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil {
+				if _, ok := nameMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil && volumeStatus.Target != "" {
 					if volumeStatus.Phase == phase {
 						foundVolume++
 					}
@@ -688,6 +688,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					By("Adding volume to running VM")
 					addVolumeFunc(vm.Name, vm.Namespace, volumeName, dv.Name, "scsi")
 					testVolumes = append(testVolumes, volumeName)
+					verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes...)
 				}
 				By("Verifying the volume and disk are in the VM and VMI")
 				if !vmiOnly {
