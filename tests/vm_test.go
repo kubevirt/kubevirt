@@ -842,16 +842,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			table.Entry(
 				"missing PVC",
 				func() *v1.VirtualMachineInstance {
-					vmi := tests.NewRandomVMIWithEphemeralDisk("vmi-with-missing-pvc")
-					return tests.AddPVCDisk(vmi, "disk1", "virtio", "missing-pvc")
+					return tests.NewRandomVMIWithPVC("missing-pvc")
 				},
 				v1.VirtualMachineStatusPvcNotFound,
 			),
 			table.Entry(
 				"missing DataVolume",
 				func() *v1.VirtualMachineInstance {
-					vmi, _ := newVirtualMachineInstanceWithOCSFileDisk()
-					return vmi
+					return tests.NewRandomVMIWithDataVolume("missing-datavolume")
 				},
 				v1.VirtualMachineStatusDataVolumeNotFound,
 			),
