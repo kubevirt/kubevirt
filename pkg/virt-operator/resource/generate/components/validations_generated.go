@@ -1591,8 +1591,7 @@ var CRDsValidation map[string]string = map[string]string{
         productComponent:
           description: Designate the apps.kubevirt.io/component label for KubeVirt
             components. Useful if KubeVirt is included as part of a product. If ProductComponent
-            is not specified, the component label will be omitted. TODO set this label
-            with default value kubevirt.
+            is not specified, the component label default value is kubevirt.
           type: string
         productName:
           description: Designate the apps.kubevirt.io/part-of label for KubeVirt components.

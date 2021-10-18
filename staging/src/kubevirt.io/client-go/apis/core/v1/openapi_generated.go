@@ -21965,7 +21965,7 @@ func schema_client_go_apis_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 					},
 					"productComponent": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Designate the apps.kubevirt.io/component label for KubeVirt components. Useful if KubeVirt is included as part of a product. If ProductComponent is not specified, the component label will be omitted.",
+							Description: "Designate the apps.kubevirt.io/component label for KubeVirt components. Useful if KubeVirt is included as part of a product. If ProductComponent is not specified, the component label default value is kubevirt.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
