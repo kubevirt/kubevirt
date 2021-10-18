@@ -9,6 +9,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	operatorConditionFactory conditions.Factory
+)
+
 // Condition - We just need the Set method in our code.
 type Condition interface {
 	Set(ctx context.Context, status metav1.ConditionStatus, reason, message string) error
@@ -31,7 +35,14 @@ const (
 	UpgradeableAllowMessage = ""
 )
 
-func NewOperatorCondition(clusterInfo ClusterInfo, c client.Client, condType string) (*OperatorCondition, error) {
+var GetFactory = func(cl client.Client) conditions.Factory {
+	if operatorConditionFactory == nil {
+		operatorConditionFactory = conditions.InClusterFactory{Client: cl}
+	}
+	return operatorConditionFactory
+}
+
+func NewOperatorCondition(clusterInfo ClusterInfo, cl client.Client, condType string) (*OperatorCondition, error) {
 	oc := &OperatorCondition{}
 	if clusterInfo.IsRunningLocally() {
 		// Don't try to update OperatorCondition when we don't run in cluster,
@@ -43,7 +54,7 @@ func NewOperatorCondition(clusterInfo ClusterInfo, c client.Client, condType str
 		return oc, nil
 	}
 
-	cond, err := conditions.NewCondition(c, operatorframeworkv2.ConditionType(condType))
+	cond, err := GetFactory(cl).NewCondition(operatorframeworkv2.ConditionType(condType))
 	if err != nil {
 		return nil, err
 	}

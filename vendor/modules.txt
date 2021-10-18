@@ -173,7 +173,7 @@ github.com/operator-framework/api/pkg/lib/version
 github.com/operator-framework/api/pkg/operators
 github.com/operator-framework/api/pkg/operators/v1alpha1
 github.com/operator-framework/api/pkg/operators/v2
-# github.com/operator-framework/operator-lib v0.7.0
+# github.com/operator-framework/operator-lib v0.8.0
 ## explicit; go 1.15
 github.com/operator-framework/operator-lib/conditions
 github.com/operator-framework/operator-lib/handler

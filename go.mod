@@ -19,7 +19,7 @@ require (
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v1.1.0
 	github.com/operator-framework/api v0.10.5
-	github.com/operator-framework/operator-lib v0.7.0
+	github.com/operator-framework/operator-lib v0.8.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.50.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
