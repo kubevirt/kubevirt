@@ -206,7 +206,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 		return fresh, nil
 	})
 	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, rs, selector, virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind, canAdoptFunc)
-	vmis, err = cm.ClaimVirtualMachines(vmis)
+	vmis, err = cm.ClaimVirtualMachineInstances(vmis)
 	if err != nil {
 		return err
 	}
