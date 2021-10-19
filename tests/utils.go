@@ -5161,3 +5161,45 @@ func VerifyVolumeAndDiskVMIAdded(virtClient kubecli.KubevirtClient, vmi *v1.Virt
 		return nil
 	}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
+
+func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
+	dv := NewRandomBlankDataVolume(vm.Namespace, storageClass, "64Mi", k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+	Expect(err).To(BeNil())
+	Eventually(ThisDV(dv), 240).Should(HaveSucceeded())
+	volumeSource := &v1.HotplugVolumeSource{
+		DataVolume: &v1.DataVolumeSource{
+			Name: dv.Name,
+		},
+	}
+	addVolumeName := "test-volume-" + rand.String(12)
+	addVolumeOptions := &v1.AddVolumeOptions{
+		Name: addVolumeName,
+		Disk: &v1.Disk{
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: "scsi",
+				},
+			},
+			Serial: addVolumeName,
+		},
+		VolumeSource: volumeSource,
+	}
+
+	if addVMIOnly {
+		Eventually(func() error {
+			return virtClient.VirtualMachineInstance(vm.Namespace).AddVolume(vm.Name, addVolumeOptions)
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	} else {
+		Eventually(func() error {
+			return virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, addVolumeOptions)
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		VerifyVolumeAndDiskVMAdded(virtClient, vm, addVolumeName)
+	}
+
+	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	VerifyVolumeAndDiskVMIAdded(virtClient, vmi, addVolumeName)
+
+	return addVolumeName
+}

@@ -974,6 +974,37 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
 			})
 
+			It("should restore vm with hot plug disks", func() {
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+					util.NamespaceTestDefault,
+					snapshotStorageClass,
+					corev1.ReadWriteOnce))
+				tests.WaitAgentConnected(virtClient, vmi)
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+
+				By("Add persistent hotplug disk")
+				persistVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				By("Add temporary hotplug disk")
+				tempVolName := tests.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+
+				doRestore("", console.LoginToFedora, true)
+
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(vmi.Spec.Volumes)).To(Equal(2))
+				foundHotPlug := false
+				foundTempHotPlug := false
+				for _, volume := range vmi.Spec.Volumes {
+					if volume.Name == persistVolName {
+						foundHotPlug = true
+					} else if volume.Name == tempVolName {
+						foundTempHotPlug = true
+					}
+				}
+				Expect(foundHotPlug).To(BeTrue())
+				Expect(foundTempHotPlug).To(BeFalse())
+			})
 		})
 	})
 })

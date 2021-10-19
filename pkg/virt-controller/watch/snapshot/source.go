@@ -22,7 +22,6 @@ package snapshot
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -92,16 +91,6 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 			log.Log.V(3).Infof("Vm is offline but %d pods using PVCs %+v", len(pods), pvcNames)
 			return false, nil
 		}
-	} else {
-		valid, err := s.validateVolumes()
-		if err != nil {
-			return false, err
-		}
-
-		if !valid {
-			log.Log.Infof("VMSnapshot is not supported with hotplug disks")
-			return false, nil
-		}
 	}
 
 	if s.vm.Status.SnapshotInProgress != nil && *s.vm.Status.SnapshotInProgress != s.snapshot.Name {
@@ -155,23 +144,6 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 	}
 
 	return true, nil
-}
-
-func (s *vmSnapshotSource) validateVolumes() (bool, error) {
-	vmi, exists, err := s.controller.getVMI(s.vm)
-	if err != nil || !exists {
-		return false, err
-	}
-
-	vmRevision, err := s.getVMRevision()
-	if err != nil {
-		return false, err
-	}
-
-	vmiPVCs := getPVCsFromVolumes(vmi.Spec.Volumes)
-	vmRevisionPVCs := getPVCsFromVolumes(vmRevision.Spec.Template.Spec.Volumes)
-
-	return reflect.DeepEqual(vmiPVCs, vmRevisionPVCs), nil
 }
 
 func (s *vmSnapshotSource) getVMRevision() (*kubevirtv1.VirtualMachine, error) {
@@ -228,6 +200,16 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 			annotations[k] = v
 		}
 		vmCpy.ObjectMeta.Annotations = annotations
+		vmi, exists, err := s.controller.getVMI(s.vm)
+		if err != nil {
+			return snapshotv1.SourceSpec{}, err
+		}
+		if !exists {
+			return snapshotv1.SourceSpec{}, fmt.Errorf("can't get online snapshot spec, vmi doesn't exist")
+		}
+		vmi.Spec.Volumes = s.vm.Spec.Template.Spec.Volumes
+		vmi.Spec.Domain.Devices.Disks = s.vm.Spec.Template.Spec.Domain.Devices.Disks
+		vmCpy.Spec.Template.Spec = vmi.Spec
 	} else {
 		vmCpy = s.vm.DeepCopy()
 		vmCpy.Status = kubevirtv1.VirtualMachineStatus{}
