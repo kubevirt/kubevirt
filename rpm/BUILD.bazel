@@ -889,7 +889,6 @@ rpmtree(
         "@libverto-0__0.3.0-5.el8.x86_64//rpm",
         "@libvirt-daemon-0__7.0.0-14.el8s.x86_64//rpm",
         "@libvirt-daemon-driver-qemu-0__7.0.0-14.el8s.x86_64//rpm",
-        "@libvirt-daemon-kvm-0__7.6.0-4.el8s.x86_64//rpm",
         "@libvirt-libs-0__7.0.0-14.el8s.x86_64//rpm",
         "@libxcrypt-0__4.1.1-6.el8.x86_64//rpm",
         "@libxkbcommon-0__0.9.1-1.el8.x86_64//rpm",

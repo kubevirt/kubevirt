@@ -3321,15 +3321,6 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-kvm-0__7.6.0-4.el8s.x86_64",
-    sha256 = "e2efb18ea44cb09c6bc2dca2dea58a97194efa29adb8f9edf068b2c099c46443",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/virt/x86_64/advancedvirt-common/Packages/l/libvirt-daemon-kvm-7.6.0-4.el8s.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/e2efb18ea44cb09c6bc2dca2dea58a97194efa29adb8f9edf068b2c099c46443",
-    ],
-)
-
-rpm(
     name = "libvirt-devel-0__7.0.0-14.el8s.aarch64",
     sha256 = "9e5181ed299dbcdb014060e1215378db71c7e6f260c88905e09066196e6241bc",
     urls = [
