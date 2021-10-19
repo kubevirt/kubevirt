@@ -247,7 +247,6 @@ bazel run \
     --force-ignore-with-dependencies '^mozjs60' \
     --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
     --force-ignore-with-dependencies '^(man-db|mandoc)' \
-    --force-ignore-with-dependencies '^usbredir' \
     --force-ignore-with-dependencies '^dbus'
 
 # remove all RPMs which are no longer referenced by a rpmtree
