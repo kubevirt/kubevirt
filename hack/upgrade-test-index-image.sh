@@ -262,6 +262,23 @@ else
     echo "The test VM survived the upgrade process."
 fi
 
+Msg "make sure that we don't have outdated VMs"
+
+INFRASTRUCTURETOPOLOGY=$(${CMD} get infrastructure.config.openshift.io cluster -o json | jq -j '.status.infrastructureTopology')
+
+if [[ "${INFRASTRUCTURETOPOLOGY}" == "SingleReplica" ]]; then
+  echo "Skipping the check on SNO clusters"
+else 
+  OUTDATEDVMI=$(${CMD} get vmi -l kubevirt.io/outdatedLauncherImage -A -o json | jq -j '.items | length')
+  if [[ $OUTDATEDVMI -ne 0 ]]; then
+    echo "Not all the running VMs got upgraded"
+    ${CMD} get vmi -l kubevirt.io/outdatedLauncherImage -A
+    exit 1
+  else
+    echo "All the running VMs got upgraded"
+  fi
+fi
+
 ./hack/retry.sh 5 30 "~/virtctl stop testvm -n ${VMS_NAMESPACE}"
 ${CMD} delete vm -n ${VMS_NAMESPACE} testvm
 
