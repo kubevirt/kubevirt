@@ -345,7 +345,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "NoReadyVirtOperator",
-						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
+						Expr:  intstr.FromString("kubevirt_virt_operator_ready_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary":     "No ready virt-operator was detected for the last 5 min.",
