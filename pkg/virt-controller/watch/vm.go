@@ -343,7 +343,7 @@ func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1
 	return dataVolumes, nil
 }
 
-func createDataVolumeManifest(dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) *cdiv1.DataVolume {
+func createDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) (*cdiv1.DataVolume, error) {
 
 	newDataVolume := &cdiv1.DataVolume{}
 
@@ -371,13 +371,31 @@ func createDataVolumeManifest(dataVolumeTemplate *virtv1.DataVolumeTemplateSpec,
 	if newDataVolume.Spec.PriorityClassName == "" && vm.Spec.Template.Spec.PriorityClassName != "" {
 		newDataVolume.Spec.PriorityClassName = vm.Spec.Template.Spec.PriorityClassName
 	}
-	return newDataVolume
+
+	cloneSource, err := typesutil.GetCloneSource(context.TODO(), clientset, vm, &newDataVolume.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	if cloneSource != nil && newDataVolume.Spec.SourceRef != nil {
+		newDataVolume.Spec.SourceRef = nil
+		newDataVolume.Spec.Source = &cdiv1.DataVolumeSource{
+			PVC: &cdiv1.DataVolumeSourcePVC{
+				Namespace: cloneSource.Namespace,
+				Name:      cloneSource.Name,
+			},
+		}
+	}
+	return newDataVolume, nil
 }
 
 func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
-	cloneSource, err := typesutil.GetCloneSource(context.TODO(), c.clientset, vm, &dataVolume.Spec)
-	if cloneSource == nil || err != nil {
-		return err
+	if dataVolume.Spec.SourceRef != nil {
+		return fmt.Errorf("DataVolume sourceRef not supported")
+	}
+
+	if dataVolume.Spec.Source == nil || dataVolume.Spec.Source.PVC == nil {
+		return nil
 	}
 
 	serviceAccount := "default"
@@ -387,7 +405,12 @@ func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume
 		}
 	}
 
-	allowed, reason, err := c.cloneAuthFunc(cloneSource.Namespace, cloneSource.Name, vm.Namespace, serviceAccount)
+	pvcNs := dataVolume.Spec.Source.PVC.Namespace
+	if pvcNs == "" {
+		pvcNs = vm.Namespace
+	}
+
+	allowed, reason, err := c.cloneAuthFunc(pvcNs, dataVolume.Spec.Source.PVC.Name, vm.Namespace, serviceAccount)
 	if err != nil {
 		return err
 	}
@@ -417,7 +440,10 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		if !exists {
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
-			newDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[i], vm)
+			newDataVolume, err := createDataVolumeManifest(c.clientset, &vm.Spec.DataVolumeTemplates[i], vm)
+			if err != nil {
+				return ready, fmt.Errorf("unable to create DataVolume manifest: %v", err)
+			}
 
 			if err = c.authorizeDataVolume(vm, newDataVolume); err != nil {
 				c.recorder.Eventf(vm, k8score.EventTypeWarning, UnauthorizedDataVolumeCreateReason, "Not authorized to create DataVolume %s: %v", newDataVolume.Name, err)

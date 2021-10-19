@@ -64,6 +64,7 @@ var _ = Describe("VirtualMachine", func() {
 		var dataVolumeFeeder *testutils.DataVolumeFeeder
 		var cdiClient *cdifake.Clientset
 		var k8sClient *k8sfake.Clientset
+		var virtClient *kubecli.MockKubevirtClient
 
 		syncCaches := func(stop chan struct{}) {
 			go vmiInformer.Run(stop)
@@ -75,7 +76,7 @@ var _ = Describe("VirtualMachine", func() {
 		BeforeEach(func() {
 			stop = make(chan struct{})
 			ctrl = gomock.NewController(GinkgoT())
-			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 			generatedInterface := fake.NewSimpleClientset()
@@ -276,7 +277,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
-			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume.Namespace = "default"
 			dataVolumeFeeder.Add(existingDataVolume)
 
@@ -484,11 +485,11 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			addVirtualMachine(vm)
 
-			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
 
-			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
@@ -537,11 +538,11 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			addVirtualMachine(vm)
 
-			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
 
-			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
@@ -586,13 +587,13 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			addVirtualMachine(vm)
 
-			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
 			// explicitly delete the annotations field
 			existingDataVolume1.Annotations = nil
 
-			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 			existingDataVolume2.Annotations = nil
@@ -624,7 +625,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
@@ -661,7 +662,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.WaitForFirstConsumer
@@ -697,7 +698,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
@@ -1098,6 +1099,17 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(ga.GetName()).To(Equal(ds.Name))
 						return true, ds, nil
 					})
+
+					cdiClient.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+						ca := action.(testing.CreateAction)
+						dv := ca.GetObject().(*cdiv1.DataVolume)
+						Expect(dv.Spec.SourceRef).To(BeNil())
+						Expect(dv.Spec.Source).ToNot(BeNil())
+						Expect(dv.Spec.Source.PVC).ToNot(BeNil())
+						Expect(dv.Spec.Source.PVC.Namespace).To(Equal(ds.Spec.Source.PVC.Namespace))
+						Expect(dv.Spec.Source.PVC.Name).To(Equal(ds.Spec.Source.PVC.Name))
+						return false, ds, nil
+					})
 				}
 
 				controller.cloneAuthFunc = func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
@@ -1377,7 +1389,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			dv := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 			dv.Status.Phase = cdiv1.Succeeded
 
 			orphanDV := dv.DeepCopy()
@@ -1824,7 +1836,7 @@ var _ = Describe("VirtualMachine", func() {
 				table.DescribeTable("Should set a Provisioning status when DataVolume exists but unready", func(dvPhase cdiv1.DataVolumePhase) {
 					addVirtualMachine(vm)
 
-					dv := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 					dv.Status.Phase = dvPhase
 					dataVolumeFeeder.Add(dv)
 
@@ -1849,7 +1861,7 @@ var _ = Describe("VirtualMachine", func() {
 				table.DescribeTable("Should set a DataVolumeError status when DataVolume reports an error", func(dvFunc func(*cdiv1.DataVolume)) {
 					addVirtualMachine(vm)
 
-					dv := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 					dvFunc(dv)
 					dataVolumeFeeder.Add(dv)
 
@@ -1883,7 +1895,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Status.PrintableStatus = v1.VirtualMachineStatusDataVolumeError
 					addVirtualMachine(vm)
 
-					dv := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 					dv.Status.Phase = cdiv1.CloneInProgress
 					dataVolumeFeeder.Add(dv)
 
@@ -1914,9 +1926,9 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					dv1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+					dv1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 					dv1.Status.Phase = cdiv1.Succeeded
-					dv2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+					dv2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
 					dv2.Status.Phase = cdiv1.ImportInProgress
 
 					dataVolumeFeeder.Add(dv1)
