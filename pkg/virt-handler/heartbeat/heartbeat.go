@@ -64,6 +64,9 @@ func (h *HeartBeat) heartBeat(heartBeatInterval time.Duration, stopCh chan struc
 	h.waitForDevicePlugins(stopCh)
 
 	// from now on periodically update the node status
+	// This sets the heartbeat to:
+	// 1 minute with a 1.2 jitter + the time it takes for the heartbeat function to run (sliding == true).
+	// So the amount of time between heartbeats randomly varies between 1min and 2min12sec + the heartbeat function execution time.
 	wait.JitterUntil(h.do, heartBeatInterval, 1.2, true, stopCh)
 }
 
