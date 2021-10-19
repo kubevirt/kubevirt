@@ -918,6 +918,15 @@ var updateHostsFile = func(entry string) (err error) {
 	return nil
 }
 
+func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Annotations == nil {
+		return false
+	}
+
+	_, shouldBlock := vmi.Annotations[v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation]
+	return shouldBlock
+}
+
 // Prepares the target pod environment by executing the preStartHook
 func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
 
@@ -988,12 +997,12 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
-	dom, err := l.preStartHook(vmi, domain)
+	dom, err := l.preStartHook(vmi, domain, true)
 	if err != nil {
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}
 
-	err = l.generateCloudInitISO(vmi, nil)
+	err = l.generateCloudInitEmptyISO(vmi, nil)
 	if err != nil {
 		return err
 	}
@@ -1009,6 +1018,10 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	loopbackAddress := ip.GetLoopbackAddress()
 	if err := updateHostsFile(fmt.Sprintf("%s %s\n", loopbackAddress, vmi.Status.MigrationState.TargetPod)); err != nil {
 		return fmt.Errorf("failed to update the hosts file: %v", err)
+	}
+
+	if shouldBlockMigrationTargetPreparation(vmi) {
+		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
 	}
 
 	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
@@ -1030,7 +1043,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	return nil
 }
 
-func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain) error {
+func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain, size int64) error {
 	var devicesMetadata []cloudinit.DeviceData
 	// this is the point where we need to build the devices metadata if it was requested.
 	// This metadata maps the user provided tag to the hypervisor assigned device address.
@@ -1051,12 +1064,33 @@ func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstan
 		if devicesMetadata != nil {
 			cloudInitDataStore.DevicesData = &devicesMetadata
 		}
-		err := cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitDataStore)
+		var err error
+		if size != 0 {
+			err = cloudinit.GenerateEmptyIso(vmi.Name, vmi.Namespace, cloudInitDataStore, size)
+		} else {
+			err = cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitDataStore)
+		}
 		if err != nil {
 			return fmt.Errorf("generating local cloud-init data failed: %v", err)
 		}
 	}
 	return nil
+}
+
+func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain) error {
+	return l.generateSomeCloudInitISO(vmi, domPtr, 0)
+}
+
+func (l *LibvirtDomainManager) generateCloudInitEmptyISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain) error {
+	if l.cloudInitDataStore == nil {
+		return nil
+	}
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.Name == l.cloudInitDataStore.VolumeName {
+			return l.generateSomeCloudInitISO(vmi, domPtr, vs.Size)
+		}
+	}
+	return fmt.Errorf("failed to find the status of volume %s", l.cloudInitDataStore.VolumeName)
 }
 
 // All local environment setup that needs to occur before VirtualMachineInstance starts
@@ -1069,8 +1103,7 @@ func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstan
 //
 // The Domain.Spec can be alterned in this function and any changes
 // made to the domain will get set in libvirt after this function exits.
-func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain) (*api.Domain, error) {
-
+func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain, generateEmptyIsos bool) (*api.Domain, error) {
 	logger := log.Log.Object(vmi)
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
@@ -1133,25 +1166,25 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)
 	}
 	// create ConfigMap disks if they exists
-	if err := config.CreateConfigMapDisks(vmi); err != nil {
+	if err := config.CreateConfigMapDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating config map disks failed: %v", err)
 	}
 	// create Secret disks if they exists
-	if err := config.CreateSecretDisks(vmi); err != nil {
+	if err := config.CreateSecretDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating secret disks failed: %v", err)
 	}
 
 	// create Sysprep disks if they exists
-	if err := config.CreateSysprepDisks(vmi); err != nil {
+	if err := config.CreateSysprepDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating sysprep disks failed: %v", err)
 	}
 
 	// create DownwardAPI disks if they exists
-	if err := config.CreateDownwardAPIDisks(vmi); err != nil {
+	if err := config.CreateDownwardAPIDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating DownwardAPI disks failed: %v", err)
 	}
 	// create ServiceAccount disk if exists
-	if err := config.CreateServiceAccountDisk(vmi); err != nil {
+	if err := config.CreateServiceAccountDisk(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating service account disk failed: %v", err)
 	}
 
@@ -1387,7 +1420,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
-			domain, err = l.preStartHook(vmi, domain)
+			domain, err = l.preStartHook(vmi, domain, false)
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err

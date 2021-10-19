@@ -61,7 +61,7 @@ var _ = Describe("ServiceAccount", func() {
 			},
 		})
 
-		err := CreateServiceAccountDisk(vmi)
+		err := CreateServiceAccountDisk(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = os.Stat(filepath.Join(ServiceAccountDiskDir, ServiceAccountDiskName))
 		Expect(err).NotTo(HaveOccurred())
