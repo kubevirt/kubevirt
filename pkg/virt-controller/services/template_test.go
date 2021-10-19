@@ -3056,10 +3056,11 @@ var _ = Describe("Template", func() {
 				Expect(pod).ToNot(BeNil())
 
 				containers := pod.Spec.Containers
-				Expect(containers).Should(HaveLen(2))
+				initContainers := pod.Spec.InitContainers
 
+				Expect(hasContainerWithName(initContainers, "container-disk-binary")).To(BeTrue())
+				Expect(hasContainerWithName(initContainers, "kernel-boot")).To(BeTrue())
 				Expect(hasContainerWithName(containers, "kernel-boot")).To(BeTrue())
-				Expect(hasContainerWithName(pod.Spec.InitContainers, "container-disk-binary")).To(BeTrue())
 			})
 		})
 
