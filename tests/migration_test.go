@@ -1162,14 +1162,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 			})
 
-			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(migrationConfiguration *v1.MigrationConfiguration, mode v1.MigrationMode) {
+			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
+				mode := v1.MigrationPreCopy
 				memoryRequestSize := resource.MustParse(fedoraVMSize)
-				if migrationConfiguration != nil {
-					config := getCurrentKv()
-					config.MigrationConfiguration = migrationConfiguration
-					tests.UpdateKubeVirtConfigValueAndWait(config)
-					memoryRequestSize = resource.MustParse("1Gi")
-				}
 
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
@@ -1195,11 +1190,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
-
-				if migrationConfiguration != nil {
-					By("Running stress test to allow transition to post-copy")
-					runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
-				}
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
@@ -1227,13 +1217,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-			},
-				table.Entry("[test_id:2653] with default migration configuration", nil, v1.MigrationPreCopy),
-				table.Entry("[QUARANTINE][test_id:5004] with postcopy", &v1.MigrationConfiguration{
-					AllowPostCopy:           pointer.BoolPtr(true),
-					CompletionTimeoutPerGiB: pointer.Int64Ptr(1),
-				}, v1.MigrationPostCopy),
-			)
+			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
 				By("Creating the  VMI")
