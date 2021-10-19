@@ -243,11 +243,11 @@ bazel run \
     $libguestfstools_x86_64 \
     --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
     --force-ignore-with-dependencies '^(python[3]{0,1}-|perl[3]{0,1}-)' \
-    --force-ignore-with-dependencies '^(mesa-|libwayland-|selinux-policy|mozjs60)' \
-    --force-ignore-with-dependencies '^(libvirt-daemon-driver-storage|swtpm)' \
+    --force-ignore-with-dependencies '^mozjs60' \
+    --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
     --force-ignore-with-dependencies '^(man-db|mandoc)' \
-    --force-ignore-with-dependencies '^(dbus|glusterfs|libX11|qemu-kvm-block|trousers|usbredir)' \
-    --force-ignore-with-dependencies '^(gstreamer1|kbd|libX)'
+    --force-ignore-with-dependencies '^usbredir' \
+    --force-ignore-with-dependencies '^dbus'
 
 # remove all RPMs which are no longer referenced by a rpmtree
 bazel run \
