@@ -4059,6 +4059,28 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Name of the GPU device as exposed by
                                   a device plugin
                                 type: string
+                              virtualGPUOptions:
+                                properties:
+                                  display:
+                                    properties:
+                                      enabled:
+                                        description: Enabled determines if a display
+                                          addapter backed by a vGPU should be enabled
+                                          or disabled on the guest. Defaults to true.
+                                        type: boolean
+                                      ramFB:
+                                        description: Enables a boot framebuffer, until
+                                          the guest OS loads a real GPU driver Defaults
+                                          to true.
+                                        properties:
+                                          enabled:
+                                            description: Enabled determines if the
+                                              feature should be enabled or disabled
+                                              on the guest. Defaults to true.
+                                            type: boolean
+                                        type: object
+                                    type: object
+                                type: object
                             required:
                             - deviceName
                             - name
@@ -7019,6 +7041,27 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Name of the GPU device as exposed by a device
                           plugin
                         type: string
+                      virtualGPUOptions:
+                        properties:
+                          display:
+                            properties:
+                              enabled:
+                                description: Enabled determines if a display addapter
+                                  backed by a vGPU should be enabled or disabled on
+                                  the guest. Defaults to true.
+                                type: boolean
+                              ramFB:
+                                description: Enables a boot framebuffer, until the
+                                  guest OS loads a real GPU driver Defaults to true.
+                                properties:
+                                  enabled:
+                                    description: Enabled determines if the feature
+                                      should be enabled or disabled on the guest.
+                                      Defaults to true.
+                                    type: boolean
+                                type: object
+                            type: object
+                        type: object
                     required:
                     - deviceName
                     - name
@@ -9020,6 +9063,27 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Name of the GPU device as exposed by a device
                           plugin
                         type: string
+                      virtualGPUOptions:
+                        properties:
+                          display:
+                            properties:
+                              enabled:
+                                description: Enabled determines if a display addapter
+                                  backed by a vGPU should be enabled or disabled on
+                                  the guest. Defaults to true.
+                                type: boolean
+                              ramFB:
+                                description: Enables a boot framebuffer, until the
+                                  guest OS loads a real GPU driver Defaults to true.
+                                properties:
+                                  enabled:
+                                    description: Enabled determines if the feature
+                                      should be enabled or disabled on the guest.
+                                      Defaults to true.
+                                    type: boolean
+                                type: object
+                            type: object
+                        type: object
                     required:
                     - deviceName
                     - name
@@ -10801,6 +10865,28 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Name of the GPU device as exposed by
                                   a device plugin
                                 type: string
+                              virtualGPUOptions:
+                                properties:
+                                  display:
+                                    properties:
+                                      enabled:
+                                        description: Enabled determines if a display
+                                          addapter backed by a vGPU should be enabled
+                                          or disabled on the guest. Defaults to true.
+                                        type: boolean
+                                      ramFB:
+                                        description: Enables a boot framebuffer, until
+                                          the guest OS loads a real GPU driver Defaults
+                                          to true.
+                                        properties:
+                                          enabled:
+                                            description: Enabled determines if the
+                                              feature should be enabled or disabled
+                                              on the guest. Defaults to true.
+                                            type: boolean
+                                        type: object
+                                    type: object
+                                type: object
                             required:
                             - deviceName
                             - name
@@ -14304,6 +14390,31 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: Name of the GPU device as
                                               exposed by a device plugin
                                             type: string
+                                          virtualGPUOptions:
+                                            properties:
+                                              display:
+                                                properties:
+                                                  enabled:
+                                                    description: Enabled determines
+                                                      if a display addapter backed
+                                                      by a vGPU should be enabled
+                                                      or disabled on the guest. Defaults
+                                                      to true.
+                                                    type: boolean
+                                                  ramFB:
+                                                    description: Enables a boot framebuffer,
+                                                      until the guest OS loads a real
+                                                      GPU driver Defaults to true.
+                                                    properties:
+                                                      enabled:
+                                                        description: Enabled determines
+                                                          if the feature should be
+                                                          enabled or disabled on the
+                                                          guest. Defaults to true.
+                                                        type: boolean
+                                                    type: object
+                                                type: object
+                                            type: object
                                         required:
                                         - deviceName
                                         - name

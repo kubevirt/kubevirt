@@ -548,8 +548,28 @@ type FilesystemVirtiofs struct{}
 // +k8s:openapi-gen=true
 type GPU struct {
 	// Name of the GPU device as exposed by a device plugin
-	Name       string `json:"name"`
-	DeviceName string `json:"deviceName"`
+	Name              string       `json:"name"`
+	DeviceName        string       `json:"deviceName"`
+	VirtualGPUOptions *VGPUOptions `json:"virtualGPUOptions,omitempty"`
+}
+
+//
+// +k8s:openapi-gen=true
+type VGPUOptions struct {
+	Display *VGPUDisplayOptions `json:"display,omitempty"`
+}
+
+//
+// +k8s:openapi-gen=true
+type VGPUDisplayOptions struct {
+	// Enabled determines if a display addapter backed by a vGPU should be enabled or disabled on the guest.
+	// Defaults to true.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+	// Enables a boot framebuffer, until the guest OS loads a real GPU driver
+	// Defaults to true.
+	// +optional
+	RamFB *FeatureState `json:"ramFB,omitempty"`
 }
 
 //
