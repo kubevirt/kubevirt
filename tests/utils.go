@@ -224,6 +224,12 @@ const (
 const MigrationWaitTime = 240
 const ContainerCompletionWaitTime = 60
 
+const (
+	waitDiskTemplateError         = "waiting on new disk to appear in template"
+	waitVolumeTemplateError       = "waiting on new volume to appear in template"
+	waitVolumeRequestProcessError = "waiting on all VolumeRequests to be processed"
+)
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -5077,4 +5083,81 @@ func DryRunPatch(client *rest.RESTClient, resource, name, namespace string, pt t
 		Body(data).
 		Do(context.Background()).
 		Into(result)
+}
+
+func VerifyVolumeAndDiskVMAdded(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeNames ...string) {
+	nameMap := make(map[string]bool)
+	for _, volumeName := range volumeNames {
+		nameMap[volumeName] = true
+	}
+	log.Log.Infof("Checking %d volumes", len(volumeNames))
+	Eventually(func() error {
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if len(updatedVM.Status.VolumeRequests) > 0 {
+			return fmt.Errorf(waitVolumeRequestProcessError)
+		}
+
+		foundVolume := 0
+		foundDisk := 0
+
+		for _, volume := range updatedVM.Spec.Template.Spec.Volumes {
+			if _, ok := nameMap[volume.Name]; ok {
+				foundVolume++
+			}
+		}
+		for _, disk := range updatedVM.Spec.Template.Spec.Domain.Devices.Disks {
+			if _, ok := nameMap[disk.Name]; ok {
+				foundDisk++
+			}
+		}
+
+		if foundDisk != len(volumeNames) {
+			return fmt.Errorf(waitDiskTemplateError)
+		}
+		if foundVolume != len(volumeNames) {
+			return fmt.Errorf(waitVolumeTemplateError)
+		}
+
+		return nil
+	}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+}
+
+func VerifyVolumeAndDiskVMIAdded(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, volumeNames ...string) {
+	nameMap := make(map[string]bool)
+	for _, volumeName := range volumeNames {
+		nameMap[volumeName] = true
+	}
+	Eventually(func() error {
+		updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		foundVolume := 0
+		foundDisk := 0
+
+		for _, volume := range updatedVMI.Spec.Volumes {
+			if _, ok := nameMap[volume.Name]; ok {
+				foundVolume++
+			}
+		}
+		for _, disk := range updatedVMI.Spec.Domain.Devices.Disks {
+			if _, ok := nameMap[disk.Name]; ok {
+				foundDisk++
+			}
+		}
+
+		if foundDisk != len(volumeNames) {
+			return fmt.Errorf(waitDiskTemplateError)
+		}
+		if foundVolume != len(volumeNames) {
+			return fmt.Errorf(waitVolumeTemplateError)
+		}
+
+		return nil
+	}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
