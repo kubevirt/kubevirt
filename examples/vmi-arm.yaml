@@ -1,0 +1,37 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: arm
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: arm
+    spec:
+      domain:
+        cpu:
+          cores: 4
+        devices:
+          autoattachGraphicsDevice: true
+          inputs:
+          - type: tablet
+            bus:  virtio
+            name: tablet01
+          - type: keyboard
+            bus: usb
+            name: keyboard01
+          disks:
+          - bootOrder: 1
+            disk:
+              bus: virtio
+            name: cdromiso
+        machine:
+          type: virt
+        resources:
+          requests:
+            memory: 2G
+      volumes:
+      - name: cdromiso
+        persistentVolumeClaim:
+          claimName: iso-arm
