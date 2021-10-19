@@ -7,9 +7,12 @@ go_library(
     visibility = ["//visibility:private"],
 )
 
+load("//tests/conformance:def.bzl", "containertag_x_def")
+
 go_binary(
     name = "conformance",
     testonly = True,
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
+    x_defs = containertag_x_def(),
 )

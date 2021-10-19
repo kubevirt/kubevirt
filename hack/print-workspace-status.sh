@@ -32,7 +32,7 @@ kubevirt::version::get_version_vars
 # Stamped rules will be retriggered by changes to stable-status.txt, but not by
 # changes to volatile-status.txt.
 # IMPORTANT: the camelCase vars should match the lists in hack/version.sh
-# and pkg/version/def.bzl.
+# and staging/src/kubevirt.io/client-go/version/def.bzl.
 cat <<EOF
 STABLE_BUILD_GIT_COMMIT ${KUBEVIRT_GIT_COMMIT-}
 STABLE_BUILD_SCM_STATUS ${KUBEVIRT_GIT_TREE_STATE-}
@@ -44,6 +44,7 @@ gitVersion ${KUBEVIRT_GIT_VERSION-}
 buildDate $(date \
     ${SOURCE_DATE_EPOCH:+"--date=@${SOURCE_DATE_EPOCH}"} \
     -u +'%Y-%m-%dT%H:%M:%SZ')
+containerTag ${DOCKER_TAG-}
 EOF
 
 if [ "${KUBEVIRT_BOOTSTRAPPING:-false}" == "true" ]; then
