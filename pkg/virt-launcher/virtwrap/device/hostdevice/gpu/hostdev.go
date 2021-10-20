@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	AliasPrefix = "gpu-"
+	AliasPrefix      = "gpu-"
+	DefaultDisplayOn = true
 )
 
 func CreateHostDevices(vmiGPUs []v1.GPU) ([]api.HostDevice, error) {
@@ -44,7 +45,7 @@ func CreateHostDevicesFromPools(vmiGPUs []v1.GPU, pciAddressPool, mdevAddressPoo
 	if err != nil {
 		return nil, fmt.Errorf("failed to creade GPU host-devices: %v", err)
 	}
-	mdevHostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, mdevPool)
+	mdevHostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, mdevPool, DefaultDisplayOn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to creade GPU host-devices: %v", err)
 	}
@@ -62,9 +63,10 @@ func createHostDevicesMetadata(vmiGPUs []v1.GPU) []hostdevice.HostDeviceMetaData
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
 	for _, dev := range vmiGPUs {
 		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
-			AliasPrefix:  AliasPrefix,
-			Name:         dev.Name,
-			ResourceName: dev.DeviceName,
+			AliasPrefix:       AliasPrefix,
+			Name:              dev.Name,
+			ResourceName:      dev.DeviceName,
+			VirtualGPUOptions: dev.VirtualGPUOptions,
 		})
 	}
 	return hostDevicesMetaData
