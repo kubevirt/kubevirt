@@ -20,9 +20,7 @@
 package storage
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -42,6 +40,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -585,6 +584,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			var cloneRole *rbacv1.Role
 			var cloneRoleBinding *rbacv1.RoleBinding
 			var storageClass string
+			var vm *v1.VirtualMachine
 
 			BeforeEach(func() {
 				var exists bool
@@ -597,6 +597,20 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisDV(dataVolume), 90).Should(HaveSucceeded())
+
+				vm = tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, util.NamespaceTestDefault)
+				const volumeName = "sa"
+				saVol := v1.Volume{
+					Name: volumeName,
+					VolumeSource: v1.VolumeSource{
+						ServiceAccount: &v1.ServiceAccountVolumeSource{
+							ServiceAccountName: tests.AdminServiceAccountName,
+						},
+					},
+				}
+				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = pointer.StringPtr(storageClass)
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, saVol)
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{Name: volumeName})
 			})
 
 			AfterEach(func() {
@@ -616,32 +630,72 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 			})
 
-			table.DescribeTable("[rook-ceph] deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
-				vm := tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, util.NamespaceTestDefault)
-				const volumeName = "sa"
-				saVol := v1.Volume{
-					Name: volumeName,
-					VolumeSource: v1.VolumeSource{
-						ServiceAccount: &v1.ServiceAccountVolumeSource{
-							ServiceAccountName: tests.AdminServiceAccountName,
+			createVmSuccess := func() {
+				// sometimes it takes a bit for permission to actually be applied so eventually
+				Eventually(func() bool {
+					_, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+					if err != nil {
+						fmt.Printf("command should have succeeded maybe new permissions not applied yet\nerror\n%s\n", err)
+						return false
+					}
+					return true
+				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+
+				createdVirtualMachine = vm
+
+				// wait for clone to complete
+				targetDVName := vm.Spec.DataVolumeTemplates[0].Name
+				Eventually(ThisDVWith(createdVirtualMachine.Namespace, targetDVName), 90).Should(HaveSucceeded())
+			}
+
+			It("should resolve DataVolume sourceRef", func() {
+				// convert DV to use datasource
+				dvt := &vm.Spec.DataVolumeTemplates[0]
+				ds := &cdiv1.DataSource{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ds-" + rand.String(12),
+					},
+					Spec: cdiv1.DataSourceSpec{
+						Source: cdiv1.DataSourceSource{
+							PVC: dvt.Spec.Source.PVC,
 						},
 					},
 				}
-				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = pointer.StringPtr(storageClass)
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, saVol)
-				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{Name: volumeName})
-
-				vmBytes, err := json.Marshal(vm)
+				ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(context.TODO(), ds, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				byteReader := bytes.NewReader(vmBytes)
 
-				// this should fail because don't have permission
-				stdOut, stdErr, err := tests.RunCommandWithNSAndInput(vm.Namespace, byteReader, "kubectl", "create", "-f", "-")
-				if err == nil {
-					fmt.Printf("command should have failed\nstdOut\n%s\nstdErr\n%s\n", stdOut, stdErr)
-					Expect(err).To(HaveOccurred())
+				defer func() {
+					err := virtClient.CdiClient().CdiV1beta1().DataSources(ds.Namespace).Delete(context.TODO(), ds.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}()
+
+				dvt.Spec.Source = nil
+				dvt.Spec.SourceRef = &cdiv1.DataVolumeSourceRef{
+					Kind: "DataSource",
+					Name: ds.Name,
 				}
-				Expect(stdErr).Should(ContainSubstring("Authorization failed, message is:"))
+
+				cloneRole, cloneRoleBinding = addClonePermission(
+					virtClient,
+					explicitCloneRole,
+					tests.AdminServiceAccountName,
+					util.NamespaceTestDefault,
+					tests.NamespaceTestAlternative,
+				)
+
+				createVmSuccess()
+
+				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.TODO(), dvt.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(dv.Spec.SourceRef).To(BeNil())
+				Expect(dv.Spec.Source.PVC.Namespace).To(Equal(ds.Spec.Source.PVC.Namespace))
+				Expect(dv.Spec.Source.PVC.Name).To(Equal(ds.Spec.Source.PVC.Name))
+			})
+
+			table.DescribeTable("[rook-ceph] deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
+				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("Authorization failed, message is:"))
 
 				saName := tests.AdminServiceAccountName
 				saNamespace := util.NamespaceTestDefault
@@ -656,22 +710,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// add permission
 				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, tests.NamespaceTestAlternative)
 
-				// sometimes it takes a bit for permission to actually be applied so eventually
-				Eventually(func() bool {
-					byteReader = bytes.NewReader(vmBytes)
-					stdOut, stdErr, err = tests.RunCommandWithNSAndInput(vm.Namespace, byteReader, "kubectl", "create", "-f", "-")
-					if err != nil {
-						fmt.Printf("command should have succeeded maybe new permissions not applied yet\nstdOut\n%s\nstdErr\n%s\n", stdOut, stdErr)
-						return false
-					}
-					return true
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
-
-				createdVirtualMachine = vm
-
-				// wait for clone to complete
-				targetDVName := vm.Spec.DataVolumeTemplates[0].Name
-				Eventually(ThisDVWith(createdVirtualMachine.Namespace, targetDVName), 90).Should(HaveSucceeded())
+				createVmSuccess()
 
 				// start/stop vm
 				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
