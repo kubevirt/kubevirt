@@ -30,49 +30,53 @@ func WaitForJobToFail(job *batchv1.Job, timeout time.Duration) error {
 	return waitForJob(job, toFail, timeout)
 }
 
+func jobFailedError(job *batchv1.Job, toSucceed bool) error {
+	if toSucceed {
+		return fmt.Errorf("Job %s finished with failure, status: %+v", job.Name, job.Status)
+	}
+
+	return nil
+}
+
+func jobCompleteError(job *batchv1.Job, toSucceed bool) error {
+	if toSucceed {
+		return nil
+	}
+
+	return fmt.Errorf("Job %s finished with success, status: %+v", job.Name, job.Status)
+}
+
 func waitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return err
 	}
 
-	jobFailedError := func(job *batchv1.Job) error {
-		if toSucceed {
-			return fmt.Errorf("Job %s finished with failure, status: %+v", job.Name, job.Status)
-		}
-		return nil
-	}
-	jobCompleteError := func(job *batchv1.Job) error {
-		if toSucceed {
-			return nil
-		}
-		return fmt.Errorf("Job %s finished with success, status: %+v", job.Name, job.Status)
-	}
-
 	const finish = true
+
 	err = wait.PollImmediate(time.Second, timeout, func() (bool, error) {
 		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
 		if err != nil {
 			return finish, err
 		}
+
 		for _, c := range job.Status.Conditions {
-			switch c.Type {
-			case batchv1.JobComplete:
-				if c.Status == k8sv1.ConditionTrue {
-					return finish, jobCompleteError(job)
-				}
-			case batchv1.JobFailed:
-				if c.Status == k8sv1.ConditionTrue {
-					return finish, jobFailedError(job)
-				}
+			if c.Type == batchv1.JobComplete {
+				return finish, jobCompleteError(job, toSucceed)
+			}
+
+			if c.Type == batchv1.JobFailed {
+				return finish, jobFailedError(job, toSucceed)
 			}
 		}
+
 		return !finish, nil
 	})
 
 	if err != nil {
 		return fmt.Errorf("Job %s timeout reached, status: %+v, err: %v", job.Name, job.Status, err)
 	}
+
 	return nil
 }
 
