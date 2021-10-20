@@ -49,7 +49,7 @@ func main() {
 	unfreeze := pflag.Bool("unfreeze", false, "Freeze VM")
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
-	unfreezeTimeout := pflag.String("unfreezeTimeout", "5m", "Timeout to automatically unfreeze the VirtualMachineInstance")
+	unfreezeTimeoutSeconds := pflag.Int32("unfreezeTimeoutSeconds", 300, "Timeout in seconds to automatically unfreeze the VirtualMachineInstance")
 
 	pflag.Parse()
 
@@ -76,7 +76,7 @@ func main() {
 	}
 
 	if *freeze {
-		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeout)
+		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
 		if err != nil {
 			log.Log.Reason(err).Error("Freezeing VMI failed")
 			os.Exit(1)

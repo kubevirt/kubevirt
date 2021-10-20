@@ -41,7 +41,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	v1 "kubevirt.io/client-go/apis/core/v1"
 	v12 "kubevirt.io/client-go/apis/core/v1"
 
 	"kubevirt.io/client-go/log"
@@ -238,8 +237,10 @@ func (v *vmis) Freeze(name string, unfreezeTimeout time.Duration) error {
 	log.Log.Infof("Freeze VMI %s", name)
 	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "freeze")
 
-	freezeUnfreezeTimeout := &v1.FreezeUnfreezeTimeout{
-		UnfreezeTimeout: unfreezeTimeout.String(),
+	freezeUnfreezeTimeout := &v12.FreezeUnfreezeTimeout{
+		UnfreezeTimeout: &metav1.Duration{
+			Duration: unfreezeTimeout,
+		},
 	}
 
 	JSON, err := json.Marshal(freezeUnfreezeTimeout)

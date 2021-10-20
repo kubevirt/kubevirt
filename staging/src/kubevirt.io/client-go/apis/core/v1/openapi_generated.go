@@ -20806,14 +20806,15 @@ func schema_client_go_apis_core_v1_FreezeUnfreezeTimeout(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"unfreezeTimeout": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 				},
 				Required: []string{"unfreezeTimeout"},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 
