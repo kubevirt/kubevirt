@@ -42,6 +42,9 @@ func execute() error {
 	} else {
 		args = append(args, "--ginkgo.focus", "\\[Conformance\\]")
 	}
+	if value, exists := os.LookupEnv("CONTAINER_PREFIX"); exists {
+		args = append(args, "--container-prefix", value)
+	}
 	if value, exists := os.LookupEnv("CONTAINER_TAG"); exists {
 		args = append(args, "--container-tag", value)
 	}
