@@ -491,6 +491,7 @@ type Devices struct {
 	// +optional
 	// +listType=atomic
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
+	Sounds      []Sound      `json:"sounds,omitempty"`
 	//Whether to attach a host device to the vmi.
 	// +optional
 	// +listType=atomic
@@ -510,6 +511,12 @@ type Devices struct {
 //
 // +k8s:openapi-gen=true
 type ClientPassthroughDevices struct {
+}
+
+// +k8s:openapi-gen=true
+type Sound struct {
+	Model string `json:"model"`
+	CodecType string `json:"type"`
 }
 
 // Represents the upper limit allowed by QEMU + KubeVirt.

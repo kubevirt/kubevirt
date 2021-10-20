@@ -11422,6 +11422,13 @@
        "$ref": "#/definitions/v1.Disk"
       }
      },
+     "sounds": {
+      "description": "Sounds.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Sound"
+      }
+     },
      "filesystems": {
       "description": "Filesystems describes filesystem which is connected to the vmi.",
       "type": "array",
@@ -11430,6 +11437,19 @@
       },
       "x-kubernetes-list-type": "atomic"
      },
+    "v1.Sound": {
+    "type": "object",
+    "properties": {
+     "model": {
+      "description": "Supported values: ac97.",
+      "type": "string"
+     },
+     "type": {
+      "description": "For example: micro",
+      "type": "string"
+      }
+     }
+    },
      "gpus": {
       "description": "Whether to attach a GPU device to the vmi.",
       "type": "array",

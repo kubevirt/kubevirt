@@ -453,6 +453,7 @@ type Devices struct {
 	Watchdog    *Watchdog          `xml:"watchdog,omitempty"`
 	Rng         *Rng               `xml:"rng,omitempty"`
 	Filesystems []FilesystemDevice `xml:"filesystem,omitempty"`
+	Sounds      []Sound            `xml:"sound"`
 	Redirs      []RedirectedDevice `xml:"redirdev,omitempty"`
 }
 
@@ -476,6 +477,15 @@ type FilesystemDevice struct {
 	Target     *FilesystemTarget `xml:"target,omitempty"`
 	Driver     *FilesystemDriver `xml:"driver,omitempty"`
 	Binary     *FilesystemBinary `xml:"binary,omitempty"`
+}
+
+type Sound struct {
+	Model string `xml:"model,attr"`
+	Codec Codec  `xml:"codec,omitempty"`
+}
+
+type Codec struct {
+	Type string `xml:"type,attr"`
 }
 
 type FilesystemTarget struct {
