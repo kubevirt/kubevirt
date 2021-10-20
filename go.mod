@@ -76,7 +76,7 @@ require (
 	kubevirt.io/containerized-data-importer v1.36.0
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.0
 	kubevirt.io/qe-tools v0.1.6
-	libvirt.org/go/libvirt v1.7005.0
+	libvirt.org/go/libvirt v1.7005.1
 	mvdan.cc/sh/v3 v3.1.1
 	sigs.k8s.io/yaml v1.2.0
 )
