@@ -461,7 +461,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							"prometheus.kubevirt.io": "",
+							"prometheus.kubevirt.io": "true",
 						},
 						Ports: []corev1.ServicePort{
 							{
@@ -490,7 +490,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							"prometheus.kubevirt.io": "",
+							"prometheus.kubevirt.io": "true",
 						},
 						Ports: []corev1.ServicePort{
 							{
