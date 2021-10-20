@@ -82,6 +82,15 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.PersistentVolumeClaim = nil
 		}
+		if volumeSource.DataVolume != nil && volumeSource.DataVolume.Name != "" {
+			if shouldSkipVolumeSource(passthoughFSVolumes, hotplugVolumes, pvcVolume, volume.Name) {
+				continue
+			}
+
+			replaceForHostDisk(volumeSource, volume.Name, pvcVolume)
+			// PersistenVolumeClaim is replaced by HostDisk
+			volumeSource.DataVolume = nil
+		}
 	}
 	return nil
 }
