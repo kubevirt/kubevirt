@@ -90,43 +90,43 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 	var vmYamls []vmYamlDefinition
 
 	var (
-		copyOriginalCDI                   func() *cdiv1.CDI
-		copyOriginalKv                    func() *v1.KubeVirt
-		createKv                          func(*v1.KubeVirt)
-		createCdi                         func()
-		sanityCheckDeploymentsExistWithNS func(string)
-		sanityCheckDeploymentsExist       func()
-		sanityCheckDeploymentsDeleted     func()
-		allPodsAreReady                   func(*v1.KubeVirt)
-		allPodsAreTerminated              func(*v1.KubeVirt)
-		waitForUpdateCondition            func(*v1.KubeVirt)
-		waitForKvWithTimeout              func(*v1.KubeVirt, int)
-		waitForKv                         func(*v1.KubeVirt)
-		patchKvProductNameAndVersion      func(string, string, string)
-		patchKvVersionAndRegistry         func(string, string, string)
-		patchKvVersion                    func(string, string)
-		patchKvNodePlacement              func(string, string, string, *v1.ComponentConfig)
-		patchKvNodePlacementExpectError   func(string, string, string, *v1.ComponentConfig, string)
-		patchKvInfra                      func(*v1.ComponentConfig, bool, string)
-		patchKvWorkloads                  func(*v1.ComponentConfig, bool, string)
-		patchKvCertConfig                 func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
-		patchKvCertConfigExpectError      func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
-		parseDaemonset                    func(string) (*v12.DaemonSet, string, string, string, string)
-		parseImage                        func(string, string) (string, string, string)
-		parseDeployment                   func(string) (*v12.Deployment, string, string, string, string)
-		parseOperatorImage                func() (*v12.Deployment, string, string, string, string)
-		patchOperator                     func(*string, *string) bool
-		deleteAllKvAndWait                func(bool)
-		usesSha                           func(string) bool
-		ensureShasums                     func()
-		getVirtLauncherSha                func() string
-		generatePreviousVersionVmYamls    func(string, string)
-		generateMigratableVMIs            func(int) []*v1.VirtualMachineInstance
-		generateNonMigratableVMIs         func(int) []*v1.VirtualMachineInstance
-		startAllVMIs                      func([]*v1.VirtualMachineInstance)
-		deleteAllVMIs                     func([]*v1.VirtualMachineInstance)
-		verifyVMIsUpdated                 func([]*v1.VirtualMachineInstance, string)
-		verifyVMIsEvicted                 func([]*v1.VirtualMachineInstance)
+		copyOriginalCDI                          func() *cdiv1.CDI
+		copyOriginalKv                           func() *v1.KubeVirt
+		createKv                                 func(*v1.KubeVirt)
+		createCdi                                func()
+		sanityCheckDeploymentsExistWithNS        func(string)
+		sanityCheckDeploymentsExist              func()
+		sanityCheckDeploymentsDeleted            func()
+		allPodsAreReady                          func(*v1.KubeVirt)
+		allPodsAreTerminated                     func(*v1.KubeVirt)
+		waitForUpdateCondition                   func(*v1.KubeVirt)
+		waitForKvWithTimeout                     func(*v1.KubeVirt, int)
+		waitForKv                                func(*v1.KubeVirt)
+		patchKvProductNameAndVersionAndComponent func(string, string, string, string)
+		patchKvVersionAndRegistry                func(string, string, string)
+		patchKvVersion                           func(string, string)
+		patchKvNodePlacement                     func(string, string, string, *v1.ComponentConfig)
+		patchKvNodePlacementExpectError          func(string, string, string, *v1.ComponentConfig, string)
+		patchKvInfra                             func(*v1.ComponentConfig, bool, string)
+		patchKvWorkloads                         func(*v1.ComponentConfig, bool, string)
+		patchKvCertConfig                        func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
+		patchKvCertConfigExpectError             func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
+		parseDaemonset                           func(string) (*v12.DaemonSet, string, string, string, string)
+		parseImage                               func(string, string) (string, string, string)
+		parseDeployment                          func(string) (*v12.Deployment, string, string, string, string)
+		parseOperatorImage                       func() (*v12.Deployment, string, string, string, string)
+		patchOperator                            func(*string, *string) bool
+		deleteAllKvAndWait                       func(bool)
+		usesSha                                  func(string) bool
+		ensureShasums                            func()
+		getVirtLauncherSha                       func() string
+		generatePreviousVersionVmYamls           func(string, string)
+		generateMigratableVMIs                   func(int) []*v1.VirtualMachineInstance
+		generateNonMigratableVMIs                func(int) []*v1.VirtualMachineInstance
+		startAllVMIs                             func([]*v1.VirtualMachineInstance)
+		deleteAllVMIs                            func([]*v1.VirtualMachineInstance)
+		verifyVMIsUpdated                        func([]*v1.VirtualMachineInstance, string)
+		verifyVMIsEvicted                        func([]*v1.VirtualMachineInstance)
 	)
 
 	tests.BeforeAll(func() {
@@ -356,8 +356,11 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			waitForKvWithTimeout(newKv, 300)
 		}
 
-		patchKvProductNameAndVersion = func(name, productName string, productVersion string) {
-			data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/productName", "value": "%s"},{ "op": "replace", "path": "/spec/productVersion", "value": "%s"}]`, productName, productVersion))
+		patchKvProductNameAndVersionAndComponent = func(name, productName string, productVersion string, productComponent string) {
+			format := `[{ "op": "replace", "path": "/spec/productName", "value": "%s"}
+					,{ "op": "replace","path": "/spec/productVersion", "value": "%s"}
+					,{ "op": "replace", "path": "/spec/productComponent", "value": "%s"}]`
+			data := []byte(fmt.Sprintf(format, productName, productVersion, productComponent))
 			Eventually(func() error {
 				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
 
@@ -1841,20 +1844,21 @@ spec:
 		It("[test_id:5010]should be able to update product related labels of kubevirt install", func() {
 			productName := "kubevirt-test"
 			productVersion := "0.0.0"
+			productComponent := "kubevirt-component"
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			kv := copyOriginalKv()
 
-			By("Patching kubevirt resource with productName and productVersion")
-			patchKvProductNameAndVersion(kv.Name, productName, productVersion)
+			By("Patching kubevirt resource with productName , productVersion  and productComponent")
+			patchKvProductNameAndVersionAndComponent(kv.Name, productName, productVersion, productComponent)
 
 			for _, deployment := range []string{"virt-api", "virt-controller"} {
 				By(fmt.Sprintf("Ensuring that the %s deployment is updated", deployment))
 				Eventually(func() bool {
 					dep, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deployment, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return dep.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dep.ObjectMeta.Labels[v1.AppPartOfLabel] == productName
+					return dep.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dep.ObjectMeta.Labels[v1.AppPartOfLabel] == productName && dep.ObjectMeta.Labels[v1.AppComponentLabel] == productComponent
 				}, 240*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("Expected labels to be updated for %s deployment", deployment))
 			}
 
@@ -1862,7 +1866,7 @@ spec:
 			Eventually(func() bool {
 				dms, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return dms.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dms.ObjectMeta.Labels[v1.AppPartOfLabel] == productName
+				return dms.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dms.ObjectMeta.Labels[v1.AppPartOfLabel] == productName && dms.ObjectMeta.Labels[v1.AppComponentLabel] == productComponent
 			}, 240*time.Second, 1*time.Second).Should(BeTrue(), "Expected labels to be updated for virt-handler daemonset")
 
 			By("Deleting KubeVirt object")

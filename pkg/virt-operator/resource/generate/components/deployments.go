@@ -234,8 +234,8 @@ func newBaseDeployment(deploymentName string, imageName string, namespace string
 		deployment.ObjectMeta.Labels[virtv1.AppPartOfLabel] = productName
 	}
 
-	if productVersion != "" {
-		podTemplateSpec.ObjectMeta.Labels[virtv1.AppVersionLabel] = productVersion
+	if productComponent != "" {
+		podTemplateSpec.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
 	}
 
 	return deployment, nil

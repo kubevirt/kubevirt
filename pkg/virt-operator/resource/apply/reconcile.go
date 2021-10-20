@@ -472,6 +472,9 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 	if !util.IsValidLabel(r.kv.Spec.ProductName) {
 		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
 	}
+	if !util.IsValidLabel(r.kv.Spec.ProductComponent) {
+		log.Log.Errorf("invalid kubevirt.spec.productComponent: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
+	}
 
 	targetVersion := r.kv.Status.TargetKubeVirtVersion
 	targetImageRegistry := r.kv.Status.TargetKubeVirtRegistry
