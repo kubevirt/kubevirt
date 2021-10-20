@@ -256,7 +256,7 @@ func (c *VMController) execute(key string) error {
 	} else {
 		vmi = vmiObj.(*virtv1.VirtualMachineInstance)
 
-		vmi, err = cm.ClaimVirtualMachineByName(vmi)
+		vmi, err = cm.ClaimVirtualMachineInstanceByName(vmi)
 		if err != nil {
 			return err
 		}
