@@ -13,7 +13,7 @@ export KUBECONFIG=$(./cluster-up/kubeconfig.sh)
 
 sonobuoy_args="--wait --plugin _out/manifests/release/conformance.yaml"
 
-if [[ ! -z "DOCKER_TAG" ]]; then
+if [[ ! -z "$DOCKER_TAG" ]]; then
     sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.CONTAINER_TAG=${DOCKER_TAG}"
 fi
 
