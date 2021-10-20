@@ -231,7 +231,7 @@ func (l *Launcher) FreezeVirtualMachine(_ context.Context, request *cmdv1.Freeze
 		return response, nil
 	}
 
-	if err := l.domainManager.FreezeVMI(vmi, request.UnfreezeTimeout); err != nil {
+	if err := l.domainManager.FreezeVMI(vmi, request.UnfreezeTimeoutSeconds); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to freeze vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)

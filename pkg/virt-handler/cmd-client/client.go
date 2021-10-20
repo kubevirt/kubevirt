@@ -80,7 +80,7 @@ type LauncherClient interface {
 	SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	PauseVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	UnpauseVirtualMachine(vmi *v1.VirtualMachineInstance) error
-	FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeout string) error
+	FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error
 	UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error
@@ -418,7 +418,7 @@ func (c *VirtLauncherClient) UnpauseVirtualMachine(vmi *v1.VirtualMachineInstanc
 	return c.genericSendVMICmd("Unpause", c.v1client.UnpauseVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
-func (c *VirtLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeout string) error {
+func (c *VirtLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
 	vmiJson, err := json.Marshal(vmi)
 	if err != nil {
 		return err
@@ -428,7 +428,7 @@ func (c *VirtLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance
 		Vmi: &cmdv1.VMI{
 			VmiJson: vmiJson,
 		},
-		UnfreezeTimeout: unfreezeTimeout,
+		UnfreezeTimeoutSeconds: unfreezeTimeoutSeconds,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)

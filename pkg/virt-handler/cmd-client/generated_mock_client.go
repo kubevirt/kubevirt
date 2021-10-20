@@ -63,8 +63,8 @@ func (_mr *_MockLauncherClientRecorder) UnpauseVirtualMachine(arg0 interface{}) 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVirtualMachine", arg0)
 }
 
-func (_m *MockLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeout string) error {
-	ret := _m.ctrl.Call(_m, "FreezeVirtualMachine", vmi, unfreezeTimeout)
+func (_m *MockLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
+	ret := _m.ctrl.Call(_m, "FreezeVirtualMachine", vmi, unfreezeTimeoutSeconds)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

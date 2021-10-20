@@ -88,7 +88,7 @@ type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
 	PauseVMI(*v1.VirtualMachineInstance) error
 	UnpauseVMI(*v1.VirtualMachineInstance) error
-	FreezeVMI(*v1.VirtualMachineInstance, string) error
+	FreezeVMI(*v1.VirtualMachineInstance, int32) error
 	UnfreezeVMI(*v1.VirtualMachineInstance) error
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
@@ -1055,13 +1055,9 @@ func (l *LibvirtDomainManager) cancelSafetyUnfreeze() {
 	}
 }
 
-func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeout string) error {
+func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
 	domainName := api.VMINamespaceKeyFunc(vmi)
-	safetyUnfreezeTimeout, err := time.ParseDuration(unfreezeTimeout)
-	if err != nil {
-		log.Log.Errorf("Failed to get unfreezeTimeout to freeze vmi, %s", err.Error())
-		return err
-	}
+	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
 
 	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, domainName)
 	if err != nil {

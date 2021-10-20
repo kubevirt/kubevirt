@@ -153,5 +153,5 @@ message GuestPingResponse {
 
 message FreezeRequest {
   VMI vmi = 1;
-  string unfreezeTimeout = 2;
+  int32 unfreezeTimeoutSeconds = 2;
 }

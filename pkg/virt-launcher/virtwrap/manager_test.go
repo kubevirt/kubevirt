@@ -289,7 +289,7 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
-			err := manager.FreezeVMI(vmi, "0")
+			err := manager.FreezeVMI(vmi, 0)
 			Expect(err).To(BeNil())
 		})
 		It("should unfreeze a VirtualMachineInstance", func() {
@@ -311,7 +311,7 @@ var _ = Describe("Manager", func() {
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
 			var unfreezeTimeout time.Duration = 3 * time.Second
-			err := manager.FreezeVMI(vmi, unfreezeTimeout.String())
+			err := manager.FreezeVMI(vmi, int32(unfreezeTimeout.Seconds()))
 			Expect(err).To(BeNil())
 			// wait for the unfreeze timeout
 			time.Sleep(unfreezeTimeout + 2*time.Second)
@@ -327,7 +327,7 @@ var _ = Describe("Manager", func() {
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock)
 
 			var unfreezeTimeout time.Duration = 3 * time.Second
-			err := manager.FreezeVMI(vmi, unfreezeTimeout.String())
+			err := manager.FreezeVMI(vmi, int32(unfreezeTimeout.Seconds()))
 			Expect(err).To(BeNil())
 			time.Sleep(time.Second)
 			err = manager.UnfreezeVMI(vmi)

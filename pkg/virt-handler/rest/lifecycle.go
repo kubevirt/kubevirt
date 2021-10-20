@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v12 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
@@ -109,7 +109,7 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 		return
 	}
 
-	unfreezeTimeout := &v1.FreezeUnfreezeTimeout{}
+	unfreezeTimeout := &v12.FreezeUnfreezeTimeout{}
 	if request.Request.Body == nil {
 		log.Log.Object(vmi).Reason(err).Error("No unfreeze timeout in freeze request")
 		response.WriteError(code, fmt.Errorf("failed to retrieve unfreeze timeout"))
@@ -127,6 +127,12 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 		return
 	}
 
+	if unfreezeTimeout.UnfreezeTimeout == nil {
+		log.Log.Object(vmi).Reason(err).Error("Unfreeze timeout in freeze request is not set")
+		response.WriteError(code, fmt.Errorf("Unfreeze timeout in freeze request is not set"))
+		return
+	}
+
 	sockFile, err := cmdclient.FindSocketOnHost(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
@@ -138,7 +144,8 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 		response.WriteError(http.StatusInternalServerError, err)
 	}
 
-	err = client.FreezeVirtualMachine(vmi, unfreezeTimeout.UnfreezeTimeout)
+	unfreezeTimeoutSeconds := int32(unfreezeTimeout.UnfreezeTimeout.Seconds())
+	err = client.FreezeVirtualMachine(vmi, unfreezeTimeoutSeconds)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to freeze VMI")
 		response.WriteError(http.StatusBadRequest, err)
