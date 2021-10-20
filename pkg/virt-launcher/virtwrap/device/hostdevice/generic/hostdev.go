@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	AliasPrefix = "hostdevice-"
+	AliasPrefix       = "hostdevice-"
+	DefaultDisplayOff = false
 )
 
 func CreateHostDevices(vmiHostDevices []v1.HostDevice) ([]api.HostDevice, error) {
@@ -44,7 +45,7 @@ func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to creade generic host-devices: %v", err)
 	}
-	mdevHostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, mdevPool)
+	mdevHostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, mdevPool, DefaultDisplayOff)
 	if err != nil {
 		return nil, fmt.Errorf("failed to creade generic host-devices: %v", err)
 	}
