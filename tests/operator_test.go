@@ -1223,9 +1223,16 @@ spec:
 				},
 
 				func() runtime.Object {
-					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vc
+					var ds *v12.DaemonSet
+
+					// wait for virt-handler readiness
+					Eventually(func() bool {
+						var err error
+						ds, err = virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady && ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable.IntValue() == 1
+					}, 60*time.Second, 1*time.Second).Should(BeTrue(), "waiting for daemonSet to be ready")
+					return ds
 				},
 
 				func() bool {

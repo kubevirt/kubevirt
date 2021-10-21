@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/record"
 
 	secv1 "github.com/openshift/api/security/v1"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
@@ -259,6 +260,7 @@ var _ = Describe("Apply Apps", func() {
 				kv:           kv,
 				expectations: expectations,
 				stores:       stores,
+				recorder:     record.NewFakeRecorder(100),
 			}
 
 			dsClient.Fake.PrependReactor("create", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -274,7 +276,7 @@ var _ = Describe("Apply Apps", func() {
 				return true, update.GetObject(), nil
 			})
 
-			err = r.syncDaemonSet(daemonSet)
+			_, err = r.syncDaemonSet(daemonSet)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(created).To(BeTrue())
@@ -291,6 +293,7 @@ var _ = Describe("Apply Apps", func() {
 				kv:           kv,
 				expectations: expectations,
 				stores:       stores,
+				recorder:     record.NewFakeRecorder(100),
 			}
 
 			// add VirtualMachineInstancesPerNode configuration
@@ -328,7 +331,7 @@ var _ = Describe("Apply Apps", func() {
 				return true, &appsv1.DaemonSet{}, nil
 			})
 
-			err = r.syncDaemonSet(daemonSet)
+			_, err = r.syncDaemonSet(daemonSet)
 
 			Expect(patched).To(BeTrue())
 			Expect(err).ToNot(HaveOccurred())
@@ -339,7 +342,7 @@ var _ = Describe("Apply Apps", func() {
 			containMaxDeviceFlag = false
 			kv.SetGeneration(3)
 
-			err = r.syncDaemonSet(daemonSet)
+			_, err = r.syncDaemonSet(daemonSet)
 
 			Expect(patched).To(BeTrue())
 			Expect(err).ToNot(HaveOccurred())

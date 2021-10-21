@@ -1089,7 +1089,7 @@ func (k *KubeVirtTestData) generateRandomResources() int {
 	return len(all)
 }
 
-func (k *KubeVirtTestData) addAll(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
+func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt, exclusionMap map[string]bool) {
 	c, _ := apply.NewCustomizer(kv.Spec.CustomizeComponents)
 
 	all := make([]runtime.Object, 0)
@@ -1179,6 +1179,11 @@ func (k *KubeVirtTestData) addAll(config *util.KubeVirtDeploymentConfig, kv *v1.
 
 	for _, obj := range all {
 		m := obj.(metav1.Object)
+
+		if _, exists := exclusionMap[m.GetName()]; exists {
+			continue
+		}
+
 		a := m.GetAnnotations()
 		if len(a) == 0 {
 			a = map[string]string{}
@@ -1189,6 +1194,29 @@ func (k *KubeVirtTestData) addAll(config *util.KubeVirtDeploymentConfig, kv *v1.
 
 		k.addResource(obj, config, kv)
 	}
+}
+
+func (k *KubeVirtTestData) addAll(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
+	k.addAllWithExclusionMap(k.defaultConfig, kv, nil)
+}
+
+func (k *KubeVirtTestData) addAllButHandler(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
+	k.addAllWithExclusionMap(k.defaultConfig, kv, map[string]bool{"virt-handler": true})
+}
+
+func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
+	handler, _ := components.NewHandlerDaemonSet(
+		NAMESPACE,
+		config.GetImageRegistry(),
+		config.GetImagePrefix(),
+		config.GetHandlerVersion(),
+		"",
+		"",
+		config.GetLauncherVersion(),
+		config.GetImagePullPolicy(),
+		config.GetVerbosity(),
+		config.GetExtraEnv())
+	k.addResource(handler, config, kv)
 }
 
 func (k *KubeVirtTestData) shouldExpectJobCreation() {
@@ -1279,6 +1307,7 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 			handlerNew := handler.DeepCopy()
 			handlerNew.Status.DesiredNumberScheduled = 1
 			handlerNew.Status.NumberReady = 1
+			handlerNew.Status.UpdatedNumberScheduled = 1
 			k.mockQueue.ExpectAdds(1)
 			k.daemonSetSource.Modify(handlerNew)
 			k.mockQueue.Wait()
@@ -1557,7 +1586,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates()
-			kvTestData.addAll(customConfig, kv)
+			kvTestData.addAllButHandler(customConfig, kv)
+			// add already updated virt-handler
+			kvTestData.addVirtHandler(customConfig, kv)
 			// install strategy config
 			kvTestData.addInstallStrategy(customConfig)
 			kvTestData.addPodsAndPodDisruptionBudgets(customConfig, kv)
@@ -2261,9 +2292,13 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 			kvTestData.addInstallStrategy(updatedConfig)
 
-			kvTestData.addAll(kvTestData.defaultConfig, kv)
+			kvTestData.addAllButHandler(kvTestData.defaultConfig, kv)
 			// Create virt-api and virt-controller under kvTestData.defaultConfig,
 			// but use updatedConfig for virt-handler (hack) to avoid pausing after daemonsets
+
+			// add already updated virt-handler
+			kvTestData.addVirtHandler(updatedConfig, kv)
+
 			kvTestData.addPodsWithIndividualConfigs(kvTestData.defaultConfig, kvTestData.defaultConfig, updatedConfig, true, kv)
 
 			kvTestData.makeApiAndControllerReady()
@@ -2391,7 +2426,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 			kvTestData.addInstallStrategy(updatedConfig)
 
-			kvTestData.addAll(kvTestData.defaultConfig, kv)
+			kvTestData.addAllButHandler(kvTestData.defaultConfig, kv)
+			kvTestData.addVirtHandler(updatedConfig, kv)
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
 
 			// pods for the new version are added so this test won't
