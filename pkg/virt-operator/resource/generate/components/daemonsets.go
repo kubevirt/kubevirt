@@ -63,7 +63,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		daemonset.ObjectMeta.Labels[virtv1.AppPartOfLabel] = productName
 	}
 	if productComponent != "" {
-		daemonset.ObjectMeta.Labels[virtv1.AppPartOfLabel] = productComponent
+		daemonset.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
 	}
 
 	pod := &daemonset.Spec.Template.Spec

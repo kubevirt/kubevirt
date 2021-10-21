@@ -147,7 +147,7 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 	}
 
 	if productComponent != "" {
-		podTemplateSpec.ObjectMeta.Labels[virtv1.AppPartOfLabel] = productComponent
+		podTemplateSpec.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
 	}
 
 	if envVars != nil && len(*envVars) != 0 {
@@ -235,7 +235,7 @@ func newBaseDeployment(deploymentName string, imageName string, namespace string
 	}
 
 	if productComponent != "" {
-		podTemplateSpec.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
+		deployment.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
 	}
 
 	return deployment, nil
