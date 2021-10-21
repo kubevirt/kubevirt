@@ -1700,8 +1700,8 @@ type CustomizeComponentsPatch struct {
 	ResourceName string `json:"resourceName"`
 	// +kubebuilder:validation:MinLength=1
 	ResourceType string    `json:"resourceType"`
-	Patch string    `json:"patch"`
-	Type  PatchType `json:"type"`
+	Patch        string    `json:"patch"`
+	Type         PatchType `json:"type"`
 }
 
 type PatchType string
@@ -1743,9 +1743,9 @@ type GenerationStatus struct {
 //
 // +k8s:openapi-gen=true
 type KubeVirtStatus struct {
-	Phase           KubeVirtPhase       `json:"phase,omitempty"`
-	Conditions      []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
-	OperatorVersion string              `json:"operatorVersion,omitempty" optional:"true"`
+	Phase                                   KubeVirtPhase       `json:"phase,omitempty"`
+	Conditions                              []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
+	OperatorVersion                         string              `json:"operatorVersion,omitempty" optional:"true"`
 	TargetKubeVirtRegistry                  string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
 	TargetKubeVirtVersion                   string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
 	TargetDeploymentConfig                  string              `json:"targetDeploymentConfig,omitempty" optional:"true"`

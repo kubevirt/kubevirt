@@ -5,6 +5,7 @@ import (
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
+
 	v12 "kubevirt.io/client-go/apis/core/v1"
 )
 

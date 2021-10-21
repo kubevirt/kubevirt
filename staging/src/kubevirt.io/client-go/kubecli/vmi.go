@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+
 	v12 "kubevirt.io/client-go/apis/core/v1"
 
 	"kubevirt.io/client-go/log"

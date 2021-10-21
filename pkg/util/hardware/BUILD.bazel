@@ -5,7 +5,7 @@ go_library(
     srcs = ["hw_utils.go"],
     importpath = "kubevirt.io/kubevirt/pkg/util/hardware",
     visibility = ["//visibility:public"],
-    deps = ["//staging/src/kubevirt.io/client-go/api/v1:go_default_library"],
+    deps = ["//staging/src/kubevirt.io/client-go/apis/core/v1:go_default_library"],
 )
 
 go_test(
@@ -16,7 +16,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/apis/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	netutils "k8s.io/utils/net"
+
 	virtv1 "kubevirt.io/client-go/apis/core/v1"
 
 	"kubevirt.io/client-go/util"
