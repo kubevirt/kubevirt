@@ -71,6 +71,7 @@ const qemuTimeoutJitterRange = 120
 
 const (
 	CAP_NET_BIND_SERVICE = "NET_BIND_SERVICE"
+	CAP_NET_ADMIN        = "NET_ADMIN"
 	CAP_NET_RAW          = "NET_RAW"
 	CAP_SYS_ADMIN        = "SYS_ADMIN"
 	CAP_SYS_NICE         = "SYS_NICE"
@@ -80,8 +81,8 @@ const (
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
 
-//These perfixes for node feature discovery, are used in a NodeSelector on the pod
-//to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
+// These perfixes for node feature discovery, are used in a NodeSelector on the pod
+// to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
 const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
 const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
 const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
@@ -1102,8 +1103,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			RunAsUser:  &userId,
 			Privileged: &privileged,
 			Capabilities: &k8sv1.Capabilities{
-				Add:  capabilities,
-				Drop: []k8sv1.Capability{CAP_NET_RAW},
+				Add: capabilities,
+				// Drop: []k8sv1.Capability{CAP_NET_RAW},
 			},
 		},
 		Command:       command,
@@ -1500,7 +1501,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					Name:    "hotplug-disk",
 					Image:   t.launcherImage,
 					Command: command,
-					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
+					Resources: k8sv1.ResourceRequirements{ // Took the request and limits from containerDisk init container.
 						Limits: map[k8sv1.ResourceName]resource.Quantity{
 							k8sv1.ResourceCPU:    resource.MustParse("100m"),
 							k8sv1.ResourceMemory: resource.MustParse("80M"),
@@ -1641,7 +1642,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					Name:    "hotplug-disk",
 					Image:   t.launcherImage,
 					Command: command,
-					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
+					Resources: k8sv1.ResourceRequirements{ // Took the request and limits from containerDisk init container.
 						Limits: map[k8sv1.ResourceName]resource.Quantity{
 							k8sv1.ResourceCPU:    resource.MustParse("100m"),
 							k8sv1.ResourceMemory: resource.MustParse("80M"),
@@ -1760,6 +1761,9 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	capabilities = append(capabilities, CAP_SYS_NICE)
+
+	capabilities = append(capabilities, CAP_NET_RAW, CAP_NET_ADMIN)
+
 	// add CAP_SYS_ADMIN capability to allow virtiofs
 	if util.IsVMIVirtiofsEnabled(vmi) {
 		capabilities = append(capabilities, CAP_SYS_ADMIN)

@@ -82,7 +82,10 @@ bazel run \
     findutils \
     procps-ng \
     iptables \
-    tar
+    tar \
+    ipset \
+    tcpdump \
+    net-tools
 
 bazel run \
     --config=${ARCHITECTURE} \
@@ -98,7 +101,10 @@ bazel run \
     findutils \
     procps-ng \
     iptables \
-    tar
+    tar \
+    ipset \
+    tcpdump \
+    net-tools
 
 # create a rpmtree for virt-handler
 bazel run \

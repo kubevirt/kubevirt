@@ -171,9 +171,9 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			}
 			disk.Address = addr
 		}
-		if diskDevice.Disk.Bus == "virtio" {
-			disk.Model = translateModel(c, "virtio")
-		}
+		// if diskDevice.Disk.Bus == "virtio" {
+		// 	disk.Model = translateModel(c, "virtio")
+		// }
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
 	} else if diskDevice.LUN != nil {
