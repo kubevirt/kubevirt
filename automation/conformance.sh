@@ -12,4 +12,6 @@ export KUBEVIRT_NUM_NODES=2
 
 make cluster-up
 make cluster-sync
+
+export DOCKER_PREFIX="${DOCKER_PREFIX:-registry:5000/kubevirt}"
 make conformance
