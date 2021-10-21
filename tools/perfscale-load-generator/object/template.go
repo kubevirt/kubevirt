@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	kvv1 "kubevirt.io/client-go/api/v1"
+	kvv1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/config"
 	"kubevirt.io/kubevirt/tools/perfscale-load-generator/flags"
 )

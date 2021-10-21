@@ -27,7 +27,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	k6tv1 "kubevirt.io/client-go/api/v1"
+	k6tv1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
 )

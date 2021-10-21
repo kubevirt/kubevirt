@@ -29,7 +29,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/cache"
 
-	kubev1 "kubevirt.io/client-go/api/v1"
+	kubev1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 )
 

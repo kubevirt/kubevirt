@@ -7,7 +7,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 func PDBsForVMI(vmi *virtv1.VirtualMachineInstance, pdbInformer cache.SharedIndexInformer) ([]*v1beta1.PodDisruptionBudget, error) {

@@ -24,7 +24,7 @@ import (
 
 	v12 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 var _ = Describe("VirtualMachineInstance ConditionManager", func() {

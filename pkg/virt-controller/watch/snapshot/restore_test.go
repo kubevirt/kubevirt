@@ -19,8 +19,7 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
@@ -71,7 +70,7 @@ var _ = Describe("Restore controlleer", func() {
 		r := createRestore()
 		r.OwnerReferences = []metav1.OwnerReference{
 			{
-				APIVersion:         kubevirtv1.GroupVersion.String(),
+				APIVersion:         v1.GroupVersion.String(),
 				Kind:               "VirtualMachine",
 				Name:               vmName,
 				UID:                vmUID,

@@ -10,7 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	netlink "github.com/vishvananda/netlink"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	cache "kubevirt.io/kubevirt/pkg/network/cache"
 )
 

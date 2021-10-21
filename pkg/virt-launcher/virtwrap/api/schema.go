@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/precond"
 )
 
@@ -362,8 +362,8 @@ type MigrationMetadata struct {
 	Completed      bool             `xml:"completed,omitempty"`
 	Failed         bool             `xml:"failed,omitempty"`
 	FailureReason  string           `xml:"failureReason,omitempty"`
-	AbortStatus    string           `xml:"abortStatus,omitempty"`
-	Mode           v1.MigrationMode `xml:"mode,omitempty"`
+	AbortStatus string           `xml:"abortStatus,omitempty"`
+	Mode        v1.MigrationMode `xml:"mode,omitempty"`
 }
 
 type GracePeriodMetadata struct {

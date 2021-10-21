@@ -45,8 +45,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -63,7 +62,7 @@ const (
 	diskSerial = "FB-fb_18030C10002032"
 )
 
-type VMICreationFunc func(string) *v1.VirtualMachineInstance
+type VMICreationFunc func(string) *virtv1.VirtualMachineInstance
 
 var _ = SIGDescribe("Storage", func() {
 	var err error
@@ -76,7 +75,7 @@ var _ = SIGDescribe("Storage", func() {
 	})
 
 	Describe("Starting a VirtualMachineInstance", func() {
-		var vmi *v1.VirtualMachineInstance
+		var vmi *virtv1.VirtualMachineInstance
 		var targetImagePath string
 
 		BeforeEach(func() {
@@ -191,7 +190,7 @@ var _ = SIGDescribe("Storage", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					for _, condition := range vmi.Status.Conditions {
-						if condition.Type == v1.VirtualMachineInstancePaused {
+						if condition.Type == virtv1.VirtualMachineInstancePaused {
 							return condition.Status == k8sv1.ConditionTrue && condition.Reason == "PausedIOError"
 						}
 					}
@@ -208,7 +207,7 @@ var _ = SIGDescribe("Storage", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					for _, condition := range vmi.Status.Conditions {
-						if condition.Type == v1.VirtualMachineInstancePaused {
+						if condition.Type == virtv1.VirtualMachineInstancePaused {
 							return condition.Status == k8sv1.ConditionFalse
 						}
 					}
@@ -264,7 +263,7 @@ var _ = SIGDescribe("Storage", func() {
 						Expect(err).NotTo(HaveOccurred())
 
 						for _, condition := range vmi.Status.Conditions {
-							if condition.Type == v1.VirtualMachineInstancePaused {
+							if condition.Type == virtv1.VirtualMachineInstancePaused {
 								return condition.Status == k8sv1.ConditionTrue && condition.Reason == "PausedIOError"
 							}
 						}
@@ -351,18 +350,18 @@ var _ = SIGDescribe("Storage", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
 					Name: "emptydisk1",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
+					DiskDevice: virtv1.DiskDevice{
+						Disk: &virtv1.DiskTarget{
 							Bus: "virtio",
 						},
 					},
 				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
 					Name: "emptydisk1",
-					VolumeSource: v1.VolumeSource{
-						EmptyDisk: &v1.EmptyDiskSource{
+					VolumeSource: virtv1.VolumeSource{
+						EmptyDisk: &virtv1.EmptyDiskSource{
 							Capacity: resource.MustParse("2Gi"),
 						},
 					},
@@ -394,19 +393,19 @@ var _ = SIGDescribe("Storage", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
 					Name:   "emptydisk1",
 					Serial: diskSerial,
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
+					DiskDevice: virtv1.DiskDevice{
+						Disk: &virtv1.DiskTarget{
 							Bus: "virtio",
 						},
 					},
 				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
 					Name: "emptydisk1",
-					VolumeSource: v1.VolumeSource{
-						EmptyDisk: &v1.EmptyDiskSource{
+					VolumeSource: virtv1.VolumeSource{
+						EmptyDisk: &virtv1.EmptyDiskSource{
 							Capacity: resource.MustParse("1Gi"),
 						},
 					},
@@ -443,7 +442,7 @@ var _ = SIGDescribe("Storage", func() {
 				pvcName := fmt.Sprintf("disk-%s", pvc)
 				vmi := tests.NewRandomVMIWithPVCFS(pvcName)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
-				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+				vmi.Spec.Domain.Devices.Rng = &virtv1.Rng{}
 
 				// add userdata for guest agent and mount virtio-fs
 				fs := vmi.Spec.Domain.Devices.Filesystems[0]
@@ -501,7 +500,7 @@ var _ = SIGDescribe("Storage", func() {
 				}
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
-				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+				vmi.Spec.Domain.Devices.Rng = &virtv1.Rng{}
 
 				// add userdata for guest agent and mount virtio-fs
 				fs := vmi.Spec.Domain.Devices.Filesystems[0]
@@ -611,7 +610,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
-				var createdVMI *v1.VirtualMachineInstance
+				var createdVMI *virtv1.VirtualMachineInstance
 				if isRunOnKindInfra {
 					createdVMI = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
 				} else {
@@ -702,7 +701,7 @@ var _ = SIGDescribe("Storage", func() {
 		Context("[Serial]With feature gates disabled for", func() {
 			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
 				tests.DisableFeatureGate(virtconfig.HostDiskGate)
-				vmi = tests.NewRandomVMIWithHostDisk("somepath", v1.HostDiskExistsOrCreate, "")
+				vmi = tests.NewRandomVMIWithHostDisk("somepath", virtv1.HostDiskExistsOrCreate, "")
 				virtClient, err := kubecli.GetKubevirtClient()
 				Expect(err).ToNot(HaveOccurred())
 				_, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -766,7 +765,7 @@ var _ = SIGDescribe("Storage", func() {
 					table.DescribeTable("Should create a disk image and start", func(driver string) {
 						By("Starting VirtualMachineInstance")
 						// do not choose a specific node to run the test
-						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
+						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, "")
 						vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = driver
 
 						tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -790,8 +789,8 @@ var _ = SIGDescribe("Storage", func() {
 					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {
 						By("Starting VirtualMachineInstance")
 						// do not choose a specific node to run the test
-						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
-						tests.AddHostDisk(vmi, filepath.Join(hostDiskDir, "another.img"), v1.HostDiskExistsOrCreate, "anotherdisk")
+						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, "")
+						tests.AddHostDisk(vmi, filepath.Join(hostDiskDir, "another.img"), virtv1.HostDiskExistsOrCreate, "anotherdisk")
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if another.img has been created")
@@ -842,7 +841,7 @@ var _ = SIGDescribe("Storage", func() {
 
 					It("[test_id:2306]Should use existing disk image and start", func() {
 						By("Starting VirtualMachineInstance")
-						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
+						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExists, nodeName)
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img exists")
@@ -859,7 +858,7 @@ var _ = SIGDescribe("Storage", func() {
 
 					It("[test_id:847]Should fail with a capacity option", func() {
 						By("Starting VirtualMachineInstance")
-						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
+						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExists, nodeName)
 						for i, volume := range vmi.Spec.Volumes {
 							if volume.HostDisk != nil {
 								vmi.Spec.Volumes[i].HostDisk.Capacity = resource.MustParse("1Gi")
@@ -1010,7 +1009,7 @@ var _ = SIGDescribe("Storage", func() {
 					configureToleration(10)
 
 					By("starting VirtualMachineInstance")
-					vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+					vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, pod.Spec.NodeName)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					tests.RunVMI(vmi, 30)
 
@@ -1018,7 +1017,7 @@ var _ = SIGDescribe("Storage", func() {
 					objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(120) * time.Second)
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
-					objectEventWatcher.WaitFor(ctx, tests.WarningEvent, v1.SyncFailed.String())
+					objectEventWatcher.WaitFor(ctx, tests.WarningEvent, virtv1.SyncFailed.String())
 
 				})
 
@@ -1028,7 +1027,7 @@ var _ = SIGDescribe("Storage", func() {
 					configureToleration(30)
 
 					By("starting VirtualMachineInstance")
-					vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+					vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, pod.Spec.NodeName)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					tests.RunVMIAndExpectLaunch(vmi, 30)
 
@@ -1093,18 +1092,18 @@ var _ = SIGDescribe("Storage", func() {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					if vmi.Status.Phase != v1.Pending {
+					if vmi.Status.Phase != virtv1.Pending {
 						return false
 					}
 					if len(vmi.Status.Conditions) == 0 {
 						return false
 					}
 
-					expectPodScheduledCondition := func(vmi *v1.VirtualMachineInstance) {
-						getType := func(c v1.VirtualMachineInstanceCondition) string { return string(c.Type) }
-						getReason := func(c v1.VirtualMachineInstanceCondition) string { return c.Reason }
-						getStatus := func(c v1.VirtualMachineInstanceCondition) k8sv1.ConditionStatus { return c.Status }
-						getMessage := func(c v1.VirtualMachineInstanceCondition) string { return c.Message }
+					expectPodScheduledCondition := func(vmi *virtv1.VirtualMachineInstance) {
+						getType := func(c virtv1.VirtualMachineInstanceCondition) string { return string(c.Type) }
+						getReason := func(c virtv1.VirtualMachineInstanceCondition) string { return c.Reason }
+						getStatus := func(c virtv1.VirtualMachineInstanceCondition) k8sv1.ConditionStatus { return c.Status }
+						getMessage := func(c virtv1.VirtualMachineInstanceCondition) string { return c.Message }
 						Expect(vmi.Status.Conditions).To(
 							ContainElement(
 								And(
@@ -1128,34 +1127,34 @@ var _ = SIGDescribe("Storage", func() {
 
 				// Start the VirtualMachineInstance with two empty disks attached, one per bus
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
 					Name: "emptydisk1",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
+					DiskDevice: virtv1.DiskDevice{
+						Disk: &virtv1.DiskTarget{
 							Bus: "scsi",
 						},
 					},
 				})
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
 					Name: "emptydisk2",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
+					DiskDevice: virtv1.DiskDevice{
+						Disk: &virtv1.DiskTarget{
 							Bus: "sata",
 						},
 					},
 				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
 					Name: "emptydisk1",
-					VolumeSource: v1.VolumeSource{
-						EmptyDisk: &v1.EmptyDiskSource{
+					VolumeSource: virtv1.VolumeSource{
+						EmptyDisk: &virtv1.EmptyDiskSource{
 							Capacity: resource.MustParse("1Gi"),
 						},
 					},
 				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
 					Name: "emptydisk2",
-					VolumeSource: v1.VolumeSource{
-						EmptyDisk: &v1.EmptyDiskSource{
+					VolumeSource: virtv1.VolumeSource{
+						EmptyDisk: &virtv1.EmptyDiskSource{
 							Capacity: resource.MustParse("1Gi"),
 						},
 					},

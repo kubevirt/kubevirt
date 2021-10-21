@@ -6,7 +6,7 @@ import (
 
 	domainstats "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus"
 
-	k6tv1 "kubevirt.io/client-go/api/v1"
+	k6tv1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv/util"

@@ -27,8 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k8sv1 "kubevirt.io/client-go/api/v1"
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 var _ = Describe("Certificates", func() {
@@ -38,9 +37,9 @@ var _ = Describe("Certificates", func() {
 	fiveDays := &metav1.Duration{Duration: 120 * time.Hour}
 	week := &metav1.Duration{Duration: 168 * time.Hour}
 
-	var config *k8sv1.KubeVirtSelfSignConfiguration
+	var config *v1.KubeVirtSelfSignConfiguration
 	BeforeEach(func() {
-		config = &k8sv1.KubeVirtSelfSignConfiguration{}
+		config = &v1.KubeVirtSelfSignConfiguration{}
 		config.CA = &v1.CertConfig{}
 		config.Server = &v1.CertConfig{}
 	})

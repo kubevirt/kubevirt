@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strconv"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"

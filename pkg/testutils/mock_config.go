@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
 
-	KVv1 "kubevirt.io/client-go/api/v1"
+	KVv1 "kubevirt.io/client-go/apis/core/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 

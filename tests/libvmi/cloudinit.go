@@ -22,7 +22,7 @@ package libvmi
 import (
 	"encoding/base64"
 
-	kvirtv1 "kubevirt.io/client-go/api/v1"
+	kvirtv1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 // WithCloudInitNoCloudUserData adds cloud-init no-cloud user data.
