@@ -18,7 +18,7 @@ deepcopy-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1,kubevirt.
     --bounding-dirs kubevirt.io/client-go/apis \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-openapi-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1,kubevirt.io/client-go/apis/flavor/v1alpha1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,kubevirt.io/client-go/api/v1 \
+openapi-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1,kubevirt.io/client-go/apis/flavor/v1alpha1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,kubevirt.io/client-go/apis/core/v1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package kubevirt.io/client-go/apis/snapshot/v1alpha1 \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt >${KUBEVIRT_DIR}/api/api-rule-violations.list
@@ -79,7 +79,7 @@ deepcopy-gen --input-dirs ./pkg/virt-launcher/virtwrap/api \
 (
     cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go &&
         # supress -mod=vendor
-        GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=./api/v1/
+        GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=./apis/core/v1/
     #include snapshot
     GOFLAGS= controller-gen crd paths=./apis/snapshot/v1alpha1/
 
