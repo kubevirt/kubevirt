@@ -362,8 +362,8 @@ type MigrationMetadata struct {
 	Completed      bool             `xml:"completed,omitempty"`
 	Failed         bool             `xml:"failed,omitempty"`
 	FailureReason  string           `xml:"failureReason,omitempty"`
-	AbortStatus string           `xml:"abortStatus,omitempty"`
-	Mode        v1.MigrationMode `xml:"mode,omitempty"`
+	AbortStatus    string           `xml:"abortStatus,omitempty"`
+	Mode           v1.MigrationMode `xml:"mode,omitempty"`
 }
 
 type GracePeriodMetadata struct {

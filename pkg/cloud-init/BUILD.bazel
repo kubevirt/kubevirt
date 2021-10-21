@@ -9,7 +9,7 @@ go_library(
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/net/dns:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/apis/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
     ],
@@ -24,7 +24,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/apis/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

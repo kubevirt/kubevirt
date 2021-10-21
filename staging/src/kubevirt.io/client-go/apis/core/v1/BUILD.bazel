@@ -16,7 +16,7 @@ go_library(
         "utils.go",
         "zz_generated.defaults.go",
     ],
-    importpath = "kubevirt.io/client-go/api/v1",
+    importpath = "kubevirt.io/client-go/apis/core/v1",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
