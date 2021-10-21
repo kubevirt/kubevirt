@@ -38,8 +38,7 @@ const (
 // verifyInvalidSetting verify if VMI spec contain unavailable setting for arm64, check following items:
 // 1. if setting bios boot
 // 2. if use uefi secure boot
-// 3. if set auto-attach graphics device
-// 4. if use host-model for cpu model
+// 3. if use host-model for cpu model
 func verifyInvalidSetting(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (metav1.StatusCause, bool) {
 	if spec.Domain.Firmware != nil && spec.Domain.Firmware.Bootloader != nil {
 		if spec.Domain.Firmware.Bootloader.BIOS != nil {
@@ -61,13 +60,6 @@ func verifyInvalidSetting(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 				}, false
 			}
 		}
-	}
-	if &spec.Domain.Devices != nil && spec.Domain.Devices.AutoattachGraphicsDevice != nil && *spec.Domain.Devices.AutoattachGraphicsDevice {
-		return metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: "VGA device is not support by buildin qemu-kvm in virt-launcher image for Arm64, please disable autoattachGraphicsDevice",
-			Field:   field.Child("domain", "device", "autoattachgraphicsdevice").String(),
-		}, false
 	}
 	if spec.Domain.CPU != nil && (&spec.Domain.CPU.Model != nil) && spec.Domain.CPU.Model == "host-model" {
 		return metav1.StatusCause{
@@ -91,16 +83,6 @@ func setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.CPU.Model == "" {
 			vmi.Spec.Domain.CPU.Model = defaultCPUModel
 		}
-	}
-}
-
-// setDefaultDevices set AutoattachGraphicsDevice to false
-func setDefaultDevices(vmi *v1.VirtualMachineInstance) {
-	if &vmi.Spec.Domain.Devices == nil || vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil {
-		if &vmi.Spec.Domain.Devices == nil {
-			vmi.Spec.Domain.Devices = v1.Devices{}
-		}
-		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &_false
 	}
 }
 
@@ -132,7 +114,6 @@ func SetVirtualMachineInstanceArm64Defaults(vmi *v1.VirtualMachineInstance) erro
 	path := k8sfield.NewPath("spec")
 	if cause, ok := verifyInvalidSetting(path, &vmi.Spec); ok {
 		setDefaultCPUModel(vmi)
-		setDefaultDevices(vmi)
 		setDefaultBootloader(vmi)
 	} else {
 		return fmt.Errorf("%s", cause.Message)

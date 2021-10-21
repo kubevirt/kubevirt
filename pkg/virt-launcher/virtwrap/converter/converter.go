@@ -129,6 +129,13 @@ func contains(volumes []string, name string) bool {
 	return false
 }
 
+func isAMD64(arch string) bool {
+	if arch == "amd64" {
+		return true
+	}
+	return false
+}
+
 func isPPC64(arch string) bool {
 	if arch == "ppc64le" {
 		return true
@@ -1230,7 +1237,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// SMBios option does not work in Power, attempting to set it will result in the following error message:
 	// "Option not supported for this target" issued by qemu-system-ppc64, so don't set it in case GOARCH is ppc64le
 	// ARM64 use UEFI boot by default, set SMBios is unnecessory.
-	if !isPPC64(c.Architecture) && !isARM64(c.Architecture) {
+	if isAMD64(c.Architecture) {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
 		}
@@ -1518,7 +1525,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	//In ppc64le usb devices like mouse / keyboard are set by default,
 	//so we can't disable the controller otherwise we run into the following error:
 	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
-	if !isUSBDevicePresent && !isUSBRedirEnabled && c.Architecture != "ppc64le" {
+	if !isUSBDevicePresent && !isUSBRedirEnabled && isAMD64(c.Architecture) {
 		// disable usb controller
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:  "usb",
@@ -1704,14 +1711,43 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == true {
 		var heads uint = 1
 		var vram uint = 16384
-		domain.Spec.Devices.Video = []api.Video{
-			{
-				Model: api.VideoModel{
-					Type:  "vga",
-					Heads: &heads,
-					VRam:  &vram,
+		// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
+		// tablet and keyboard devices are necessary for control the VM via vnc connection
+		if isARM64(c.Architecture) {
+			domain.Spec.Devices.Video = []api.Video{
+				{
+					Model: api.VideoModel{
+						Type:  "virtio",
+						Heads: &heads,
+					},
 				},
-			},
+			}
+
+			if !hasTabletDevice(vmi) {
+				domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
+					api.Input{
+						Bus:  "usb",
+						Type: "tablet",
+					},
+				)
+			}
+
+			domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
+				api.Input{
+					Bus:  "usb",
+					Type: "keyboard",
+				},
+			)
+		} else {
+			domain.Spec.Devices.Video = []api.Video{
+				{
+					Model: api.VideoModel{
+						Type:  "vga",
+						Heads: &heads,
+						VRam:  &vram,
+					},
+				},
+			}
 		}
 		domain.Spec.Devices.Graphics = []api.Graphics{
 			{
@@ -2015,4 +2051,15 @@ func GetVolumeNameByTarget(domain *api.Domain, target string) string {
 
 func isNumaPassthrough(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.CPU.NUMA != nil && vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil
+}
+
+func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.Inputs != nil {
+		for _, device := range vmi.Spec.Domain.Devices.Inputs {
+			if device.Type == "tablet" {
+				return true
+			}
+		}
+	}
+	return false
 }

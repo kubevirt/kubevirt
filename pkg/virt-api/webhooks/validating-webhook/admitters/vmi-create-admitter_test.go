@@ -3449,16 +3449,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(1))
 		})
 
-		It("should reject enabling AutoattachGraphicsDevice", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
-
-			_true := true
-			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &_true
-
-			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
-			Expect(len(causes)).To(Equal(1))
-		})
-
 		It("should reject setting cpu model to host-model", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: "host-model"}
