@@ -49,6 +49,8 @@ import (
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
+	"kubevirt.io/client-go/apis/core"
+
 	kubev1 "kubevirt.io/client-go/apis/core/v1"
 	flavorv1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
@@ -441,7 +443,7 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 						return nil, err
 					}
 
-					if gv.Group == kubev1.GroupName &&
+					if gv.Group == core.GroupName &&
 						vms.Spec.Source.Kind == "VirtualMachine" {
 						return []string{vms.Spec.Source.Name}, nil
 					}
@@ -491,7 +493,7 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 						return nil, err
 					}
 
-					if gv.Group == kubev1.GroupName &&
+					if gv.Group == core.GroupName &&
 						vmr.Spec.Target.Kind == "VirtualMachine" {
 						return []string{vmr.Spec.Target.Name}, nil
 					}

@@ -11,6 +11,8 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/apis/core"
+
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -280,7 +282,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				"vm": func(obj interface{}) ([]string, error) {
 					vms := obj.(*snapshotv1.VirtualMachineSnapshot)
 					if vms.Spec.Source.APIGroup != nil &&
-						*vms.Spec.Source.APIGroup == v1.GroupName &&
+						*vms.Spec.Source.APIGroup == core.GroupName &&
 						vms.Spec.Source.Kind == "VirtualMachine" {
 						return []string{vms.Spec.Source.Name}, nil
 					}

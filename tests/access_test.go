@@ -30,6 +30,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authClientV1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
+	"kubevirt.io/client-go/apis/core"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/client-go/apis/core/v1"
@@ -214,7 +216,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			}
 		},
 			table.Entry("[test_id:526]given a vmi",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachineinstances",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
@@ -222,7 +224,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 
 			table.Entry("[test_id:527]given a vm",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachines",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
@@ -230,7 +232,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 
 			table.Entry("[test_id:528]given a vmi preset",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachineinstancepresets",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
@@ -238,7 +240,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 
 			table.Entry("[test_id:529][crit:low]given a vmi replica set",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachineinstancereplicasets",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
@@ -246,7 +248,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 
 			table.Entry("[test_id:3230]given a vmi migration",
-				v1.GroupName,
+				core.GroupName,
 				"virtualmachineinstancemigrations",
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),

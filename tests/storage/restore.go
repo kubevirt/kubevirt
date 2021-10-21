@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/apis/core"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
@@ -296,7 +298,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 									admissionregistrationv1.Update,
 								},
 								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{v1.GroupName},
+									APIGroups:   []string{core.GroupName},
 									APIVersions: v1.ApiSupportedWebhookVersions,
 									Resources:   []string{"virtualmachines"},
 								},
