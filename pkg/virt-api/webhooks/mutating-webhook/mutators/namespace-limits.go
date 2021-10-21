@@ -23,7 +23,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	kubev1 "kubevirt.io/client-go/api/v1"
+	kubev1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 )
 

@@ -20,7 +20,7 @@
 package sriov
 
 import (
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 func filterVMISRIOVInterfaces(vmi *v1.VirtualMachineInstance) []v1.Interface {

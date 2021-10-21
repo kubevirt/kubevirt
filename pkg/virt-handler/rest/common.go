@@ -27,7 +27,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 func getVMI(request *restful.Request, vmiInformer cache.SharedIndexInformer) (*v1.VirtualMachineInstance, int, error) {

@@ -9,7 +9,7 @@ import (
 
 	"kubevirt.io/client-go/version"
 
-	k6sv1 "kubevirt.io/client-go/api/v1"
+	k6sv1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd"

@@ -7,8 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -65,7 +64,7 @@ var _ = Describe("Lookup", func() {
 		returnedVMIs, err := ActiveVirtualMachinesOnNode(virtClient, "node01")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(returnedVMIs)).To(Equal(1))
-		Expect(returnedVMIs[0].Status.Phase).To(Equal(v1.Running))
+		Expect(returnedVMIs[0].Status.Phase).To(Equal(virtv1.Running))
 	})
 
 	table.DescribeTable("should filter out nonactive vmis", func(phase virtv1.VirtualMachineInstancePhase) {

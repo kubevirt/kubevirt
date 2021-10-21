@@ -6,7 +6,7 @@ package isolation
 import (
 	gomock "github.com/golang/mock/gomock"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 // Mock of PodIsolationDetector interface

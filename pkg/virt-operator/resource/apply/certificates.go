@@ -5,7 +5,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k8sv1 "kubevirt.io/client-go/api/v1"
+	k8sv1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 func GetCADuration(config *k8sv1.KubeVirtSelfSignConfiguration) *metav1.Duration {

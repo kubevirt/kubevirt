@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"net/http"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	restful "github.com/emicklei/go-restful"

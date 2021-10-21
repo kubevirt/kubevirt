@@ -14,7 +14,7 @@ import (
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"

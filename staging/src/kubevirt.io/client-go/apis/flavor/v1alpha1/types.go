@@ -21,8 +21,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/apis/core/v1"
 )
 
 // VirtualMachineFlavor resource contains common VirtualMachine configuration

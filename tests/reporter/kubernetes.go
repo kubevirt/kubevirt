@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/discovery"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
-	v12 "kubevirt.io/client-go/api/v1"
+	v12 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	apicdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
