@@ -24,6 +24,7 @@ go_library(
     importpath = "kubevirt.io/client-go/kubecli",
     visibility = ["//visibility:public"],
     deps = [
+        "//staging/src/kubevirt.io/client-go/apis/core:go_default_library",
         "//staging/src/kubevirt.io/client-go/apis/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned:go_default_library",
@@ -48,6 +49,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/fields:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/serializer:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",

@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/apis/core"
+
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -231,7 +233,7 @@ var _ = Describe("Restore controlleer", func() {
 				"vm": func(obj interface{}) ([]string, error) {
 					vmr := obj.(*snapshotv1.VirtualMachineRestore)
 					if vmr.Spec.Target.APIGroup != nil &&
-						*vmr.Spec.Target.APIGroup == v1.GroupName &&
+						*vmr.Spec.Target.APIGroup == core.GroupName &&
 						vmr.Spec.Target.Kind == "VirtualMachine" {
 						return []string{vmr.Spec.Target.Name}, nil
 					}

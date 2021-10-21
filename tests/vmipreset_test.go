@@ -34,6 +34,8 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 
+	"kubevirt.io/client-go/apis/core"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -52,7 +54,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	var memoryPreset *v1.VirtualMachineInstancePreset
 	var cpuPreset *v1.VirtualMachineInstancePreset
 
-	flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
+	flavorKey := fmt.Sprintf("%s/flavor", core.GroupName)
 	memoryFlavor := "memory-test"
 	memoryPrefix := "test-memory-"
 	memory, _ := resource.ParseQuantity("128M")
@@ -185,7 +187,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(memoryFlavor))
 
 			// check the annotations
-			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
 			_, found := newVMI.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
 		})
@@ -211,7 +213,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(cpuFlavor))
 
 			// check the annotations
-			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
 			Expect(newVMI.Annotations[annotationKey]).To(Equal(fmt.Sprintf("kubevirt.io/%s", v1.ApiLatestVersion)))
 
 			// check a setting from the preset itself to show it was applied
@@ -236,7 +238,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			// check the annotations
-			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
 			_, found := newVMI.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
 
@@ -259,7 +261,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			// check the annotations
-			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
 			_, found := newVMI.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
 			Expect(newVMI.Status.Phase).ToNot(Equal(v1.Failed))
@@ -287,7 +289,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			// check the annotations
-			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
 			_, ok := newVMI.Annotations[annotationKey]
 			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
 
@@ -300,7 +302,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Context("Conflict", func() {
 		var conflictPreset *v1.VirtualMachineInstancePreset
 
-		conflictKey := fmt.Sprintf("%s/conflict", v1.GroupName)
+		conflictKey := fmt.Sprintf("%s/conflict", core.GroupName)
 		conflictFlavor := "conflict-test"
 		conflictMemory, _ := resource.ParseQuantity("256M")
 		conflictPrefix := "test-conflict-"

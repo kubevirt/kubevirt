@@ -29,6 +29,8 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/client-go/apis/core"
+
 	kubev1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 )
@@ -264,7 +266,7 @@ func annotateVMI(vmi *kubev1.VirtualMachineInstance, preset kubev1.VirtualMachin
 	if vmi.Annotations == nil {
 		vmi.Annotations = map[string]string{}
 	}
-	annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", kubev1.GroupName, preset.Name)
+	annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, preset.Name)
 	vmi.Annotations[annotationKey] = kubev1.GroupVersion.String()
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/runtime"
 	"libvirt.org/go/libvirt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -71,6 +72,16 @@ var (
 	defaultSendTimeout     = 5 * time.Second
 	defaultTotalTimeout    = 20 * time.Second
 )
+
+var (
+	schemeBuilder = runtime.NewSchemeBuilder(v1.AddKnownTypesGenerator(v1.GroupVersions))
+	addToScheme   = schemeBuilder.AddToScheme
+	scheme        = runtime.NewScheme()
+)
+
+func init() {
+	addToScheme(scheme)
+}
 
 func negotiateVersion(infoClient info.NotifyInfoClient) (uint32, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
@@ -498,7 +509,7 @@ func (n *Notifier) StartDomainNotifier(
 }
 
 func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
-	vmiRef, err := reference.GetReference(v1.Scheme, vmi)
+	vmiRef, err := reference.GetReference(scheme, vmi)
 	if err != nil {
 		return err
 	}
