@@ -992,10 +992,10 @@ var _ = Describe("Converter", func() {
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
     </channel>
-    <controller type="usb" index="0" model="none"></controller>
+    <controller type="usb" index="0" model="qemu-xhci"></controller>
     <controller type="virtio-serial" index="0" model="virtio-non-transitional"></controller>
     <video>
-      <model type="vga" heads="1" vram="16384"></model>
+      <model type="virtio" heads="1"></model>
     </video>
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
@@ -1102,6 +1102,7 @@ var _ = Describe("Converter", func() {
     <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
     </input>
+    <input type="keyboard" bus="usb"></input>
     <serial type="unix">
       <target port="0"></target>
       <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>
@@ -1438,7 +1439,6 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = arch
-			fmt.Println(vmiToDomainXML(vmi, c))
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
 			table.Entry("for amd64", "amd64", convertedDomain),
@@ -1482,6 +1482,7 @@ var _ = Describe("Converter", func() {
 			It("should be converted to a libvirt Domain with vmi defaults set", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+				c.Architecture = "amd64"
 				spec := vmiToDomain(vmi, c).Spec.DeepCopy()
 				Expect(PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
 				data, err := xml.MarshalIndent(spec, "", "  ")
@@ -1785,6 +1786,7 @@ var _ = Describe("Converter", func() {
 		It("should not enable usb redirection when numberOfDevices == 0", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.ClientPassthrough = nil
+			c.Architecture = "amd64"
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Redirs).To(BeNil())
 			Expect(domain.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
@@ -2317,7 +2319,7 @@ var _ = Describe("Converter", func() {
 
 	Context("graphics and video device", func() {
 
-		table.DescribeTable("should check autoAttachGraphicsDevices", func(autoAttach *bool, devices int) {
+		table.DescribeTable("should check autoAttachGraphicsDevices", func(autoAttach *bool, devices int, arch string) {
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -2340,14 +2342,25 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices = v1.Devices{
 				AutoattachGraphicsDevice: autoAttach,
 			}
-			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true})
+			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true, Architecture: arch})
 			Expect(domain.Spec.Devices.Video).To(HaveLen(devices))
 			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
 
+			if isARM64(arch) && (autoAttach == nil || *autoAttach) {
+				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("virtio"))
+				Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal("tablet"))
+				Expect(domain.Spec.Devices.Inputs[1].Type).To(Equal("keyboard"))
+			}
+			if isAMD64(arch) && (autoAttach == nil || *autoAttach) {
+				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("vga"))
+			}
 		},
-			table.Entry("and add the graphics and video device if it is not set", nil, 1),
-			table.Entry("and add the graphics and video device if it is set to true", True(), 1),
-			table.Entry("and not add the graphics and video device if it is set to false", False(), 0),
+			table.Entry("and add the graphics and video device if it is not set on amd64", nil, 1, "amd64"),
+			table.Entry("and add the graphics and video device if it is set to true on amd64", True(), 1, "amd64"),
+			table.Entry("and not add the graphics and video device if it is set to false on amd64", False(), 0, "amd64"),
+			table.Entry("and add the graphics and video device if it is not set on arm64", nil, 1, "arm64"),
+			table.Entry("and add the graphics and video device if it is set to true on arm64", True(), 1, "arm64"),
+			table.Entry("and not add the graphics and video device if it is set to false on arm64", False(), 0, "arm64"),
 		)
 	})
 
