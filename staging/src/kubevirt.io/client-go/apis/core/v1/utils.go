@@ -23,8 +23,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/client-go/precond"
 )
 
 // This is meant for testing
@@ -34,7 +32,6 @@ func NewMinimalVMI(name string) *VirtualMachineInstance {
 
 // This is meant for testing
 func NewMinimalVMIWithNS(namespace, name string) *VirtualMachineInstance {
-	precond.CheckNotEmpty(name)
 	vmi := NewVMIReferenceFromNameWithNS(namespace, name)
 	vmi.Spec = VirtualMachineInstanceSpec{Domain: DomainSpec{}}
 	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
