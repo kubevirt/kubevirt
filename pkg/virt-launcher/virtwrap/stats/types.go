@@ -68,6 +68,8 @@ type DomainStats struct {
 	// extra stats
 	CPUMapSet bool
 	CPUMap    [][]bool
+	// filesystem stats
+	Fs []DomainStatsFs
 }
 
 type DomainStatsCPU struct {
@@ -168,4 +170,22 @@ type DomainStatsMemory struct {
 	Usable           uint64
 	TotalSet         bool
 	Total            uint64
+}
+
+type FsLabels struct {
+	Device     string
+	MountPoint string
+	FsType     string
+	Options    string
+}
+
+type DomainStatsFs struct {
+	Labels      FsLabels
+	Size        float64
+	Free        float64
+	Avail       float64
+	Files       float64
+	FilesFree   float64
+	Ro          float64
+	DeviceError float64
 }

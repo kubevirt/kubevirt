@@ -311,6 +311,81 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 	}
 }
 
+func (metrics *vmiMetrics) updateFs(fsStats []stats.DomainStatsFs) {
+	for _, fs := range fsStats {
+		fsLabels := []string{"device", "mountPoint", "fsType"}
+		fsLabelValues := []string{fs.Labels.Device, fs.Labels.MountPoint, fs.Labels.FsType}
+
+		metrics.pushCustomMetric(
+			"kubevirt_vmi_fs_device_error",
+			"Whether an error occurred while getting statistics for the given device.",
+			prometheus.GaugeValue,
+			fs.DeviceError,
+			fsLabels,
+			fsLabelValues,
+		)
+
+		if fs.DeviceError > 0 {
+			continue
+		}
+
+		metrics.pushCustomMetric(
+			"kubevirt_vmi_fs_size_bytes",
+			"Filesystem size in bytes.",
+			prometheus.GaugeValue,
+			fs.Size,
+			fsLabels,
+			fsLabelValues,
+		)
+
+		metrics.pushCustomMetric(
+			"kubevirt_vmi_fs_free_bytes",
+			"Filesystem free space in bytes.",
+			prometheus.GaugeValue,
+			fs.Free,
+			fsLabels,
+			fsLabelValues,
+		)
+
+		metrics.pushCustomMetric(
+			"kubevirt_vmi_fs_avail_bytes",
+			"Filesystem space available to non-root users in bytes.",
+			prometheus.GaugeValue,
+			fs.Avail,
+			fsLabels,
+			fsLabelValues,
+		)
+
+		metrics.pushCustomMetric(
+			"kubevirt_vmi_fs_files",
+			"Filesystem total file nodes.",
+			prometheus.GaugeValue,
+			fs.Files,
+			fsLabels,
+			fsLabelValues,
+		)
+
+		metrics.pushCustomMetric(
+			"kubevirt_vmi_fs_files_free",
+			"Filesystem total free file nodes.",
+			prometheus.GaugeValue,
+			fs.FilesFree,
+			fsLabels,
+			fsLabelValues,
+		)
+
+		metrics.pushCustomMetric(
+			"kubevirt_vmi_fs_readonly",
+			"Filesystem read-only status.",
+			prometheus.GaugeValue,
+			fs.Ro,
+			fsLabels,
+			fsLabelValues,
+		)
+
+	}
+}
+
 func (metrics *vmiMetrics) updateNetwork(netStats []stats.DomainStatsNet) {
 	for _, net := range netStats {
 		if !net.NameSet {
@@ -571,6 +646,7 @@ func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
 	metrics.updateVcpu(vmStats.Vcpu)
 	metrics.updateBlock(vmStats.Block)
 	metrics.updateNetwork(vmStats.Net)
+	metrics.updateFs(vmStats.Fs)
 
 	if vmStats.CPUMapSet {
 		metrics.updateCPUAffinity(vmStats.CPUMap)

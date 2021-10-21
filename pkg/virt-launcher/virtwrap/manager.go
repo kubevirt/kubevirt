@@ -1371,7 +1371,17 @@ func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
 
-	return l.virConn.GetDomainStats(statsTypes, flags)
+	list, err := l.virConn.GetDomainStats(statsTypes, flags)
+	if err != nil || len(list) == 0 {
+		return list, err
+	}
+
+	fs, err := stats.GetDomainStatsFs()
+	if err == nil {
+		list[0].Fs = fs
+	}
+
+	return list, err
 }
 
 func addToDeviceMetadata(metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, devicesMetadata []cloudinit.DeviceData) []cloudinit.DeviceData {
