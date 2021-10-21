@@ -2188,6 +2188,50 @@ rpm(
 )
 
 rpm(
+    name = "ipset-0__7.6-1.fc32.aarch64",
+    sha256 = "ea25c1482716623eabc1b151d318bc1499e2448480f46e6113e1e4667150393c",
+    urls = [
+        "https://mirrors.nju.edu.cn/fedora//releases/32/Everything/aarch64/os/Packages/i/ipset-7.6-1.fc32.aarch64.rpm",
+        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux//releases/32/Everything/aarch64/os/Packages/i/ipset-7.6-1.fc32.aarch64.rpm",
+        "https://mirrors.tuna.tsinghua.edu.cn/fedora//releases/32/Everything/aarch64/os/Packages/i/ipset-7.6-1.fc32.aarch64.rpm",
+        "https://mirror.hoster.kz/fedora/fedora/linux//releases/32/Everything/aarch64/os/Packages/i/ipset-7.6-1.fc32.aarch64.rpm",
+    ],
+)
+
+rpm(
+    name = "ipset-0__7.6-1.fc32.x86_64",
+    sha256 = "7c21c21c3e3dbace06bee03fe4835ae6cb1e3ef86750ba2853f39d40dead2309",
+    urls = [
+        "https://mirrors.tuna.tsinghua.edu.cn/fedora//releases/32/Everything/x86_64/os/Packages/i/ipset-7.6-1.fc32.x86_64.rpm",
+        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux//releases/32/Everything/x86_64/os/Packages/i/ipset-7.6-1.fc32.x86_64.rpm",
+        "https://mirrors.nju.edu.cn/fedora//releases/32/Everything/x86_64/os/Packages/i/ipset-7.6-1.fc32.x86_64.rpm",
+        "https://download.nus.edu.sg/mirror/fedora/linux//releases/32/Everything/x86_64/os/Packages/i/ipset-7.6-1.fc32.x86_64.rpm",
+    ],
+)
+
+rpm(
+    name = "ipset-libs-0__7.6-1.fc32.aarch64",
+    sha256 = "03c7e6ea76b2aa8e7f8c8c8039412f618790ea39aeb3c1ffab205ba6b3bee54d",
+    urls = [
+        "https://mirrors.nju.edu.cn/fedora//releases/32/Everything/aarch64/os/Packages/i/ipset-libs-7.6-1.fc32.aarch64.rpm",
+        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux//releases/32/Everything/aarch64/os/Packages/i/ipset-libs-7.6-1.fc32.aarch64.rpm",
+        "https://mirrors.tuna.tsinghua.edu.cn/fedora//releases/32/Everything/aarch64/os/Packages/i/ipset-libs-7.6-1.fc32.aarch64.rpm",
+        "https://mirror.hoster.kz/fedora/fedora/linux//releases/32/Everything/aarch64/os/Packages/i/ipset-libs-7.6-1.fc32.aarch64.rpm",
+    ],
+)
+
+rpm(
+    name = "ipset-libs-0__7.6-1.fc32.x86_64",
+    sha256 = "f60fc561675e41ffa2c48b229960291e2438441d5ed758c1f28cb06b5d4e4ea9",
+    urls = [
+        "https://mirrors.tuna.tsinghua.edu.cn/fedora//releases/32/Everything/x86_64/os/Packages/i/ipset-libs-7.6-1.fc32.x86_64.rpm",
+        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux//releases/32/Everything/x86_64/os/Packages/i/ipset-libs-7.6-1.fc32.x86_64.rpm",
+        "https://mirrors.nju.edu.cn/fedora//releases/32/Everything/x86_64/os/Packages/i/ipset-libs-7.6-1.fc32.x86_64.rpm",
+        "https://download.nus.edu.sg/mirror/fedora/linux//releases/32/Everything/x86_64/os/Packages/i/ipset-libs-7.6-1.fc32.x86_64.rpm",
+    ],
+)
+
+rpm(
     name = "iptables-0__1.8.4-9.fc32.aarch64",
     sha256 = "4560c18ef4e856b4aefd33f519864341849a2ebac560aa399b0300f35dae5236",
     urls = [
@@ -4606,6 +4650,28 @@ rpm(
 )
 
 rpm(
+    name = "net-tools-0__2.0-0.57.20160912git.fc32.aarch64",
+    sha256 = "9f84d905ab0121a72ecc0f0f5529f9ca2175c71d7d56fb8b24316e2264dd29dd",
+    urls = [
+        "https://mirrors.tuna.tsinghua.edu.cn/fedora//updates/32/Everything/aarch64/Packages/n/net-tools-2.0-0.57.20160912git.fc32.aarch64.rpm",
+        "https://mirrors.nju.edu.cn/fedora//updates/32/Everything/aarch64/Packages/n/net-tools-2.0-0.57.20160912git.fc32.aarch64.rpm",
+        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux//updates/32/Everything/aarch64/Packages/n/net-tools-2.0-0.57.20160912git.fc32.aarch64.rpm",
+        "https://download.nus.edu.sg/mirror/fedora/linux//updates/32/Everything/aarch64/Packages/n/net-tools-2.0-0.57.20160912git.fc32.aarch64.rpm",
+    ],
+)
+
+rpm(
+    name = "net-tools-0__2.0-0.57.20160912git.fc32.x86_64",
+    sha256 = "c812a3796c40c6c0490a082617ddc8f23f48f0dc75a6865f194bb56bbe2c2d8d",
+    urls = [
+        "https://mirrors.nju.edu.cn/fedora//updates/32/Everything/x86_64/Packages/n/net-tools-2.0-0.57.20160912git.fc32.x86_64.rpm",
+        "https://mirrors.tuna.tsinghua.edu.cn/fedora//updates/32/Everything/x86_64/Packages/n/net-tools-2.0-0.57.20160912git.fc32.x86_64.rpm",
+        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux//updates/32/Everything/x86_64/Packages/n/net-tools-2.0-0.57.20160912git.fc32.x86_64.rpm",
+        "https://download.nus.edu.sg/mirror/fedora/linux//updates/32/Everything/x86_64/Packages/n/net-tools-2.0-0.57.20160912git.fc32.x86_64.rpm",
+    ],
+)
+
+rpm(
     name = "netcf-libs-0__0.2.8-15.fc32.x86_64",
     sha256 = "09ec07a1f692918a4ff1ad9e6d33f4c3526e14083d953da2875c4abc65cbdcb6",
     urls = [
@@ -6510,6 +6576,28 @@ rpm(
         "https://mirror.23media.com/fedora/linux/updates/32/Everything/x86_64/Packages/t/tar-1.32-5.fc32.x86_64.rpm",
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/t/tar-1.32-5.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/6c0b8e09684f2b9526055205781048630a803be452f54b0bde72431554b4590f",
+    ],
+)
+
+rpm(
+    name = "tcpdump-14__4.99.0-2.fc32.aarch64",
+    sha256 = "c3001a33866c6c78d925ce676a2d90d35c9f44641e5ed54cfe91a5c8be43a169",
+    urls = [
+        "https://mirrors.tuna.tsinghua.edu.cn/fedora//updates/32/Everything/aarch64/Packages/t/tcpdump-4.99.0-2.fc32.aarch64.rpm",
+        "https://mirrors.nju.edu.cn/fedora//updates/32/Everything/aarch64/Packages/t/tcpdump-4.99.0-2.fc32.aarch64.rpm",
+        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux//updates/32/Everything/aarch64/Packages/t/tcpdump-4.99.0-2.fc32.aarch64.rpm",
+        "https://download.nus.edu.sg/mirror/fedora/linux//updates/32/Everything/aarch64/Packages/t/tcpdump-4.99.0-2.fc32.aarch64.rpm",
+    ],
+)
+
+rpm(
+    name = "tcpdump-14__4.99.0-2.fc32.x86_64",
+    sha256 = "873f9b3b1f834137056435f70f72f21480e2b972eb04b0ff94cbf3941e51caf1",
+    urls = [
+        "https://mirrors.nju.edu.cn/fedora//updates/32/Everything/x86_64/Packages/t/tcpdump-4.99.0-2.fc32.x86_64.rpm",
+        "https://mirrors.tuna.tsinghua.edu.cn/fedora//updates/32/Everything/x86_64/Packages/t/tcpdump-4.99.0-2.fc32.x86_64.rpm",
+        "https://ftp.yz.yamagata-u.ac.jp/pub/linux/fedora-projects/fedora/linux//updates/32/Everything/x86_64/Packages/t/tcpdump-4.99.0-2.fc32.x86_64.rpm",
+        "https://download.nus.edu.sg/mirror/fedora/linux//updates/32/Everything/x86_64/Packages/t/tcpdump-4.99.0-2.fc32.x86_64.rpm",
     ],
 )
 
