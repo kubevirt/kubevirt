@@ -203,7 +203,7 @@ var _ = Describe("Operator Config", func() {
 			os.Setenv(TargetDeploymentConfig, json)
 			parsedConfig, err := GetConfigFromEnv()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(parsedConfig.GetMonitorNamespaces()).To(ConsistOf("openshift-monitoring", "monitoring"))
+			Expect(parsedConfig.GetMonitorNamespaces()).To(ConsistOf("openshift-cnv", "monitoring"))
 			Expect(parsedConfig.GetMonitorServiceAccount()).To(Equal("prometheus-k8s"))
 		})
 	})

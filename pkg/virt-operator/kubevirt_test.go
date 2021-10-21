@@ -1310,7 +1310,7 @@ func (k *KubeVirtTestData) addValidatingWebhook(wh *admissionregistrationv1.Vali
 
 func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentConfig) {
 	// install strategy config
-	resource, _ := install.NewInstallStrategyConfigMap(config, "openshift-monitoring", NAMESPACE)
+	resource, _ := install.NewInstallStrategyConfigMap(config, "openshift-cnv", NAMESPACE)
 
 	resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 

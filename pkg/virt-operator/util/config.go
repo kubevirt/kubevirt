@@ -86,6 +86,7 @@ const (
 var DefaultMonitorNamespaces = []string{
 	"openshift-monitoring", // default namespace in openshift
 	"monitoring",           // default namespace of https://github.com/prometheus-operator/kube-prometheus
+	"openshift-cnv",        // default namespace in openshift
 }
 
 type KubeVirtDeploymentConfig struct {
