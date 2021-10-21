@@ -1632,6 +1632,11 @@ type KubeVirtSpec struct {
 	// Defaults to openshift-monitor
 	MonitorNamespace string `json:"monitorNamespace,omitempty"`
 
+	// The namespace the service monitor will be deployed
+	//  When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace
+	// otherwise we will use the monitoring namespace.
+	ServiceMonitorNamespace string `json:"serviceMonitorNamespace,omitempty"`
+
 	// The name of the Prometheus service account that needs read-access to KubeVirt endpoints
 	// Defaults to prometheus-k8s
 	MonitorAccount string `json:"monitorAccount,omitempty"`

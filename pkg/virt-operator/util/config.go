@@ -60,6 +60,9 @@ const (
 	AdditionalPropertiesMonitorNamespace = "MonitorNamespace"
 
 	// lookup key in AdditionalProperties
+	AdditionalPropertiesServiceMonitorNamespace = "ServiceMonitorNamespace"
+
+	// lookup key in AdditionalProperties
 	AdditionalPropertiesMonitorServiceAccount = "MonitorAccount"
 
 	// lookup key in AdditionalProperties
@@ -436,6 +439,11 @@ func (c *KubeVirtDeploymentConfig) GetMonitorNamespaces() []string {
 		return DefaultMonitorNamespaces
 	}
 	return []string{p}
+}
+
+func (c *KubeVirtDeploymentConfig) GetServiceMonitorNamespace() string {
+	svcMonitorNs := c.AdditionalProperties[AdditionalPropertiesServiceMonitorNamespace]
+	return svcMonitorNs
 }
 
 func (c *KubeVirtDeploymentConfig) GetMonitorServiceAccount() string {

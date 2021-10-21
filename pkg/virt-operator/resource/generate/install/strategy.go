@@ -392,16 +392,19 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)
 
+	monitorServiceAccount := config.GetMonitorServiceAccount()
 	if monitorNamespace != "" {
-
+		serviceMonitorNamespace := config.GetServiceMonitorNamespace()
+		if serviceMonitorNamespace == "" {
+			serviceMonitorNamespace = monitorNamespace
+		}
 		workloadUpdatesEnabled := config.WorkloadUpdatesEnabled()
 
-		monitorServiceAccount := config.GetMonitorServiceAccount()
 		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
-		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), monitorNamespace, true))
+		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), serviceMonitorNamespace, true))
 		strategy.prometheusRules = append(strategy.prometheusRules, components.NewPrometheusRuleCR(config.GetNamespace(), workloadUpdatesEnabled))
 	} else {
-		glog.Warningf("failed to create service monitor resources because namespace %s does not exist", monitorNamespace)
+		glog.Warningf("failed to create ServiceMonitor resources because couldn't find ServiceAccount %v in any monitoring namespaces : %v", monitorServiceAccount, strings.Join(config.GetMonitorNamespaces(), ", "))
 	}
 
 	for _, entry := range rbaclist {

@@ -1925,6 +1925,11 @@ var CRDsValidation map[string]string = map[string]string{
             Useful if KubeVirt is included as part of a product. If ProductVersion
             is not specified, KubeVirt's version will be used.
           type: string
+        serviceMonitorNamespace:
+          description: The namespace the service monitor will be deployed  When ServiceMonitorNamespace
+            is set, then we'll install the service monitor object in that namespace
+            otherwise we will use the monitoring namespace.
+          type: string
         uninstallStrategy:
           description: Specifies if kubevirt can be deleted if workloads are still
             present. This is mainly a precaution to avoid accidental data loss
