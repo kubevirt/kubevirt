@@ -82,7 +82,7 @@ loop:
 }
 
 func ExpectEvent(recorder *record.FakeRecorder, reason string) {
-	gomega.Expect(recorder.Events).To(gomega.Receive(gomega.ContainSubstring(reason)))
+	gomega.ExpectWithOffset(1, recorder.Events).To(gomega.Receive(gomega.ContainSubstring(reason)))
 }
 
 // ExpectEvents checks for given reasons in arbitrary order
@@ -103,12 +103,12 @@ func ExpectEvents(recorder *record.FakeRecorder, reasons ...string) {
 				filtered = append(filtered, reason)
 			}
 
-			gomega.Expect(found).To(gomega.BeTrue(), "Expected to match event reason '%s' with one of %v", e, reasons)
+			gomega.ExpectWithOffset(1, found).To(gomega.BeTrue(), "Expected to match event reason '%s' with one of %v", e, reasons)
 			reasons = filtered
 
 		default:
 			// There should be something, trigger an error
-			gomega.Expect(recorder.Events).To(gomega.Receive())
+			gomega.ExpectWithOffset(1, recorder.Events).To(gomega.Receive())
 		}
 	}
 }
