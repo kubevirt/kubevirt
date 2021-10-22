@@ -24,7 +24,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"kubevirt.io/client-go/log"
 
@@ -51,6 +53,8 @@ const KernelBootName = "kernel-boot"
 const KernelBootVolumeName = KernelBootName + "-volume"
 
 const ephemeralStorageOverheadSize = "50M"
+
+var digestRegex = regexp.MustCompile(`sha256:([a-zA-Z0-9]+)`)
 
 func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
@@ -204,15 +208,19 @@ func GetImage(root string, imagePath string) (string, error) {
 	return imagePath, nil
 }
 
-func GenerateInitContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
-	return generateContainersHelper(vmi, podVolumeName, binVolumeName, true)
+func GenerateInitContainers(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string) []kubev1.Container {
+	return generateContainersHelper(vmi, imageIDs, podVolumeName, binVolumeName, true)
 }
 
-func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
-	return generateContainersHelper(vmi, podVolumeName, binVolumeName, false)
+func GenerateContainers(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string) []kubev1.Container {
+	return generateContainersHelper(vmi, imageIDs, podVolumeName, binVolumeName, false)
 }
 
-func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) *kubev1.Container {
+func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string) *kubev1.Container {
+	return generateKernelBootContainerHelper(vmi, imageIDs, podVolumeName, binVolumeName, false)
+}
+
+func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) *kubev1.Container {
 	if !util.HasKernelBootContainerImage(vmi) {
 		return nil
 	}
@@ -232,12 +240,12 @@ func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, podVolumeName s
 	}
 
 	const fakeVolumeIdx = 0 // volume index makes no difference for kernel-boot container
-	return generateContainerFromVolume(vmi, podVolumeName, binVolumeName, false, true, &kernelBootVolume, fakeVolumeIdx)
+	return generateContainerFromVolume(vmi, imageIDs, podVolumeName, binVolumeName, isInit, true, &kernelBootVolume, fakeVolumeIdx)
 }
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string, isInit bool) []kubev1.Container {
+func generateContainersHelper(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) []kubev1.Container {
 	var containers []kubev1.Container
 
 	// Make VirtualMachineInstance Image Wrapper Containers
@@ -245,21 +253,25 @@ func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName stri
 		if volume.Name == KernelBootVolumeName {
 			continue
 		}
-		if container := generateContainerFromVolume(vmi, podVolumeName, binVolumeName, isInit, false, &volume, index); container != nil {
+		if container := generateContainerFromVolume(vmi, imageIDs, podVolumeName, binVolumeName, isInit, false, &volume, index); container != nil {
 			containers = append(containers, *container)
 		}
 	}
 	return containers
 }
 
-func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, podVolumeName, binVolumeName string, isInit, isKernelBoot bool, volume *v1.Volume, volumeIdx int) *kubev1.Container {
+func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, podVolumeName, binVolumeName string, isInit, isKernelBoot bool, volume *v1.Volume, volumeIdx int) *kubev1.Container {
 	if volume.ContainerDisk == nil {
 		return nil
 	}
 
 	volumeMountDir := GetVolumeMountDirOnGuest(vmi)
-	diskContainerName := fmt.Sprintf("volume%s", volume.Name)
+	diskContainerName := toContainerName(volume.Name)
 	diskContainerImage := volume.ContainerDisk.Image
+	if img, exists := imageIDs[volume.Name]; exists {
+		diskContainerImage = img
+	}
+
 	resources := kubev1.ResourceRequirements{}
 	resources.Limits = make(kubev1.ResourceList)
 	resources.Requests = make(kubev1.ResourceList)
@@ -343,4 +355,64 @@ func CreateEphemeralImages(vmi *v1.VirtualMachineInstance, diskCreator ephemeral
 
 func getContainerDiskSocketBasePath(baseDir, podUID string) string {
 	return fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, podUID)
+}
+
+// ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,
+// which is recorded in the status section of a started pod.
+// It returns a map where the key is the vlume name and the value is the imageID
+func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod) (imageIDs map[string]string, err error) {
+	imageIDs = map[string]string{}
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk == nil {
+			continue
+		}
+		imageIDs[volume.Name] = ""
+	}
+
+	if util.HasKernelBootContainerImage(vmi) {
+		imageIDs[KernelBootVolumeName] = ""
+	}
+
+	for _, status := range sourcePod.Status.ContainerStatuses {
+		if !isImageVolume(status.Name) {
+			continue
+		}
+		key := toVolumeName(status.Name)
+		if _, exists := imageIDs[key]; !exists {
+			continue
+		}
+		imageID, err := toImageWithDigest(status.Image, status.ImageID)
+		if err != nil {
+			return nil, err
+		}
+		imageIDs[key] = imageID
+	}
+	return
+}
+
+func toImageWithDigest(image string, imageID string) (string, error) {
+	baseImage := image
+	if strings.LastIndex(image, "@sha256:") != -1 {
+		baseImage = strings.Split(image, "@sha256:")[0]
+	} else if colonIndex := strings.LastIndex(image, ":"); colonIndex > strings.LastIndex(image, "/") {
+		baseImage = image[:colonIndex]
+	}
+
+	digestMatches := digestRegex.FindStringSubmatch(imageID)
+	if len(digestMatches) < 2 {
+		return "", fmt.Errorf("failed to identify image digest for container %q with id %q", image, imageID)
+	}
+	return fmt.Sprintf("%s@sha256:%s", baseImage, digestMatches[1]), nil
+}
+
+func isImageVolume(containerName string) bool {
+	return strings.HasPrefix(containerName, "volume")
+}
+
+func toContainerName(volumeName string) string {
+	return fmt.Sprintf("volume%s", volumeName)
+}
+
+func toVolumeName(containerName string) string {
+	return strings.TrimPrefix(containerName, "volume")
 }
