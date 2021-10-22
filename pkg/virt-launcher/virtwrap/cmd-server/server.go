@@ -259,6 +259,23 @@ func (l *Launcher) UnfreezeVirtualMachine(_ context.Context, request *cmdv1.VMIR
 	return response, nil
 }
 
+func (l *Launcher) SoftRebootVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.SoftRebootVMI(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to soft reboot vmi")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("Soft rebooted vmi")
+	return response, nil
+}
+
 func (l *Launcher) KillVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)

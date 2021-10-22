@@ -467,6 +467,7 @@ type VirDomain interface {
 	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
+	Reboot(flags libvirt.DomainRebootFlagValues) error
 	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
