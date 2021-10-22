@@ -182,6 +182,34 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 	response.WriteHeader(http.StatusAccepted)
 }
 
+func (lh *LifecycleHandler) SoftRebootHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, lh.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
+		response.WriteError(code, err)
+		return
+	}
+
+	sockFile, err := cmdclient.FindSocketOnHost(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
+		response.WriteError(http.StatusInternalServerError, err)
+	}
+	client, err := cmdclient.NewClient(sockFile)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
+		response.WriteError(http.StatusInternalServerError, err)
+	}
+
+	err = client.SoftRebootVirtualMachine(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to soft reboot VMI")
+		response.WriteError(http.StatusInternalServerError, err)
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
 func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *restful.Response) {
 	log.Log.Info("Retreiving guestinfo")
 	vmi, code, err := getVMI(request, lh.vmiInformer)
