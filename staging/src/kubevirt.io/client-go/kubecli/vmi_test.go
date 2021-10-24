@@ -265,6 +265,17 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	It("should soft reboot a VirtualMachineInstance", func() {
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("PUT", subVMPath+"/softreboot"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+		))
+		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).SoftReboot("testvm")
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
+	})
+
 	It("should fetch GuestOSInfo from VirtualMachineInstance via subresource", func() {
 		osInfo := v1.VirtualMachineInstanceGuestAgentInfo{
 			GAVersion: "4.1.1",

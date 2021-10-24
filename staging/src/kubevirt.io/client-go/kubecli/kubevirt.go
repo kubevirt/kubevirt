@@ -188,6 +188,7 @@ type VirtualMachineInstanceInterface interface {
 	Unpause(name string, unpauseOptions *v1.UnpauseOptions) error
 	Freeze(name string, unfreezeTimeout time.Duration) error
 	Unfreeze(name string) error
+	SoftReboot(name string) error
 	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
 	FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error)
