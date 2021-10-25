@@ -59,6 +59,7 @@ const (
 	VmiGPU               = "vmi-gpu"
 	VmiMacvtap           = "vmi-macvtap"
 	VmTemplateFedora     = "vm-template-fedora"
+	VmiArm               = "vmi-arm"
 	VmTemplateRHEL7      = "vm-template-rhel7"
 	VmTemplateWindows    = "vm-template-windows2012r2"
 )
@@ -1051,3 +1052,16 @@ func GetVMIMacvtap() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: macvtap}}}
 	return vmi
 }
+
+func GetVMIArm() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiArm)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2G")
+	_true := true
+	vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &_true
+	vmi.Spec.Domain.Machine = &v1.Machine{Type: "virtio"}
+	vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet01", Bus: "virtio", Type: "tablet"}, {Name: "keyboard01", Bus: "usb", Type: "keyboard"}}
+	addPVCDisk(&vmi.Spec, "iso-arm", busVirtio, "cdromiso")
+	return vmi
+
+}
+
