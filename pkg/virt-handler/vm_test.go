@@ -630,6 +630,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			controller.Execute()
+			testutils.ExpectEvent(recorder, "VirtualMachineInstance defined")
 			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(1))
 		})
 

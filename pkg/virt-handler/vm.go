@@ -1358,7 +1358,7 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		vmiCopy := vmi.DeepCopy()
 
 		// prepare the POD for the migration
-		err := d.processVmUpdate(vmi)
+		err := d.processVmUpdate(vmi, domainExists)
 		if err != nil {
 			return err
 		}
@@ -1598,7 +1598,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		syncErr = d.processVmCleanup(vmi)
 	case shouldUpdate:
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")
-		syncErr = d.processVmUpdate(vmi)
+		syncErr = d.processVmUpdate(vmi, domainExists)
 	default:
 		log.Log.Object(vmi).V(3).Info("No update processing required")
 	}
@@ -2198,7 +2198,7 @@ func (d *VirtualMachineController) getLauncherClinetInfo(vmi *v1.VirtualMachineI
 	return d.launcherClients[vmi.UID]
 }
 
-func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance, domainExists bool) error {
 	vmi := origVMI.DeepCopy()
 
 	isUnresponsive, isInitialized, err := d.isLauncherClientUnresponsive(vmi)
@@ -2362,7 +2362,10 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 			return err
 		}
-		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance defined.")
+
+		if !domainExists {
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance defined.")
+		}
 		if vmi.IsRunning() {
 			// Umount any disks no longer mounted
 			if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
