@@ -11,6 +11,7 @@ import (
 
 const KUBEVIRT_PROMETHEUS_RULE_NAME = "prometheus-kubevirt-rules"
 const prometheusLabelKey = "prometheus.kubevirt.io"
+const prometheusLabelValue = "true"
 const runbookUrlBasePath = "https://kubevirt.io/monitoring/runbooks/"
 
 func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *v1.ServiceMonitor {
@@ -24,14 +25,14 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
 			Labels: map[string]string{
 				"openshift.io/cluster-monitoring": "",
-				prometheusLabelKey:                "",
+				prometheusLabelKey:                prometheusLabelValue,
 				"k8s-app":                         "kubevirt",
 			},
 		},
 		Spec: v1.ServiceMonitorSpec{
 			Selector: v12.LabelSelector{
 				MatchLabels: map[string]string{
-					prometheusLabelKey: "",
+					prometheusLabelKey: prometheusLabelValue,
 				},
 			},
 			NamespaceSelector: v1.NamespaceSelector{
@@ -62,7 +63,7 @@ func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *v1.Prom
 			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
 			Namespace: namespace,
 			Labels: map[string]string{
-				prometheusLabelKey: "",
+				prometheusLabelKey: prometheusLabelValue,
 				"k8s-app":          "kubevirt",
 			},
 		},
