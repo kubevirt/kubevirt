@@ -20,7 +20,7 @@
 package libvmi
 
 import (
-	kvirtv1 "kubevirt.io/client-go/api/v1"
+	kvirtv1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 // WithInterface adds a Domain Device Interface.

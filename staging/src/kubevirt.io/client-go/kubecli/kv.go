@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v12 "kubevirt.io/client-go/apis/core/v1"
 )
 
 func (k *kubevirt) KubeVirt(namespace string) KubeVirtInterface {
@@ -45,8 +45,8 @@ type kv struct {
 }
 
 // Create new KubeVirt in the cluster to specified namespace
-func (o *kv) Create(vm *v1.KubeVirt) (*v1.KubeVirt, error) {
-	newKv := &v1.KubeVirt{}
+func (o *kv) Create(vm *v12.KubeVirt) (*v12.KubeVirt, error) {
+	newKv := &v12.KubeVirt{}
 	err := o.restClient.Post().
 		Resource(o.resource).
 		Namespace(o.namespace).
@@ -54,14 +54,14 @@ func (o *kv) Create(vm *v1.KubeVirt) (*v1.KubeVirt, error) {
 		Do(context.Background()).
 		Into(newKv)
 
-	newKv.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
+	newKv.SetGroupVersionKind(v12.KubeVirtGroupVersionKind)
 
 	return newKv, err
 }
 
 // Get the KubeVirt from the cluster by its name and namespace
-func (o *kv) Get(name string, options *k8smetav1.GetOptions) (*v1.KubeVirt, error) {
-	newKv := &v1.KubeVirt{}
+func (o *kv) Get(name string, options *k8smetav1.GetOptions) (*v12.KubeVirt, error) {
+	newKv := &v12.KubeVirt{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
@@ -70,14 +70,14 @@ func (o *kv) Get(name string, options *k8smetav1.GetOptions) (*v1.KubeVirt, erro
 		Do(context.Background()).
 		Into(newKv)
 
-	newKv.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
+	newKv.SetGroupVersionKind(v12.KubeVirtGroupVersionKind)
 
 	return newKv, err
 }
 
 // Update the KubeVirt instance in the cluster in given namespace
-func (o *kv) Update(vm *v1.KubeVirt) (*v1.KubeVirt, error) {
-	updatedVm := &v1.KubeVirt{}
+func (o *kv) Update(vm *v12.KubeVirt) (*v12.KubeVirt, error) {
+	updatedVm := &v12.KubeVirt{}
 	err := o.restClient.Put().
 		Resource(o.resource).
 		Namespace(o.namespace).
@@ -86,7 +86,7 @@ func (o *kv) Update(vm *v1.KubeVirt) (*v1.KubeVirt, error) {
 		Do(context.Background()).
 		Into(updatedVm)
 
-	updatedVm.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
+	updatedVm.SetGroupVersionKind(v12.KubeVirtGroupVersionKind)
 
 	return updatedVm, err
 }
@@ -105,8 +105,8 @@ func (o *kv) Delete(name string, options *k8smetav1.DeleteOptions) error {
 }
 
 // List all KubeVirts in given namespace
-func (o *kv) List(options *k8smetav1.ListOptions) (*v1.KubeVirtList, error) {
-	newKvList := &v1.KubeVirtList{}
+func (o *kv) List(options *k8smetav1.ListOptions) (*v12.KubeVirtList, error) {
+	newKvList := &v12.KubeVirtList{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
@@ -115,14 +115,14 @@ func (o *kv) List(options *k8smetav1.ListOptions) (*v1.KubeVirtList, error) {
 		Into(newKvList)
 
 	for _, vm := range newKvList.Items {
-		vm.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
+		vm.SetGroupVersionKind(v12.KubeVirtGroupVersionKind)
 	}
 
 	return newKvList, err
 }
 
-func (v *kv) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.KubeVirt, err error) {
-	result = &v1.KubeVirt{}
+func (v *kv) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v12.KubeVirt, err error) {
+	result = &v12.KubeVirt{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
@@ -134,8 +134,8 @@ func (v *kv) Patch(name string, pt types.PatchType, data []byte, subresources ..
 	return result, err
 }
 
-func (v *kv) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.KubeVirt, err error) {
-	result = &v1.KubeVirt{}
+func (v *kv) PatchStatus(name string, pt types.PatchType, data []byte) (result *v12.KubeVirt, err error) {
+	result = &v12.KubeVirt{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
@@ -147,8 +147,8 @@ func (v *kv) PatchStatus(name string, pt types.PatchType, data []byte) (result *
 	return
 }
 
-func (v *kv) UpdateStatus(vmi *v1.KubeVirt) (result *v1.KubeVirt, err error) {
-	result = &v1.KubeVirt{}
+func (v *kv) UpdateStatus(vmi *v12.KubeVirt) (result *v12.KubeVirt, err error) {
+	result = &v12.KubeVirt{}
 	err = v.restClient.Put().
 		Name(vmi.ObjectMeta.Name).
 		Namespace(v.namespace).
@@ -157,6 +157,6 @@ func (v *kv) UpdateStatus(vmi *v1.KubeVirt) (result *v1.KubeVirt, err error) {
 		Body(vmi).
 		Do(context.Background()).
 		Into(result)
-	result.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
+	result.SetGroupVersionKind(v12.KubeVirtGroupVersionKind)
 	return
 }

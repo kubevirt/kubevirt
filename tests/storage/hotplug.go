@@ -38,8 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
@@ -77,12 +76,12 @@ var _ = SIGDescribe("Hotplug", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	newVirtualMachineInstanceWithContainerDisk := func() (*kubevirtv1.VirtualMachineInstance, *cdiv1.DataVolume) {
+	newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 		vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 		return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
 	}
 
-	createVirtualMachine := func(running bool, template *kubevirtv1.VirtualMachineInstance) *kubevirtv1.VirtualMachine {
+	createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 		By("Creating VirtualMachine")
 		vm := tests.NewRandomVirtualMachine(template, running)
 		newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
@@ -90,16 +89,16 @@ var _ = SIGDescribe("Hotplug", func() {
 		return newVM
 	}
 
-	deleteVirtualMachine := func(vm *kubevirtv1.VirtualMachine) error {
+	deleteVirtualMachine := func(vm *v1.VirtualMachine) error {
 		return virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
 	}
 
-	getAddVolumeOptions := func(volumeName, bus string, volumeSource *kubevirtv1.HotplugVolumeSource) *kubevirtv1.AddVolumeOptions {
-		return &kubevirtv1.AddVolumeOptions{
+	getAddVolumeOptions := func(volumeName, bus string, volumeSource *v1.HotplugVolumeSource) *v1.AddVolumeOptions {
+		return &v1.AddVolumeOptions{
 			Name: volumeName,
-			Disk: &kubevirtv1.Disk{
-				DiskDevice: kubevirtv1.DiskDevice{
-					Disk: &kubevirtv1.DiskTarget{
+			Disk: &v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
 						Bus: bus,
 					},
 				},
@@ -108,45 +107,45 @@ var _ = SIGDescribe("Hotplug", func() {
 			VolumeSource: volumeSource,
 		}
 	}
-	addVolumeVMIWithSource := func(name, namespace string, volumeOptions *kubevirtv1.AddVolumeOptions) {
+	addVolumeVMIWithSource := func(name, namespace string, volumeOptions *v1.AddVolumeOptions) {
 		Eventually(func() error {
 			return virtClient.VirtualMachineInstance(namespace).AddVolume(name, volumeOptions)
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	addDVVolumeVMI := func(name, namespace, volumeName, claimName, bus string) {
-		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &kubevirtv1.HotplugVolumeSource{
-			DataVolume: &kubevirtv1.DataVolumeSource{
+		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+			DataVolume: &v1.DataVolumeSource{
 				Name: claimName,
 			},
 		}))
 	}
 
 	addPVCVolumeVMI := func(name, namespace, volumeName, claimName, bus string) {
-		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &kubevirtv1.HotplugVolumeSource{
-			PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			}},
 		}))
 	}
 
-	addVolumeVMWithSource := func(name, namespace string, volumeOptions *kubevirtv1.AddVolumeOptions) {
+	addVolumeVMWithSource := func(name, namespace string, volumeOptions *v1.AddVolumeOptions) {
 		Eventually(func() error {
 			return virtClient.VirtualMachine(namespace).AddVolume(name, volumeOptions)
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	addDVVolumeVM := func(name, namespace, volumeName, claimName, bus string) {
-		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &kubevirtv1.HotplugVolumeSource{
-			DataVolume: &kubevirtv1.DataVolumeSource{
+		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+			DataVolume: &v1.DataVolumeSource{
 				Name: claimName,
 			},
 		}))
 	}
 
 	addPVCVolumeVM := func(name, namespace, volumeName, claimName, bus string) {
-		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &kubevirtv1.HotplugVolumeSource{
-			PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			}},
 		}))
@@ -162,7 +161,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	removeVolumeVMI := func(name, namespace, volumeName string) {
 		Eventually(func() error {
-			return virtClient.VirtualMachineInstance(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
+			return virtClient.VirtualMachineInstance(namespace).RemoveVolume(name, &v1.RemoveVolumeOptions{
 				Name: volumeName,
 			})
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -170,7 +169,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	removeVolumeVM := func(name, namespace, volumeName string) {
 		Eventually(func() error {
-			return virtClient.VirtualMachine(namespace).RemoveVolume(name, &kubevirtv1.RemoveVolumeOptions{
+			return virtClient.VirtualMachine(namespace).RemoveVolume(name, &v1.RemoveVolumeOptions{
 				Name: volumeName,
 			})
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -184,7 +183,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	verifyVolumeAndDiskVMAdded := func(vm *kubevirtv1.VirtualMachine, volumeNames ...string) {
+	verifyVolumeAndDiskVMAdded := func(vm *v1.VirtualMachine, volumeNames ...string) {
 		nameMap := make(map[string]bool)
 		for _, volumeName := range volumeNames {
 			nameMap[volumeName] = true
@@ -225,7 +224,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	verifyVolumeAndDiskVMIAdded := func(vmi *kubevirtv1.VirtualMachineInstance, volumeNames ...string) {
+	verifyVolumeAndDiskVMIAdded := func(vmi *v1.VirtualMachineInstance, volumeNames ...string) {
 		nameMap := make(map[string]bool)
 		for _, volumeName := range volumeNames {
 			nameMap[volumeName] = true
@@ -261,7 +260,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	verifyVolumeAndDiskVMRemoved := func(vm *kubevirtv1.VirtualMachine, volumeNames ...string) {
+	verifyVolumeAndDiskVMRemoved := func(vm *v1.VirtualMachine, volumeNames ...string) {
 		nameMap := make(map[string]bool)
 		for _, volumeName := range volumeNames {
 			nameMap[volumeName] = true
@@ -290,7 +289,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	verifyVolumeStatus := func(vmi *kubevirtv1.VirtualMachineInstance, phase kubevirtv1.VolumePhase, volumeNames ...string) {
+	verifyVolumeStatus := func(vmi *v1.VirtualMachineInstance, phase v1.VolumePhase, volumeNames ...string) {
 		By("Verify the volume status of the hotplugged volume is ready")
 		nameMap := make(map[string]bool)
 		for _, volumeName := range volumeNames {
@@ -320,7 +319,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	verifyCreateData := func(vmi *kubevirtv1.VirtualMachineInstance, device string) {
+	verifyCreateData := func(vmi *v1.VirtualMachineInstance, device string) {
 		batch := []expect.Batcher{
 			&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 %s\n", device)},
 			&expect.BExp{R: console.PromptExpression},
@@ -354,7 +353,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 	}
 
-	verifyWriteReadData := func(vmi *kubevirtv1.VirtualMachineInstance, device string) {
+	verifyWriteReadData := func(vmi *v1.VirtualMachineInstance, device string) {
 		dataFile := filepath.Join("/test", filepath.Base(device), "data/message")
 		batch := []expect.Batcher{
 			&expect.BSnd{S: fmt.Sprintf("echo '%s' > %s\n", vmi.UID, dataFile)},
@@ -371,7 +370,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 	}
 
-	verifyVolumeAccessible := func(vmi *kubevirtv1.VirtualMachineInstance, volumeName string) {
+	verifyVolumeAccessible := func(vmi *v1.VirtualMachineInstance, volumeName string) {
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", volumeName)},
@@ -382,7 +381,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 40*time.Second, 2*time.Second).Should(Succeed())
 	}
 
-	verifyVolumeNolongerAccessible := func(vmi *kubevirtv1.VirtualMachineInstance, volumeName string) {
+	verifyVolumeNolongerAccessible := func(vmi *v1.VirtualMachineInstance, volumeName string) {
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", volumeName)},
@@ -391,7 +390,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 90*time.Second, 2*time.Second).Should(Succeed())
 	}
 
-	waitForAttachmentPodToRun := func(vmi *kubevirtv1.VirtualMachineInstance) {
+	waitForAttachmentPodToRun := func(vmi *v1.VirtualMachineInstance) {
 		namespace := vmi.GetNamespace()
 		uid := vmi.GetUID()
 
@@ -425,7 +424,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, 270*time.Second, 2*time.Second).Should(BeTrue())
 	}
 
-	getTargetsFromVolumeStatus := func(vmi *kubevirtv1.VirtualMachineInstance, volumeNames ...string) []string {
+	getTargetsFromVolumeStatus := func(vmi *v1.VirtualMachineInstance, volumeNames ...string) []string {
 		nameMap := make(map[string]bool)
 		for _, volumeName := range volumeNames {
 			nameMap[volumeName] = true
@@ -442,7 +441,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		return res
 	}
 
-	createAndStartWFFCStorageHotplugVM := func() *kubevirtv1.VirtualMachine {
+	createAndStartWFFCStorageHotplugVM := func() *v1.VirtualMachine {
 		hasWffc := tests.HasBindingModeWaitForFirstConsumer()
 		if !hasWffc {
 			Skip("Skip no local wffc storage class available")
@@ -458,7 +457,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		return vm
 	}
 
-	verifyHotplugAttachedAndUseable := func(vmi *kubevirtv1.VirtualMachineInstance, names []string) []string {
+	verifyHotplugAttachedAndUseable := func(vmi *v1.VirtualMachineInstance, names []string) []string {
 		targets := getTargetsFromVolumeStatus(vmi, names...)
 		for _, target := range targets {
 			verifyVolumeAccessible(vmi, target)
@@ -467,7 +466,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		return targets
 	}
 
-	verifySingleAttachmentPod := func(vmi *kubevirtv1.VirtualMachineInstance) {
+	verifySingleAttachmentPod := func(vmi *v1.VirtualMachineInstance) {
 		podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		attachmentPodCount := 0
@@ -481,7 +480,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		Expect(attachmentPodCount).To(Equal(1), "Number of attachment pods is not 1: %s", attachmentPodCount)
 	}
 
-	getVmiConsoleAndLogin := func(vmi *kubevirtv1.VirtualMachineInstance) {
+	getVmiConsoleAndLogin := func(vmi *v1.VirtualMachineInstance) {
 		By("Obtaining the serial console")
 		Expect(console.LoginToCirros(vmi)).To(Succeed())
 	}
@@ -501,7 +500,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	Context("Offline VM", func() {
 		var (
-			vm *kubevirtv1.VirtualMachine
+			vm *v1.VirtualMachine
 		)
 		BeforeEach(func() {
 			By("Creating VirtualMachine")
@@ -533,7 +532,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	Context("WFFC storage", func() {
 		var (
-			vm *kubevirtv1.VirtualMachine
+			vm *v1.VirtualMachine
 		)
 
 		BeforeEach(func() {
@@ -577,7 +576,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			verifyVolumeAndDiskVMIAdded(vmi, dvNames...)
-			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, dvNames...)
+			verifyVolumeStatus(vmi, v1.VolumeReady, dvNames...)
 			getVmiConsoleAndLogin(vmi)
 			verifyHotplugAttachedAndUseable(vmi, dvNames)
 			verifySingleAttachmentPod(vmi)
@@ -597,7 +596,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	Context("[rook-ceph]", func() {
 		Context("Online VM", func() {
 			var (
-				vm *kubevirtv1.VirtualMachine
+				vm *v1.VirtualMachine
 				sc string
 			)
 
@@ -656,7 +655,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+				verifyVolumeStatus(vmi, v1.VolumeReady, "testvolume")
 				getVmiConsoleAndLogin(vmi)
 				targets := verifyHotplugAttachedAndUseable(vmi, []string{"testvolume"})
 				verifySingleAttachmentPod(vmi)
@@ -697,7 +696,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, testVolumes...)
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes...)
+				verifyVolumeStatus(vmi, v1.VolumeReady, testVolumes...)
 				targets := verifyHotplugAttachedAndUseable(vmi, testVolumes)
 				verifySingleAttachmentPod(vmi)
 				for _, volumeName := range testVolumes {
@@ -743,7 +742,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, testVolumes[:len(testVolumes)-1]...)
 				waitForAttachmentPodToRun(vmi)
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes[:len(testVolumes)-1]...)
+				verifyVolumeStatus(vmi, v1.VolumeReady, testVolumes[:len(testVolumes)-1]...)
 				verifySingleAttachmentPod(vmi)
 				By("removing volume sdc, with dv" + dvNames[2])
 				Eventually(func() string {
@@ -817,7 +816,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+				verifyVolumeStatus(vmi, v1.VolumeReady, "testvolume")
 				verifySingleAttachmentPod(vmi)
 
 				By("Verifying the volume is attached and usable")
@@ -835,7 +834,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				By("Verifying that the hotplugged volume is hotpluggable after a restart")
 				verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+				verifyVolumeStatus(vmi, v1.VolumeReady, "testvolume")
 
 				By("Verifying the hotplug device is auto-mounted during booting")
 				getVmiConsoleAndLogin(vmi)
@@ -857,8 +856,8 @@ var _ = SIGDescribe("Hotplug", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 				By("Adding volume to running VM")
-				err = virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, getAddVolumeOptions("disk0", "scsi", &kubevirtv1.HotplugVolumeSource{
-					DataVolume: &kubevirtv1.DataVolumeSource{
+				err = virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, getAddVolumeOptions("disk0", "scsi", &v1.HotplugVolumeSource{
+					DataVolume: &v1.DataVolumeSource{
 						Name: dvBlock.Name,
 					},
 				}))
@@ -880,7 +879,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				addDVVolumeVM(vm.Name, vm.Namespace, "fs", dvFileSystem.Name, "scsi")
 				verifyVolumeAndDiskVMIAdded(vmi, "block", "fs")
 
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "block", "fs")
+				verifyVolumeStatus(vmi, v1.VolumeReady, "block", "fs")
 				targets := getTargetsFromVolumeStatus(vmi, "block", "fs")
 				for i := 0; i < 2; i++ {
 					verifyVolumeAccessible(vmi, targets[i])
@@ -897,7 +896,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		Context("VMI migration", func() {
 			var (
-				vmi *kubevirtv1.VirtualMachineInstance
+				vmi *v1.VirtualMachineInstance
 				sc  string
 
 				numberOfMigrations int
@@ -910,18 +909,18 @@ var _ = SIGDescribe("Hotplug", func() {
 				hotplugLabelValue = "true"
 			)
 
-			verifyIsMigratable := func(vmi *kubevirtv1.VirtualMachineInstance, expectedValue bool) {
+			verifyIsMigratable := func(vmi *v1.VirtualMachineInstance, expectedValue bool) {
 				Eventually(func() bool {
 					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					if err != nil {
 						return false
 					}
 					for _, condition := range vmi.Status.Conditions {
-						if condition.Type == kubevirtv1.VirtualMachineInstanceIsMigratable {
+						if condition.Type == v1.VirtualMachineInstanceIsMigratable {
 							return condition.Status == corev1.ConditionTrue
 						}
 					}
-					return vmi.Status.Phase == kubevirtv1.Failed
+					return vmi.Status.Phase == v1.Failed
 				}, 90*time.Second, 1*time.Second).Should(Equal(expectedValue))
 			}
 
@@ -989,7 +988,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, volumeName)
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, volumeName)
+				verifyVolumeStatus(vmi, v1.VolumeReady, volumeName)
 
 				By("Verifying the VMI is still migrateable")
 				verifyIsMigratable(vmi, true)
@@ -1032,14 +1031,14 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(vmi, volumeName)
-				verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, volumeName)
+				verifyVolumeStatus(vmi, v1.VolumeReady, volumeName)
 			})
 		})
 	})
 
 	Context("hostpath", func() {
 		var (
-			vm *kubevirtv1.VirtualMachine
+			vm *v1.VirtualMachine
 		)
 
 		BeforeEach(func() {
@@ -1076,7 +1075,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
-			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+			verifyVolumeStatus(vmi, v1.VolumeReady, "testvolume")
 
 			getVmiConsoleAndLogin(vmi)
 			targets := getTargetsFromVolumeStatus(vmi, "testvolume")
@@ -1090,7 +1089,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	Context("iothreads", func() {
 		var (
-			vm *kubevirtv1.VirtualMachine
+			vm *v1.VirtualMachine
 		)
 
 		BeforeEach(func() {
@@ -1121,7 +1120,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
-			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+			verifyVolumeStatus(vmi, v1.VolumeReady, "testvolume")
 
 			getVmiConsoleAndLogin(vmi)
 			targets := getTargetsFromVolumeStatus(vmi, "testvolume")
@@ -1135,7 +1134,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	Context("hostpath-separate-device", func() {
 		var (
-			vm *kubevirtv1.VirtualMachine
+			vm *v1.VirtualMachine
 		)
 
 		BeforeEach(func() {
@@ -1168,7 +1167,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
-			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+			verifyVolumeStatus(vmi, v1.VolumeReady, "testvolume")
 
 			getVmiConsoleAndLogin(vmi)
 			targets := getTargetsFromVolumeStatus(vmi, "testvolume")
@@ -1182,7 +1181,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	Context("virtctl", func() {
 		var (
-			vm *kubevirtv1.VirtualMachine
+			vm *v1.VirtualMachine
 		)
 
 		BeforeEach(func() {
@@ -1205,7 +1204,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			addVolumeVirtctl(vmi.Name, vmi.Namespace, "", dv.Name, "")
-			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, dv.Name)
+			verifyVolumeStatus(vmi, v1.VolumeReady, dv.Name)
 
 			getVmiConsoleAndLogin(vmi)
 			targets := getTargetsFromVolumeStatus(vmi, dv.Name)

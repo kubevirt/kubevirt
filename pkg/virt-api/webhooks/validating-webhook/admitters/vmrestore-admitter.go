@@ -32,7 +32,9 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/apis/core"
+
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -90,7 +92,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 			}
 		} else {
 			switch *vmRestore.Spec.Target.APIGroup {
-			case v1.GroupName:
+			case core.GroupName:
 				switch vmRestore.Spec.Target.Kind {
 				case "VirtualMachine":
 					causes, targetUID, err = admitter.validateCreateVM(targetField.Child("name"), ar.Request.Namespace, vmRestore.Spec.Target.Name)

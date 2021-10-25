@@ -23,8 +23,7 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	virtv1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/apis/core/v1"
 	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
@@ -82,8 +81,8 @@ var _ = Describe("VirtualMachine", func() {
 			generatedInterface := fake.NewSimpleClientset()
 
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
-			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
-			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
+			vmInformer, vmSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
@@ -134,7 +133,7 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 		})
 
-		shouldExpectVMIFinalizerRemoval := func(vmi *v1.VirtualMachineInstance) {
+		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
 			patch := `[{ "op": "test", "path": "/metadata/finalizers", "value": ["kubevirt.io/virtualMachineControllerFinalize"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`
 
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
@@ -200,7 +199,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		}
 
-		patchVMRevision := func(vm *v1.VirtualMachine) runtime.RawExtension {
+		patchVMRevision := func(vm *virtv1.VirtualMachine) runtime.RawExtension {
 			vmBytes, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -216,14 +215,14 @@ var _ = Describe("VirtualMachine", func() {
 			return runtime.RawExtension{Raw: patch}
 		}
 
-		createVMRevision := func(vm *v1.VirtualMachine) *appsv1.ControllerRevision {
+		createVMRevision := func(vm *virtv1.VirtualMachine) *appsv1.ControllerRevision {
 			return &appsv1.ControllerRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      getVMRevisionName(vm.UID, vm.Generation),
 					Namespace: vm.Namespace,
 					OwnerReferences: []metav1.OwnerReference{{
-						APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-						Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+						APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+						Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
 						Name:               vm.ObjectMeta.Name,
 						UID:                vm.ObjectMeta.UID,
 						Controller:         &t,
@@ -235,7 +234,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 		}
 
-		addVirtualMachine := func(vm *v1.VirtualMachine) {
+		addVirtualMachine := func(vm *virtv1.VirtualMachine) {
 			syncCaches(stop)
 			mockQueue.ExpectAdds(1)
 			vmSource.Add(vm)
@@ -244,37 +243,37 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should create missing DataVolume for VirtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv2",
 					},
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      map[string]string{"my": "label"},
 					Annotations: map[string]string{"my": "annotation"},
 					Name:        "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
 			})
 
-			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
 			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
@@ -294,12 +293,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm, vmi := DefaultVirtualMachine(isRunning)
 			vm.Status.Created = true
 			vm.Status.Ready = true
-			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+			vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
 				{
-					AddVolumeOptions: &v1.AddVolumeOptions{
+					AddVolumeOptions: &virtv1.AddVolumeOptions{
 						Name:         "vol1",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
+						Disk:         &virtv1.Disk{},
+						VolumeSource: &virtv1.HotplugVolumeSource{},
 					},
 				},
 			}
@@ -313,12 +312,12 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
 			}).Return(nil, nil)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change
-				Expect(len(arg.(*v1.VirtualMachine).Status.VolumeRequests)).To(Equal(1))
+				Expect(len(arg.(*virtv1.VirtualMachine).Status.VolumeRequests)).To(Equal(1))
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -332,20 +331,20 @@ var _ = Describe("VirtualMachine", func() {
 			vm, vmi := DefaultVirtualMachine(isRunning)
 			vm.Status.Created = true
 			vm.Status.Ready = true
-			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+			vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
 				{
-					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+					RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{
 						Name: "vol1",
 					},
 				},
 			}
-			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
 				Name: "vol1",
 			})
-			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
 				Name: "vol1",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "testpvcdiskclaim",
 					}},
 				},
@@ -362,12 +361,12 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*v1.VirtualMachine).Spec.Template.Spec.Volumes)).To(Equal(0))
+				Expect(len(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes)).To(Equal(0))
 			}).Return(nil, nil)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change occured
-				Expect(len(arg.(*v1.VirtualMachine).Status.VolumeRequests)).To(Equal(1))
+				Expect(len(arg.(*virtv1.VirtualMachine).Status.VolumeRequests)).To(Equal(1))
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -381,22 +380,22 @@ var _ = Describe("VirtualMachine", func() {
 			vm, vmi := DefaultVirtualMachine(isRunning)
 			vm.Status.Created = true
 			vm.Status.Ready = true
-			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+			vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
 				{
-					AddVolumeOptions: &v1.AddVolumeOptions{
+					AddVolumeOptions: &virtv1.AddVolumeOptions{
 						Name:         "vol1",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
+						Disk:         &virtv1.Disk{},
+						VolumeSource: &virtv1.HotplugVolumeSource{},
 					},
 				},
 			}
-			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
 				Name: "vol1",
 			})
-			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
 				Name: "vol1",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "testpvcdiskclaim",
 					}},
 				},
@@ -412,7 +411,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*v1.VirtualMachine).Status.VolumeRequests)).To(Equal(0))
+				Expect(len(arg.(*virtv1.VirtualMachine).Status.VolumeRequests)).To(Equal(0))
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -426,15 +425,15 @@ var _ = Describe("VirtualMachine", func() {
 			vm, vmi := DefaultVirtualMachine(isRunning)
 			vm.Status.Created = true
 			vm.Status.Ready = true
-			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+			vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
 				{
-					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+					RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{
 						Name: "vol1",
 					},
 				},
 			}
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{}
-			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{}
+			vm.Spec.Template.Spec.Volumes = []virtv1.Volume{}
+			vm.Spec.Template.Spec.Domain.Devices.Disks = []virtv1.Disk{}
 
 			addVirtualMachine(vm)
 
@@ -444,7 +443,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(len(arg.(*v1.VirtualMachine).Status.VolumeRequests)).To(Equal(0))
+				Expect(len(arg.(*virtv1.VirtualMachine).Status.VolumeRequests)).To(Equal(0))
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -456,29 +455,29 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should not delete failed DataVolume for VirtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv2",
 					},
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -509,29 +508,29 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should not delete failed DataVolume for VirtualMachineInstance unless deletion timestamp expires ", func() {
 			vm, _ := DefaultVirtualMachine(true)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv2",
 					},
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -558,29 +557,29 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should handle failed DataVolume without Annotations", func() {
 			vm, _ := DefaultVirtualMachine(true)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv2",
 					},
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -611,15 +610,15 @@ var _ = Describe("VirtualMachine", func() {
 		It("should start VMI once DataVolumes are complete", func() {
 
 			vm, vmi := DefaultVirtualMachine(true)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
@@ -633,12 +632,12 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume)
 			// expect creation called
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 			// expect update status is called
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
@@ -648,15 +647,15 @@ var _ = Describe("VirtualMachine", func() {
 			// WaitForFirstConsumer state can only be handled by VMI
 
 			vm, vmi := DefaultVirtualMachine(true)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
@@ -670,12 +669,12 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume)
 			// expect creation called
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 			// expect update status is called
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
@@ -684,15 +683,15 @@ var _ = Describe("VirtualMachine", func() {
 		It("should Not delete Datavolumes when VMI is stopped", func() {
 
 			vm, vmi := DefaultVirtualMachine(false)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
@@ -714,35 +713,35 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should create multiple DataVolumes for VirtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv2",
 					},
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
 			})
 
-			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
 			createCount := 0
@@ -755,16 +754,16 @@ var _ = Describe("VirtualMachine", func() {
 
 		table.DescribeTable("should properly set priority class", func(dvPriorityClass, vmPriorityClass, expectedPriorityClass string) {
 			vm, _ := DefaultVirtualMachine(true)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
@@ -773,7 +772,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 			vm.Spec.Template.Spec.PriorityClassName = vmPriorityClass
-			vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
 			addVirtualMachine(vm)
 
 			createCount := 0
@@ -794,7 +793,7 @@ var _ = Describe("VirtualMachine", func() {
 			It("should track start failures when VMIs fail without hitting running state", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 				vmi.UID = "123"
-				vmi.Status.Phase = v1.Failed
+				vmi.Status.Phase = virtv1.Failed
 
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
@@ -802,10 +801,10 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.ConsecutiveFailCount).To(Equal(1))
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.ConsecutiveFailCount).To(Equal(1))
 				}).Return(nil, nil)
 
 				shouldExpectVMIFinalizerRemoval(vmi)
@@ -818,10 +817,10 @@ var _ = Describe("VirtualMachine", func() {
 			It("should track a new start failures when a new VMI fails without hitting running state", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 				vmi.UID = "456"
-				vmi.Status.Phase = v1.Failed
+				vmi.Status.Phase = virtv1.Failed
 
 				oldRetry := time.Now().Add(-300 * time.Second)
-				vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+				vm.Status.StartFailure = &virtv1.VirtualMachineStartFailure{
 					LastFailedVMIUID:     "123",
 					ConsecutiveFailCount: 1,
 					RetryAfterTimestamp: &metav1.Time{
@@ -835,11 +834,11 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(Equal(oldRetry))
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.ConsecutiveFailCount).To(Equal(2))
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(Equal(oldRetry))
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.ConsecutiveFailCount).To(Equal(2))
 				}).Return(nil, nil)
 
 				shouldExpectVMIFinalizerRemoval(vmi)
@@ -852,16 +851,16 @@ var _ = Describe("VirtualMachine", func() {
 			It("should clear start failures when VMI hits running state", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 				vmi.UID = "456"
-				vmi.Status.Phase = v1.Running
-				vmi.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstancePhaseTransitionTimestamp{
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstancePhaseTransitionTimestamp{
 					{
-						Phase:                    v1.Running,
+						Phase:                    virtv1.Running,
 						PhaseTransitionTimestamp: metav1.Now(),
 					},
 				}
 
 				oldRetry := time.Now().Add(-300 * time.Second)
-				vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+				vm.Status.StartFailure = &virtv1.VirtualMachineStartFailure{
 					LastFailedVMIUID:     "123",
 					ConsecutiveFailCount: 1,
 					RetryAfterTimestamp: &metav1.Time{
@@ -875,22 +874,22 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure).To(BeNil())
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).To(BeNil())
 				}).Return(nil, nil)
 
 				controller.Execute()
 
 			})
 
-			table.DescribeTable("should clear existing start failures when runStrategy is halted or manual", func(runStrategy v1.VirtualMachineRunStrategy) {
+			table.DescribeTable("should clear existing start failures when runStrategy is halted or manual", func(runStrategy virtv1.VirtualMachineRunStrategy) {
 				vm, vmi := DefaultVirtualMachine(true)
 				vmi.UID = "456"
-				vmi.Status.Phase = v1.Failed
+				vmi.Status.Phase = virtv1.Failed
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategy
 
 				oldRetry := time.Now().Add(300 * time.Second)
-				vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+				vm.Status.StartFailure = &virtv1.VirtualMachineStartFailure{
 					LastFailedVMIUID:     "123",
 					ConsecutiveFailCount: 1,
 					RetryAfterTimestamp: &metav1.Time{
@@ -904,10 +903,10 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					if runStrategy == v1.RunStrategyHalted || runStrategy == v1.RunStrategyManual {
-						Expect(arg.(*v1.VirtualMachine).Status.StartFailure).To(BeNil())
+					if runStrategy == virtv1.RunStrategyHalted || runStrategy == virtv1.RunStrategyManual {
+						Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).To(BeNil())
 					} else {
-						Expect(arg.(*v1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
+						Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
 
 					}
 				}).Return(nil, nil)
@@ -918,15 +917,15 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 
-				if runStrategy != v1.RunStrategyManual {
+				if runStrategy != virtv1.RunStrategyManual {
 					testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 				}
 			},
 
-				table.Entry("runStrategyHalted", v1.RunStrategyHalted),
-				table.Entry("always", v1.RunStrategyAlways),
-				table.Entry("manual", v1.RunStrategyManual),
-				table.Entry("rerunOnFailure", v1.RunStrategyRerunOnFailure),
+				table.Entry("runStrategyHalted", virtv1.RunStrategyHalted),
+				table.Entry("always", virtv1.RunStrategyAlways),
+				table.Entry("manual", virtv1.RunStrategyManual),
+				table.Entry("rerunOnFailure", virtv1.RunStrategyRerunOnFailure),
 			)
 
 			table.DescribeTable("should calculated expected backoff delay", func(failCount, minExpectedDelay int, maxExpectedDelay int) {
@@ -952,7 +951,7 @@ var _ = Describe("VirtualMachine", func() {
 				table.Entry("failCount 6", 6, 300, 300),
 			)
 
-			table.DescribeTable("has start failure backoff expired", func(vmFunc func() *v1.VirtualMachine, expected int64) {
+			table.DescribeTable("has start failure backoff expired", func(vmFunc func() *virtv1.VirtualMachine, expected int64) {
 				vm := vmFunc()
 				seconds := startFailureBackoffTimeLeft(vm)
 
@@ -966,15 +965,15 @@ var _ = Describe("VirtualMachine", func() {
 			},
 
 				table.Entry("no vm start failures",
-					func() *v1.VirtualMachine {
-						return &v1.VirtualMachine{}
+					func() *virtv1.VirtualMachine {
+						return &virtv1.VirtualMachine{}
 					},
 					int64(0)),
 				table.Entry("vm failure waiting 300 seconds",
-					func() *v1.VirtualMachine {
-						return &v1.VirtualMachine{
-							Status: v1.VirtualMachineStatus{
-								StartFailure: &v1.VirtualMachineStartFailure{
+					func() *virtv1.VirtualMachine {
+						return &virtv1.VirtualMachine{
+							Status: virtv1.VirtualMachineStatus{
+								StartFailure: &virtv1.VirtualMachineStartFailure{
 									RetryAfterTimestamp: &metav1.Time{
 										Time: time.Now().Add(300 * time.Second),
 									},
@@ -984,10 +983,10 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					int64(300)),
 				table.Entry("vm failure 300 seconds past retry time",
-					func() *v1.VirtualMachine {
-						return &v1.VirtualMachine{
-							Status: v1.VirtualMachineStatus{
-								StartFailure: &v1.VirtualMachineStartFailure{
+					func() *virtv1.VirtualMachine {
+						return &virtv1.VirtualMachine{
+							Status: virtv1.VirtualMachineStatus{
+								StartFailure: &virtv1.VirtualMachineStartFailure{
 									RetryAfterTimestamp: &metav1.Time{
 										Time: time.Now().Add(-300 * time.Second),
 									},
@@ -1000,7 +999,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("clone authorization tests", func() {
-			dv1 := &v1.DataVolumeTemplateSpec{
+			dv1 := &virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
@@ -1014,7 +1013,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			}
 
-			dv2 := &v1.DataVolumeTemplateSpec{
+			dv2 := &virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -1042,7 +1041,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			}
 
-			dv3 := &v1.DataVolumeTemplateSpec{
+			dv3 := &virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv3",
 				},
@@ -1055,22 +1054,22 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			}
 
-			serviceAccountVol := &v1.Volume{
+			serviceAccountVol := &virtv1.Volume{
 				Name: "sa",
-				VolumeSource: v1.VolumeSource{
-					ServiceAccount: &v1.ServiceAccountVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					ServiceAccount: &virtv1.ServiceAccountVolumeSource{
 						ServiceAccountName: "sa",
 					},
 				},
 			}
 
-			table.DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *v1.DataVolumeTemplateSpec, saVol *v1.Volume, ds *cdiv1.DataSource, fail bool) {
+			table.DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *virtv1.DataVolumeTemplateSpec, saVol *virtv1.Volume, ds *cdiv1.DataSource, fail bool) {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
-					v1.Volume{
+					virtv1.Volume{
 						Name: "test1",
-						VolumeSource: v1.VolumeSource{
-							DataVolume: &v1.DataVolumeSource{
+						VolumeSource: virtv1.VolumeSource{
+							DataVolume: &virtv1.DataVolumeSource{
 								Name: dv.Name,
 							},
 						},
@@ -1083,7 +1082,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dv)
 
-				vm.Status.PrintableStatus = v1.VirtualMachineStatusProvisioning
+				vm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
 				addVirtualMachine(vm)
 
 				createCount := 0
@@ -1166,14 +1165,14 @@ var _ = Describe("VirtualMachine", func() {
 			vmRevision := createVMRevision(vm)
 			expectControllerRevisionCreation(vmRevision)
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
+				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+				Expect(arg.(*virtv1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
 			}).Return(vmi, nil)
 
 			// expect update status is called
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -1194,14 +1193,14 @@ var _ = Describe("VirtualMachine", func() {
 			expectControllerRevisionDelete(oldVMRevision)
 			expectControllerRevisionCreation(vmRevision)
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
+				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+				Expect(arg.(*virtv1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
 			}).Return(vmi, nil)
 
 			// expect update status is called
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -1216,13 +1215,13 @@ var _ = Describe("VirtualMachine", func() {
 
 			// expect creation called
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 
 			// expect update status is called
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -1237,14 +1236,14 @@ var _ = Describe("VirtualMachine", func() {
 
 			// expect creation called
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("vmname"))
-				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal(""))
+				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("vmname"))
+				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal(""))
 			}).Return(vmi, nil)
 
 			// expect update status is called
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -1254,15 +1253,15 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should update status to created if the vmi exists", func() {
 			vm, vmi := DefaultVirtualMachine(true)
-			vmi.Status.Phase = v1.Scheduled
+			vmi.Status.Phase = virtv1.Scheduled
 
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
 			// expect update status is called
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeTrue())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeTrue())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -1277,8 +1276,8 @@ var _ = Describe("VirtualMachine", func() {
 
 			// expect update status is called
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeTrue())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeTrue())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeTrue())
+				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeTrue())
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -1339,7 +1338,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should ignore non-matching VMIs", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 
-			nonMatchingVMI := v1.NewMinimalVMI("testvmi1")
+			nonMatchingVMI := virtv1.NewMinimalVMI("testvmi1")
 			nonMatchingVMI.ObjectMeta.Labels = map[string]string{"test": "test1"}
 
 			addVirtualMachine(vm)
@@ -1371,16 +1370,16 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should detect that a DataVolume already exists and adopt it", func() {
 			vm, _ := DefaultVirtualMachine(false)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: "dv1",
 					},
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "dv1",
 					Namespace: vm.Namespace,
@@ -1433,10 +1432,10 @@ var _ = Describe("VirtualMachine", func() {
 
 			// We should see the failed condition, replicas should stay at 0
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
+				objVM := obj.(*virtv1.VirtualMachine)
+				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 				Expect(cond).To(Not(BeNil()))
-				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+				Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedCreate"))
 				Expect(cond.Message).To(Equal("failure"))
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
@@ -1456,10 +1455,10 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
+				objVM := obj.(*virtv1.VirtualMachine)
+				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 				Expect(cond).To(Not(BeNil()))
-				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+				Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
 				Expect(cond.Message).To(Equal("failure"))
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
@@ -1470,18 +1469,18 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
 
-		table.DescribeTable("should add ready condition when VMI exists", func(setup func(vmi *v1.VirtualMachineInstance), status k8sv1.ConditionStatus) {
+		table.DescribeTable("should add ready condition when VMI exists", func(setup func(vmi *virtv1.VirtualMachineInstance), status k8sv1.ConditionStatus) {
 			vm, vmi := DefaultVirtualMachine(true)
-			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
+			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, virtv1.VirtualMachineReady)
 			addVirtualMachine(vm)
 
 			setup(vmi)
 			vmiFeeder.Add(vmi)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
-				objVM := obj.(*v1.VirtualMachine)
+				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().
-					GetCondition(objVM, v1.VirtualMachineReady)
+					GetCondition(objVM, virtv1.VirtualMachineReady)
 				Expect(cond).ToNot(BeNil())
 				Expect(cond.Status).To(Equal(status))
 			}).Return(vm, nil)
@@ -1495,13 +1494,13 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should add ready condition when VMI doesn't exists", func() {
 			vm, vmi := DefaultVirtualMachine(true)
-			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
+			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, virtv1.VirtualMachineReady)
 			addVirtualMachine(vm)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
-				objVM := obj.(*v1.VirtualMachine)
+				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().
-					GetCondition(objVM, v1.VirtualMachineReady)
+					GetCondition(objVM, virtv1.VirtualMachineReady)
 				Expect(cond).ToNot(BeNil())
 				Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
 			}).Return(vm, nil)
@@ -1523,9 +1522,9 @@ var _ = Describe("VirtualMachine", func() {
 			vmiFeeder.Add(vmi)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
-				objVM := obj.(*v1.VirtualMachine)
+				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().
-					GetCondition(objVM, v1.VirtualMachinePaused)
+					GetCondition(objVM, virtv1.VirtualMachinePaused)
 				Expect(cond).ToNot(BeNil())
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			}).Return(vm, nil)
@@ -1545,9 +1544,9 @@ var _ = Describe("VirtualMachine", func() {
 			vmiFeeder.Add(vmi)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
-				objVM := obj.(*v1.VirtualMachine)
+				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().
-					GetCondition(objVM, v1.VirtualMachinePaused)
+					GetCondition(objVM, virtv1.VirtualMachinePaused)
 				Expect(cond).To(BeNil())
 			}).Return(vm, nil)
 
@@ -1563,10 +1562,10 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
+				objVM := obj.(*virtv1.VirtualMachine)
+				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 				Expect(cond).To(Not(BeNil()))
-				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+				Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
 				Expect(cond.Message).To(Equal("failure"))
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
@@ -1583,11 +1582,11 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"test": "test"}
 			annotations := map[string]string{"test": "test"}
 
-			vm.Status.PrintableStatus = v1.VirtualMachineStatusStarting
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStarting
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
-				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
+				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -1598,11 +1597,11 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"kubevirt.io/ignitiondata": "test"}
 			annotations := map[string]string{"kubevirt.io/ignitiondata": "test"}
 
-			vm.Status.PrintableStatus = v1.VirtualMachineStatusStarting
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStarting
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
-				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
+				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -1613,11 +1612,11 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}
 			annotations := map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}
 
-			vm.Status.PrintableStatus = v1.VirtualMachineStatusStarting
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStarting
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
-				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
+				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -1630,20 +1629,20 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStopped))
 				})
 
 				controller.Execute()
 			})
 
-			table.DescribeTable("should set a Stopped status when VMI exists but stopped", func(phase v1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time) {
+			table.DescribeTable("should set a Stopped status when VMI exists but stopped", func(phase virtv1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time) {
 				vm, vmi := DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = phase
-				vmi.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstancePhaseTransitionTimestamp{
+				vmi.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstancePhaseTransitionTimestamp{
 					{
-						Phase:                    v1.Running,
+						Phase:                    virtv1.Running,
 						PhaseTransitionTimestamp: metav1.Now(),
 					},
 				}
@@ -1654,8 +1653,8 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(1)
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStopped))
 				})
 
 				shouldExpectVMIFinalizerRemoval(vmi)
@@ -1663,10 +1662,10 @@ var _ = Describe("VirtualMachine", func() {
 				controller.Execute()
 			},
 
-				table.Entry("in Succeeded state", v1.Succeeded, nil),
-				table.Entry("in Succeeded state with a deletionTimestamp", v1.Succeeded, &metav1.Time{Time: time.Now()}),
-				table.Entry("in Failed state", v1.Failed, nil),
-				table.Entry("in Failed state with a deletionTimestamp", v1.Failed, &metav1.Time{Time: time.Now()}),
+				table.Entry("in Succeeded state", virtv1.Succeeded, nil),
+				table.Entry("in Succeeded state with a deletionTimestamp", virtv1.Succeeded, &metav1.Time{Time: time.Now()}),
+				table.Entry("in Failed state", virtv1.Failed, nil),
+				table.Entry("in Failed state with a deletionTimestamp", virtv1.Failed, &metav1.Time{Time: time.Now()}),
 			)
 
 			It("Should set a Starting status when running=true and VMI doesn't exist", func() {
@@ -1676,14 +1675,14 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, nil)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStarting))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStarting))
 				})
 
 				controller.Execute()
 			})
 
-			table.DescribeTable("Should set a Starting status when VMI is in a startup phase", func(phase v1.VirtualMachineInstancePhase) {
+			table.DescribeTable("Should set a Starting status when VMI is in a startup phase", func(phase virtv1.VirtualMachineInstancePhase) {
 				vm, vmi := DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = phase
@@ -1692,20 +1691,20 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStarting))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStarting))
 				})
 
 				controller.Execute()
 			},
 
-				table.Entry("VMI has no phase set", v1.VmPhaseUnset),
-				table.Entry("VMI is in Pending phase", v1.Pending),
-				table.Entry("VMI is in Scheduling phase", v1.Scheduling),
-				table.Entry("VMI is in Scheduled phase", v1.Scheduled),
+				table.Entry("VMI has no phase set", virtv1.VmPhaseUnset),
+				table.Entry("VMI is in Pending phase", virtv1.Pending),
+				table.Entry("VMI is in Scheduling phase", virtv1.Scheduling),
+				table.Entry("VMI is in Scheduled phase", virtv1.Scheduled),
 			)
 
-			table.DescribeTable("Should set a CrashLoop status when VMI is deleted and VM is in crash loop backoff", func(status v1.VirtualMachineStatus, runStrategy v1.VirtualMachineRunStrategy, hasVMI bool, expectCrashloop bool) {
+			table.DescribeTable("Should set a CrashLoop status when VMI is deleted and VM is in crash loop backoff", func(status virtv1.VirtualMachineStatus, runStrategy virtv1.VirtualMachineRunStrategy, hasVMI bool, expectCrashloop bool) {
 				vm, vmi := DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategy
@@ -1713,16 +1712,16 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 				if hasVMI {
-					vmi.Status.Phase = v1.Running
+					vmi.Status.Phase = virtv1.Running
 					vmiFeeder.Add(vmi)
 				}
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
+					objVM := obj.(*virtv1.VirtualMachine)
 					if expectCrashloop {
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusCrashLoopBackOff))
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusCrashLoopBackOff))
 					} else {
-						Expect(objVM.Status.PrintableStatus).ToNot(Equal(v1.VirtualMachineStatusCrashLoopBackOff))
+						Expect(objVM.Status.PrintableStatus).ToNot(Equal(virtv1.VirtualMachineStatusCrashLoopBackOff))
 					}
 				})
 
@@ -1730,82 +1729,82 @@ var _ = Describe("VirtualMachine", func() {
 			},
 
 				table.Entry("vm with runStrategy always and crash loop",
-					v1.VirtualMachineStatus{
-						StartFailure: &v1.VirtualMachineStartFailure{
+					virtv1.VirtualMachineStatus{
+						StartFailure: &virtv1.VirtualMachineStartFailure{
 							ConsecutiveFailCount: 1,
 							RetryAfterTimestamp: &metav1.Time{
 								Time: time.Now().Add(300 * time.Second),
 							},
 						},
 					},
-					v1.RunStrategyAlways,
+					virtv1.RunStrategyAlways,
 					false,
 					true),
 				table.Entry("vm with runStrategy rerun on failure and crash loop",
-					v1.VirtualMachineStatus{
-						StartFailure: &v1.VirtualMachineStartFailure{
+					virtv1.VirtualMachineStatus{
+						StartFailure: &virtv1.VirtualMachineStartFailure{
 							ConsecutiveFailCount: 1,
 							RetryAfterTimestamp: &metav1.Time{
 								Time: time.Now().Add(300 * time.Second),
 							},
 						},
 					},
-					v1.RunStrategyRerunOnFailure,
+					virtv1.RunStrategyRerunOnFailure,
 					false,
 					true),
 				table.Entry("vm with runStrategy halt should not report crash loop",
-					v1.VirtualMachineStatus{
-						StartFailure: &v1.VirtualMachineStartFailure{
+					virtv1.VirtualMachineStatus{
+						StartFailure: &virtv1.VirtualMachineStartFailure{
 							ConsecutiveFailCount: 1,
 							RetryAfterTimestamp: &metav1.Time{
 								Time: time.Now().Add(300 * time.Second),
 							},
 						},
 					},
-					v1.RunStrategyHalted,
+					virtv1.RunStrategyHalted,
 					false,
 					false),
 				table.Entry("vm with runStrategy manual should not report crash loop",
-					v1.VirtualMachineStatus{
-						StartFailure: &v1.VirtualMachineStartFailure{
+					virtv1.VirtualMachineStatus{
+						StartFailure: &virtv1.VirtualMachineStartFailure{
 							ConsecutiveFailCount: 1,
 							RetryAfterTimestamp: &metav1.Time{
 								Time: time.Now().Add(300 * time.Second),
 							},
 						},
 					},
-					v1.RunStrategyManual,
+					virtv1.RunStrategyManual,
 					false,
 					false),
 				table.Entry("vm with runStrategy always and VMI still exists should not report crash loop",
-					v1.VirtualMachineStatus{
-						StartFailure: &v1.VirtualMachineStartFailure{
+					virtv1.VirtualMachineStatus{
+						StartFailure: &virtv1.VirtualMachineStartFailure{
 							ConsecutiveFailCount: 1,
 							RetryAfterTimestamp: &metav1.Time{
 								Time: time.Now().Add(300 * time.Second),
 							},
 						},
 					},
-					v1.RunStrategyAlways,
+					virtv1.RunStrategyAlways,
 					true,
 					false),
 			)
 			Context("VM with DataVolumes", func() {
-				var vm *v1.VirtualMachine
-				var vmi *v1.VirtualMachineInstance
+				var vm *virtv1.VirtualMachine
+				var vmi *virtv1.VirtualMachineInstance
 
 				BeforeEach(func() {
 					vm, vmi = DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 						Name: "test1",
-						VolumeSource: v1.VolumeSource{
-							DataVolume: &v1.DataVolumeSource{
+						VolumeSource: virtv1.VolumeSource{
+							DataVolume: &virtv1.DataVolumeSource{
 								Name: "dv1",
 							},
 						},
 					})
 
-					vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+					vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "dv1",
 							Namespace: vm.Namespace,
@@ -1821,8 +1820,8 @@ var _ = Describe("VirtualMachine", func() {
 					shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 					})
 
 					controller.Execute()
@@ -1844,8 +1843,8 @@ var _ = Describe("VirtualMachine", func() {
 						vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, nil)
 					}
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 					})
 
 					controller.Execute()
@@ -1866,8 +1865,8 @@ var _ = Describe("VirtualMachine", func() {
 					dataVolumeFeeder.Add(dv)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusDataVolumeError))
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusDataVolumeError))
 					})
 
 					controller.Execute()
@@ -1892,7 +1891,7 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				It("Should clear a DataVolumeError status when the DataVolume error is gone", func() {
-					vm.Status.PrintableStatus = v1.VirtualMachineStatusDataVolumeError
+					vm.Status.PrintableStatus = virtv1.VirtualMachineStatusDataVolumeError
 					addVirtualMachine(vm)
 
 					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
@@ -1900,24 +1899,24 @@ var _ = Describe("VirtualMachine", func() {
 					dataVolumeFeeder.Add(dv)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 					})
 
 					controller.Execute()
 				})
 
 				It("Should set a Provisioning status when one DataVolume is ready and another isn't", func() {
-					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 						Name: "test2",
-						VolumeSource: v1.VolumeSource{
-							DataVolume: &v1.DataVolumeSource{
+						VolumeSource: virtv1.VolumeSource{
+							DataVolume: &virtv1.DataVolumeSource{
 								Name: "dv2",
 							},
 						},
 					})
 
-					vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+					vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "dv2",
 							Namespace: vm.Namespace,
@@ -1935,8 +1934,8 @@ var _ = Describe("VirtualMachine", func() {
 					dataVolumeFeeder.Add(dv2)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 					})
 
 					controller.Execute()
@@ -1944,14 +1943,14 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			Context("VM with PersistentVolumeClaims", func() {
-				var vm *v1.VirtualMachine
+				var vm *virtv1.VirtualMachine
 
 				BeforeEach(func() {
 					vm, _ = DefaultVirtualMachine(false)
-					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 						Name: "test1",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						VolumeSource: virtv1.VolumeSource{
+							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "pvc1",
 							}},
 						},
@@ -1960,8 +1959,8 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 					})
 				})
 
@@ -1993,14 +1992,14 @@ var _ = Describe("VirtualMachine", func() {
 			It("should set a Running status when VMI is running but not paused", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 
-				vmi.Status.Phase = v1.Running
+				vmi.Status.Phase = virtv1.Running
 
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusRunning))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusRunning))
 				})
 
 				controller.Execute()
@@ -2009,9 +2008,9 @@ var _ = Describe("VirtualMachine", func() {
 			It("should set a Paused status when VMI is running but is paused", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 
-				vmi.Status.Phase = v1.Running
-				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
-					Type:   v1.VirtualMachineInstancePaused,
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstancePaused,
 					Status: k8sv1.ConditionTrue,
 				})
 
@@ -2019,21 +2018,21 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusPaused))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusPaused))
 				})
 
 				controller.Execute()
 			})
 
-			table.DescribeTable("should set a Stopping status when VMI has a deletion timestamp set", func(phase v1.VirtualMachineInstancePhase, condType v1.VirtualMachineInstanceConditionType) {
+			table.DescribeTable("should set a Stopping status when VMI has a deletion timestamp set", func(phase virtv1.VirtualMachineInstancePhase, condType virtv1.VirtualMachineInstanceConditionType) {
 				vm, vmi := DefaultVirtualMachine(true)
 
 				vmi.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 				vmi.Status.Phase = phase
 
 				if condType != "" {
-					vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
 						Type:   condType,
 						Status: k8sv1.ConditionTrue,
 					})
@@ -2042,30 +2041,30 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopping))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStopping))
 				})
 
 				controller.Execute()
 			},
 
-				table.Entry("when VMI is pending", v1.Pending, v1.VirtualMachineInstanceConditionType("")),
-				table.Entry("when VMI is provisioning", v1.Pending, v1.VirtualMachineInstanceProvisioning),
-				table.Entry("when VMI is scheduling", v1.Scheduling, v1.VirtualMachineInstanceConditionType("")),
-				table.Entry("when VMI is scheduled", v1.Scheduling, v1.VirtualMachineInstanceConditionType("")),
-				table.Entry("when VMI is running", v1.Running, v1.VirtualMachineInstanceConditionType("")),
-				table.Entry("when VMI is paused", v1.Running, v1.VirtualMachineInstancePaused),
+				table.Entry("when VMI is pending", virtv1.Pending, virtv1.VirtualMachineInstanceConditionType("")),
+				table.Entry("when VMI is provisioning", virtv1.Pending, virtv1.VirtualMachineInstanceProvisioning),
+				table.Entry("when VMI is scheduling", virtv1.Scheduling, virtv1.VirtualMachineInstanceConditionType("")),
+				table.Entry("when VMI is scheduled", virtv1.Scheduling, virtv1.VirtualMachineInstanceConditionType("")),
+				table.Entry("when VMI is running", virtv1.Running, virtv1.VirtualMachineInstanceConditionType("")),
+				table.Entry("when VMI is paused", virtv1.Running, virtv1.VirtualMachineInstancePaused),
 			)
 
 			Context("should set a Terminating status when VM has a deletion timestamp set", func() {
-				table.DescribeTable("when VMI exists", func(phase v1.VirtualMachineInstancePhase, condType v1.VirtualMachineInstanceConditionType) {
+				table.DescribeTable("when VMI exists", func(phase virtv1.VirtualMachineInstancePhase, condType virtv1.VirtualMachineInstanceConditionType) {
 					vm, vmi := DefaultVirtualMachine(true)
 
 					vm.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 					vmi.Status.Phase = phase
 
 					if condType != "" {
-						vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+						vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
 							Type:   condType,
 							Status: k8sv1.ConditionTrue,
 						})
@@ -2075,19 +2074,19 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(1)
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusTerminating))
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
 					})
 
 					controller.Execute()
 				},
 
-					table.Entry("when VMI is pending", v1.Pending, v1.VirtualMachineInstanceConditionType("")),
-					table.Entry("when VMI is provisioning", v1.Pending, v1.VirtualMachineInstanceProvisioning),
-					table.Entry("when VMI is scheduling", v1.Scheduling, v1.VirtualMachineInstanceConditionType("")),
-					table.Entry("when VMI is scheduled", v1.Scheduling, v1.VirtualMachineInstanceConditionType("")),
-					table.Entry("when VMI is running", v1.Running, v1.VirtualMachineInstanceConditionType("")),
-					table.Entry("when VMI is paused", v1.Running, v1.VirtualMachineInstancePaused),
+					table.Entry("when VMI is pending", virtv1.Pending, virtv1.VirtualMachineInstanceConditionType("")),
+					table.Entry("when VMI is provisioning", virtv1.Pending, virtv1.VirtualMachineInstanceProvisioning),
+					table.Entry("when VMI is scheduling", virtv1.Scheduling, virtv1.VirtualMachineInstanceConditionType("")),
+					table.Entry("when VMI is scheduled", virtv1.Scheduling, virtv1.VirtualMachineInstanceConditionType("")),
+					table.Entry("when VMI is running", virtv1.Running, virtv1.VirtualMachineInstanceConditionType("")),
+					table.Entry("when VMI is paused", virtv1.Running, virtv1.VirtualMachineInstancePaused),
 				)
 
 				It("when VMI exists and has a deletion timestamp set", func() {
@@ -2095,14 +2094,14 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 					vmi.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-					vmi.Status.Phase = v1.Running
+					vmi.Status.Phase = virtv1.Running
 
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusTerminating))
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
 					})
 
 					controller.Execute()
@@ -2116,8 +2115,8 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusTerminating))
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
 					})
 
 					controller.Execute()
@@ -2131,8 +2130,8 @@ var _ = Describe("VirtualMachine", func() {
 			It("should set a Migrating status when VMI is migrating", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 
-				vmi.Status.Phase = v1.Running
-				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
 					StartTimestamp: &metav1.Time{Time: time.Now()},
 				}
 
@@ -2140,8 +2139,8 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusMigrating))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusMigrating))
 				})
 
 				controller.Execute()
@@ -2150,21 +2149,21 @@ var _ = Describe("VirtualMachine", func() {
 			It("should set an Unknown status when VMI is in unknown phase", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 
-				vmi.Status.Phase = v1.Unknown
+				vmi.Status.Phase = virtv1.Unknown
 
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusUnknown))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusUnknown))
 				})
 
 				controller.Execute()
 			})
 
 			table.DescribeTable("should set a failure status in accordance to VMI condition",
-				func(status virtv1.VirtualMachinePrintableStatus, cond v1.VirtualMachineInstanceCondition) {
+				func(status virtv1.VirtualMachinePrintableStatus, cond virtv1.VirtualMachineInstanceCondition) {
 
 					vm, vmi := DefaultVirtualMachine(true)
 					vmi.Status.Phase = virtv1.Scheduling
@@ -2174,28 +2173,28 @@ var _ = Describe("VirtualMachine", func() {
 					vmiFeeder.Add(vmi)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*v1.VirtualMachine)
+						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(status))
 					})
 
 					controller.Execute()
 				},
 
-				table.Entry("FailedUnschedulable", v1.VirtualMachineStatusUnschedulable,
+				table.Entry("FailedUnschedulable", virtv1.VirtualMachineStatusUnschedulable,
 					virtv1.VirtualMachineInstanceCondition{
 						Type:   virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
 						Status: k8sv1.ConditionFalse,
 						Reason: k8sv1.PodReasonUnschedulable,
 					},
 				),
-				table.Entry("FailedPvcNotFound", v1.VirtualMachineStatusPvcNotFound,
+				table.Entry("FailedPvcNotFound", virtv1.VirtualMachineStatusPvcNotFound,
 					virtv1.VirtualMachineInstanceCondition{
 						Type:   virtv1.VirtualMachineInstanceSynchronized,
 						Status: k8sv1.ConditionFalse,
 						Reason: FailedPvcNotFoundReason,
 					},
 				),
-				table.Entry("FailedDataVolumeNotFound", v1.VirtualMachineStatusDataVolumeNotFound,
+				table.Entry("FailedDataVolumeNotFound", virtv1.VirtualMachineStatusDataVolumeNotFound,
 					virtv1.VirtualMachineInstanceCondition{
 						Type:   virtv1.VirtualMachineInstanceSynchronized,
 						Status: k8sv1.ConditionFalse,
@@ -2206,10 +2205,10 @@ var _ = Describe("VirtualMachine", func() {
 
 			table.DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string) {
 				vm, vmi := DefaultVirtualMachine(true)
-				vmi.Status.Phase = v1.Scheduling
-				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				vmi.Status.Phase = virtv1.Scheduling
+				vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{
 					{
-						Type:   v1.VirtualMachineInstanceSynchronized,
+						Type:   virtv1.VirtualMachineInstanceSynchronized,
 						Status: k8sv1.ConditionFalse,
 						Reason: reason,
 					},
@@ -2219,8 +2218,8 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachinePrintableStatus(reason)))
+					objVM := obj.(*virtv1.VirtualMachine)
+					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachinePrintableStatus(reason)))
 				})
 
 				controller.Execute()
@@ -2232,9 +2231,9 @@ var _ = Describe("VirtualMachine", func() {
 
 		Context("Flavor", func() {
 			BeforeEach(func() {
-				flavorMethods.FindFlavorFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
+				flavorMethods.FindFlavorFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 					return &flavorv1alpha1.VirtualMachineFlavorProfile{
-						CPU: &v1.CPU{
+						CPU: &virtv1.CPU{
 							Sockets: 2,
 							Cores:   1,
 							Threads: 1,
@@ -2246,21 +2245,21 @@ var _ = Describe("VirtualMachine", func() {
 			It("should apply flavor", func() {
 				const flavorCpus = uint32(4)
 				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, vmiSpec *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
-					vmiSpec.Domain.CPU = &v1.CPU{Sockets: flavorCpus}
+					vmiSpec.Domain.CPU = &virtv1.CPU{Sockets: flavorCpus}
 					return nil
 				}
 
 				vm, vmi := DefaultVirtualMachine(true)
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Flavor = &virtv1.FlavorMatcher{
 					Name: "test-flavor",
 				}
 
-				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 2}
+				vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{Sockets: 2}
 
 				addVirtualMachine(vm)
 
 				vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Do(func(arg interface{}) {
-					vmiArg := arg.(*v1.VirtualMachineInstance)
+					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(flavorCpus))
 				}).Return(vmi, nil)
 
@@ -2273,22 +2272,22 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should fail if flavor does not exist", func() {
 				const errorMessage = "flavor not found"
-				flavorMethods.FindFlavorFunc = func(_ *v1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
+				flavorMethods.FindFlavorFunc = func(_ *virtv1.VirtualMachine) (*flavorv1alpha1.VirtualMachineFlavorProfile, error) {
 					return nil, fmt.Errorf(errorMessage)
 				}
 
 				vm, _ := DefaultVirtualMachine(true)
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Flavor = &virtv1.FlavorMatcher{
 					Name: "test-flavor",
 				}
 
 				addVirtualMachine(vm)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
+					objVM := obj.(*virtv1.VirtualMachine)
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
 					Expect(cond.Message).To(Equal(errorMessage))
 				}).Return(vm, nil)
@@ -2299,22 +2298,22 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			It("should fail applying flavor", func() {
-				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *v1.VirtualMachineInstanceSpec) flavor.Conflicts {
+				flavorMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *flavorv1alpha1.VirtualMachineFlavorProfile, _ *virtv1.VirtualMachineInstanceSpec) flavor.Conflicts {
 					return flavor.Conflicts{k8sfield.NewPath("spec", "template", "test", "path")}
 				}
 
 				vm, _ := DefaultVirtualMachine(true)
-				vm.Spec.Flavor = &v1.FlavorMatcher{
+				vm.Spec.Flavor = &virtv1.FlavorMatcher{
 					Name: "test-flavor",
 				}
 
 				addVirtualMachine(vm)
 
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-					objVM := obj.(*v1.VirtualMachine)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
+					objVM := obj.(*virtv1.VirtualMachine)
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
 					Expect(cond.Reason).To(Equal("FailedCreate"))
 					Expect(cond.Message).To(HavePrefix("VMI conflicts with flavor"))
 					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
@@ -2328,12 +2327,12 @@ var _ = Describe("VirtualMachine", func() {
 	})
 })
 
-func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started bool) *v1.VirtualMachine {
-	vm := &v1.VirtualMachine{
+func VirtualMachineFromVMI(name string, vmi *virtv1.VirtualMachineInstance, started bool) *virtv1.VirtualMachine {
+	vm := &virtv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: vmUID},
-		Spec: v1.VirtualMachineSpec{
+		Spec: virtv1.VirtualMachineSpec{
 			Running: &started,
-			Template: &v1.VirtualMachineInstanceTemplateSpec{
+			Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   vmi.ObjectMeta.Name,
 					Labels: vmi.ObjectMeta.Labels,
@@ -2341,10 +2340,10 @@ func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started 
 				Spec: vmi.Spec,
 			},
 		},
-		Status: v1.VirtualMachineStatus{
-			Conditions: []v1.VirtualMachineCondition{
+		Status: virtv1.VirtualMachineStatus{
+			Conditions: []virtv1.VirtualMachineCondition{
 				{
-					Type:   v1.VirtualMachineReady,
+					Type:   virtv1.VirtualMachineReady,
 					Status: k8sv1.ConditionFalse,
 					Reason: "VMINotExists",
 				},
@@ -2354,15 +2353,15 @@ func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started 
 	return vm
 }
 
-func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-	vmi := v1.NewMinimalVMI(vmiName)
+func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) {
+	vmi := virtv1.NewMinimalVMI(vmiName)
 	vmi.GenerateName = "prettyrandom"
-	vmi.Status.Phase = v1.Running
+	vmi.Status.Phase = virtv1.Running
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 	vm := VirtualMachineFromVMI(vmName, vmi, started)
 	vmi.OwnerReferences = []metav1.OwnerReference{{
-		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
 		Name:               vm.ObjectMeta.Name,
 		UID:                vm.ObjectMeta.UID,
 		Controller:         &t,
@@ -2373,6 +2372,6 @@ func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string)
 	return vm, vmi
 }
 
-func DefaultVirtualMachine(started bool) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+func DefaultVirtualMachine(started bool) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) {
 	return DefaultVirtualMachineWithNames(started, "testvmi", "testvmi")
 }

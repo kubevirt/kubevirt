@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/runtime"
 	"libvirt.org/go/libvirt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -17,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/reference"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
@@ -71,6 +72,16 @@ var (
 	defaultSendTimeout     = 5 * time.Second
 	defaultTotalTimeout    = 20 * time.Second
 )
+
+var (
+	schemeBuilder = runtime.NewSchemeBuilder(v1.AddKnownTypesGenerator(v1.GroupVersions))
+	addToScheme   = schemeBuilder.AddToScheme
+	scheme        = runtime.NewScheme()
+)
+
+func init() {
+	addToScheme(scheme)
+}
 
 func negotiateVersion(infoClient info.NotifyInfoClient) (uint32, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
@@ -498,7 +509,7 @@ func (n *Notifier) StartDomainNotifier(
 }
 
 func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
-	vmiRef, err := reference.GetReference(v1.Scheme, vmi)
+	vmiRef, err := reference.GetReference(scheme, vmi)
 	if err != nil {
 		return err
 	}

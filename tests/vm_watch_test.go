@@ -10,7 +10,7 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v12 "kubevirt.io/client-go/api/v1"
+	v12 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
 	virtctlvm "kubevirt.io/kubevirt/pkg/virtctl/vm"

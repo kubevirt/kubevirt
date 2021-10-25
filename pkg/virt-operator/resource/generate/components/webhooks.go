@@ -6,7 +6,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	virtv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/apis/core"
+
+	virtv1 "kubevirt.io/client-go/apis/core/v1"
 	flavorv1alpha1 "kubevirt.io/client-go/apis/flavor/v1alpha1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 )
@@ -87,7 +89,7 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 						admissionregistrationv1.Delete,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"kubevirts"},
 					},
@@ -107,7 +109,7 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"kubevirts"},
 					},
@@ -158,7 +160,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachines"},
 					},
@@ -183,7 +185,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstances"},
 					},
@@ -207,7 +209,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						admissionregistrationv1.Create,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancemigrations"},
 					},
@@ -295,7 +297,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Create,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstances"},
 					},
@@ -319,7 +321,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstances"},
 					},
@@ -344,7 +346,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachines"},
 					},
@@ -369,7 +371,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancereplicasets"},
 					},
@@ -394,7 +396,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancepresets"},
 					},
@@ -418,7 +420,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Create,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancemigrations"},
 					},
@@ -442,7 +444,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancemigrations"},
 					},
@@ -567,7 +569,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{virtv1.GroupName},
+						APIGroups:   []string{core.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources: []string{
 							"virtualmachines/status",

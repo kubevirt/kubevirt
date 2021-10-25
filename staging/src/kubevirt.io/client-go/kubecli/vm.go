@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v12 "kubevirt.io/client-go/apis/core/v1"
 )
 
 const vmSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachines/%s/%s"
@@ -52,8 +52,8 @@ type vm struct {
 }
 
 // Create new VirtualMachine in the cluster to specified namespace
-func (v *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	newVm := &v1.VirtualMachine{}
+func (v *vm) Create(vm *v12.VirtualMachine) (*v12.VirtualMachine, error) {
+	newVm := &v12.VirtualMachine{}
 	err := v.restClient.Post().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -61,14 +61,14 @@ func (v *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 		Do(context.Background()).
 		Into(newVm)
 
-	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	newVm.SetGroupVersionKind(v12.VirtualMachineGroupVersionKind)
 
 	return newVm, err
 }
 
 // Get the Virtual machine from the cluster by its name and namespace
-func (v *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
-	newVm := &v1.VirtualMachine{}
+func (v *vm) Get(name string, options *k8smetav1.GetOptions) (*v12.VirtualMachine, error) {
+	newVm := &v12.VirtualMachine{}
 	err := v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -77,14 +77,14 @@ func (v *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine
 		Do(context.Background()).
 		Into(newVm)
 
-	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	newVm.SetGroupVersionKind(v12.VirtualMachineGroupVersionKind)
 
 	return newVm, err
 }
 
 // Update the VirtualMachine instance in the cluster in given namespace
-func (v *vm) Update(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	updatedVm := &v1.VirtualMachine{}
+func (v *vm) Update(vm *v12.VirtualMachine) (*v12.VirtualMachine, error) {
+	updatedVm := &v12.VirtualMachine{}
 	err := v.restClient.Put().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -93,7 +93,7 @@ func (v *vm) Update(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 		Do(context.Background()).
 		Into(updatedVm)
 
-	updatedVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	updatedVm.SetGroupVersionKind(v12.VirtualMachineGroupVersionKind)
 
 	return updatedVm, err
 }
@@ -112,8 +112,8 @@ func (v *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
 }
 
 // List all VirtualMachines in given namespace
-func (v *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
-	newVmList := &v1.VirtualMachineList{}
+func (v *vm) List(options *k8smetav1.ListOptions) (*v12.VirtualMachineList, error) {
+	newVmList := &v12.VirtualMachineList{}
 	err := v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -122,14 +122,14 @@ func (v *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error
 		Into(newVmList)
 
 	for _, vm := range newVmList.Items {
-		vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+		vm.SetGroupVersionKind(v12.VirtualMachineGroupVersionKind)
 	}
 
 	return newVmList, err
 }
 
-func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
+func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v12.VirtualMachine, err error) {
+	result = &v12.VirtualMachine{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
@@ -141,8 +141,8 @@ func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ..
 	return result, err
 }
 
-func (v *vm) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
+func (v *vm) PatchStatus(name string, pt types.PatchType, data []byte) (result *v12.VirtualMachine, err error) {
+	result = &v12.VirtualMachine{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
@@ -154,8 +154,8 @@ func (v *vm) PatchStatus(name string, pt types.PatchType, data []byte) (result *
 	return
 }
 
-func (v *vm) UpdateStatus(vmi *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
+func (v *vm) UpdateStatus(vmi *v12.VirtualMachine) (result *v12.VirtualMachine, err error) {
+	result = &v12.VirtualMachine{}
 	err = v.restClient.Put().
 		Name(vmi.ObjectMeta.Name).
 		Namespace(v.namespace).
@@ -164,12 +164,12 @@ func (v *vm) UpdateStatus(vmi *v1.VirtualMachine) (result *v1.VirtualMachine, er
 		Body(vmi).
 		Do(context.Background()).
 		Into(result)
-	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	result.SetGroupVersionKind(v12.VirtualMachineGroupVersionKind)
 	return
 }
 
 func (v *vm) Restart(name string) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
+	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
@@ -179,12 +179,12 @@ func (v *vm) ForceRestart(name string, graceperiod int) error {
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
+	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
-func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "start")
+func (v *vm) Start(name string, startOptions *v12.StartOptions) error {
+	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "start")
 
 	optsJson, err := json.Marshal(startOptions)
 	if err != nil {
@@ -194,7 +194,7 @@ func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
 }
 
 func (v *vm) Stop(name string) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "stop")
+	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "stop")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
@@ -204,17 +204,17 @@ func (v *vm) ForceStop(name string, graceperiod int) error {
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "stop")
+	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "stop")
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
 func (v *vm) Migrate(name string) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "migrate")
+	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "migrate")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
-func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addvolume")
+func (v *vm) AddVolume(name string, addVolumeOptions *v12.AddVolumeOptions) error {
+	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "addvolume")
 
 	JSON, err := json.Marshal(addVolumeOptions)
 
@@ -225,8 +225,8 @@ func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
 }
 
-func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "removevolume")
+func (v *vm) RemoveVolume(name string, removeVolumeOptions *v12.RemoveVolumeOptions) error {
+	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "removevolume")
 
 	JSON, err := json.Marshal(removeVolumeOptions)
 

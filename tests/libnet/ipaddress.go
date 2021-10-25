@@ -4,7 +4,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	netutils "k8s.io/utils/net"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/apis/core/v1"
 )
 
 func GetPodIpByFamily(pod *k8sv1.Pod, family k8sv1.IPFamily) string {

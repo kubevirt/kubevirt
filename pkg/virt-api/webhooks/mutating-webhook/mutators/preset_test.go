@@ -30,7 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/apis/core"
+
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -640,7 +642,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 		var nonmatchingPreset v1.VirtualMachineInstancePreset
 		var errorPreset v1.VirtualMachineInstancePreset
 		matchingPresetName := "test-preset"
-		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
+		flavorKey := fmt.Sprintf("%s/flavor", core.GroupName)
 		matchingLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "matching"}}
 		mismatchLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "unrelated"}}
 		errorLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "!"}}
