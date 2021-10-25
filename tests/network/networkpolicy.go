@@ -22,18 +22,18 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = SIGDescribe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
+var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
 	var (
-		virtClient                                          kubecli.KubevirtClient
-		serverVMI, clientVMI, clientVMIAlternativeNamespace *v1.VirtualMachineInstance
-		serverVMILabels                                     = map[string]string{"type": "test"}
+		virtClient      kubecli.KubevirtClient
+		serverVMILabels map[string]string
 	)
 	BeforeEach(func() {
+		tests.BeforeTestCleanup()
+
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred(), "should succeed retrieving the kubevirt client")
@@ -41,57 +41,29 @@ var _ = SIGDescribe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][l
 		tests.SkipIfUseFlannel(virtClient)
 		skipNetworkPolicyRunningOnKindInfra()
 
+		serverVMILabels = map[string]string{"type": "test"}
 	})
+
 	Context("when three cirros VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", func() {
-		tests.BeforeAll(func() {
-			tests.BeforeTestCleanup()
+		var serverVMI, clientVMI *v1.VirtualMachineInstance
 
-			// Create three vmis, serverVMI and clientVMI are in same namespace, clientVMIAlternativeNamespace is in different namespace
-			serverVMI = createVMICirros(virtClient,
-				util.NamespaceTestDefault,
-				serverVMILabels,
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(
-					v1.Port{
-						Name:     "http80",
-						Port:     80,
-						Protocol: "TCP",
-					},
-					v1.Port{
-						Name:     "http81",
-						Port:     81,
-						Protocol: "TCP",
-					},
-				)),
-			)
-			clientVMI = createVMICirros(virtClient, util.NamespaceTestDefault, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
-			clientVMIAlternativeNamespace = createVMICirros(virtClient, tests.NamespaceTestAlternative, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
-
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			serverVMIFuture := tests.WaitUntilVMIReadyAsync(ctx, serverVMI, libnet.WithIPv6(console.LoginToCirros))
-			clientVMIFuture := tests.WaitUntilVMIReadyAsync(ctx, clientVMI, libnet.WithIPv6(console.LoginToCirros))
-			clientVMIAlternativeNamespaceFuture := tests.WaitUntilVMIReadyAsync(ctx, clientVMIAlternativeNamespace, libnet.WithIPv6(console.LoginToCirros))
-
-			serverVMI = serverVMIFuture()
-			clientVMI = clientVMIFuture()
-			clientVMIAlternativeNamespace = clientVMIAlternativeNamespaceFuture()
-
-			By("Start HTTP server at serverVMI on ports 80 and 81")
-			tests.HTTPServer.Start(serverVMI, 80)
-			tests.HTTPServer.Start(serverVMI, 81)
-
+		BeforeEach(func() {
+			var err error
+			serverVMI, err = createServerVmi(virtClient, util.NamespaceTestDefault, serverVMILabels)
+			Expect(err).ToNot(HaveOccurred())
 			assertIPsNotEmptyForVMI(serverVMI)
-			assertIPsNotEmptyForVMI(clientVMI)
-			assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
-
 		})
 
 		Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", func() {
 			var policy *networkv1.NetworkPolicy
 
 			BeforeEach(func() {
+				var err error
 				// deny-by-default networkpolicy will deny all the traffic to the vms in the namespace
 				policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-default", metav1.LabelSelector{}, []networkv1.NetworkPolicyIngressRule{})
+				clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+				Expect(err).ToNot(HaveOccurred())
+				assertIPsNotEmptyForVMI(clientVMI)
 			})
 
 			AfterEach(func() {
@@ -131,21 +103,40 @@ var _ = SIGDescribe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][l
 						},
 					},
 				)
-
 			})
 
 			AfterEach(func() {
 				waitForNetworkPolicyDeletion(policy)
 			})
 
-			It("[Conformance][test_id:1513] should succeed pinging between two VMI/s in the same namespace", func() {
-				assertPingSucceed(clientVMI, serverVMI)
+			When("client vmi is on default namespace", func() {
+
+				BeforeEach(func() {
+					var err error
+					clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+					Expect(err).ToNot(HaveOccurred())
+					assertIPsNotEmptyForVMI(clientVMI)
+				})
+
+				It("[Conformance][test_id:1513] should succeed pinging between two VMI/s in the same namespace", func() {
+					assertPingSucceed(clientVMI, serverVMI)
+				})
 			})
 
-			It("[Conformance][test_id:1514] should fail pinging between two VMI/s each on different namespaces", func() {
-				assertPingFail(clientVMIAlternativeNamespace, serverVMI)
-			})
+			When("client vmi is on alternative namespace", func() {
+				var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
 
+				BeforeEach(func() {
+					var err error
+					clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
+					Expect(err).ToNot(HaveOccurred())
+					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
+				})
+
+				It("[Conformance][test_id:1514] should fail pinging between two VMI/s each on different namespaces", func() {
+					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
+				})
+			})
 		})
 
 		Context("and ingress traffic to VMI identified via label at networkprofile's labelSelector is blocked", func() {
@@ -173,24 +164,56 @@ var _ = SIGDescribe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][l
 				waitForNetworkPolicyDeletion(policy)
 			})
 
-			It("[test_id:1515] should fail to reach serverVMI from clientVMIAlternativeNamespace", func() {
-				By("Connect serverVMI from clientVMIAlternativeNamespace")
-				assertPingFail(clientVMIAlternativeNamespace, serverVMI)
+			When("client vmi is on alternative namespace", func() {
+				var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
+
+				BeforeEach(func() {
+					var err error
+					clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
+					Expect(err).ToNot(HaveOccurred())
+					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
+				})
+
+				It("[test_id:1515] should fail to reach serverVMI from clientVMIAlternativeNamespace", func() {
+					By("Connect serverVMI from clientVMIAlternativeNamespace")
+					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
+				})
 			})
 
-			It("[test_id:1516] should fail to reach serverVMI from clientVMI", func() {
-				By("Connect serverVMI from clientVMI")
-				assertPingFail(clientVMI, serverVMI)
-			})
+			When("client vmi is on default namespace", func() {
+				BeforeEach(func() {
+					var err error
+					clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+					Expect(err).ToNot(HaveOccurred())
+					assertIPsNotEmptyForVMI(clientVMI)
+				})
 
-			It("[test_id:1517] should success to reach clientVMI from clientVMIAlternativeNamespace", func() {
-				By("Connect clientVMI from clientVMIAlternativeNamespace")
-				assertPingSucceed(clientVMIAlternativeNamespace, clientVMI)
-			})
+				It("[test_id:1515] should fail to reach serverVMI from clientVMI", func() {
+					By("Connect serverVMI from clientVMIAlternativeNamespace")
+					assertPingFail(clientVMI, serverVMI)
+				})
 
+				When("another client vmi is on an alternative namespace", func() {
+					var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
+
+					BeforeEach(func() {
+						var err error
+						clientVMIAlternativeNamespace, err = createClientVmi(tests.NamespaceTestAlternative, virtClient)
+						Expect(err).ToNot(HaveOccurred())
+						assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
+					})
+
+					It("[test_id:1517] should success to reach clientVMI from clientVMIAlternativeNamespace", func() {
+						By("Connect clientVMI from clientVMIAlternativeNamespace")
+						assertPingSucceed(clientVMIAlternativeNamespace, clientVMI)
+					})
+				})
+			})
 		})
+
 		Context("and TCP connectivity on ports 80 and 81 between VMI/s is allowed by networkpolicy", func() {
 			var policy *networkv1.NetworkPolicy
+
 			BeforeEach(func() {
 				port80 := intstr.FromInt(80)
 				port81 := intstr.FromInt(81)
@@ -205,6 +228,11 @@ var _ = SIGDescribe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][l
 						},
 					},
 				)
+
+				var err error
+				clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+				Expect(err).ToNot(HaveOccurred())
+				assertIPsNotEmptyForVMI(clientVMI)
 			})
 			AfterEach(func() {
 				waitForNetworkPolicyDeletion(policy)
@@ -216,6 +244,7 @@ var _ = SIGDescribe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][l
 		})
 		Context("and TCP connectivity on ports 80 between VMI/s is allowed by networkpolicy", func() {
 			var policy *networkv1.NetworkPolicy
+
 			BeforeEach(func() {
 				port80 := intstr.FromInt(80)
 				tcp := corev1.ProtocolTCP
@@ -228,6 +257,11 @@ var _ = SIGDescribe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][l
 						},
 					},
 				)
+
+				var err error
+				clientVMI, err = createClientVmi(util.NamespaceTestDefault, virtClient)
+				Expect(err).ToNot(HaveOccurred())
+				assertIPsNotEmptyForVMI(clientVMI)
 			})
 			AfterEach(func() {
 				waitForNetworkPolicyDeletion(policy)
@@ -245,25 +279,6 @@ func skipNetworkPolicyRunningOnKindInfra() {
 	if tests.IsRunningOnKindInfra() {
 		Skip("Skip Network Policy tests till issue https://github.com/kubevirt/kubevirt/issues/4081 is fixed")
 	}
-}
-
-func createVMICirros(virtClient kubecli.KubevirtClient, namespace string, labels map[string]string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
-	var err error
-	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-	vmi.Namespace = namespace
-	vmi.Labels = labels
-
-	// Clean up interfaces since we configure them with `libvmi.Option`
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{}
-
-	for _, opt := range opts {
-		opt(vmi)
-	}
-
-	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
-	Expect(err).ToNot(HaveOccurred())
-
-	return vmi
 }
 
 func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
@@ -383,4 +398,47 @@ func checkHTTPPing(vmi *v1.VirtualMachineInstance, ip string, port int) error {
 
 func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 	ExpectWithOffset(1, vmi.Status.Interfaces[0].IPs).ToNot(BeEmpty(), "should contain a not empy list of ip addresses")
+}
+
+func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
+	clientVMI := libvmi.NewCirros(libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+	var err error
+	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(clientVMI)
+	if err != nil {
+		return nil, err
+	}
+
+	clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithIPv6(console.LoginToCirros))
+	return clientVMI, nil
+}
+
+func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
+	serverVMI := libvmi.NewCirros(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(
+			v1.Port{
+				Name:     "http80",
+				Port:     80,
+				Protocol: "TCP",
+			},
+			v1.Port{
+				Name:     "http81",
+				Port:     81,
+				Protocol: "TCP",
+			},
+		)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
+	serverVMI.Labels = serverVMILabels
+	serverVMI, err := virtClient.VirtualMachineInstance(namespace).Create(serverVMI)
+	if err != nil {
+		return nil, err
+	}
+	serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithIPv6(console.LoginToCirros))
+
+	By("Start HTTP server at serverVMI on ports 80 and 81")
+	tests.HTTPServer.Start(serverVMI, 80)
+	tests.HTTPServer.Start(serverVMI, 81)
+
+	return serverVMI, nil
 }
