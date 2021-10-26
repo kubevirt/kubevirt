@@ -111,15 +111,16 @@ func getFilesLayout(dirPath string) ([]string, error) {
 	return filesPath, nil
 }
 
-func defaultCreateIsoImage(output string, volID string, files []string) error {
-
+func defaultCreateIsoImage(iso string, volID string, files []string) error {
 	if volID == "" {
 		volID = "cfgdata"
 	}
 
+	isoStaging := fmt.Sprintf("%s.staging", iso)
+
 	var args []string
 	args = append(args, "-output")
-	args = append(args, output)
+	args = append(args, isoStaging)
 	args = append(args, "-follow-links")
 	args = append(args, "-volid")
 	args = append(args, volID)
@@ -138,19 +139,28 @@ func defaultCreateIsoImage(output string, volID string, files []string) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	err = os.Rename(isoStaging, iso)
+
+	return err
 }
 
-func defaultCreateEmptyIsoImage(output string, size int64) error {
-	f, err := os.Create(output)
+func defaultCreateEmptyIsoImage(iso string, size int64) error {
+	isoStaging := fmt.Sprintf("%s.staging", iso)
+
+	f, err := os.Create(isoStaging)
 	if err != nil {
-		return fmt.Errorf("failed to create empty iso: '%s'", output)
+		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
 	}
 	err = util.WriteBytes(f, 0, size)
 	if err != nil {
 		return err
 	}
 	util.CloseIOAndCheckErr(f, &err)
+	if err != nil {
+		return err
+	}
+	err = os.Rename(isoStaging, iso)
+
 	return err
 }
 
