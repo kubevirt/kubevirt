@@ -1069,7 +1069,7 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 		return
 	}
 
-	vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+	vmis, err := c.listVMIsMatchingPVC(dataVolume.Namespace, dataVolume.Name)
 	if err != nil {
 		return
 	}
@@ -1100,7 +1100,7 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		return
 	}
 
-	vmis, err := c.listVMIsMatchingDataVolume(curDataVolume.Namespace, curDataVolume.Name)
+	vmis, err := c.listVMIsMatchingPVC(curDataVolume.Namespace, curDataVolume.Name)
 	if err != nil {
 		log.Log.V(4).Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
 		return
@@ -1128,7 +1128,7 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 			return
 		}
 	}
-	vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+	vmis, err := c.listVMIsMatchingPVC(dataVolume.Namespace, dataVolume.Name)
 	if err != nil {
 		return
 	}
@@ -1327,6 +1327,7 @@ func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1
 	return vmi.(*virtv1.VirtualMachineInstance)
 }
 
+// takes a PVC name and namespace and returns all VMIs from the VMI cache which use this PVC
 func (c *VMIController) listVMIsMatchingPVC(namespace string, pvcName string) ([]*virtv1.VirtualMachineInstance, error) {
 	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
@@ -1338,29 +1339,6 @@ func (c *VMIController) listVMIsMatchingPVC(namespace string, pvcName string) ([
 		for _, volume := range vmi.Spec.Volumes {
 			if volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == pvcName ||
 				volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == pvcName {
-				vmis = append(vmis, vmi)
-			}
-		}
-	}
-	return vmis, nil
-}
-
-// takes a namespace and returns all Pods from the pod cache which run in this namespace
-func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeName string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-	vmis := []*virtv1.VirtualMachineInstance{}
-	for _, obj := range objs {
-		vmi := obj.(*virtv1.VirtualMachineInstance)
-		for _, volume := range vmi.Spec.Volumes {
-			// Always check persistent volume claims to see if they match a DV, can't filter any more since
-			// VolumeSource.PersistentVolumeClaim doesn't list any ownerRef for the PVC. So in order to detect
-			// if the PVC is owned by a DV, I would have to look up the PVC, and find the ownerRef and determine if
-			// it is a DV. TODO: determine if it is slower to do the above or run through a reconcile of a VMI.
-			if volume.VolumeSource.PersistentVolumeClaim != nil ||
-				volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolumeName {
 				vmis = append(vmis, vmi)
 			}
 		}
