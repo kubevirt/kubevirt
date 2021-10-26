@@ -1,6 +1,6 @@
-# K8S 1.19.11 with SR-IOV in a Kind cluster
+# K8S 1.22.2 with SR-IOV in a Kind cluster
 
-Provides a pre-deployed containerized k8s cluster with version 1.19.11 that runs
+Provides a pre-deployed containerized k8s cluster with version 1.22.2 that runs
 using [KinD](https://github.com/kubernetes-sigs/kind)
 The cluster is completely ephemeral and is recreated on every cluster restart. The KubeVirt containers are built on the
 local machine and are then pushed to a registry which is exposed at
@@ -17,15 +17,15 @@ and [sriov-device-plugin](https://github.com/k8snetworkplumbingwg/sriov-network-
 ## Bringing the cluster up
 
 ```bash
-export KUBEVIRT_PROVIDER=kind-1.19-sriov
+export KUBEVIRT_PROVIDER=kind-1.22-sriov
 export KUBEVIRT_NUM_NODES=3
 make cluster-up
 
 $ cluster-up/kubectl.sh get nodes
 NAME                  STATUS   ROLES                  AGE   VERSION
-sriov-control-plane   Ready    control-plane,master   20h   v1.19.11
-sriov-worker          Ready    worker                 20h   v1.19.11
-sriov-worker2         Ready    worker                 20h   v1.19.11
+sriov-control-plane   Ready    control-plane,master   20h   v1.22.2
+sriov-worker          Ready    worker                 20h   v1.22.2
+sriov-worker2         Ready    worker                 20h   v1.22.2
 
 $ cluster-up/kubectl.sh get pods -n kube-system -l app=multus
 NAME                         READY   STATUS    RESTARTS   AGE
@@ -47,7 +47,7 @@ kube-sriov-device-plugin-amd64-xrr5z   1/1     Running   0          20h
 ## Bringing the cluster down
 
 ```bash
-export KUBEVIRT_PROVIDER=kind-1.19-sriov
+export KUBEVIRT_PROVIDER=kind-1.22-sriov
 make cluster-down
 ```
 
