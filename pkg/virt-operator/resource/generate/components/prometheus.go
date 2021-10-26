@@ -86,13 +86,13 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "kubevirt_virt_api_up_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'})", ns),
+							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'}) or vector(0)", ns),
 						),
 					},
 					{
 						Alert: "VirtAPIDown",
 						Expr:  intstr.FromString("kubevirt_virt_api_up_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "All virt-api servers are down.",
 							"runbook_url": runbookUrlBasePath + "VirtAPIDown",
@@ -137,7 +137,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "kubevirt_virt_controller_up_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'})", ns),
+							fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'}) or vector(0)", ns),
 						),
 					},
 					{
@@ -149,7 +149,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "LowReadyVirtControllersCount",
 						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total <  kubevirt_virt_controller_up_total"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "Some virt controllers are running but not ready.",
 							"runbook_url": runbookUrlBasePath + "LowReadyVirtControllersCount",
@@ -161,9 +161,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "NoReadyVirtController",
 						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
-							"summary":     "No ready virt-controller was detected for the last 5 min.",
+							"summary":     "No ready virt-controller was detected for the last 10 min.",
 							"runbook_url": runbookUrlBasePath + "NoReadyVirtController",
 						},
 						Labels: map[string]string{
@@ -173,9 +173,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "VirtControllerDown",
 						Expr:  intstr.FromString("kubevirt_virt_controller_up_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
-							"summary":     "No running virt-controller was detected for the last 5 min.",
+							"summary":     "No running virt-controller was detected for the last 10 min.",
 							"runbook_url": runbookUrlBasePath + "VirtControllerDown",
 						},
 						Labels: map[string]string{
@@ -185,7 +185,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "LowVirtControllersCount",
 						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_controller_ready_total < 2)"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "More than one virt-controller should be ready if more than one worker node.",
 							"runbook_url": runbookUrlBasePath + "LowVirtControllersCount",
@@ -245,13 +245,13 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Record: "kubevirt_virt_operator_up_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-operator-.*'})", ns),
+							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-operator-.*'}) or vector(0)", ns),
 						),
 					},
 					{
 						Alert: "VirtOperatorDown",
 						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "All virt-operator servers are down.",
 							"runbook_url": runbookUrlBasePath + "VirtOperatorDown",
@@ -335,7 +335,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "LowReadyVirtOperatorsCount",
 						Expr:  intstr.FromString("kubevirt_virt_operator_ready_total <  kubevirt_virt_operator_up_total"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "Some virt-operators are running but not ready.",
 							"runbook_url": runbookUrlBasePath + "LowReadyVirtOperatorsCount",
@@ -347,9 +347,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "NoReadyVirtOperator",
 						Expr:  intstr.FromString("kubevirt_virt_operator_ready_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
-							"summary":     "No ready virt-operator was detected for the last 5 min.",
+							"summary":     "No ready virt-operator was detected for the last 10 min.",
 							"runbook_url": runbookUrlBasePath + "NoReadyVirtOperator",
 						},
 						Labels: map[string]string{
@@ -359,9 +359,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "NoLeadingVirtOperator",
 						Expr:  intstr.FromString("kubevirt_virt_operator_leading_total == 0"),
-						For:   "5m",
+						For:   "10m",
 						Annotations: map[string]string{
-							"summary":     "No leading virt-operator was detected for the last 5 min.",
+							"summary":     "No leading virt-operator was detected for the last 10 min.",
 							"runbook_url": runbookUrlBasePath + "NoLeadingVirtOperator",
 						},
 						Labels: map[string]string{
@@ -370,7 +370,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Record: "kubevirt_virt_handler_up_total",
-						Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'})", ns)),
+						Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'}) or vector(0)", ns)),
 					},
 					{
 						Alert: "VirtHandlerDaemonSetRolloutFailing",
