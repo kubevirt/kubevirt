@@ -178,6 +178,49 @@ var _ = SIGDescribe("[Serial]ImageUpload", func() {
 		)
 	})
 
+	validateDataVolumeForceBind := func(targetName string) {
+		By("Get DataVolume")
+		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		_, found := dv.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]
+		Expect(found).To(BeTrue())
+	}
+
+	validatePVCForceBind := func(targetName string) {
+		By("Don't DataVolume")
+		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(errors.IsNotFound(err)).To(BeTrue())
+
+		By("Get PVC")
+		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		_, found := pvc.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]
+		Expect(found).To(BeTrue())
+	}
+
+	Context("Create upload volume with force-bind flag", func() {
+		DescribeTable("Should succeed", func(resource, targetName string, validateFunc func(string), deleteFunc func(string)) {
+			defer deleteFunc(targetName)
+
+			By("Upload image")
+			virtctlCmd := tests.NewRepeatableVirtctlCommand("image-upload",
+				resource, targetName,
+				"--namespace", util.NamespaceTestDefault,
+				"--image-path", imagePath,
+				"--size", pvcSize,
+				"--force-bind",
+				"--block-volume",
+				"--insecure")
+
+			Expect(virtctlCmd()).To(Succeed())
+			validateFunc(targetName)
+		},
+			Entry("DataVolume", "dv", "alpine-dv-"+rand.String(12), validateDataVolumeForceBind, deleteDataVolume),
+			Entry("PVC", "pvc", "alpine-pvc-"+rand.String(12), validatePVCForceBind, deletePVC),
+		)
+	})
+
 	AfterEach(func() {
 		if kubectlCmd != nil {
 			kubectlCmd.Process.Kill()
