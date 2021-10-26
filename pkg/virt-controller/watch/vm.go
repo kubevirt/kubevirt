@@ -352,6 +352,44 @@ func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1
 	return dataVolumes, nil
 }
 
+func (c *VMController) getDataVolumeFromCache(namespace, name string) (*cdiv1.DataVolume, error) {
+	key := controller.NamespacedKey(namespace, name)
+	obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(key)
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching DataVolume %s: %v", key, err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	dv, ok := obj.(*cdiv1.DataVolume)
+	if !ok {
+		return nil, fmt.Errorf("error converting object to DataVolume: object is of type %T", obj)
+	}
+
+	return dv, nil
+}
+
+func (c *VMController) getPersistentVolumeClaimFromCache(namespace, name string) (*k8score.PersistentVolumeClaim, error) {
+	key := controller.NamespacedKey(namespace, name)
+	obj, exists, err := c.pvcInformer.GetStore().GetByKey(key)
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching PersistentVolumeClaim %s: %v", key, err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	pvc, ok := obj.(*k8score.PersistentVolumeClaim)
+	if !ok {
+		return nil, fmt.Errorf("error converting object to PersistentVolumeClaim: object is of type %T", obj)
+	}
+
+	return pvc, nil
+}
+
 func createDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) (*cdiv1.DataVolume, error) {
 
 	newDataVolume := &cdiv1.DataVolume{}
@@ -476,61 +514,6 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		}
 	}
 	return ready, nil
-}
-
-// areDataVolumesReady determines whether all DataVolumes specified for a VM
-// have been successfully provisioned, and are ready for consumption.
-// Note that DataVolumes in WaitForFirstConsumer phase are not regarded as ready.
-func (c *VMController) areDataVolumesReady(vm *virtv1.VirtualMachine) bool {
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		if volume.DataVolume == nil {
-			continue
-		}
-
-		dvKey := controller.NamespacedKey(vm.Namespace, volume.DataVolume.Name)
-		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
-		if err != nil {
-			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
-			return false
-		}
-		if !exists {
-			return false
-		}
-
-		dv := dvObj.(*cdiv1.DataVolume)
-		if dv.Status.Phase != cdiv1.Succeeded {
-			return false
-		}
-	}
-
-	return true
-}
-
-// arePVCVolumesReady determines whether all PersistentVolumeClaims specified for a VM
-// have been successfully provisioned, and are ready for consumption.
-func (c *VMController) arePVCVolumesReady(vm *virtv1.VirtualMachine) bool {
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		if volume.PersistentVolumeClaim == nil {
-			continue
-		}
-
-		pvcKey := controller.NamespacedKey(vm.Namespace, volume.PersistentVolumeClaim.ClaimName)
-		pvcObj, exists, err := c.pvcInformer.GetStore().GetByKey(pvcKey)
-		if err != nil {
-			log.Log.Object(vm).Errorf("Error fetching PersistentVolumeClaim %s: %v", pvcKey, err)
-			return false
-		}
-		if !exists {
-			return false
-		}
-
-		pvc := pvcObj.(*k8score.PersistentVolumeClaim)
-		if pvc.Status.Phase != k8score.ClaimBound {
-			return false
-		}
-	}
-
-	return true
 }
 
 func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
@@ -1697,6 +1680,7 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusDataVolumeError, c.isVirtualMachineStatusDataVolumeError},
 		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
+		{virtv1.VirtualMachineStatusWaitingForVolumeBinding, c.isVirtualMachineStatusWaitingForVolumeBinding},
 		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
 		{virtv1.VirtualMachineStatusImagePullBackOff, c.isVirtualMachineStatusImagePullBackOff},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
@@ -1748,7 +1732,57 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return !c.areDataVolumesReady(vm) || !c.arePVCVolumesReady(vm)
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.DataVolume == nil {
+			continue
+		}
+
+		dv, err := c.getDataVolumeFromCache(vm.Namespace, volume.DataVolume.Name)
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error fetching DataVolume while determining virtual machine status: %v", err)
+			continue
+		}
+		if dv == nil {
+			continue
+		}
+
+		// Skip DataVolumes with unbound PVCs since these cannot possibly be provisioning
+		dvConditions := controller.NewDataVolumeConditionManager()
+		if !dvConditions.HasConditionWithStatus(dv, cdiv1.DataVolumeBound, k8score.ConditionTrue) {
+			continue
+		}
+
+		if dv.Status.Phase != cdiv1.Succeeded {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isVirtualMachineStatusWaitingForVolumeBinding
+func (c *VMController) isVirtualMachineStatusWaitingForVolumeBinding(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		claimName := typesutil.PVCNameFromVirtVolume(&volume)
+		if claimName == "" {
+			continue
+		}
+
+		pvc, err := c.getPersistentVolumeClaimFromCache(vm.Namespace, claimName)
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error fetching PersistentVolumeClaim while determining virtual machine status: %v", err)
+			continue
+		}
+		if pvc == nil {
+			continue
+		}
+
+		if pvc.Status.Phase != k8score.ClaimBound {
+			return true
+		}
+	}
+
+	return false
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
