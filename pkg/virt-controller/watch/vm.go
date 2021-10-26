@@ -67,6 +67,12 @@ const (
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
 )
 
+const (
+	HotPlugVolumeErrorReason = "HotPlugVolumeError"
+	FailedCreateReason       = "FailedCreate"
+	VMIFailedDeleteReason    = "FailedDelete"
+)
+
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
 
 func NewVMController(vmiInformer cache.SharedIndexInformer,
@@ -275,7 +281,7 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
-	var createErr error
+	var syncErr syncError
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if c.needsSync(key) && vm.ObjectMeta.DeletionTimestamp == nil {
@@ -286,9 +292,9 @@ func (c *VMController) execute(key string) error {
 
 		dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
 		if err != nil {
-			createErr = err
+			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}
 		} else if dataVolumesReady || runStrategy == virtv1.RunStrategyHalted {
-			createErr = c.startStop(vm, vmi)
+			syncErr = c.startStop(vm, vmi)
 		} else {
 			log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
 		}
@@ -296,24 +302,27 @@ func (c *VMController) execute(key string) error {
 		// Must check needsSync again here because a VMI can be created or
 		// deleted in the startStop function which impacts how we process
 		// hotplugged volumes
-		if c.needsSync(key) && createErr == nil {
+		if c.needsSync(key) && syncErr == nil {
 
-			createErr = c.handleVolumeRequests(vm, vmi)
+			err = c.handleVolumeRequests(vm, vmi)
+			if err != nil {
+				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason}
+			}
 		}
 	}
 
-	if createErr != nil {
-		logger.Reason(err).Error("Creating the VirtualMachine failed.")
+	if syncErr != nil {
+		logger.Reason(syncErr).Error("Reconciling the VirtualMachine failed.")
 	}
 
-	err = c.updateStatus(vm, vmi, createErr)
+	err = c.updateStatus(vm, vmi, syncErr)
 	if err != nil {
 		logger.Reason(err).Error("Updating the VirtualMachine status failed.")
 		return err
 	}
 
-	if createErr != nil {
-		return createErr
+	if syncErr != nil {
+		return syncErr
 	}
 
 	return nil
@@ -608,16 +617,15 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 	return nil
 }
 
-func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) syncError {
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
-		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
-		return err
+		return &syncErrorImpl{fmt.Errorf("Error fetching RunStrategy: %v", err), FailedCreateReason}
 	}
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Errorf("Error fetching vmKey: %v", err)
-		return err
+		return &syncErrorImpl{err, FailedCreateReason}
 	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
@@ -653,7 +661,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-					return err
+					return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
 				}
 				// return to let the controller pick up the expected deletion
 			}
@@ -671,7 +679,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
 		err := c.startVMI(vm)
 		if err != nil {
-			return err
+			return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
 		}
 		return nil
 
@@ -692,7 +700,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-					return err
+					return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
 				}
 				// return to let the controller pick up the expected deletion
 			}
@@ -710,7 +718,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
 		err := c.startVMI(vm)
 		if err != nil {
-			return err
+			return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
 		}
 		return nil
 
@@ -724,7 +732,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-					return err
+					return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
 				}
 				// return to let the controller pick up the expected deletion
 				return nil
@@ -741,7 +749,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			if forceStart {
 				err := c.startVMI(vm)
 				if err != nil {
-					return err
+					return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
 				}
 			}
 		}
@@ -764,16 +772,16 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 						vmCopy.Spec.Running = &running
 					}
 					_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
-					return err
+					return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
 				}
 			}
 			return nil
 		}
 		log.Log.Object(vm).Infof("%s with VMI in phase %s due to runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
 		err := c.stopVMI(vm, vmi)
-		return err
+		return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
 	default:
-		return fmt.Errorf("unknown runstrategy: %s", runStrategy)
+		return &syncErrorImpl{fmt.Errorf("unknown runstrategy: %s", runStrategy), FailedCreateReason}
 	}
 }
 
@@ -1544,7 +1552,7 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 	return err
 }
 
-func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) error {
+func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) error {
 	vm := vmOrig.DeepCopy()
 
 	created := vmi != nil
@@ -1643,36 +1651,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 
 	syncStartFailureStatus(vm, vmi)
-
-	c.syncReadyConditionFromVMI(vm, vmi)
-
-	// Add/Remove Failure condition if necessary
-	vmCondManager := controller.NewVirtualMachineConditionManager()
-	errMatch := (createErr != nil) == vmCondManager.HasCondition(vm, virtv1.VirtualMachineFailure)
-	if !(errMatch) {
-		c.processFailure(vm, vmi, createErr)
-	}
-
-	// Add/Remove Paused condition (VMI paused by user)
-	vmiCondManager := controller.NewVirtualMachineInstanceConditionManager()
-	if vmiCondManager.HasCondition(vmi, virtv1.VirtualMachineInstancePaused) {
-		if !vmCondManager.HasCondition(vm, virtv1.VirtualMachinePaused) {
-			log.Log.Object(vm).V(3).Info("Adding paused condition")
-			now := v1.NewTime(time.Now())
-			vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
-				Type:               virtv1.VirtualMachinePaused,
-				Status:             k8score.ConditionTrue,
-				LastProbeTime:      now,
-				LastTransitionTime: now,
-				Reason:             "PausedByUser",
-				Message:            "VMI was paused by user",
-			})
-		}
-	} else if vmCondManager.HasCondition(vm, virtv1.VirtualMachinePaused) {
-		log.Log.Object(vm).V(3).Info("Removing paused condition")
-		vmCondManager.RemoveCondition(vm, virtv1.VirtualMachinePaused)
-	}
-
+	c.syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
 
 	// only update if necessary
@@ -1900,40 +1879,77 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 	}
 }
 
-func (c *VMController) processFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) {
-	reason := ""
-	message := ""
-	runStrategy, err := vm.RunStrategy()
-	if err != nil {
-		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
-	}
-	log.Log.Object(vm).V(4).Infof("Processing failure status:: runStrategy: %s; noErr: %t; noVm: %t", runStrategy, createErr != nil, vmi != nil)
+func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
+	cm := controller.NewVirtualMachineConditionManager()
 
-	vmConditionManager := controller.NewVirtualMachineConditionManager()
-	if createErr != nil {
-		if (vm.Spec.Running != nil && *vm.Spec.Running == true) || (vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy != virtv1.RunStrategyHalted) {
-			reason = "FailedCreate"
-		} else {
-			reason = "FailedDelete"
-		}
-		message = createErr.Error()
+	// ready condition is handled differently as it persists regardless if vmi exists or not
+	c.syncReadyConditionFromVMI(vm, vmi)
+	c.processFailureCondition(vm, vmi, syncErr)
 
-		if !vmConditionManager.HasCondition(vm, virtv1.VirtualMachineFailure) {
-			log.Log.Object(vm).Infof("Reason to fail: %s", reason)
-			vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
-				Type:               virtv1.VirtualMachineFailure,
-				Reason:             reason,
-				Message:            message,
-				LastTransitionTime: v1.Now(),
-				Status:             k8score.ConditionTrue,
-			})
-		}
-
+	// nothing to do if vmi hasn't been created yet.
+	if vmi == nil {
 		return
 	}
 
-	log.Log.Object(vm).V(4).Info("Removing failure")
-	vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineFailure)
+	// sync VMI conditions, ignore list represents conditions that are not synced generically
+	syncIgnoreMap := map[string]interface{}{
+		string(virtv1.VirtualMachineReady):   nil,
+		string(virtv1.VirtualMachineFailure): nil,
+	}
+	vmiCondMap := make(map[string]interface{})
+
+	// generically add/update all vmi conditions
+	for _, cond := range vmi.Status.Conditions {
+		_, ignore := syncIgnoreMap[string(cond.Type)]
+		if ignore {
+			continue
+		}
+		vmiCondMap[string(cond.Type)] = nil
+		cm.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineConditionType(cond.Type),
+			Status:             cond.Status,
+			Reason:             cond.Reason,
+			Message:            cond.Message,
+			LastProbeTime:      cond.LastProbeTime,
+			LastTransitionTime: cond.LastTransitionTime,
+		})
+	}
+
+	// remove vm conditions that don't exist on vmi (excluding the ignore list)
+	for _, cond := range vm.Status.Conditions {
+		_, ignore := syncIgnoreMap[string(cond.Type)]
+		if ignore {
+			continue
+		}
+
+		_, exists := vmiCondMap[string(cond.Type)]
+		if !exists {
+			cm.RemoveCondition(vm, cond.Type)
+		}
+	}
+}
+
+func (c *VMController) processFailureCondition(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
+
+	vmConditionManager := controller.NewVirtualMachineConditionManager()
+	if syncErr == nil {
+		if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineFailure) {
+			log.Log.Object(vm).V(4).Info("Removing failure")
+			vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineFailure)
+		}
+		// nothing to do
+		return
+	}
+
+	vmConditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+		Type:               virtv1.VirtualMachineFailure,
+		Reason:             syncErr.Reason(),
+		Message:            syncErr.Error(),
+		LastTransitionTime: v1.Now(),
+		Status:             k8score.ConditionTrue,
+	})
+
+	return
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
