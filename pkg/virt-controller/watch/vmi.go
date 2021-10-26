@@ -1971,7 +1971,8 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				}
 				filesystemOverhead, err := c.getFilesystemOverhead(pvc)
 				if errors.Is(err, failedToFindCdi) {
-					log.Log.V(3).Object(pvc).Infof("Didn't find CDI, continuing normally without filesystem overhead")
+					filesystemOverhead = cdiv1.Percent("0.055")
+					log.Log.V(3).Object(pvc).Infof("Didn't find CDI, continuing normally with filesystem overhead of 5.5%%")
 				} else if err != nil {
 					log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", vmi.Namespace, pvcName)
 					return err
