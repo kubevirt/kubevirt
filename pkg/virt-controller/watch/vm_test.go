@@ -1495,7 +1495,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should sync VMI conditions", func() {
 			vm, vmi := DefaultVirtualMachine(true)
-			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
+			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, virtv1.VirtualMachineReady)
 
 			cm := virtcontroller.NewVirtualMachineInstanceConditionManager()
 			cmVM := virtcontroller.NewVirtualMachineConditionManager()
@@ -1565,7 +1565,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiFeeder.Add(vmi)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
-				objVM := obj.(*v1.VirtualMachine)
+				objVM := obj.(*virtv1.VirtualMachine)
 				// these conditions should be added
 				for _, condName := range addCondList {
 					cond := cmVM.GetCondition(objVM, virtv1.VirtualMachineConditionType(condName))
