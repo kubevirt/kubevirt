@@ -43,7 +43,7 @@ testimage_base="
   iputils
   nmap-ncat
   procps-ng
-  qemu-img
+  qemu-img-${QEMU_VERSION}
   util-linux
   which
 "
