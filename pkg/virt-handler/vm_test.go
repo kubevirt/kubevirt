@@ -567,6 +567,57 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
 		}, 3)
 
+		It("should get latest resourceVersion before update if resourceVersion is missing", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Running
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi = addActivePods(vmi, podTestUUID, host)
+			mockWatchdog.CreateFile(vmi)
+
+			testVMI := vmi.DeepCopy()
+			testVMI.ObjectMeta.ResourceVersion = ""
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Crashed
+			domain.Status.Reason = api.ReasonCrashed
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Get(testVMI.Name, gomock.Any()).Return(vmi, nil)
+			vmiInterface.EXPECT().Update(gomock.Any()).DoAndReturn(func(obj interface{}) (*v1.VirtualMachineInstance, error) {
+				vmi := obj.(*v1.VirtualMachineInstance)
+				Expect(len(vmi.ObjectMeta.ResourceVersion)).ToNot(Equal(0))
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				return vmi, nil
+			})
+			Expect(controller.updateVMIStatus(testVMI, domain, nil)).To(BeNil())
+			testutils.ExpectEvent(recorder, VMICrashed)
+		})
+
+		It("should update vmi from running to failed if domain is makred deletion", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Running
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi = addActivePods(vmi, podTestUUID, host)
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			now := metav1.Now()
+			domain.ObjectMeta.DeletionTimestamp = &now
+			domainFeeder.Add(domain)
+			vmiInterface.EXPECT().Update(gomock.Any()).DoAndReturn(func(obj interface{}) (*v1.VirtualMachineInstance, error) {
+				vmi := obj.(*v1.VirtualMachineInstance)
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				return vmi, nil
+			})
+			Expect(controller.execute(k8sv1.NamespaceDefault + "/testvmi")).To(BeNil())
+			testutils.ExpectEvent(recorder, VMICrashed)
+
+		})
+
 		It("should do final cleanup if vmi is being deleted and not finalized", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID

@@ -725,6 +725,146 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
+		Context("[Serial]when virt-handler is recovered from crash or reboot", func() {
+			var vmi *v1.VirtualMachineInstance
+			var nodeName string
+			var virtHandler *k8sv1.Pod
+			var virtHandlerAvailablePods int32
+
+			BeforeEach(func() {
+				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+
+				// Ensure that the VMI is running. This is necessary to ensure that virt-handler is fully responsible for
+				// the VMI to build the original cache.
+				nodeName := tests.WaitForSuccessfulVMIStart(vmi)
+
+				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
+
+				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
+				// Save virt-handler number of desired pods
+				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
+
+				kv := util.GetCurrentKv(virtClient)
+				kv.Spec.Workloads = &v1.ComponentConfig{
+					NodePlacement: &v1.NodePlacement{
+						Affinity: &k8sv1.Affinity{
+							NodeAffinity: &k8sv1.NodeAffinity{
+								RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{MatchExpressions: []k8sv1.NodeSelectorRequirement{
+											{Key: "kubernetes.io/hostname", Operator: "NotIn", Values: []string{nodeName}},
+										}},
+									},
+								},
+							},
+						},
+					},
+				}
+				_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
+				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
+
+				Eventually(func() bool {
+					_, err := virtClient.CoreV1().Pods(virtHandler.Namespace).Get(context.Background(), virtHandler.Name, metav1.GetOptions{})
+					return errors.IsNotFound(err)
+				}, 200*time.Second, 1*time.Second).Should(BeTrue(), "The virthandler pod should be gone")
+			})
+
+			It("[test_id:1652]needs to get latest resourceVersion for updating vmi", func() {
+
+				oldVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				resourceVersion := oldVMI.ResourceVersion
+				Expect(err).To(BeNil(), "Should get vmi successfully")
+				Expect(resourceVersion).ToNot(BeEmpty(), "Should be assigned with an resource Version")
+
+				By("Killing the VirtualMachineInstance")
+				err = pkillAllVMIs(virtClient, nodeName)
+				Expect(err).To(BeNil(), "Should kill qemu process by killer pod successfully")
+
+				curVMI := oldVMI.DeepCopy()
+				curVMI.Status.ActivePods = nil
+				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Update(curVMI)
+				Expect(err).To(BeNil(), "Should update vmi successfully with same resourceVersion")
+				Expect(updatedVMI.ResourceVersion).NotTo(Equal(resourceVersion), "Should be assigned with a new resource Version")
+				resourceVersion = updatedVMI.ResourceVersion
+
+				// Get virt-handler recovered from crash or reboot
+				tests.RestoreKubeVirtResource()
+
+				// Wait until virt-handler ds will have expected number of pods
+				Eventually(func() bool {
+					ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get virt-handler successfully")
+
+					return ds.Status.NumberAvailable == virtHandlerAvailablePods &&
+						ds.Status.CurrentNumberScheduled == virtHandlerAvailablePods &&
+						ds.Status.DesiredNumberScheduled == virtHandlerAvailablePods &&
+						ds.Status.NumberReady == virtHandlerAvailablePods &&
+						ds.Status.UpdatedNumberScheduled == virtHandlerAvailablePods
+				}, 200*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler should be ready to work")
+
+				Eventually(func() string {
+					latest, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					errors.IsNotFound(err)
+					return latest.ResourceVersion
+				}, 200*time.Second, 1*time.Second).ShouldNot(Equal(resourceVersion), "After virt-handler rebooted, it should update VMI by getting the latest resourceVersion")
+
+			})
+
+			AfterEach(func() {
+				tests.RestoreKubeVirtResource()
+
+				// Wait until virt-handler ds will have expected number of pods
+				Eventually(func() bool {
+					ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get virthandler successfully")
+
+					return ds.Status.NumberAvailable == virtHandlerAvailablePods &&
+						ds.Status.CurrentNumberScheduled == virtHandlerAvailablePods &&
+						ds.Status.DesiredNumberScheduled == virtHandlerAvailablePods &&
+						ds.Status.NumberReady == virtHandlerAvailablePods &&
+						ds.Status.UpdatedNumberScheduled == virtHandlerAvailablePods
+				}, 180*time.Second, 1*time.Second).Should(BeTrue(), "Virthandler should be ready to work")
+			})
+		})
+
+		Context("[Serial]when launcher socket is missing from node, vmi should be moved to Failed", func() {
+
+			It("[test_id:1658]needs to detect if launcher sockets file missing and move VMI to Failed", func() {
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(BeNil(), "Should create VMI successfully")
+
+				nodeName := tests.WaitForSuccessfulVMIStart(vmi)
+
+				launcherPod, _, err := getLauncherPod(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should get launcherPod")
+				Expect(string(launcherPod.UID)).ToNot(BeEmpty(), "Should return a pod UUID for")
+				podUID := string(launcherPod.UID)
+
+				virtHandler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+				Expect(err).ToNot(HaveOccurred(), "Should get virt-handler successfully")
+				Expect(virtHandler.Spec.NodeName).ToNot(BeEmpty(), "virt-hanlder should be active on node %s", virtHandler.Spec.NodeName)
+
+				out, err := tests.ExecuteCommandInVirtHandlerPod(nodeName, []string{"bash", "-c", fmt.Sprintf(`ls /pods/%s/volumes/kubernetes.io~empty-dir/sockets/launcher-sock`, podUID)})
+				Expect(err).ToNot(HaveOccurred(), "Should list launcher pod socket file from %s", nodeName)
+				Expect(out).NotTo(BeEmpty(), "should have launcher pod socket on node %s", virtHandler.Spec.NodeName)
+
+				_, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, []string{"bash", "-c", fmt.Sprintf(`rm -rf /pods/%s/volumes/kubernetes.io~empty-dir/sockets/launcher-sock`, podUID)})
+				Expect(err).ToNot(HaveOccurred(), "Should delete launcher pod socket file from %s", nodeName)
+
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					failedVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+					return failedVMI.Status.Phase
+				}, 200*time.Second, 1*time.Second).Should(Equal(v1.Failed), "VMI should be failed")
+			})
+
+		})
+
 		Context("[Serial]with node tainted", func() {
 			var nodes *k8sv1.NodeList
 			var err error
@@ -1702,4 +1842,11 @@ func nowAsJSONWithOffset(offset time.Duration) string {
 	data, err := json.Marshal(now)
 	Expect(err).ToNot(HaveOccurred(), "Should marshal to json")
 	return strings.Trim(string(data), `"`)
+}
+
+func getLauncherPod(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, int, error) {
+	pods, err := virtCli.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
+	})
+	return &pods.Items[0], len(pods.Items), err
 }

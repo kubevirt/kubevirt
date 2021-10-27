@@ -104,7 +104,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", "1234_sock")))
 		})
 
-		It("Listing all sockets", func() {
+		It("Listing all sockets if both legacy sockets and new pod sockets paths exist", func() {
 			// the new socket is already created in the Before function
 
 			// create a legacy socket to ensure we find both new and legacy sockets
@@ -116,6 +116,18 @@ var _ = Describe("Virt remote commands", func() {
 			sockets, err := ListAllSockets()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(sockets)).To(Equal(2))
+		})
+
+		It("Listing all sockets if legacy socket path not exists", func() {
+			// the new socket podSocketFile is already created in the Before function
+			// Reset the elegacy base dir with empty
+			SetLegacyBaseDir("")
+			// listing all sockets should detect only podSocketFile files if legacy socket does not exist
+			sockets, err := ListAllSockets()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(sockets)).To(Equal(1))
+			// Put legacy socket back
+			SetLegacyBaseDir(shareDir)
 		})
 
 		It("Detect unresponsive socket", func() {
@@ -139,6 +151,11 @@ var _ = Describe("Virt remote commands", func() {
 			// unresponsive is true when marked as unresponsive
 			MarkSocketUnresponsive(sock)
 			unresponsive = IsSocketUnresponsive(sock)
+			Expect(unresponsive).To(BeTrue())
+
+			// unresponsive is true when pod was evicted by kubelet
+			noExistPodSocket := SocketFilePathOnHost("not_exist_pod")
+			unresponsive = IsSocketUnresponsive(noExistPodSocket)
 			Expect(unresponsive).To(BeTrue())
 		})
 

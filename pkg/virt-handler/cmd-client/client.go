@@ -130,24 +130,22 @@ func ListAllSockets() ([]string, error) {
 		return nil, err
 	}
 
-	if exists == false {
-		return socketFiles, nil
-	}
-
-	files, err := os.ReadDir(socketsDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		if file.IsDir() || !strings.Contains(file.Name(), "_sock") {
-			continue
+	if exists {
+		files, err := os.ReadDir(socketsDir)
+		if err != nil {
+			return nil, err
 		}
-		// legacy support.
-		// The old way of handling launcher sockets was to
-		// dump them all in the same directory. So if we encounter
-		// a legacy socket, still process it. This is necessary
-		// for update support.
-		socketFiles = append(socketFiles, filepath.Join(socketsDir, file.Name()))
+		for _, file := range files {
+			if file.IsDir() || !strings.Contains(file.Name(), "_sock") {
+				continue
+			}
+			// legacy support.
+			// The old way of handling launcher sockets was to
+			// dump them all in the same directory. So if we encounter
+			// a legacy socket, still process it. This is necessary
+			// for update support.
+			socketFiles = append(socketFiles, filepath.Join(socketsDir, file.Name()))
+		}
 	}
 
 	podsDir := podsBaseDir
@@ -194,17 +192,17 @@ func SocketMonitoringEnabled(socket string) bool {
 }
 
 func IsSocketUnresponsive(socket string) bool {
-	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
-	exists, _ := diskutils.FileExists(file)
-	// if the unresponsive socket monitor marked this socket
-	// as being unresponsive, return true
-	if exists {
+	exists, _ := diskutils.FileExists(socket)
+	// if the socket file doesn't exist, it's definitely unresponsive
+	if !exists {
 		return true
 	}
 
-	exists, _ = diskutils.FileExists(socket)
-	// if the socket file doesn't exist, it's definitely unresponsive as well
-	if !exists {
+	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
+	exists, _ = diskutils.FileExists(file)
+	// if the unresponsive socket monitor marked this socket
+	// as being unresponsive, return true
+	if exists {
 		return true
 	}
 

@@ -1128,6 +1128,15 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 		log.Log.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
 	}
+
+	if vmi.ResourceVersion == "" {
+		vmiCopy, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		if err != nil {
+			log.Log.Object(vmi).Infof("Can not get resourceVersion for Updating VMI %s status to Failed, error %v", vmi.Name, err.Error())
+			return err
+		}
+		vmi.ResourceVersion = vmiCopy.ResourceVersion
+	}
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
 
 	controller.SetVMIPhaseTransitionTimestamp(origVMI, vmi)
@@ -2665,7 +2674,6 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			return v1.Failed, nil
 		}
 	} else {
-
 		switch domain.Status.Status {
 		case api.Shutoff, api.Crashed:
 			switch domain.Status.Reason {

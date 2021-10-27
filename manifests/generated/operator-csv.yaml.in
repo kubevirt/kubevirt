@@ -662,6 +662,7 @@ spec:
           resources:
           - virtualmachineinstances
           verbs:
+          - get
           - update
           - list
           - watch
