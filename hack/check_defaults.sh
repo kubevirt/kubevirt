@@ -26,7 +26,6 @@ FGDEFAULTS='{"enableCommonBootImageImport":false,"sriovLiveMigration":true,"with
 LMDEFAULTS='{"completionTimeoutPerGiB":800,"parallelMigrationsPerCluster":5,"parallelOutboundMigrationsPerNode":2,"progressTimeout":150}'
 PERMITTED_HOST_DEVICES_DEFAULT1='{"pciDeviceSelector":"10DE:1DB6","resourceName":"nvidia.com/GV100GL_Tesla_V100"}'
 PERMITTED_HOST_DEVICES_DEFAULT2='{"pciDeviceSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}'
-WORKLOAD_UPDATE_STRATEGY_DEFAULT='{"batchEvictionInterval":"1m0s","batchEvictionSize":10,"workloadUpdateMethods":["LiveMigrate"]}'
 
 CERTCONFIGPATHS=(
     "/spec/certConfig/ca/duration"
@@ -54,14 +53,6 @@ LMPATHS=(
     "/spec/liveMigrationConfig/completionTimeoutPerGiB"
     "/spec/liveMigrationConfig/progressTimeout"
     "/spec/liveMigrationConfig"
-    "/spec"
-)
-
-WORKLOAD_UPDATE_STRATEGY_PATHS=(
-    "/spec/workloadUpdateStrategy/workloadUpdateMethods"
-    "/spec/workloadUpdateStrategy/batchEvictionSize"
-    "/spec/workloadUpdateStrategy/batchEvictionInterval"
-    "/spec/workloadUpdateStrategy"
     "/spec"
 )
 
@@ -99,19 +90,6 @@ for JPATH in "${LMPATHS[@]}"; do
     LM=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.liveMigrationConfig}')
     if [[ $LMDEFAULTS != $LM ]]; then
         echo "Failed checking CR defaults for liveMigrationConfig"
-        exit 1
-    fi
-    sleep 2
-done
-
-echo "Check that workloadUpdateStrategy defaults are behaving as expected"
-
-./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
-for JPATH in "${WORKLOAD_UPDATE_STRATEGY_PATHS[@]}"; do
-    ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type='json' kubevirt-hyperconverged -p '[{ \"op\": \"remove\", \"path\": '\"${JPATH}\"' }]'"
-    WORKLOAD_UPDATE_STRATEGY=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.workloadUpdateStrategy}')
-    if [[ "${WORKLOAD_UPDATE_STRATEGY_DEFAULT}" != "${WORKLOAD_UPDATE_STRATEGY}" ]]; then
-        echo "Failed checking CR defaults for workloadUpdateStrategy"
         exit 1
     fi
     sleep 2

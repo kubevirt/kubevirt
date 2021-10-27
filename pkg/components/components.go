@@ -611,9 +611,6 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 	parallelOutboundMigrationsPerNode := uint32(2)
 	progressTimeout := int64(150)
 
-	batchEvictionSize := 10
-	batchEvictionInterval := metav1.Duration{Duration: 1 * time.Minute}
-
 	return &hcov1beta1.HyperConverged{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: util.APIVersion,
@@ -642,11 +639,6 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
 				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
 				ProgressTimeout:                   &progressTimeout,
-			},
-			WorkloadUpdateStrategy: &hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
-				WorkloadUpdateMethods: stringListToSlice("LiveMigrate"),
-				BatchEvictionSize:     &batchEvictionSize,
-				BatchEvictionInterval: &batchEvictionInterval,
 			},
 			LocalStorageClassName: "",
 		},
