@@ -77,4 +77,18 @@ var _ = Describe("Resolveconf", func() {
 			Expect(err).To(BeNil())
 		})
 	})
+
+	Context("function GetDomainName", func() {
+		It("should return the longest search domain entry", func() {
+			searchDomains := []string{
+				"pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com",
+				"3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				"t4lanpt7z4ix58nvxl4d.com",
+				"14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+			}
+			domain := GetDomainName(searchDomains)
+			Expect(domain).To(Equal("14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com"))
+		})
+	})
 })
