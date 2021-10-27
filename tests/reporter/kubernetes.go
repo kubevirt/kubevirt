@@ -127,7 +127,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	since := time.Now().Add(-duration)
 
 	nodes := getNodeList(virtCli)
-	nodesWithVirtLauncher := getNodesWithVirtLauncher(virtCli)
+	nodesWithVirtHandler := getNodesWithVirtHandler(virtCli)
 	pods := getPodList(virtCli)
 	virtHandlerPods := getVirtHandlerList(virtCli)
 	vmis := getVMIList(virtCli)
@@ -149,10 +149,10 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logVMs(virtCli)
 	r.logDVs(virtCli)
 
-	r.logAuditLogs(virtCli, nodesDir, nodesWithVirtLauncher, since)
-	r.logDMESG(virtCli, nodesDir, nodesWithVirtLauncher, since)
-	r.logJournal(virtCli, nodesDir, nodesWithVirtLauncher, duration, "")
-	r.logJournal(virtCli, nodesDir, nodesWithVirtLauncher, duration, "kubelet")
+	r.logAuditLogs(virtCli, nodesDir, nodesWithVirtHandler, since)
+	r.logDMESG(virtCli, nodesDir, nodesWithVirtHandler, since)
+	r.logJournal(virtCli, nodesDir, nodesWithVirtHandler, duration, "")
+	r.logJournal(virtCli, nodesDir, nodesWithVirtHandler, duration, "kubelet")
 
 	r.logLogs(virtCli, podsDir, pods, since)
 
@@ -914,9 +914,9 @@ func (r *KubernetesReporter) logClusterOverview() {
 	}
 }
 
-//getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
-func getNodesWithVirtLauncher(virtCli kubecli.KubevirtClient) []string {
-	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=virt-launcher", v12.AppLabel)})
+//getNodesWithVirtHandler returns all node where a virt-handler pod runs
+func getNodesWithVirtHandler(virtCli kubecli.KubevirtClient) []string {
+	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=virt-handler", v12.AppLabel)})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
 		return nil
