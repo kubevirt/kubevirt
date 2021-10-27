@@ -43,8 +43,11 @@ spec:
             dhcp4: true
             gateway6: fd10:0:2::1
       userData: |-
-        #!/bin/bash
-        echo "fedora" |passwd fedora --stdin
-        yum install -y nginx
-        systemctl enable --now nginx
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
+        packages:
+          - nginx
+        runcmd:
+          - [ "systemctl", "enable", "--now", "nginx" ]
     name: cloudinitdisk
