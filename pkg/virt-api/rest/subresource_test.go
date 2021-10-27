@@ -26,7 +26,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -448,7 +447,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					"gracePeriodSeconds": 0,
 				}
 				bytesRepresentation, _ := json.Marshal(body)
-				request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 				vm := v1.VirtualMachine{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -529,7 +528,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					"gracePeriodSeconds": 0,
 				}
 				bytesRepresentation, _ := json.Marshal(body)
-				request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 				vm := v1.VirtualMachine{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -683,7 +682,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					"gracePeriod": 0,
 				}
 				bytesRepresentation, _ := json.Marshal(body)
-				request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 				vm := v1.VirtualMachine{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -807,8 +806,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure),
 		)
 
-		table.DescribeTable("should fail anytime without VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string) {
+		table.DescribeTable("should fail anytime without VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string, restartOptions *v1.RestartOptions) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
+
+			bytesRepresentation, _ := json.Marshal(restartOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -830,10 +832,15 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			// check the msg string that would be presented to virtctl output
 			Expect(status.Error()).To(ContainSubstring(msg))
 		},
-			table.Entry("Always", v1.RunStrategyAlways, "VM is not running"),
-			table.Entry("Manual", v1.RunStrategyManual, "VM is not running"),
-			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure, "VM is not running"),
-			table.Entry("Halted", v1.RunStrategyHalted, "Halted does not support manual restart requests"),
+			table.Entry("Always", v1.RunStrategyAlways, "VM is not running", &v1.RestartOptions{}),
+			table.Entry("Manual", v1.RunStrategyManual, "VM is not running", &v1.RestartOptions{}),
+			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure, "VM is not running", &v1.RestartOptions{}),
+			table.Entry("Halted", v1.RunStrategyHalted, "Halted does not support manual restart requests", &v1.RestartOptions{}),
+
+			table.Entry("Always with dry-run option", v1.RunStrategyAlways, "VM is not running", &v1.RestartOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+			table.Entry("Manual with dry-run option", v1.RunStrategyManual, "VM is not running", &v1.RestartOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+			table.Entry("RerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "VM is not running", &v1.RestartOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+			table.Entry("Halted with dry-run option", v1.RunStrategyHalted, "Halted does not support manual restart requests", &v1.RestartOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 		)
 	})
 
@@ -1139,12 +1146,15 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		table.DescribeTable("should fail on VM with RunStrategy",
-			func(runStrategy v1.VirtualMachineRunStrategy, phase v1.VirtualMachineInstancePhase, status int, msg string) {
+			func(runStrategy v1.VirtualMachineRunStrategy, phase v1.VirtualMachineInstancePhase, status int, msg string, startOptions *v1.StartOptions) {
 				vm := newVirtualMachineWithRunStrategy(runStrategy)
 				var vmi *v1.VirtualMachineInstance
 				if phase != v1.VmPhaseUnset {
 					vmi = newVirtualMachineInstanceInPhase(phase)
 				}
+
+				bytesRepresentation, _ := json.Marshal(startOptions)
+				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 				server.AppendHandlers(
 					ghttp.CombineHandlers(
@@ -1166,9 +1176,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				// check the msg string that would be presented to virtctl output
 				Expect(statusErr.Error()).To(ContainSubstring(msg))
 			},
-			table.Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests"),
-			table.Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running"),
-			table.Entry("RerunOnFailure with VMI in phase Failed", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state"),
+			table.Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests", &v1.StartOptions{}),
+			table.Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running", &v1.StartOptions{}),
+			table.Entry("RerunOnFailure with VMI in phase Failed", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state", &v1.StartOptions{}),
+
+			table.Entry("Always without VMI and with dry-run option", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests", &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+			table.Entry("Always with VMI in phase Running and with dry-run option", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running", &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+			table.Entry("RerunOnFailure with VMI in phase Failed and with dry-run option", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state", &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 		)
 
 		table.DescribeTable("should not fail on VM with RunStrategy ",
@@ -1216,8 +1230,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = "default"
 		})
 
-		table.DescribeTable("should handle VMI does not exist per run strategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string, expectError bool) {
+		table.DescribeTable("should handle VMI does not exist per run strategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string, expectError bool, stopOptions *v1.StopOptions) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
+
+			bytesRepresentation, _ := json.Marshal(stopOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -1254,10 +1271,15 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			}
 
 		},
-			table.Entry("RunStrategyAlways", v1.RunStrategyAlways, "", false),
-			table.Entry("RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure, "", false),
-			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM is not running", true),
-			table.Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM is not running", true),
+			table.Entry("RunStrategyAlways", v1.RunStrategyAlways, "", false, &v1.StopOptions{}),
+			table.Entry("RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure, "", false, &v1.StopOptions{}),
+			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{}),
+			table.Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{}),
+
+			table.Entry("RunStrategyAlways with dry-run option", v1.RunStrategyAlways, "", false, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+			table.Entry("RunStrategyRerunOnFailure with dry-run option", v1.RunStrategyRerunOnFailure, "", false, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+			table.Entry("RunStrategyManual with dry-run option", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+			table.Entry("RunStrategyHalted with dry-run option", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 		)
 
 		It("should fail on VM with VMI in Unknown Phase", func() {
@@ -1811,7 +1833,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				"paused": true,
 			}
 			bytesRepresentation, _ := json.Marshal(body)
-			request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vm := v1.VirtualMachine{
 				ObjectMeta: k8smetav1.ObjectMeta{
@@ -1864,7 +1886,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					"paused": true,
 				}
 				bytesRepresentation, _ := json.Marshal(body)
-				request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 				vmi := newVirtualMachineInstanceInPhase(v1.Succeeded)
 

@@ -1793,6 +1793,97 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			waitForResourceDeletion(k8sClient, "pods", expectedPodName)
 		})
 
+		Context("should not change anything if dry-run option is passed", func() {
+			It("in start command", func() {
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				thisVm := tests.NewRandomVirtualMachine(vmi, false)
+
+				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+				By("Creating VM using k8s client binary")
+				_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Invoking virtctl start with dry-run option")
+				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", thisVm.Namespace, "--dry-run", thisVm.Name)
+				err = virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.VirtualMachineInstance(thisVm.Namespace).Get(thisVm.Name, &k8smetav1.GetOptions{})
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("in stop command", func() {
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				thisVm := tests.NewRandomVirtualMachine(vmi, true)
+
+				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+				By("Creating VM using k8s client binary")
+				_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VMI to start")
+				waitForVMIStart(virtClient, vmi)
+
+				By("Invoking virtctl stop with dry-run option")
+				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", thisVm.Namespace, "--dry-run", thisVm.Name)
+				err = virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking that VM is still running")
+				stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+
+				By("Checking no DeletionTimestamp was set")
+				newVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
+			})
+
+			It("in restart command", func() {
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				thisVm := tests.NewRandomVirtualMachine(vmi, true)
+
+				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+				By("Creating VM using k8s client binary")
+				_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VMI to start")
+				waitForVMIStart(virtClient, vmi)
+
+				By("Getting current vmi instance")
+				currentVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				creationTime := currentVmi.ObjectMeta.CreationTimestamp
+				VMIUuid := currentVmi.ObjectMeta.UID
+
+				By("Invoking virtctl restart with dry-run option")
+				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", thisVm.Namespace, "--dry-run", thisVm.Name)
+				err = virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Comparing the CreationTimeStamp and UUID and check no Deletion Timestamp was set")
+				newVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(creationTime).To(Equal(newVMI.ObjectMeta.CreationTimestamp))
+				Expect(VMIUuid).To(Equal(newVMI.ObjectMeta.UID))
+				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
+
+				By("Checking that VM is running")
+				stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+			})
+		})
+
 		It("[test_id:232]should create same manifest twice via command line", func() {
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			thisVm := tests.NewRandomVirtualMachine(vmi, true)
