@@ -225,14 +225,14 @@ type VirtualMachineInterface interface {
 	Create(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
+	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error)
 	UpdateStatus(*v1.VirtualMachine) (*v1.VirtualMachine, error)
-	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachine, err error)
-	Restart(name string) error
-	ForceRestart(name string, graceperiod int) error
+	PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (result *v1.VirtualMachine, err error)
+	Restart(name string, restartOptions *v1.RestartOptions) error
+	ForceRestart(name string, restartOptions *v1.RestartOptions) error
 	Start(name string, startOptions *v1.StartOptions) error
-	Stop(name string) error
-	ForceStop(name string, graceperiod int) error
+	Stop(name string, stopOptions *v1.StopOptions) error
+	ForceStop(name string, stopOptions *v1.StopOptions) error
 	Migrate(name string) error
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
@@ -256,7 +256,7 @@ type KubeVirtInterface interface {
 	Create(instance *v1.KubeVirt) (*v1.KubeVirt, error)
 	Update(*v1.KubeVirt) (*v1.KubeVirt, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.KubeVirt, err error)
+	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error)
 	UpdateStatus(*v1.KubeVirt) (*v1.KubeVirt, error)
-	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.KubeVirt, err error)
+	PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (result *v1.KubeVirt, err error)
 }

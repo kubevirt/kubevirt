@@ -215,7 +215,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 		It("[test_id:4610]create a snapshot when VM is running should succeed", func() {
 			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*vm.Spec.Running).Should(BeTrue())
 
@@ -224,7 +224,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 		It("VM should contain snapshot status for all volumes", func() {
 			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {

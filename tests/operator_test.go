@@ -359,7 +359,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		patchKvProductNameAndVersion = func(name, productName string, productVersion string) {
 			data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/productName", "value": "%s"},{ "op": "replace", "path": "/spec/productVersion", "value": "%s"}]`, productName, productVersion))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -368,7 +368,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		patchKvVersionAndRegistry = func(name string, version string, registry string) {
 			data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, version, registry))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -377,7 +377,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		patchKvVersion = func(name string, version string) {
 			data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, version))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -391,7 +391,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -405,7 +405,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+			_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(errMsg))
 
@@ -456,7 +456,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -473,7 +473,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).Should(HaveOccurred())
@@ -1448,7 +1448,7 @@ spec:
 						return err
 					}
 					ops := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations", "value": %s }]`, string(annotationBytes))
-					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte(ops))
+					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte(ops), &metav1.PatchOptions{})
 					return err
 				}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 

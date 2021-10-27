@@ -1826,13 +1826,22 @@ const (
 type RestartOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// The duration in seconds before the object should be force-restared. Value must be non-negative integer.
+	// The duration in seconds before the object should be force-restarted. Value must be non-negative integer.
 	// The value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the
 	// specified type will be used to determine on how much time to give the VMI to restart.
 	// Defaults to a per object value if not specified. zero means restart immediately.
 	// Allowed Values: nil and 0
 	// +optional
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty" protobuf:"varint,1,opt,name=gracePeriodSeconds"`
+
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,2,rep,name=dryRun"`
 }
 
 // StartOptions may be provided on start request.
@@ -1844,6 +1853,14 @@ type StartOptions struct {
 	// Indicates that VM will be started in paused state.
 	// +optional
 	Paused bool `json:"paused,omitempty" protobuf:"varint,7,opt,name=paused"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,5,rep,name=dryRun"`
 }
 
 const (
@@ -1860,6 +1877,14 @@ type StopOptions struct {
 	// this updates the VMIs terminationGracePeriodSeconds during shutdown
 	// +optional
 	GracePeriod *int64 `json:"gracePeriod,omitempty" protobuf:"varint,1,opt,name=gracePeriod"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,2,rep,name=dryRun"`
 }
 
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent

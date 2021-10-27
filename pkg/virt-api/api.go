@@ -242,6 +242,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
 			To(subresourceApp.StartVMRequestHandler).
+			Reads(v1.StartOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation(version.Version+"Start").
 			Doc("Start a VirtualMachine object.").
