@@ -72,3 +72,14 @@ func ParseSearchDomains(content string) ([]string, error) {
 
 	return searchDomains, nil
 }
+
+//GetDomainName returns the longest search domain entry, which is the most exact equivalent to a domain
+func GetDomainName(searchDomains []string) string {
+	selected := ""
+	for _, d := range searchDomains {
+		if len(d) > len(selected) {
+			selected = d
+		}
+	}
+	return selected
+}

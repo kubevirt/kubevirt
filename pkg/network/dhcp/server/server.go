@@ -34,6 +34,7 @@ import (
 
 	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/network/dns"
 )
 
 const (
@@ -134,7 +135,7 @@ func prepareDHCPOptions(
 	dhcpOptions[dhcp.OptionHostName] = []byte(hostname)
 
 	// Windows will ask for the domain name and use it for DNS resolution
-	domainName := getDomainName(searchDomains)
+	domainName := dns.GetDomainName(searchDomains)
 	if len(domainName) > 0 {
 		dhcpOptions[dhcp.OptionDomainName] = []byte(domainName)
 	}
@@ -317,15 +318,4 @@ func isValidSearchDomain(domain string) bool {
 		return false
 	}
 	return searchDomainValidationRegex.MatchString(domain)
-}
-
-//getDomainName returns the longest search domain entry, which is the most exact equivalent to a domain
-func getDomainName(searchDomains []string) string {
-	selected := ""
-	for _, d := range searchDomains {
-		if len(d) > len(selected) {
-			selected = d
-		}
-	}
-	return selected
 }
