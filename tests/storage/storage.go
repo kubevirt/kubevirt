@@ -707,12 +707,6 @@ var _ = SIGDescribe("Storage", func() {
 		})
 
 		Context("[Serial]With feature gates disabled for", func() {
-
-			AfterEach(func() {
-				tests.EnableFeatureGate(virtconfig.HostDiskGate)
-				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
-			})
-
 			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
 				tests.DisableFeatureGate(virtconfig.HostDiskGate)
 				vmi = tests.NewRandomVMIWithHostDisk("somepath", v1.HostDiskExistsOrCreate, "")
