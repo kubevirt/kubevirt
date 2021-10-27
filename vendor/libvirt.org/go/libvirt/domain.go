@@ -5323,16 +5323,16 @@ func (d *Domain) GetGuestInfo(types DomainGuestInfoTypes, flags uint32) (*Domain
 		}
 	}
 
-	os := DomainGuestInfoOS{}
-	osInfo := getDomainGuestInfoOSFieldInfo(&os)
+	info.OS = &DomainGuestInfoOS{}
+	osInfo := getDomainGuestInfoOSFieldInfo(info.OS)
 
 	_, gerr = typedParamsUnpack(cparams, cnparams, osInfo)
 	if gerr != nil {
 		return nil, gerr
 	}
 
-	timezone := DomainGuestInfoTimeZone{}
-	timezoneInfo := getDomainGuestInfoTimeZoneFieldInfo(&timezone)
+	info.TimeZone = &DomainGuestInfoTimeZone{}
+	timezoneInfo := getDomainGuestInfoTimeZoneFieldInfo(info.TimeZone)
 
 	_, gerr = typedParamsUnpack(cparams, cnparams, timezoneInfo)
 	if gerr != nil {

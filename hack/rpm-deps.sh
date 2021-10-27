@@ -6,8 +6,8 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=0:7.0.0-14.el8s
-QEMU_VERSION=15:5.2.0-16.el8s
+LIBVIRT_VERSION=0:7.6.0-4.el8s
+QEMU_VERSION=15:6.0.0-33.el8s
 SEABIOS_VERSION=0:1.14.0-1.el8s
 EDK2_VERSION=0:20200602gitca407c7246bf-4.el8
 LIBGUESTFS_VERSION=1:1.44.0-3.el8s
@@ -43,7 +43,7 @@ testimage_base="
   iputils
   nmap-ncat
   procps-ng
-  qemu-img
+  qemu-img-${QEMU_VERSION}
   util-linux
   which
 "
@@ -139,6 +139,7 @@ launcherbase_base="
 "
 launcherbase_x86_64="
   edk2-ovmf-${EDK2_VERSION}
+  qemu-kvm-hw-usbredir-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
 "
 launcherbase_aarch64="
@@ -243,11 +244,10 @@ bazel run \
     $libguestfstools_x86_64 \
     --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
     --force-ignore-with-dependencies '^(python[3]{0,1}-|perl[3]{0,1}-)' \
-    --force-ignore-with-dependencies '^(mesa-|libwayland-|selinux-policy|mozjs60)' \
-    --force-ignore-with-dependencies '^(libvirt-daemon-driver-storage|swtpm)' \
+    --force-ignore-with-dependencies '^mozjs60' \
+    --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
     --force-ignore-with-dependencies '^(man-db|mandoc)' \
-    --force-ignore-with-dependencies '^(dbus|glusterfs|libX11|qemu-kvm-block|trousers|usbredir)' \
-    --force-ignore-with-dependencies '^(gstreamer1|kbd|libX)'
+    --force-ignore-with-dependencies '^dbus'
 
 # remove all RPMs which are no longer referenced by a rpmtree
 bazel run \
