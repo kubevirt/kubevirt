@@ -117,6 +117,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Namespace: vm.Namespace,
 				Name:      vm.Name,
 			},
+			Spec: vm.Spec.Template.Spec,
 		}
 	}
 
@@ -810,42 +811,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 			})
 
-			It("should not lock source if online and have hotplug disks", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vm := createVM()
-				vm.Spec.Running = &t
-				vmSource.Add(vm)
-				vmRevision := createVMRevision(vm)
-				crSource.Add(vmRevision)
-				vmi := createVMI(vm)
-				vmi.Status.VirtualMachineRevisionName = vmRevisionName
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: "disk2",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "test-pvc2",
-						}},
-					},
-				})
-				vmiSource.Add(vmi)
-
-				updatedSnapshot := vmSnapshot.DeepCopy()
-				updatedSnapshot.Status.Phase = snapshotv1.InProgress
-				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
-					newReadyCondition(corev1.ConditionFalse, "Not ready"),
-				}
-				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
-					snapshotv1.VMSnapshotOnlineSnapshotIndication,
-					snapshotv1.VMSnapshotNoGuestAgentIndication,
-				}
-				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
-
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-			})
-
 			It("should lock source if pods using PVCs if VM is running", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
@@ -939,6 +904,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createLockedVM()
 				vm.Spec.Running = &t
+				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("32Mi"),
+				}
 
 				vmRevision := createVMRevision(vm)
 				crSource.Add(vmRevision)
@@ -947,9 +915,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmiSource.Add(vmi)
 
 				vm.ObjectMeta.Annotations = map[string]string{}
-				// the content source will be equal to the vm revision data
-				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm)
-				vm.ObjectMeta.Generation = 2
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "disk2",
 					VolumeSource: v1.VolumeSource{
@@ -958,6 +923,12 @@ var _ = Describe("Snapshot controlleer", func() {
 						}},
 					},
 				})
+				// the content source will have the a combination of the vm revision, the vmi and the vm volumes
+				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm)
+				vm.ObjectMeta.Generation = 2
+				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				}
 				vmSource.Add(vm)
 				storageClass := createStorageClass()
 				storageClassSource.Add(storageClass)
