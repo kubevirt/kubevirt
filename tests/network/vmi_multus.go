@@ -169,13 +169,6 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 
 		nodes = util.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items) > 0).To(BeTrue())
-
-		const vlanId = 100
-		Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100Network, vlanId, "")).To(Succeed())
-
-		// Create ptp crds with tuning plugin enabled in two different namespaces
-		Expect(createPtpNetworkAttachmentDefinition(util.NamespaceTestDefault, ptpConf1, ptpSubnet)).To(Succeed())
-		Expect(createPtpNetworkAttachmentDefinition(tests.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
 	})
 
 	BeforeEach(func() {
@@ -208,6 +201,13 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 		Context("With ptp CNI plugin", func() {
 
 			const ptpGateway = ptpSubnetIP1
+
+			BeforeEach(func() {
+				// Create ptp crds with tuning plugin enabled in two different namespaces
+				Expect(createPtpNetworkAttachmentDefinition(util.NamespaceTestDefault, ptpConf1, ptpSubnet)).To(Succeed())
+				Expect(createPtpNetworkAttachmentDefinition(tests.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
+			})
+
 			Context("VirtualMachineInstance with cni ptp plugin interface", func() {
 				It("[test_id:1751]should create a virtual machine with one interface", func() {
 					By("checking virtual machine instance can ping using ptp cni plugin")
@@ -366,10 +366,14 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 				})
 			})
-
 		})
 
 		Context("With bridge CNI plugin", func() {
+			BeforeEach(func() {
+				const vlanId = 100
+				Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100Network, vlanId, "")).To(Succeed())
+			})
+
 			Context("VirtualMachineInstance with Linux bridge plugin interface", func() {
 				getIfaceIPByNetworkName := func(vmiName, networkName string) (string, error) {
 					vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(vmiName, &metav1.GetOptions{})
@@ -574,12 +578,16 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 					Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
 				})
 			})
-
 		})
 	})
 
 	Describe("[rfe_id:1758][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition", func() {
 		Context("With bridge CNI plugin", func() {
+			BeforeEach(func() {
+				const vlanId = 100
+				Expect(createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, linuxBridgeVlan100Network, vlanId, "")).To(Succeed())
+			})
+
 			Context("with qemu guest agent", func() {
 
 				It("[test_id:1757] should report guest interfaces in VMI status", func() {
@@ -660,7 +668,6 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 				})
 			})
 		})
-
 	})
 })
 
