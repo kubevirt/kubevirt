@@ -688,7 +688,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					By("Adding volume to running VM")
 					addVolumeFunc(vm.Name, vm.Namespace, volumeName, dv.Name, "scsi")
 					testVolumes = append(testVolumes, volumeName)
-					verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes...)
+					verifyVolumeStatus(vmi, v1.VolumeReady, testVolumes...)
 				}
 				By("Verifying the volume and disk are in the VM and VMI")
 				if !vmiOnly {
