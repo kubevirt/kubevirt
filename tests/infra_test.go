@@ -823,7 +823,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 		It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			l, err := labels.Parse("prometheus.kubevirt.io")
+			l, err := labels.Parse("prometheus.kubevirt.io=true")
 			Expect(err).ToNot(HaveOccurred())
 			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: l.String()})
 			Expect(err).ToNot(HaveOccurred())

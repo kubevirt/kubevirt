@@ -27,8 +27,8 @@ func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
 			Namespace: operatorNamespace,
 			Name:      KubevirtOperatorWebhookServiceName,
 			Labels: map[string]string{
-				virtv1.AppLabel:          "",
-				"prometheus.kubevirt.io": "",
+				virtv1.AppLabel:    "",
+				prometheusLabelKey: prometheusLabelValue,
 			},
 		},
 		Spec: corev1.ServiceSpec{

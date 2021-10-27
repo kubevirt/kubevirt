@@ -57,12 +57,12 @@ func NewPrometheusService(namespace string) *corev1.Service {
 			Name:      "kubevirt-prometheus-metrics",
 			Labels: map[string]string{
 				virtv1.AppLabel:    "",
-				prometheusLabelKey: "",
+				prometheusLabelKey: prometheusLabelValue,
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				prometheusLabelKey: "",
+				prometheusLabelKey: prometheusLabelValue,
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -120,7 +120,7 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				virtv1.AppLabel:    podName,
-				prometheusLabelKey: "",
+				prometheusLabelKey: prometheusLabelValue,
 			},
 			Annotations: map[string]string{
 				"scheduler.alpha.kubernetes.io/critical-pod": "",
@@ -422,7 +422,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						virtv1.AppLabel:    VirtOperatorName,
-						prometheusLabelKey: "",
+						prometheusLabelKey: prometheusLabelValue,
 					},
 					Annotations: map[string]string{
 						"scheduler.alpha.kubernetes.io/critical-pod": "",
