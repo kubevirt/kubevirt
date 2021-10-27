@@ -480,6 +480,11 @@ func (in *ComponentConfig) DeepCopyInto(out *ComponentConfig) {
 		*out = new(NodePlacement)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Replicas != nil {
+		in, out := &in.Replicas, &out.Replicas
+		*out = new(byte)
+		**out = **in
+	}
 	return
 }
 

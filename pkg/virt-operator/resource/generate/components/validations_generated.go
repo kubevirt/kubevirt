@@ -911,7 +911,7 @@ var CRDsValidation map[string]string = map[string]string{
             components
           properties:
             nodePlacement:
-              description: nodePlacement decsribes scheduling confiuguration for specific
+              description: nodePlacement describes scheduling configuration for specific
                 KubeVirt components
               properties:
                 affinity:
@@ -1569,6 +1569,11 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   type: array
               type: object
+            replicas:
+              description: replicas indicates how many replicas should be created
+                for each KubeVirt infrastructure component (like virt-api or virt-controller).
+                Defaults to 2.
+              type: integer
           type: object
         monitorAccount:
           description: The name of the Prometheus service account that needs read-access
@@ -1621,7 +1626,7 @@ var CRDsValidation map[string]string = map[string]string{
           description: selectors and tolerations that should apply to KubeVirt workloads
           properties:
             nodePlacement:
-              description: nodePlacement decsribes scheduling confiuguration for specific
+              description: nodePlacement describes scheduling configuration for specific
                 KubeVirt components
               properties:
                 affinity:
@@ -2279,6 +2284,11 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   type: array
               type: object
+            replicas:
+              description: replicas indicates how many replicas should be created
+                for each KubeVirt infrastructure component (like virt-api or virt-controller).
+                Defaults to 2.
+              type: integer
           type: object
       type: object
     status:

@@ -593,7 +593,10 @@ func AddVersionSeparatorPrefix(version string) string {
 
 func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *v1beta1.PodDisruptionBudget {
 	pdbName := deployment.Name + "-pdb"
-	minAvailable := intstr.FromInt(int(1))
+	minAvailable := intstr.FromInt(1)
+	if deployment.Spec.Replicas != nil {
+		minAvailable = intstr.FromInt(int(*deployment.Spec.Replicas - 1))
+	}
 	selector := deployment.Spec.Selector.DeepCopy()
 	podDisruptionBudget := &v1beta1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{

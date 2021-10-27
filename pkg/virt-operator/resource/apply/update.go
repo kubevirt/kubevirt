@@ -24,7 +24,7 @@ func (r *Reconciler) updateKubeVirtSystem(daemonSetsRolledOver, controllerDeploy
 
 	// create/update Controller Deployments
 	for _, deployment := range r.targetStrategy.ControllerDeployments() {
-		err := r.syncDeployment(deployment)
+		deployment, err := r.syncDeployment(deployment)
 		if err != nil {
 			return false, err
 		}
@@ -43,7 +43,7 @@ func (r *Reconciler) updateKubeVirtSystem(daemonSetsRolledOver, controllerDeploy
 	// create/update API Deployments
 	for _, deployment := range r.targetStrategy.ApiDeployments() {
 		deployment := deployment.DeepCopy()
-		err := r.syncDeployment(deployment)
+		deployment, err := r.syncDeployment(deployment)
 		if err != nil {
 			return false, err
 		}

@@ -2215,6 +2215,65 @@ spec:
 		})
 	})
 
+	Context("Replicas", func() {
+		It("should fail to set replicas to 0", func() {
+			var replicas uint8 = 0
+			infra := &v1.ComponentConfig{
+				Replicas: &replicas,
+			}
+			patchKvInfra(infra, true, "infra replica count can't be 0")
+		})
+		It("should dynamically adjust virt- pod count and PDBs", func() {
+			for _, replicas := range []uint8{3, 1, 2} { // End with 2 so cluster is back to normal
+				By(fmt.Sprintf("Setting the replica count in kvInfra to %d", replicas))
+				var infra *v1.ComponentConfig
+				if replicas != 2 { // Ensure that nil infra brings us back to 2 replicas
+					infra = &v1.ComponentConfig{
+						Replicas: &replicas,
+					}
+				}
+				patchKvInfra(infra, false, "")
+
+				By(fmt.Sprintf("Expecting %d replicas of virt-api and virt-controller", replicas))
+				Eventually(func() bool {
+					for _, name := range []string{"virt-api", "virt-controller"} {
+						pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, name)})
+						Expect(err).ToNot(HaveOccurred())
+						if len(pods.Items) != int(replicas) {
+							return false
+						}
+					}
+					return true
+				}, 60*time.Second, 1*time.Second).Should(BeTrue())
+
+				if replicas == 1 {
+					By(fmt.Sprintf("Expecting PDBs to disppear"))
+					Eventually(func() bool {
+						for _, name := range []string{"virt-api", "virt-controller"} {
+							_, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).Get(context.Background(), name+"-pdb", metav1.GetOptions{})
+							if err == nil {
+								return false
+							}
+						}
+						return true
+					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+				} else {
+					By(fmt.Sprintf("Expecting minAvailable to become %d on the PDBs", replicas-1))
+					Eventually(func() bool {
+						for _, name := range []string{"virt-api", "virt-controller"} {
+							pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).Get(context.Background(), name+"-pdb", metav1.GetOptions{})
+							Expect(err).ToNot(HaveOccurred())
+							if pdb.Spec.MinAvailable.IntValue() != int(replicas-1) {
+								return false
+							}
+						}
+						return true
+					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+				}
+			}
+		})
+	})
+
 	Context("Certificate Rotation", func() {
 		var certConfig *v1.KubeVirtSelfSignConfiguration
 		BeforeEach(func() {

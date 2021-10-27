@@ -617,7 +617,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	// create/update API Deployments
 	for _, deployment := range r.targetStrategy.ApiDeployments() {
 		deployment := deployment.DeepCopy()
-		err := r.syncDeployment(deployment)
+		deployment, err := r.syncDeployment(deployment)
 		if err != nil {
 			return false, err
 		}
@@ -635,7 +635,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Controller Deployments
 	for _, deployment := range r.targetStrategy.ControllerDeployments() {
-		err := r.syncDeployment(deployment)
+		deployment, err := r.syncDeployment(deployment)
 		if err != nil {
 			return false, err
 		}
