@@ -121,12 +121,13 @@ func (o *kv) List(options *k8smetav1.ListOptions) (*v12.KubeVirtList, error) {
 	return newKvList, err
 }
 
-func (v *kv) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v12.KubeVirt, err error) {
+func (v *kv) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v12.KubeVirt, err error) {
 	result = &v12.KubeVirt{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource(subresources...).
+		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Name(name).
 		Body(data).
 		Do(context.Background()).
@@ -134,12 +135,13 @@ func (v *kv) Patch(name string, pt types.PatchType, data []byte, subresources ..
 	return result, err
 }
 
-func (v *kv) PatchStatus(name string, pt types.PatchType, data []byte) (result *v12.KubeVirt, err error) {
+func (v *kv) PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions) (result *v12.KubeVirt, err error) {
 	result = &v12.KubeVirt{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource("status").
+		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Name(name).
 		Body(data).
 		Do(context.Background()).

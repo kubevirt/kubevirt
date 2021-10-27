@@ -122,7 +122,7 @@ var _ = Describe("Kubevirt Client", func() {
 		))
 
 		_, err := client.KubeVirt(k8sv1.NamespaceDefault).Patch(kubevirt.Name, types.MergePatchType,
-			[]byte("{\"spec\":{\"imagePullPolicy\":something}}"))
+			[]byte("{\"spec\":{\"imagePullPolicy\":something}}"), &k8smetav1.PatchOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

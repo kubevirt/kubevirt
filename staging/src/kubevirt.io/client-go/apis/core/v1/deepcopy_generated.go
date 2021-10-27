@@ -2996,6 +2996,11 @@ func (in *RestartOptions) DeepCopyInto(out *RestartOptions) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.DryRun != nil {
+		in, out := &in.DryRun, &out.DryRun
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
@@ -3147,6 +3152,11 @@ func (in *ServiceAccountVolumeSource) DeepCopy() *ServiceAccountVolumeSource {
 func (in *StartOptions) DeepCopyInto(out *StartOptions) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
+	if in.DryRun != nil {
+		in, out := &in.DryRun, &out.DryRun
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
@@ -3168,6 +3178,11 @@ func (in *StopOptions) DeepCopyInto(out *StopOptions) {
 		in, out := &in.GracePeriod, &out.GracePeriod
 		*out = new(int64)
 		**out = **in
+	}
+	if in.DryRun != nil {
+		in, out := &in.DryRun, &out.DryRun
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	return
 }
