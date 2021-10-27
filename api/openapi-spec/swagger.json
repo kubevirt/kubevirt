@@ -11133,8 +11133,13 @@
     "type": "object",
     "properties": {
      "nodePlacement": {
-      "description": "nodePlacement decsribes scheduling confiuguration for specific KubeVirt components",
+      "description": "nodePlacement describes scheduling configuration for specific KubeVirt components",
       "$ref": "#/definitions/v1.NodePlacement"
+     },
+     "replicas": {
+      "description": "replicas indicates how many replicas should be created for each KubeVirt infrastructure component (like virt-api or virt-controller). Defaults to 2.",
+      "type": "integer",
+      "format": "byte"
      }
     }
    },

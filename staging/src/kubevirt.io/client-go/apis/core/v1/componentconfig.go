@@ -40,8 +40,12 @@ type NodePlacement struct {
 //
 // +k8s:openapi-gen=true
 type ComponentConfig struct {
-	// nodePlacement decsribes scheduling confiuguration for specific
+	// nodePlacement describes scheduling configuration for specific
 	// KubeVirt components
 	//+optional
 	NodePlacement *NodePlacement `json:"nodePlacement,omitempty"`
+	// replicas indicates how many replicas should be created for each KubeVirt infrastructure
+	// component (like virt-api or virt-controller). Defaults to 2.
+	//+optional
+	Replicas *uint8 `json:"replicas,omitempty"`
 }

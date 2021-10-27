@@ -16,10 +16,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
-func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
+func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 	kv := r.kv
 
-	deployment = deployment.DeepCopy()
+	deployment := origDeployment.DeepCopy()
 
 	apps := r.clientset.AppsV1()
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
@@ -28,18 +28,25 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
 	injectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec)
 
+	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil {
+		replicas := int32(*kv.Spec.Infra.Replicas)
+		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != replicas {
+			deployment.Spec.Replicas = &replicas
+		}
+	}
+
 	obj, exists, _ := r.stores.DeploymentCache.Get(deployment)
 	if !exists {
 		r.expectations.Deployment.RaiseExpectations(r.kvKey, 1, 0)
 		deployment, err := apps.Deployments(kv.Namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Deployment.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
+			return nil, fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
 		}
 
 		SetGeneration(&kv.Status.Generations, deployment)
 
-		return nil
+		return deployment, nil
 	}
 
 	cachedDeployment := obj.(*appsv1.Deployment)
@@ -50,32 +57,34 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
 
 	// there was no change to metadata, the generation matched
-	if !*modified && existingCopy.GetGeneration() == expectedGeneration {
+	if !*modified &&
+		*deployment.Spec.Replicas == *origDeployment.Spec.Replicas &&
+		existingCopy.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
-		return nil
+		return deployment, nil
 	}
 
 	newSpec, err := json.Marshal(deployment.Spec)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ops, err := getPatchWithObjectMetaAndSpec([]string{
 		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedDeployment.ObjectMeta.Generation),
 	}, &deployment.ObjectMeta, newSpec)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	deployment, err = apps.Deployments(kv.Namespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to update deployment %+v: %v", deployment, err)
+		return nil, fmt.Errorf("unable to update deployment %+v: %v", deployment, err)
 	}
 
 	SetGeneration(&kv.Status.Generations, deployment)
 	log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
 
-	return nil
+	return deployment, nil
 }
 
 func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
@@ -167,6 +176,14 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	var cachedPodDisruptionBudget *policyv1beta1.PodDisruptionBudget
 	obj, exists, _ := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
 
+	if podDisruptionBudget.Spec.MinAvailable.IntValue() == 0 {
+		var err error
+		if exists {
+			err = pdbClient.Delete(context.Background(), podDisruptionBudget.Name, metav1.DeleteOptions{})
+		}
+		return err
+	}
+
 	if !exists {
 		r.expectations.PodDisruptionBudget.RaiseExpectations(r.kvKey, 1, 0)
 		podDisruptionBudget, err := pdbClient.Create(context.Background(), podDisruptionBudget, metav1.CreateOptions{})
@@ -186,8 +203,10 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	expectedGeneration := GetExpectedGeneration(podDisruptionBudget, kv.Status.Generations)
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, podDisruptionBudget.ObjectMeta)
-	// there was no change to metadata, the generation was right
-	if !*modified && existingCopy.ObjectMeta.Generation == expectedGeneration {
+	// there was no change to metadata or minAvailable, the generation was right
+	if !*modified &&
+		existingCopy.Spec.MinAvailable.IntValue() == podDisruptionBudget.Spec.MinAvailable.IntValue() &&
+		existingCopy.ObjectMeta.Generation == expectedGeneration {
 		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
 		return nil
 	}
@@ -205,7 +224,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 
 	podDisruptionBudget, err = pdbClient.Patch(context.Background(), podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", podDisruptionBudget, err)
+		return fmt.Errorf("unable to patch/delete poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 	}
 
 	SetGeneration(&kv.Status.Generations, podDisruptionBudget)
