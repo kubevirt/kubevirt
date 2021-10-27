@@ -4,12 +4,23 @@ set -e
 
 DOCKER="${CONTAINER_RUNTIME:-docker}"
 
-export CLUSTER_NAME="kind-1.17"
+DEFAULT_CLUSTER_NAME="kind-1.19"
+DEFAULT_HOST_PORT=5000
+ALTERNATE_HOST_PORT=5001
+export CLUSTER_NAME=${CLUSTER_NAME:-$DEFAULT_CLUSTER_NAME}
+
+if [ "$CLUSTER_NAME" = "$DEFAULT_CLUSTER_NAME" ]; then
+    export HOST_PORT=$DEFAULT_HOST_PORT
+else
+    export HOST_PORT=$ALTERNATE_HOST_PORT
+fi
+
+TESTS_NS="${TESTS_NS:-kubevirt-test-default1}"
 
 function set_kind_params() {
-    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.17.2}"
-    export KIND_VERSION="${KIND_VERSION:-0.7.0}"
-    export KUBECTL_PATH="${KUBECTL_PATH:-/kind/bin/kubectl}"
+    export KIND_VERSION="${KIND_VERSION:-0.11.1}"
+    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.19.11@sha256:07db187ae84b4b7de440a73886f008cf903fcf5764ba8106a9fd5243d6f32729}"
+    export KUBECTL_PATH="${KUBECTL_PATH:-/bin/kubectl}"
 }
 
 function up() {
@@ -27,10 +38,6 @@ function up() {
             mount_disk $node $i
         done
         $DOCKER exec $node bash -c "chmod -R 777 /var/local/kubevirt-storage/local-volume"
-
-        # Create a unique UUID file reference file for each node, that will be mounted in order to support
-        # Migration in Kind providers.
-        $DOCKER exec $node bash -c 'cat /proc/sys/kernel/random/uuid > /kind/product_uuid'
     done
 
     # create the `local` storage class - which functional tests assume to exist
@@ -39,10 +46,7 @@ function up() {
     # Since Kind provider uses containers as nodes, the UUID on all of them will be the same,
     # and Migration by libvirt would be blocked, because migrate between the same UUID is forbidden.
     # Enable PodPreset so we can use it in order to mount a fake UUID for each launcher pod.
-    $DOCKER exec kind-1.17-control-plane bash -c 'sed -i \
-    -e "s/NodeRestriction/NodeRestriction,PodPreset/" \
-    -e "/NodeRestriction,PodPreset/ a\    - --runtime-config=settings.k8s.io/v1alpha1=true" \
-    /etc/kubernetes/manifests/kube-apiserver.yaml'
+    podpreset::expose_unique_product_uuid_per_node "$CLUSTER_NAME" "$TESTS_NS"
 }
 
 function mount_disk() {
@@ -56,3 +60,4 @@ function mount_disk() {
 set_kind_params
 
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
+source ${KUBEVIRTCI_PATH}/cluster/kind/podpreset.sh
