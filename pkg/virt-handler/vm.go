@@ -585,11 +585,20 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 			continue
 		}
 
+		found = false
 		for i, _ := range vmi.Status.VolumeStatus {
 			if vmi.Status.VolumeStatus[i].Name == volume.Name {
 				vmi.Status.VolumeStatus[i].Size = int64(size)
+				found = true
 				continue
 			}
+		}
+		if !found {
+			vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+				Name: volume.Name,
+				Size: int64(size),
+			})
+			log.DefaultLogger().V(2).Infof("status for volume %s created because not found", volume.Name)
 		}
 	}
 }
