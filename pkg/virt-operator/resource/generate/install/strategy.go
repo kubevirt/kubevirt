@@ -433,20 +433,22 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	var productVersion string
 	var productComponent string
 
+	invalidLabelPatternErrorMassage := "invalid %s: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash"
+
 	if operatorutil.IsValidLabel(config.GetProductName()) {
 		productName = config.GetProductName()
 	} else {
-		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
+		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMassage, "kubevirt.spec.productName"))
 	}
 	if operatorutil.IsValidLabel(config.GetProductVersion()) {
 		productVersion = config.GetProductVersion()
 	} else {
-		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
+		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMassage, "kubevirt.spec.productVersion"))
 	}
 	if operatorutil.IsValidLabel(config.GetProductComponent()) {
 		productComponent = config.GetProductComponent()
 	} else {
-		log.Log.Errorf("invalid kubevirt.spec.productComponent: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
+		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMassage, "kubevirt.spec.productComponent"))
 	}
 
 	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewOpertorValidatingWebhookConfiguration(operatorNamespace))
