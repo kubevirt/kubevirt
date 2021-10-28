@@ -230,6 +230,17 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		return vmi
 	}
 
+	cancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vminame string, with_virtctl bool) {
+		if !with_virtctl {
+			By("Cancelling a Migration")
+			Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+		} else {
+			By("Cancelling a Migration with virtctl")
+			command := tests.NewRepeatableVirtctlCommand("migrate-cancel", "--namespace", migration.Namespace, vminame)
+			Expect(command()).To(Succeed(), "should successfully migrate-cancel a migration")
+		}
+	}
+
 	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, with_virtctl bool, timeout int) *v1.VirtualMachineInstanceMigration {
 		By("Starting a Migration")
 		Eventually(func() error {
@@ -255,14 +266,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		}, timeout, 1*time.Second).Should(BeTrue())
 
-		if (!with_virtctl) {
-			By("Cancelling a Migration")
-			Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
-		} else {
-			By("Cancelling a Migration with virtctl")
-			command := tests.NewRepeatableVirtctlCommand("migrate-cancel", "--namespace", migration.Namespace, vmi.Name)
-			Expect(command()).To(Succeed(), "should successfully migrate-cancel a migration")
-		}
+		cancelMigration(migration, vmi.Name, with_virtctl)
+
 		return migration
 	}
 
@@ -282,14 +287,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		}, timeout, 1*time.Second).Should(BeTrue())
 
-		if (!with_virtctl) {
-			By("Cancelling a Migration")
-			Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
-		} else {
-			By("Cancelling a Migration with virtctl")
-			command := tests.NewRepeatableVirtctlCommand("migrate-cancel", "--namespace", migration.Namespace, vmi.Name)
-			Expect(command()).To(Succeed(), "should successfully migrate-cancel a migration")
-		}
+		cancelMigration(migration, vmi.Name, with_virtctl)
 
 		return migration
 	}
