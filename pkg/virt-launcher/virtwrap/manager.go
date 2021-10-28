@@ -88,7 +88,7 @@ type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
 	PauseVMI(*v1.VirtualMachineInstance) error
 	UnpauseVMI(*v1.VirtualMachineInstance) error
-	FreezeVMI(*v1.VirtualMachineInstance) error
+	FreezeVMI(*v1.VirtualMachineInstance, int32) error
 	UnfreezeVMI(*v1.VirtualMachineInstance) error
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
@@ -130,6 +130,7 @@ type LibvirtDomainManager struct {
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker          converter.DirectIOChecker
 	disksInfo                map[string]*cmdv1.DiskInfo
+	cancelSafetyUnfreezeChan chan struct{}
 }
 
 type pausedVMIs struct {
@@ -173,6 +174,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, age
 		ephemeralDiskCreator:     ephemeralDiskCreator,
 		directIOChecker:          directIOChecker,
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
+		cancelSafetyUnfreezeChan: make(chan struct{}),
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
@@ -1034,8 +1036,28 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 	return nil
 }
 
-func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) scheduleSafetyVMIUnfreeze(vmi *v1.VirtualMachineInstance, unfreezeTimeout time.Duration) {
+	select {
+	case <-time.After(unfreezeTimeout):
+		log.Log.Warningf("Unfreeze was not called for vmi %s for more then %v, initiating unfreeze",
+			vmi.Name, unfreezeTimeout)
+		l.UnfreezeVMI(vmi)
+	case <-l.cancelSafetyUnfreezeChan:
+		log.Log.V(3).Infof("Canceling schedualed Unfreeze for vmi %s", vmi.Name)
+		// aborted
+	}
+}
+
+func (l *LibvirtDomainManager) cancelSafetyUnfreeze() {
+	select {
+	case l.cancelSafetyUnfreezeChan <- struct{}{}:
+	default:
+	}
+}
+
+func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
 	domainName := api.VMINamespaceKeyFunc(vmi)
+	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
 
 	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, domainName)
 	if err != nil {
@@ -1056,10 +1078,16 @@ func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance) error {
 		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
 		return err
 	}
+
+	l.cancelSafetyUnfreeze()
+	if safetyUnfreezeTimeout != 0 {
+		go l.scheduleSafetyVMIUnfreeze(vmi, safetyUnfreezeTimeout)
+	}
 	return nil
 }
 
 func (l *LibvirtDomainManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error {
+	l.cancelSafetyUnfreeze()
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	// fs thaw is idempotent by itself
 	_, err := l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, domainName)

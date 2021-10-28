@@ -341,6 +341,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/core/v1.Flags":                                                 schema_client_go_apis_core_v1_Flags(ref),
 		"kubevirt.io/client-go/apis/core/v1.FlavorMatcher":                                         schema_client_go_apis_core_v1_FlavorMatcher(ref),
 		"kubevirt.io/client-go/apis/core/v1.FloppyTarget":                                          schema_client_go_apis_core_v1_FloppyTarget(ref),
+		"kubevirt.io/client-go/apis/core/v1.FreezeUnfreezeTimeout":                                 schema_client_go_apis_core_v1_FreezeUnfreezeTimeout(ref),
 		"kubevirt.io/client-go/apis/core/v1.GPU":                                                   schema_client_go_apis_core_v1_GPU(ref),
 		"kubevirt.io/client-go/apis/core/v1.GenerationStatus":                                      schema_client_go_apis_core_v1_GenerationStatus(ref),
 		"kubevirt.io/client-go/apis/core/v1.GuestAgentCommandInfo":                                 schema_client_go_apis_core_v1_GuestAgentCommandInfo(ref),
@@ -15856,6 +15857,27 @@ func schema_client_go_apis_core_v1_FloppyTarget(ref common.ReferenceCallback) co
 				},
 			},
 		},
+	}
+}
+
+func schema_client_go_apis_core_v1_FreezeUnfreezeTimeout(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"unfreezeTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+				Required: []string{"unfreezeTimeout"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 

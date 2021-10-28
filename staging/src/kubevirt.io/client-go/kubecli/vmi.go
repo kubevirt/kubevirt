@@ -233,14 +233,26 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 	}
 }
 
-func (v *vmis) Freeze(name string) error {
-	log.Log.Infof("Freeze VMI")
+func (v *vmis) Freeze(name string, unfreezeTimeout time.Duration) error {
+	log.Log.Infof("Freeze VMI %s", name)
 	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "freeze")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+
+	freezeUnfreezeTimeout := &v12.FreezeUnfreezeTimeout{
+		UnfreezeTimeout: &metav1.Duration{
+			Duration: unfreezeTimeout,
+		},
+	}
+
+	JSON, err := json.Marshal(freezeUnfreezeTimeout)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do(context.Background()).Error()
 }
 
 func (v *vmis) Unfreeze(name string) error {
-	log.Log.Infof("Unfreeze VMI")
+	log.Log.Infof("Unfreeze VMI %s", name)
 	uri := fmt.Sprintf(vmiSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "unfreeze")
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }

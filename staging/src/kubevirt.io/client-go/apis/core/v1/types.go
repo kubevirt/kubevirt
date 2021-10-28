@@ -1936,6 +1936,12 @@ type VirtualMachineInstanceFileSystem struct {
 	TotalBytes     int    `json:"totalBytes"`
 }
 
+// FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command
+// +k8s:openapi-gen=true
+type FreezeUnfreezeTimeout struct {
+	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
+}
+
 // AddVolumeOptions is provided when dynamically hot plugging a volume and disk
 // +k8s:openapi-gen=true
 type AddVolumeOptions struct {

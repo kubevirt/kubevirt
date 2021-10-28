@@ -263,6 +263,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("freeze")).
 			To(subresourceApp.FreezeVMIRequestHandler).
+			Reads(v1.FreezeUnfreezeTimeout{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation(version.Version+"Freeze").
 			Doc("Freeze a VirtualMachineInstance object.").

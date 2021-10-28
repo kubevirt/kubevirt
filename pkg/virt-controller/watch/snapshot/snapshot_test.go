@@ -1160,7 +1160,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					pvcSource.Add(&pvcs[i])
 				}
 
-				vmiInterface.EXPECT().Freeze(vm.Name).Return(nil)
+				vmiInterface.EXPECT().Freeze(vm.Name, 0*time.Second).Return(nil)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)

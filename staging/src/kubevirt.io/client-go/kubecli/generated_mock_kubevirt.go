@@ -5,6 +5,7 @@ package kubecli
 
 import (
 	net "net"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	v1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
@@ -988,14 +989,14 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unpause(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unpause", arg0)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Freeze(name string) error {
-	ret := _m.ctrl.Call(_m, "Freeze", name)
+func (_m *MockVirtualMachineInstanceInterface) Freeze(name string, unfreezeTimeout time.Duration) error {
+	ret := _m.ctrl.Call(_m, "Freeze", name, unfreezeTimeout)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Freeze(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Freeze", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Freeze(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Freeze", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) Unfreeze(name string) error {

@@ -28,6 +28,7 @@ package kubecli
 import (
 	"io"
 	"net"
+	"time"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	autov1 "k8s.io/api/autoscaling/v1"
@@ -185,7 +186,7 @@ type VirtualMachineInstanceInterface interface {
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	Pause(name string) error
 	Unpause(name string) error
-	Freeze(name string) error
+	Freeze(name string, unfreezeTimeout time.Duration) error
 	Unfreeze(name string) error
 	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
