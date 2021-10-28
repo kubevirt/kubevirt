@@ -70,7 +70,7 @@ const (
 	istioApiVersion   = "v1beta1"
 )
 
-var _ = SIGDescribe("Istio", func() {
+var _ = SIGDescribe("[Serial] Istio", func() {
 	var (
 		err        error
 		vmi        *v1.VirtualMachineInstance
