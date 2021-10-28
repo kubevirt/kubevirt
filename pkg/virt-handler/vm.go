@@ -1163,19 +1163,19 @@ func IsoGuestVolumePath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (stri
 
 	basepath := "/var/run"
 	if volume.CloudInitNoCloud != nil {
-		volPath = path.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
+		volPath = filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "noCloud.iso")
 	} else if volume.CloudInitConfigDrive != nil {
-		volPath = path.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
+		volPath = filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
 	} else if volume.ConfigMap != nil {
-		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
 	} else if volume.DownwardAPI != nil {
-		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
 	} else if volume.Secret != nil {
-		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.SecretDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.SecretDisksDir), volume.Name+".iso")
 	} else if volume.ServiceAccount != nil {
-		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
+		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
 	} else if volume.Sysprep != nil {
-		volPath = path.Join(basepath, "kubevirt-private", path.Base(config.SysprepDisksDir), volume.Name+".iso")
+		volPath = filepath.Join(basepath, "kubevirt-private", path.Base(config.SysprepDisksDir), volume.Name+".iso")
 	} else {
 		return "", false
 	}
@@ -1210,7 +1210,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 			log.DefaultLogger().V(2).Warningf("failed to detect VMI %s", vmi.Name)
 			continue
 		}
-		size, err := isolation.GetFileSize(volPath, res, d.clusterConfig.GetDiskVerification())
+		size, err := isolation.GetFileSize(volPath, res)
 		if err != nil {
 			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
 			continue
@@ -1218,7 +1218,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 
 		for i, _ := range vmi.Status.VolumeStatus {
 			if vmi.Status.VolumeStatus[i].Name == volume.Name {
-				vmi.Status.VolumeStatus[i].Size = int64(size)
+				vmi.Status.VolumeStatus[i].Size = size
 				continue
 			}
 		}
@@ -2944,7 +2944,7 @@ func (d *VirtualMachineController) claimDeviceOwnership(vmi *v1.VirtualMachineIn
 		return err
 	}
 
-	kvmPath := path.Join(isolation.MountRoot(), "dev", deviceName)
+	kvmPath := filepath.Join(isolation.MountRoot(), "dev", deviceName)
 
 	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.AllowEmulation())
 	if err != nil || softwareEmulation {
