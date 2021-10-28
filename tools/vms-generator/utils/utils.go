@@ -57,9 +57,9 @@ const (
 	VmiMultusMultipleNet = "vmi-multus-multiple-net"
 	VmiHostDisk          = "vmi-host-disk"
 	VmiGPU               = "vmi-gpu"
+        VmiARM               = "vmi-arm"
 	VmiMacvtap           = "vmi-macvtap"
 	VmTemplateFedora     = "vm-template-fedora"
-	VmiArm               = "vmi-arm"
 	VmTemplateRHEL7      = "vm-template-rhel7"
 	VmTemplateWindows    = "vm-template-windows2012r2"
 )
@@ -101,6 +101,7 @@ const EthernetAdaptorModelToEnableMultiqueue = "virtio"
 
 var DockerPrefix = "registry:5000/kubevirt"
 var DockerTag = "devel"
+var DockerTagARM = "arm64"
 
 var gracePeriod = int64(0)
 
@@ -1053,13 +1054,12 @@ func GetVMIMacvtap() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func GetVMIArm() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiArm)
+func GetVMIARM() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiARM)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2G")
-	_true := true
-	vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &_true
-	vmi.Spec.Domain.Machine = &v1.Machine{Type: "virtio"}
-	vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet01", Bus: "virtio", Type: "tablet"}, {Name: "keyboard01", Bus: "usb", Type: "keyboard"}}
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirrosARM, DockerTagARM), busVirtio)
+	addNoCloudDisk(&vmi.Spec)
+	addEmptyDisk(&vmi.Spec, "2Gi")
 	addPVCDisk(&vmi.Spec, "iso-arm", busVirtio, "cdromiso")
 	return vmi
 
