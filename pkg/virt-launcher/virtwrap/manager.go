@@ -896,7 +896,7 @@ func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
 	path := converter.GetHotplugBlockDeviceVolumePath(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
-		if !fileInfo.IsDir() && (fileInfo.Mode()&os.ModeDevice) != 0 {
+		if (fileInfo.Mode() & os.ModeDevice) != 0 {
 			return true
 		}
 		return false
