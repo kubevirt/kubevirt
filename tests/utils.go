@@ -1586,7 +1586,7 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 	By("Waiting until the VirtualMachineInstance will start")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	warningsIgnoreList := []string{"didn't find PVC associated with DataVolume"}
+	warningsIgnoreList := []string{"didn't find PVC"}
 	wp := WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
 	_ = waitForVMIStart(ctx, obj, timeout, wp)
 	return obj
