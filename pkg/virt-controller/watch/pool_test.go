@@ -34,9 +34,10 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	v1 "kubevirt.io/client-go/apis/core/v1"
+	"kubevirt.io/client-go/api"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -218,7 +219,7 @@ var _ = Describe("Pool", func() {
 			vmiHash := hashVMITemplate(pool)
 			vm = injectHashIntoVM(vm, "madeup", vmiHash)
 
-			vmi := virtv1.NewMinimalVMI(vm.Name)
+			vmi := api.NewMinimalVMI(vm.Name)
 			vmi.Spec = vm.Spec.Template.Spec
 			vmi.Name = vm.Name
 			vmi.Namespace = vm.Namespace
@@ -260,7 +261,7 @@ var _ = Describe("Pool", func() {
 			vmiHash := hashVMITemplate(pool)
 			vm = injectHashIntoVM(vm, vmHash, vmiHash)
 
-			vmi := virtv1.NewMinimalVMI(vm.Name)
+			vmi := api.NewMinimalVMI(vm.Name)
 			vmi.Spec = vm.Spec.Template.Spec
 			vmi.Name = vm.Name
 			vmi.Namespace = vm.Namespace
@@ -620,7 +621,7 @@ func PoolFromVM(name string, vm *v1.VirtualMachine, replicas int32) *poolv1.Virt
 }
 
 func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine) {
-	vmi := v1.NewMinimalVMI("testvmi")
+	vmi := api.NewMinimalVMI("testvmi")
 	vm := VirtualMachineFromVMI(vmi.Name, vmi, true)
 	vm.Labels = map[string]string{}
 	vm.Labels["selector"] = "value"

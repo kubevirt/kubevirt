@@ -10,6 +10,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	flavorv1alpha1 "kubevirt.io/api/flavor/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 )
 
@@ -232,6 +233,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	vmiPathUpdate := VMIUpdateValidatePath
 	vmPath := VMValidatePath
 	vmirsPath := VMIRSValidatePath
+	vmpoolPath := VMPoolValidatePath
 	vmipresetPath := VMIPresetValidatePath
 	migrationCreatePath := MigrationCreateValidatePath
 	migrationUpdatePath := MigrationUpdateValidatePath
@@ -381,6 +383,31 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmirsPath,
+					},
+				},
+			},
+			{
+				Name:                    "virtualmachinepool-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{poolv1.SchemeGroupVersion.Group},
+						APIVersions: []string{poolv1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachinepools"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmpoolPath,
 					},
 				},
 			},
@@ -599,6 +626,8 @@ const VMIUpdateValidatePath = "/virtualmachineinstances-validate-update"
 const VMValidatePath = "/virtualmachines-validate"
 
 const VMIRSValidatePath = "/virtualmachinereplicaset-validate"
+
+const VMPoolValidatePath = "/virtualmachinepool-validate"
 
 const VMIPresetValidatePath = "/vmipreset-validate"
 
