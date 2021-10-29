@@ -774,6 +774,58 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 			})
 
+			It("should successfully recreate status", func() {
+				snapshot = newSnapshot()
+
+				ss, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				waitSnapshotReady()
+
+				ss, err = virtClient.VirtualMachineSnapshot(ss.Namespace).Get(context.Background(), ss.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				origStatus := ss.Status
+				ss.Status = nil
+				ss, err = virtClient.VirtualMachineSnapshot(ss.Namespace).Update(context.Background(), ss, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ss.Status).To(BeNil())
+
+				Eventually(func() bool {
+					ss, err = virtClient.VirtualMachineSnapshot(ss.Namespace).Get(context.Background(), ss.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					if ss.Status == nil {
+						return false
+					}
+					if *ss.Status.SourceUID != *origStatus.SourceUID ||
+						*ss.Status.VirtualMachineSnapshotContentName != *origStatus.VirtualMachineSnapshotContentName ||
+						*ss.Status.CreationTime != *origStatus.CreationTime ||
+						ss.Status.Phase != origStatus.Phase ||
+						*ss.Status.ReadyToUse != *origStatus.ReadyToUse {
+						return false
+					}
+					if len(ss.Status.Conditions) != len(origStatus.Conditions) {
+						return false
+					}
+					for i, c := range ss.Status.Conditions {
+						oc := origStatus.Conditions[i]
+						if c.Type != oc.Type ||
+							c.Status != oc.Status {
+							return false
+						}
+					}
+					if len(ss.Status.Indications) != len(origStatus.Indications) {
+						return false
+					}
+					for i := range ss.Status.Indications {
+						if ss.Status.Indications[i] != origStatus.Indications[i] {
+							return false
+						}
+					}
+					return true
+				}, 180*time.Second, time.Second).Should(BeTrue())
+			})
+
 			It("VM should contain snapshot status for all volumes", func() {
 				volumes := len(vm.Spec.Template.Spec.Volumes)
 				Eventually(func() int {
