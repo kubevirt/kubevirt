@@ -101,7 +101,6 @@ const EthernetAdaptorModelToEnableMultiqueue = "virtio"
 
 var DockerPrefix = "registry:5000/kubevirt"
 var DockerTag = "devel"
-var DockerTagARM = "arm64"
 
 var gracePeriod = int64(0)
 
@@ -1056,11 +1055,10 @@ func GetVMIMacvtap() *v1.VirtualMachineInstance {
 
 func GetVMIARM() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiARM)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2G")
-	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirrosARM, DockerTagARM), busVirtio)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
-	addPVCDisk(&vmi.Spec, "iso-arm", busVirtio, "cdromiso")
 	return vmi
 
 }

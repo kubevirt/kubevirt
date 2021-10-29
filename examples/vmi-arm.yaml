@@ -8,26 +8,31 @@ metadata:
 spec:
   domain:
     devices:
-      autoattachGraphicsDevice: true
       disks:
       - disk:
           bus: virtio
-        name: cdromiso
-      inputs:
-      - bus: virtio
-        name: tablet01
-        type: tablet
-      - bus: usb
-        name: keyboard01
-        type: keyboard
-    machine:
-      type: virtio
+        name: containerdisk
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+      - disk:
+          bus: virtio
+        name: emptydisk
     resources:
       requests:
-        memory: 2G
+        memory: 256Mi
   terminationGracePeriodSeconds: 0
   volumes:
-  - name: cdromiso
-    persistentVolumeClaim:
-      claimName: iso-arm
+  - containerDisk:
+      image: registry:5000/kubevirt/cirros-container-disk-demo:devel 
+    name: containerdisk
+  - cloudInitNoCloud:
+      userData: |
+        #!/bin/sh
+
+        echo 'printed from cloud-init userdata'
+    name: cloudinitdisk
+  - emptyDisk:
+      capacity: 2Gi
+    name: emptydisk
 
