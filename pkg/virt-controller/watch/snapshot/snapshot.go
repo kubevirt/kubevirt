@@ -86,7 +86,10 @@ func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 }
 
 func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
-	if vmSnapshotSucceeded(vmSnapshot) {
+	if vmSnapshotFailed(vmSnapshot) {
+		return true
+	}
+	if vmSnapshot.Status == nil || vmSnapshot.Status.Phase != snapshotv1.InProgress {
 		return false
 	}
 	return timeUntilDeadline(vmSnapshot) < 0
