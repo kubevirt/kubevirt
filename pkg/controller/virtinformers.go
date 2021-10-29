@@ -42,7 +42,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -433,20 +432,13 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 			"vm": func(obj interface{}) ([]string, error) {
 				vms, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
 				if !ok {
-
 					return nil, unexpectedObjectError
 				}
 
-				if vms.Spec.Source.APIGroup != nil {
-					gv, err := schema.ParseGroupVersion(*vms.Spec.Source.APIGroup)
-					if err != nil {
-						return nil, err
-					}
-
-					if gv.Group == core.GroupName &&
-						vms.Spec.Source.Kind == "VirtualMachine" {
-						return []string{vms.Spec.Source.Name}, nil
-					}
+				if vms.Spec.Source.APIGroup != nil &&
+					*vms.Spec.Source.APIGroup == core.GroupName &&
+					vms.Spec.Source.Kind == "VirtualMachine" {
+					return []string{fmt.Sprintf("%s/%s", vms.Namespace, vms.Spec.Source.Name)}, nil
 				}
 
 				return nil, nil
@@ -467,7 +459,8 @@ func (f *kubeInformerFactory) VirtualMachineSnapshotContent() cache.SharedIndexI
 				var volumeSnapshots []string
 				for _, v := range vmsc.Spec.VolumeBackups {
 					if v.VolumeSnapshotName != nil {
-						volumeSnapshots = append(volumeSnapshots, *v.VolumeSnapshotName)
+						k := fmt.Sprintf("%s/%s", vmsc.Namespace, *v.VolumeSnapshotName)
+						volumeSnapshots = append(volumeSnapshots, k)
 					}
 				}
 				return volumeSnapshots, nil
@@ -487,16 +480,10 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 					return nil, unexpectedObjectError
 				}
 
-				if vmr.Spec.Target.APIGroup != nil {
-					gv, err := schema.ParseGroupVersion(*vmr.Spec.Target.APIGroup)
-					if err != nil {
-						return nil, err
-					}
-
-					if gv.Group == core.GroupName &&
-						vmr.Spec.Target.Kind == "VirtualMachine" {
-						return []string{vmr.Spec.Target.Name}, nil
-					}
+				if vmr.Spec.Target.APIGroup != nil &&
+					*vmr.Spec.Target.APIGroup == core.GroupName &&
+					vmr.Spec.Target.Kind == "VirtualMachine" {
+					return []string{fmt.Sprintf("%s/%s", vmr.Namespace, vmr.Spec.Target.Name)}, nil
 				}
 
 				return nil, nil
