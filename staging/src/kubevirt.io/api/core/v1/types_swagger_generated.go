@@ -494,6 +494,20 @@ func (StartOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (PauseOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "PauseOptions may be provided on pause request.",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
+func (UnpauseOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "UnpauseOptions may be provided on unpause request.",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
 func (StopOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "StopOptions may be provided when deleting an API object.",

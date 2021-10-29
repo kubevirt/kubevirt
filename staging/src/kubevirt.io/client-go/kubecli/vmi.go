@@ -257,14 +257,22 @@ func (v *vmis) Unfreeze(name string) error {
 	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
 }
 
-func (v *vmis) Pause(name string) error {
+func (v *vmis) Pause(name string, pauseOptions *v1.PauseOptions) error {
+	body, err := json.Marshal(pauseOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "pause")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
-func (v *vmis) Unpause(name string) error {
+func (v *vmis) Unpause(name string, unpauseOptions *v1.UnpauseOptions) error {
+	body, err := json.Marshal(unpauseOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unpause")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
 func (v *vmis) Get(name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {

@@ -53,7 +53,13 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const vmPathFormat = "/apis/kubevirt.io/%s/namespaces/%s/virtualmachines/%s"
+const (
+	vmPathFormat = "/apis/kubevirt.io/%s/namespaces/%s/virtualmachines/%s"
+	Running      = true
+	Paused       = true
+	NotRunning   = false
+	UnPaused     = false
+)
 
 type readCloserWrapper struct {
 	io.Reader
@@ -389,7 +395,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = "testvmi"
 				request.PathParameters()["namespace"] = "default"
 
-				expectVMI(false, false)
+				expectVMI(NotRunning, UnPaused)
 
 				app.ConsoleRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusConflict)
@@ -1718,7 +1724,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					ghttp.RespondWith(http.StatusOK, ""),
 				),
 			)
-			expectVMI(true, false)
+			expectVMI(Running, UnPaused)
 
 			app.FreezeVMIRequestHandler(request, response)
 
@@ -1727,7 +1733,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 		It("Should fail freezing a not running VMI", func() {
 
-			expectVMI(false, false)
+			expectVMI(NotRunning, UnPaused)
 
 			app.FreezeVMIRequestHandler(request, response)
 
@@ -1736,7 +1742,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 		It("Should fail unfreezing a not running VMI", func() {
 
-			expectVMI(false, false)
+			expectVMI(NotRunning, UnPaused)
 
 			app.UnfreezeVMIRequestHandler(request, response)
 
@@ -1750,7 +1756,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					ghttp.RespondWith(http.StatusOK, ""),
 				),
 			)
-			expectVMI(true, false)
+			expectVMI(Running, UnPaused)
 
 			app.UnfreezeVMIRequestHandler(request, response)
 
@@ -1759,7 +1765,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	})
 
 	Context("Pausing", func() {
-		It("Should pause a running, not paused VMI", func() {
+		table.DescribeTable("Should pause a running, not paused VMI according to options", func(pauseOptions *v1.PauseOptions) {
 
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -1767,62 +1773,77 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					ghttp.RespondWith(http.StatusOK, ""),
 				),
 			)
-			expectVMI(true, false)
+			expectVMI(Running, UnPaused)
+
+			bytesRepresentation, _ := json.Marshal(pauseOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			app.PauseVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-		})
 
-		It("Should fail pausing a not running VMI", func() {
+		},
+			table.Entry("with default", &v1.PauseOptions{}),
+			table.Entry("with dry-run option", &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 
-			expectVMI(false, false)
+		table.DescribeTable("Should fail pausing", func(running bool, paused bool, pauseOptions *v1.PauseOptions) {
 
-			app.PauseVMIRequestHandler(request, response)
+			expectVMI(running, paused)
 
-			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-		})
-
-		It("Should fail pausing a running but paused VMI", func() {
-
-			expectVMI(true, true)
+			bytesRepresentation, _ := json.Marshal(pauseOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			app.PauseVMIRequestHandler(request, response)
 
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-		})
+		},
+			table.Entry("a not running VMI", NotRunning, UnPaused, &v1.PauseOptions{}),
+			table.Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 
-		It("Should fail unpausing a running, not paused VMI", func() {
+			table.Entry("a running but paused VMI", Running, Paused, &v1.PauseOptions{}),
+			table.Entry("a running but paused VMI with dry-run option", Running, Paused, &v1.PauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 
-			expectVMI(true, false)
+		table.DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions) {
+
+			expectVMI(running, paused)
+
+			bytesRepresentation, _ := json.Marshal(unpauseOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			app.UnpauseVMIRequestHandler(request, response)
 
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-		})
+		},
+			table.Entry("a running, not paused VMI", Running, UnPaused, &v1.UnpauseOptions{}),
+			table.Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 
-		It("Should fail unpausing a not running VMI", func() {
+			table.Entry("a not running VMI", NotRunning, UnPaused, &v1.UnpauseOptions{}),
+			table.Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 
-			expectVMI(false, false)
+		table.DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions) {
 
-			app.UnpauseVMIRequestHandler(request, response)
-
-			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-		})
-
-		It("Should unpause a running, paused VMI", func() {
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/unpause"),
 					ghttp.RespondWith(http.StatusOK, ""),
 				),
 			)
-			expectVMI(true, true)
+			expectVMI(Running, Paused)
+
+			bytesRepresentation, _ := json.Marshal(unpauseOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			app.UnpauseVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-		})
+
+		},
+			table.Entry("with default", &v1.UnpauseOptions{}),
+			table.Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 	})
 
 	Context("Subresource api - start paused", func() {

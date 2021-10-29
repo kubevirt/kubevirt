@@ -754,7 +754,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				By("Pausing the VirtualMachineInstance")
-				virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name)
+				virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name, &v1.PauseOptions{})
 				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
 				By("verifying that the vmi is still paused before migration")

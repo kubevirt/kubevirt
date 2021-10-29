@@ -281,6 +281,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("pause")).
 			To(subresourceApp.PauseVMIRequestHandler).
+			Reads(v1.PauseOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation(version.Version+"Pause").
 			Doc("Pause a VirtualMachineInstance object.").
@@ -290,6 +291,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(rest.NamespacedResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("unpause")).
 			To(subresourceApp.UnpauseVMIRequestHandler). // handles VMIs as well
+			Reads(v1.UnpauseOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation(version.Version+"Unpause").
 			Doc("Unpause a VirtualMachineInstance object.").
