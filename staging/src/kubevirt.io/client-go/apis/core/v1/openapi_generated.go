@@ -405,6 +405,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/core/v1.ClockOffsetUTC":                                        schema_client_go_apis_core_v1_ClockOffsetUTC(ref),
 		"kubevirt.io/client-go/apis/core/v1.CloudInitConfigDriveSource":                            schema_client_go_apis_core_v1_CloudInitConfigDriveSource(ref),
 		"kubevirt.io/client-go/apis/core/v1.CloudInitNoCloudSource":                                schema_client_go_apis_core_v1_CloudInitNoCloudSource(ref),
+		"kubevirt.io/client-go/apis/core/v1.ClusterProfilerRequest":                                schema_client_go_apis_core_v1_ClusterProfilerRequest(ref),
 		"kubevirt.io/client-go/apis/core/v1.ClusterProfilerResults":                                schema_client_go_apis_core_v1_ClusterProfilerResults(ref),
 		"kubevirt.io/client-go/apis/core/v1.ComponentConfig":                                       schema_client_go_apis_core_v1_ComponentConfig(ref),
 		"kubevirt.io/client-go/apis/core/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation":    schema_client_go_apis_core_v1_ConfigDriveSSHPublicKeyAccessCredentialPropagation(ref),
@@ -19294,6 +19295,37 @@ func schema_client_go_apis_core_v1_CloudInitNoCloudSource(ref common.ReferenceCa
 	}
 }
 
+func schema_client_go_apis_core_v1_ClusterProfilerRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"labelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"continue": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"pageSize": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+				},
+				Required: []string{"pageSize"},
+			},
+		},
+	}
+}
+
 func schema_client_go_apis_core_v1_ClusterProfilerResults(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19311,6 +19343,12 @@ func schema_client_go_apis_core_v1_ClusterProfilerResults(ref common.ReferenceCa
 									},
 								},
 							},
+						},
+					},
+					"continue": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
