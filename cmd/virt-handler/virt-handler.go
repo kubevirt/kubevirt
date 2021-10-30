@@ -351,6 +351,7 @@ func (app *virtHandlerApp) Run() {
 	)
 
 	lifecycleHandler := rest.NewLifecycleHandler(
+		recorder,
 		vmiSourceInformer,
 		app.VirtShareDir,
 	)
