@@ -1584,13 +1584,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					podName := fmt.Sprintf("migration-killer-pod-%d", idx)
 
 					// kill the handler right as we detect the qemu target process come online
-					pod := tests.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep \"%s\" && pkill -9 virt-handler && exit 0; done", emulator)})
+					pod := tests.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep \"%s\" && pkill -9 virt-handler && sleep 5; done", emulator)})
 
 					pod.Spec.NodeName = entry.Name
 					createdPod, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
 					createdPods = append(createdPods, createdPod.Name)
 				}
+				Expect(len(createdPods)).To(BeNumerically(">=", 1), "There is no node for migration")
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1603,7 +1604,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Removing our migration killer pods")
 				for _, podName := range createdPods {
 					Eventually(func() error {
-						err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), podName, metav1.DeleteOptions{})
+						err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Delete(context.Background(), podName, metav1.DeleteOptions{})
 
 						if err != nil && errors.IsNotFound(err) {
 							return nil
@@ -1612,7 +1613,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					}, 10*time.Second, 1*time.Second).Should(Succeed(), "Should delete helper pod")
 
 					Eventually(func() error {
-						_, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+						_, err := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
 						return err
 					}, 300*time.Second, 1*time.Second).Should(
 						SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
