@@ -338,16 +338,14 @@ func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1
 
 	for _, template := range vm.Spec.DataVolumeTemplates {
 		// get DataVolume from cache for each templated dataVolume
-		dvKey := controller.NamespacedKey(vm.Namespace, template.Name)
-		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
-
+		dv, err := c.getDataVolumeFromCache(vm.Namespace, template.Name)
 		if err != nil {
 			return dataVolumes, err
-		} else if !exists {
+		} else if dv == nil {
 			continue
 		}
 
-		dataVolumes = append(dataVolumes, obj.(*cdiv1.DataVolume))
+		dataVolumes = append(dataVolumes, dv)
 	}
 	return dataVolumes, nil
 }
@@ -522,20 +520,17 @@ func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
 			continue
 		}
 
-		dvKey := controller.NamespacedKey(vm.Namespace, volume.DataVolume.Name)
-		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
+		dv, err := c.getDataVolumeFromCache(vm.Namespace, volume.DataVolume.Name)
 		if err != nil {
-			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
+			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", volume.DataVolume.Name, err)
 			continue
 		}
-		if !exists {
+		if dv == nil {
 			continue
 		}
-
-		dv := dvObj.(*cdiv1.DataVolume)
 
 		if dv.Status.Phase == cdiv1.Failed {
-			log.Log.Object(vm).Errorf("DataVolume %s is in Failed phase", dvKey)
+			log.Log.Object(vm).Errorf("DataVolume %s is in Failed phase", volume.DataVolume.Name)
 			return true
 		}
 
@@ -543,7 +538,8 @@ func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
 		if dvRunningCond != nil &&
 			dvRunningCond.Status == k8score.ConditionFalse &&
 			dvRunningCond.Reason == "Error" {
-			log.Log.Object(vm).Errorf("DataVolume %s importer has stopped running due to an error: %v", dvKey, dvRunningCond.Message)
+			log.Log.Object(vm).Errorf("DataVolume %s importer has stopped running due to an error: %v",
+				volume.DataVolume.Name, dvRunningCond.Message)
 			return true
 		}
 	}
