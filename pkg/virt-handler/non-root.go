@@ -46,30 +46,32 @@ func changeOwnershipAndRelabel(path string) error {
 }
 
 func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	for i := range vmiWithAllPVCs.Spec.Volumes {
-		if volumeSource := &vmiWithAllPVCs.Spec.Volumes[i].VolumeSource; volumeSource.HostDisk != nil {
-			volumeName := vmiWithAllPVCs.Spec.Volumes[i].Name
-			diskPath := hostdisk.GetMountedHostDiskPath(volumeName, volumeSource.HostDisk.Path)
+	for _, volume := range vmiWithAllPVCs.Spec.Volumes {
 
-			_, err := os.Stat(diskPath)
-			if err != nil {
-				if os.IsNotExist(err) {
-					diskDir := hostdisk.GetMountedHostDiskDir(volumeName)
-					if err := changeOwnershipAndRelabel(filepath.Join(res.MountRoot(), diskDir)); err != nil {
-						return fmt.Errorf("Failed to change ownership of HostDisk dir %s, %s", volumeName, err)
-					}
-					continue
-				}
+		if volume.VolumeSource.HostDisk == nil {
+			continue
+		}
+
+		volumeName := volume.Name
+		// This `hostdisk` I don't know where it's coming from.
+		diskPath := hostdisk.GetMountedHostDiskPath(volumeName, volume.VolumeSource.HostDisk.Path)
+		if _, err := os.Stat(diskPath); err != nil {
+			if os.IsNotExist(err) {
+				// continue?
+				diskPath = hostdisk.GetMountedHostDiskDir(volumeName)
 				return fmt.Errorf("Failed to recognize if hostdisk contains image, %s", err)
 			}
 
-			err = changeOwnershipAndRelabel(filepath.Join(res.MountRoot(), diskPath))
-			if err != nil {
-				return fmt.Errorf("Failed to change ownership of HostDisk image: %s", err)
-			}
-
+			goto execOwnershipChanges
 		}
+
+	execOwnershipChanges:
+		if err := changeOwnershipAndRelabel(filepath.Join(res.MountRoot(), diskPath)); err != nil {
+			return fmt.Errorf("Failed to change ownership of HostDisk dir %s, %s", volumeName, err)
+		}
+
 	}
+
 	return nil
 }
 
