@@ -170,4 +170,19 @@ func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
 		}
 		return newSize
 	}
+
+}
+func CanBeNonRoot(vmi *v1.VirtualMachineInstance) error {
+	// VirtioFS doesn't work with session mode
+	if IsVMIVirtiofsEnabled(vmi) {
+		return fmt.Errorf("VirtioFS doesn't work with session mode(used by nonroot)")
+	}
+	return nil
+}
+
+func MarkAsNonroot(vmi *v1.VirtualMachineInstance) {
+	if vmi.ObjectMeta.Annotations == nil {
+		vmi.ObjectMeta.Annotations = make(map[string]string)
+	}
+	vmi.ObjectMeta.Annotations[v1.NonRootVMIAnnotation] = ""
 }

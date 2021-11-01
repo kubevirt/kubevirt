@@ -2,7 +2,6 @@ package tests_test
 
 import (
 	"fmt"
-	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -60,19 +59,8 @@ var _ = Describe("[sig-compute]NonRoot feature", func() {
 
 			tests.WaitForSuccessfulVMIStart(vmi)
 
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-			podOutput, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				vmiPod.Spec.Containers[0].Name,
-				[]string{"id"},
-			)
-
-			groups := strings.Split(podOutput, "=")
-			uid := strings.Split(groups[1], "(")[0]
-
 			Expect(err).NotTo(HaveOccurred())
-			Expect(uid).To(Equal("107"))
+			Expect(tests.GetIdOfLauncher(vmi)).To(Equal("107"))
 		})
 	})
 })

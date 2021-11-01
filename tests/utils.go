@@ -5321,3 +5321,19 @@ func GetPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgr
 		return cgroup.V1
 	}
 }
+
+func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util2.PanicOnError(err)
+
+	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, util2.NamespaceTestDefault)
+	podOutput, err := ExecuteCommandOnPod(
+		virtClient,
+		vmiPod,
+		vmiPod.Spec.Containers[0].Name,
+		[]string{"id", "-u"},
+	)
+	Expect(err).NotTo(HaveOccurred())
+
+	return strings.TrimSpace(podOutput)
+}
