@@ -459,9 +459,9 @@ func main() {
 
 		if err != nil {
 			log.Log.Reason(err).Errorf("Gave up attempting to signal graceful shutdown")
+		} else {
+			log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
 		}
-
-		log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
 	}
 
 	finalShutdownCallback := func(pid int) {
