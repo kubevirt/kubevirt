@@ -44,6 +44,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
 	"kubevirt.io/kubevirt/pkg/util/status"
 
@@ -1010,6 +1011,16 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				// Once the VMI is in a final state or deleted the migration
 				// will be marked as failed too.
 				return nil
+			}
+			if c.clusterConfig.NonRootEnabled() && util.CanBeNonRoot(vmi) == nil {
+				if vmi.Status.RuntimeUser != 107 {
+					patch := fmt.Sprintf(`[{ "op": "replace", "path": "/status/runtimeUser", "value": %s }]`, "107")
+					vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+					if err != nil {
+						return fmt.Errorf("failed to mark VMI as nonroot: %v", err)
+					}
+				}
+
 			}
 			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
 		} else if isPodReady(pod) {

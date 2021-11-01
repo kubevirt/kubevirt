@@ -1461,6 +1461,102 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
+		Context("[Serial] migration to nonroot", func() {
+
+			var cleanUp func()
+			ipProtocol := k8sv1.IPv4Protocol
+			os := string(cd.ContainerDiskAlpine)
+			size := "256Mi"
+
+			BeforeEach(func() {
+				if !checks.HasFeature(virtconfig.NonRoot) {
+					Skip("Test specific to NonRoot featureGate that is not enabled")
+				}
+				tests.DisableFeatureGate(virtconfig.NonRoot)
+			})
+			AfterEach(func() {
+				tests.EnableFeatureGate(virtconfig.NonRoot)
+				if cleanUp != nil {
+					cleanUp()
+				}
+			})
+
+			createPVC := func() (nfsPod *k8sv1.Pod, pvName string) {
+				targetImage, nodeName := tests.CopyAlpineWithNonQEMUPermissions()
+				cleanUp = tests.DeleteAlpineWithNonQEMUPermissions
+
+				By("Starting an NFS POD")
+				nfsPod = storageframework.InitNFS(targetImage, nodeName)
+				pvName = fmt.Sprintf("test-nfs%s", rand.String(48))
+
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new NFS PV and PVC")
+				nfsIP := libnet.GetPodIpByFamily(nfsPod, ipProtocol)
+				ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
+
+				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, size, nfsIP, os)
+				return
+			}
+
+			table.DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance) {
+				By("Create a VMI that will run root(default)")
+				vmi := createVMI()
+
+				By("Starting the VirtualMachineInstance")
+				// Resizing takes too long and therefor a warning is thrown
+				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Checking that the launcher is running as root")
+				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("0"))
+
+				tests.EnableFeatureGate(virtconfig.NonRoot)
+
+				By("Starting new migration and waiting for it to succeed")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, 340)
+
+				By("Verifying Second Migration Succeeeds")
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("Checking that the launcher is running as qemu")
+				Expect(tests.GetIdOfLauncher(vmi)).To(Equal("107"))
+
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+
+			},
+				table.Entry("with simple VMI", func() *v1.VirtualMachineInstance {
+					return libvmi.NewAlpine()
+				}),
+
+				table.Entry("with DataVolume", func() *v1.VirtualMachineInstance {
+					nfsPod, pvName := createPVC()
+
+					// Create fake DV and new PV&PVC of that name. Otherwise VM can't be created
+					dv := tests.NewRandomDataVolumeWithPVCSource(util.NamespaceTestDefault, pvName, util.NamespaceTestDefault, k8sv1.ReadWriteMany)
+					dv.Spec.PVC.Resources.Requests["storage"] = resource.MustParse(size)
+					_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+					Expect(err).To(BeNil())
+					tests.CreateNFSPvAndPvc(dv.Name, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
+
+					return tests.NewRandomVMIWithDataVolume(dv.Name)
+				}),
+
+				table.Entry("with PVC", func() *v1.VirtualMachineInstance {
+					nfsPod, pvName := createPVC()
+
+					tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, size, libnet.GetPodIpByFamily(nfsPod, ipProtocol), os)
+
+					return tests.NewRandomVMIWithPVC(pvName)
+				}),
+			)
+		})
 		Context("migration security", func() {
 			Context("[Serial] with TLS disabled", func() {
 				It("[test_id:6976] should be successfully migrated", func() {
