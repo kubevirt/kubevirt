@@ -480,7 +480,7 @@ func validateRestoreStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachi
 	}
 
 	if !reflect.DeepEqual(oldVM.Spec, vm.Spec) {
-		if *vm.Spec.Running {
+		if (vm.Spec.Running != nil && *vm.Spec.Running) || (vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy != v1.RunStrategyHalted) {
 			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: fmt.Sprintf("Cannot start VM until restore %q completes", *vm.Status.RestoreInProgress),
