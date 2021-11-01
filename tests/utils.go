@@ -95,6 +95,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 
 	v1 "kubevirt.io/api/core/v1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -1768,6 +1769,9 @@ func cleanNamespaces() {
 		//Remove all HPA
 		util2.PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error())
 
+		// Remove all VirtualMachinePools
+		util2.PanicOnError(virtCli.VirtualMachinePool(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
+
 		// Remove all VirtualMachines
 		util2.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do(context.Background()).Error())
 
@@ -3110,6 +3114,34 @@ func NewInt32(x int32) *int32 {
 	return &x
 }
 
+func NewRandomPoolFromVMI(vmi *v1.VirtualMachineInstance, replicas int32, running bool) *poolv1.VirtualMachinePool {
+	selector := "pool" + rand.String(5)
+	pool := &poolv1.VirtualMachinePool{
+		ObjectMeta: metav1.ObjectMeta{Name: "pool" + rand.String(5)},
+		Spec: poolv1.VirtualMachinePoolSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"select": selector},
+			},
+			VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"select": selector},
+				},
+				Spec: v1.VirtualMachineSpec{
+					Running: &running,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"select": selector},
+						},
+						Spec: vmi.Spec,
+					},
+				},
+			},
+		},
+	}
+	return pool
+}
+
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
@@ -3784,6 +3816,15 @@ func NotDeleted(vmis *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMac
 	for _, vmi := range vmis.Items {
 		if vmi.DeletionTimestamp == nil {
 			notDeleted = append(notDeleted, vmi)
+		}
+	}
+	return
+}
+
+func NotDeletedVMs(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
+	for _, vm := range vms.Items {
+		if vm.DeletionTimestamp == nil {
+			notDeleted = append(notDeleted, vm)
 		}
 	}
 	return
