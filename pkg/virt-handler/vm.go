@@ -976,6 +976,23 @@ func (d *VirtualMachineController) updateInterfacesFromDomain(vmi *v1.VirtualMac
 				}
 				delete(domainInterfaceStatusByMac, interfaceMAC)
 			}
+
+			var ifaceMAC string
+			for _, domainInterfaceStatus := range domainInterfaceStatusByMac {
+				if newInterface.InterfaceName == domainInterfaceStatus.InterfaceName {
+					ifaceMAC = domainInterfaceStatus.Mac
+					newInterface.MAC = ifaceMAC
+					if !isForwardingBindingInterface {
+						newInterface.IP = domainInterfaceStatus.Ip
+						newInterface.IPs = domainInterfaceStatus.IPs
+					}
+					break
+				}
+			}
+			if ifaceMAC != "" {
+				delete(domainInterfaceStatusByMac, ifaceMAC)
+			}
+
 			newInterfaces = append(newInterfaces, newInterface)
 		}
 
