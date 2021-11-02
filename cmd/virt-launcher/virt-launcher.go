@@ -65,7 +65,7 @@ import (
 )
 
 const defaultStartTimeout = 3 * time.Minute
-const httpRequestTimeout = 10 * time.Second
+const httpRequestTimeout = 2 * time.Second
 
 func init() {
 	// must registry the event impl before doing anything else.
