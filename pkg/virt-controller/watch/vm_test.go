@@ -274,7 +274,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStopped
 			addVirtualMachine(vm)
 
 			existingDataVolume, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
@@ -742,7 +742,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStopped
 			addVirtualMachine(vm)
 
 			createCount := 0
@@ -773,7 +773,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 			vm.Spec.Template.Spec.PriorityClassName = vmPriorityClass
-			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStopped
 			addVirtualMachine(vm)
 
 			createCount := 0
@@ -1083,7 +1083,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dv)
 
-				vm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
+				vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStopped
 				addVirtualMachine(vm)
 
 				createCount := 0
@@ -1908,46 +1908,59 @@ var _ = Describe("VirtualMachine", func() {
 					})
 				})
 
-				table.DescribeTable("Should set a Provisioning status when DataVolume doesn't exist", func(running bool) {
+				table.DescribeTable("Should set a Stopped/WaitingForVolumeBinding status when DataVolume exists but not bound", func(running bool, status virtv1.VirtualMachinePrintableStatus) {
 					vm.Spec.Running = &running
 					addVirtualMachine(vm)
 
-					createCount := 0
-					shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
-
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*virtv1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
-					})
-
-					controller.Execute()
-					Expect(createCount).To(Equal(1))
-				},
-
-					table.Entry("running=true", true),
-					table.Entry("running=false", false),
-				)
-
-				table.DescribeTable("Should set a Provisioning status when DataVolume exists but unready", func(dvPhase cdiv1.DataVolumePhase) {
-					addVirtualMachine(vm)
-
 					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
-					dv.Status.Phase = dvPhase
 					dataVolumeFeeder.Add(dv)
 
-					if dvPhase == cdiv1.WaitForFirstConsumer {
-						vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, nil)
+					pvc := k8sv1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      dv.Name,
+							Namespace: dv.Namespace,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8score.ClaimPending,
+						},
 					}
+					pvcInformer.GetStore().Add(&pvc)
+
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
+						Expect(objVM.Status.PrintableStatus).To(Equal(status))
 					})
 
 					controller.Execute()
 				},
 
-					table.Entry("DataVolume has no phase set", cdiv1.PhaseUnset),
-					table.Entry("DataVolume is in Pending phase", cdiv1.Pending),
+					table.Entry("Started VM", true, virtv1.VirtualMachineStatusWaitingForVolumeBinding),
+					table.Entry("Stopped VM", false, virtv1.VirtualMachineStatusStopped),
+				)
+
+				table.DescribeTable("Should set a Provisioning status when DataVolume bound but not ready",
+					func(dvPhase cdiv1.DataVolumePhase) {
+						addVirtualMachine(vm)
+
+						dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
+						dv.Status.Phase = dvPhase
+						dv.Status.Conditions = append(dv.Status.Conditions, cdiv1.DataVolumeCondition{
+							Type:   cdiv1.DataVolumeBound,
+							Status: k8score.ConditionTrue,
+						})
+						dataVolumeFeeder.Add(dv)
+
+						if dvPhase == cdiv1.WaitForFirstConsumer {
+							vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, nil)
+						}
+						vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+							objVM := obj.(*virtv1.VirtualMachine)
+							Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
+						})
+
+						controller.Execute()
+					},
+
 					table.Entry("DataVolume is in ImportScheduled phase", cdiv1.ImportScheduled),
 					table.Entry("DataVolume is in ImportInProgress phase", cdiv1.ImportInProgress),
 					table.Entry("DataVolume is in WaitForFirstConsumer phase", cdiv1.WaitForFirstConsumer),
@@ -1992,6 +2005,10 @@ var _ = Describe("VirtualMachine", func() {
 
 					dv, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 					dv.Status.Phase = cdiv1.CloneInProgress
+					dv.Status.Conditions = append(dv.Status.Conditions, cdiv1.DataVolumeCondition{
+						Type:   cdiv1.DataVolumeBound,
+						Status: k8score.ConditionTrue,
+					})
 					dataVolumeFeeder.Add(dv)
 
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
@@ -2023,8 +2040,16 @@ var _ = Describe("VirtualMachine", func() {
 
 					dv1, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[0], vm)
 					dv1.Status.Phase = cdiv1.Succeeded
+					dv1.Status.Conditions = append(dv1.Status.Conditions, cdiv1.DataVolumeCondition{
+						Type:   cdiv1.DataVolumeBound,
+						Status: k8score.ConditionTrue,
+					})
 					dv2, _ := createDataVolumeManifest(virtClient, &vm.Spec.DataVolumeTemplates[1], vm)
 					dv2.Status.Phase = cdiv1.ImportInProgress
+					dv2.Status.Conditions = append(dv2.Status.Conditions, cdiv1.DataVolumeCondition{
+						Type:   cdiv1.DataVolumeBound,
+						Status: k8score.ConditionTrue,
+					})
 
 					dataVolumeFeeder.Add(dv1)
 					dataVolumeFeeder.Add(dv2)
@@ -2040,9 +2065,10 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("VM with PersistentVolumeClaims", func() {
 				var vm *virtv1.VirtualMachine
+				var vmi *virtv1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					vm, _ = DefaultVirtualMachine(false)
+					vm, vmi = DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 						Name: "test1",
 						VolumeSource: virtv1.VolumeSource{
@@ -2052,19 +2078,12 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 
+					vmiInterface.EXPECT().Create(gomock.Any()).Times(1).Return(vmi, nil)
+
 					addVirtualMachine(vm)
-
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
-						objVM := obj.(*virtv1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
-					})
 				})
 
-				It("Should set a Provisioning status when PersistentVolumeClaim doesn't exist", func() {
-					controller.Execute()
-				})
-
-				table.DescribeTable("Should set a Provisioning status when PersistentVolumeClaim exists but unready", func(pvcPhase k8sv1.PersistentVolumeClaimPhase) {
+				table.DescribeTable("Should set a WaitingForVolumeBinding status when PersistentVolumeClaim exists but unbound", func(pvcPhase k8sv1.PersistentVolumeClaimPhase) {
 					pvc := k8sv1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "pvc1",
@@ -2074,7 +2093,12 @@ var _ = Describe("VirtualMachine", func() {
 							Phase: pvcPhase,
 						},
 					}
-					pvcInformer.GetStore().Add(pvc)
+					pvcInformer.GetStore().Add(&pvc)
+
+					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						objVM := obj.(*virtv1.VirtualMachine)
+						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusWaitingForVolumeBinding))
+					})
 
 					controller.Execute()
 				},
