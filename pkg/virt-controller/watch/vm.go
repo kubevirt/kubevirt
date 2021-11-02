@@ -608,25 +608,13 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
-	isStopRequestForVMI := func(vm *virtv1.VirtualMachine) bool {
-		if len(vm.Status.StateChangeRequests) != 0 {
-			stateChange := vm.Status.StateChangeRequests[0]
-			if stateChange.Action == virtv1.StopRequest &&
-				stateChange.UID != nil &&
-				*stateChange.UID == vmi.UID {
-				return true
-			}
-		}
-		return false
-	}
-
 	switch runStrategy {
 	case virtv1.RunStrategyAlways:
 		// For this RunStrategy, a VMI should always be running. If a StateChangeRequest
 		// asks to stop a VMI, a new one must be immediately re-started.
 		if vmi != nil {
 			var forceRestart bool
-			if forceRestart = isStopRequestForVMI(vm); forceRestart {
+			if forceRestart = hasStopRequestForVMI(vm, vmi); forceRestart {
 				log.Log.Object(vm).Infof("processing forced restart request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 			}
 
@@ -667,7 +655,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		// If a VMI enters the Succeeded phase, it should not be restarted.
 		if vmi != nil {
 			var forceStop bool
-			if forceStop = isStopRequestForVMI(vm); forceStop {
+			if forceStop = hasStopRequestForVMI(vm, vmi); forceStop {
 				log.Log.Object(vm).Infof("processing stop request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 
 			}
@@ -706,7 +694,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		if vmi != nil {
 			log.Log.Object(vm).V(4).Info("VMI exists")
 
-			if forceStop := isStopRequestForVMI(vm); forceStop {
+			if forceStop := hasStopRequestForVMI(vm, vmi); forceStop {
 				log.Log.Object(vm).Infof("%s with VMI in phase %s due to stop request and VM runStrategy: %s", vmi.Status.Phase, stoppingVmMsg, runStrategy)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
@@ -717,15 +705,9 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				return nil
 			}
 		} else {
-			forceStart := false
-			if len(vm.Status.StateChangeRequests) != 0 {
-				stateChange := vm.Status.StateChangeRequests[0]
-				if stateChange.Action == virtv1.StartRequest {
-					log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
-					forceStart = true
-				}
-			}
-			if forceStart {
+			if hasStartRequest(vm) {
+				log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
+
 				err := c.startVMI(vm)
 				if err != nil {
 					return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
@@ -738,21 +720,18 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		// For this runStrategy, no VMI should be running under any circumstances.
 		// Set RunStrategyAlways/running = true if VM has StartRequest(start paused case).
 		if vmi == nil {
-			if len(vm.Status.StateChangeRequests) != 0 {
-				stateChange := vm.Status.StateChangeRequests[0]
-				if stateChange.Action == virtv1.StartRequest {
-					vmCopy := vm.DeepCopy()
-					runStrategy := virtv1.RunStrategyAlways
-					running := true
+			if hasStartRequest(vm) {
+				vmCopy := vm.DeepCopy()
+				runStrategy := virtv1.RunStrategyAlways
+				running := true
 
-					if vmCopy.Spec.RunStrategy != nil {
-						vmCopy.Spec.RunStrategy = &runStrategy
-					} else {
-						vmCopy.Spec.Running = &running
-					}
-					_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
-					return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
+				if vmCopy.Spec.RunStrategy != nil {
+					vmCopy.Spec.RunStrategy = &runStrategy
+				} else {
+					vmCopy.Spec.Running = &running
 				}
+				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+				return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
 			}
 			return nil
 		}
@@ -796,6 +775,35 @@ func (c *VMController) isVMIStopExpected(vm *virtv1.VirtualMachine) bool {
 
 	_, dels := expectations.GetExpectations()
 	return dels > 0
+}
+
+// isSetToStart determines whether a VM is configured to be started (running).
+func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		return false
+	}
+
+	switch runStrategy {
+	case virtv1.RunStrategyAlways:
+		return true
+	case virtv1.RunStrategyHalted:
+		return false
+	case virtv1.RunStrategyManual:
+		if vmi != nil {
+			return !hasStopRequestForVMI(vm, vmi)
+		}
+		return hasStartRequest(vm)
+	case virtv1.RunStrategyRerunOnFailure:
+		if vmi != nil {
+			return vmi.Status.Phase != virtv1.Succeeded
+		}
+		return true
+	default:
+		// Shouldn't ever be here, but...
+		return false
+	}
 }
 
 func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
@@ -1130,16 +1138,35 @@ func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.V
 }
 
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {
-	if len(vm.Status.StateChangeRequests) != 0 {
-		stateChange := vm.Status.StateChangeRequests[0]
-		if stateChange.Action == virtv1.StartRequest {
-			paused, hasPaused := stateChange.Data[virtv1.StartRequestDataPausedKey]
-			if hasPaused && paused == virtv1.StartRequestDataPausedTrue {
-				return true
-			}
-		}
+	if len(vm.Status.StateChangeRequests) == 0 {
+		return false
 	}
-	return false
+
+	stateChange := vm.Status.StateChangeRequests[0]
+	pausedValue, hasPaused := stateChange.Data[virtv1.StartRequestDataPausedKey]
+	return stateChange.Action == virtv1.StartRequest &&
+		hasPaused &&
+		pausedValue == virtv1.StartRequestDataPausedTrue
+}
+
+func hasStartRequest(vm *virtv1.VirtualMachine) bool {
+	if len(vm.Status.StateChangeRequests) == 0 {
+		return false
+	}
+
+	stateChange := vm.Status.StateChangeRequests[0]
+	return stateChange.Action == virtv1.StartRequest
+}
+
+func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if len(vm.Status.StateChangeRequests) == 0 {
+		return false
+	}
+
+	stateChange := vm.Status.StateChangeRequests[0]
+	return stateChange.Action == virtv1.StopRequest &&
+		stateChange.UID != nil &&
+		*stateChange.UID == vmi.UID
 }
 
 // no special meaning, randomly generated on my box.
@@ -1758,6 +1785,10 @@ func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMach
 
 // isVirtualMachineStatusWaitingForVolumeBinding
 func (c *VMController) isVirtualMachineStatusWaitingForVolumeBinding(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if !isSetToStart(vm, vmi) {
+		return false
+	}
+
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
 		claimName := typesutil.PVCNameFromVirtVolume(&volume)
 		if claimName == "" {
