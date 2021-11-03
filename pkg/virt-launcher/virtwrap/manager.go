@@ -674,11 +674,16 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 		c.GenericHostDevices = genericHostDevices
 
-		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
-		if err != nil {
-			return nil, err
+		// Mixing legacy and existing GPU/s specification is not supported.
+		// If legacy host-devices are detected, the GPUs are assumed to have been processed already
+		// and therefore not to be processed again.
+		if len(c.LegacyHostDevices) == 0 {
+			gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+			if err != nil {
+				return nil, err
+			}
+			c.GPUHostDevices = gpuHostDevices
 		}
-		c.GPUHostDevices = gpuHostDevices
 	}
 
 	return c, nil
