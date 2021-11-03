@@ -205,7 +205,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
 		} else if webhooks.IsARM64() {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("virt"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal("host-passthrough"))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.CPUModeHostPassthrough))
 		} else {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
 			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
