@@ -196,21 +196,22 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal(memoryLimit))
 	})
 
-	FIt("should apply defaults on VMI create", func() {
+	It("should apply defaults on VMI create", func() {
 		// no limits wanted on this test, to not copy the limit to requests
 		mutator.NamespaceLimitsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 		vmiSpec, _ := getVMISpecMetaFromResponse()
 		if webhooks.IsPPC64() {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
 		} else if webhooks.IsARM64() {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("virt"))
 			Expect(vmiSpec.Domain.CPU.Model).To(Equal("host-passthrough"))
 		} else {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
 		}
 
+		Expect(v1.DefaultCPUModel).To(Equal(v1.CPUModeHostModel))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().IsZero()).To(BeTrue())
 		// no default for requested memory when no memory is specified
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
