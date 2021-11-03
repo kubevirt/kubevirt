@@ -28,7 +28,7 @@ fi
 source ./hack/check_operator_condition.sh
 printOperatorCondition "${CSV_VERSION}"
 
-${TEST_OUT_PATH}/func-tests.test -ginkgo.v -installed-namespace="${INSTALLED_NAMESPACE}" -cdi-namespace="${INSTALLED_NAMESPACE}" "$@" "${KUBECONFIG_FLAG}"
+${TEST_OUT_PATH}/func-tests.test -ginkgo.v -junit-output="${TEST_OUT_PATH}/output/junit.xml" -installed-namespace="${INSTALLED_NAMESPACE}" -cdi-namespace="${INSTALLED_NAMESPACE}" "$@" "${KUBECONFIG_FLAG}"
 
 # wait a minute to allow all VMs to be deleted before attempting to change node placement configuration
 sleep 60

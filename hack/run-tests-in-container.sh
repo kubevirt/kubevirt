@@ -3,6 +3,7 @@
 set -exuo pipefail
 
 INSTALLED_NAMESPACE=${INSTALLED_NAMESPACE:-"kubevirt-hyperconverged"}
+OUTPUT_DIR=${ARTIFACT_DIR:-"$(pwd)/_out"}
 
 source hack/common.sh
 source cluster/kubevirtci.sh
@@ -50,27 +51,60 @@ $KUBECTL_BINARY create clusterrolebinding functest-cluster-admin \
 
 $KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" delete pod functest --ignore-not-found --wait=true
 
-$KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" run functest \
- --image="$FUNC_TEST_IMAGE" --serviceaccount=functest \
- --env="INSTALLED_NAMESPACE=${INSTALLED_NAMESPACE}" \
- --restart=Never -- --config-file hack/testFiles/test_config.yaml
+cat <<EOF | $KUBECTL_BINARY create -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: functest
+  name: functest
+  namespace: $INSTALLED_NAMESPACE
+spec:
+  containers:
+  - name: functest
+    args:
+    - --config-file
+    - hack/testFiles/test_config.yaml
+    env:
+    - name: INSTALLED_NAMESPACE
+      value: $INSTALLED_NAMESPACE
+    image: $computed_test_image
+    volumeMounts:
+      - mountPath: /test/output
+        name: output-volume
+  - name: copy
+    image: $computed_test_image
+    command: ["/bin/sh"]
+    args: [ "-c", "trap : TERM INT; sleep infinity & wait"]
+    volumeMounts:
+      - mountPath: /test/output
+        name: output-volume
+  volumes:
+    - name: output-volume
+      emptyDir: { }
+  serviceAccount: functest
+  restartPolicy: Never
+EOF
 
-phase="Running"
-for i in $(seq 1 90); do
-  phase=$($KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" get pod/functest -o jsonpath='{.status.phase}')
+exitCode=""
+for i in $(seq 1 120); do
+  exitCode=$($KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" get pod/functest -o jsonpath='{.status .containerStatuses[?(@.name=="functest")] .state .terminated .exitCode}')
 
-  if [[ "${phase}" == "Succeeded" || "${phase}" == "Failed" ]]; then
+  if [[ "${exitCode}" != "" ]]; then
     break
   fi
 
-  echo "Waiting for completion... Iteration:$i Phase:$phase"
+  echo "Waiting for completion... Iteration:$i"
   sleep 10
 done
 
-$KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" logs functest
+$KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" cp -c=copy functest:/test/output "$OUTPUT_DIR"
+$KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" logs functest -c functest
+$KUBECTL_BINARY -n "${INSTALLED_NAMESPACE}" delete pod functest --ignore-not-found --wait=true
 
-echo "Exiting... Last phase status: $phase"
 
-# exit non-zero if the last phase is not Succeeded
-[[ "${phase}" == "Succeeded" ]]
+echo "Exiting... Exit code: $exitCode"
+
+# exit non-zero if exit code of functest is not zero
+[[ "${exitCode}" == "0" ]]
 

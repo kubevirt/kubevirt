@@ -15,7 +15,8 @@ ENTRYPOINT ["./hack/run-tests.sh"]
 RUN curl -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/local/bin/kubectl && \
     curl -Lo /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
-    chmod a+x /usr/local/bin/jq
+    chmod a+x /usr/local/bin/jq && \
+    microdnf install tar
 
 COPY --from=builder --chown=${USER_UID}:0 /go/src/github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests/_out/func-tests.test  ${TEST_OUT_PATH}/
 COPY --from=builder --chown=${USER_UID}:0 /go/src/github.com/kubevirt/hyperconverged-cluster-operator/hack  ${TEST_OUT_PATH}/hack
