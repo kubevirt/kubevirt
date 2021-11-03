@@ -57,6 +57,7 @@ const (
 	VmiMultusMultipleNet = "vmi-multus-multiple-net"
 	VmiHostDisk          = "vmi-host-disk"
 	VmiGPU               = "vmi-gpu"
+	VmiARM               = "vmi-arm"
 	VmiMacvtap           = "vmi-macvtap"
 	VmTemplateFedora     = "vm-template-fedora"
 	VmTemplateRHEL7      = "vm-template-rhel7"
@@ -1049,5 +1050,15 @@ func GetVMIMacvtap() *v1.VirtualMachineInstance {
 
 	macvtap := &v1.InterfaceMacvtap{}
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: macvtap}}}
+	return vmi
+}
+
+// The minimum memory for UEFI boot on Arm64 is 256Mi
+func GetVMIARM() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiARM)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addNoCloudDisk(&vmi.Spec)
+	addEmptyDisk(&vmi.Spec, "2Gi")
 	return vmi
 }

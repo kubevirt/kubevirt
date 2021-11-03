@@ -1,0 +1,37 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-arm
+  name: vmi-arm
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+      - disk:
+          bus: virtio
+        name: emptydisk
+    resources:
+      requests:
+        memory: 256Mi
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+    name: containerdisk
+  - cloudInitNoCloud:
+      userData: |
+        #!/bin/sh
+
+        echo 'printed from cloud-init userdata'
+    name: cloudinitdisk
+  - emptyDisk:
+      capacity: 2Gi
+    name: emptydisk
