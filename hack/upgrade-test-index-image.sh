@@ -265,10 +265,13 @@ fi
 Msg "make sure that we don't have outdated VMs"
 
 INFRASTRUCTURETOPOLOGY=$(${CMD} get infrastructure.config.openshift.io cluster -o json | jq -j '.status.infrastructureTopology')
+UPDATE_METHODS=$(${CMD} get hco ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath='{.spec .workloadUpdateStrategy .workloadUpdateMethods}')
 
 if [[ "${INFRASTRUCTURETOPOLOGY}" == "SingleReplica" ]]; then
   echo "Skipping the check on SNO clusters"
-else 
+elif [[ "${UPDATE_METHODS}" == "" || "${UPDATE_METHODS}" == "[]" ]]; then
+  echo "Skipping while workloadUpdateMethods methods are empty "
+else
   OUTDATEDVMI=$(${CMD} get vmi -l kubevirt.io/outdatedLauncherImage -A -o json | jq -j '.items | length')
   if [[ $OUTDATEDVMI -ne 0 ]]; then
     echo "Not all the running VMs got upgraded"
