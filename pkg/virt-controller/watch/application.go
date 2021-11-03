@@ -217,6 +217,7 @@ type VirtControllerApp struct {
 	nodeTopologyUpdater      topology.NodeTopologyUpdater
 	nodeTopologyUpdatePeriod time.Duration
 	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
+	leaderElector            *leaderelection.LeaderElector
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -409,40 +410,12 @@ func (vca *VirtControllerApp) Run() {
 		}
 	}()
 
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, leaderelectionconfig.DefaultEndpointName)
-
-	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
-		vca.kubevirtNamespace,
-		leaderelectionconfig.DefaultEndpointName,
-		vca.clientSet.CoreV1(),
-		vca.clientSet.CoordinationV1(),
-		resourcelock.ResourceLockConfig{
-			Identity:      vca.host,
-			EventRecorder: recorder,
-		})
-	if err != nil {
-		golog.Fatal(err)
-	}
-
-	leaderElector, err := leaderelection.NewLeaderElector(
-		leaderelection.LeaderElectionConfig{
-			Lock:          rl,
-			LeaseDuration: vca.LeaderElection.LeaseDuration.Duration,
-			RenewDeadline: vca.LeaderElection.RenewDeadline.Duration,
-			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
-			Callbacks: leaderelection.LeaderCallbacks{
-				OnStartedLeading: vca.onStartedLeading(),
-				OnStoppedLeading: func() {
-					golog.Fatal("leaderelection lost")
-				},
-			},
-		})
-	if err != nil {
+	if err := vca.setupLeaderElector(); err != nil {
 		golog.Fatal(err)
 	}
 
 	readyGauge.Set(1)
-	leaderElector.Run(vca.ctx)
+	vca.leaderElector.Run(vca.ctx)
 	readyGauge.Set(0)
 	panic("unreachable")
 }
@@ -726,4 +699,51 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.promKeyFilePath, "prom-key-file", defaultPromKeyFilePath,
 		"Private key for the client certificate used to prove the identity of the virt-controller when it must call out Promethus during a request")
+}
+
+func (vca *VirtControllerApp) setupLeaderElector() (err error) {
+	clientConfig, err := kubecli.GetKubevirtClientConfig()
+	if err != nil {
+		return
+	}
+
+	clientConfig.RateLimiter =
+		flowcontrol.NewTokenBucketRateLimiter(
+			virtconfig.DefaultVirtControllerQPS,
+			virtconfig.DefaultVirtControllerBurst)
+
+	clientSet, err := kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	if err != nil {
+		return
+	}
+
+	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
+		vca.kubevirtNamespace,
+		leaderelectionconfig.DefaultEndpointName,
+		clientSet.CoreV1(),
+		clientSet.CoordinationV1(),
+		resourcelock.ResourceLockConfig{
+			Identity:      vca.host,
+			EventRecorder: vca.getNewRecorder(k8sv1.NamespaceAll, leaderelectionconfig.DefaultEndpointName),
+		})
+
+	if err != nil {
+		return
+	}
+
+	vca.leaderElector, err = leaderelection.NewLeaderElector(
+		leaderelection.LeaderElectionConfig{
+			Lock:          rl,
+			LeaseDuration: vca.LeaderElection.LeaseDuration.Duration,
+			RenewDeadline: vca.LeaderElection.RenewDeadline.Duration,
+			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
+			Callbacks: leaderelection.LeaderCallbacks{
+				OnStartedLeading: vca.onStartedLeading(),
+				OnStoppedLeading: func() {
+					golog.Fatal("leaderelection lost")
+				},
+			},
+		})
+
+	return
 }
