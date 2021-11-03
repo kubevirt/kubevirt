@@ -94,7 +94,7 @@ pciHostDevices:
 		utils.VmiGPU:               utils.GetVMIGPU(),
 		utils.VmiMacvtap:           utils.GetVMIMacvtap(),
 		utils.VmiKernelBoot:        utils.GetVMIKernelBoot(),
-                utils.VmiARM:               utils.GetVMIARM(),
+		utils.VmiARM:               utils.GetVMIARM(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
