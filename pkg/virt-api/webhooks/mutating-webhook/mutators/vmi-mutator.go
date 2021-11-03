@@ -231,14 +231,19 @@ func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineIns
 }
 
 func (mutator *VMIsMutator) setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
-	//if vmi doesn't have cpu topology or cpu model set
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		if defaultCPUModel := mutator.ClusterConfig.GetCPUModel(); defaultCPUModel != "" {
-			// create cpu topology struct
-			if vmi.Spec.Domain.CPU == nil {
-				vmi.Spec.Domain.CPU = &v1.CPU{}
-			}
+	const defaultCPUModel = v1.CPUModeHostModel
+
+	// create cpu topology struct
+	if vmi.Spec.Domain.CPU == nil {
+		vmi.Spec.Domain.CPU = &v1.CPU{}
+	}
+
+	// if vmi doesn't have cpu model set
+	if vmi.Spec.Domain.CPU.Model == "" {
+		if clusterConfigCPUModel := mutator.ClusterConfig.GetCPUModel(); clusterConfigCPUModel != "" {
 			//set is as vmi cpu model
+			vmi.Spec.Domain.CPU.Model = clusterConfigCPUModel
+		} else {
 			vmi.Spec.Domain.CPU.Model = defaultCPUModel
 		}
 	}
