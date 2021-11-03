@@ -894,8 +894,6 @@ spec:
             type: RollingUpdate
           template:
             metadata:
-              annotations:
-                scheduler.alpha.kubernetes.io/critical-pod: ""
               labels:
                 kubevirt.io: virt-operator
                 prometheus.kubevirt.io: "true"

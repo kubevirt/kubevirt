@@ -122,9 +122,6 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 				virtv1.AppLabel:    podName,
 				prometheusLabelKey: prometheusLabelValue,
 			},
-			Annotations: map[string]string{
-				"scheduler.alpha.kubernetes.io/critical-pod": "",
-			},
 			Name: podName,
 		},
 		Spec: corev1.PodSpec{
@@ -443,9 +440,6 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 					Labels: map[string]string{
 						virtv1.AppLabel:    VirtOperatorName,
 						prometheusLabelKey: prometheusLabelValue,
-					},
-					Annotations: map[string]string{
-						"scheduler.alpha.kubernetes.io/critical-pod": "",
 					},
 					Name: VirtOperatorName,
 				},
