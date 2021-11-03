@@ -52,38 +52,82 @@ tests:
               resource: "memory"
               container: virt-controller
 
-  # All components are down
+  # Alerts to test whether our operators are up or not
   - interval: 1m
     input_series:
       - series: 'up{namespace="ci", pod="virt-api-1"}'
-        values: "0 0 0 0 0 0"
+        values: "_ _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 0 1"
       - series: 'up{namespace="ci", pod="virt-controller-1"}'
-        values: "0 0 0 0 0 0"
+        values: "_ _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 0 1"
       - series: 'up{namespace="ci", pod="virt-operator-1"}'
-        values: "0 0 0 0 0 0"
+        values: "_ _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 0 1"
 
     alert_rule_test:
-      - eval_time: 5m
+      # it must not trigger before 10m
+      - eval_time: 8m
+        alertname: VirtAPIDown
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: VirtControllerDown
+        exp_alerts: [ ]
+      - eval_time: 8m
+        alertname: VirtOperatorDown
+        exp_alerts: [ ]
+      # it must trigger when there is no data
+      - eval_time: 10m
         alertname: VirtAPIDown
         exp_alerts:
           - exp_annotations:
               summary: "All virt-api servers are down."
             exp_labels:
               severity: "critical"
-      - eval_time: 5m
+      - eval_time: 10m
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-controller was detected for the last 5 min."
+              summary: "No running virt-controller was detected for the last 10 min."
             exp_labels:
               severity: "critical"
-      - eval_time: 5m
+      - eval_time: 10m
         alertname: VirtOperatorDown
         exp_alerts:
           - exp_annotations:
               summary: "All virt-operator servers are down."
             exp_labels:
               severity: "critical"
+      # it must trigger when operators are not healthy
+      - eval_time: 16m
+        alertname: VirtAPIDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "All virt-api servers are down."
+            exp_labels:
+              severity: "critical"
+      - eval_time: 16m
+        alertname: VirtControllerDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "No running virt-controller was detected for the last 10 min."
+            exp_labels:
+              severity: "critical"
+      - eval_time: 16m
+        alertname: VirtOperatorDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "All virt-operator servers are down."
+            exp_labels:
+              severity: "critical"
+      # it must not trigger when operators are healthy
+      - eval_time: 17m
+        alertname: VirtAPIDown
+        exp_alerts: []
+      - eval_time: 17m
+        alertname: VirtControllerDown
+        exp_alerts: [ ]
+      - eval_time: 17m
+        alertname: VirtOperatorDown
+        exp_alerts: [ ]
+
 
     # vmi running on a node without a virt-handler pod
   - interval: 1m
@@ -114,16 +158,16 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-1"}'
-        values: "1 1 1 1 1 1"
+        values: "1 1 1 1 1 1 1 1 1 1 1"
       - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-2"}'
-        values: "0 0 0 0 0 0"
+        values: "0 0 0 0 0 0 0 0 0 0 0"
       - series: 'up{namespace="ci", pod="virt-controller-1"}'
-        values: "1 1 1 1 1 1"
+        values: "1 1 1 1 1 1 1 1 1 1 1"
       - series: 'up{namespace="ci", pod="virt-controller-2"}'
-        values: "1 1 1 1 1 1"
+        values: "1 1 1 1 1 1 1 1 1 1 1"
 
     alert_rule_test:
-      - eval_time: 5m
+      - eval_time: 10m
         alertname: LowReadyVirtControllersCount
         exp_alerts:
           - exp_annotations:
@@ -135,28 +179,37 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-1"}'
-        values: "0 0 0 0 0 0"
+        values: "0 0 0 0 0 0 0 0 0 0 0"
 
     alert_rule_test:
-      - eval_time: 5m
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtController
+        exp_alerts: [ ]
+      - eval_time: 10m
         alertname: NoReadyVirtController
         exp_alerts:
           - exp_annotations:
-              summary: "No ready virt-controller was detected for the last 5 min."
+              summary: "No ready virt-controller was detected for the last 10 min."
             exp_labels:
               severity: "critical"
 
+  # All virt operators are not ready
   - interval: 1m
     input_series:
-      - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-1"}'
-        values: "0 0 0 0 0 0"
+      - series: 'kubevirt_virt_operator_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "0 0 0 0 0 0 0 0 0 0 0"
 
     alert_rule_test:
-      - eval_time: 5m
-        alertname: NoReadyVirtController
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
         exp_alerts:
           - exp_annotations:
-              summary: "No ready virt-controller was detected for the last 5 min."
+              summary: "No ready virt-operator was detected for the last 10 min."
             exp_labels:
               severity: "critical"
 
