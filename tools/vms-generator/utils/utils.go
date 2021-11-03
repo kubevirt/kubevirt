@@ -1061,6 +1061,5 @@ func GetVMIARM() *v1.VirtualMachineInstance {
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
 	return vmi
-
 }
 
