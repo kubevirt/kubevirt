@@ -196,7 +196,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal(memoryLimit))
 	})
 
-	It("should apply defaults on VMI create", func() {
+	FIt("should apply defaults on VMI create", func() {
 		// no limits wanted on this test, to not copy the limit to requests
 		mutator.NamespaceLimitsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 		vmiSpec, _ := getVMISpecMetaFromResponse()
