@@ -20,6 +20,8 @@
 package tests_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/x509"
 	"encoding/json"
@@ -2081,7 +2083,22 @@ spec:
 				secret, err := coreClient.Secrets("openshift-monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				data := secret.Data["prometheus.yaml"]
+				data, ok := secret.Data["prometheus.yaml"]
+				// In new versions of prometheus-operator, the configuration file is compressed in the secret
+				if !ok {
+					data, ok = secret.Data["prometheus.yaml.gz"]
+					Expect(ok).To(BeTrue())
+
+					By("Decompressing Prometheus' configuration data")
+					gzreader, err := gzip.NewReader(bytes.NewReader(data))
+					Expect(err).ToNot(HaveOccurred())
+
+					decompressed, err := ioutil.ReadAll(gzreader)
+					Expect(err).ToNot(HaveOccurred())
+
+					data = decompressed
+				}
+
 				Expect(data).ToNot(BeNil())
 
 				By("Verifying that Prometheus is watching KubeVirt")
