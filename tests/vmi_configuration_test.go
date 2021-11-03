@@ -625,6 +625,39 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			})
 		})
 
+		Context("[rfe_id:989]test cpu_allocation_ratio", func() {
+			It("virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				guestMemory := resource.MustParse("256Mi")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest: &guestMemory,
+				}
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Threads: 1,
+					Sockets: 1,
+					Cores:   6,
+				}
+
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				var computeContainer *kubev1.Container
+				for _, container := range readyPod.Spec.Containers {
+					if container.Name == "compute" {
+						computeContainer = &container
+						break
+					}
+				}
+				if computeContainer == nil {
+					util.PanicOnError(fmt.Errorf("could not find the compute container"))
+				}
+				Expect(computeContainer.Resources.Requests.Cpu().String()).To(Equal("600m"))
+			})
+
+		})
+
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with support memory over commitment", func() {
 			It("[test_id:755]should show the requested memory different than guest memory", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")

@@ -221,7 +221,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
 		}
 
-		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal("100m"))
+		Expect(vmiSpec.Domain.Resources.Requests.Cpu().IsZero()).To(BeTrue())
 		// no default for requested memory when no memory is specified
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
 	})
