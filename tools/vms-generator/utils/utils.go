@@ -1053,6 +1053,7 @@ func GetVMIMacvtap() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+// The minimum memory for UEFI boot on Arm64 is 256Mi
 func GetVMIARM() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiARM)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
