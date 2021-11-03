@@ -24,7 +24,7 @@ spec:
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-      image: registry:5000/kubevirt/cirros-container-disk-demo:devel 
+      image: registry:5000/kubevirt/cirros-container-disk-demo:devel
     name: containerdisk
   - cloudInitNoCloud:
       userData: |
@@ -35,4 +35,3 @@ spec:
   - emptyDisk:
       capacity: 2Gi
     name: emptydisk
-
