@@ -33,6 +33,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
+        "//pkg/virt-launcher/virtwrap/device/hostdevice:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/generic:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/gpu:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/legacy:go_default_library",

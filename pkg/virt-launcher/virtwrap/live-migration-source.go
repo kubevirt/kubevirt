@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -100,7 +101,7 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 		return err
 	}
 
-	eventChan := make(chan interface{}, sriov.MaxConcurrentHotPlugDevicesEvents)
+	eventChan := make(chan interface{}, hostdevice.MaxConcurrentHotPlugDevicesEvents)
 	var callback libvirt.DomainEventDeviceRemovedCallback = func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceRemoved) {
 		eventChan <- event.DevAlias
 	}
