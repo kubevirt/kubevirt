@@ -30,6 +30,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,6 +60,8 @@ const (
 	failedUpdatePodDisruptionBudgetReason     = "FailedUpdate"
 )
 
+const defaultUnschedulableTimeoutSeconds = int64(300)
+
 type MigrationController struct {
 	templateService    services.TemplateService
 	clientset          kubecli.KubevirtClient
@@ -74,6 +77,8 @@ type MigrationController struct {
 	migrationStartLock *sync.Mutex
 	clusterConfig      *virtconfig.ClusterConfig
 	statusUpdater      *status.MigrationStatusUpdater
+
+	unschedulableTimeoutSeconds int64
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -103,6 +108,8 @@ func NewMigrationController(templateService services.TemplateService,
 		migrationStartLock: &sync.Mutex{},
 		clusterConfig:      clusterConfig,
 		statusUpdater:      status.NewMigrationStatusUpdater(clientset),
+
+		unschedulableTimeoutSeconds: defaultUnschedulableTimeoutSeconds,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -791,6 +798,65 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 	return nil
 }
 
+func isPodPendingUnschedulable(pod *k8sv1.Pod) bool {
+
+	if pod.Status.Phase != k8sv1.PodPending || pod.DeletionTimestamp != nil {
+		return false
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == k8sv1.PodScheduled &&
+			condition.Status == k8sv1.ConditionFalse &&
+			condition.Reason == k8sv1.PodReasonUnschedulable {
+
+			return true
+		}
+	}
+	return false
+}
+
+func timeSinceCreationSeconds(objectMeta *metav1.ObjectMeta) int64 {
+
+	now := time.Now().UTC().Unix()
+	creationTime := objectMeta.CreationTimestamp.Time.UTC().Unix()
+	seconds := now - creationTime
+	if seconds < 0 {
+		seconds = 0
+	}
+
+	return seconds
+}
+
+func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+
+	if !isPodPendingUnschedulable(pod) {
+		return nil
+	}
+
+	migrationKey, err := controller.KeyFunc(migration)
+	if err != nil {
+		return err
+	}
+
+	secondsSpentUnschedulable := timeSinceCreationSeconds(&pod.ObjectMeta)
+	if secondsSpentUnschedulable >= c.unschedulableTimeoutSeconds {
+		c.podExpectations.ExpectDeletions(migrationKey, []string{controller.PodKey(pod)})
+		err = c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
+		if err != nil {
+			c.podExpectations.DeletionObserved(migrationKey, controller.PodKey(pod))
+			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleted migration target pod: %v", err)
+			return fmt.Errorf("failed to delete vmi migration target pod stuck in unschedulable state: %v", err)
+		}
+		log.Log.Object(vmi).Infof("Deleted pending unschedulable migration target pod %s/%s with uuid %s for migration %s with uuid %s", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID))
+		c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted pending migration target pod %s due to being unschedulable.", pod.Name)
+	} else {
+		// Make sure we check this again after some time
+		c.Queue.AddAfter(migrationKey, time.Second*time.Duration(c.unschedulableTimeoutSeconds-secondsSpentUnschedulable))
+	}
+
+	return nil
+}
+
 func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
@@ -842,7 +908,14 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 					return c.createAttachmentPod(migration, vmi, pod)
 				}
 			}
+		} else {
+			return c.handlePendingPodTimeout(migration, vmi, pod)
 		}
+	case virtv1.MigrationScheduling:
+		if targetPodExists {
+			return c.handlePendingPodTimeout(migration, vmi, pod)
+		}
+
 	case virtv1.MigrationScheduled:
 		// once target pod is running, then alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
