@@ -79,6 +79,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
+	var cdiInformer cache.SharedIndexInformer
+	var cdiConfigInformer cache.SharedIndexInformer
 	var dataVolumeFeeder *testutils.DataVolumeFeeder
 	var qemuGid int64 = 107
 	controllerOf := true
@@ -210,6 +212,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
+		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		controller = NewVMIController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
@@ -219,6 +223,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			recorder,
 			virtClient,
 			dataVolumeInformer,
+			cdiInformer,
+			cdiConfigInformer,
+			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", nil),
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -2260,6 +2267,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		makeVolumeStatusesForUpdateWithMessage := func(podName, podUID string, phase virtv1.VolumePhase, message, reason string, indexes ...int) []virtv1.VolumeStatus {
 			res := make([]virtv1.VolumeStatus, 0)
 			for _, index := range indexes {
+				var fsOverhead cdiv1.Percent
+				fsOverhead = "0.055"
 				res = append(res, virtv1.VolumeStatus{
 					Name: fmt.Sprintf("volume%d", index),
 					HotplugVolume: &virtv1.HotplugVolumeStatus{
@@ -2273,6 +2282,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{
 							k8sv1.ReadOnlyMany,
 						},
+						FilesystemOverhead: &fsOverhead,
 					},
 				})
 			}
@@ -2303,10 +2313,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pvcInformer.GetIndexer().Add(pvc)
 				for i, stat := range expectedStatus {
 					if stat.Name == pvc.Name {
+						var fsOverhead cdiv1.Percent
+						fsOverhead = "0.055"
 						stat.PersistentVolumeClaimInfo = &virtv1.PersistentVolumeClaimInfo{
 							AccessModes: []k8sv1.PersistentVolumeAccessMode{
 								k8sv1.ReadOnlyMany,
 							},
+							FilesystemOverhead: &fsOverhead,
 						}
 						expectedStatus[i] = stat
 						break
@@ -2450,7 +2463,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{},"hotplugVolume":{}}] }]`
+			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"},"hotplugVolume":{}}] }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -2540,7 +2553,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
+			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)

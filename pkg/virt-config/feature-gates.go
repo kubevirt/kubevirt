@@ -24,6 +24,7 @@ package virtconfig
 */
 
 const (
+	ExpandDisksGate   = "ExpandDisks"
 	CPUManager        = "CPUManager"
 	NUMAFeatureGate   = "NUMA"
 	IgnitionGate      = "ExperimentalIgnitionSupport"
@@ -52,6 +53,10 @@ func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 		}
 	}
 	return false
+}
+
+func (config *ClusterConfig) ExpandDisksEnabled() bool {
+	return config.isFeatureGateEnabled(ExpandDisksGate)
 }
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {

@@ -48,6 +48,7 @@ import (
 	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -55,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
 const InvalidDataVolumeUrl = "docker://127.0.0.1/invalid:latest"
@@ -72,6 +74,55 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		if !tests.HasCDI() {
 			Skip("Skip DataVolume tests when CDI is not present")
 		}
+	})
+
+	Context("[rook-ceph]PVC expansion", func() {
+		table.DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
+			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
+			vmi, dataVolume := tests.NewRandomVirtualMachineInstanceWithOCSDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault, k8sv1.ReadWriteOnce, volumeMode)
+			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
+
+			By("Expecting the VirtualMachineInstance console")
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Expanding PVC")
+			pvc.Spec.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse("2Gi")
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Update(context.Background(), pvc, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for notification about size change")
+			Eventually(func() error {
+				err := console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "dmesg |grep 'new size'\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "dmesg |grep -c 'new size: [34]'\n"},
+					&expect.BExp{R: "1"},
+				}, 10)
+				return err
+			}, 360).Should(BeNil())
+
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "sudo /sbin/resize-filesystem /dev/root /run/resize.rootfs /dev/console && echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 30)).To(Succeed(), "failed to resize root")
+
+			By("Writing a 1.5G file after expansion, should succeed")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "dd if=/dev/zero of=largefile count=1500 bs=1M; echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 360)).To(Succeed(), "can use more space after expansion and resize")
+		},
+			table.Entry("with Block PVC", k8sv1.PersistentVolumeBlock),
+			table.Entry("with Filesystem PVC", k8sv1.PersistentVolumeFilesystem),
+		)
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {

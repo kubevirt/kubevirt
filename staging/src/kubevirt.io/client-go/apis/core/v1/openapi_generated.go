@@ -22763,6 +22763,13 @@ func schema_client_go_apis_core_v1_PersistentVolumeClaimInfo(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"filesystemOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Percentage of filesystem's size to be reserved when resizing the PVC",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

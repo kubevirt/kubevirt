@@ -8511,6 +8511,11 @@ var CRDsValidation map[string]string = map[string]string{
                     description: Capacity represents the capacity set on the corresponding
                       PVC spec
                     type: object
+                  filesystemOverhead:
+                    description: Percentage of filesystem's size to be reserved when
+                      resizing the PVC
+                    pattern: ^(0(?:\.\d{1,3})?|1)$
+                    type: string
                   preallocated:
                     description: Preallocated indicates if the PVC's storage is preallocated
                       or not

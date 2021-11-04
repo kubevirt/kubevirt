@@ -45,6 +45,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -124,6 +125,8 @@ const (
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 
+var failedToFindCdi error = errors.New("No CDIConfig named config")
+
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
@@ -132,6 +135,9 @@ func NewVMIController(templateService services.TemplateService,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer,
+	cdiInformer cache.SharedIndexInformer,
+	cdiConfigInformer cache.SharedIndexInformer,
+	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
 ) *VMIController {
 
@@ -147,6 +153,9 @@ func NewVMIController(templateService services.TemplateService,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeInformer: dataVolumeInformer,
+		cdiInformer:        cdiInformer,
+		cdiConfigInformer:  cdiConfigInformer,
+		clusterConfig:      clusterConfig,
 		topologyHinter:     topologyHinter,
 	}
 
@@ -166,6 +175,10 @@ func NewVMIController(templateService services.TemplateService,
 		AddFunc:    c.addDataVolume,
 		DeleteFunc: c.deleteDataVolume,
 		UpdateFunc: c.updateDataVolume,
+	})
+
+	c.pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updatePVC,
 	})
 
 	return c
@@ -202,6 +215,9 @@ type VMIController struct {
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	vmiExpectations    *controller.UIDTrackingControllerExpectations
 	dataVolumeInformer cache.SharedIndexInformer
+	cdiInformer        cache.SharedIndexInformer
+	cdiConfigInformer  cache.SharedIndexInformer
+	clusterConfig      *virtconfig.ClusterConfig
 }
 
 func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -210,7 +226,7 @@ func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting vmi controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced, c.cdiConfigInformer.HasSynced, c.cdiInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -1018,6 +1034,34 @@ func dataVolumeByNameFunc(dataVolumeInformer cache.SharedIndexInformer, dataVolu
 	}
 }
 
+func (c *VMIController) updatePVC(old, cur interface{}) {
+	curPVC := cur.(*k8sv1.PersistentVolumeClaim)
+	oldPVC := old.(*k8sv1.PersistentVolumeClaim)
+	if curPVC.ResourceVersion == oldPVC.ResourceVersion {
+		// Periodic resync will send update events for all known PVCs.
+		// Two different versions of the same PVC will always
+		// have different RVs.
+		return
+	}
+	if curPVC.DeletionTimestamp != nil {
+		return
+	}
+	if reflect.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) {
+		// We only do something when the capacity changes
+		return
+	}
+
+	vmis, err := c.listVMIsMatchingPVC(curPVC.Namespace, curPVC.Name)
+	if err != nil {
+		log.Log.V(4).Object(curPVC).Errorf("Error encountered during pvc update: %v", err)
+		return
+	}
+	for _, vmi := range vmis {
+		log.Log.V(4).Object(curPVC).Infof("PVC updated for vmi %s", vmi.Name)
+		c.enqueueVirtualMachine(vmi)
+	}
+}
+
 func (c *VMIController) addDataVolume(obj interface{}) {
 	dataVolume := obj.(*cdiv1.DataVolume)
 	if dataVolume.DeletionTimestamp != nil {
@@ -1025,7 +1069,7 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 		return
 	}
 
-	vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+	vmis, err := c.listVMIsMatchingPVC(dataVolume.Namespace, dataVolume.Name)
 	if err != nil {
 		return
 	}
@@ -1056,7 +1100,7 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		return
 	}
 
-	vmis, err := c.listVMIsMatchingDataVolume(curDataVolume.Namespace, curDataVolume.Name)
+	vmis, err := c.listVMIsMatchingPVC(curDataVolume.Namespace, curDataVolume.Name)
 	if err != nil {
 		log.Log.V(4).Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
 		return
@@ -1084,7 +1128,7 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 			return
 		}
 	}
-	vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+	vmis, err := c.listVMIsMatchingPVC(dataVolume.Namespace, dataVolume.Name)
 	if err != nil {
 		return
 	}
@@ -1283,8 +1327,8 @@ func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1
 	return vmi.(*virtv1.VirtualMachineInstance)
 }
 
-// takes a namespace and returns all Pods from the pod cache which run in this namespace
-func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeName string) ([]*virtv1.VirtualMachineInstance, error) {
+// takes a PVC name and namespace and returns all VMIs from the VMI cache which use this PVC
+func (c *VMIController) listVMIsMatchingPVC(namespace string, pvcName string) ([]*virtv1.VirtualMachineInstance, error) {
 	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
@@ -1293,12 +1337,8 @@ func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeN
 	for _, obj := range objs {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
 		for _, volume := range vmi.Spec.Volumes {
-			// Always check persistent volume claims to see if they match a DV, can't filter any more since
-			// VolumeSource.PersistentVolumeClaim doesn't list any ownerRef for the PVC. So in order to detect
-			// if the PVC is owned by a DV, I would have to look up the PVC, and find the ownerRef and determine if
-			// it is a DV. TODO: determine if it is slower to do the above or run through a reconcile of a VMI.
-			if volume.VolumeSource.PersistentVolumeClaim != nil ||
-				volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolumeName {
+			if volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == pvcName ||
+				volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == pvcName {
 				vmis = append(vmis, vmi)
 			}
 		}
@@ -1929,6 +1969,15 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					Capacity:     pvc.Status.Capacity,
 					Preallocated: kubevirttypes.IsPreallocated(pvc.ObjectMeta.Annotations),
 				}
+				filesystemOverhead, err := c.getFilesystemOverhead(pvc)
+				if errors.Is(err, failedToFindCdi) {
+					filesystemOverhead = cdiv1.Percent("0.055")
+					log.Log.V(3).Object(pvc).Infof("Didn't find CDI, continuing normally with filesystem overhead of 5.5%%")
+				} else if err != nil {
+					log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", vmi.Namespace, pvcName)
+					return err
+				}
+				status.PersistentVolumeClaimInfo.FilesystemOverhead = &filesystemOverhead
 			}
 		}
 
@@ -1957,6 +2006,33 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	})
 	vmi.Status.VolumeStatus = newStatus
 	return nil
+}
+
+func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
+	_, cdiExists, _ := c.cdiInformer.GetStore().GetByKey("cdi")
+	if !cdiExists {
+		return "0", failedToFindCdi
+	}
+	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey("config")
+	if !cdiConfigExists || err != nil {
+		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
+	}
+	cdiConfig, ok := cdiConfigInterface.(*cdiv1.CDIConfig)
+	if !ok {
+		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
+	}
+	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
+		return "0", nil
+	}
+	scName := pvc.Spec.StorageClassName
+	if scName == nil {
+		return cdiConfig.Status.FilesystemOverhead.Global, nil
+	}
+	fsOverhead, ok := cdiConfig.Status.FilesystemOverhead.StorageClass[*scName]
+	if !ok {
+		return cdiConfig.Status.FilesystemOverhead.Global, nil
+	}
+	return fsOverhead, nil
 }
 
 func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {

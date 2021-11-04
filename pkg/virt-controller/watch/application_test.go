@@ -91,6 +91,8 @@ var _ = Describe("Application", func() {
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		crInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		crdInformer, _ := testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
@@ -114,6 +116,9 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			dataVolumeInformer,
+			cdiInformer,
+			cdiConfigInformer,
+			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", nil),
 		)
 		app.rsController = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))

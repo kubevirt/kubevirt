@@ -86,6 +86,7 @@ var _ = Describe("Manager", func() {
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
 		mockDomain.EXPECT().IsPersistent().AnyTimes().Return(true, nil)
+		mockDomain.EXPECT().GetBlockInfo(gomock.Any(), gomock.Any()).AnyTimes().Return(&libvirt.DomainBlockInfo{Capacity: 0}, nil)
 		mockDirectIOChecker = converter.NewMockDirectIOChecker(ctrl)
 		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(true, nil)
 		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(true, nil)

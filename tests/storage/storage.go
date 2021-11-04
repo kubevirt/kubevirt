@@ -618,7 +618,10 @@ var _ = SIGDescribe("Storage", func() {
 			}, 120)
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
-			It("[test_id:3138]should start vmi multiple times", func() {
+			It("[Serial][test_id:3138]should start vmi multiple times", func() {
+				// Expansion changes the blockdev output
+				tests.DisableFeatureGate(virtconfig.ExpandDisksGate)
+
 				vmi = tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 

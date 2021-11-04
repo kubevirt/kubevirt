@@ -30,8 +30,10 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -455,8 +457,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 			disksInfo[k] = &containerdisk.DiskInfo{
 				Format:      v.Format,
 				BackingFile: v.BackingFile,
-				ActualSize:  int(v.ActualSize),
-				VirtualSize: int(v.VirtualSize),
+				ActualSize:  int64(v.ActualSize),
+				VirtualSize: int64(v.VirtualSize),
 			}
 		}
 	}
@@ -555,7 +557,87 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("Starting qemu agent access credential propagation failed: %v", err)
 	}
 
+	// expand disk image files if they're too small
+	expandDiskImagesOffline(vmi, domain)
+
 	return domain, err
+}
+
+func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	logger := log.Log.Object(vmi)
+	for _, disk := range domain.Spec.Devices.Disks {
+		if shouldExpandOffline(disk) {
+			possibleGuestSize, ok := possibleGuestSize(disk)
+			if !ok {
+				logger.Errorf("Failed to get possible guest size from disk")
+				break
+			}
+			err := expandDiskImageOffline(getSourceFile(disk), possibleGuestSize)
+			if err != nil {
+				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
+			}
+		}
+	}
+}
+
+func expandDiskImageOffline(imagePath string, size int64) error {
+	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
+	var preallocateFlag string
+	if converter.IsPreAllocated(imagePath) {
+		preallocateFlag = "--preallocation=falloc"
+	} else {
+		preallocateFlag = "--preallocation=off"
+	}
+	cmd := exec.Command("/usr/bin/qemu-img", "resize", preallocateFlag, imagePath, strconv.FormatInt(size, 10))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Expanding image failed with error: %v, output: %s", err, out)
+	}
+	return nil
+}
+
+func possibleGuestSize(disk api.Disk) (int64, bool) {
+	var err error
+	capacityResource := disk.Capacity
+	if capacityResource == nil {
+		log.DefaultLogger().Error("Failed to get storage capacity")
+		return 0, false
+	}
+	capacity, ok := capacityResource.AsInt64()
+	if !ok {
+		log.DefaultLogger().Error("Failed to convert capacity to int64")
+		return 0, false
+	}
+	if disk.FilesystemOverhead == nil {
+		log.DefaultLogger().Errorf("No filesystem overhead found for disk %v", disk)
+		return 0, false
+	}
+	filesystemOverhead, err := strconv.ParseFloat(string(*disk.FilesystemOverhead), 64)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
+		return 0, false
+	}
+	return int64((1 - filesystemOverhead) * float64(capacity)), true
+}
+
+func shouldExpandOffline(disk api.Disk) bool {
+	if !disk.ExpandDisksEnabled {
+		return false
+	}
+	if disk.Source.Dev != "" {
+		// Block devices don't need to be expanded
+		return false
+	}
+	diskInfo, err := converter.GetImageInfo(getSourceFile(disk))
+	if err != nil {
+		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
+		return false
+	}
+	possibleGuestSize, ok := possibleGuestSize(disk)
+	if !ok || possibleGuestSize <= diskInfo.VirtualSize {
+		return false
+	}
+	return true
 }
 
 func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {
@@ -632,6 +714,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	}
 
 	if options != nil {
+		c.ExpandDisksEnabled = options.ExpandDisksEnabled
 		if options.VirtualMachineSMBios != nil {
 			c.SMBios = options.VirtualMachineSMBios
 		}
@@ -811,6 +894,21 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 
+	// Resize and notify the VM about changed disks
+	for _, disk := range domain.Spec.Devices.Disks {
+		if shouldExpandOnline(dom, disk) {
+			possibleGuestSize, ok := possibleGuestSize(disk)
+			if !ok {
+				logger.Reason(err).Warningf("Failed to get possible guest size from disk %v", disk)
+				break
+			}
+			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
+			if err != nil {
+				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
+			}
+		}
+	}
+
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return &oldSpec, nil
 }
@@ -932,6 +1030,24 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 		}
 	}
 	return false, fmt.Errorf("error checking for block device: %v", err)
+}
+
+func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
+	if !disk.ExpandDisksEnabled {
+		log.DefaultLogger().V(3).Infof("Not expanding disks, ExpandDisks featuregate disabled")
+		return false
+	}
+	blockInfo, err := dom.GetBlockInfo(getSourceFile(disk), 0)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Failed to get block info")
+		return false
+	}
+	guestSize := blockInfo.Capacity
+	possibleGuestSize, ok := possibleGuestSize(disk)
+	if !ok || possibleGuestSize <= int64(guestSize) {
+		return false
+	}
+	return true
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
