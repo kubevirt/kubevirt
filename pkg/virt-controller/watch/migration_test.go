@@ -106,6 +106,15 @@ var _ = Describe("Migration watcher", func() {
 		})
 	}
 
+	shouldExpectPodDeletion := func() {
+		// Expect pod deletion
+		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+			_, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			return true, nil, nil
+		})
+	}
+
 	shouldExpectAttachmentPodCreation := func(uid types.UID, migrationUid types.UID) {
 		// Expect pod creation
 		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
@@ -138,8 +147,14 @@ var _ = Describe("Migration watcher", func() {
 			return true, pdb, nil
 		})
 	}
+	
+	shouldExpectGenericMigrationUpdate := func() {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
+			return arg, nil
+		})
+	}
 
-	shouldExpectMigrationSchedulingState := func(migration *v1.VirtualMachineInstanceMigration) {
+	shouldExpectMigrationSchedulingState := func(migration *virtv1.VirtualMachineInstanceMigration) {
 		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationScheduling))
 			return arg, nil
@@ -585,6 +600,43 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectMigrationSchedulingState(migration)
 			controller.Execute()
 		})
+
+		table.DescribeTable("should handle pod stuck in unschedulable state", func(phase virtv1.VirtualMachineInstanceMigrationPhase, shouldTimeout bool, timeLapse int64) {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			migration := newMigration("testmigration", vmi.Name, phase)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+
+			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{
+				Type:   k8sv1.PodScheduled,
+				Status: k8sv1.ConditionFalse,
+				Reason: k8sv1.PodReasonUnschedulable,
+			})
+			now := now()
+			pod.CreationTimestamp = metav1.NewTime(now.Time.Add(time.Duration(-timeLapse) * time.Second))
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(pod)
+
+			if shouldTimeout {
+				shouldExpectPodDeletion()
+			}
+
+			if phase == virtv1.MigrationPending {
+				shouldExpectGenericMigrationUpdate()
+			}
+			controller.Execute()
+
+			if shouldTimeout {
+				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+			}
+		},
+			table.Entry("in pending state", virtv1.MigrationPending, true, defaultUnschedulableTimeoutSeconds),
+			table.Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultUnschedulableTimeoutSeconds),
+			table.Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultUnschedulableTimeoutSeconds),
+			table.Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultUnschedulableTimeoutSeconds-1),
+			table.Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultUnschedulableTimeoutSeconds-1),
+		)
 	})
 	Context("Migration should immediately fail if", func() {
 
