@@ -258,7 +258,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				secret.Data = map[string][]byte{
-					"random": []byte("nonsense"),
+					"tls.crt": []byte(""),
+					"tls.key": []byte(""),
 				}
 
 				_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
@@ -271,14 +272,14 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			Eventually(func() []byte {
 				newCA = tests.GetCertFromSecret(components.KubeVirtCASecretName)
 				return newCA
-			}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
+			}, 30*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 
 			By("checking that one of the CAs in the config-map is the new one")
 			var caBundle []byte
 			Eventually(func() bool {
 				caBundle, _ = tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
 				return tests.ContainsCrt(caBundle, newCA)
-			}, 10*time.Second, 1*time.Second).Should(BeTrue(), "the new CA should be added to the config-map")
+			}, 30*time.Second, 1*time.Second).Should(BeTrue(), "the new CA should be added to the config-map")
 
 			By("checking that the ca bundle gets propagated to the validating webhook")
 			Eventually(func() bool {
@@ -344,7 +345,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 					return err
 				}
 				secret.Data = map[string][]byte{
-					"random": []byte("nonsense"),
+					"tls.crt": []byte(""),
+					"tls.key": []byte(""),
 				}
 				_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
 
@@ -355,7 +357,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			By("checking that the secret gets restored with a new certificate")
 			Eventually(func() []byte {
 				return tests.GetCertFromSecret(secretName)
-			}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
+			}, 30*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 		},
 			table.Entry("[test_id:4101] virt-operator", components.VirtOperatorCertSecretName),
 			table.Entry("[test_id:4103] virt-api", components.VirtApiCertSecretName),
