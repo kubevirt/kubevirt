@@ -81,6 +81,10 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 		}
 	}
 
+	if newKV.Spec.Infra != nil {
+		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
+	}
+
 	return validating_webhooks.NewAdmissionResponse(results)
 }
 
@@ -287,6 +291,19 @@ func validateInfraPlacement(namespace string, placementConfig *v1.NodePlacement,
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: err.Error(),
+		})
+	}
+
+	return statuses
+}
+
+func validateInfraReplicas(replicas *uint8) []metav1.StatusCause {
+	statuses := []metav1.StatusCause{}
+
+	if replicas != nil && *replicas == 0 {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "infra replica count can't be 0",
 		})
 	}
 

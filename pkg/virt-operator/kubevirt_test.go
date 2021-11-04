@@ -693,10 +693,23 @@ func (k *KubeVirtTestData) webhookMutatingPatchFunc() func(action testing.Action
 }
 
 func (k *KubeVirtTestData) deploymentPatchFunc() func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+	var replicas int32 = 2
 	return func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		k.genericPatchFunc()(action)
 
-		return true, &appsv1.Deployment{}, nil
+		patchAction, ok := action.(testing.PatchAction)
+
+		Expect(ok).To(BeTrue())
+
+		return true, &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      patchAction.GetName(),
+				Namespace: patchAction.GetNamespace(),
+			},
+			Spec: appsv1.DeploymentSpec{
+				Replicas: &replicas,
+			},
+		}, nil
 	}
 }
 
@@ -1306,7 +1319,7 @@ func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentCon
 }
 
 func (k *KubeVirtTestData) addPodDisruptionBudgets(config *util.KubeVirtDeploymentConfig, apiDeployment *appsv1.Deployment, controller *appsv1.Deployment, kv *v1.KubeVirt) {
-	minAvailable := intstr.FromInt(int(1))
+	minAvailable := intstr.FromInt(1)
 	apiPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: apiDeployment.Namespace,
