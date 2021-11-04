@@ -318,12 +318,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	}
 
 	getLibvirtdPid := func(pod *k8sv1.Pod) string {
-		stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "compute",
+		stdout, stderr, errPsCmd := tests.ExecuteCommandOnPodV2(virtClient, pod, "compute",
 			[]string{
 				"ps",
 				"-x",
 			})
-		Expect(err).ToNot(HaveOccurred(), `"ps -x" failed with stdout="`+stdout+`" and stderr="`+stderr+`"`)
+		errorMassageFormat := "faild after running `ps -x`  with stdout:\n %v \n stderr:\n %v \n err: \n %v \n extracted pid of libvirtd: `%v` should have been numeric\n"
 
 		pid := ""
 		for _, str := range strings.Split(stdout, "\n") {
@@ -336,14 +336,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			// verify it is numeric
 			_, err = strconv.Atoi(words[0])
-			Expect(err).ToNot(HaveOccurred(), "should have found pid for libvirtd that is numeric")
-
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMassageFormat, stdout, stderr, errPsCmd, pid))
 			pid = words[0]
+
 			break
 
 		}
+		Expect(pid).ToNot(BeEmpty(), fmt.Sprintf(errorMassageFormat, stdout, stderr, errPsCmd, pid))
 
-		Expect(pid).ToNot(Equal(""), "libvirtd pid not found")
 		return pid
 	}
 
@@ -711,6 +711,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			})
+
 			It("[test_id:6972]should migrate to a persistent (non-transient) libvirt domain.", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
