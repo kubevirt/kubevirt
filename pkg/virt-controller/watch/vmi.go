@@ -972,7 +972,6 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to get attachment pods: %v", err), FailedHotplugSyncReason}
 		}
-
 		if pod.DeletionTimestamp == nil && c.needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods) {
 			var hotplugSyncErr syncError = nil
 			hotplugSyncErr = c.handleHotplugVolumes(hotplugVolumes, hotplugAttachmentPods, vmi, pod, dataVolumes)
@@ -1612,19 +1611,33 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		}
 	}
 
-	if len(currentPod) == 0 && len(readyHotplugVolumes) > 0 {
-		// ready volumes have changed
-		// Create new attachment pod that holds all the ready volumes
-		if err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
-			return err
+	switch len(currentPod) {
+	case 0:
+		if len(readyHotplugVolumes) == 0 {
+			for _, attachmentPod := range oldPods {
+				if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
+					return &syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", err), FailedDeletePodReason}
+				}
+			}
+		} else if len(readyHotplugVolumes) > 0 {
+			// ready volumes have changed
+			// Create new attachment pod that holds all the ready volumes
+			if err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
+				return err
+			}
+		}
+	case 1:
+		if currentPod[0].Status.Phase == k8sv1.PodRunning {
+			log.Log.Object(vmi).Infof("pod name is  : %s", currentPod[0].Name)
+			// Delete old attachment pod
+			for _, attachmentPod := range oldPods {
+				if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
+					return &syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", err), FailedDeletePodReason}
+				}
+			}
 		}
 	}
-	// Delete old attachment pod
-	for _, attachmentPod := range oldPods {
-		if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
-			return &syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", err), FailedDeletePodReason}
-		}
-	}
+
 	return nil
 }
 
@@ -1908,10 +1921,18 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 		hotplugVolumesMap[volume.Name] = volume
 	}
 
-	attachmentPods, err := controller.AttachmentPods(virtlauncherPod, c.podInformer)
+	attachmentPodAlls, err := controller.AttachmentPods(virtlauncherPod, c.podInformer)
 	if err != nil {
 		return err
 	}
+
+	attachmentPods := make([]*k8sv1.Pod, 0)
+	for _, attachmentPod := range attachmentPodAlls {
+		if c.podVolumesMatchesReadyVolumes(attachmentPod, hotplugVolumes) {
+			attachmentPods = append(attachmentPods, attachmentPod)
+		}
+	}
+
 	newStatus := make([]virtv1.VolumeStatus, 0)
 	for i, volume := range vmi.Spec.Volumes {
 		status := virtv1.VolumeStatus{}
@@ -1987,7 +2008,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	// We have updated the status of current volumes, but if a volume was removed, we want to keep that status, until there is no
 	// associated pod, then remove it. Any statuses left in the map are statuses without a matching volume in the spec.
 	for k, v := range oldStatusMap {
-		attachmentPod := c.findAttachmentPodByVolumeName(k, attachmentPods)
+		attachmentPod := c.findAttachmentPodByVolumeName(k, attachmentPodAlls)
 		if attachmentPod != nil {
 			v.HotplugVolume.AttachPodName = attachmentPod.Name
 			v.HotplugVolume.AttachPodUID = attachmentPod.UID
