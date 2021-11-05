@@ -479,9 +479,9 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	return nil
 }
 
-func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 
-	templatePod, err := c.templateService.RenderLaunchManifest(vmi)
+	templatePod, err := c.templateService.RenderMigrationManifest(vmi, sourcePod)
 	if err != nil {
 		return fmt.Errorf("failed to render launch manifest: %v", err)
 	}
@@ -672,7 +672,7 @@ func filterOutOldPDBs(pdbList []*v1beta1.PodDisruptionBudget) []*v1beta1.PodDisr
 	return filteredPdbs
 }
 
-func (c *MigrationController) handleTargetPodCreation(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+func (c *MigrationController) handleTargetPodCreation(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 
 	c.migrationStartLock.Lock()
 	defer c.migrationStartLock.Unlock()
@@ -742,7 +742,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 				return nil
 			}
 		}
-		return c.createTargetPod(migration, vmi)
+		return c.createTargetPod(migration, vmi, sourcePod)
 	}
 	return nil
 }
@@ -794,8 +794,8 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
-	podExists := len(pods) > 0
-	if podExists {
+	targetPodExists := len(pods) > 0
+	if targetPodExists {
 		pod = pods[0]
 	}
 
@@ -817,8 +817,20 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 
 	switch migration.Status.Phase {
 	case virtv1.MigrationPending:
-		if !podExists {
-			return c.handleTargetPodCreation(key, migration, vmi)
+		if !targetPodExists {
+			sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+			if err != nil {
+				log.Log.Reason(err).Error("Failed to fetch pods for namespace from cache.")
+				return err
+			}
+			if !podExists(sourcePod) {
+				// for instance sudden deletes can cause this. In this
+				// case we don't have to do anything in the creation flow anymore.
+				// Once the VMI is in a final state or deleted the migration
+				// will be marked as failed too.
+				return nil
+			}
+			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
 		} else if isPodReady(pod) {
 			if controller.VMIHasHotplugVolumes(vmi) {
 				attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
@@ -834,11 +846,11 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 	case virtv1.MigrationScheduled:
 		// once target pod is running, then alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
-		if podExists && isPodReady(pod) {
+		if targetPodExists && isPodReady(pod) {
 			return c.handleTargetPodHandoff(migration, vmi, pod)
 		}
 	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady, virtv1.MigrationFailed:
-		if (!podExists || podIsDown(pod)) &&
+		if (!targetPodExists || podIsDown(pod)) &&
 			vmi.Status.MigrationState != nil &&
 			len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 &&
 			vmi.Status.MigrationState.StartTimestamp == nil &&
