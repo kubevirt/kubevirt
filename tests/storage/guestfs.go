@@ -47,9 +47,9 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		return tests.ExecuteCommandOnPodV2(virtClient, pod, "libguestfs", c)
 	}
 
-	createPVCFilesystem := func(name string) *corev1.PersistentVolumeClaim {
+	createPVCFilesystem := func(name string) {
 		quantity, _ := resource.ParseQuantity("500Mi")
-		return &corev1.PersistentVolumeClaim{
+		_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -59,7 +59,8 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 					},
 				},
 			},
-		}
+		}, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 	}
 
@@ -102,14 +103,6 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 
 	}
 
-	createGuestfsWithPVC := func(pvc *corev1.PersistentVolumeClaim) {
-		var err error
-		_, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), pvc, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		runGuestfsOnPVC(pvc.ObjectMeta.Name)
-
-	}
-
 	Context("Run libguestfs on PVCs", func() {
 		BeforeEach(func() {
 			var err error
@@ -128,8 +121,8 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			f := createFakeAttacher()
 			defer f.closeChannel()
 			pvcClaim = "pvc-verify"
-			pvc := createPVCFilesystem(pvcClaim)
-			createGuestfsWithPVC(pvc)
+			createPVCFilesystem(pvcClaim)
+			runGuestfsOnPVC(pvcClaim)
 			output, _, err := execCommandLibguestfsPod("libguestfs-tools-"+pvcClaim, []string{"libguestfs-test-tool"})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(output).To(ContainSubstring("===== TEST FINISHED OK ====="))
@@ -141,8 +134,8 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			defer f.closeChannel()
 			pvcClaim = "pvc-fs"
 			podName := "libguestfs-tools-" + pvcClaim
-			pvc := createPVCFilesystem(pvcClaim)
-			createGuestfsWithPVC(pvc)
+			createPVCFilesystem(pvcClaim)
+			runGuestfsOnPVC(pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"qemu-img", "create", "/disk/disk.img", "500M"})
 			Expect(stderr).To(Equal(""))
 			Expect(stdout).To(ContainSubstring("Formatting"))
@@ -158,8 +151,8 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			f := createFakeAttacher()
 			defer f.closeChannel()
 			pvcClaim = "pvc-fail-to-run-twice"
-			pvc := createPVCFilesystem(pvcClaim)
-			createGuestfsWithPVC(pvc)
+			createPVCFilesystem(pvcClaim)
+			runGuestfsOnPVC(pvcClaim)
 			guestfsCmd := tests.NewVirtctlCommand("guestfs",
 				pvcClaim,
 				"--namespace", util.NamespaceTestDefault)
@@ -169,9 +162,11 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", func() {
 			f := createFakeAttacher()
 			defer f.closeChannel()
-			pvcClaim = tests.BlockDiskForTest
+
+			pvcClaim = "pvc-block"
 			podName := "libguestfs-tools-" + pvcClaim
-			tests.CreateBlockVolumePvAndPvc("500Mi")
+			size, _ := resource.ParseQuantity("500Mi")
+			tests.CreateCephPVC(virtClient, pvcClaim, size)
 			runGuestfsOnPVC(pvcClaim)
 			stdout, stderr, err := execCommandLibguestfsPod(podName, []string{"guestfish", "-a", "/dev/vda", "run"})
 			Expect(stderr).To(Equal(""))
