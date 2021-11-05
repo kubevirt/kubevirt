@@ -31,7 +31,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )
 

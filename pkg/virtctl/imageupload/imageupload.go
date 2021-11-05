@@ -45,8 +45,8 @@ import (
 
 	cdiClientset "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )

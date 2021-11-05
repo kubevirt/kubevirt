@@ -237,6 +237,37 @@ func (h *Handle) macvlanMACAddrChange(link Link, addrs []net.HardwareAddr, mode 
 	return err
 }
 
+// LinkSetMacvlanMode sets the mode of a macvlan or macvtap link device.
+// Note that passthrough mode cannot be set to and from and will fail.
+// Equivalent to: `ip link set $link type (macvlan|macvtap) mode $mode
+func LinkSetMacvlanMode(link Link, mode MacvlanMode) error {
+	return pkgHandle.LinkSetMacvlanMode(link, mode)
+}
+
+// LinkSetMacvlanMode sets the mode of the macvlan or macvtap link device.
+// Note that passthrough mode cannot be set to and from and will fail.
+// Equivalent to: `ip link set $link type (macvlan|macvtap) mode $mode
+func (h *Handle) LinkSetMacvlanMode(link Link, mode MacvlanMode) error {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(unix.RTM_NEWLINK, unix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	linkInfo := nl.NewRtAttr(unix.IFLA_LINKINFO, nil)
+	linkInfo.AddRtAttr(nl.IFLA_INFO_KIND, nl.NonZeroTerminated(link.Type()))
+
+	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+	data.AddRtAttr(nl.IFLA_MACVLAN_MODE, nl.Uint32Attr(macvlanModes[mode]))
+
+	req.AddData(linkInfo)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
 func BridgeSetMcastSnoop(link Link, on bool) error {
 	return pkgHandle.BridgeSetMcastSnoop(link, on)
 }
@@ -1345,6 +1376,16 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		if link.PeerHardwareAddr != nil {
 			peer.AddRtAttr(unix.IFLA_ADDRESS, []byte(link.PeerHardwareAddr))
 		}
+		if link.PeerNamespace != nil {
+			switch ns := link.PeerNamespace.(type) {
+			case NsPid:
+				val := nl.Uint32Attr(uint32(ns))
+				peer.AddRtAttr(unix.IFLA_NET_NS_PID, val)
+			case NsFd:
+				val := nl.Uint32Attr(uint32(ns))
+				peer.AddRtAttr(unix.IFLA_NET_NS_FD, val)
+			}
+		}
 	case *Vxlan:
 		addVxlanAttrs(link, linkInfo)
 	case *Bond:
@@ -2153,6 +2194,13 @@ func parseVlanData(link Link, data []syscall.NetlinkRouteAttr) {
 func parseVxlanData(link Link, data []syscall.NetlinkRouteAttr) {
 	vxlan := link.(*Vxlan)
 	for _, datum := range data {
+		// NOTE(vish): Apparently some messages can be sent with no value.
+		//             We special case GBP here to not change existing
+		//             functionality. It appears that GBP sends a datum.Value
+		//             of null.
+		if len(datum.Value) == 0 && datum.Attr.Type != nl.IFLA_VXLAN_GBP {
+			continue
+		}
 		switch datum.Attr.Type {
 		case nl.IFLA_VXLAN_ID:
 			vxlan.VxlanId = int(native.Uint32(datum.Value[0:4]))
@@ -2189,11 +2237,7 @@ func parseVxlanData(link Link, data []syscall.NetlinkRouteAttr) {
 		case nl.IFLA_VXLAN_GBP:
 			vxlan.GBP = true
 		case nl.IFLA_VXLAN_FLOWBASED:
-			// NOTE(vish): Apparently this message can be sent with no value.
-			//             Unclear if the others  be sent that way as well.
-			if len(datum.Value) > 0 {
-				vxlan.FlowBased = int8(datum.Value[0]) != 0
-			}
+			vxlan.FlowBased = int8(datum.Value[0]) != 0
 		case nl.IFLA_VXLAN_AGEING:
 			vxlan.Age = int(native.Uint32(datum.Value[0:4]))
 			vxlan.NoAge = vxlan.Age == 0
@@ -2952,6 +2996,24 @@ func parseVfInfo(data []syscall.NetlinkRouteAttr, id int) VfInfo {
 			vfr := nl.DeserializeVfRate(element.Value[:])
 			vf.MaxTxRate = vfr.MaxTxRate
 			vf.MinTxRate = vfr.MinTxRate
+		case nl.IFLA_VF_STATS:
+			vfstats := nl.DeserializeVfStats(element.Value[:])
+			vf.RxPackets = vfstats.RxPackets
+			vf.TxPackets = vfstats.TxPackets
+			vf.RxBytes = vfstats.RxBytes
+			vf.TxBytes = vfstats.TxBytes
+			vf.Multicast = vfstats.Multicast
+			vf.Broadcast = vfstats.Broadcast
+			vf.RxDropped = vfstats.RxDropped
+			vf.TxDropped = vfstats.TxDropped
+
+		case nl.IFLA_VF_RSS_QUERY_EN:
+			result := nl.DeserializeVfRssQueryEn(element.Value)
+			vf.RssQuery = result.Setting
+
+		case nl.IFLA_VF_TRUST:
+			result := nl.DeserializeVfTrust(element.Value)
+			vf.Trust = result.Setting
 		}
 	}
 	return vf

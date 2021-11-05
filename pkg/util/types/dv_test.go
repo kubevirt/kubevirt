@@ -33,7 +33,7 @@ import (
 	virtv1 "kubevirt.io/client-go/apis/core/v1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 var _ = Describe("DataVolume utils test", func() {
