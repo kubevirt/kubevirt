@@ -22,6 +22,8 @@
 package nodelabeller
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -107,9 +109,21 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	It("should run node-labelling", func() {
+		expectNodePatch()
 		res := nlController.execute()
 		Expect(res).To(BeTrue(), "labeller should end with true result")
-		Expect(nlController.queue.Len()).To(Equal(0), "labeller should process all nodes from queue")
+		Consistently(func() int {
+			return nlController.queue.Len()
+		}, 5*time.Second, time.Second).Should(Equal(0), "labeller should process all nodes from queue")
+	})
+
+	It("should re-queue node if node-labelling fail", func() {
+		// node labelling will fail because the Patch executed inside execute() will fail due to missed Reactor
+		res := nlController.execute()
+		Expect(res).To(BeTrue(), "labeller should end with true result")
+		Eventually(func() int {
+			return nlController.queue.Len()
+		}, 5*time.Second, time.Second).Should(Equal(1), "node should be re-queued if labeller process fails")
 	})
 
 	It("should add host cpu model label", func() {
