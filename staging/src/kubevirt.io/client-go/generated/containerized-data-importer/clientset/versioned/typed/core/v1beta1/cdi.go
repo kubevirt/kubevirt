@@ -28,7 +28,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	scheme "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // CDIsGetter has a method to return a CDIInterface.

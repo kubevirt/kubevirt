@@ -34,7 +34,7 @@ import (
 
 	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/client-go/precond"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // For versioning of the virt-handler and -launcher communication,

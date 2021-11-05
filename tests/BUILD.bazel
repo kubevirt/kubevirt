@@ -76,7 +76,7 @@ go_library(
         "//vendor/k8s.io/client-go/transport/spdy:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )
 
@@ -263,7 +263,7 @@ go_test(
         "//vendor/k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
         "//vendor/kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api:go_default_library",
         "//vendor/kubevirt.io/qe-tools/pkg/ginkgo-reporters:go_default_library",
     ],
