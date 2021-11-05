@@ -4545,39 +4545,27 @@ rpm(
 )
 
 rpm(
-    name = "selinux-policy-0__3.14.3-81.el8.aarch64",
-    sha256 = "0e7146e32428d200e9f338fcfe8497bd0d4a03ae585ade627ca427dbf69cd31f",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/selinux-policy-3.14.3-81.el8.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/0e7146e32428d200e9f338fcfe8497bd0d4a03ae585ade627ca427dbf69cd31f",
-    ],
+    name = "selinux-policy-0__3.14.3-82.el8.aarch64",
+    sha256 = "49dac6ba95d86c4bb9239d9af49cee8fa667bd6f2c06c6c32254afc3b1b3b2ff",
+    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/selinux-policy-3.14.3-82.el8.noarch.rpm"],
 )
 
 rpm(
-    name = "selinux-policy-0__3.14.3-81.el8.x86_64",
-    sha256 = "0e7146e32428d200e9f338fcfe8497bd0d4a03ae585ade627ca427dbf69cd31f",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/selinux-policy-3.14.3-81.el8.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/0e7146e32428d200e9f338fcfe8497bd0d4a03ae585ade627ca427dbf69cd31f",
-    ],
+    name = "selinux-policy-0__3.14.3-82.el8.x86_64",
+    sha256 = "49dac6ba95d86c4bb9239d9af49cee8fa667bd6f2c06c6c32254afc3b1b3b2ff",
+    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/selinux-policy-3.14.3-82.el8.noarch.rpm"],
 )
 
 rpm(
-    name = "selinux-policy-targeted-0__3.14.3-81.el8.aarch64",
-    sha256 = "af81e8bf5f4ddfba36878579b47f98e3aac94031beb38716d46c704ff0ae3f02",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/selinux-policy-targeted-3.14.3-81.el8.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/af81e8bf5f4ddfba36878579b47f98e3aac94031beb38716d46c704ff0ae3f02",
-    ],
+    name = "selinux-policy-targeted-0__3.14.3-82.el8.aarch64",
+    sha256 = "7c02f10bd1dca67e81291896ee0c7058c9e1d9c98e8b5904d002ea5265b26606",
+    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/selinux-policy-targeted-3.14.3-82.el8.noarch.rpm"],
 )
 
 rpm(
-    name = "selinux-policy-targeted-0__3.14.3-81.el8.x86_64",
-    sha256 = "af81e8bf5f4ddfba36878579b47f98e3aac94031beb38716d46c704ff0ae3f02",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/selinux-policy-targeted-3.14.3-81.el8.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/af81e8bf5f4ddfba36878579b47f98e3aac94031beb38716d46c704ff0ae3f02",
-    ],
+    name = "selinux-policy-targeted-0__3.14.3-82.el8.x86_64",
+    sha256 = "7c02f10bd1dca67e81291896ee0c7058c9e1d9c98e8b5904d002ea5265b26606",
+    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/selinux-policy-targeted-3.14.3-82.el8.noarch.rpm"],
 )
 
 rpm(
@@ -4887,21 +4875,15 @@ rpm(
 )
 
 rpm(
-    name = "tzdata-0__2021c-1.el8.aarch64",
-    sha256 = "83c6cd1b69b015a8686360373abcac7ac84464f83572717ec200d19b07a7da56",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/tzdata-2021c-1.el8.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/83c6cd1b69b015a8686360373abcac7ac84464f83572717ec200d19b07a7da56",
-    ],
+    name = "tzdata-0__2021e-1.el8.aarch64",
+    sha256 = "6ae03d640e42eb1057d2438374025587c108a5a5eef91aa0fbca48c530140b78",
+    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/tzdata-2021e-1.el8.noarch.rpm"],
 )
 
 rpm(
-    name = "tzdata-0__2021c-1.el8.x86_64",
-    sha256 = "83c6cd1b69b015a8686360373abcac7ac84464f83572717ec200d19b07a7da56",
-    urls = [
-        "http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/tzdata-2021c-1.el8.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/83c6cd1b69b015a8686360373abcac7ac84464f83572717ec200d19b07a7da56",
-    ],
+    name = "tzdata-0__2021e-1.el8.x86_64",
+    sha256 = "6ae03d640e42eb1057d2438374025587c108a5a5eef91aa0fbca48c530140b78",
+    urls = ["http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/Packages/tzdata-2021e-1.el8.noarch.rpm"],
 )
 
 rpm(
