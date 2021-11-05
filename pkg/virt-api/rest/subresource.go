@@ -325,7 +325,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	}
 
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
-	err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(bodyString))
+	err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	if err != nil {
 		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
@@ -417,8 +417,8 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 
 	startPaused := false
 	startChangeRequestData := make(map[string]string)
+	bodyStruct := &v1.StartOptions{}
 	if request.Request.Body != nil {
-		bodyStruct := &v1.StartOptions{}
 		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
 		switch err {
 		case io.EOF, nil:
@@ -459,11 +459,11 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 				return
 			}
 			log.Log.Object(vm).V(4).Infof("Patching VM status: %s", patchString)
-			patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patchString))
+			patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patchString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		} else {
 			patchString := getRunningJson(vm, true)
 			log.Log.Object(vm).V(4).Infof("Patching VM: %s", patchString)
-			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), types.MergePatchType, []byte(patchString))
+			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), types.MergePatchType, []byte(patchString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		}
 
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
@@ -490,7 +490,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 		log.Log.Object(vm).V(4).Infof("Patching VM status: %s", bodyString)
-		patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(bodyString))
+		patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	case v1.RunStrategyAlways:
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", v1.RunStrategyAlways)), response)
 		return
@@ -585,11 +585,11 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			return
 		}
 		log.Log.Object(vm).V(4).Infof("Patching VM status: %s", bodyString)
-		patchErr = app.statusUpdater.PatchStatus(vm, patchType, []byte(bodyString))
+		patchErr = app.statusUpdater.PatchStatus(vm, patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways:
 		bodyString := getRunningJson(vm, false)
 		log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
-		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
+		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	}
 
 	if patchErr != nil {
@@ -1164,7 +1164,7 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 	}
 
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", patch)
-	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch)); err != nil {
+	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).V(1).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {

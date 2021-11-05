@@ -54,11 +54,12 @@ const (
 
 var (
 	forceRestart bool
-	gracePeriod  int = -1
+	gracePeriod  int64 = -1
 	volumeName   string
 	serial       string
 	persist      bool
 	startPaused  bool
+	dryRun       bool
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -73,6 +74,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&startPaused, "paused", false, "--paused=false: If set to true, start virtual machine in paused state")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -89,8 +91,9 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&forceRestart, "force", forceRestart, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
-	cmd.Flags().IntVar(&gracePeriod, "grace-period", gracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
+	cmd.Flags().BoolVar(&forceRestart, "force", false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
+	cmd.Flags().Int64Var(&gracePeriod, "grace-period", -1, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -106,8 +109,9 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(args)
 		},
 	}
-	cmd.Flags().BoolVar(&forceRestart, "force", forceRestart, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
-	cmd.Flags().IntVar(&gracePeriod, "grace-period", gracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
+	cmd.Flags().BoolVar(&forceRestart, "force", false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
+	cmd.Flags().Int64Var(&gracePeriod, "grace-period", -1, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -328,8 +332,15 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 	return nil
 }
 
-func gracePeriodIsSet(period int) bool {
+func gracePeriodIsSet(period int64) bool {
 	return period != notDefinedGracePeriod
+}
+
+func getDryRunOption(dryRun bool) []string {
+	if dryRun {
+		return []string{metav1.DryRunAll}
+	}
+	return nil
 }
 
 func (o *Command) Run(args []string) error {
@@ -346,9 +357,13 @@ func (o *Command) Run(args []string) error {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}
 
+	dryRunOption := getDryRunOption(dryRun)
+	if len(dryRunOption) > 0 && dryRunOption[0] == metav1.DryRunAll {
+		fmt.Printf("Dry Run execution\n")
+	}
 	switch o.command {
 	case COMMAND_START:
-		err = virtClient.VirtualMachine(namespace).Start(vmiName, &v1.StartOptions{Paused: startPaused})
+		err = virtClient.VirtualMachine(namespace).Start(vmiName, &v1.StartOptions{Paused: startPaused, DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error starting VirtualMachine %v", err)
 		}
@@ -358,7 +373,7 @@ func (o *Command) Run(args []string) error {
 		}
 		if forceRestart {
 			if gracePeriodIsSet(gracePeriod) {
-				err = virtClient.VirtualMachine(namespace).ForceStop(vmiName, gracePeriod)
+				err = virtClient.VirtualMachine(namespace).ForceStop(vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: dryRunOption})
 				if err != nil {
 					return fmt.Errorf("Error force stoping VirtualMachine, %v", err)
 				}
@@ -367,7 +382,7 @@ func (o *Command) Run(args []string) error {
 			}
 			break
 		}
-		err = virtClient.VirtualMachine(namespace).Stop(vmiName)
+		err = virtClient.VirtualMachine(namespace).Stop(vmiName, &v1.StopOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error stopping VirtualMachine %v", err)
 		}
@@ -377,7 +392,7 @@ func (o *Command) Run(args []string) error {
 		}
 		if forceRestart {
 			if gracePeriod != -1 {
-				err = virtClient.VirtualMachine(namespace).ForceRestart(vmiName, gracePeriod)
+				err = virtClient.VirtualMachine(namespace).ForceRestart(vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
 				if err != nil {
 					return fmt.Errorf("Error restarting VirtualMachine, %v", err)
 				}
@@ -386,7 +401,7 @@ func (o *Command) Run(args []string) error {
 			}
 			break
 		}
-		err = virtClient.VirtualMachine(namespace).Restart(vmiName)
+		err = virtClient.VirtualMachine(namespace).Restart(vmiName, &v1.RestartOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error restarting VirtualMachine %v", err)
 		}
@@ -441,5 +456,6 @@ func (o *Command) Run(args []string) error {
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
+
 	return nil
 }

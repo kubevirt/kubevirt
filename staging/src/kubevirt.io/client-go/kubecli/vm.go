@@ -128,12 +128,13 @@ func (v *vm) List(options *k8smetav1.ListOptions) (*v12.VirtualMachineList, erro
 	return newVmList, err
 }
 
-func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v12.VirtualMachine, err error) {
+func (v *vm) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v12.VirtualMachine, err error) {
 	result = &v12.VirtualMachine{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource(subresources...).
+		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Name(name).
 		Body(data).
 		Do(context.Background()).
@@ -141,12 +142,13 @@ func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ..
 	return result, err
 }
 
-func (v *vm) PatchStatus(name string, pt types.PatchType, data []byte) (result *v12.VirtualMachine, err error) {
+func (v *vm) PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions) (result *v12.VirtualMachine, err error) {
 	result = &v12.VirtualMachine{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource("status").
+		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Name(name).
 		Body(data).
 		Do(context.Background()).
@@ -168,14 +170,17 @@ func (v *vm) UpdateStatus(vmi *v12.VirtualMachine) (result *v12.VirtualMachine, 
 	return
 }
 
-func (v *vm) Restart(name string) error {
+func (v *vm) Restart(name string, restartOptions *v12.RestartOptions) error {
+	body, err := json.Marshal(restartOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
 	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "restart")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
-func (v *vm) ForceRestart(name string, graceperiod int) error {
-	data := map[string]int{"gracePeriodSeconds": graceperiod}
-	body, err := json.Marshal(data)
+func (v *vm) ForceRestart(name string, restartOptions *v12.RestartOptions) error {
+	body, err := json.Marshal(restartOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
@@ -193,14 +198,17 @@ func (v *vm) Start(name string, startOptions *v12.StartOptions) error {
 	return v.restClient.Put().RequestURI(uri).Body([]byte(optsJson)).Do(context.Background()).Error()
 }
 
-func (v *vm) Stop(name string) error {
+func (v *vm) Stop(name string, stopOptions *v12.StopOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v12.ApiStorageVersion, v.namespace, name, "stop")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+	optsJson, err := json.Marshal(stopOptions)
+	if err != nil {
+		return err
+	}
+	return v.restClient.Put().RequestURI(uri).Body([]byte(optsJson)).Do(context.Background()).Error()
 }
 
-func (v *vm) ForceStop(name string, graceperiod int) error {
-	data := map[string]int{"gracePeriod": graceperiod}
-	body, err := json.Marshal(data)
+func (v *vm) ForceStop(name string, stopOptions *v12.StopOptions) error {
+	body, err := json.Marshal(stopOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}

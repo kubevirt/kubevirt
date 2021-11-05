@@ -506,7 +506,8 @@ func (KubeVirtCondition) SwaggerDoc() map[string]string {
 func (RestartOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "RestartOptions may be provided when deleting an API object.\n\n+k8s:openapi-gen=true",
-		"gracePeriodSeconds": "The duration in seconds before the object should be force-restared. Value must be non-negative integer.\nThe value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the\nspecified type will be used to determine on how much time to give the VMI to restart.\nDefaults to a per object value if not specified. zero means restart immediately.\nAllowed Values: nil and 0\n+optional",
+		"gracePeriodSeconds": "The duration in seconds before the object should be force-restarted. Value must be non-negative integer.\nThe value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the\nspecified type will be used to determine on how much time to give the VMI to restart.\nDefaults to a per object value if not specified. zero means restart immediately.\nAllowed Values: nil and 0\n+optional",
+		"dryRun":             "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }
 
@@ -514,6 +515,7 @@ func (StartOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "StartOptions may be provided on start request.\n\n+k8s:openapi-gen=true",
 		"paused": "Indicates that VM will be started in paused state.\n+optional",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }
 
@@ -521,6 +523,7 @@ func (StopOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "StopOptions may be provided when deleting an API object.\n\n+k8s:openapi-gen=true",
 		"gracePeriod": "this updates the VMIs terminationGracePeriodSeconds during shutdown\n+optional",
+		"dryRun":      "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }
 

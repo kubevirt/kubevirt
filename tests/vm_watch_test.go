@@ -399,7 +399,7 @@ var _ = Describe("[rfe_id:3423][crit:high][arm64][vendor:cnv-qe@redhat.com][leve
 			"VMI should be in the Running phase")
 
 		// Restart the VMI
-		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name)
+		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name, &v12.RestartOptions{})
 		Expect(err).ToNot(HaveOccurred(), "VMI should have been restarted")
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, statusChangeTimeout)
