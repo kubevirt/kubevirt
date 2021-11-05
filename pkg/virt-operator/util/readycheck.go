@@ -75,7 +75,7 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 		return false
 	}
 
-	return true
+	return podsReady == daemonset.Status.DesiredNumberScheduled
 }
 
 func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores Stores) bool {
