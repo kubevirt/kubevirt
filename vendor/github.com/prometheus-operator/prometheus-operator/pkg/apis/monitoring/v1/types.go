@@ -401,6 +401,20 @@ type PrometheusSpec struct {
 	// entire scrape will be treated as failed. 0 means no limit.
 	// Only valid in Prometheus versions 2.27.0 and newer.
 	EnforcedLabelValueLengthLimit *uint64 `json:"enforcedLabelValueLengthLimit,omitempty"`
+	// EnforcedBodySizeLimit defines the maximum size of uncompressed response body
+	// that will be accepted by Prometheus. Targets responding with a body larger than this many bytes
+	// will cause the scrape to fail. Example: 100MB.
+	// If defined, the limit will apply to all service/pod monitors and probes.
+	// This is an experimental feature, this behaviour could
+	// change or be removed in the future.
+	// Only valid in Prometheus versions 2.28.0 and newer.
+	EnforcedBodySizeLimit string `json:"enforcedBodySizeLimit,omitempty"`
+	// Minimum number of seconds for which a newly created pod should be ready
+	// without any of its container crashing for it to be considered available.
+	// Defaults to 0 (pod will be considered available as soon as it is ready)
+	// This is an alpha field and requires enabling StatefulSetMinReadySeconds feature gate.
+	// +optional
+	MinReadySeconds *uint32 `json:"minReadySeconds,omitempty"`
 }
 
 // PrometheusRuleExcludeConfig enables users to configure excluded PrometheusRule names and their namespaces
@@ -658,6 +672,9 @@ type ThanosSpec struct {
 	MinTime string `json:"minTime,omitempty"`
 	// ReadyTimeout is the maximum time Thanos sidecar will wait for Prometheus to start. Eg 10m
 	ReadyTimeout string `json:"readyTimeout,omitempty"`
+	// VolumeMounts allows configuration of additional VolumeMounts on the output StatefulSet definition.
+	// VolumeMounts specified will be appended to other VolumeMounts in the thanos-sidecar container.
+	VolumeMounts []v1.VolumeMount `json:"volumeMounts,omitempty"`
 }
 
 // RemoteWriteSpec defines the remote_write configuration for prometheus.
@@ -1050,6 +1067,8 @@ type ProbeSpec struct {
 	BasicAuth *BasicAuth `json:"basicAuth,omitempty"`
 	// OAuth2 for the URL. Only valid in Prometheus versions 2.27.0 and newer.
 	OAuth2 *OAuth2 `json:"oauth2,omitempty"`
+	// MetricRelabelConfigs to apply to samples before ingestion.
+	MetricRelabelConfigs []*RelabelConfig `json:"metricRelabelings,omitempty"`
 	// Authorization section for this endpoint
 	Authorization *SafeAuthorization `json:"authorization,omitempty"`
 	// SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.
@@ -1548,6 +1567,12 @@ type AlertmanagerSpec struct {
 	// Namespaces to be selected for AlertmanagerConfig discovery. If nil, only
 	// check own namespace.
 	AlertmanagerConfigNamespaceSelector *metav1.LabelSelector `json:"alertmanagerConfigNamespaceSelector,omitempty"`
+	// Minimum number of seconds for which a newly created pod should be ready
+	// without any of its container crashing for it to be considered available.
+	// Defaults to 0 (pod will be considered available as soon as it is ready)
+	// This is an alpha field and requires enabling StatefulSetMinReadySeconds feature gate.
+	// +optional
+	MinReadySeconds *uint32 `json:"minReadySeconds,omitempty"`
 }
 
 // AlertmanagerList is a list of Alertmanagers.
@@ -1692,7 +1717,7 @@ type ProbeTLSConfig struct {
 }
 
 // SafeAuthorization specifies a subset of the Authorization struct, that is
-// safe for use in Endpoints (no CrendetialsFile field)
+// safe for use in Endpoints (no CredentialsFile field)
 // +k8s:openapi-gen=true
 type SafeAuthorization struct {
 	// Set the authentication type. Defaults to Bearer, Basic will cause an
