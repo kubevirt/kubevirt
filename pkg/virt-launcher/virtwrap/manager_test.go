@@ -1746,23 +1746,6 @@ var _ = Describe("Manager", func() {
 				Expect(libvirtmanager.InterfacesStatus(fakeDomInterfaces)).To(BeNil())
 			})
 
-			It("should return merged list when interfaces exists on both the cache and argument", func() {
-				expectedResult := []api.InterfaceStatus{
-					{
-						Name: fakeInterfaces[0].Name,
-						Mac:  fakeInterfaces[0].Mac,
-					},
-					{
-						Name: fakeDomInterfaces[0].Alias.GetName(),
-						Mac:  fakeDomInterfaces[0].MAC.MAC,
-					},
-				}
-				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
-
-				interfaces := libvirtmanager.InterfacesStatus(fakeDomInterfaces)
-				Expect(interfaces).To(Equal(expectedResult))
-			})
-
 			It("should return merged list when interfaces exists on the cache only", func() {
 				expectedResult := []api.InterfaceStatus{
 					{

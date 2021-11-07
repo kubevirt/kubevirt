@@ -201,11 +201,6 @@ var _ = Describe("Qemu agent poller", func() {
 					IPs:           []string{"1.2.3.4", "fe80::ff:1111:2222"},
 					InterfaceName: "eth5",
 				})
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Name: "net2",
-					Mac:  "02:11:11:b0:17:66",
-				})
 
 			Expect(interfaceStatuses).To(Equal(expectedStatuses))
 		})
