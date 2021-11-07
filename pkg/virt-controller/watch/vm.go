@@ -338,18 +338,54 @@ func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1
 
 	for _, template := range vm.Spec.DataVolumeTemplates {
 		// get DataVolume from cache for each templated dataVolume
-		dvKey := controller.NamespacedKey(vm.Namespace, template.Name)
-		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
-
+		dv, err := c.getDataVolumeFromCache(vm.Namespace, template.Name)
 		if err != nil {
 			return dataVolumes, err
-		} else if !exists {
+		} else if dv == nil {
 			continue
 		}
 
-		dataVolumes = append(dataVolumes, obj.(*cdiv1.DataVolume))
+		dataVolumes = append(dataVolumes, dv)
 	}
 	return dataVolumes, nil
+}
+
+func (c *VMController) getDataVolumeFromCache(namespace, name string) (*cdiv1.DataVolume, error) {
+	key := controller.NamespacedKey(namespace, name)
+	obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(key)
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching DataVolume %s: %v", key, err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	dv, ok := obj.(*cdiv1.DataVolume)
+	if !ok {
+		return nil, fmt.Errorf("error converting object to DataVolume: object is of type %T", obj)
+	}
+
+	return dv, nil
+}
+
+func (c *VMController) getPersistentVolumeClaimFromCache(namespace, name string) (*k8score.PersistentVolumeClaim, error) {
+	key := controller.NamespacedKey(namespace, name)
+	obj, exists, err := c.pvcInformer.GetStore().GetByKey(key)
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching PersistentVolumeClaim %s: %v", key, err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	pvc, ok := obj.(*k8score.PersistentVolumeClaim)
+	if !ok {
+		return nil, fmt.Errorf("error converting object to PersistentVolumeClaim: object is of type %T", obj)
+	}
+
+	return pvc, nil
 }
 
 func createDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) (*cdiv1.DataVolume, error) {
@@ -478,81 +514,23 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 	return ready, nil
 }
 
-// areDataVolumesReady determines whether all DataVolumes specified for a VM
-// have been successfully provisioned, and are ready for consumption.
-// Note that DataVolumes in WaitForFirstConsumer phase are not regarded as ready.
-func (c *VMController) areDataVolumesReady(vm *virtv1.VirtualMachine) bool {
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		if volume.DataVolume == nil {
-			continue
-		}
-
-		dvKey := controller.NamespacedKey(vm.Namespace, volume.DataVolume.Name)
-		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
-		if err != nil {
-			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
-			return false
-		}
-		if !exists {
-			return false
-		}
-
-		dv := dvObj.(*cdiv1.DataVolume)
-		if dv.Status.Phase != cdiv1.Succeeded {
-			return false
-		}
-	}
-
-	return true
-}
-
-// arePVCVolumesReady determines whether all PersistentVolumeClaims specified for a VM
-// have been successfully provisioned, and are ready for consumption.
-func (c *VMController) arePVCVolumesReady(vm *virtv1.VirtualMachine) bool {
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		if volume.PersistentVolumeClaim == nil {
-			continue
-		}
-
-		pvcKey := controller.NamespacedKey(vm.Namespace, volume.PersistentVolumeClaim.ClaimName)
-		pvcObj, exists, err := c.pvcInformer.GetStore().GetByKey(pvcKey)
-		if err != nil {
-			log.Log.Object(vm).Errorf("Error fetching PersistentVolumeClaim %s: %v", pvcKey, err)
-			return false
-		}
-		if !exists {
-			return false
-		}
-
-		pvc := pvcObj.(*k8score.PersistentVolumeClaim)
-		if pvc.Status.Phase != k8score.ClaimBound {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
 		if volume.DataVolume == nil {
 			continue
 		}
 
-		dvKey := controller.NamespacedKey(vm.Namespace, volume.DataVolume.Name)
-		dvObj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(dvKey)
+		dv, err := c.getDataVolumeFromCache(vm.Namespace, volume.DataVolume.Name)
 		if err != nil {
-			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", dvKey, err)
+			log.Log.Object(vm).Errorf("Error fetching DataVolume %s: %v", volume.DataVolume.Name, err)
 			continue
 		}
-		if !exists {
+		if dv == nil {
 			continue
 		}
-
-		dv := dvObj.(*cdiv1.DataVolume)
 
 		if dv.Status.Phase == cdiv1.Failed {
-			log.Log.Object(vm).Errorf("DataVolume %s is in Failed phase", dvKey)
+			log.Log.Object(vm).Errorf("DataVolume %s is in Failed phase", volume.DataVolume.Name)
 			return true
 		}
 
@@ -560,7 +538,8 @@ func (c *VMController) hasDataVolumeErrors(vm *virtv1.VirtualMachine) bool {
 		if dvRunningCond != nil &&
 			dvRunningCond.Status == k8score.ConditionFalse &&
 			dvRunningCond.Reason == "Error" {
-			log.Log.Object(vm).Errorf("DataVolume %s importer has stopped running due to an error: %v", dvKey, dvRunningCond.Message)
+			log.Log.Object(vm).Errorf("DataVolume %s importer has stopped running due to an error: %v",
+				volume.DataVolume.Name, dvRunningCond.Message)
 			return true
 		}
 	}
@@ -629,25 +608,13 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
-	isStopRequestForVMI := func(vm *virtv1.VirtualMachine) bool {
-		if len(vm.Status.StateChangeRequests) != 0 {
-			stateChange := vm.Status.StateChangeRequests[0]
-			if stateChange.Action == virtv1.StopRequest &&
-				stateChange.UID != nil &&
-				*stateChange.UID == vmi.UID {
-				return true
-			}
-		}
-		return false
-	}
-
 	switch runStrategy {
 	case virtv1.RunStrategyAlways:
 		// For this RunStrategy, a VMI should always be running. If a StateChangeRequest
 		// asks to stop a VMI, a new one must be immediately re-started.
 		if vmi != nil {
 			var forceRestart bool
-			if forceRestart = isStopRequestForVMI(vm); forceRestart {
+			if forceRestart = hasStopRequestForVMI(vm, vmi); forceRestart {
 				log.Log.Object(vm).Infof("processing forced restart request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 			}
 
@@ -688,7 +655,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		// If a VMI enters the Succeeded phase, it should not be restarted.
 		if vmi != nil {
 			var forceStop bool
-			if forceStop = isStopRequestForVMI(vm); forceStop {
+			if forceStop = hasStopRequestForVMI(vm, vmi); forceStop {
 				log.Log.Object(vm).Infof("processing stop request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 
 			}
@@ -727,7 +694,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		if vmi != nil {
 			log.Log.Object(vm).V(4).Info("VMI exists")
 
-			if forceStop := isStopRequestForVMI(vm); forceStop {
+			if forceStop := hasStopRequestForVMI(vm, vmi); forceStop {
 				log.Log.Object(vm).Infof("%s with VMI in phase %s due to stop request and VM runStrategy: %s", vmi.Status.Phase, stoppingVmMsg, runStrategy)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
@@ -738,15 +705,9 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				return nil
 			}
 		} else {
-			forceStart := false
-			if len(vm.Status.StateChangeRequests) != 0 {
-				stateChange := vm.Status.StateChangeRequests[0]
-				if stateChange.Action == virtv1.StartRequest {
-					log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
-					forceStart = true
-				}
-			}
-			if forceStart {
+			if hasStartRequest(vm) {
+				log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
+
 				err := c.startVMI(vm)
 				if err != nil {
 					return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
@@ -759,21 +720,18 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		// For this runStrategy, no VMI should be running under any circumstances.
 		// Set RunStrategyAlways/running = true if VM has StartRequest(start paused case).
 		if vmi == nil {
-			if len(vm.Status.StateChangeRequests) != 0 {
-				stateChange := vm.Status.StateChangeRequests[0]
-				if stateChange.Action == virtv1.StartRequest {
-					vmCopy := vm.DeepCopy()
-					runStrategy := virtv1.RunStrategyAlways
-					running := true
+			if hasStartRequest(vm) {
+				vmCopy := vm.DeepCopy()
+				runStrategy := virtv1.RunStrategyAlways
+				running := true
 
-					if vmCopy.Spec.RunStrategy != nil {
-						vmCopy.Spec.RunStrategy = &runStrategy
-					} else {
-						vmCopy.Spec.Running = &running
-					}
-					_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
-					return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
+				if vmCopy.Spec.RunStrategy != nil {
+					vmCopy.Spec.RunStrategy = &runStrategy
+				} else {
+					vmCopy.Spec.Running = &running
 				}
+				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+				return &syncErrorImpl{fmt.Errorf("Failure while starting VMI: %v", err), FailedCreateReason}
 			}
 			return nil
 		}
@@ -817,6 +775,35 @@ func (c *VMController) isVMIStopExpected(vm *virtv1.VirtualMachine) bool {
 
 	_, dels := expectations.GetExpectations()
 	return dels > 0
+}
+
+// isSetToStart determines whether a VM is configured to be started (running).
+func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		return false
+	}
+
+	switch runStrategy {
+	case virtv1.RunStrategyAlways:
+		return true
+	case virtv1.RunStrategyHalted:
+		return false
+	case virtv1.RunStrategyManual:
+		if vmi != nil {
+			return !hasStopRequestForVMI(vm, vmi)
+		}
+		return hasStartRequest(vm)
+	case virtv1.RunStrategyRerunOnFailure:
+		if vmi != nil {
+			return vmi.Status.Phase != virtv1.Succeeded
+		}
+		return true
+	default:
+		// Shouldn't ever be here, but...
+		return false
+	}
 }
 
 func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
@@ -1151,16 +1138,35 @@ func (c *VMController) applyFlavorToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.V
 }
 
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {
-	if len(vm.Status.StateChangeRequests) != 0 {
-		stateChange := vm.Status.StateChangeRequests[0]
-		if stateChange.Action == virtv1.StartRequest {
-			paused, hasPaused := stateChange.Data[virtv1.StartRequestDataPausedKey]
-			if hasPaused && paused == virtv1.StartRequestDataPausedTrue {
-				return true
-			}
-		}
+	if len(vm.Status.StateChangeRequests) == 0 {
+		return false
 	}
-	return false
+
+	stateChange := vm.Status.StateChangeRequests[0]
+	pausedValue, hasPaused := stateChange.Data[virtv1.StartRequestDataPausedKey]
+	return stateChange.Action == virtv1.StartRequest &&
+		hasPaused &&
+		pausedValue == virtv1.StartRequestDataPausedTrue
+}
+
+func hasStartRequest(vm *virtv1.VirtualMachine) bool {
+	if len(vm.Status.StateChangeRequests) == 0 {
+		return false
+	}
+
+	stateChange := vm.Status.StateChangeRequests[0]
+	return stateChange.Action == virtv1.StartRequest
+}
+
+func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if len(vm.Status.StateChangeRequests) == 0 {
+		return false
+	}
+
+	stateChange := vm.Status.StateChangeRequests[0]
+	return stateChange.Action == virtv1.StopRequest &&
+		stateChange.UID != nil &&
+		*stateChange.UID == vmi.UID
 }
 
 // no special meaning, randomly generated on my box.
@@ -1697,6 +1703,7 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 		{virtv1.VirtualMachineStatusDataVolumeError, c.isVirtualMachineStatusDataVolumeError},
 		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
+		{virtv1.VirtualMachineStatusWaitingForVolumeBinding, c.isVirtualMachineStatusWaitingForVolumeBinding},
 		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
 		{virtv1.VirtualMachineStatusImagePullBackOff, c.isVirtualMachineStatusImagePullBackOff},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
@@ -1748,7 +1755,61 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return !c.areDataVolumesReady(vm) || !c.arePVCVolumesReady(vm)
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.DataVolume == nil {
+			continue
+		}
+
+		dv, err := c.getDataVolumeFromCache(vm.Namespace, volume.DataVolume.Name)
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error fetching DataVolume while determining virtual machine status: %v", err)
+			continue
+		}
+		if dv == nil {
+			continue
+		}
+
+		// Skip DataVolumes with unbound PVCs since these cannot possibly be provisioning
+		dvConditions := controller.NewDataVolumeConditionManager()
+		if !dvConditions.HasConditionWithStatus(dv, cdiv1.DataVolumeBound, k8score.ConditionTrue) {
+			continue
+		}
+
+		if dv.Status.Phase != cdiv1.Succeeded {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isVirtualMachineStatusWaitingForVolumeBinding
+func (c *VMController) isVirtualMachineStatusWaitingForVolumeBinding(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if !isSetToStart(vm, vmi) {
+		return false
+	}
+
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		claimName := typesutil.PVCNameFromVirtVolume(&volume)
+		if claimName == "" {
+			continue
+		}
+
+		pvc, err := c.getPersistentVolumeClaimFromCache(vm.Namespace, claimName)
+		if err != nil {
+			log.Log.Object(vm).Errorf("Error fetching PersistentVolumeClaim while determining virtual machine status: %v", err)
+			continue
+		}
+		if pvc == nil {
+			continue
+		}
+
+		if pvc.Status.Phase != k8score.ClaimBound {
+			return true
+		}
+	}
+
+	return false
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
