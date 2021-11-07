@@ -757,6 +757,7 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		params.DisksURISet = true
 	}
 
+	log.Log.Object(vmi).Infof("generated migration parameters: %+v", params)
 	return params, nil
 }
 
