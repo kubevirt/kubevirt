@@ -287,13 +287,19 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
 			},
 		},
 	}
-	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{
-		Status: &extv1.CustomResourceSubresourceStatus{},
-	})
+	err := addFieldsToAllVersions(crd,
+		[]extv1.CustomResourceColumnDefinition{
+			{Name: "Phase", Type: "string", JSONPath: ".status.phase",
+				Description: "The current phase of VM instance migration"},
+			{Name: "VMI", Type: "string", JSONPath: ".spec.vmiName",
+				Description: "The name of the VMI to perform the migration on"},
+		}, &extv1.CustomResourceSubresources{
+			Status: &extv1.CustomResourceSubresourceStatus{},
+		})
+
 	if err != nil {
 		return nil, err
 	}
-
 	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
