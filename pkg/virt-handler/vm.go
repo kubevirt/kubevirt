@@ -497,12 +497,8 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
 	}
 
-	pid := res.Pid()
-
 	// check to see if we've already completed phase1 for this vmi
-	cachedPid, exists := d.phase1NetworkSetupCache.Load(vmi.UID)
-
-	if exists && cachedPid == pid {
+	if _, exists := d.phase1NetworkSetupCache.Load(vmi.UID); exists {
 		return nil
 	}
 
@@ -513,6 +509,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		}
 	}
 
+	pid := res.Pid()
 	err = res.DoNetNS(func() error {
 		return netsetup.NewVMNetworkConfigurator(vmi, d.networkCacheStoreFactory).SetupPodNetworkPhase1(pid)
 	})
@@ -521,7 +518,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	}
 
 	// cache that phase 1 has completed for this vmi.
-	d.phase1NetworkSetupCache.Store(vmi.UID, pid)
+	d.phase1NetworkSetupCache.Store(vmi.UID, 0)
 
 	return nil
 }
