@@ -2,8 +2,6 @@ package storage
 
 import (
 	"context"
-
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -18,8 +16,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/util"
 )
-
-const APPLIANCE_FILES string = "README.fixed, initrd, kernel, root"
 
 type fakeAttacher struct {
 	done chan bool
@@ -91,17 +87,10 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			return ready
 
 		}, 90*time.Second, 2*time.Second).Should(BeTrue())
-		// Verify that the appliance has been extracted before running any tests
-		// We check that all files are present and tar is not running
+		// Verify that the appliance has been extracted before running any tests by checking the done file
 		Eventually(func() bool {
-			output, _, err := execCommandLibguestfsPod(podName, []string{"ls", "-m", "/usr/local/lib/guestfs/appliance"})
-			Expect(err).ToNot(HaveOccurred())
-			if !strings.Contains(output, APPLIANCE_FILES) {
-				return false
-			}
-			output, _, err = execCommandLibguestfsPod(podName, []string{"ps", "-e", "-o", "comm="})
-			Expect(err).ToNot(HaveOccurred())
-			if strings.Contains(output, "tar") {
+			_, _, err := execCommandLibguestfsPod(podName, []string{"ls", "/usr/local/lib/guestfs/done"})
+			if err != nil {
 				return false
 			}
 			return true
