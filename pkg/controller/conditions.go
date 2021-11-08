@@ -19,8 +19,6 @@
 package controller
 
 import (
-	"reflect"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -193,16 +191,7 @@ func (d *VirtualMachineInstanceConditionManager) ConditionsEqual(vmi1, vmi2 *v1.
 	}
 
 	for _, cond1 := range vmi1.Status.Conditions {
-		found := false
-
-		for _, cond2 := range vmi2.Status.Conditions {
-			if reflect.DeepEqual(cond1, cond2) {
-				found = true
-				break
-			}
-		}
-
-		if !found {
+		if !d.HasConditionWithStatusAndReason(vmi2, cond1.Type, cond1.Status, cond1.Reason) {
 			return false
 		}
 	}
@@ -310,6 +299,11 @@ func (d *PodConditionManager) HasConditionWithStatus(pod *k8sv1.Pod, cond k8sv1.
 	return c != nil && c.Status == status
 }
 
+func (d *PodConditionManager) HasConditionWithStatusAndReason(pod *k8sv1.Pod, cond k8sv1.PodConditionType, status k8sv1.ConditionStatus, reason string) bool {
+	c := d.GetCondition(pod, cond)
+	return c != nil && c.Status == status && c.Reason == reason
+}
+
 func (d *PodConditionManager) RemoveCondition(pod *k8sv1.Pod, cond k8sv1.PodConditionType) {
 	var conds []k8sv1.PodCondition
 	for _, c := range pod.Status.Conditions {
@@ -344,16 +338,7 @@ func (d *PodConditionManager) ConditionsEqual(pod1, pod2 *k8sv1.Pod) bool {
 	}
 
 	for _, cond1 := range pod1.Status.Conditions {
-		found := false
-
-		for _, cond2 := range pod2.Status.Conditions {
-			if reflect.DeepEqual(cond1, cond2) {
-				found = true
-				break
-			}
-		}
-
-		if !found {
+		if !d.HasConditionWithStatusAndReason(pod2, cond1.Type, cond1.Status, cond1.Reason) {
 			return false
 		}
 	}
