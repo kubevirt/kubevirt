@@ -99,10 +99,13 @@ func replaceForHostDisk(volumeSource *v1.VolumeSource, volumeName string, pvcVol
 	volumeStatus := pvcVolume[volumeName]
 	isShared := types.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes)
 	file := getPVCDiskImgPath(volumeName, "disk.img")
+	capacity := volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage]
+	// The host-disk must be 4k-aligned. If the volume specifies a misaligned size, shrink it down to the nearest multiple of 4096
+	capacity.Set(util.AlignImageSizeTo4k(capacity.Value(), log.Log.V(2)))
 	volumeSource.HostDisk = &v1.HostDisk{
 		Path:     file,
 		Type:     v1.HostDiskExistsOrCreate,
-		Capacity: volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage],
+		Capacity: capacity,
 		Shared:   &isShared,
 	}
 }
