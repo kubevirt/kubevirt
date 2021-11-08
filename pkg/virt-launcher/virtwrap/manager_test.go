@@ -2354,6 +2354,8 @@ var _ = Describe("Manager helper functions", func() {
 			Expect(capacity).ToNot(Equal(nil))
 
 			expectedSize := int64((1 - fakePercentFloat) * float64(*capacity))
+			// The size is expected to be 4k-aligned
+			expectedSize = expectedSize - expectedSize%4096
 
 			Expect(size).To(Equal(expectedSize))
 		})

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -143,4 +144,17 @@ func IsReadOnlyDisk(disk *v1.Disk) bool {
 	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly == true)
 
 	return isReadOnlyCDRom
+}
+
+func AlignImageSizeTo4k(size int64, logger *log.FilteredLogger) int64 {
+	remainder := size % 4096
+	if remainder == 0 {
+		return size
+	} else {
+		newSize := size - remainder
+		if logger != nil {
+			logger.Warningf("new size is not 4k-aligned. Adjusting from %d down to %d.", size, newSize)
+		}
+		return newSize
+	}
 }

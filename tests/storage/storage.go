@@ -320,7 +320,7 @@ var _ = SIGDescribe("Storage", func() {
 					Name: "emptydisk1",
 					VolumeSource: virtv1.VolumeSource{
 						EmptyDisk: &virtv1.EmptyDiskSource{
-							Capacity: resource.MustParse("2Gi"),
+							Capacity: resource.MustParse("1G"),
 						},
 					},
 				})
@@ -328,10 +328,10 @@ var _ = SIGDescribe("Storage", func() {
 
 				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
-				By("Checking that /dev/vdc has a capacity of 2Gi")
+				By("Checking that /dev/vdc has a capacity of 1G, aligned to 4k")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdc\n"},
-					&expect.BExp{R: "2147483648"}, // 2Gi in bytes
+					&expect.BExp{R: "999997440"}, // 1G in bytes rounded down to nearest 4k boundary
 				}, 10)).To(Succeed())
 
 				By("Checking if we can write to /dev/vdc")
@@ -645,7 +645,7 @@ var _ = SIGDescribe("Storage", func() {
 
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
-							&expect.BExp{R: "1014686208"},
+							&expect.BExp{R: "1014685696"},
 						}, 200)).To(Succeed())
 					}
 

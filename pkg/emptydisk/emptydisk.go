@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -19,11 +20,16 @@ type emptyDiskCreator struct {
 }
 
 func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
-	for _, volume := range vmi.Spec.Volumes {
+	logger := log.Log.Object(vmi)
 
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.EmptyDisk != nil {
 			// qemu-img takes the size in bytes or in Kibibytes/Mebibytes/...; lets take bytes
-			size := strconv.FormatInt(volume.EmptyDisk.Capacity.ToDec().ScaledValue(0), 10)
+			intSize := volume.EmptyDisk.Capacity.ToDec().ScaledValue(0)
+			// round down the size to the nearest 4KiB multiple
+			intSize = util.AlignImageSizeTo4k(intSize, logger.With("volume", volume.Name))
+			// convert the size to string for qemu-img
+			size := strconv.FormatInt(intSize, 10)
 			file := filePathForVolumeName(c.emptyDiskBaseDir, volume.Name)
 			if err := util.MkdirAllWithNosec(c.emptyDiskBaseDir); err != nil {
 				return err
