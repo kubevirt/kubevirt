@@ -269,12 +269,6 @@ type VirtualMachineController struct {
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
 }
 
-type virtLauncherCriticalNetworkError struct {
-	msg string
-}
-
-func (e *virtLauncherCriticalNetworkError) Error() string { return e.msg }
-
 type virtLauncherCriticalSecurebootError struct {
 	msg string
 }
@@ -495,12 +489,12 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 // it results in killing/spawning a posix thread. Only do this if it
 // is absolutely necessary. The cache informs us if this action has
 // already taken place or not for a VMI
-func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineInstance) (bool, error) {
+func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineInstance) error {
 
 	// configure network
 	res, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		return false, fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
 	}
 
 	pid := res.Pid()
@@ -509,33 +503,27 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	cachedPid, exists := d.phase1NetworkSetupCache.Load(vmi.UID)
 
 	if exists && cachedPid == pid {
-		return false, nil
+		return nil
 	}
 
 	if virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi) {
 		err := d.claimDeviceOwnership(vmi, "vhost-net")
 		if err != nil {
-			return true, fmt.Errorf("failed to set up vhost-net device, %s", err)
+			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
 		}
 	}
 
 	err = res.DoNetNS(func() error {
 		return netsetup.NewVMNetworkConfigurator(vmi, d.networkCacheStoreFactory).SetupPodNetworkPhase1(pid)
 	})
-
 	if err != nil {
-		_, critical := err.(*neterrors.CriticalNetworkError)
-		if critical {
-			return true, err
-		}
-		return false, err
-
+		return err
 	}
 
 	// cache that phase 1 has completed for this vmi.
 	d.phase1NetworkSetupCache.Store(vmi.UID, pid)
 
-	return false, nil
+	return nil
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -1269,7 +1257,8 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	d.updatePausedConditions(vmi, domain, condManager)
 
 	// Handle sync error
-	if _, ok := syncError.(*virtLauncherCriticalNetworkError); ok {
+	var criticalNetErr *neterrors.CriticalNetworkError
+	if goerror.As(syncError, &criticalNetErr) {
 		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
 	}
@@ -2550,14 +2539,8 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// configure network inside virt-launcher compute container
-	criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
-	if err != nil {
-		if criticalNetworkError {
-			return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network for migration target: %v", err)}
-		} else {
-			return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
-		}
-
+	if err := d.setPodNetworkPhase1(vmi); err != nil {
+		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
 	}
 
 	err = d.claimDeviceOwnership(vmi, "kvm")
@@ -2644,14 +2627,8 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
-		if err != nil {
-			if criticalNetworkError {
-				return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network: %v", err)}
-			} else {
-				return fmt.Errorf("failed to configure vmi network: %v", err)
-			}
-
+		if err := d.setPodNetworkPhase1(vmi); err != nil {
+			return fmt.Errorf("failed to configure vmi network: %w", err)
 		}
 
 		err = d.claimDeviceOwnership(vmi, "kvm")
