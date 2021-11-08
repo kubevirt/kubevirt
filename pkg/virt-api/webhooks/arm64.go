@@ -32,7 +32,7 @@ import (
 var _false bool = false
 
 const (
-	defaultCPUModel = "host-passthrough"
+	defaultCPUModel = v1.CPUModeHostPassthrough
 )
 
 // verifyInvalidSetting verify if VMI spec contain unavailable setting for arm64, check following items:
@@ -73,17 +73,11 @@ func verifyInvalidSetting(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 
 // setDefaultCPUModel set default cpu model to host-passthrough
 func setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
-	//if vmi doesn't have cpu topology or cpu model set
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		// create cpu topology struct
-		if vmi.Spec.Domain.CPU == nil {
-			vmi.Spec.Domain.CPU = &v1.CPU{}
-		}
-		//set is as vmi cpu model
-		if vmi.Spec.Domain.CPU.Model == "" {
-			vmi.Spec.Domain.CPU.Model = defaultCPUModel
-		}
+	if vmi.Spec.Domain.CPU == nil {
+		vmi.Spec.Domain.CPU = &v1.CPU{}
 	}
+
+	vmi.Spec.Domain.CPU.Model = defaultCPUModel
 }
 
 // setDefaultBootloader set default bootloader to uefi boot

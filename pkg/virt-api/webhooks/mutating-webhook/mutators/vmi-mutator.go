@@ -83,7 +83,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 		// Set VMI defaults
 		log.Log.Object(newVMI).V(4).Info("Apply defaults")
-		mutator.setDefaultCPUModel(newVMI)
 		mutator.setDefaultMachineType(newVMI)
 		mutator.setDefaultResourceRequests(newVMI)
 		mutator.setDefaultGuestCPUTopology(newVMI)
@@ -115,6 +114,8 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 				// if SetVirtualMachineInstanceArm64Defaults fails, it's due to a validation error, which will get caught in the validation webhook after mutation finishes.
 				log.Log.V(2).Infof("Failed to setting for Arm64: %s", err)
 			}
+		} else {
+			mutator.setDefaultCPUModel(newVMI)
 		}
 		if newVMI.IsRealtimeEnabled() {
 			log.Log.V(4).Info("Add realtime node label selector")
@@ -231,15 +232,18 @@ func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineIns
 }
 
 func (mutator *VMIsMutator) setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
-	//if vmi doesn't have cpu topology or cpu model set
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		if defaultCPUModel := mutator.ClusterConfig.GetCPUModel(); defaultCPUModel != "" {
-			// create cpu topology struct
-			if vmi.Spec.Domain.CPU == nil {
-				vmi.Spec.Domain.CPU = &v1.CPU{}
-			}
+	// create cpu topology struct
+	if vmi.Spec.Domain.CPU == nil {
+		vmi.Spec.Domain.CPU = &v1.CPU{}
+	}
+
+	// if vmi doesn't have cpu model set
+	if vmi.Spec.Domain.CPU.Model == "" {
+		if clusterConfigCPUModel := mutator.ClusterConfig.GetCPUModel(); clusterConfigCPUModel != "" {
 			//set is as vmi cpu model
-			vmi.Spec.Domain.CPU.Model = defaultCPUModel
+			vmi.Spec.Domain.CPU.Model = clusterConfigCPUModel
+		} else {
+			vmi.Spec.Domain.CPU.Model = v1.DefaultCPUModel
 		}
 	}
 }

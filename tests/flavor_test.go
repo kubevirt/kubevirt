@@ -219,7 +219,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		Context("CPU", func() {
 			It("[test_id:TODO] should apply flavor to CPU", func() {
-				cpu := &v1.CPU{Sockets: 2, Cores: 1, Threads: 1}
+				cpu := &v1.CPU{Sockets: 2, Cores: 1, Threads: 1, Model: v1.DefaultCPUModel}
 
 				flavor := newVirtualMachineFlavor()
 				flavor.Profiles[0].CPU = cpu

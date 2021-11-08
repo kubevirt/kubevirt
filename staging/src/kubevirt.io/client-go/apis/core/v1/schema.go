@@ -32,6 +32,7 @@ const (
 	IOThreadsPolicyAuto    IOThreadsPolicy = "auto"
 	CPUModeHostPassthrough                 = "host-passthrough"
 	CPUModeHostModel                       = "host-model"
+	DefaultCPUModel                        = CPUModeHostModel
 )
 
 //go:generate swagger-doc
