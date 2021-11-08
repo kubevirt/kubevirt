@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -81,10 +80,17 @@ var _ = SIGDescribe("[rfe_id:6364][[Serial]Guestfs", func() {
 			Expect(guestfsCmd.Execute()).ToNot(HaveOccurred())
 		}()
 		// Waiting until the libguestfs pod is running
-		Eventually(func() corev1.PodPhase {
+		Eventually(func() bool {
 			pod, _ := virtClient.CoreV1().Pods(util.NamespaceTestDefault).Get(context.Background(), podName, metav1.GetOptions{})
-			return pod.Status.Phase
-		}, 90*time.Second, 2*time.Second).Should(Equal(k8sv1.PodRunning))
+			ready := false
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.State.Running != nil {
+					return true
+				}
+			}
+			return ready
+
+		}, 90*time.Second, 2*time.Second).Should(BeTrue())
 		// Verify that the appliance has been extracted before running any tests
 		// We check that all files are present and tar is not running
 		Eventually(func() bool {
