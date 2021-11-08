@@ -88,11 +88,11 @@ func SetDedicatedMigrationNetwork(nad string) *v1.KubeVirt {
 
 	if kv.Spec.Configuration.MigrationConfiguration == nil {
 		kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
-			DedicatedMigrationNetwork: &nad,
+			Network: &nad,
 		}
 	}
 
-	kv.Spec.Configuration.MigrationConfiguration.DedicatedMigrationNetwork = &nad
+	kv.Spec.Configuration.MigrationConfiguration.Network = &nad
 
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
@@ -104,7 +104,7 @@ func ClearDedicatedMigrationNetwork() *v1.KubeVirt {
 	kv := util.GetCurrentKv(virtClient)
 
 	if kv.Spec.Configuration.MigrationConfiguration != nil {
-		kv.Spec.Configuration.MigrationConfiguration.DedicatedMigrationNetwork = nil
+		kv.Spec.Configuration.MigrationConfiguration.Network = nil
 	}
 
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
