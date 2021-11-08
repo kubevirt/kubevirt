@@ -1994,13 +1994,13 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			By("checking if number of attached disks is equal to real disks number")
 			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
 
-			ioNative := string(v1.IONative)
-			ioThreads := string(v1.IOThreads)
+			ioNative := v1.IONative
+			ioThreads := v1.IOThreads
 			ioNone := ""
 
 			By("checking if default io has not been set for sparsed file")
 			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
-			Expect(disks[0].Driver.IO).To(Equal(ioNone))
+			Expect(string(disks[0].Driver.IO)).To(Equal(ioNone))
 
 			By("checking if default io mode has been set to 'native' for block device")
 			Expect(disks[1].Alias.GetName()).To(Equal("block-pvc"))
@@ -2012,7 +2012,7 @@ var _ = Describe("[sig-compute]Configurations", func() {
 			// As such, it behaves as plugging in a hostDisk - check disks[6].
 			if tests.IsRunningOnKindInfra() {
 				// The chache mode is set to cacheWritethrough
-				Expect(disks[2].Driver.IO).To(Equal(ioNone))
+				Expect(string(disks[2].Driver.IO)).To(Equal(ioNone))
 			} else {
 				// The chache mode is set to cacheNone
 				Expect(disks[2].Driver.IO).To(Equal(ioNative))

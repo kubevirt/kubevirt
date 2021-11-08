@@ -539,6 +539,7 @@ type Controller struct {
 // BEGIN ControllerDriver
 type ControllerDriver struct {
 	IOThread *uint `xml:"iothread,attr,omitempty"`
+	Queues   *uint `xml:"queues,attr,omitempty"`
 }
 
 // END ControllerDriver
@@ -592,14 +593,14 @@ type DiskTarget struct {
 }
 
 type DiskDriver struct {
-	Cache       string `xml:"cache,attr,omitempty"`
-	ErrorPolicy string `xml:"error_policy,attr,omitempty"`
-	IO          string `xml:"io,attr,omitempty"`
-	Name        string `xml:"name,attr"`
-	Type        string `xml:"type,attr"`
-	IOThread    *uint  `xml:"iothread,attr,omitempty"`
-	Queues      *uint  `xml:"queues,attr,omitempty"`
-	Discard     string `xml:"discard,attr,omitempty"`
+	Cache       string      `xml:"cache,attr,omitempty"`
+	ErrorPolicy string      `xml:"error_policy,attr,omitempty"`
+	IO          v1.DriverIO `xml:"io,attr,omitempty"`
+	Name        string      `xml:"name,attr"`
+	Type        string      `xml:"type,attr"`
+	IOThread    *uint       `xml:"iothread,attr,omitempty"`
+	Queues      *uint       `xml:"queues,attr,omitempty"`
+	Discard     string      `xml:"discard,attr,omitempty"`
 }
 
 type DiskSourceHost struct {
