@@ -2,6 +2,7 @@ FROM fedora:34
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
+
 RUN echo "diskspacecheck=0" >> /etc/dnf/dnf.conf && dnf update -y && dnf install qemu xz gzip git python3-pip gcc autoconf automake libtool python jq wget -y && dnf clean all
 
 RUN pip3 install j2cli && pip3 install operator-courier
