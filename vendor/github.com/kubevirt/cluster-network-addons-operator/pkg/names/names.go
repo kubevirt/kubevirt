@@ -14,6 +14,7 @@ const APPLIED_PREFIX = "cluster-networks-addons-operator-applied-"
 const REJECT_OWNER_ANNOTATION = "networkaddonsoperator.network.kubevirt.io/rejectOwner"
 
 const PROMETHEUS_LABEL_KEY = "prometheus.cnao.io"
+const PROMETHEUS_LABEL_VALUE = "true"
 
 // Relationship labels
 const COMPONENT_LABEL_KEY = "app.kubernetes.io/component"
