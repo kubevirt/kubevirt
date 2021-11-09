@@ -1,24 +1,24 @@
-FROM fedora:30
+FROM fedora:34
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-RUN echo "diskspacecheck=0" >> /etc/dnf/dnf.conf && dnf update -y && dnf install qemu xz gzip git python3-pip gradle gcc autoconf automake libtool python jq -y && dnf clean all
+RUN echo "diskspacecheck=0" >> /etc/dnf/dnf.conf && dnf update -y && dnf install qemu xz gzip git python3-pip gradle gcc autoconf automake libtool python jq wget -y && dnf clean all
 
 RUN pip3 install j2cli && pip3 install operator-courier
 
-ENV GIMME_GO_VERSION=1.17.3 \
-    KUBEBUILDER_VERSION="2.3.1" \
+ENV GO_VERSION=1.17.3 \
+    KUBEBUILDER_VERSION="3.2.0" \
     ARCH="amd64" \
     GOPATH="/go" \
     PATH=$PATH:${GOPATH}/go/bin \
     GO111MODULE=on
 
-RUN mkdir -p /gimme && \
-    curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
-
 RUN \
     mkdir -p ${GOPATH} && \
-    source /etc/profile.d/gimme.sh && \
+    wget https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz && \
+    tar -C ${GOPATH}/../ -xzf go${GO_VERSION}.linux-amd64.tar.gz && \
+    rm -rf go${GO_VERSION}.linux-amd64.tar.gz && \
+    export PATH=${GOPATH}/bin:$PATH && \
     eval $(go env) && \
     go get github.com/onsi/ginkgo/ginkgo && \
     go get github.com/onsi/gomega && \
