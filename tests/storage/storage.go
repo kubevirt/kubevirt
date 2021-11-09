@@ -626,9 +626,10 @@ var _ = SIGDescribe("Storage", func() {
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 
 				num := 3
+				warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					obj := tests.RunVMIAndExpectLaunch(vmi, 240)
+					obj := tests.RunVMIAndExpectLaunchIgnoreSelectedWarnings(vmi, 240, warningsIgnoreList)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times

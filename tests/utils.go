@@ -1580,6 +1580,17 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 	return obj
 }
 
+func RunVMIAndExpectLaunchIgnoreSelectedWarnings(vmi *v1.VirtualMachineInstance, timeout int, warningsIgnoreList []string) *v1.VirtualMachineInstance {
+	obj := RunVMI(vmi, timeout)
+	By("Waiting until the VirtualMachineInstance will start")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	wp := WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
+	waitForVMIStart(ctx, obj, timeout, wp)
+	return obj
+}
+
 func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the DataVolume is ready")
