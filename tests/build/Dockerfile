@@ -2,7 +2,7 @@ FROM fedora:34
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-RUN echo "diskspacecheck=0" >> /etc/dnf/dnf.conf && dnf update -y && dnf install qemu xz gzip git python3-pip gradle gcc autoconf automake libtool python jq wget -y && dnf clean all
+RUN echo "diskspacecheck=0" >> /etc/dnf/dnf.conf && dnf update -y && dnf install qemu xz gzip git python3-pip gcc autoconf automake libtool python jq wget -y && dnf clean all
 
 RUN pip3 install j2cli && pip3 install operator-courier
 
@@ -29,14 +29,9 @@ RUN \
     go get mvdan.cc/sh/v3/cmd/shfmt && \
     go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
     go get -u -d k8s.io/kube-openapi/cmd/openapi-gen && \
-    GO111MODULE=off go get -u -d github.com/Masterminds/glide && \
-    (cd $GOPATH/src/github.com/Masterminds/glide && \
-    git checkout v0.13.2 -b build-v0.13.2 && \
-    GO111MODULE=off go install ./...) && \
-    (curl -L -O "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VERSION}/kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH}.tar.gz" && \
-     tar -zxvf kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH}.tar.gz && \
-     mv kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH} /usr/local/kubebuilder && \
-     rm kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH}.tar.gz )
+    go get -u -d github.com/Masterminds/glide && \
+    (curl -L -O "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VERSION}/kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH}" && \
+     mv kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH} /usr/local/kubebuilder )
 
 ADD entrypoint.sh /entrypoint.sh
 
