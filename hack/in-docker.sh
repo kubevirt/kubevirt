@@ -8,7 +8,7 @@ HCO_DIR="$(readlink -f $(dirname $0)/../)"
 WORK_DIR="/go/src/github.com/kubevirt/hyperconverged-cluster-operator"
 REGISTRY=${REGISTRY:-quay.io/kubevirtci}
 REPOSITORY=${REPOSITORY:-hco-test-build}
-TAG=${TAG:-v20210324-ade7f27}
+TAG=${TAG:-v20211109-01bbb11}
 BUILD_TAG="${REGISTRY}/${REPOSITORY}:${TAG}"
 
 # Execute the build

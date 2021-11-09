@@ -2,6 +2,8 @@
 
 set -e
 
+export PUSH_IMAGE=${PUSH_IMAGE:-true}
+
 main() {
   local HCO_DIR
   HCO_DIR="$(readlink -f $(dirname $0)/../)"
@@ -14,6 +16,10 @@ main() {
 
   # Build the encapsulated compile and test container
   (cd "${BUILD_DIR}" && docker build --tag "${TEST_BUILD_TAG}" .)
+
+  if [[ ${PUSH_IMAGE} == "false" ]]; then
+    exit 0
+  fi
 
   docker push "${TEST_BUILD_TAG}"
 
