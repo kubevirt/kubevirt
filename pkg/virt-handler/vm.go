@@ -2801,7 +2801,7 @@ func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.
 		return fmt.Errorf("failed to read target VMI cpuset: %v", err)
 	}
 
-	cpuSet, err := hardware.ParseCPUSetLine(strings.TrimSpace(string(cpuSetStr)))
+	cpuSet, err := hardware.ParseCPUSetLine(strings.TrimSpace(string(cpuSetStr)), 50000)
 	if err != nil {
 		return fmt.Errorf("failed to parse target VMI cpuset: %v", err)
 	}

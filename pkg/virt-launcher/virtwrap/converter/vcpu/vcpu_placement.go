@@ -1,4 +1,4 @@
-package converter
+package vcpu
 
 import (
 	"fmt"
@@ -27,8 +27,8 @@ func formatVCPUScheduler(domain *api.Domain, vmi *v1.VirtualMachineInstance) {
 	domain.Spec.CPUTune.VCPUScheduler = &api.VCPUScheduler{Scheduler: api.SchedulerFIFO, Priority: uint(1), VCPUs: mask}
 }
 
-func formatDomainCPUTune(domain *api.Domain, c *ConverterContext, vmi *v1.VirtualMachineInstance) error {
-	if len(c.CPUSet) == 0 {
+func formatDomainCPUTune(domain *api.Domain, cpuset []int, vmi *v1.VirtualMachineInstance) error {
+	if len(cpuset) == 0 {
 		return fmt.Errorf("failed for get pods pinned cpus")
 	}
 	vcpus := calculateRequestedVCPUs(domain.Spec.CPU.Topology)
@@ -36,7 +36,7 @@ func formatDomainCPUTune(domain *api.Domain, c *ConverterContext, vmi *v1.Virtua
 	for idx := 0; idx < int(vcpus); idx++ {
 		vcpupin := api.CPUTuneVCPUPin{}
 		vcpupin.VCPU = uint32(idx)
-		vcpupin.CPUSet = strconv.Itoa(c.CPUSet[idx])
+		vcpupin.CPUSet = strconv.Itoa(cpuset[idx])
 		cpuTune.VCPUPin = append(cpuTune.VCPUPin, vcpupin)
 	}
 	domain.Spec.CPUTune = &cpuTune
