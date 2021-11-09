@@ -17,10 +17,10 @@
 # Keep the pipefail here, or the unit tests won't return an error when needed.
 set -eo pipefail
 
-source /etc/profile.d/gimme.sh
-
 # Update path to include go binary
 export PATH=${GOPATH}/bin:$PATH
+
+eval $(go env)
 
 eval "$@"
 
