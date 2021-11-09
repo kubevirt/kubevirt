@@ -1088,7 +1088,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			var vmi *v1.VirtualMachineInstance
 			var dv *cdiv1.DataVolume
 			var wffcPod *k8sv1.Pod
-			var migrationBandwidth resource.Quantity
 
 			BeforeEach(func() {
 				quantity, err := resource.ParseQuantity("5Gi")
@@ -1143,7 +1142,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
 
 				cfg := getCurrentKv()
-				migrationBandwidth = resource.MustParse("40Mi")
+				migrationBandwidth := resource.MustParse("40Mi")
 				cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
 				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
