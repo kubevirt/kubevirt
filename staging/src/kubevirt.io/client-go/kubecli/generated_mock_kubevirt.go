@@ -1461,14 +1461,14 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) ForceStop(arg0, arg1 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForceStop", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInterface) Migrate(name string) error {
-	ret := _m.ctrl.Call(_m, "Migrate", name)
+func (_m *MockVirtualMachineInterface) Migrate(name string, migrateOptions *v117.MigrateOptions) error {
+	ret := _m.ctrl.Call(_m, "Migrate", name, migrateOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) Migrate(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0)
+func (_mr *_MockVirtualMachineInterfaceRecorder) Migrate(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInterface) AddVolume(name string, addVolumeOptions *v117.AddVolumeOptions) error {
@@ -1545,15 +1545,15 @@ func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) List(arg0 inte
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
 }
 
-func (_m *MockVirtualMachineInstanceMigrationInterface) Create(_param0 *v117.VirtualMachineInstanceMigration) (*v117.VirtualMachineInstanceMigration, error) {
-	ret := _m.ctrl.Call(_m, "Create", _param0)
+func (_m *MockVirtualMachineInstanceMigrationInterface) Create(migration *v117.VirtualMachineInstanceMigration, options *v11.CreateOptions) (*v117.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "Create", migration, options)
 	ret0, _ := ret[0].(*v117.VirtualMachineInstanceMigration)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceMigrationInterface) Update(_param0 *v117.VirtualMachineInstanceMigration) (*v117.VirtualMachineInstanceMigration, error) {

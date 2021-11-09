@@ -195,7 +195,7 @@ func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().RequestURI(uri).Body([]byte(optsJson)).Do(context.Background()).Error()
+	return v.restClient.Put().RequestURI(uri).Body(optsJson).Do(context.Background()).Error()
 }
 
 func (v *vm) Stop(name string, stopOptions *v1.StopOptions) error {
@@ -204,7 +204,7 @@ func (v *vm) Stop(name string, stopOptions *v1.StopOptions) error {
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().RequestURI(uri).Body([]byte(optsJson)).Do(context.Background()).Error()
+	return v.restClient.Put().RequestURI(uri).Body(optsJson).Do(context.Background()).Error()
 }
 
 func (v *vm) ForceStop(name string, stopOptions *v1.StopOptions) error {
@@ -216,9 +216,13 @@ func (v *vm) ForceStop(name string, stopOptions *v1.StopOptions) error {
 	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
 
-func (v *vm) Migrate(name string) error {
+func (v *vm) Migrate(name string, migrateOptions *v1.MigrateOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "migrate")
-	return v.restClient.Put().RequestURI(uri).Do(context.Background()).Error()
+	optsJson, err := json.Marshal(migrateOptions)
+	if err != nil {
+		return err
+	}
+	return v.restClient.Put().RequestURI(uri).Body(optsJson).Do(context.Background()).Error()
 }
 
 func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {

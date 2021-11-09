@@ -169,7 +169,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", func() {
 				var migrationCreated *v1.VirtualMachineInstanceMigration
 				By("starting migration")
 				Eventually(func() error {
-					migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+					migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 					return err
 				}, tests.MigrationWaitTime, 1*time.Second).Should(Succeed(), "migration creation should succeed")
 				migration = migrationCreated

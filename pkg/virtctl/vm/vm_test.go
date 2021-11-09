@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 
 	corev1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,15 +159,23 @@ var _ = Describe("VirtualMachine", func() {
 	})
 
 	Context("with migrate VM cmd", func() {
-		It("should migrate vm", func() {
+		table.DescribeTable("should migrate a vm according to options", func(migrateOptions *v1.MigrateOptions) {
 			vm := kubecli.NewMinimalVM(vmName)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Migrate(vm.Name).Return(nil).Times(1)
+			vmInterface.EXPECT().Migrate(vm.Name, migrateOptions).Return(nil).Times(1)
 
-			cmd := tests.NewVirtctlCommand("migrate", vmName)
+			var cmd *cobra.Command
+			if len(migrateOptions.DryRun) == 0 {
+				cmd = tests.NewVirtctlCommand("migrate", vmName)
+			} else {
+				cmd = tests.NewVirtctlCommand("migrate", "--dry-run", vmName)
+			}
 			Expect(cmd.Execute()).To(BeNil())
-		})
+		},
+			table.Entry("with default", &v1.MigrateOptions{}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 	})
 
 	Context("with restart VM cmd", func() {

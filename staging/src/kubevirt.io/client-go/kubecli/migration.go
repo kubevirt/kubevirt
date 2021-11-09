@@ -45,12 +45,13 @@ type migration struct {
 }
 
 // Create new VirtualMachineInstanceMigration in the cluster to specified namespace
-func (o *migration) Create(newMigration *v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error) {
+func (o *migration) Create(newMigration *v1.VirtualMachineInstanceMigration, options *k8smetav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error) {
 	newMigrationResult := &v1.VirtualMachineInstanceMigration{}
 	err := o.restClient.Post().
 		Resource(o.resource).
 		Namespace(o.namespace).
 		Body(newMigration).
+		VersionedParams(options, scheme.ParameterCodec).
 		Do(context.Background()).
 		Into(newMigrationResult)
 

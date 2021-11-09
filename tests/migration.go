@@ -46,7 +46,7 @@ func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migratio
 	var err error
 	var migrationCreated *v1.VirtualMachineInstanceMigration
 	Eventually(func() error {
-		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 		return err
 	}, timeout, 1*time.Second).Should(Succeed(), "migration creation should succeed")
 	migration = migrationCreated

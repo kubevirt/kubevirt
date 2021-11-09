@@ -1411,9 +1411,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	})
 
 	Context("Subresource api - MigrateVMRequestHandler", func() {
-		It("should fail if VirtualMachine not exists", func(done Done) {
+		table.DescribeTable("should fail if VirtualMachine not exists", func(migrateOptions *v1.MigrateOptions) {
+
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
+
+			bytesRepresentation, _ := json.Marshal(migrateOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -1425,15 +1429,20 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.MigrateVMRequestHandler(request, response)
 
 			ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-			close(done)
-		}, 5)
+		},
+			table.Entry("", &v1.MigrateOptions{}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 
-		It("should fail if VirtualMachine is not running", func(done Done) {
+		table.DescribeTable("should fail if VirtualMachine is not running", func(migrateOptions *v1.MigrateOptions) {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
 
 			vm := v1.VirtualMachine{}
 			vmi := v1.VirtualMachineInstance{}
+
+			bytesRepresentation, _ := json.Marshal(migrateOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -1453,10 +1462,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			Expect(status.Error()).To(ContainSubstring("VM is not running"))
-			close(done)
-		})
+		},
+			table.Entry("", &v1.MigrateOptions{}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 
-		It("should fail if migration is not posted", func(done Done) {
+		table.DescribeTable("should fail if migration is not posted", func(migrateOptions *v1.MigrateOptions) {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
 
@@ -1467,6 +1478,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Phase: v1.Running,
 				},
 			}
+
+			bytesRepresentation, _ := json.Marshal(migrateOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -1492,10 +1506,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.MigrateVMRequestHandler(request, response)
 
 			ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-			close(done)
-		})
+		},
+			table.Entry("", &v1.MigrateOptions{}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 
-		It("should migrate VirtualMachine", func(done Done) {
+		table.DescribeTable("should migrate VirtualMachine according to options", func(migrateOptions *v1.MigrateOptions) {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
 
@@ -1506,6 +1522,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Phase: v1.Running,
 				},
 			}
+
+			bytesRepresentation, _ := json.Marshal(migrateOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -1534,8 +1553,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-			close(done)
-		})
+		},
+			table.Entry("with default", &v1.MigrateOptions{}),
+			table.Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		)
 	})
 
 	Context("Subresource api - Guest OS Info", func() {

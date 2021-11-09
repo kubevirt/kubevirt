@@ -234,7 +234,7 @@ type VirtualMachineInterface interface {
 	Start(name string, startOptions *v1.StartOptions) error
 	Stop(name string, stopOptions *v1.StopOptions) error
 	ForceStop(name string, stopOptions *v1.StopOptions) error
-	Migrate(name string) error
+	Migrate(name string, migrateOptions *v1.MigrateOptions) error
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
@@ -243,7 +243,7 @@ type VirtualMachineInterface interface {
 type VirtualMachineInstanceMigrationInterface interface {
 	Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error)
 	List(opts *k8smetav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error)
-	Create(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
+	Create(migration *v1.VirtualMachineInstanceMigration, options *k8smetav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error)
 	Update(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)
