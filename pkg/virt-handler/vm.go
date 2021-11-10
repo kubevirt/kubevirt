@@ -207,8 +207,9 @@ func NewController(
 	})
 
 	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
-	c.phase1NetworkSetupCache = virtcache.LauncherPIDByVMI{}
 	c.podInterfaceCache = virtcache.PodInterfaceByVMIAndName{}
+
+	c.networkController = netsetup.NewController(c.networkCacheStoreFactory)
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -252,11 +253,7 @@ type VirtualMachineController struct {
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
 
-	// records if pod network phase1 has completed
-	// phase1 involves cycling an entire posix thread
-	// so for performance, knowing phase1 is complete
-	// prevents cycling an unncessary posix thread.
-	phase1NetworkSetupCache virtcache.LauncherPIDByVMI
+	networkController netsetup.Controller
 
 	// key is the file path, value is the contents.
 	// if key exists, then don't read directly from file.
@@ -471,58 +468,34 @@ func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachin
 }
 
 func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineInstance) {
-	// no need to cleanup with empty uid
 	if string(vmi.UID) == "" {
 		return
 	}
-	d.phase1NetworkSetupCache.Delete(vmi.UID)
-
-	// Clean Pod interface cache from map and files
-	d.podInterfaceCache.DeleteAllForVMI(vmi.UID)
-
-	err := d.networkCacheStoreFactory.CacheForVMI(vmi).Remove()
+	err := d.networkController.Teardown(vmi, func() error {
+		d.podInterfaceCache.DeleteAllForVMI(vmi.UID)
+		return d.networkCacheStoreFactory.CacheForVMI(vmi).Remove()
+	})
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
 	}
 }
 
-// Reaching into the network namespace of the VMI's pod is expensive because
-// it results in killing/spawning a posix thread. Only do this if it
-// is absolutely necessary. The cache informs us if this action has
-// already taken place or not for a VMI
-func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineInstance) error {
-
-	// configure network
-	res, err := d.podIsolationDetector.Detect(vmi)
+func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) error {
+	isolationRes, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
 	}
+	rootMount := isolationRes.MountRoot()
+	requiresDeviceClaim := virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi)
 
-	// check to see if we've already completed phase1 for this vmi
-	if _, exists := d.phase1NetworkSetupCache.Load(vmi.UID); exists {
-		return nil
-	}
-
-	if virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi) {
-		rootMount := res.MountRoot()
-		err := d.claimDeviceOwnership(rootMount, "vhost-net")
-		if err != nil {
-			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
+	return d.networkController.Setup(vmi, isolationRes.Pid(), isolationRes.DoNetNS, func() error {
+		if requiresDeviceClaim {
+			if err := d.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
+				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
+			}
 		}
-	}
-
-	pid := res.Pid()
-	err = res.DoNetNS(func() error {
-		return netsetup.NewVMNetworkConfigurator(vmi, d.networkCacheStoreFactory).SetupPodNetworkPhase1(pid)
+		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	// cache that phase 1 has completed for this vmi.
-	d.phase1NetworkSetupCache.Store(vmi.UID, 0)
-
-	return nil
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -2531,7 +2504,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// configure network inside virt-launcher compute container
-	if err := d.setPodNetworkPhase1(vmi); err != nil {
+	if err := d.setupNetwork(vmi); err != nil {
 		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
 	}
 
@@ -2620,7 +2593,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		if err := d.setPodNetworkPhase1(vmi); err != nil {
+		if err := d.setupNetwork(vmi); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %w", err)
 		}
 

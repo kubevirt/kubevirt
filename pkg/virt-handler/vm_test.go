@@ -531,7 +531,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockWatchdog.CreateFile(oldVMI)
 			// the domain is dead because the watchdog is expired
 			mockWatchdog.Expire(oldVMI)
-			controller.phase1NetworkSetupCache.Store(oldVMI.UID, 0)
+
+			markCompletedNetworkSetup(controller, oldVMI)
+
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
@@ -541,7 +543,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
 			Expect(os.IsNotExist(err)).To(BeTrue())
-			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(0))
+			Expect(controller.networkController.SetupCompleted(vmi)).To(BeFalse())
+			Expect(controller.networkController.SetupCompleted(oldVMI)).To(BeFalse())
 		}, 3)
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
@@ -551,7 +554,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 
-			controller.phase1NetworkSetupCache.Store(vmi.UID, 0)
+			markCompletedNetworkSetup(controller, vmi)
+
 			vmiFeeder.Add(vmi)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 			client.EXPECT().Close()
@@ -560,7 +564,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeTrue())
-			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(0))
+			Expect(controller.networkController.SetupCompleted(vmi)).To(BeFalse())
 		}, 3)
 
 		It("should do final cleanup if vmi is being deleted and not finalized", func() {
@@ -579,7 +583,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 
-			controller.phase1NetworkSetupCache.Store(vmi.UID, 0)
+			// Simulate a previous network setup call, so the following execution will skip it (due to the cache).
+			markCompletedNetworkSetup(controller, vmi)
+
 			vmiFeeder.Add(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
@@ -591,7 +597,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(os.IsNotExist(err)).To(BeFalse())
-			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(1))
 		}, 3)
 
 		It("should attempt force terminate Domain if grace period expires", func() {
@@ -664,7 +669,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIDefined)
-			Expect(controller.phase1NetworkSetupCache.Size()).To(Equal(1))
 		})
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
@@ -3127,6 +3131,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 	})
 })
+
+func markCompletedNetworkSetup(controller *VirtualMachineController, vmi *v1.VirtualMachineInstance) {
+	doNetNSDummy := func(func() error) error { return nil }
+	netPreSetupDummy := func() error { return nil }
+	controller.networkController.Setup(vmi, 0, doNetNSDummy, netPreSetupDummy)
+}
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
 	Context("should establish a notify server pipe", func() {
