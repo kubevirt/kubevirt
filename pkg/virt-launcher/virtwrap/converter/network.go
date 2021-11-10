@@ -198,7 +198,7 @@ func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Doma
 }
 
 func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
-	cpuTopology := getCPUTopology(vmi)
+	cpuTopology := vcpu.GetCPUTopology(vmi)
 	queueNumber := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 	if queueNumber > multiQueueMaxQueues {

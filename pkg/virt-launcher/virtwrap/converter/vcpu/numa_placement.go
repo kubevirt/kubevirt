@@ -62,7 +62,7 @@ func appendDomainIOThreadPin(domain *api.Domain, thread uint32, cpuset string) {
 	domain.Spec.CPUTune.IOThreadPin = append(domain.Spec.CPUTune.IOThreadPin, iothreadPin)
 }
 
-func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *api.Domain, emulatorThread uint32, cpuset []int) error {
+func FormatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *api.Domain, emulatorThread uint32, cpuset []int) error {
 	iothreads := int(domain.Spec.IOThreads.IOThreads)
 	vcpus := int(CalculateRequestedVCPUs(domain.Spec.CPU.Topology))
 
@@ -114,6 +114,9 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v1.VirtualMachine
 	domain.Spec.CPUTune = cpuTune
 
 	// always add the hint-dedicated feature when dedicatedCPUs are requested.
+	if domain.Spec.Features == nil {
+		domain.Spec.Features = &api.Features{}
+	}
 	if domain.Spec.Features.KVM == nil {
 		domain.Spec.Features.KVM = &api.FeatureKVM{}
 	}
@@ -132,7 +135,7 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v1.VirtualMachine
 		appendDomainEmulatorThreadPin(domain, emulatorThread)
 	}
 	if useIOThreads {
-		if err := formatDomainIOThreadPin(vmi, domain, emulatorThread, cpuset); err != nil {
+		if err := FormatDomainIOThreadPin(vmi, domain, emulatorThread, cpuset); err != nil {
 			log.Log.Reason(err).Error("failed to format domain iothread pinning.")
 			return err
 		}

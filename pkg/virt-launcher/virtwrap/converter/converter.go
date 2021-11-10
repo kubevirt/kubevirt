@@ -1151,7 +1151,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// CPU topology will be created everytime, because user can specify
 	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
 	// in vmi.Spec.Domain.CPU
-	cpuTopology := getCPUTopology(vmi)
+	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 	domain.Spec.CPU.Topology = cpuTopology
 	domain.Spec.VCPU = &api.VCPU{
@@ -1823,44 +1823,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	return nil
-}
-
-func getCPUTopology(vmi *v1.VirtualMachineInstance) *api.CPUTopology {
-	cores := uint32(1)
-	threads := uint32(1)
-	sockets := uint32(1)
-	vmiCPU := vmi.Spec.Domain.CPU
-	if vmiCPU != nil {
-		if vmiCPU.Cores != 0 {
-			cores = vmiCPU.Cores
-		}
-
-		if vmiCPU.Threads != 0 {
-			threads = vmiCPU.Threads
-		}
-
-		if vmiCPU.Sockets != 0 {
-			sockets = vmiCPU.Sockets
-		}
-	}
-	// A default guest CPU topology is being set in API mutator webhook, if nothing provided by a user.
-	// However this setting is still required to handle situations when the webhook fails to set a default topology.
-	if vmiCPU == nil || (vmiCPU.Cores == 0 && vmiCPU.Sockets == 0 && vmiCPU.Threads == 0) {
-		//if cores, sockets, threads are not set, take value from domain resources request or limits and
-		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
-		resources := vmi.Spec.Domain.Resources
-		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-			sockets = uint32(cpuLimit.Value())
-		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-			sockets = uint32(cpuRequests.Value())
-		}
-	}
-
-	return &api.CPUTopology{
-		Sockets: sockets,
-		Cores:   cores,
-		Threads: threads,
-	}
 }
 
 func boolToOnOff(value *bool, defaultOn bool) string {

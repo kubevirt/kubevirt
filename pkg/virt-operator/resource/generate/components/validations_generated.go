@@ -8752,6 +8752,10 @@ var CRDsValidation map[string]string = map[string]string{
             targetPod:
               description: The target pod that the VMI is moving to
               type: string
+            targetTopology:
+              description: If the VMI requires dedicated CPUs, this field will hold
+                the numa topology on the target node
+              type: string
           type: object
         migrationTransport:
           description: This represents the migration transport

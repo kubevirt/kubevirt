@@ -574,6 +574,9 @@ type VirtualMachineInstanceMigrationState struct {
 	// hold the dedicated CPU set on the target node
 	// +listType=atomic
 	TargetNodeCPUSet []int `json:"targetNodeCPUSet,omitempty"`
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the numa topology on the target node
+	TargetTopology string `json:"targetTopology,omitempty"`
 }
 
 type MigrationAbortStatus string
