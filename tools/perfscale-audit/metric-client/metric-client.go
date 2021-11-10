@@ -36,14 +36,8 @@ import (
 )
 
 const (
-	vmiCreationTimePercentileQuery = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds]))`
-)
-
-// Counter - When using a Counter, use a range vector type so that we only get data
-//           from the current test period instead of the cumulative count.  Using an
-//           `offset` will covert to a range vector.
-const (
-	resourceRequestCountsByOperation = `sum by (verb, resource) (rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"} offset %ds)`
+	vmiCreationTimePercentileQuery   = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds]))`
+	resourceRequestCountsByOperation = `increase(rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[%ds])`
 )
 
 // Gauge - Using a Gauge doesn't require using an offset because it holds the accurate count
