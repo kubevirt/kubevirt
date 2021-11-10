@@ -1771,6 +1771,35 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal("usb"), "Expect usb bus")
 		})
 
+		It("should not enable sound cards emulation by default", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Sound = nil
+			domain := vmiToDomain(vmi, c)
+			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(0))
+		})
+
+		It("should enable default sound card with existing but empty sound devices", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{}
+			domain := vmiToDomain(vmi, c)
+			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(1))
+			Expect(domain.Spec.Devices.SoundCards).To(ContainElement(api.SoundCard{
+				Model: "ich9",
+			}))
+		})
+
+		It("should enable ac97 sound card ", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+				Model: "ac97",
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(len(domain.Spec.Devices.SoundCards)).To(Equal(1))
+			Expect(domain.Spec.Devices.SoundCards).To(ContainElement(api.SoundCard{
+				Model: "ac97",
+			}))
+		})
+
 		It("should enable usb redirection when number of USB client devices > 0", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}

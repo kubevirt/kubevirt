@@ -457,6 +457,7 @@ type Devices struct {
 	Rng         *Rng               `xml:"rng,omitempty"`
 	Filesystems []FilesystemDevice `xml:"filesystem,omitempty"`
 	Redirs      []RedirectedDevice `xml:"redirdev,omitempty"`
+	SoundCards  []SoundCard        `xml:"sound,omitempty"`
 }
 
 // RedirectedDevice describes a device to be redirected
@@ -923,6 +924,14 @@ type ChannelSource struct {
 }
 
 //END Channel --------------------
+
+//BEGIN Sound -------------------
+
+type SoundCard struct {
+	Model string `xml:"model,attr"`
+}
+
+//END Sound -------------------
 
 //BEGIN Video -------------------
 
