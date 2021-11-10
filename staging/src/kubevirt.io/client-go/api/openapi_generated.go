@@ -20393,6 +20393,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							},
 						},
 					},
+					"targetTopology": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

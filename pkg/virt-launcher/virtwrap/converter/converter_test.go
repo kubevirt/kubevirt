@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -1872,7 +1874,7 @@ var _ = Describe("Converter", func() {
 
 		table.DescribeTable("should calculate mebibyte from a quantity", func(quantity string, mebibyte int) {
 			mi64, _ := resource.ParseQuantity(quantity)
-			q, err := QuantityToMebiByte(mi64)
+			q, err := vcpu.QuantityToMebiByte(mi64)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(q).To(BeNumerically("==", mebibyte))
 		},
@@ -1890,13 +1892,13 @@ var _ = Describe("Converter", func() {
 
 		It("should fail calculating mebibyte if the quantity is less than 0", func() {
 			mi64, _ := resource.ParseQuantity("-2G")
-			_, err := QuantityToMebiByte(mi64)
+			_, err := vcpu.QuantityToMebiByte(mi64)
 			Expect(err).To(HaveOccurred())
 		})
 
 		table.DescribeTable("should calculate memory in bytes", func(quantity string, bytes int) {
 			m64, _ := resource.ParseQuantity(quantity)
-			memory, err := QuantityToByte(m64)
+			memory, err := vcpu.QuantityToByte(m64)
 			Expect(memory.Value).To(BeNumerically("==", bytes))
 			Expect(memory.Unit).To(Equal("b"))
 			Expect(err).ToNot(HaveOccurred())
@@ -1912,7 +1914,7 @@ var _ = Describe("Converter", func() {
 		It("should calculate memory in bytes", func() {
 			By("specyfing negative memory size -45Gi")
 			m45gi, _ := resource.ParseQuantity("-45Gi")
-			_, err := QuantityToByte(m45gi)
+			_, err := vcpu.QuantityToByte(m45gi)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -2807,7 +2809,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			err := formatDomainIOThreadPin(vmi, domain, 0, c)
+			err := vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)
 			Expect(err).ToNot(HaveOccurred())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "5,6,7"},
@@ -2840,7 +2842,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			err := formatDomainIOThreadPin(vmi, domain, 0, c)
+			err := vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)
 			Expect(err).ToNot(HaveOccurred())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "6"},

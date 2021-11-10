@@ -15570,6 +15570,10 @@
      "targetPod": {
       "description": "The target pod that the VMI is moving to",
       "type": "string"
+     },
+     "targetTopology": {
+      "description": "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
+      "type": "string"
      }
     }
    },

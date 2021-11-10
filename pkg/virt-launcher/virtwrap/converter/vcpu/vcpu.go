@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
+	k8sv1 "k8s.io/api/core/v1"
+
+	v12 "kubevirt.io/api/core/v1"
+
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -277,4 +281,42 @@ func (p *cpuPool) fitThread() (thread *uint32) {
 		return cell.GetThread()
 	}
 	return nil
+}
+
+func GetCPUTopology(vmi *v12.VirtualMachineInstance) *api.CPUTopology {
+	cores := uint32(1)
+	threads := uint32(1)
+	sockets := uint32(1)
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU != nil {
+		if vmiCPU.Cores != 0 {
+			cores = vmiCPU.Cores
+		}
+
+		if vmiCPU.Threads != 0 {
+			threads = vmiCPU.Threads
+		}
+
+		if vmiCPU.Sockets != 0 {
+			sockets = vmiCPU.Sockets
+		}
+	}
+	// A default guest CPU topology is being set in API mutator webhook, if nothing provided by a user.
+	// However this setting is still required to handle situations when the webhook fails to set a default topology.
+	if vmiCPU == nil || (vmiCPU.Cores == 0 && vmiCPU.Sockets == 0 && vmiCPU.Threads == 0) {
+		//if cores, sockets, threads are not set, take value from domain resources request or limits and
+		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
+		resources := vmi.Spec.Domain.Resources
+		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+			sockets = uint32(cpuLimit.Value())
+		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+			sockets = uint32(cpuRequests.Value())
+		}
+	}
+
+	return &api.CPUTopology{
+		Sockets: sockets,
+		Cores:   cores,
+		Threads: threads,
+	}
 }
