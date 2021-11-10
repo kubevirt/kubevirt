@@ -162,6 +162,7 @@ go_test(
         "vmi_lifecycle_test.go",
         "vmi_monitoring_test.go",
         "vmi_multiqueue_test.go",
+        "vmi_sound_test.go",
         "vmidefaults_test.go",
         "vmipreset_test.go",
         "vnc_test.go",
