@@ -3,12 +3,14 @@ package tests_test
 import (
 	"context"
 	"flag"
-	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -44,7 +46,7 @@ func checkExpectedConfigMaps(client kubecli.KubevirtClient) {
 	}
 
 	for _, item := range items {
-		cm, err := client.CoreV1().ConfigMaps(item.Namespace).Get(context.TODO(),item.Name, v1.GetOptions{})
+		cm, err := client.CoreV1().ConfigMaps(item.Namespace).Get(context.TODO(), item.Name, v1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		for _, key := range item.Keys {
 			_, ok := cm.Data[key]

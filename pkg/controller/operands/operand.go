@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"os"
 	"strings"
+
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"

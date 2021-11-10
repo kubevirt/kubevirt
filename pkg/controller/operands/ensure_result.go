@@ -2,8 +2,9 @@ package operands
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type EnsureResult struct {

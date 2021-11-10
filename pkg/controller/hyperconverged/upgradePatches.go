@@ -3,12 +3,14 @@ package hyperconverged
 import (
 	"encoding/json"
 	"errors"
-	"github.com/blang/semver/v4"
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/blang/semver/v4"
+	jsonpatch "github.com/evanphx/json-patch"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 )
 
 const (

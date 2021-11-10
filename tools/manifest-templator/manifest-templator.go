@@ -21,14 +21,16 @@ package main
 
 import (
 	"flag"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"log"
 	"os"
 	"path"
 	"sort"
 	"strconv"
 
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+
 	"github.com/ghodss/yaml"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	"github.com/kubevirt/hyperconverged-cluster-operator/tools/util"
 

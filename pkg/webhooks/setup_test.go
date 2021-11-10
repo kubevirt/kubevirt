@@ -1,10 +1,12 @@
 package webhooks
 
 import (
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"os"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"os"
+
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 var _ = Describe("Hyperconverged API: Webhook", func() {

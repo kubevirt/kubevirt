@@ -2,9 +2,11 @@ package operands
 
 import (
 	"errors"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 )
 
 var _ = Describe("HyperConverged Ensure Result", func() {

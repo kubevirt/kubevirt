@@ -4,10 +4,11 @@ import (
 	"context"
 	"flag"
 
-	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	"kubevirt.io/client-go/kubecli"
 )
 

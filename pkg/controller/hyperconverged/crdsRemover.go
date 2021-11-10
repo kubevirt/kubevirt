@@ -2,16 +2,18 @@ package hyperconverged
 
 import (
 	"fmt"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"strings"
+	"sync"
+
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"sync"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 // CRDRemover removes old CRD we have to delete

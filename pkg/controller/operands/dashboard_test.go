@@ -3,17 +3,19 @@ package operands
 import (
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"os"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
+	corev1 "k8s.io/api/core/v1"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 )
 
 var _ = Describe("Dashboard tests", func() {

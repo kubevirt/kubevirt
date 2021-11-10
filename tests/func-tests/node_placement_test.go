@@ -4,15 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	v1 "k8s.io/api/core/v1"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
+
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	testscore "kubevirt.io/kubevirt/tests"
 
 	"github.com/kubevirt/cluster-network-addons-operator/pkg/apis"

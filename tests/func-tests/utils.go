@@ -3,9 +3,10 @@ package tests
 import (
 	"context"
 	"flag"
+	"os"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
-	"os"
 )
 
 var KubeVirtStorageClassLocal string

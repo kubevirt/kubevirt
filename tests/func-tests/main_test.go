@@ -2,15 +2,17 @@ package tests_test
 
 import (
 	"context"
-	ginkgo_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 	"testing"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
+	ginkgo_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	"kubevirt.io/client-go/kubecli"
 	testscore "kubevirt.io/kubevirt/tests"
 )

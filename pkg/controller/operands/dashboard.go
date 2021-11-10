@@ -2,19 +2,21 @@ package operands
 
 import (
 	"errors"
-	v1 "k8s.io/api/core/v1"
 	"os"
 	filepath "path/filepath"
 	"reflect"
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
+
 	log "github.com/go-logr/logr"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 // Dashboard ConfigMaps contain json definitions of OCP UI

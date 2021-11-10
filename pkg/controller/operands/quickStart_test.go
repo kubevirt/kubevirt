@@ -4,18 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/client-go/tools/reference"
 	"os"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
+	"k8s.io/client-go/tools/reference"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 )
 
 var _ = Describe("QuickStart tests", func() {

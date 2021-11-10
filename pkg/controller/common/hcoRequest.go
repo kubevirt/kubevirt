@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 )
 
 // hcoRequest - gather data for a specific request
