@@ -1,0 +1,14 @@
+{
+  "hcoCRPatchList": [
+    {
+      "semverRange": "= badvalue < > ",
+      "jsonPatch": [
+        {
+          "op": "replace",
+          "path": "/spec/featureGates/sriovLiveMigration",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

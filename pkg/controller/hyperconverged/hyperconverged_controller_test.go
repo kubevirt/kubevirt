@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -50,16 +51,29 @@ const (
 
 var _ = Describe("HyperconvergedController", func() {
 
+	var (
+		testFilesLocation = getTestFilesLocation() + "/upgradePatches"
+		destFile          string
+	)
+
 	getClusterInfo := hcoutil.GetClusterInfo
 
 	BeforeSuite(func() {
 		hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
 			return &ClusterInfoMock{}
 		}
+
+		wd, _ := os.Getwd()
+		destFile = path.Join(wd, "upgradePatches.json")
+		err := commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "upgradePatches.json"))
+		Expect(err).ToNot(HaveOccurred())
+
 	})
 
 	AfterSuite(func() {
 		hcoutil.GetClusterInfo = getClusterInfo
+		err := os.Remove(destFile)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	_ = os.Setenv(hcoutil.OperatorConditionNameEnvVar, "OPERATOR_CONDITION")
@@ -854,7 +868,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 		Context("Upgrade Mode", func() {
 			const (
-				oldVersion          = "1.5.0"
+				oldVersion          = "1.5.1"
 				newVersion          = "1.6.0" // TODO: avoid hard-coding values
 				oldComponentVersion = "1.6.0"
 				newComponentVersion = "1.6.3"
@@ -2011,6 +2025,33 @@ progressTimeout: 150`,
 					Expect(requeue).To(BeFalse())
 					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Not(BeNil()))
 					Expect(*foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(customBandwidthPerMigration))
+				})
+
+				It("should amend spec.featureGates.sriovLiveMigration upgrading from <= 1.5.0", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, "1.4.99")
+					expected.hco.Spec.FeatureGates.SRIOVLiveMigration = false
+
+					cl := expected.initClient()
+					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					_, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeTrue())
+					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
+					Expect(requeue).To(BeFalse())
+
+					Expect(foundResource.Spec.FeatureGates.SRIOVLiveMigration).Should(BeTrue())
+				})
+
+				It("should not amend spec.featureGates.sriovLiveMigration upgrading from >= 1.5.1", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, "1.5.1")
+					expected.hco.Spec.FeatureGates.SRIOVLiveMigration = false
+
+					cl := expected.initClient()
+					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
+					Expect(requeue).To(BeTrue())
+					foundResource, _, requeue = doReconcile(cl, foundResource, reconciler)
+					Expect(requeue).To(BeFalse())
+					Expect(foundResource.Spec.FeatureGates.SRIOVLiveMigration).Should(Not(BeTrue()))
 				})
 
 			})
