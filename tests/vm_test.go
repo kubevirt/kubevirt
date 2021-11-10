@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -1815,7 +1816,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("in stop command", func() {
+			table.DescribeTable("in stop command", func(flags ...string) {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				thisVm := tests.NewRandomVirtualMachine(vmi, true)
 
@@ -1829,8 +1830,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Waiting for VMI to start")
 				waitForVMIStart(virtClient, vmi)
 
+				By("Getting current vmi instance")
+				originalVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				var args = []string{vm.COMMAND_STOP, "--namespace", thisVm.Namespace, thisVm.Name, "--dry-run"}
+				if flags != nil {
+					args = append(args, flags...)
+				}
 				By("Invoking virtctl stop with dry-run option")
-				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", thisVm.Namespace, "--dry-run", thisVm.Name)
+				virtctl := tests.NewRepeatableVirtctlCommand(args...)
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1843,7 +1852,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				newVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
-			})
+				Expect(reflect.DeepEqual(newVMI, originalVMI)).To(BeTrue())
+			},
+
+				table.Entry("with no other flags"),
+				table.Entry("with grace period", "--grace-period=10", "--force"),
+			)
 
 			It("in restart command", func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))

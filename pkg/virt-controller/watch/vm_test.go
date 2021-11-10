@@ -139,7 +139,7 @@ var _ = Describe("VirtualMachine", func() {
 		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
 			patch := `[{ "op": "test", "path": "/metadata/finalizers", "value": ["kubevirt.io/virtualMachineControllerFinalize"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`
 
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
@@ -1366,7 +1366,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Get(vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Return(vm, nil)
-			vmiInterface.EXPECT().Patch(vmi.ObjectMeta.Name, gomock.Any(), gomock.Any())
+			vmiInterface.EXPECT().Patch(vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), &metav1.PatchOptions{})
 
 			controller.Execute()
 		})

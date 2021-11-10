@@ -1780,7 +1780,7 @@ func cleanNamespaces() {
 		util2.PanicOnError(err)
 		for _, vmi := range vmis.Items {
 			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
-				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), &metav1.PatchOptions{})
 				if !errors.IsNotFound(err) {
 					util2.PanicOnError(err)
 				}

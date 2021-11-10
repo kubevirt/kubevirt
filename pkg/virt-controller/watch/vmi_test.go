@@ -1510,7 +1510,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			patch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "madeup" }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }]`
 
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		})
@@ -1538,7 +1538,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			patch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "a" }, { "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {} }]`
 
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		})
@@ -1555,7 +1555,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			patch := `[{ "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }]`
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		})
@@ -1572,7 +1572,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).DoAndReturn(func(_ string, _ interface{}, patchBytes []byte) (*virtv1.VirtualMachineInstance, error) {
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).DoAndReturn(func(_ string, _ interface{}, patchBytes []byte, options interface{}) (*virtv1.VirtualMachineInstance, error) {
 				patch, err := jsonpatch.DecodePatch(patchBytes)
 				Expect(err).ToNot(HaveOccurred())
 				vmiBytes, err := json.Marshal(vmi)
@@ -1604,7 +1604,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			patch := `[{ "op": "test", "path": "/status/activePods", "value": {} }, { "op": "replace", "path": "/status/activePods", "value": {"someUID":"someHost"} }]`
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		})
@@ -2466,7 +2466,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
 			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"},"hotplugVolume":{}}] }]`
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
@@ -2556,7 +2556,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podInformer.GetIndexer().Add(virtlauncherPod)
 			//Modify by adding a new hotplugged disk
 			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
