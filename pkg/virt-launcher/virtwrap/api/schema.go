@@ -336,7 +336,8 @@ type FeatureState struct {
 }
 
 type FeatureKVM struct {
-	Hidden *FeatureState `xml:"hidden,omitempty"`
+	Hidden        *FeatureState `xml:"hidden,omitempty"`
+	HintDedicated *FeatureState `xml:"hint-dedicated,omitempty"`
 }
 
 type Metadata struct {

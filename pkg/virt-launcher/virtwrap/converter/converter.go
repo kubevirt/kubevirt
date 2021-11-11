@@ -1639,6 +1639,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			}
 			domain.Spec.CPUTune = cpuTune
 
+			// always add the hint-dedicated feature when dedicatedCPUs are requested.
+			if domain.Spec.Features.KVM == nil {
+				domain.Spec.Features.KVM = &api.FeatureKVM{}
+			}
+			domain.Spec.Features.KVM.HintDedicated = &api.FeatureState{
+				State: "on",
+			}
+
 			var emulatorThread uint32
 			if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 				emulatorThread, err = cpuPool.FitThread()
