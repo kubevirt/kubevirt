@@ -43,6 +43,7 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	virtv1 "kubevirt.io/client-go/apis/core/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -215,7 +216,7 @@ var _ = Describe("Migration watcher", func() {
 		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
 
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		controller = NewMigrationController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),

@@ -55,7 +55,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			Phase: v1.KubeVirtPhaseDeploying,
 		},
 	}
-	config, _, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiUpdateAdmitter := &VMIUpdateAdmitter{config}
 
 	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {

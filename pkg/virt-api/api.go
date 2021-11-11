@@ -880,13 +880,6 @@ func (app *virtAPIApp) Run() {
 	// Run informers for webhooks usage
 	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
 
-	configMapInformer := kubeInformerFactory.ConfigMap()
-	// Wire up health check trigger
-	configMapInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
-	})
-
 	kubeInformerFactory.ApiAuthConfigMap()
 	kubeInformerFactory.KubeVirtCAConfigMap()
 	crdInformer := kubeInformerFactory.CRD()
@@ -901,7 +894,7 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.Start(stopChan)
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, app.namespace)
 	app.hasCDIDataSource = app.clusterConfig.HasDataSourceAPI()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)

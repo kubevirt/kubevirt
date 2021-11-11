@@ -67,7 +67,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 		},
 	}
 
-	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&corev1.ConfigMap{})
+	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	Context("Without feature gate enabled", func() {
 		It("should reject anything", func() {
@@ -88,13 +88,26 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 	Context("With feature gate enabled", func() {
 		enableFeatureGate := func(featureGate string) {
-			testutils.UpdateFakeClusterConfig(configMapInformer, &corev1.ConfigMap{
-				Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{featureGate},
+						},
+					},
+				},
 			})
 		}
-
 		disableFeatureGates := func() {
-			testutils.UpdateFakeClusterConfig(configMapInformer, &corev1.ConfigMap{})
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: make([]string, 0),
+						},
+					},
+				},
+			})
 		}
 
 		BeforeEach(func() {

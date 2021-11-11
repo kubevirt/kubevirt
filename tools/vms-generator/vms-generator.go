@@ -27,7 +27,6 @@ import (
 
 	"kubevirt.io/kubevirt/tools/util"
 
-	k8sv1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -35,7 +34,6 @@ import (
 	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -44,22 +42,27 @@ func main() {
 	flag.StringVar(&utils.DockerTag, "container-tag", utils.DockerTag, "")
 	genDir := flag.String("generated-vms-dir", "", "")
 	flag.Parse()
+	permit := true
 
-	fakePermittedHostDevicesConfig := `
-pciHostDevices:
-- pciVendorSelector: "10DE:1EB8"
-  resourceName: "nvidia.com/GP102GL_Tesla_P40"
-  externalResourceProvider: true
-`
-	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
-		Data: map[string]string{
-			// Required to validate DataVolume usage
-			virtconfig.FeatureGatesKey:                   "DataVolumes,LiveMigration,SRIOV,GPU,HostDisk,Macvtap",
-			virtconfig.PermitSlirpInterface:              "true",
-			virtconfig.PermitBridgeInterfaceOnPodNetwork: "true",
-			virtconfig.PermittedHostDevicesKey:           fakePermittedHostDevicesConfig,
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+		DeveloperConfiguration: &v1.DeveloperConfiguration{
+			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap"},
+		},
+		NetworkConfiguration: &v1.NetworkConfiguration{
+			PermitSlirpInterface:              &permit,
+			PermitBridgeInterfaceOnPodNetwork: &permit,
+		},
+		PermittedHostDevices: &v1.PermittedHostDevices{
+			PciHostDevices: []v1.PciHostDevice{
+				{
+					PCIVendorSelector:        "10DE:1EB8",
+					ResourceName:             "nvidia.com/GP102GL_Tesla_P40",
+					ExternalResourceProvider: true,
+				},
+			},
 		},
 	})
+
 	var priorityClasses = map[string]*schedulingv1.PriorityClass{
 		utils.Preemtible:    utils.GetPreemtible(),
 		utils.NonPreemtible: utils.GetNonPreemtible(),

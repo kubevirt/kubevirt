@@ -95,7 +95,7 @@ var _ = Describe("Template", func() {
 
 	BeforeEach(func() {
 		configFactory = func(cpuArch string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, TemplateService) {
-			config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
+			config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
 
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,

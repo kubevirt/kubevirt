@@ -297,7 +297,7 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir, cgroup.NewParser())
-	app.clusterConfig = virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), factory.KubeVirt(), app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
@@ -389,7 +389,7 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiSourceInformer.HasSynced, factory.CRD().HasSynced)
+	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced)
 
 	go vmController.Run(10, stop)
 

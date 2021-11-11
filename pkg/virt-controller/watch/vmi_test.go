@@ -210,7 +210,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})

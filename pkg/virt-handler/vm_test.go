@@ -174,7 +174,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
-		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
@@ -2287,7 +2287,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			It("should not block migration for VMI with SRIOV interface when feature-gate SRIOVLiveMigration is on", func() {
 				vmi := v1.NewMinimalVMI("testvmi")
 				sriovInterfaceName := "sriovnet1"
-				kubevirtConfigMapFeatureGate := map[string]string{virtconfig.FeatureGatesKey: virtconfig.SRIOVLiveMigrationGate}
 				vmi.Spec.Networks = []v1.Network{
 					{
 						Name: sriovInterfaceName,
@@ -2304,8 +2303,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 						},
 					},
 				}
-				config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
-					Data: kubevirtConfigMapFeatureGate,
+
+				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{virtconfig.SRIOVLiveMigrationGate},
+					},
 				})
 				controller.clusterConfig = config
 

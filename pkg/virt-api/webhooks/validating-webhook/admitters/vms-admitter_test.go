@@ -48,7 +48,7 @@ import (
 )
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, configMapInformer, crdInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var ctrl *gomock.Controller
 	var vmsAdmitter *VMsAdmitter
 	var vmiInformer cache.SharedIndexInformer
@@ -56,12 +56,26 @@ var _ = Describe("Validating VM Admitter", func() {
 	var flavorMethods *testutils.MockFlavorMethods
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featureGate},
+					},
+				},
+			},
 		})
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: make([]string, 0),
+					},
+				},
+			},
+		})
 	}
 
 	notRunning := false

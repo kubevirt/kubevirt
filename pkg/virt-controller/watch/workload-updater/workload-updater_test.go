@@ -105,7 +105,7 @@ var _ = Describe("Workload Updater", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(200)
 		recorder.IncludeObject = true
-		config, _, _, _ := testutils.NewFakeClusterConfig(&v12.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		kubeVirtInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		kubeVirtInformer, kubeVirtSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})

@@ -51,10 +51,12 @@ var _ = Describe("Pod eviction admitter", func() {
 
 	newClusterConfigWithFeatureGate := func(featureGate string) *virtconfig.ClusterConfig {
 		kv := kubecli.NewMinimalKubeVirt(testns)
-		clusterConfig, cmInformer, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-		testutils.UpdateFakeClusterConfig(cmInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
-		})
+		kv.Namespace = "kubevirt"
+		if kv.Spec.Configuration.DeveloperConfiguration == nil {
+			kv.Spec.Configuration.DeveloperConfiguration = &virtv1.DeveloperConfiguration{}
+		}
+		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 
 		return clusterConfig
 	}
@@ -302,7 +304,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 	Context("Live migration disabled", func() {
 		kv := kubecli.NewMinimalKubeVirt(testns)
-		clusterConfig, _, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 		podEvictionAdmitter := PodEvictionAdmitter{
 			ClusterConfig: clusterConfig,
 		}

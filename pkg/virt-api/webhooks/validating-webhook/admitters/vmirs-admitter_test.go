@@ -26,7 +26,6 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -36,7 +35,7 @@ import (
 )
 
 var _ = Describe("Validating VMIRS Admitter", func() {
-	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	vmirsAdmitter := &VMIRSAdmitter{ClusterConfig: config}
 
 	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {

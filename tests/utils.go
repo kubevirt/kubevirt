@@ -4421,28 +4421,6 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 	}, 60)).To(Succeed())
 }
 
-// UpdateClusterConfigValueAndWait updates the given configuration in the kubevirt config map and then waits
-// to allow the configuration events to be propagated to the consumers.
-func UpdateClusterConfigValueAndWait(key string, value string) string {
-	if config.GinkgoConfig.ParallelTotal > 1 {
-		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
-	}
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), virtconfig.ConfigMapName, metav1.GetOptions{})
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	oldValue := cfgMap.Data[key]
-	if cfgMap.Data[key] == value {
-		return value
-	}
-	cfgMap.Data[key] = value
-	cfg, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cfgMap, metav1.UpdateOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	waitForConfigToBePropagated(cfg.ResourceVersion)
-	log.DefaultLogger().Infof("Deployment is in sync with config resource version %s", cfg.ResourceVersion)
-	return oldValue
-}
-
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
 // and then waits  to allow the configuration events to be propagated to the consumers.
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
@@ -4543,15 +4521,6 @@ func ExpectResourceVersionToBeLessThanConfigVersion(resourceVersion, configVersi
 
 	if rv > crv {
 		log.DefaultLogger().Errorf("Config is not in sync. Expected %s or greater, Got %s", resourceVersion, configVersion)
-		return false
-	}
-
-	return true
-}
-
-func ExpectResourceVersionToBeEqualConfigVersion(resourceVersion, configVersion string) bool {
-	if resourceVersion > configVersion {
-		log.DefaultLogger().Errorf("Config is not in sync. Expected %s, Got %s", resourceVersion, configVersion)
 		return false
 	}
 
@@ -4938,19 +4907,6 @@ func GetNodeDrainKey() string {
 	return virtconfig.NodeDrainTaintDefaultKey
 }
 
-func GetKubeVirtConfigMap() (*k8sv1.ConfigMap, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-
-	options := metav1.GetOptions{}
-	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), virtconfig.ConfigMapName, options)
-	if err != nil && !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-
-	return cfgMap, err
-}
-
 func RandTmpDir() string {
 	return tmpPath + "/" + rand.String(10)
 }
@@ -4958,18 +4914,18 @@ func RandTmpDir() string {
 func getTagHint() string {
 	//git describe --tags --abbrev=0 "$(git rev-parse HEAD)"
 	cmd := exec.Command("git", "rev-parse", "HEAD")
-	bytes, err := cmd.Output()
+	cmdOutput, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
 
-	cmd = exec.Command("git", "describe", "--tags", "--abbrev=0", strings.TrimSpace(string(bytes)))
-	bytes, err = cmd.Output()
+	cmd = exec.Command("git", "describe", "--tags", "--abbrev=0", strings.TrimSpace(string(cmdOutput)))
+	cmdOutput, err = cmd.Output()
 	if err != nil {
 		return ""
 	}
 
-	return strings.TrimSpace(strings.Split(string(bytes), "-rc")[0])
+	return strings.TrimSpace(strings.Split(string(cmdOutput), "-rc")[0])
 
 }
 

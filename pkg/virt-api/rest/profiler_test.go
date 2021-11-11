@@ -74,7 +74,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		},
 	}
 
-	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
