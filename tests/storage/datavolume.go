@@ -131,7 +131,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			ipProtocol := k8sv1.IPv4Protocol
 			os := string(cd.ContainerDiskAlpine)
-			size := "5Gi"
+			size := "1Gi"
 
 			AfterEach(func() {
 				tests.DeleteAlpineWithNonQEMUPermissions()
