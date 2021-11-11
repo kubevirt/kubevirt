@@ -127,6 +127,8 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
 		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
 		patchOperator                          func(*string, *string) bool
+		installOperator                        func(string)
+		deleteOperator                         func(string)
 		deleteAllKvAndWait                     func(bool)
 		usesSha                                func(string) bool
 		ensureShasums                          func()
@@ -581,6 +583,26 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			return modified
+		}
+
+		installOperator = func(manifestPath string) {
+			// namespace is already hardcoded within the manifests
+			_, _, err = tests.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for KubeVirt CRD to be created")
+			ext, err := extclient.NewForConfig(virtClient.Config())
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() error {
+				_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "kubevirts.kubevirt.io", metav1.GetOptions{})
+				return err
+			}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}
+
+		deleteOperator = func(manifestPath string) {
+			_, _, err = tests.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "delete", "-f", manifestPath)
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		deleteAllKvAndWait = func(ignoreOriginal bool) {
@@ -1342,7 +1364,7 @@ spec:
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		It("[release-blocker][sig-compute][test_id:3145]from previous release to target tested release", func() {
+		table.DescribeTable("[release-blocker][sig-compute][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
 			if !tests.HasCDI() {
 				Skip("Skip Update test when CDI is not present")
 			}
@@ -1364,6 +1386,8 @@ spec:
 			curVersion := originalKv.Status.ObservedKubeVirtVersion
 			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
 
+			curOperatorManifestPath := filepath.Join(flags.ManifestsDir, "release/kubevirt-operator.yaml")
+
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
@@ -1377,16 +1401,30 @@ spec:
 			By("Sanity Checking Deployments infrastructure is deleted")
 			sanityCheckDeploymentsDeleted()
 
-			// Install Previous Release of KubeVirt
-			By(fmt.Sprintf("Creating KubeVirt Object with Previous Release: %s using registry %s", previousImageTag, previousImageRegistry))
+			if updateOperator {
+				By("Deleting virt-operator installation")
+				deleteOperator(curOperatorManifestPath)
+
+				By("Installing previous release of virt-operator")
+				manifestURL := tests.GetUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
+				installOperator(manifestURL)
+			}
+
+			// Install previous release of KubeVirt
+			By("Creating KubeVirt object")
 			kv := copyOriginalKv()
 			kv.Name = "kubevirt-release-install"
-			kv.Spec.ImageTag = previousImageTag
-			kv.Spec.ImageRegistry = previousImageRegistry
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
+
+			// If updating via the KubeVirt CR, explicitly specify the desired release.
+			if !updateOperator {
+				kv.Spec.ImageTag = previousImageTag
+				kv.Spec.ImageRegistry = previousImageRegistry
+			}
+
 			createKv(kv)
 
-			// Wait for Previous Release to come online
+			// Wait for previous release to come online
 			// wait 7 minutes because this test involves pulling containers
 			// over the internet related to the latest kubevirt release
 			By("Waiting for KV to stabilize")
@@ -1452,8 +1490,13 @@ spec:
 			startAllVMIs(migratableVMIs)
 
 			// Update KubeVirt from the previous release to the testing target release.
-			By("Updating KubeVirtObject With Current Tag")
-			patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
+			if updateOperator {
+				By("Updating virt-operator installation")
+				installOperator(curOperatorManifestPath)
+			} else {
+				By("Updating KubeVirt object With current tag")
+				patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
+			}
 
 			By("Wait for Updating Condition")
 			waitForUpdateCondition(kv)
@@ -1611,7 +1654,10 @@ spec:
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
-		})
+		},
+			table.Entry("by patching KubeVirt CR", false),
+			table.Entry("by updating virt-operator", true),
+		)
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {

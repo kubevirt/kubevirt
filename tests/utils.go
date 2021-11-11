@@ -4935,6 +4935,28 @@ func getTagHint() string {
 
 }
 
+func GetUpstreamReleaseAssetURL(tag string, assetName string) string {
+	client := github.NewClient(nil)
+
+	var err error
+	var release *github.RepositoryRelease
+
+	Eventually(func() error {
+		release, _, err = client.Repositories.GetReleaseByTag(context.Background(), "kubevirt", "kubevirt", tag)
+
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	for _, asset := range release.Assets {
+		if asset.GetName() == assetName {
+			return asset.GetBrowserDownloadURL()
+		}
+	}
+
+	Fail(fmt.Sprintf("Asset %s not found in release %s of kubevirt upstream repo", assetName, tag))
+	return ""
+}
+
 func DetectLatestUpstreamOfficialTag() (string, error) {
 	client := github.NewClient(nil)
 

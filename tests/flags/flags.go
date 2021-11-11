@@ -47,6 +47,7 @@ var IPV4ConnectivityCheckAddress = ""
 var IPV6ConnectivityCheckAddress = ""
 var ConnectivityCheckDNS = ""
 var ArtifactsDir string
+var ManifestsDir string
 var ApplyDefaulte2eConfiguration bool
 
 var DeployTestingInfrastructureFlag = false
@@ -74,6 +75,7 @@ func init() {
 	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "quay.io/kubevirt", "Set registry of the release to test updating from")
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 	flag.StringVar(&ArtifactsDir, "artifacts", os.Getenv("ARTIFACTS"), "Directory for storing reporter artifacts like junit files or logs")
+	flag.StringVar(&ManifestsDir, "manifests", "_out/manifests", "Directory containing build output manifests")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
 	flag.BoolVar(&SkipDualStackTests, "skip-dual-stack-test", false, "Skip test that actively checks for the presence of IPv6 address in the cluster pods.")
 	flag.StringVar(&IPV4ConnectivityCheckAddress, "conn-check-ipv4-address", "", "Address that is used for testing IPV4 connectivity to the outside world")

@@ -51,7 +51,7 @@ function functest() {
         KUBEVIRT_FUNC_TEST_SUITE_ARGS="-skip-dual-stack-test ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     fi
 
-    _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}
+    _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS} --manifests=${MANIFESTS_OUT_DIR} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}
 }
 
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
