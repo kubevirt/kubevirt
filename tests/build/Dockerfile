@@ -21,13 +21,13 @@ RUN \
     rm -rf go${GO_VERSION}.linux-amd64.tar.gz && \
     export PATH=${GOPATH}/bin:$PATH && \
     eval $(go env) && \
-    go get github.com/onsi/ginkgo/ginkgo && \
+    go install github.com/onsi/ginkgo/ginkgo@latest && \
     go get github.com/onsi/gomega && \
-    go get golang.org/x/tools/cmd/goimports && \
-    go get -u golang.org/x/lint/golint&& \
-    go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
-    go get github.com/mattn/goveralls && \
-    go get mvdan.cc/sh/v3/cmd/shfmt && \
+    go install golang.org/x/tools/cmd/goimports@latest && \
+    go get -u -d golang.org/x/lint/golint && \
+    go install github.com/rmohr/go-swagger-utils/swagger-doc@latest && \
+    go install github.com/mattn/goveralls@latest && \
+    go get -u -d mvdan.cc/sh/v3/cmd/shfmt && \
     go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
     go get -u -d k8s.io/kube-openapi/cmd/openapi-gen && \
     go get -u -d github.com/Masterminds/glide && \
