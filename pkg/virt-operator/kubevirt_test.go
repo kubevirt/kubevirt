@@ -1198,11 +1198,11 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 }
 
 func (k *KubeVirtTestData) addAll(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
-	k.addAllWithExclusionMap(k.defaultConfig, kv, nil)
+	k.addAllWithExclusionMap(config, kv, nil)
 }
 
 func (k *KubeVirtTestData) addAllButHandler(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
-	k.addAllWithExclusionMap(k.defaultConfig, kv, map[string]bool{"virt-handler": true})
+	k.addAllWithExclusionMap(config, kv, map[string]bool{"virt-handler": true})
 }
 
 func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
