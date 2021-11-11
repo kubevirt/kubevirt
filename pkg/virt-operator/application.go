@@ -278,8 +278,7 @@ func Execute() {
 	}
 	log.Log.Infof("Operator image: %s", image)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(app.informerFactory.ConfigMap(),
-		app.informerFactory.CRD(),
+	app.clusterConfig = virtconfig.NewClusterConfig(app.informerFactory.CRD(),
 		app.informerFactory.KubeVirt(),
 		app.operatorNamespace)
 

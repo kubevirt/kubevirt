@@ -129,7 +129,6 @@ go_test(
         "flavor_test.go",
         "infra_test.go",
         "kubectl_test.go",
-        "kubevirt_configmap_test.go",
         "mdev_configuration_allocation_test.go",
         "migration_test.go",
         "nonroot_test.go",
