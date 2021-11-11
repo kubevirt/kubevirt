@@ -93,6 +93,10 @@ const (
 	ResultTypeResourceOperationCountFormat = "%s-%s-count"
 )
 
+const (
+	ResultTypePhaseCountFormat = "%s-phase-count"
+)
+
 type ThresholdResult struct {
 	ThresholdValue    float64 `json:"thresholdValue"`
 	ThresholdExceeded bool    `json:"thresholdExceeded"`
