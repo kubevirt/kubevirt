@@ -8,10 +8,10 @@ import (
 	"strings"
 )
 
-func runLocalCommandClient(kind, namespace, name string) error {
+func runLocalCommandClient(kind, namespace, name string, options *SSHOptions) error {
 	args := []string{}
-	args = append(args, buildProxyCommandOption(kind, namespace, name))
-	args = append(args, buildSSHTarget(kind, namespace, name))
+	args = append(args, buildProxyCommandOption(kind, namespace, name, options))
+	args = append(args, buildSSHTarget(kind, namespace, name, options))
 
 	cmd := exec.Command("ssh", args...)
 	fmt.Println("running:", cmd)
@@ -22,7 +22,7 @@ func runLocalCommandClient(kind, namespace, name string) error {
 	return cmd.Run()
 }
 
-func buildProxyCommandOption(kind, namespace, name string) string {
+func buildProxyCommandOption(kind, namespace, name string, options *SSHOptions) string {
 	proxyCommand := strings.Builder{}
 	proxyCommand.WriteString("-o ProxyCommand=")
 	proxyCommand.WriteString(os.Args[0])
@@ -30,15 +30,15 @@ func buildProxyCommandOption(kind, namespace, name string) string {
 	proxyCommand.WriteString(fmt.Sprintf("%s/%s.%s", kind, name, namespace))
 	proxyCommand.WriteString(" ")
 
-	proxyCommand.WriteString(strconv.Itoa(sshPort))
+	proxyCommand.WriteString(strconv.Itoa(options.SshPort))
 
 	return proxyCommand.String()
 }
 
-func buildSSHTarget(kind, namespace, name string) string {
+func buildSSHTarget(kind, namespace, name string, options *SSHOptions) string {
 	target := strings.Builder{}
-	if len(sshUsername) > 0 {
-		target.WriteString(sshUsername)
+	if len(options.SshUsername) > 0 {
+		target.WriteString(options.SshUsername)
 		target.WriteRune('@')
 	}
 	target.WriteString(kind)
