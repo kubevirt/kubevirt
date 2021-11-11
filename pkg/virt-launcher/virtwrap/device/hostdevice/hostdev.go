@@ -106,9 +106,10 @@ func createMDEVHostDeviceWithDisplay(hostDeviceData HostDeviceMetaData, mdevUUID
 	}
 	if hostDeviceData.VirtualGPUOptions != nil {
 		if hostDeviceData.VirtualGPUOptions.Display != nil {
-			if *hostDeviceData.VirtualGPUOptions.Display.Enabled {
+			displayEnabled := hostDeviceData.VirtualGPUOptions.Display.Enabled
+			if displayEnabled == nil || *displayEnabled {
 				mdev.Display = "on"
-				if hostDeviceData.VirtualGPUOptions.Display.RamFB != nil && *hostDeviceData.VirtualGPUOptions.Display.RamFB.Enabled {
+				if hostDeviceData.VirtualGPUOptions.Display.RamFB == nil || *hostDeviceData.VirtualGPUOptions.Display.RamFB.Enabled {
 					mdev.RamFB = "on"
 				}
 			}
