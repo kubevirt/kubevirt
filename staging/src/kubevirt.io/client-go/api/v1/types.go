@@ -659,6 +659,10 @@ const (
 	FuncTestForceLauncherMigrationFailureAnnotation string = "kubevirt.io/func-test-force-launcher-migration-failure"
 	// Used by functional tests to prevent virt launcher from finishing the target pod preparation.
 	FuncTestBlockLauncherPrepareMigrationTargetAnnotation string = "kubevirt.io/func-test-block-migration-target-preparation"
+
+	// Used by functional tests set custom image on migration target pod
+	FuncTestMigrationTargetImageOverrideAnnotation string = "kubevirt.io/func-test-migration-target-image-override"
+
 	// Used by functional tests to simulate virt-launcher crash looping
 	FuncTestLauncherFailFastAnnotation string = "kubevirt.io/func-test-virt-launcher-fail-fast"
 	// This label is used to match virtual machine instance IDs with pods.
@@ -768,6 +772,20 @@ const (
 
 	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
 	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
+
+	// MigrationTransportUnixAnnotation means that the VMI will be migrated using the unix URI
+	MigrationTransportUnixAnnotation string = "kubevirt.io/migrationTransportUnix"
+
+	// MigrationUnschedulablePodTimeoutSecondsAnnotation represents a custom timeout period used for unschedulable target pods
+	// This exists for functional testing
+	MigrationUnschedulablePodTimeoutSecondsAnnotation string = "kubevirt.io/migrationUnschedulablePodTimeoutSeconds"
+
+	// MigrationPendingPodTimeoutSecondsAnnotation represents a custom timeout period used for target pods stuck in pending for any reason
+	// This exists for functional testing
+	MigrationPendingPodTimeoutSecondsAnnotation string = "kubevirt.io/migrationPendingPodTimeoutSeconds"
+
+	// RealtimeLabel marks the node as capable of running realtime workloads
+	RealtimeLabel string = "kubevirt.io/realtime"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
