@@ -631,11 +631,43 @@ var _ = Describe("Migration watcher", func() {
 				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			}
 		},
-			table.Entry("in pending state", virtv1.MigrationPending, true, defaultUnschedulableTimeoutSeconds),
-			table.Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultUnschedulableTimeoutSeconds),
-			table.Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultUnschedulableTimeoutSeconds),
-			table.Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultUnschedulableTimeoutSeconds-1),
-			table.Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultUnschedulableTimeoutSeconds-1),
+			table.Entry("in pending state", virtv1.MigrationPending, true, defaultUnschedulablePendingTimeoutSeconds),
+			table.Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultUnschedulablePendingTimeoutSeconds),
+			table.Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultUnschedulablePendingTimeoutSeconds),
+			table.Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultUnschedulablePendingTimeoutSeconds-1),
+			table.Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultUnschedulablePendingTimeoutSeconds-1),
+		)
+
+		table.DescribeTable("should handle pod stuck in pending phase for extended period of time", func(phase virtv1.VirtualMachineInstanceMigrationPhase, shouldTimeout bool, timeLapse int64) {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			migration := newMigration("testmigration", vmi.Name, phase)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+
+			now := now()
+			pod.CreationTimestamp = metav1.NewTime(now.Time.Add(time.Duration(-timeLapse) * time.Second))
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(pod)
+
+			if shouldTimeout {
+				shouldExpectPodDeletion()
+			}
+
+			if phase == virtv1.MigrationPending {
+				shouldExpectGenericMigrationUpdate()
+			}
+			controller.Execute()
+
+			if shouldTimeout {
+				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+			}
+		},
+			table.Entry("in pending state", virtv1.MigrationPending, true, defaultCatchAllPendingTimeoutSeconds),
+			table.Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultCatchAllPendingTimeoutSeconds),
+			table.Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultCatchAllPendingTimeoutSeconds),
+			table.Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultCatchAllPendingTimeoutSeconds-1),
+			table.Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultCatchAllPendingTimeoutSeconds-1),
 		)
 	})
 	Context("Migration should immediately fail if", func() {
