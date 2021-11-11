@@ -22,7 +22,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	"kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1"
+	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 )
 
 type UploadV1beta1Interface interface {

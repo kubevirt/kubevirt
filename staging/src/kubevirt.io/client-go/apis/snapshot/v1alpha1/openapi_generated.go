@@ -14785,7 +14785,7 @@ func schema_client_go_apis_core_v1_DataVolumeTemplateSpec(ref common.ReferenceCa
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Description: "DataVolumeSpec contains the DataVolume specification.",
-							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSpec"),
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSpec"),
 						},
 					},
 					"status": {
@@ -14799,7 +14799,7 @@ func schema_client_go_apis_core_v1_DataVolumeTemplateSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/core/v1.DataVolumeTemplateDummyStatus", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSpec"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/core/v1.DataVolumeTemplateDummyStatus", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSpec"},
 	}
 }
 

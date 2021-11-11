@@ -28,7 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
 
-	v1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // FakeCDIConfigs implements CDIConfigInterface
