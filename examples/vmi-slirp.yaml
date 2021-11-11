@@ -36,9 +36,11 @@ spec:
     name: containerdisk
   - cloudInitNoCloud:
       userData: |-
-        #!/bin/bash
-        echo "fedora" |passwd fedora --stdin
-        yum install -y nginx
-        systemctl enable nginx
-        systemctl start nginx
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
+        packages:
+          - nginx
+        runcmd:
+          - [ "systemctl", "enable", "--now", "nginx" ]
     name: cloudinitdisk
