@@ -1180,7 +1180,7 @@ func (r ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJs
 		return hcoJson, err
 	}
 	if affectedRange(knownHcoSV) {
-		req.Logger.Info("applying upgrade patch", "knownHcoSV", knownHcoSV, "affectedRange", affectedRange, "patches", p.JSONPatch)
+		req.Logger.Info("applying upgrade patch", "knownHcoSV", knownHcoSV, "affectedRange", p.SemverRange, "patches", p.JSONPatch)
 		patchedBytes, err := p.JSONPatch.Apply(hcoJson)
 		if err != nil {
 			return hcoJson, err
