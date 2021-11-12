@@ -425,6 +425,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/core/v1.UserPasswordAccessCredential":                          schema_client_go_apis_core_v1_UserPasswordAccessCredential(ref),
 		"kubevirt.io/client-go/apis/core/v1.UserPasswordAccessCredentialPropagationMethod":         schema_client_go_apis_core_v1_UserPasswordAccessCredentialPropagationMethod(ref),
 		"kubevirt.io/client-go/apis/core/v1.UserPasswordAccessCredentialSource":                    schema_client_go_apis_core_v1_UserPasswordAccessCredentialSource(ref),
+		"kubevirt.io/client-go/apis/core/v1.VGPUDisplayOptions":                                    schema_client_go_apis_core_v1_VGPUDisplayOptions(ref),
+		"kubevirt.io/client-go/apis/core/v1.VGPUOptions":                                           schema_client_go_apis_core_v1_VGPUOptions(ref),
 		"kubevirt.io/client-go/apis/core/v1.VirtualMachine":                                        schema_client_go_apis_core_v1_VirtualMachine(ref),
 		"kubevirt.io/client-go/apis/core/v1.VirtualMachineCondition":                               schema_client_go_apis_core_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/client-go/apis/core/v1.VirtualMachineInstance":                                schema_client_go_apis_core_v1_VirtualMachineInstance(ref),
@@ -15945,10 +15947,17 @@ func schema_client_go_apis_core_v1_GPU(ref common.ReferenceCallback) common.Open
 							Format: "",
 						},
 					},
+					"virtualGPUOptions": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/core/v1.VGPUOptions"),
+						},
+					},
 				},
 				Required: []string{"name", "deviceName"},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/apis/core/v1.VGPUOptions"},
 	}
 }
 
@@ -18822,6 +18831,52 @@ func schema_client_go_apis_core_v1_UserPasswordAccessCredentialSource(ref common
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/apis/core/v1.AccessCredentialSecretSource"},
+	}
+}
+
+func schema_client_go_apis_core_v1_VGPUDisplayOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled determines if a display addapter backed by a vGPU should be enabled or disabled on the guest. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"ramFB": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enables a boot framebuffer, until the guest OS loads a real GPU driver Defaults to true.",
+							Ref:         ref("kubevirt.io/client-go/apis/core/v1.FeatureState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/apis/core/v1.FeatureState"},
+	}
+}
+
+func schema_client_go_apis_core_v1_VGPUOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"display": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/core/v1.VGPUDisplayOptions"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/apis/core/v1.VGPUDisplayOptions"},
 	}
 }
 

@@ -151,6 +151,16 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
 		}
+		for i := range in.Spec.Template.Spec.Domain.Devices.GPUs {
+			a := &in.Spec.Template.Spec.Domain.Devices.GPUs[i]
+			if a.VirtualGPUOptions != nil {
+				if a.VirtualGPUOptions.Display != nil {
+					if a.VirtualGPUOptions.Display.RamFB != nil {
+						SetDefaults_FeatureState(a.VirtualGPUOptions.Display.RamFB)
+					}
+				}
+			}
+		}
 		if in.Spec.Template.Spec.LivenessProbe != nil {
 			SetDefaults_Probe(in.Spec.Template.Spec.LivenessProbe)
 		}
@@ -283,6 +293,16 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 			SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 		}
 	}
+	for i := range in.Spec.Domain.Devices.GPUs {
+		a := &in.Spec.Domain.Devices.GPUs[i]
+		if a.VirtualGPUOptions != nil {
+			if a.VirtualGPUOptions.Display != nil {
+				if a.VirtualGPUOptions.Display.RamFB != nil {
+					SetDefaults_FeatureState(a.VirtualGPUOptions.Display.RamFB)
+				}
+			}
+		}
+	}
 	if in.Spec.LivenessProbe != nil {
 		SetDefaults_Probe(in.Spec.LivenessProbe)
 	}
@@ -402,6 +422,16 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 				SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
 		}
+		for i := range in.Spec.Domain.Devices.GPUs {
+			a := &in.Spec.Domain.Devices.GPUs[i]
+			if a.VirtualGPUOptions != nil {
+				if a.VirtualGPUOptions.Display != nil {
+					if a.VirtualGPUOptions.Display.RamFB != nil {
+						SetDefaults_FeatureState(a.VirtualGPUOptions.Display.RamFB)
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -514,6 +544,16 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 			SetDefaults_Watchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog)
 			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
 				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
+			}
+		}
+		for i := range in.Spec.Template.Spec.Domain.Devices.GPUs {
+			a := &in.Spec.Template.Spec.Domain.Devices.GPUs[i]
+			if a.VirtualGPUOptions != nil {
+				if a.VirtualGPUOptions.Display != nil {
+					if a.VirtualGPUOptions.Display.RamFB != nil {
+						SetDefaults_FeatureState(a.VirtualGPUOptions.Display.RamFB)
+					}
+				}
 			}
 		}
 		if in.Spec.Template.Spec.LivenessProbe != nil {

@@ -26,6 +26,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	v1 "kubevirt.io/client-go/apis/core/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
@@ -43,9 +44,14 @@ const (
 )
 
 var _ = Describe("HostDevice", func() {
+
+	createMDEVWithoutDisplay := func(hostDevicesMetaData []hostdevice.HostDeviceMetaData, pool hostdevice.AddressPooler) ([]api.HostDevice, error) {
+		return hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, false)
+	}
+
 	It("creates no device given no devices-metadata", func() {
 		Expect(hostdevice.CreatePCIHostDevices(nil, newAddressPoolStub())).To(BeEmpty())
-		Expect(hostdevice.CreateMDEVHostDevices(nil, newAddressPoolStub())).To(BeEmpty())
+		Expect(hostdevice.CreateMDEVHostDevices(nil, newAddressPoolStub(), false)).To(BeEmpty())
 	})
 
 	var pool *stubAddressPool
@@ -62,7 +68,7 @@ var _ = Describe("HostDevice", func() {
 			Expect(err).To(HaveOccurred())
 		},
 		table.Entry("PCI", hostdevice.CreatePCIHostDevices),
-		table.Entry("MDEV", hostdevice.CreateMDEVHostDevices),
+		table.Entry("MDEV", createMDEVWithoutDisplay),
 	)
 
 	It("fails to create a device given bad host PCI address", func() {
@@ -86,7 +92,7 @@ var _ = Describe("HostDevice", func() {
 			Expect(err).To(HaveOccurred())
 		},
 		table.Entry("PCI", hostdevice.CreatePCIHostDevices),
-		table.Entry("MDEV", hostdevice.CreateMDEVHostDevices),
+		table.Entry("MDEV", createMDEVWithoutDisplay),
 	)
 
 	table.DescribeTable("fails to create a device given two devices but only one address",
@@ -99,7 +105,7 @@ var _ = Describe("HostDevice", func() {
 			Expect(err).To(HaveOccurred())
 		},
 		table.Entry("PCI", hostdevice.CreatePCIHostDevices),
-		table.Entry("MDEV", hostdevice.CreateMDEVHostDevices),
+		table.Entry("MDEV", createMDEVWithoutDisplay),
 	)
 
 	Context("PCI", func() {
@@ -149,22 +155,26 @@ var _ = Describe("HostDevice", func() {
 	Context("MDEV", func() {
 		const uuid0 = "0123456789-0"
 		hostMDEVAddress0 := api.Address{UUID: uuid0}
-		expectHostDevice1 := api.HostDevice{
-			Alias:  newAlias(devName0),
-			Source: api.HostDeviceSource{Address: &hostMDEVAddress0},
-			Type:   "mdev",
-			Mode:   "subsystem",
-			Model:  "vfio-pci",
-		}
 		const uuid1 = "0123456789-1"
 		hostMDEVAddress1 := api.Address{UUID: uuid1}
-		expectHostDevice2 := api.HostDevice{
-			Alias:  newAlias(devName1),
-			Source: api.HostDeviceSource{Address: &hostMDEVAddress1},
-			Type:   "mdev",
-			Mode:   "subsystem",
-			Model:  "vfio-pci",
-		}
+		var expectHostDevice1 api.HostDevice
+		var expectHostDevice2 api.HostDevice
+		BeforeEach(func() {
+			expectHostDevice1 = api.HostDevice{
+				Alias:  newAlias(devName0),
+				Source: api.HostDeviceSource{Address: &hostMDEVAddress0},
+				Type:   "mdev",
+				Mode:   "subsystem",
+				Model:  "vfio-pci",
+			}
+			expectHostDevice2 = api.HostDevice{
+				Alias:  newAlias(devName1),
+				Source: api.HostDeviceSource{Address: &hostMDEVAddress1},
+				Type:   "mdev",
+				Mode:   "subsystem",
+				Model:  "vfio-pci",
+			}
+		})
 
 		It("creates 2 MDEV devices that share the same resource", func() {
 			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
@@ -173,9 +183,43 @@ var _ = Describe("HostDevice", func() {
 			}
 			pool.AddResource(resourceName0, uuid0, uuid1)
 
-			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool)
+			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, false)
 
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
+		})
+
+		It("makes sure that a vGPU MDEV device will turn display and ramfb on", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0},
+			}
+			pool.AddResource(resourceName0, uuid0, uuid1)
+
+			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, true)
+			expectHostDevice1.Display = "on"
+			expectHostDevice1.RamFB = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
+		})
+
+		It("makes sute that explicitly setting VirtualGPUOptions can override the default display and ramfb setting", func() {
+			_false := false
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{
+					AliasPrefix:  aliasPrefix,
+					Name:         devName0,
+					ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: &_false,
+						},
+					},
+				},
+			}
+			pool.AddResource(resourceName0, uuid0, uuid1)
+
+			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, true)
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
 		})
 
 		It("creates 2 PCI devices that are connected to different resources", func() {
@@ -186,7 +230,7 @@ var _ = Describe("HostDevice", func() {
 			pool.AddResource(resourceName0, uuid0)
 			pool.AddResource(resourceName1, uuid1)
 
-			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool)
+			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, false)
 
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
 		})

@@ -530,6 +530,8 @@ type HostDevice struct {
 	Model     string           `xml:"model,attr,omitempty"`
 	Address   *Address         `xml:"address,emitempty"`
 	Alias     *Alias           `xml:"alias,omitempty"`
+	Display   string           `xml:"display,attr,omitempty"`
+	RamFB     string           `xml:"ramfb,attr,omitempty"`
 }
 
 type HostDeviceSource struct {

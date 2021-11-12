@@ -84,6 +84,40 @@ var _ = Describe("GPU HostDevice", func() {
 
 		hostMDEVAddress := api.Address{UUID: gpuMDEVAddress1}
 		expectHostDevice1 := api.HostDevice{
+			Alias:   api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName1),
+			Source:  api.HostDeviceSource{Address: &hostMDEVAddress},
+			Type:    "mdev",
+			Mode:    "subsystem",
+			Model:   "vfio-pci",
+			Display: "on",
+			RamFB:   "on",
+		}
+
+		Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice0, expectHostDevice1}))
+	})
+	It("creates MDEV with display option turned off", func() {
+		_false := false
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{
+				DeviceName: gpuResource1,
+				Name:       gpuName1,
+				VirtualGPUOptions: &v1.VGPUOptions{
+					Display: &v1.VGPUDisplayOptions{
+						Enabled: &_false,
+					},
+				},
+			},
+		}
+		pciPool := newAddressPoolStub()
+		pciPool.AddResource(gpuResource0, gpuPCIAddress0)
+		mdevPool := newAddressPoolStub()
+		mdevPool.AddResource(gpuResource1, gpuMDEVAddress1)
+
+		hostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+		Expect(err).NotTo(HaveOccurred())
+
+		hostMDEVAddress := api.Address{UUID: gpuMDEVAddress1}
+		expectHostDevice1 := api.HostDevice{
 			Alias:  api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName1),
 			Source: api.HostDeviceSource{Address: &hostMDEVAddress},
 			Type:   "mdev",
@@ -91,7 +125,73 @@ var _ = Describe("GPU HostDevice", func() {
 			Model:  "vfio-pci",
 		}
 
-		Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice0, expectHostDevice1}))
+		Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
+	})
+	It("creates MDEV with display ramFB option turned off", func() {
+		_false := false
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{
+				DeviceName: gpuResource1,
+				Name:       gpuName1,
+				VirtualGPUOptions: &v1.VGPUOptions{
+					Display: &v1.VGPUDisplayOptions{
+						RamFB: &v1.FeatureState{
+							Enabled: &_false,
+						},
+					},
+				},
+			},
+		}
+		pciPool := newAddressPoolStub()
+		pciPool.AddResource(gpuResource0, gpuPCIAddress0)
+		mdevPool := newAddressPoolStub()
+		mdevPool.AddResource(gpuResource1, gpuMDEVAddress1)
+
+		hostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+		Expect(err).NotTo(HaveOccurred())
+
+		hostMDEVAddress := api.Address{UUID: gpuMDEVAddress1}
+		expectHostDevice1 := api.HostDevice{
+			Alias:   api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName1),
+			Source:  api.HostDeviceSource{Address: &hostMDEVAddress},
+			Type:    "mdev",
+			Mode:    "subsystem",
+			Model:   "vfio-pci",
+			Display: "on",
+		}
+
+		Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
+	})
+	It("creates MDEV with enabled display and ramfb by default", func() {
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{
+				DeviceName: gpuResource1,
+				Name:       gpuName1,
+				VirtualGPUOptions: &v1.VGPUOptions{
+					Display: &v1.VGPUDisplayOptions{},
+				},
+			},
+		}
+		pciPool := newAddressPoolStub()
+		pciPool.AddResource(gpuResource0, gpuPCIAddress0)
+		mdevPool := newAddressPoolStub()
+		mdevPool.AddResource(gpuResource1, gpuMDEVAddress1)
+
+		hostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+		Expect(err).NotTo(HaveOccurred())
+
+		hostMDEVAddress := api.Address{UUID: gpuMDEVAddress1}
+		expectHostDevice1 := api.HostDevice{
+			Alias:   api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName1),
+			Source:  api.HostDeviceSource{Address: &hostMDEVAddress},
+			Type:    "mdev",
+			Mode:    "subsystem",
+			Model:   "vfio-pci",
+			Display: "on",
+			RamFB:   "on",
+		}
+
+		Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
 	})
 })
 

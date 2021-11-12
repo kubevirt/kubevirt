@@ -288,6 +288,20 @@ func (GPU) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VGPUOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (VGPUDisplayOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "+k8s:openapi-gen=true",
+		"enabled": "Enabled determines if a display addapter backed by a vGPU should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
+		"ramFB":   "Enables a boot framebuffer, until the guest OS loads a real GPU driver\nDefaults to true.\n+optional",
+	}
+}
+
 func (HostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "+k8s:openapi-gen=true",
