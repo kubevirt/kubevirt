@@ -11,10 +11,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+
+	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
@@ -136,6 +138,7 @@ func GetScheme() *runtime.Scheme {
 
 	for _, f := range []func(*runtime.Scheme) error{
 		apis.AddToScheme,
+		kubevirtcorev1.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspv1beta1.AddToScheme,

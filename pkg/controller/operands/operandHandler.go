@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -178,7 +178,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 				errT := ErrHCOUninstall
 				errMsg := uninstallHCOErrorMsg
 				switch o.(type) {
-				case *kubevirtv1.KubeVirt:
+				case *kubevirtcorev1.KubeVirt:
 					errT = ErrVirtUninstall
 					errMsg = uninstallVirtErrorMsg + err.Error()
 				case *cdiv1beta1.CDI:

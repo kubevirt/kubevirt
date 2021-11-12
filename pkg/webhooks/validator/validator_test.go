@@ -26,7 +26,7 @@ import (
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
@@ -102,7 +102,7 @@ var _ = Describe("webhooks validator", func() {
 	for _, f := range []func(*runtime.Scheme) error{
 		v1beta1.AddToScheme,
 		cdiv1beta1.AddToScheme,
-		kubevirtv1.AddToScheme,
+		kubevirtcorev1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspv1beta1.AddToScheme,
 	} {
@@ -991,7 +991,7 @@ func getUpdateError(failure fakeFailure) commonTestUtils.FakeWriteErrorGenerator
 	switch failure {
 	case kvUpdateFailure:
 		return func(obj client.Object) error {
-			if _, ok := obj.(*kubevirtv1.KubeVirt); ok {
+			if _, ok := obj.(*kubevirtcorev1.KubeVirt); ok {
 				return ErrFakeKvError
 			}
 			return nil

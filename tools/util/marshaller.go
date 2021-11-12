@@ -28,7 +28,7 @@ import (
 	"regexp"
 	"strings"
 
-	v1 "kubevirt.io/client-go/api/v1"
+	corev1 "kubevirt.io/client-go/apis/core/v1"
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -171,7 +171,7 @@ func cleanupLabels(r *unstructured.Unstructured) {
 	// remove "managed by operator" label...
 	labels, exists, _ := unstructured.NestedMap(r.Object, "metadata", "labels")
 	if exists {
-		delete(labels, v1.ManagedByLabel)
+		delete(labels, corev1.ManagedByLabel)
 		_ = unstructured.SetNestedMap(r.Object, labels, "metadata", "labels")
 	}
 }

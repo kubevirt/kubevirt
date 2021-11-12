@@ -20,9 +20,9 @@
 package v1
 
 //go:generate swagger-doc
-//go:generate deepcopy-gen -i . --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
-//go:generate defaulter-gen -i . --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
-//go:generate openapi-gen -i kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,kubevirt.io/client-go/api/v1,github.com/openshift/api/operator/v1 --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1  --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
+//go:generate deepcopy-gen -i . --go-header-file ../../../../../../../hack/boilerplate/boilerplate.go.txt
+//go:generate defaulter-gen -i . --go-header-file ../../../../../../../hack/boilerplate/boilerplate.go.txt
+//go:generate openapi-gen -i kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,kubevirt.io/client-go/apis/core/v1,github.com/openshift/api/operator/v1 --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/apis/core/v1  --go-header-file ../../../../../../../hack/boilerplate/boilerplate.go.txt
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
@@ -387,6 +387,10 @@ func (v *VirtualMachineInstance) WantsToHaveQOSGuaranteed() bool {
 // ShouldStartPaused returns true if VMI should be started in paused state
 func (v *VirtualMachineInstance) ShouldStartPaused() bool {
 	return v.Spec.StartStrategy != nil && *v.Spec.StartStrategy == StartStrategyPaused
+}
+
+func (v *VirtualMachineInstance) IsRealtimeEnabled() bool {
+	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.Realtime != nil
 }
 
 //
@@ -782,6 +786,9 @@ const (
 
 	// MigrationTransportUnixAnnotation means that the VMI will be migrated using the unix URI
 	MigrationTransportUnixAnnotation string = "kubevirt.io/migrationTransportUnix"
+
+	// RealtimeLabel marks the node as capable of running realtime workloads
+	RealtimeLabel string = "kubevirt.io/realtime"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1218,6 +1225,9 @@ type VirtualMachineSpec struct {
 	// mutually exclusive with Running
 	RunStrategy *VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
 
+	// FlavorMatcher references a flavor that is used to fill fields in Template
+	Flavor *FlavorMatcher `json:"flavor,omitempty" optional:"true"`
+
 	// Template is the direct specification of VirtualMachineInstance
 	Template *VirtualMachineInstanceTemplateSpec `json:"template"`
 
@@ -1260,7 +1270,7 @@ const (
 	// VirtualMachineStatusTerminating indicates that the virtual machine is in the process of deletion,
 	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
 	VirtualMachineStatusTerminating VirtualMachinePrintableStatus = "Terminating"
-	// VirtualMachineStatusCrashLoopBackOff indicates that the virtual machine is currently in a crash loop waiting to be retried
+	// VirtualMachineStatusCrashLoopBackOff indicates that the virtual machine is currently in a crash loop waiting to be retried.
 	VirtualMachineStatusCrashLoopBackOff VirtualMachinePrintableStatus = "CrashLoopBackOff"
 	// VirtualMachineStatusMigrating indicates that the virtual machine is in the process of being migrated
 	// to another host.
@@ -1270,13 +1280,20 @@ const (
 	VirtualMachineStatusUnknown VirtualMachinePrintableStatus = "Unknown"
 	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machine,
 	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
-	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "FailedUnschedulable"
+	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "ErrorUnschedulable"
 	// VirtualMachineStatusErrImagePull indicates that an error has occured while pulling an image for
 	// a containerDisk VM volume.
 	VirtualMachineStatusErrImagePull VirtualMachinePrintableStatus = "ErrImagePull"
 	// VirtualMachineStatusImagePullBackOff indicates that an error has occured while pulling an image for
 	// a containerDisk VM volume, and that kubelet is backing off before retrying.
 	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
+	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
+	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "ErrorPvcNotFound"
+	// VirtualMachineStatusDataVolumeNotFound indicates that the virtual machine references a DataVolume volume which doesn't exist.
+	VirtualMachineStatusDataVolumeNotFound VirtualMachinePrintableStatus = "ErrorDataVolumeNotFound"
+	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes
+	// referenced by the virtual machines.
+	VirtualMachineStatusDataVolumeError VirtualMachinePrintableStatus = "DataVolumeError"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
@@ -1919,6 +1936,12 @@ type VirtualMachineInstanceFileSystem struct {
 	TotalBytes     int    `json:"totalBytes"`
 }
 
+// FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command
+// +k8s:openapi-gen=true
+type FreezeUnfreezeTimeout struct {
+	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
+}
+
 // AddVolumeOptions is provided when dynamically hot plugging a volume and disk
 // +k8s:openapi-gen=true
 type AddVolumeOptions struct {
@@ -2123,4 +2146,30 @@ type ProfilerResult struct {
 // +k8s:openapi-gen=true
 type ClusterProfilerResults struct {
 	ComponentResults map[string]ProfilerResult `json:"componentResults"`
+	Continue         string                    `json:"continue,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type ClusterProfilerRequest struct {
+	LabelSelector string `json:"labelSelector,omitempty"`
+	Continue      string `json:"continue,omitempty"`
+	PageSize      int64  `json:"pageSize"`
+}
+
+// FlavorMatcher references a flavor that is used to fill fields in the VMI template.
+// +k8s:openapi-gen=true
+type FlavorMatcher struct {
+	// Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor
+	Name string `json:"name"`
+
+	// Kind specifies which flavor resource is referenced.
+	// Allowed values are: "VirtualMachineFlavor" and "VirtualMachineClusterFlavor".
+	// If not specified, "VirtualMachineClusterFlavor" is used by default.
+	//
+	// +optional
+	Kind string `json:"kind,omitempty"`
+
+	// Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.
+	// +optional
+	Profile string `json:"profile,omitempty"`
 }

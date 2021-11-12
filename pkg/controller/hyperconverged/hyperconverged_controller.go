@@ -43,7 +43,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
@@ -177,7 +177,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 	// When a new object got added here, it has also to be added to the custom cache
 	// managed by getNewManagerCache()
 	secondaryResources := []client.Object{
-		&kubevirtv1.KubeVirt{},
+		&kubevirtcorev1.KubeVirt{},
 		&cdiv1beta1.CDI{},
 		&networkaddonsv1.NetworkAddonsConfig{},
 		&sspv1beta1.SSP{},

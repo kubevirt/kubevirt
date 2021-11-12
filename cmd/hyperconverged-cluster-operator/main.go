@@ -44,7 +44,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
@@ -69,7 +69,7 @@ var (
 		openshiftroutev1.Install,
 		monitoringv1.AddToScheme,
 		apiextensionsv1.AddToScheme,
-		kubevirtv1.AddToScheme,
+		kubevirtcorev1.AddToScheme,
 		coordinationv1.AddToScheme,
 		operatorsapiv2.AddToScheme,
 	}
@@ -183,7 +183,7 @@ func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
 		cache.Options{
 			SelectorsByObject: cache.SelectorsByObject{
 				&hcov1beta1.HyperConverged{}:           {},
-				&kubevirtv1.KubeVirt{}:                 {},
+				&kubevirtcorev1.KubeVirt{}:             {},
 				&cdiv1beta1.CDI{}:                      {},
 				&networkaddonsv1.NetworkAddonsConfig{}: {},
 				&sspv1beta1.SSP{}:                      {},

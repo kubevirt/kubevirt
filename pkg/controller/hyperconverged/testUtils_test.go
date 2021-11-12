@@ -30,7 +30,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
@@ -109,7 +109,7 @@ type BasicExpected struct {
 	kvStorageConfig      *corev1.ConfigMap
 	kvStorageRole        *rbacv1.Role
 	kvStorageRoleBinding *rbacv1.RoleBinding
-	kv                   *kubevirtv1.KubeVirt
+	kv                   *kubevirtcorev1.KubeVirt
 	cdi                  *cdiv1beta1.CDI
 	cna                  *networkaddonsv1.NetworkAddonsConfig
 	ssp                  *sspv1beta1.SSP
@@ -194,17 +194,17 @@ func getBasicDeployment() *BasicExpected {
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
-	expectedKV.Status.Conditions = []kubevirtv1.KubeVirtCondition{
+	expectedKV.Status.Conditions = []kubevirtcorev1.KubeVirtCondition{
 		{
-			Type:   kubevirtv1.KubeVirtConditionAvailable,
+			Type:   kubevirtcorev1.KubeVirtConditionAvailable,
 			Status: corev1.ConditionTrue,
 		},
 		{
-			Type:   kubevirtv1.KubeVirtConditionProgressing,
+			Type:   kubevirtcorev1.KubeVirtConditionProgressing,
 			Status: corev1.ConditionFalse,
 		},
 		{
-			Type:   kubevirtv1.KubeVirtConditionDegraded,
+			Type:   kubevirtcorev1.KubeVirtConditionDegraded,
 			Status: corev1.ConditionFalse,
 		},
 	}

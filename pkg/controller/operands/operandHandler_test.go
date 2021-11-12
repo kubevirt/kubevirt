@@ -17,7 +17,7 @@ import (
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
@@ -102,7 +102,7 @@ var _ = Describe("Test operandHandler", func() {
 
 			By("make sure the KV object created", func() {
 				// Read back KV
-				kvList := kubevirtv1.KubeVirtList{}
+				kvList := kubevirtcorev1.KubeVirtList{}
 				err := cli.List(req.Ctx, &kvList)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kvList).ToNot(BeNil())
@@ -249,7 +249,7 @@ var _ = Describe("Test operandHandler", func() {
 
 			By("check that KV is deleted", func() {
 				// Read back KV
-				kvList := kubevirtv1.KubeVirtList{}
+				kvList := kubevirtcorev1.KubeVirtList{}
 				err = cli.List(req.Ctx, &kvList)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kvList).ToNot(BeNil())
@@ -325,7 +325,7 @@ var _ = Describe("Test operandHandler", func() {
 
 			By("check that KV still exists", func() {
 				// Read back KV
-				kvList := kubevirtv1.KubeVirtList{}
+				kvList := kubevirtcorev1.KubeVirtList{}
 				err := cli.List(req.Ctx, &kvList)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kvList).ToNot(BeNil())

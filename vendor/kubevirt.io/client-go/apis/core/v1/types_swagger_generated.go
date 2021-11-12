@@ -306,6 +306,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"":                    "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like\n\n+k8s:openapi-gen=true",
 		"running":             "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
 		"runStrategy":         "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
+		"flavor":              "FlavorMatcher references a flavor that is used to fill fields in Template",
 		"template":            "Template is the direct specification of VirtualMachineInstance",
 		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
 	}
@@ -572,6 +573,12 @@ func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
 	}
 }
 
+func (FreezeUnfreezeTimeout) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command\n+k8s:openapi-gen=true",
+	}
+}
+
 func (AddVolumeOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "AddVolumeOptions is provided when dynamically hot plugging a volume and disk\n+k8s:openapi-gen=true",
@@ -707,5 +714,20 @@ func (ProfilerResult) SwaggerDoc() map[string]string {
 func (ClusterProfilerResults) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (ClusterProfilerRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (FlavorMatcher) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "FlavorMatcher references a flavor that is used to fill fields in the VMI template.\n+k8s:openapi-gen=true",
+		"name":    "Name is the name of the VirtualMachineFlavor or VirtualMachineClusterFlavor",
+		"kind":    "Kind specifies which flavor resource is referenced.\nAllowed values are: \"VirtualMachineFlavor\" and \"VirtualMachineClusterFlavor\".\nIf not specified, \"VirtualMachineClusterFlavor\" is used by default.\n\n+optional",
+		"profile": "Profile is the name of a custom profile in the flavor. If left empty, the default profile is used.\n+optional",
 	}
 }

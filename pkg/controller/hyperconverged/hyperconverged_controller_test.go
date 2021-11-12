@@ -38,7 +38,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 )
@@ -193,7 +193,7 @@ var _ = Describe("HyperconvergedController", func() {
 				})))
 
 				// Get the KV
-				kvList := &kubevirtv1.KubeVirtList{}
+				kvList := &kubevirtcorev1.KubeVirtList{}
 				Expect(cl.List(context.TODO(), kvList)).To(BeNil())
 				Expect(kvList.Items).Should(HaveLen(1))
 				kv := kvList.Items[0]
@@ -322,7 +322,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(res).Should(Equal(reconcile.Result{}))
 
 				// Update Kubevirt (an example of secondary CR)
-				foundKubevirt := &kubevirtv1.KubeVirt{}
+				foundKubevirt := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expected.kv.Name, Namespace: expected.kv.Namespace},
@@ -350,7 +350,7 @@ var _ = Describe("HyperconvergedController", func() {
 						latestHCO),
 				).To(BeNil())
 
-				latestKubevirt := &kubevirtv1.KubeVirt{}
+				latestKubevirt := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expected.kv.Name, Namespace: expected.kv.Namespace},
@@ -441,7 +441,7 @@ var _ = Describe("HyperconvergedController", func() {
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				existingResource, err := operands.NewKubeVirt(hco, namespace)
 				Expect(err).ToNot(HaveOccurred())
-				existingResource.Kind = kubevirtv1.KubeVirtGroupVersionKind.Kind // necessary for metrics
+				existingResource.Kind = kubevirtcorev1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 
 				// now, modify KV's node placement
 				seconds3 := int64(3)
@@ -472,7 +472,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -501,7 +501,7 @@ var _ = Describe("HyperconvergedController", func() {
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 				existingResource, err := operands.NewKubeVirt(hco, namespace)
 				Expect(err).ToNot(HaveOccurred())
-				existingResource.Kind = kubevirtv1.KubeVirtGroupVersionKind.Kind // necessary for metrics
+				existingResource.Kind = kubevirtcorev1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 
 				// now, modify KV's node placement
 				seconds3 := int64(3)
@@ -526,7 +526,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -737,12 +737,12 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("Should be ready even if one of the operands is returns error, on update", func() {
 				expected := getBasicDeployment()
-				expected.kv.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+				expected.kv.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
 					FeatureGates: []string{"fakeFg"}, // force update
 				}
 				cl := expected.initClient()
 				cl.InitiateUpdateErrors(func(obj client.Object) error {
-					if _, ok := obj.(*kubevirtv1.KubeVirt); ok {
+					if _, ok := obj.(*kubevirtcorev1.KubeVirt); ok {
 						return errors.New("fake update error")
 					}
 					return nil

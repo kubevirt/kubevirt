@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -202,7 +202,7 @@ Version: 1.2.3`)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &kubevirtv1.KubeVirt{}
+			foundResource := &kubevirtcorev1.KubeVirt{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -238,7 +238,7 @@ Version: 1.2.3`)
 			Expect(foundResource.Spec.Configuration.SELinuxLauncherType).Should(Equal(SELinuxLauncherType))
 
 			Expect(foundResource.Spec.Configuration.NetworkConfiguration).ToNot(BeNil())
-			Expect(foundResource.Spec.Configuration.NetworkConfiguration.NetworkInterface).Should(Equal(string(kubevirtv1.MasqueradeInterface)))
+			Expect(foundResource.Spec.Configuration.NetworkConfiguration.NetworkInterface).Should(Equal(string(kubevirtcorev1.MasqueradeInterface)))
 
 			// LiveMigration Configurations
 			mc := foundResource.Spec.Configuration.MigrationConfiguration
@@ -303,11 +303,11 @@ Version: 1.2.3`)
 
 			existKv, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			existKv.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+			existKv.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
 				FeatureGates: []string{"wrongFG1", "wrongFG2", "wrongFG3"},
 			}
 			existKv.Spec.Configuration.MachineType = "wrong machine type"
-			existKv.Spec.Configuration.SMBIOSConfig = &kubevirtv1.SMBiosConfiguration{
+			existKv.Spec.Configuration.SMBIOSConfig = &kubevirtcorev1.SMBiosConfiguration{
 				Family:       "wrong family",
 				Product:      "wrong product",
 				Manufacturer: "wrong manifaturer",
@@ -315,7 +315,7 @@ Version: 1.2.3`)
 				Version:      "1.1.1",
 			}
 			existKv.Spec.Configuration.SELinuxLauncherType = "wrongSELinuxLauncherType"
-			existKv.Spec.Configuration.NetworkConfiguration = &kubevirtv1.NetworkConfiguration{
+			existKv.Spec.Configuration.NetworkConfiguration = &kubevirtcorev1.NetworkConfiguration{
 				NetworkInterface: "wrong network interface",
 			}
 			existKv.Spec.Configuration.EmulatedMachines = []string{"wrong"}
@@ -326,7 +326,7 @@ Version: 1.2.3`)
 			bandwidthPerMigration := resource.MustParse("16Mi")
 			wrongNumeric64Value := int64(0)
 			wrongNumeric32Value := uint32(0)
-			existKv.Spec.Configuration.MigrationConfiguration = &kubevirtv1.MigrationConfiguration{
+			existKv.Spec.Configuration.MigrationConfiguration = &kubevirtcorev1.MigrationConfiguration{
 				BandwidthPerMigration:             &bandwidthPerMigration,
 				CompletionTimeoutPerGiB:           &wrongNumeric64Value,
 				ParallelMigrationsPerCluster:      &wrongNumeric32Value,
@@ -342,7 +342,7 @@ Version: 1.2.3`)
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &kubevirtv1.KubeVirt{}
+			foundResource := &kubevirtcorev1.KubeVirt{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
@@ -372,7 +372,7 @@ Version: 1.2.3`)
 			Expect(foundResource.Spec.Configuration.SELinuxLauncherType).Should(Equal(SELinuxLauncherType))
 
 			Expect(foundResource.Spec.Configuration.NetworkConfiguration).ToNot(BeNil())
-			Expect(foundResource.Spec.Configuration.NetworkConfiguration.NetworkInterface).Should(Equal(string(kubevirtv1.MasqueradeInterface)))
+			Expect(foundResource.Spec.Configuration.NetworkConfiguration.NetworkInterface).Should(Equal(string(kubevirtcorev1.MasqueradeInterface)))
 
 			Expect(foundResource.Spec.Configuration.EmulatedMachines).Should(BeEmpty())
 
@@ -422,7 +422,7 @@ Version: 1.2.3`)
 			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &kubevirtv1.KubeVirt{}
+			foundResource := &kubevirtcorev1.KubeVirt{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -455,7 +455,7 @@ Version: 1.2.3`)
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &kubevirtv1.KubeVirt{}
+			foundResource := &kubevirtcorev1.KubeVirt{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
@@ -550,7 +550,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
@@ -561,17 +561,17 @@ Version: 1.2.3`)
 				Expect(phd).ToNot(BeNil())
 				Expect(phd.PciHostDevices).To(HaveLen(3))
 				Expect(phd.PciHostDevices).To(ContainElements(
-					kubevirtv1.PciHostDevice{
+					kubevirtcorev1.PciHostDevice{
 						PCIVendorSelector:        "vendor1",
 						ResourceName:             "resourceName1",
 						ExternalResourceProvider: true,
 					},
-					kubevirtv1.PciHostDevice{
+					kubevirtcorev1.PciHostDevice{
 						PCIVendorSelector:        "vendor2",
 						ResourceName:             "resourceName2",
 						ExternalResourceProvider: false,
 					},
-					kubevirtv1.PciHostDevice{
+					kubevirtcorev1.PciHostDevice{
 						PCIVendorSelector:        "vendor3",
 						ResourceName:             "resourceName3",
 						ExternalResourceProvider: true,
@@ -580,22 +580,22 @@ Version: 1.2.3`)
 
 				Expect(phd.MediatedDevices).To(HaveLen(4))
 				Expect(phd.MediatedDevices).To(ContainElements(
-					kubevirtv1.MediatedHostDevice{
+					kubevirtcorev1.MediatedHostDevice{
 						MDEVNameSelector:         "selector1",
 						ResourceName:             "resource1",
 						ExternalResourceProvider: true,
 					},
-					kubevirtv1.MediatedHostDevice{
+					kubevirtcorev1.MediatedHostDevice{
 						MDEVNameSelector:         "selector2",
 						ResourceName:             "resource2",
 						ExternalResourceProvider: false,
 					},
-					kubevirtv1.MediatedHostDevice{
+					kubevirtcorev1.MediatedHostDevice{
 						MDEVNameSelector:         "selector3",
 						ResourceName:             "resource3",
 						ExternalResourceProvider: true,
 					},
-					kubevirtv1.MediatedHostDevice{
+					kubevirtcorev1.MediatedHostDevice{
 						MDEVNameSelector:         "selector4",
 						ResourceName:             "resource4",
 						ExternalResourceProvider: false,
@@ -607,8 +607,8 @@ Version: 1.2.3`)
 				existKv, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 
-				existKv.Spec.Configuration.PermittedHostDevices = &kubevirtv1.PermittedHostDevices{
-					PciHostDevices: []kubevirtv1.PciHostDevice{
+				existKv.Spec.Configuration.PermittedHostDevices = &kubevirtcorev1.PermittedHostDevices{
+					PciHostDevices: []kubevirtcorev1.PciHostDevice{
 						{
 							PCIVendorSelector:        "other1",
 							ResourceName:             "otherResourceName1",
@@ -630,7 +630,7 @@ Version: 1.2.3`)
 							ExternalResourceProvider: true,
 						},
 					},
-					MediatedDevices: []kubevirtv1.MediatedHostDevice{
+					MediatedDevices: []kubevirtcorev1.MediatedHostDevice{
 						{
 							MDEVNameSelector:         "otherSelector1",
 							ResourceName:             "otherResource1",
@@ -708,7 +708,7 @@ Version: 1.2.3`)
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
 
 				By("Check before reconciling", func() {
-					foundResource := &kubevirtv1.KubeVirt{}
+					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
@@ -719,22 +719,22 @@ Version: 1.2.3`)
 					Expect(phd).ToNot(BeNil())
 					Expect(phd.PciHostDevices).To(HaveLen(4))
 					Expect(phd.PciHostDevices).To(ContainElements(
-						kubevirtv1.PciHostDevice{
+						kubevirtcorev1.PciHostDevice{
 							PCIVendorSelector:        "other1",
 							ResourceName:             "otherResourceName1",
 							ExternalResourceProvider: true,
 						},
-						kubevirtv1.PciHostDevice{
+						kubevirtcorev1.PciHostDevice{
 							PCIVendorSelector:        "other2",
 							ResourceName:             "otherResourceName2",
 							ExternalResourceProvider: false,
 						},
-						kubevirtv1.PciHostDevice{
+						kubevirtcorev1.PciHostDevice{
 							PCIVendorSelector:        "other3",
 							ResourceName:             "otherResourceName3",
 							ExternalResourceProvider: true,
 						},
-						kubevirtv1.PciHostDevice{
+						kubevirtcorev1.PciHostDevice{
 							PCIVendorSelector:        "other4",
 							ResourceName:             "otherResourceName4",
 							ExternalResourceProvider: true,
@@ -743,17 +743,17 @@ Version: 1.2.3`)
 
 					Expect(phd.MediatedDevices).To(HaveLen(3))
 					Expect(phd.MediatedDevices).To(ContainElements(
-						kubevirtv1.MediatedHostDevice{
+						kubevirtcorev1.MediatedHostDevice{
 							MDEVNameSelector:         "otherSelector1",
 							ResourceName:             "otherResource1",
 							ExternalResourceProvider: false,
 						},
-						kubevirtv1.MediatedHostDevice{
+						kubevirtcorev1.MediatedHostDevice{
 							MDEVNameSelector:         "otherSelector2",
 							ResourceName:             "otherResource2",
 							ExternalResourceProvider: true,
 						},
-						kubevirtv1.MediatedHostDevice{
+						kubevirtcorev1.MediatedHostDevice{
 							MDEVNameSelector:         "otherSelector3",
 							ResourceName:             "otherResource3",
 							ExternalResourceProvider: true,
@@ -769,7 +769,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
@@ -781,17 +781,17 @@ Version: 1.2.3`)
 				Expect(phd).ToNot(BeNil())
 				Expect(phd.PciHostDevices).To(HaveLen(3))
 				Expect(phd.PciHostDevices).To(ContainElements(
-					kubevirtv1.PciHostDevice{
+					kubevirtcorev1.PciHostDevice{
 						PCIVendorSelector:        "vendor1",
 						ResourceName:             "resourceName1",
 						ExternalResourceProvider: true,
 					},
-					kubevirtv1.PciHostDevice{
+					kubevirtcorev1.PciHostDevice{
 						PCIVendorSelector:        "vendor2",
 						ResourceName:             "resourceName2",
 						ExternalResourceProvider: false,
 					},
-					kubevirtv1.PciHostDevice{
+					kubevirtcorev1.PciHostDevice{
 						PCIVendorSelector:        "vendor3",
 						ResourceName:             "resourceName3",
 						ExternalResourceProvider: true,
@@ -800,22 +800,22 @@ Version: 1.2.3`)
 
 				Expect(phd.MediatedDevices).To(HaveLen(4))
 				Expect(phd.MediatedDevices).To(ContainElements(
-					kubevirtv1.MediatedHostDevice{
+					kubevirtcorev1.MediatedHostDevice{
 						MDEVNameSelector:         "selector1",
 						ResourceName:             "resource1",
 						ExternalResourceProvider: true,
 					},
-					kubevirtv1.MediatedHostDevice{
+					kubevirtcorev1.MediatedHostDevice{
 						MDEVNameSelector:         "selector2",
 						ResourceName:             "resource2",
 						ExternalResourceProvider: false,
 					},
-					kubevirtv1.MediatedHostDevice{
+					kubevirtcorev1.MediatedHostDevice{
 						MDEVNameSelector:         "selector3",
 						ResourceName:             "resource3",
 						ExternalResourceProvider: true,
 					},
-					kubevirtv1.MediatedHostDevice{
+					kubevirtcorev1.MediatedHostDevice{
 						MDEVNameSelector:         "selector4",
 						ResourceName:             "resource4",
 						ExternalResourceProvider: false,
@@ -840,7 +840,7 @@ Version: 1.2.3`)
 				Expect(res.Overwritten).To(BeFalse())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -878,7 +878,7 @@ Version: 1.2.3`)
 				Expect(res.Overwritten).To(BeFalse())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -915,7 +915,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -970,7 +970,7 @@ Version: 1.2.3`)
 				Expect(res.Overwritten).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1082,7 +1082,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundResource := &kubevirtv1.KubeVirt{}
+					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1113,7 +1113,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundResource := &kubevirtv1.KubeVirt{}
+					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1144,7 +1144,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundResource := &kubevirtv1.KubeVirt{}
+					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1187,7 +1187,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundResource := &kubevirtv1.KubeVirt{}
+					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1203,7 +1203,7 @@ Version: 1.2.3`)
 					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
 						FeatureGates: []string{kvWithHostPassthroughCPU, kvSRIOVLiveMigration},
 					}
 
@@ -1226,7 +1226,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundResource := &kubevirtv1.KubeVirt{}
+					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1243,7 +1243,7 @@ Version: 1.2.3`)
 					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
 						FeatureGates: []string{kvWithHostPassthroughCPU, kvSRIOVLiveMigration},
 					}
 
@@ -1263,7 +1263,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundResource := &kubevirtv1.KubeVirt{}
+					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1280,7 +1280,7 @@ Version: 1.2.3`)
 					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(true)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
 						FeatureGates: []string{kvWithHostPassthroughCPU, kvSRIOVLiveMigration},
 					}
 
@@ -1300,7 +1300,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundResource := &kubevirtv1.KubeVirt{}
+					foundResource := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1457,7 +1457,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundKV := &kubevirtv1.KubeVirt{}
+					foundKV := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingKV.Name, Namespace: existingKV.Namespace},
@@ -1501,7 +1501,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundKV := &kubevirtv1.KubeVirt{}
+					foundKV := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingKV.Name, Namespace: existingKV.Namespace},
@@ -1541,7 +1541,7 @@ Version: 1.2.3`)
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).To(BeNil())
 
-					foundKV := &kubevirtv1.KubeVirt{}
+					foundKV := &kubevirtcorev1.KubeVirt{}
 					Expect(
 						cl.Get(context.TODO(),
 							types.NamespacedName{Name: existingKV.Name, Namespace: existingKV.Namespace},
@@ -1585,7 +1585,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1612,7 +1612,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeFalse())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1659,7 +1659,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1715,7 +1715,7 @@ Version: 1.2.3`)
 				Expect(res.Overwritten).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1760,7 +1760,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1772,7 +1772,7 @@ Version: 1.2.3`)
 				Expect(kvUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("1m0s"))
 				Expect(*kvUpdateStrategy.BatchEvictionSize).Should(Equal(defaultBatchEvictionSize))
 				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(2))
-				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(kubevirtv1.WorkloadUpdateMethod("aaa"), kubevirtv1.WorkloadUpdateMethod("bbb")))
+				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(kubevirtcorev1.WorkloadUpdateMethod("aaa"), kubevirtcorev1.WorkloadUpdateMethod("bbb")))
 
 				Expect(req.Conditions).To(BeEmpty())
 			})
@@ -1787,7 +1787,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeFalse())
 				Expect(res.Err).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
+				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
@@ -1819,7 +1819,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundKv := &kubevirtv1.KubeVirt{}
+				foundKv := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingKv.Name, Namespace: existingKv.Namespace},
@@ -1829,9 +1829,9 @@ Version: 1.2.3`)
 				Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(3))
 				Expect(foundKv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods).Should(
 					ContainElements(
-						kubevirtv1.WorkloadUpdateMethod("aaa"),
-						kubevirtv1.WorkloadUpdateMethod("bbb"),
-						kubevirtv1.WorkloadUpdateMethod("ccc"),
+						kubevirtcorev1.WorkloadUpdateMethod("aaa"),
+						kubevirtcorev1.WorkloadUpdateMethod("bbb"),
+						kubevirtcorev1.WorkloadUpdateMethod("ccc"),
 					),
 				)
 
@@ -1859,7 +1859,7 @@ Version: 1.2.3`)
 				By("Modify KV's Workload Update Strategy configuration")
 				existingKV.Spec.WorkloadUpdateStrategy.BatchEvictionInterval = &metav1.Duration{Duration: 3 * time.Minute}
 				existingKV.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &kvModifiedBatchEvictionSize
-				existingKV.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []kubevirtv1.WorkloadUpdateMethod{kubevirtv1.WorkloadUpdateMethodEvict}
+				existingKV.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []kubevirtcorev1.WorkloadUpdateMethod{kubevirtcorev1.WorkloadUpdateMethodEvict}
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingKV})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
@@ -1869,7 +1869,7 @@ Version: 1.2.3`)
 				Expect(res.Overwritten).To(BeTrue())
 				Expect(res.Err).To(BeNil())
 
-				foundKV := &kubevirtv1.KubeVirt{}
+				foundKV := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: existingKV.Name, Namespace: existingKV.Namespace},
@@ -1880,7 +1880,7 @@ Version: 1.2.3`)
 				existingUpdateStrategy := existingKV.Spec.WorkloadUpdateStrategy
 				Expect(existingUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(1))
 				Expect(existingUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(
-					kubevirtv1.WorkloadUpdateMethodEvict,
+					kubevirtcorev1.WorkloadUpdateMethodEvict,
 				))
 				Expect(*existingUpdateStrategy.BatchEvictionSize).Should(Equal(kvModifiedBatchEvictionSize))
 				Expect(existingUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("3m0s"))
@@ -1889,7 +1889,7 @@ Version: 1.2.3`)
 				foundUpdateStrategy := foundKV.Spec.WorkloadUpdateStrategy
 				Expect(foundUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(1))
 				Expect(foundUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(
-					kubevirtv1.WorkloadUpdateMethodLiveMigrate,
+					kubevirtcorev1.WorkloadUpdateMethodLiveMigrate,
 				))
 				Expect(*foundUpdateStrategy.BatchEvictionSize).Should(Equal(hcoModifiedBatchEvictionSize))
 				Expect(foundUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("5m0s"))
@@ -1900,21 +1900,21 @@ Version: 1.2.3`)
 			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			expectedResource.Status.Conditions = []kubevirtv1.KubeVirtCondition{
+			expectedResource.Status.Conditions = []kubevirtcorev1.KubeVirtCondition{
 				{
-					Type:    kubevirtv1.KubeVirtConditionAvailable,
+					Type:    kubevirtcorev1.KubeVirtConditionAvailable,
 					Status:  corev1.ConditionFalse,
 					Reason:  "Foo",
 					Message: "Bar",
 				},
 				{
-					Type:    kubevirtv1.KubeVirtConditionProgressing,
+					Type:    kubevirtcorev1.KubeVirtConditionProgressing,
 					Status:  corev1.ConditionTrue,
 					Reason:  "Foo",
 					Message: "Bar",
 				},
 				{
-					Type:    kubevirtv1.KubeVirtConditionDegraded,
+					Type:    kubevirtcorev1.KubeVirtConditionDegraded,
 					Status:  corev1.ConditionTrue,
 					Reason:  "Foo",
 					Message: "Bar",
@@ -2036,7 +2036,7 @@ Version: 1.2.3`)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Err).To(BeNil())
 
-				kv := &kubevirtv1.KubeVirt{}
+				kv := &kubevirtcorev1.KubeVirt{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -2071,7 +2071,7 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.Err).To(HaveOccurred())
 
-				kv := &kubevirtv1.KubeVirt{}
+				kv := &kubevirtcorev1.KubeVirt{}
 
 				err := cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -2111,7 +2111,7 @@ Version: 1.2.3`)
 				Expect(res.Updated).To(BeTrue())
 				Expect(res.UpgradeDone).To(BeFalse())
 
-				kv := &kubevirtv1.KubeVirt{}
+				kv := &kubevirtcorev1.KubeVirt{}
 
 				expectedResource := NewKubeVirtWithNameOnly(hco)
 				Expect(
@@ -2150,7 +2150,7 @@ Version: 1.2.3`)
 				res := handler.ensure(req)
 				Expect(res.Err).To(HaveOccurred())
 
-				kv := &kubevirtv1.KubeVirt{}
+				kv := &kubevirtcorev1.KubeVirt{}
 
 				expectedResource := NewKubeVirtWithNameOnly(hco)
 				Expect(
@@ -2345,17 +2345,17 @@ Version: 1.2.3`)
 
 			Expect(kvCopy.PciHostDevices).To(HaveLen(3))
 			Expect(kvCopy.PciHostDevices).To(ContainElements(
-				kubevirtv1.PciHostDevice{
+				kubevirtcorev1.PciHostDevice{
 					PCIVendorSelector:        "vendor1",
 					ResourceName:             "resourceName1",
 					ExternalResourceProvider: true,
 				},
-				kubevirtv1.PciHostDevice{
+				kubevirtcorev1.PciHostDevice{
 					PCIVendorSelector:        "vendor2",
 					ResourceName:             "resourceName2",
 					ExternalResourceProvider: false,
 				},
-				kubevirtv1.PciHostDevice{
+				kubevirtcorev1.PciHostDevice{
 					PCIVendorSelector:        "vendor3",
 					ResourceName:             "resourceName3",
 					ExternalResourceProvider: true,
@@ -2364,22 +2364,22 @@ Version: 1.2.3`)
 
 			Expect(kvCopy.MediatedDevices).To(HaveLen(4))
 			Expect(kvCopy.MediatedDevices).To(ContainElements(
-				kubevirtv1.MediatedHostDevice{
+				kubevirtcorev1.MediatedHostDevice{
 					MDEVNameSelector:         "selector1",
 					ResourceName:             "resource1",
 					ExternalResourceProvider: true,
 				},
-				kubevirtv1.MediatedHostDevice{
+				kubevirtcorev1.MediatedHostDevice{
 					MDEVNameSelector:         "selector2",
 					ResourceName:             "resource2",
 					ExternalResourceProvider: false,
 				},
-				kubevirtv1.MediatedHostDevice{
+				kubevirtcorev1.MediatedHostDevice{
 					MDEVNameSelector:         "selector3",
 					ResourceName:             "resource3",
 					ExternalResourceProvider: true,
 				},
-				kubevirtv1.MediatedHostDevice{
+				kubevirtcorev1.MediatedHostDevice{
 					MDEVNameSelector:         "selector4",
 					ResourceName:             "resource4",
 					ExternalResourceProvider: false,

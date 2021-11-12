@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -171,7 +171,7 @@ func newKubevirtHandler(Client client.Client, Scheme *runtime.Scheme) *kubevirtH
 }
 
 type kubevirtHooks struct {
-	cache *kubevirtv1.KubeVirt
+	cache *kubevirtcorev1.KubeVirt
 }
 
 func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
@@ -185,24 +185,24 @@ func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 	return h.cache, nil
 }
 
-func (h kubevirtHooks) getEmptyCr() client.Object { return &kubevirtv1.KubeVirt{} }
+func (h kubevirtHooks) getEmptyCr() client.Object { return &kubevirtcorev1.KubeVirt{} }
 func (h kubevirtHooks) getConditions(cr runtime.Object) []metav1.Condition {
-	return translateKubeVirtConds(cr.(*kubevirtv1.KubeVirt).Status.Conditions)
+	return translateKubeVirtConds(cr.(*kubevirtcorev1.KubeVirt).Status.Conditions)
 }
 func (h kubevirtHooks) checkComponentVersion(cr runtime.Object) bool {
-	found := cr.(*kubevirtv1.KubeVirt)
+	found := cr.(*kubevirtcorev1.KubeVirt)
 	return checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
 }
 func (h kubevirtHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*kubevirtv1.KubeVirt).ObjectMeta
+	return &cr.(*kubevirtcorev1.KubeVirt).ObjectMeta
 }
 func (h *kubevirtHooks) reset() {
 	h.cache = nil
 }
 
 func (h *kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
-	virt, ok1 := required.(*kubevirtv1.KubeVirt)
-	found, ok2 := exists.(*kubevirtv1.KubeVirt)
+	virt, ok1 := required.(*kubevirtcorev1.KubeVirt)
+	found, ok2 := exists.(*kubevirtcorev1.KubeVirt)
 	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to KubeVirt")
 	}
@@ -224,7 +224,7 @@ func (h *kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 	return false, false, nil
 }
 
-func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtv1.KubeVirt, error) {
+func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1.KubeVirt, error) {
 	config, err := getKVConfig(hc)
 	if err != nil {
 		return nil, err
@@ -232,8 +232,8 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtv1.Kub
 
 	kvCertConfig := hcoCertConfig2KvCertificateRotateStrategy(hc.Spec.CertConfig)
 
-	spec := kubevirtv1.KubeVirtSpec{
-		UninstallStrategy:           kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
+	spec := kubevirtcorev1.KubeVirtSpec{
+		UninstallStrategy:           kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
 		Infra:                       hcoConfig2KvConfig(hc.Spec.Infra),
 		Workloads:                   hcoConfig2KvConfig(hc.Spec.Workloads),
 		Configuration:               *config,
@@ -251,8 +251,8 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtv1.Kub
 	return kv, nil
 }
 
-func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpdateStrategy) kubevirtv1.KubeVirtWorkloadUpdateStrategy {
-	kvObject := kubevirtv1.KubeVirtWorkloadUpdateStrategy{}
+func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpdateStrategy) kubevirtcorev1.KubeVirtWorkloadUpdateStrategy {
+	kvObject := kubevirtcorev1.KubeVirtWorkloadUpdateStrategy{}
 	if hcObject != nil {
 		if hcObject.BatchEvictionInterval != nil {
 			kvObject.BatchEvictionInterval = new(metav1.Duration)
@@ -265,9 +265,9 @@ func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpd
 		}
 
 		if size := len(hcObject.WorkloadUpdateMethods); size > 0 {
-			kvObject.WorkloadUpdateMethods = make([]kubevirtv1.WorkloadUpdateMethod, size)
+			kvObject.WorkloadUpdateMethods = make([]kubevirtcorev1.WorkloadUpdateMethod, size)
 			for i, updateMethod := range hcObject.WorkloadUpdateMethods {
-				kvObject.WorkloadUpdateMethods[i] = kubevirtv1.WorkloadUpdateMethod(updateMethod)
+				kvObject.WorkloadUpdateMethods[i] = kubevirtcorev1.WorkloadUpdateMethod(updateMethod)
 			}
 		}
 	}
@@ -275,7 +275,7 @@ func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpd
 	return kvObject
 }
 
-func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfiguration, error) {
+func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfiguration, error) {
 	devConfig, err := getKVDevConfig(hc)
 	if err != nil {
 		return nil, err
@@ -288,11 +288,11 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 
 	obsoleteCPUs, minCPUModel := getObsoleteCPUConfig(hc.Spec.ObsoleteCPUs)
 
-	config := &kubevirtv1.KubeVirtConfiguration{
+	config := &kubevirtcorev1.KubeVirtConfiguration{
 		DeveloperConfiguration: devConfig,
 		SELinuxLauncherType:    SELinuxLauncherType,
-		NetworkConfiguration: &kubevirtv1.NetworkConfiguration{
-			NetworkInterface: string(kubevirtv1.MasqueradeInterface),
+		NetworkConfiguration: &kubevirtcorev1.NetworkConfiguration{
+			NetworkInterface: string(kubevirtcorev1.MasqueradeInterface),
 		},
 		MigrationConfiguration: kvLiveMigration,
 		PermittedHostDevices:   toKvPermittedHostDevices(hc.Spec.PermittedHostDevices),
@@ -302,7 +302,7 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 
 	if smbiosConfig, ok := os.LookupEnv(smbiosEnvName); ok {
 		if smbiosConfig = strings.TrimSpace(smbiosConfig); smbiosConfig != "" {
-			config.SMBIOSConfig = &kubevirtv1.SMBiosConfiguration{}
+			config.SMBIOSConfig = &kubevirtcorev1.SMBiosConfiguration{}
 			err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(smbiosConfig), 1024).Decode(config.SMBIOSConfig)
 			if err != nil {
 				return nil, err
@@ -337,23 +337,23 @@ func getObsoleteCPUConfig(hcObsoleteCPUConf *hcov1beta1.HyperConvergedObsoleteCP
 	return obsoleteCPUModels, minCPUModel
 }
 
-func toKvPermittedHostDevices(permittedDevices *hcov1beta1.PermittedHostDevices) *kubevirtv1.PermittedHostDevices {
+func toKvPermittedHostDevices(permittedDevices *hcov1beta1.PermittedHostDevices) *kubevirtcorev1.PermittedHostDevices {
 	if permittedDevices == nil {
 		return nil
 	}
 
-	return &kubevirtv1.PermittedHostDevices{
+	return &kubevirtcorev1.PermittedHostDevices{
 		PciHostDevices:  toKvPciHostDevices(permittedDevices.PciHostDevices),
 		MediatedDevices: toKvMediatedDevices(permittedDevices.MediatedDevices),
 	}
 }
 
-func toKvPciHostDevices(hcoPciHostdevices []hcov1beta1.PciHostDevice) []kubevirtv1.PciHostDevice {
+func toKvPciHostDevices(hcoPciHostdevices []hcov1beta1.PciHostDevice) []kubevirtcorev1.PciHostDevice {
 	if len(hcoPciHostdevices) > 0 {
-		pciHostDevices := make([]kubevirtv1.PciHostDevice, 0, len(hcoPciHostdevices))
+		pciHostDevices := make([]kubevirtcorev1.PciHostDevice, 0, len(hcoPciHostdevices))
 		for _, hcoPciHostDevice := range hcoPciHostdevices {
 			if !hcoPciHostDevice.Disabled {
-				pciHostDevices = append(pciHostDevices, kubevirtv1.PciHostDevice{
+				pciHostDevices = append(pciHostDevices, kubevirtcorev1.PciHostDevice{
 					PCIVendorSelector:        hcoPciHostDevice.PCIDeviceSelector,
 					ResourceName:             hcoPciHostDevice.ResourceName,
 					ExternalResourceProvider: hcoPciHostDevice.ExternalResourceProvider,
@@ -366,12 +366,12 @@ func toKvPciHostDevices(hcoPciHostdevices []hcov1beta1.PciHostDevice) []kubevirt
 	return nil
 }
 
-func toKvMediatedDevices(hcoMediatedDevices []hcov1beta1.MediatedHostDevice) []kubevirtv1.MediatedHostDevice {
+func toKvMediatedDevices(hcoMediatedDevices []hcov1beta1.MediatedHostDevice) []kubevirtcorev1.MediatedHostDevice {
 	if len(hcoMediatedDevices) > 0 {
-		mediatedDevices := make([]kubevirtv1.MediatedHostDevice, 0, len(hcoMediatedDevices))
+		mediatedDevices := make([]kubevirtcorev1.MediatedHostDevice, 0, len(hcoMediatedDevices))
 		for _, hcoMediatedHostDevice := range hcoMediatedDevices {
 			if !hcoMediatedHostDevice.Disabled {
-				mediatedDevices = append(mediatedDevices, kubevirtv1.MediatedHostDevice{
+				mediatedDevices = append(mediatedDevices, kubevirtcorev1.MediatedHostDevice{
 					MDEVNameSelector:         hcoMediatedHostDevice.MDEVNameSelector,
 					ResourceName:             hcoMediatedHostDevice.ResourceName,
 					ExternalResourceProvider: hcoMediatedHostDevice.ExternalResourceProvider,
@@ -384,7 +384,7 @@ func toKvMediatedDevices(hcoMediatedDevices []hcov1beta1.MediatedHostDevice) []k
 	return nil
 }
 
-func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtv1.MigrationConfiguration, error) {
+func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtcorev1.MigrationConfiguration, error) {
 	var bandwidthPerMigration *resource.Quantity = nil
 	if lm.BandwidthPerMigration != nil {
 		bandwidthPerMigrationObject, err := resource.ParseQuantity(*lm.BandwidthPerMigration)
@@ -394,7 +394,7 @@ func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtv1
 		bandwidthPerMigration = &bandwidthPerMigrationObject
 	}
 
-	return &kubevirtv1.MigrationConfiguration{
+	return &kubevirtcorev1.MigrationConfiguration{
 		BandwidthPerMigration:             bandwidthPerMigration,
 		CompletionTimeoutPerGiB:           lm.CompletionTimeoutPerGiB,
 		ParallelOutboundMigrationsPerNode: lm.ParallelOutboundMigrationsPerNode,
@@ -403,9 +403,9 @@ func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtv1
 	}, nil
 }
 
-func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.DeveloperConfiguration, error) {
-	devConf := &kubevirtv1.DeveloperConfiguration{
-		DiskVerification: &kubevirtv1.DiskVerification{
+func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.DeveloperConfiguration, error) {
+	devConf := &kubevirtcorev1.DeveloperConfiguration{
+		DiskVerification: &kubevirtcorev1.DiskVerification{
 			MemoryLimit: &kvDiskVerificationMemoryLimit,
 		},
 	}
@@ -421,8 +421,8 @@ func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.DeveloperConfigu
 	return devConf, nil
 }
 
-func NewKubeVirtWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.KubeVirt {
-	return &kubevirtv1.KubeVirt{
+func NewKubeVirtWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtcorev1.KubeVirt {
+	return &kubevirtcorev1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt-" + hc.Name,
 			Labels:    getLabels(hc, hcoutil.AppComponentCompute),
@@ -431,10 +431,10 @@ func NewKubeVirtWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *kub
 	}
 }
 
-func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtv1.ComponentConfig {
+func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtcorev1.ComponentConfig {
 	if hcoConfig.NodePlacement != nil {
-		kvConfig := &kubevirtv1.ComponentConfig{}
-		kvConfig.NodePlacement = &kubevirtv1.NodePlacement{}
+		kvConfig := &kubevirtcorev1.ComponentConfig{}
+		kvConfig.NodePlacement = &kubevirtcorev1.NodePlacement{}
 
 		if hcoConfig.NodePlacement.Affinity != nil {
 			kvConfig.NodePlacement.Affinity = &corev1.Affinity{}
@@ -557,7 +557,7 @@ func NewKubeVirtPriorityClass(hc *hcov1beta1.HyperConverged) *schedulingv1.Prior
 
 // translateKubeVirtConds translates list of KubeVirt conditions to a list of custom resource
 // conditions.
-func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []metav1.Condition {
+func translateKubeVirtConds(orig []kubevirtcorev1.KubeVirtCondition) []metav1.Condition {
 	translated := make([]metav1.Condition, len(orig))
 
 	for i, origCond := range orig {
@@ -592,14 +592,14 @@ func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	return res
 }
 
-func hcoCertConfig2KvCertificateRotateStrategy(hcoCertConfig hcov1beta1.HyperConvergedCertConfig) *kubevirtv1.KubeVirtCertificateRotateStrategy {
-	return &kubevirtv1.KubeVirtCertificateRotateStrategy{
-		SelfSigned: &kubevirtv1.KubeVirtSelfSignConfiguration{
-			CA: &kubevirtv1.CertConfig{
+func hcoCertConfig2KvCertificateRotateStrategy(hcoCertConfig hcov1beta1.HyperConvergedCertConfig) *kubevirtcorev1.KubeVirtCertificateRotateStrategy {
+	return &kubevirtcorev1.KubeVirtCertificateRotateStrategy{
+		SelfSigned: &kubevirtcorev1.KubeVirtSelfSignConfiguration{
+			CA: &kubevirtcorev1.CertConfig{
 				Duration:    hcoCertConfig.CA.Duration.DeepCopy(),
 				RenewBefore: hcoCertConfig.CA.RenewBefore.DeepCopy(),
 			},
-			Server: &kubevirtv1.CertConfig{
+			Server: &kubevirtcorev1.CertConfig{
 				Duration:    hcoCertConfig.Server.Duration.DeepCopy(),
 				RenewBefore: hcoCertConfig.Server.RenewBefore.DeepCopy(),
 			},

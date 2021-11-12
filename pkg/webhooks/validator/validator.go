@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	kubevirtcorev1 "kubevirt.io/client-go/apis/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 
@@ -160,7 +160,7 @@ func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.Hyper
 	}
 
 	switch existing := exists.(type) {
-	case *kubevirtv1.KubeVirt:
+	case *kubevirtcorev1.KubeVirt:
 		required, err := operands.NewKubeVirt(hc)
 		if err != nil {
 			return err

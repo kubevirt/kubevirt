@@ -165,6 +165,14 @@ func (CPU) SwaggerDoc() map[string]string {
 		"dedicatedCpuPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
 		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
 		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
+		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
+	}
+}
+
+func (Realtime) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "Realtime holds the tuning knobs specific for realtime workloads.\n+k8s:openapi-gen=true",
+		"mask": "Mask defines the vcpu mask expression that defines which vcpus are used for realtime. Format matches libvirt's expressions.\nExample: \"0-3,^1\",\"0,2,3\",\"2-3\"\n+optional",
 	}
 }
 
