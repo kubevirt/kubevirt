@@ -247,7 +247,7 @@ func (c *VMIController) runWorker() {
 	}
 }
 
-var virtControllerTracerVMI *traceUtils.Tracer
+var virtControllerVMIWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
 func (c *VMIController) Execute() bool {
 	key, quit := c.Queue.Get()
@@ -255,8 +255,8 @@ func (c *VMIController) Execute() bool {
 		return false
 	}
 
-	virtControllerTracerVMI = traceUtils.NewTrace(time.Second, "virt-controller VMI workqueue", trace.Field{Key: "Workqueue Key", Value: key})
-	defer virtControllerTracerVMI.Trace.LogIfLong(virtControllerTracerVMI.Threshold)
+	virtControllerVMIWorkQueueTracer.StartTrace(key.(string), "virt-controller VMI workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerVMIWorkQueueTracer.StopTrace(key.(string))
 
 	defer c.Queue.Done(key)
 	err := c.execute(key.(string))
@@ -381,8 +381,8 @@ func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 }
 
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
-
-	virtControllerTracerVMI.Trace.Step("updateStatus", trace.Field{Key: "VMI Name", Value: "vmi.Name"})
+	key := fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)
+	virtControllerVMIWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VMI Name", Value: "vmi.Name"})
 
 	hasFailedDataVolume := false
 	for _, dataVolume := range dataVolumes {
@@ -969,7 +969,8 @@ func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, vir
 }
 
 func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) syncError {
-	virtControllerTracerVMI.Trace.Step("sync", trace.Field{Key: "VMI Name", Value: "vmi.Name"})
+	key := fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)
+	virtControllerVMIWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VMI Name", Value: "vmi.Name"})
 
 	if vmi.DeletionTimestamp != nil {
 		err := c.deleteAllMatchingPods(vmi)

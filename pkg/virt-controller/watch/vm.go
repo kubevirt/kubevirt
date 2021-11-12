@@ -177,7 +177,7 @@ func (c *VMController) needsSync(key string) bool {
 	return c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
 }
 
-var virtControllerTracerVM *traceUtils.Tracer
+var virtControllerVMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
 func (c *VMController) Execute() bool {
 	key, quit := c.Queue.Get()
@@ -185,8 +185,8 @@ func (c *VMController) Execute() bool {
 		return false
 	}
 
-	virtControllerTracerVM = traceUtils.NewTrace(time.Second, "virt-controller VM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
-	defer virtControllerTracerVM.Trace.LogIfLong(virtControllerTracerVM.Threshold)
+	virtControllerVMWorkQueueTracer.StartTrace(key.(string), "virt-controller VM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerVMWorkQueueTracer.StopTrace(key.(string))
 
 	defer c.Queue.Done(key)
 	if err := c.execute(key.(string)); err != nil {
@@ -1569,7 +1569,8 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) error {
 	vm := vmOrig.DeepCopy()
 
-	virtControllerTracerVM.Trace.Step("updateStatus", trace.Field{Key: "VM Name", Value: "vm.Name"})
+	key := fmt.Sprintf("%s/%s", vm.Namespace, vm.Name)
+	virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: "vm.Name"})
 
 	created := vmi != nil
 	vm.Status.Created = created
