@@ -1386,8 +1386,6 @@ spec:
 			curVersion := originalKv.Status.ObservedKubeVirtVersion
 			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
 
-			curOperatorManifestPath := filepath.Join(flags.ManifestsDir, "release/kubevirt-operator.yaml")
-
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
@@ -1403,7 +1401,7 @@ spec:
 
 			if updateOperator {
 				By("Deleting virt-operator installation")
-				deleteOperator(curOperatorManifestPath)
+				deleteOperator(flags.OperatorManifestPath)
 
 				By("Installing previous release of virt-operator")
 				manifestURL := tests.GetUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
@@ -1492,7 +1490,7 @@ spec:
 			// Update KubeVirt from the previous release to the testing target release.
 			if updateOperator {
 				By("Updating virt-operator installation")
-				installOperator(curOperatorManifestPath)
+				installOperator(flags.OperatorManifestPath)
 			} else {
 				By("Updating KubeVirt object With current tag")
 				patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
