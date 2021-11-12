@@ -1564,7 +1564,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
 				Expect(err).ToNot(BeNil())
 			})
-			It("is enabled it should allow subresource access", func() {
+			It("[QUARANTINE] is enabled it should allow subresource access", func() {
 				tests.EnableFeatureGate("ClusterProfiler")
 
 				err := virtClient.ClusterProfiler().Start()
