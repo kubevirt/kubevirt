@@ -147,7 +147,7 @@ var _ = Describe("Migration watcher", func() {
 			return true, pdb, nil
 		})
 	}
-	
+
 	shouldExpectGenericMigrationUpdate := func() {
 		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
 			return arg, nil
