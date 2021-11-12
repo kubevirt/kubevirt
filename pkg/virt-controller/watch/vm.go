@@ -1570,7 +1570,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	vm := vmOrig.DeepCopy()
 
 	key := fmt.Sprintf("%s/%s", vm.Namespace, vm.Name)
-	virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: "vm.Name"})
+	defer virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: vm.Name})
 
 	created := vmi != nil
 	vm.Status.Created = created

@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -6,11 +6,4 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/util/trace",
     visibility = ["//visibility:public"],
     deps = ["//vendor/k8s.io/utils/trace:go_default_library"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["trace_suite_test.go"],
-    embed = [":go_default_library"],
-    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
 )
