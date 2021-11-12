@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/network/dhcp/server",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/network/dns:go_default_library",
         "//staging/src/kubevirt.io/client-go/apis/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/krolaw/dhcp4:go_default_library",

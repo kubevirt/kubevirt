@@ -230,6 +230,31 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", func() {
 					`DNSDomain[\n\r\t ]+`+searchDomain+`[\n\r\t ]+`)
 			}, 360)
 		})
+
+		Context("VMI with subdomain is created", func() {
+			BeforeEach(func() {
+				windowsVMI.Spec.Subdomain = "subdomain"
+
+				By("Starting the windows VirtualMachineInstance with subdomain")
+				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(windowsVMI)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+
+				cli = winrnLoginCommand(virtClient, windowsVMI)
+			})
+
+			It("should have the domain set properly with subdomain", func() {
+				searchDomain := getPodSearchDomain(windowsVMI)
+				Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
+
+				expectedSearchDomain := windowsVMI.Spec.Subdomain + "." + searchDomain
+				runCommandAndExpectOutput(virtClient,
+					winrmcliPod,
+					cli,
+					"wmic nicconfig get dnsdomain",
+					`DNSDomain[\n\r\t ]+`+expectedSearchDomain+`[\n\r\t ]+`)
+			}, 360)
+		})
 	})
 
 	Context("[ref_id:142]with kubectl command", func() {
