@@ -33,7 +33,7 @@ rm -rf "${TESTS_OUT_DIR}/tools"
 mkdir -p "${TESTS_OUT_DIR}/tools"
 templator=${TESTS_OUT_DIR}/tools/manifest-templator
 
-if [ -z "${GO_BUILD}" ]; then
+if [ "${KUBEVIRT_NO_BAZEL}" != "true" ]; then
     bazel run \
         --config=${HOST_ARCHITECTURE} \
         //:build-manifest-templator -- ${templator}
