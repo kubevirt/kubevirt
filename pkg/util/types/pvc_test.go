@@ -20,17 +20,11 @@
 package types
 
 import (
-	"context"
-
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
-
-	"kubevirt.io/client-go/kubecli"
 )
 
 var _ = Describe("PVC utils test", func() {
@@ -101,58 +95,6 @@ var _ = Describe("PVC utils test", func() {
 			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
 			Expect(exists).To(BeTrue(), "PVC was found")
 			Expect(isBlock).To(BeTrue(), "Is blockdevice PVC")
-		})
-	})
-
-	Context("PVC block device test with client", func() {
-
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		kubeClient := fake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), &filePvc1, metav1.CreateOptions{})
-		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), &filePvc2, metav1.CreateOptions{})
-		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), &blockPvc, metav1.CreateOptions{})
-
-		It("should handle non existing PVC", func() {
-			pvc, exists, isBlock, err := IsPVCBlockFromClient(virtClient, namespace, "doesNotExist")
-			Expect(err).ToNot(HaveOccurred(), "no error occurred")
-			Expect(pvc).To(BeNil(), "PVC is nil")
-			Expect(exists).To(BeFalse(), "PVC was not found")
-			Expect(isBlock).To(BeFalse(), "Is filesystem PVC")
-		})
-
-		It("should detect filesystem device for empty VolumeMode", func() {
-			pvc, exists, isBlock, err := IsPVCBlockFromClient(virtClient, namespace, file1Name)
-			Expect(err).ToNot(HaveOccurred(), "no error occurred")
-			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
-			Expect(exists).To(BeTrue(), "PVC was found")
-			Expect(isBlock).To(BeFalse(), "Is filesystem PVC")
-		})
-
-		It("should detect filesystem device for filesystem VolumeMode", func() {
-			pvc, exists, isBlock, err := IsPVCBlockFromClient(virtClient, namespace, file2Name)
-			Expect(err).ToNot(HaveOccurred(), "no error occurred")
-			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
-			Expect(exists).To(BeTrue(), "PVC was found")
-			Expect(isBlock).To(BeFalse(), "Is filesystem PVC")
-		})
-
-		It("should detect block device for block VolumeMode", func() {
-			pvc, exists, isBlock, err := IsPVCBlockFromClient(virtClient, namespace, blockName)
-			Expect(err).ToNot(HaveOccurred(), "no error occurred")
-			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
-			Expect(pvc.Name).To(Equal(blockName), "correct PVC was found")
-			Expect(exists).To(BeTrue(), "PVC was found")
-			Expect(isBlock).To(BeTrue(), "Is blockdevice PVC")
-		})
-		It("should detect shared block device for block VolumeMode", func() {
-			pvc, isShared, err := IsSharedPVCFromClient(virtClient, namespace, blockName)
-			Expect(err).ToNot(HaveOccurred(), "no error occurred")
-			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
-			Expect(pvc.Name).To(Equal(blockName), "correct PVC was found")
-			Expect(isShared).To(BeTrue(), "Is PVC Shared")
 		})
 	})
 
