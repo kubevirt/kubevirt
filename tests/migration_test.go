@@ -1142,7 +1142,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.CreateNFSPvAndPvc(pvName, util.NamespaceTestDefault, "5Gi", nfsIP, os)
 
 				cfg := getCurrentKv()
-				cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
+				migrationBandwidth := resource.MustParse("40Mi")
+				cfg.MigrationConfiguration.BandwidthPerMigration = &migrationBandwidth
 				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 
