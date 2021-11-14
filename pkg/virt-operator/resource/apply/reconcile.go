@@ -67,7 +67,7 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry,
 
 	foundVersion, foundImageRegistry, foundID, _ := getInstallStrategyAnnotations(objectMeta)
 	foundGeneration, generationExists := objectMeta.Annotations[v1.KubeVirtGenerationAnnotation]
-	foundLabels := objectMeta.Labels[v1.ManagedByLabel] == v1.ManagedByLabelOperatorValue
+	foundLabels := util.IsManagedByOperator(objectMeta.Labels)
 	sGeneration := strconv.FormatInt(generation, 10)
 
 	if generationExists && foundGeneration != sGeneration {

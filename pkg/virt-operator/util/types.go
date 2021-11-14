@@ -83,7 +83,7 @@ func IsStoreEmpty(store cache.Store) bool {
 }
 
 func IsManagedByOperator(labels map[string]string) bool {
-	if v, ok := labels[v1.ManagedByLabel]; ok && v == v1.ManagedByLabelOperatorValue {
+	if v, ok := labels[v1.ManagedByLabel]; ok && (v == v1.ManagedByLabelOperatorValue || v == v1.ManagedByLabelOperatorOldValue) {
 		return true
 	}
 	return false

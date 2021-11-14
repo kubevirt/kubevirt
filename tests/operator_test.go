@@ -269,8 +269,7 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 				}
 
 				for _, pod := range pods.Items {
-					managed, ok := pod.Labels[v1.ManagedByLabel]
-					if !ok || managed != v1.ManagedByLabelOperatorValue {
+					if !util.IsManagedByOperator(pod.Labels) {
 						continue
 					}
 
