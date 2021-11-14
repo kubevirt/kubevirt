@@ -1323,7 +1323,7 @@ spec:
 			By("Updating KubeVirt Object")
 			kv, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(originalKv.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(kv.Spec.Configuration.VirtualMachineInstancesPerNode).ToNot(Equal(newVirtualMachineInstancesPerNode))
+			Expect(kv.Spec.Configuration.VirtualMachineInstancesPerNode).ToNot(Equal(&newVirtualMachineInstancesPerNode))
 			kv.Spec.Configuration.VirtualMachineInstancesPerNode = &newVirtualMachineInstancesPerNode
 
 			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
