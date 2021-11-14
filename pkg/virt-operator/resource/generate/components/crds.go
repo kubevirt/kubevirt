@@ -315,6 +315,7 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
 	if err != nil {
 		return nil, err
 	}
+
 	if err = patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
