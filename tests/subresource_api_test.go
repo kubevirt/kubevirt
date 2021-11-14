@@ -257,14 +257,14 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
 			})
 
-			It("Freeze without guest agent", func() {
+			It("[test_id:7476]Freeze without guest agent", func() {
 				expectedErr := "Internal error occurred"
 				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(ContainSubstring(expectedErr))
 			})
 
-			It("Unfreeze without guest agent", func() {
+			It("[test_id:7477]Unfreeze without guest agent", func() {
 				expectedErr := "Internal error occurred"
 				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Unfreeze(vm.Name)
 				Expect(err).ToNot(BeNil())
@@ -302,7 +302,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				}, 30*time.Second, 2*time.Second).Should(BeTrue())
 			}
 
-			It("Freeze Unfreeze should succeed", func() {
+			It("[test_id:7479]Freeze Unfreeze should succeed", func() {
 				By("Freezing VMI")
 				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
 				Expect(err).ToNot(HaveOccurred())
@@ -316,7 +316,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				waitVMIFSFreezeStatus("")
 			})
 
-			It("Multi Freeze Unfreeze calls should succeed", func() {
+			It("[test_id:7480]Multi Freeze Unfreeze calls should succeed", func() {
 				for i := 0; i < 5; i++ {
 					By("Freezing VMI")
 					err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, 0)
@@ -334,7 +334,7 @@ var _ = Describe("[sig-compute]Subresource Api", func() {
 				}
 			})
 
-			It("Freeze without Unfreeze should trigger unfreeze after timeout", func() {
+			It("[test_id:7478]Freeze without Unfreeze should trigger unfreeze after timeout", func() {
 				By("Freezing VMI")
 				unfreezeTimeout := 10 * time.Second
 				err = virtCli.VirtualMachineInstance(util.NamespaceTestDefault).Freeze(vm.Name, unfreezeTimeout)
