@@ -8,6 +8,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -249,11 +250,13 @@ func MergeAgentStatusesWithDomainData(domInterfaces []api.Interface, interfaceSt
 	}
 
 	aliasesCoveredByAgent := []string{}
-	// Add alias from domain to interfaceStatus
 	for i, interfaceStatus := range interfaceStatuses {
 		if alias, exists := aliasByMac[interfaceStatus.Mac]; exists {
 			interfaceStatuses[i].Name = alias
+			interfaceStatuses[i].InfoSource = netvmispec.InfoSourceDomainAndGA
 			aliasesCoveredByAgent = append(aliasesCoveredByAgent, alias)
+		} else {
+			interfaceStatuses[i].InfoSource = netvmispec.InfoSourceGuestAgent
 		}
 	}
 
@@ -269,12 +272,14 @@ func MergeAgentStatusesWithDomainData(domInterfaces []api.Interface, interfaceSt
 		if !isCoveredByAgentData {
 			interfaceStatuses = append(interfaceStatuses,
 				api.InterfaceStatus{
-					Mac:  mac,
-					Name: alias,
+					Mac:        mac,
+					Name:       alias,
+					InfoSource: netvmispec.InfoSourceDomain,
 				},
 			)
 		}
 	}
+
 	return interfaceStatuses
 }
 

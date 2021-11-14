@@ -48,6 +48,7 @@ import (
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -1754,12 +1755,14 @@ var _ = Describe("Manager", func() {
 			It("should return merged list when interfaces exists on both the cache and argument", func() {
 				expectedResult := []api.InterfaceStatus{
 					{
-						Name: fakeInterfaces[0].Name,
-						Mac:  fakeInterfaces[0].Mac,
+						Name:       fakeInterfaces[0].Name,
+						Mac:        fakeInterfaces[0].Mac,
+						InfoSource: netvmispec.InfoSourceGuestAgent,
 					},
 					{
-						Name: fakeDomInterfaces[0].Alias.GetName(),
-						Mac:  fakeDomInterfaces[0].MAC.MAC,
+						Name:       fakeDomInterfaces[0].Alias.GetName(),
+						Mac:        fakeDomInterfaces[0].MAC.MAC,
+						InfoSource: netvmispec.InfoSourceDomain,
 					},
 				}
 				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
@@ -1771,8 +1774,9 @@ var _ = Describe("Manager", func() {
 			It("should return merged list when interfaces exists on the cache only", func() {
 				expectedResult := []api.InterfaceStatus{
 					{
-						Name: fakeInterfaces[0].Name,
-						Mac:  fakeInterfaces[0].Mac,
+						Name:       fakeInterfaces[0].Name,
+						Mac:        fakeInterfaces[0].Mac,
+						InfoSource: netvmispec.InfoSourceGuestAgent,
 					},
 				}
 				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)

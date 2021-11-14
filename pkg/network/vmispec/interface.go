@@ -23,6 +23,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+const (
+	InfoSourceDomain      string = "domain"
+	InfoSourceGuestAgent  string = "guest-agent"
+	InfoSourceDomainAndGA string = InfoSourceDomain + ", " + InfoSourceGuestAgent
+)
+
 func FilterSRIOVInterfaces(ifaces []v1.Interface) []v1.Interface {
 	var sriovIfaces []v1.Interface
 	for _, iface := range ifaces {
@@ -40,6 +46,17 @@ func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []
 		}
 	}
 	return true
+}
+
+func LookupInterfaceStatusByMac(interfaces []v1.VirtualMachineInstanceNetworkInterface, macAddress string) *v1.VirtualMachineInstanceNetworkInterface {
+	for _, iface := range interfaces {
+		if iface.MAC == macAddress {
+			iface := iface
+			return &iface
+		}
+	}
+
+	return nil
 }
 
 func lookupInterfaceByNetwork(ifaces []v1.Interface, network *v1.Network) *v1.Interface {
