@@ -67,6 +67,7 @@ go_test(
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/ephemeral-disk/fake:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",

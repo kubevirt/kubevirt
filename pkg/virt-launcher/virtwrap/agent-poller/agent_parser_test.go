@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -185,6 +186,7 @@ var _ = Describe("Qemu agent poller", func() {
 					Ip:            "10.244.0.81",
 					IPs:           []string{"10.244.0.81", "fe80::858:aff:fef4:51"},
 					InterfaceName: "eth0",
+					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 				})
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
@@ -193,6 +195,7 @@ var _ = Describe("Qemu agent poller", func() {
 					Ip:            "fe80::ff:feb0:1766",
 					IPs:           []string{"fe80::ff:feb0:1766"},
 					InterfaceName: "eth1",
+					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 				})
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
@@ -200,11 +203,13 @@ var _ = Describe("Qemu agent poller", func() {
 					Ip:            "1.2.3.4",
 					IPs:           []string{"1.2.3.4", "fe80::ff:1111:2222"},
 					InterfaceName: "eth5",
+					InfoSource:    netvmispec.InfoSourceGuestAgent,
 				})
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
-					Name: "net2",
-					Mac:  "02:11:11:b0:17:66",
+					Name:       "net2",
+					Mac:        "02:11:11:b0:17:66",
+					InfoSource: netvmispec.InfoSourceDomain,
 				})
 
 			Expect(interfaceStatuses).To(Equal(expectedStatuses))

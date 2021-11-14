@@ -8621,6 +8621,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: Interfaces represent the details of available network interfaces.
           items:
             properties:
+              infoSource:
+                description: 'Specifies the origin of the interface data collected.
+                  values: domain, guest-agent, or both'
+                type: string
               interfaceName:
                 description: The interface name inside the Virtual Machine
                 type: string

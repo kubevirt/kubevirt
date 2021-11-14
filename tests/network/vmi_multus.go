@@ -45,6 +45,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/util"
 
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -1030,6 +1031,10 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed())
 				By("checking virtual machine instance reports the expected network name")
 				Expect(getInterfaceNetworkNameByMAC(vmi, mac)).To(Equal(sriovnet1))
+				By("checking virtual machine instance reports the expected info source")
+				networkInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, mac)
+				Expect(networkInterface).NotTo(BeNil(), "interface not found")
+				Expect(networkInterface.InfoSource).To(Equal(netvmispec.InfoSourceGuestAgent))
 			})
 
 			Context("migration", func() {

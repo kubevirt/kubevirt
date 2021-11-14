@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -90,8 +91,8 @@ var _ = Describe("netstat", func() {
 			netStat.UpdateStatus(vmi, &api.Domain{})
 
 			Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, "", ""),
-				newVMIStatusIface(secondaryNetworkName, []string{secondaryPodIPv4, secondaryPodIPv6}, "", ""),
+				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, "", "", ""),
+				newVMIStatusIface(secondaryNetworkName, []string{secondaryPodIPv4, secondaryPodIPv6}, "", "", ""),
 			}), "the pod IP/s should be reported in the status")
 
 			Expect(netStat.PodInterfaceVolatileDataIsCached(vmi, primaryNetworkName)).To(BeTrue())
@@ -119,16 +120,16 @@ var _ = Describe("netstat", func() {
 					newDomainSpecIface(secondaryNetworkName, secondaryMAC),
 				}}},
 				Status: api.DomainStatus{Interfaces: []api.InterfaceStatus{
-					newDomainStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC),
-					newDomainStatusIface(secondaryNetworkName, []string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC),
+					newDomainStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, netvmispec.InfoSourceDomainAndGA),
+					newDomainStatusIface(secondaryNetworkName, []string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, netvmispec.InfoSourceDomainAndGA),
 				}},
 			}
 
 			netStat.UpdateStatus(vmi, domain)
 
 			Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-				newVMIStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, ""),
-				newVMIStatusIface(secondaryNetworkName, []string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, ""),
+				newVMIStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, "", netvmispec.InfoSourceDomainAndGA),
+				newVMIStatusIface(secondaryNetworkName, []string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, "", netvmispec.InfoSourceDomainAndGA),
 			}), "the guest-agent IP/s should be reported in the status")
 
 			Expect(netStat.PodInterfaceVolatileDataIsCached(vmi, primaryNetworkName)).To(BeTrue())
@@ -151,7 +152,7 @@ var _ = Describe("netstat", func() {
 					newDomainSpecIface(primaryNetworkName, primaryMAC),
 				}}},
 				Status: api.DomainStatus{Interfaces: []api.InterfaceStatus{
-					newDomainStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC),
+					newDomainStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, netvmispec.InfoSourceDomainAndGA),
 				}},
 			}
 
@@ -160,7 +161,7 @@ var _ = Describe("netstat", func() {
 			netStat.UpdateStatus(vmi, domain)
 
 			Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, ""),
+				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, "", netvmispec.InfoSourceDomainAndGA),
 			}), "the pod IP/s should be reported in the status")
 
 			Expect(netStat.PodInterfaceVolatileDataIsCached(vmi, primaryNetworkName)).To(BeTrue())
@@ -190,7 +191,7 @@ var _ = Describe("netstat", func() {
 			netStat.UpdateStatus(vmi, domain)
 
 			Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, newDomainMAC, ""),
+				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, newDomainMAC, "", netvmispec.InfoSourceDomain),
 			}), "the pod IP/s should be reported in the status")
 		})
 	})
@@ -232,14 +233,14 @@ var _ = Describe("netstat", func() {
 				newDomainSpecIface(primaryNetworkName, origMAC),
 			}}},
 			Status: api.DomainStatus{Interfaces: []api.InterfaceStatus{
-				newDomainStatusIface(primaryNetworkName, []string{newGaIPv4, newGaIPv6}, origMAC),
+				newDomainStatusIface(primaryNetworkName, []string{newGaIPv4, newGaIPv6}, origMAC, netvmispec.InfoSourceDomainAndGA),
 			}},
 		}
 
 		netStat.UpdateStatus(vmi, domain)
 
 		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(primaryNetworkName, []string{newGaIPv4, newGaIPv6}, origMAC, ""),
+			newVMIStatusIface(primaryNetworkName, []string{newGaIPv4, newGaIPv6}, origMAC, "", netvmispec.InfoSourceDomainAndGA),
 		}), "the pod IP/s should be reported in the status")
 	})
 
@@ -269,8 +270,8 @@ var _ = Describe("netstat", func() {
 		netStat.UpdateStatus(vmi, domain)
 
 		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(existingNetworkName, nil, existingMAC, ""),
-			newVMIStatusIface(newNetworkName, nil, newDomainMAC, ""),
+			newVMIStatusIface(existingNetworkName, nil, existingMAC, "", netvmispec.InfoSourceDomain),
+			newVMIStatusIface(newNetworkName, nil, newDomainMAC, "", netvmispec.InfoSourceDomain),
 		}), "the new interface should be reported in the status")
 	})
 
@@ -306,7 +307,7 @@ var _ = Describe("netstat", func() {
 		netStat.UpdateStatus(vmi, domain)
 
 		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(networkName, nil, newDomainMAC, ""),
+			newVMIStatusIface(networkName, nil, newDomainMAC, "", netvmispec.InfoSourceDomain),
 		}), "the new interface should be reported in the status")
 	})
 
@@ -332,14 +333,14 @@ var _ = Describe("netstat", func() {
 
 		domain := &api.Domain{
 			Status: api.DomainStatus{Interfaces: []api.InterfaceStatus{
-				{Mac: ifaceMAC, InterfaceName: guestIfaceName},
+				{Mac: ifaceMAC, InterfaceName: guestIfaceName, InfoSource: netvmispec.InfoSourceDomainAndGA},
 			}},
 		}
 
 		netStat.UpdateStatus(vmi, domain)
 
 		Expect(vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			newVMIStatusIface(networkName, nil, ifaceMAC, guestIfaceName),
+			newVMIStatusIface(networkName, nil, ifaceMAC, guestIfaceName, netvmispec.InfoSourceDomainAndGA),
 		}), "the SR-IOV interface should be reported in the status, associated to the network")
 	})
 })
@@ -392,20 +393,21 @@ func newDomainSpecIface(alias, mac string) api.Interface {
 	}
 }
 
-func newDomainStatusIface(name string, IPs []string, mac string) api.InterfaceStatus {
+func newDomainStatusIface(name string, IPs []string, mac string, infoSource string) api.InterfaceStatus {
 	var ip string
 	if len(IPs) > 0 {
 		ip = IPs[0]
 	}
 	return api.InterfaceStatus{
-		Name: name,
-		Ip:   ip,
-		IPs:  IPs,
-		Mac:  mac,
+		Name:       name,
+		Ip:         ip,
+		IPs:        IPs,
+		Mac:        mac,
+		InfoSource: infoSource,
 	}
 }
 
-func newVMIStatusIface(name string, IPs []string, mac, ifaceName string) v1.VirtualMachineInstanceNetworkInterface {
+func newVMIStatusIface(name string, IPs []string, mac, ifaceName string, infoSource string) v1.VirtualMachineInstanceNetworkInterface {
 	var ip string
 	if len(IPs) > 0 {
 		ip = IPs[0]
@@ -416,6 +418,7 @@ func newVMIStatusIface(name string, IPs []string, mac, ifaceName string) v1.Virt
 		IP:            ip,
 		IPs:           IPs,
 		MAC:           mac,
+		InfoSource:    infoSource,
 	}
 }
 

@@ -506,6 +506,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	IPs []string `json:"ipAddresses,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
+	// Specifies the origin of the interface data collected. values: domain, guest-agent, or both
+	InfoSource string `json:"infoSource,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {
