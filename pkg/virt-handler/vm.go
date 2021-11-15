@@ -503,7 +503,8 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	}
 
 	if virtutil.IsNonRootVMI(vmi) && virtutil.WantVirtioNetDevice(vmi) {
-		err := d.claimDeviceOwnership(vmi, "vhost-net")
+		rootMount := res.MountRoot()
+		err := d.claimDeviceOwnership(rootMount, "vhost-net")
 		if err != nil {
 			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
 		}
@@ -2540,21 +2541,22 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
 	}
 
-	err = d.claimDeviceOwnership(vmi, "kvm")
+	isolationRes, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+	}
+	virtLauncherRootMount := isolationRes.MountRoot()
+
+	err = d.claimDeviceOwnership(virtLauncherRootMount, "kvm")
 	if err != nil {
 		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
-	}
-
-	res, err := d.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return err
 	}
 
 	lessPVCSpaceToleration := d.clusterConfig.GetLessPVCSpaceToleration()
 	minimumPVCReserveBytes := d.clusterConfig.GetMinimumReservePVCBytes()
 
 	// initialize disks images for empty PVC
-	hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, res.MountRoot())
+	hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
 	err = hostDiskCreator.Create(vmi)
 	if err != nil {
 		return fmt.Errorf("preparing host-disks failed: %v", err)
@@ -2628,21 +2630,22 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return fmt.Errorf("failed to configure vmi network: %w", err)
 		}
 
-		err = d.claimDeviceOwnership(vmi, "kvm")
+		isolationRes, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+		}
+		virtLauncherRootMount := isolationRes.MountRoot()
+
+		err = d.claimDeviceOwnership(virtLauncherRootMount, "kvm")
 		if err != nil {
 			return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
-		}
-
-		res, err := d.podIsolationDetector.Detect(vmi)
-		if err != nil {
-			return err
 		}
 
 		lessPVCSpaceToleration := d.clusterConfig.GetLessPVCSpaceToleration()
 		minimumPVCReserveBytes := d.clusterConfig.GetMinimumReservePVCBytes()
 
 		// initialize disks images for empty PVC
-		hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, res.MountRoot())
+		hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
 		err = hostDiskCreator.Create(vmi)
 		if err != nil {
 			return fmt.Errorf("preparing host-disks failed: %v", err)
@@ -2912,13 +2915,8 @@ func (d *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 	return nil
 }
 
-func (d *VirtualMachineController) claimDeviceOwnership(vmi *v1.VirtualMachineInstance, deviceName string) error {
-	isolation, err := d.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return err
-	}
-
-	kvmPath := filepath.Join(isolation.MountRoot(), "dev", deviceName)
+func (d *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount, deviceName string) error {
+	kvmPath := filepath.Join(virtLauncherRootMount, "dev", deviceName)
 
 	softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, d.clusterConfig.AllowEmulation())
 	if err != nil || softwareEmulation {
